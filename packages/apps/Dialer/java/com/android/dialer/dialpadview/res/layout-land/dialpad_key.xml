@@ -14,31 +14,45 @@
      limitations under the License.
 -->
 
-<!-- A layout representing a single key in the dialpad -->
+<!-- A layout representing each of keys "2" ~ "9" in the dialpad -->
 <com.android.dialer.dialpadview.DialpadKeyButton
-  xmlns:android="http://schemas.android.com/apk/res/android"
-  style="@style/DialpadKeyButtonStyle">
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    style="@style/DialpadKeyButtonStyle">
 
   <LinearLayout
-    style="@style/DialpadKeyInternalLayoutStyle"
-    android:layout_gravity="right|center_vertical"
-    android:baselineAligned="false"
-    android:orientation="horizontal">
+      android:id="@+id/dialpad_key_layout"
+      style="@style/DialpadKeyInternalLayoutStyle"
+      android:layout_gravity="center"
+      android:baselineAligned="false"
+      android:orientation="horizontal">
 
-    <!-- Note in the referenced styles that we assign hard widths to these components
-         because we want them to line up vertically when we arrange them in an MxN grid -->
+    <FrameLayout
+        android:layout_width="@dimen/dialpad_key_number_width"
+        android:layout_height="wrap_content"
+        android:layout_marginRight="@dimen/dialpad_key_margin_right">
+      <com.android.dialer.dialpadview.DialpadTextView
+          android:id="@+id/dialpad_key_number"
+          style="@style/DialpadKeyNumberStyle"/>
+    </FrameLayout>
 
-    <com.android.dialer.dialpadview.DialpadTextView
-      android:id="@+id/dialpad_key_number"
-      style="@style/DialpadKeyNumberStyle"
-      android:layout_marginBottom="0dp"
-      android:layout_marginRight="@dimen/dialpad_key_margin_right"
-      android:layout_gravity="right"/>
+    <LinearLayout
+        android:id="@+id/dialpad_key_icon_or_letters_layout"
+        style="@style/DialpadKeyInternalLayoutStyle">
 
-    <TextView
-      android:id="@+id/dialpad_key_letters"
-      style="@style/DialpadKeyLettersStyle"
-      android:layout_width="@dimen/dialpad_key_text_width"
-      android:layout_gravity="right|center"/>
+      <com.android.dialer.dialpadview.DialpadTextView
+          android:id="@+id/dialpad_key_letters"
+          style="@style/DialpadKeyLettersStyle"/>
+      <com.android.dialer.dialpadview.DialpadTextView
+          android:id="@+id/dialpad_key_secondary_letters"
+          style="@style/DialpadKeyLettersStyle"
+          android:layout_marginTop="2dp"/>
+    </LinearLayout>
+
+    <!-- A placeholder to make the width the same as other keys. -->
+    <View
+        android:id="@+id/dialpad_key_horizontal_placeholder"
+        android:layout_width="0dp"
+        android:layout_height="match_parent"/>
   </LinearLayout>
+
 </com.android.dialer.dialpadview.DialpadKeyButton>

@@ -16,7 +16,7 @@
 
 package com.android.cts.verifier.usb;
 
-import android.support.annotation.NonNull;
+import androidx.annotation.NonNull;
 import android.util.Log;
 
 /**

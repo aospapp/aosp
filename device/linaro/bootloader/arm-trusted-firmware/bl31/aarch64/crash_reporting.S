@@ -1,31 +1,7 @@
 /*
- * Copyright (c) 2014, ARM Limited and Contributors. All rights reserved.
+ * Copyright (c) 2014-2017, ARM Limited and Contributors. All rights reserved.
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * Redistributions of source code must retain the above copyright notice, this
- * list of conditions and the following disclaimer.
- *
- * Redistributions in binary form must reproduce the above copyright notice,
- * this list of conditions and the following disclaimer in the documentation
- * and/or other materials provided with the distribution.
- *
- * Neither the name of ARM nor the names of its contributors may be used
- * to endorse or promote products derived from this software without specific
- * prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
+ * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <arch.h>
 #include <asm_macros.S>
@@ -70,7 +46,8 @@ non_el3_sys_regs:
 		"tpidrro_el0", "dacr32_el2", "ifsr32_el2", "par_el1",\
 		"mpidr_el1", "afsr0_el1", "afsr1_el1", "contextidr_el1",\
 		"vbar_el1", "cntp_ctl_el0", "cntp_cval_el0", "cntv_ctl_el0",\
-		"cntv_cval_el0", "cntkctl_el1", "fpexc32_el2", "sp_el0", ""
+		"cntv_cval_el0", "cntkctl_el1", "fpexc32_el2", "sp_el0",\
+		"isr_el1", ""
 
 panic_msg:
 	.asciz "PANIC in EL3 at x30 = 0x"
@@ -85,6 +62,7 @@ intr_excpt_msg:
 func print_newline
 	mov	x0, '\n'
 	b	plat_crash_console_putc
+endfunc print_newline
 
 	/*
 	 * Helper function to print from crash buf.
@@ -122,6 +100,7 @@ test_size_list:
 exit_size_print:
 	mov	x30, sp
 	ret
+endfunc size_controlled_print
 
 	/*
 	 * Helper function to store x8 - x15 registers to
@@ -140,6 +119,7 @@ func str_in_crash_buf_print
 	stp	x12, x13, [x0, #REG_SIZE * 4]
 	stp	x14, x15, [x0, #REG_SIZE * 6]
 	b	size_controlled_print
+endfunc str_in_crash_buf_print
 
 	/* ------------------------------------------------------
 	 * This macro calculates the offset to crash buf from
@@ -176,6 +156,7 @@ func report_unhandled_exception
 	mov	sp, x0
 	/* This call will not return */
 	b	do_crash_reporting
+endfunc report_unhandled_exception
 
 
 	/* -----------------------------------------------------
@@ -192,6 +173,7 @@ func report_unhandled_interrupt
 	mov	sp, x0
 	/* This call will not return */
 	b	do_crash_reporting
+endfunc report_unhandled_interrupt
 
 	/* -----------------------------------------------------
 	 * This function allows to report a crash (if crash
@@ -208,6 +190,7 @@ func el3_panic
 	mov	sp, x0
 	/* This call will not return */
 	b	do_crash_reporting
+endfunc el3_panic
 
 	/* ------------------------------------------------------------
 	 * The common crash reporting functionality. It requires x0
@@ -332,27 +315,30 @@ func do_crash_reporting
 	mrs	x8, cntkctl_el1
 	mrs	x9, fpexc32_el2
 	mrs	x10, sp_el0
+	mrs	x11, isr_el1
 	bl	str_in_crash_buf_print
 
 	/* Get the cpu specific registers to report */
 	bl	do_cpu_reg_dump
 	bl	str_in_crash_buf_print
 
-	/* Print the gic registers */
-	plat_print_gic_regs
+	/* Print some platform registers */
+	plat_crash_print_regs
 
-	/* Print the interconnect registers */
-	plat_print_interconnect_regs
+	bl	plat_crash_console_flush
 
 	/* Done reporting */
-	b	crash_panic
+	no_ret	plat_panic_handler
+endfunc do_crash_reporting
 
 #else	/* CRASH_REPORTING */
 func report_unhandled_exception
 report_unhandled_interrupt:
-	b	crash_panic
-#endif	/* CRASH_REPORING */
+	no_ret	plat_panic_handler
+endfunc report_unhandled_exception
+#endif	/* CRASH_REPORTING */
 
 
 func crash_panic
-	b	crash_panic
+	no_ret	plat_panic_handler
+endfunc crash_panic

@@ -22,6 +22,7 @@
         android:minSdkVersion="23"
         android:targetSdkVersion="23" />
 
+    <uses-permission android:name="android.permission.BLUETOOTH" />
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.CALL_PHONE" />
     <uses-permission android:name="android.permission.CONTROL_INCALL_EXPERIENCE" />
@@ -45,6 +46,13 @@
                 <action android:name="android.telecom.ConnectionService" />
             </intent-filter>
         </service>
+
+        <receiver android:name=".TestConnectionServiceReceiver">
+            <intent-filter>
+                <action android:name="android.server.telecom.testapps.ACTION_SWITCH_PHONE_ACCOUNT"/>
+                <action android:name="android.server.telecom.testapps.ACTION_SWITCH_PHONE_ACCOUNT_WRONG"/>
+            </intent-filter>
+        </receiver>
 
         <service android:name="com.android.server.telecom.testapps.TestConnectionManager"
                  android:permission="android.permission.BIND_TELECOM_CONNECTION_SERVICE" >
@@ -71,6 +79,8 @@
                 <action android:name="android.telecom.action.PHONE_ACCOUNT_UNREGISTERED"/>
             </intent-filter>
         </receiver>
+
+
 
         <activity android:name="com.android.server.telecom.testapps.TestInCallUI"
                 android:process="com.android.server.telecom.testapps.TestInCallService"

@@ -37,6 +37,19 @@ bool FixedSizeBlockingQueue<ElementType, kSize>::push(
 }
 
 template<typename ElementType, size_t kSize>
+bool FixedSizeBlockingQueue<ElementType, kSize>::push(ElementType&& element) {
+  bool success;
+  {
+    LockGuard<Mutex> lock(mMutex);
+    success = mQueue.push(std::move(element));
+  }
+  if (success) {
+    mConditionVariable.notify_one();
+  }
+  return success;
+}
+
+template<typename ElementType, size_t kSize>
 ElementType FixedSizeBlockingQueue<ElementType, kSize>::pop() {
   LockGuard<Mutex> lock(mMutex);
   while (mQueue.empty()) {
@@ -58,6 +71,26 @@ template<typename ElementType, size_t kSize>
 size_t FixedSizeBlockingQueue<ElementType, kSize>::size() {
   LockGuard<Mutex> lock(mMutex);
   return mQueue.size();
+}
+
+template<typename ElementType, size_t kSize>
+bool FixedSizeBlockingQueue<ElementType, kSize>::remove(size_t index) {
+  LockGuard<Mutex> lock(mMutex);
+  return mQueue.remove(index);
+}
+
+template<typename ElementType, size_t kCapacity>
+ElementType& FixedSizeBlockingQueue<ElementType, kCapacity>::operator[](
+    size_t index) {
+  LockGuard<Mutex> lock(mMutex);
+  return mQueue[index];
+}
+
+template<typename ElementType, size_t kCapacity>
+const ElementType& FixedSizeBlockingQueue<ElementType, kCapacity>::operator[](
+    size_t index) const {
+  LockGuard<Mutex> lock(mMutex);
+  return mQueue[index];
 }
 
 }  // namespace chre

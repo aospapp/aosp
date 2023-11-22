@@ -35,7 +35,10 @@ class VtsHidlHalReplayer {
 
   // Replays the API call sequence parsed from the trace file.
   bool ReplayTrace(const std::string& trace_file,
-                   const std::string& hal_service_name);
+                   map<string, string>& hal_service_instances);
+
+  // Print the HAL service recorded in the trace file.
+  void ListTestServices(const string& trace_file);
 
  private:
   // Used to load the vts spec and driver library. Does not own.

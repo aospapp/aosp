@@ -15,10 +15,12 @@ import org.junit.Test;
 
 import android.icu.dev.test.TestBoilerplate;
 import android.icu.text.UnicodeSet;
+import android.icu.testsharding.MainTestShard;
 
 /**
  * Moved from UnicodeMapTest
  */
+@MainTestShard
 public class UnicodeSetBoilerplateTest extends TestBoilerplate<UnicodeSet> {
 
     public void TestUnicodeSetBoilerplate() throws Exception {

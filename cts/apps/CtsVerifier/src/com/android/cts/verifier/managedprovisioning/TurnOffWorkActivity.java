@@ -120,11 +120,6 @@ public class TurnOffWorkActivity extends DialogTestListActivity {
                 R.string.provisioning_byod_turn_off_work_notifications_instruction,
                 new Intent(ByodHelperActivity.ACTION_NOTIFICATION)));
 
-        adapter.add(new DialogTestListItem(this, R.string.provisioning_byod_turn_off_work_icon,
-                "BYOD_TurnOffWorkIcon",
-                R.string.provisioning_byod_turn_off_work_icon_instruction,
-                new Intent(Settings.ACTION_SETTINGS)));
-
         if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE)) {
             adapter.add(new DialogTestListItem(this, R.string.provisioning_byod_turn_off_work_launcher,
                     "BYOD_TurnOffWorkStartApps",

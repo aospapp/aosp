@@ -96,6 +96,7 @@ class MockDevicePolicy : public DevicePolicy {
                      bool(bool*));  // NOLINT(readability/function)
   MOCK_CONST_METHOD1(GetUsbDetachableWhitelist,
                      bool(std::vector<DevicePolicy::UsbDeviceId>*));
+  MOCK_CONST_METHOD1(GetAutoLaunchedKioskAppId, bool(std::string*));
 
   MOCK_METHOD0(VerifyPolicyFiles, bool(void));
   MOCK_METHOD0(VerifyPolicySignature, bool(void));

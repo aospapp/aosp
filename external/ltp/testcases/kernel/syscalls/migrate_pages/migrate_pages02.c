@@ -45,10 +45,11 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <pwd.h>
+
 #include "config.h"
 #include "test.h"
 #include "safe_macros.h"
-#include "linux_syscall_numbers.h"
+#include "lapi/syscalls.h"
 #include "numa_helper.h"
 #include "migrate_pages_common.h"
 
@@ -65,7 +66,8 @@
 char *TCID = "migrate_pages02";
 int TST_TOTAL = 1;
 
-#if defined(__NR_migrate_pages) && HAVE_NUMA_H && HAVE_NUMAIF_H
+#if defined(HAVE_NUMA_V2) && defined(__NR_migrate_pages)
+
 static const char nobody_uid[] = "nobody";
 static struct passwd *ltpuser;
 static int *nodes, nodeA, nodeB;
@@ -207,9 +209,7 @@ static void test_migrate_current_process(int node1, int node2, int cap_sys_nice)
 		testp[0] = 1;
 		testp2[0] = 1;
 		if (!cap_sys_nice)
-			if (seteuid(ltpuser->pw_uid) == -1)
-				tst_brkm(TBROK | TERRNO, NULL,
-					 "seteuid failed");
+			SAFE_SETEUID(NULL, ltpuser->pw_uid);
 
 		migrate_to_node(0, node1);
 		/* child can migrate non-shared memory */
@@ -219,8 +219,7 @@ static void test_migrate_current_process(int node1, int node2, int cap_sys_nice)
 		munmap(testp2, getpagesize());
 		exit(ret);
 	default:
-		if (waitpid(child, &status, 0) == -1)
-			tst_brkm(TBROK | TERRNO, cleanup, "waitpid");
+		SAFE_WAITPID(cleanup, child, &status, 0);
 		if (!WIFEXITED(status) || WEXITSTATUS(status) != 0)
 			tst_resm(TFAIL, "child returns %d", status);
 		if (cap_sys_nice)
@@ -266,8 +265,7 @@ static void test_migrate_other_process(int node1, int node2, int cap_sys_nice)
 		migrate_to_node(0, node1);
 		check_addr_on_node(testp, node1);
 
-		if (seteuid(ltpuser->pw_uid) == -1)
-			tst_brkm(TBROK | TERRNO, NULL, "seteuid failed");
+		SAFE_SETEUID(NULL, ltpuser->pw_uid);
 
 		/* signal parent it's OK to migrate child and wait */
 		if (write(child_ready[1], &tmp, 1) != 1)
@@ -288,9 +286,7 @@ static void test_migrate_other_process(int node1, int node2, int cap_sys_nice)
 		close(pages_migrated[0]);
 
 		if (!cap_sys_nice)
-			if (seteuid(ltpuser->pw_uid) == -1)
-				tst_brkm(TBROK | TERRNO, NULL,
-					 "seteuid failed");
+			SAFE_SETEUID(NULL, ltpuser->pw_uid);
 
 		/* wait until child is ready on node1, then migrate and
 		 * signal to check current node */
@@ -300,8 +296,7 @@ static void test_migrate_other_process(int node1, int node2, int cap_sys_nice)
 		if (write(pages_migrated[1], &tmp, 1) != 1)
 			tst_brkm(TBROK | TERRNO, NULL, "write #2 failed");
 
-		if (waitpid(child, &status, 0) == -1)
-			tst_brkm(TBROK | TERRNO, cleanup, "waitpid");
+		SAFE_WAITPID(cleanup, child, &status, 0);
 		if (!WIFEXITED(status) || WEXITSTATUS(status) != 0)
 			tst_resm(TFAIL, "child returns %d", status);
 		close(child_ready[0]);
@@ -309,9 +304,7 @@ static void test_migrate_other_process(int node1, int node2, int cap_sys_nice)
 
 		/* reset euid, so this testcase can be used in loop */
 		if (!cap_sys_nice)
-			if (seteuid(0) == -1)
-				tst_brkm(TBROK | TERRNO, NULL,
-					 "seteuid failed");
+			SAFE_SETEUID(NULL, 0);
 	}
 }
 
@@ -406,10 +399,10 @@ static void cleanup(void)
 	free(nodes);
 }
 
-#else /* __NR_migrate_pages */
+#else
 int main(void)
 {
-	tst_brkm(TCONF, NULL, "System doesn't support __NR_migrate_pages"
-		 " or libnuma is not available");
+	tst_brkm(TCONF, NULL, "System doesn't support __NR_migrate_pages or "
+		 "libnuma or libnuma development packages are not available");
 }
 #endif

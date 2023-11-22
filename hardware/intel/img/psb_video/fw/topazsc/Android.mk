@@ -40,6 +40,7 @@ LOCAL_SRC_FILES := \
     MPG4FirmwareVBR_bin.c \
     H264FirmwareVCM_bin.c
 
+LOCAL_CFLAGS := -Wall -Werror
 LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE := topaz_bin
 
@@ -50,6 +51,7 @@ include $(BUILD_EXECUTABLE)
 include $(CLEAR_VARS)
 
 LOCAL_SRC_FILES := fwinfo.c
+LOCAL_CFLAGS := -Wall -Werror
 LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE := imginfo
 
@@ -83,6 +85,7 @@ LOCAL_SRC_FILES := topazsc_bin.c \
     MPG4SlaveFirmwareCBR_bin.c \
     MPG4SlaveFirmwareVBR_bin.c
 
+LOCAL_CFLAGS := -Wall -Werror
 LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE := topazsc_bin
 

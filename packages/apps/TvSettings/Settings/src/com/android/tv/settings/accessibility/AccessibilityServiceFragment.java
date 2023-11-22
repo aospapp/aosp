@@ -22,21 +22,22 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.v14.preference.SwitchPreference;
-import android.support.v17.preference.LeanbackPreferenceFragment;
 import android.support.v7.preference.Preference;
 import android.support.v7.preference.PreferenceScreen;
 import android.support.v7.preference.TwoStatePreference;
 import android.text.TextUtils;
 
+import com.android.internal.logging.nano.MetricsProto;
 import com.android.settingslib.accessibility.AccessibilityUtils;
 import com.android.tv.settings.R;
+import com.android.tv.settings.SettingsPreferenceFragment;
 
 import java.util.Set;
 
 /**
  * Fragment for controlling accessibility service
  */
-public class AccessibilityServiceFragment extends LeanbackPreferenceFragment implements
+public class AccessibilityServiceFragment extends SettingsPreferenceFragment implements
         AccessibilityServiceConfirmationFragment.OnAccessibilityServiceConfirmedListener {
     private static final String ARG_PACKAGE_NAME = "packageName";
     private static final String ARG_SERVICE_NAME = "serviceName";
@@ -110,5 +111,10 @@ public class AccessibilityServiceFragment extends LeanbackPreferenceFragment imp
     public void onAccessibilityServiceConfirmed(ComponentName componentName, boolean enabling) {
         AccessibilityUtils.setAccessibilityServiceState(getActivity(),
                 componentName, enabling);
+    }
+
+    @Override
+    public int getMetricsCategory() {
+        return MetricsProto.MetricsEvent.ACCESSIBILITY_SERVICE;
     }
 }

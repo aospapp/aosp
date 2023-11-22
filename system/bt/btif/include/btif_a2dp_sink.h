@@ -1,7 +1,7 @@
 /******************************************************************************
  *
- *  Copyright (C) 2016 The Android Open Source Project
- *  Copyright (C) 2009-2012 Broadcom Corporation
+ *  Copyright 2016 The Android Open Source Project
+ *  Copyright 2009-2012 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -38,15 +38,46 @@ typedef enum {
   BTIF_A2DP_SINK_FOCUS_GRANTED = 1
 } btif_a2dp_sink_focus_state_t;
 
-// Initialize and startup the A2DP Sink module.
+// Initialize the A2DP Sink module.
 // This function should be called by the BTIF state machine prior to using the
 // module.
+bool btif_a2dp_sink_init(void);
+
+// Startup the A2DP Sink module.
+// This function should be called by the BTIF state machine after
+// btif_a2dp_sink_init() to prepare for receiving and processing audio
+// streaming.
 bool btif_a2dp_sink_startup(void);
 
-// Shutdown and cleanup the A2DP Sink module.
-// This function should be called by the BTIF state machine during
-// graceful shutdown and cleanup.
+// Start the A2DP Sink session.
+// This function should be called by the BTIF state machine after
+// btif_a2dp_sink_startup() to start the streaming session for |peer_address|.
+bool btif_a2dp_sink_start_session(const RawAddress& peer_address);
+
+// Restart the A2DP Sink session.
+// This function should be called by the BTIF state machine after
+// btif_a2dp_sink_startup() to restart the streaming session.
+// |old_peer_address| is the peer address of the old session. This address
+// can be empty.
+// |new_peer_address| is the peer address of the new session. This address
+// cannot be empty.
+bool btif_a2dp_sink_restart_session(const RawAddress& old_peer_address,
+                                    const RawAddress& new_peer_address);
+
+// End the A2DP Sink session.
+// This function should be called by the BTIF state machine to end the
+// streaming session for |peer_address|.
+bool btif_a2dp_sink_end_session(const RawAddress& peer_address);
+
+// Shutdown the A2DP Sink module.
+// This function should be called by the BTIF state machine before
+// btif_a2dp_sink_cleanup() to shutdown the processing of the audio streaming.
 void btif_a2dp_sink_shutdown(void);
+
+// Cleanup the A2DP Sink module.
+// This function should be called by the BTIF state machine during graceful
+// cleanup.
+void btif_a2dp_sink_cleanup(void);
 
 // Get the audio sample rate for the A2DP Sink module.
 tA2DP_SAMPLE_RATE btif_a2dp_sink_get_sample_rate(void);
@@ -87,10 +118,6 @@ uint8_t btif_a2dp_sink_enqueue_buf(BT_HDR* p_buf);
 // |fd| is the file descriptor to use for writing the ASCII formatted
 // information.
 void btif_a2dp_sink_debug_dump(int fd);
-
-// Update the A2DP Sink related metrics.
-// This function should be called before collecting the metrics.
-void btif_a2dp_sink_update_metrics(void);
 
 // Create a request to set the audio focus state for the audio track.
 // |state| is the new state value - see |btif_a2dp_sink_focus_state_t|

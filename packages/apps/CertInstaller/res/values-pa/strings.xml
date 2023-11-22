@@ -52,6 +52,7 @@
     <item msgid="375085478373011304">"VPN ਅਤੇ ਐਪਸ"</item>
     <item msgid="692322974985472861">"ਵਾਈ-ਫਾਈ"</item>
   </string-array>
+    <string name="certificate_capabilities_warning" msgid="4158609401937799110">"ਨੋਟ: ਇਸ ਪ੍ਰਮਾਣ-ਪੱਤਰ ਦਾ ਜਾਰੀਕਰਤਾ ਡੀਵਾਈਸ ਦੇ ਨੈੱਟਵਰਕ ਟਰੈਫ਼ਿਕ ਦੀ ਜਾਂਚ ਕਰ ਸਕਦਾ ਹੈ।"</string>
     <string name="wifi_title" msgid="8475811746333426489">"ਵਾਈ-ਫਾਈ ਪ੍ਰੋਫਾਈਲ"</string>
     <string name="wifi_detail_title" msgid="3627332137252994395">"%s ਲਈ ਵੇਰਵੇ"</string>
     <string name="wifi_detail_label" msgid="3032151019356747583">"ਵੇਰਵੇ"</string>

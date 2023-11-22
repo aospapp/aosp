@@ -19,8 +19,11 @@
     <group>Wearable</group>
     <package>com.example.android.xyztouristattractions</package>
     <minSdk>18</minSdk>
-    <targetSdkVersion>25</targetSdkVersion>
-    <targetSdkVersionWear>25</targetSdkVersionWear>
+    <targetSdkVersion>26</targetSdkVersion>
+    <targetSdkVersionWear>26</targetSdkVersionWear>
+    <compileSdkVersionWear>26</compileSdkVersionWear>
+    <minSdkVersionWear>23</minSdkVersionWear>
+
 
     <wearable>
         <has_handheld_app>true</has_handheld_app>
@@ -28,16 +31,17 @@
 
     <dependency>com.google.android.gms:play-services-location</dependency>
 
-    <dependency>com.google.maps.android:android-maps-utils:0.3.4</dependency>
-    <dependency>com.github.bumptech.glide:glide:3.6.1</dependency>
-    <dependency>com.android.support:appcompat-v7:25.3.1</dependency>
-    <dependency>com.android.support:recyclerview-v7:25.3.1</dependency>
-    <dependency>com.android.support:design:25.3.1</dependency>
+    <dependency>com.google.maps.android:android-maps-utils:0.5</dependency>
+    <dependency>com.github.bumptech.glide:glide:3.7.0</dependency>
+    <dependency>com.android.support:appcompat-v7:27.1.0</dependency>
+    <dependency>com.android.support:recyclerview-v7:27.1.0</dependency>
+    <dependency>com.android.support:design:27.1.0</dependency>
+
     <dependency_wearable>com.google.android.gms:play-services-maps</dependency_wearable>
-    <dependency_shared>com.android.support:support-v13:25.3.1</dependency_shared>
+    <dependency_shared>com.android.support:support-v13:27.1.0</dependency_shared>
     <dependency_shared>com.google.android.gms:play-services-wearable</dependency_shared>
     <dependency_shared>com.google.android.gms:play-services-maps</dependency_shared>
-    <dependency_shared>com.google.maps.android:android-maps-utils:0.3.4</dependency_shared>
+    <dependency_shared>com.google.maps.android:android-maps-utils:0.5</dependency_shared>
 
 
 
@@ -149,7 +153,7 @@ transfer the image assets to the wearable (in practice this delay won't be
 noticeable to users as they will only be notified once the data has been sent).
 
 This sample aims to demonstrate a number of different Android APIs and concepts
-relating to [Android Wear][1] and location using [Google Play Services][2]:
+relating to [Wear][1] and location using [Google Play Services][2]:
 * Trigger a mobile notification that uses [WearableExtender][3] to customize the
 display on the wearable
 * Transmit data from the mobile app to the wearable (including binary blobs

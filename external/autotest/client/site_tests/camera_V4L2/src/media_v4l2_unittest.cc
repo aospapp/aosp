@@ -10,6 +10,11 @@
 #include "common_types.h"
 #include "media_v4l2_device.h"
 
+/* Test lists */
+static const char kDefaultTestList[] = "default";
+static const char kHalv3TestList[] = "halv3";
+static const char kExternalCameraTestList[] = "external-camera";
+
 bool ExerciseControl(V4L2Device* v4l2_dev, uint32_t id, const char* control) {
   v4l2_queryctrl query_ctrl;
   if (v4l2_dev->QueryControl(id, &query_ctrl)) {
@@ -285,25 +290,31 @@ void TestFrameRate(const char* dev_name) {
   printf("[OK ] V4L2DeviceTest.FrameRate\n");
 }
 
-static void PrintUsage() {
-  printf("Usage: media_v4l2_unittest [options]\n\n"
+static void PrintUsage(int argc, char** argv) {
+  printf("Usage: %s [options]\n\n"
          "Options:\n"
          "--help               Print usage\n"
          "--device=DEVICE_NAME Video device name [/dev/video]\n"
-         "--usb-info=VID:PID   Device vendor id and product id\n");
+         "--usb-info=VID:PID   Device vendor id and product id\n"
+         "--test-list=TEST     Select different test list\n"
+         "                     [%s | %s | %s]\n",
+         argv[0], kDefaultTestList, kHalv3TestList,
+         kExternalCameraTestList);
 }
 
-static const char short_options[] = "?d:u:";
+static const char short_options[] = "?d:u:t:";
 static const struct option long_options[] = {
-        { "help",     no_argument,       NULL, '?' },
-        { "device",   required_argument, NULL, 'd' },
-        { "usb-info", required_argument, NULL, 'u' },
+        { "help",      no_argument,       NULL, '?' },
+        { "device",    required_argument, NULL, 'd' },
+        { "usb-info",  required_argument, NULL, 'u' },
+        { "test-list", required_argument, NULL, 't' },
         { 0, 0, 0, 0 }
 };
 
 int main(int argc, char** argv) {
   std::string dev_name = "/dev/video";
   std::string usb_info = "";
+  std::string test_list = kDefaultTestList;
 
   // Parse the command line.
   for (;;) {
@@ -315,8 +326,8 @@ int main(int argc, char** argv) {
       case 0:  // getopt_long() flag.
         break;
       case '?':
-        PrintUsage();
-        exit (EXIT_SUCCESS);
+        PrintUsage(argc, argv);
+        return EXIT_SUCCESS;
       case 'd':
         // Initialize default v4l2 device name.
         dev_name = optarg;
@@ -324,9 +335,12 @@ int main(int argc, char** argv) {
       case 'u':
         usb_info = optarg;
         break;
+      case 't':
+        test_list = optarg;
+        break;
       default:
-        PrintUsage();
-        exit(EXIT_FAILURE);
+        PrintUsage(argc, argv);
+        return EXIT_FAILURE;
     }
   }
 
@@ -334,14 +348,18 @@ int main(int argc, char** argv) {
   CameraCharacteristics characteristics;
   DeviceInfos device_infos =
       characteristics.GetCharacteristicsFromFile(mapping);
-
-  bool constant_framerate = false;
   if (device_infos.size() > 1) {
     printf("[Error] One device should not have multiple configs.\n");
-    exit(EXIT_FAILURE);
+    return EXIT_FAILURE;
   }
-  if (device_infos.size() == 1) {
-    constant_framerate = !device_infos[0].constant_framerate_unsupported;
+
+  bool constant_framerate = false;
+  if (test_list == kDefaultTestList) {
+    if (device_infos.size() == 1) {
+      constant_framerate = !device_infos[0].constant_framerate_unsupported;
+    }
+  } else {
+    constant_framerate = true;
   }
   printf("[Info] constant framerate: %d\n", constant_framerate);
 
@@ -358,4 +376,5 @@ int main(int argc, char** argv) {
   TestEnumFrameSize(dev_name.c_str());
   TestEnumFrameInterval(dev_name.c_str());
   TestFrameRate(dev_name.c_str());
+  return EXIT_SUCCESS;
 }

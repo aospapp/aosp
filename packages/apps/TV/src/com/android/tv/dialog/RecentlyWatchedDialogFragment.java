@@ -29,17 +29,14 @@ import android.view.View;
 import android.widget.ListView;
 import android.widget.SimpleCursorAdapter;
 import android.widget.TextView;
-
 import com.android.tv.MainActivity;
 import com.android.tv.R;
-import com.android.tv.data.Channel;
 import com.android.tv.data.ChannelDataManager;
+import com.android.tv.data.api.Channel;
 
-/**
- * Displays the watch history
- */
-public class RecentlyWatchedDialogFragment extends SafeDismissDialogFragment implements
-        LoaderManager.LoaderCallbacks<Cursor> {
+/** Displays the watch history */
+public class RecentlyWatchedDialogFragment extends SafeDismissDialogFragment
+        implements LoaderManager.LoaderCallbacks<Cursor> {
     public static final String DIALOG_TAG = RecentlyWatchedDialogFragment.class.getSimpleName();
 
     private static final String EMPTY_STRING = "";
@@ -55,47 +52,57 @@ public class RecentlyWatchedDialogFragment extends SafeDismissDialogFragment imp
                 ((MainActivity) getActivity()).getChannelDataManager();
 
         String[] from = {
-                TvContract.WatchedPrograms._ID,
-                TvContract.WatchedPrograms.COLUMN_CHANNEL_ID,
-                TvContract.WatchedPrograms.COLUMN_WATCH_START_TIME_UTC_MILLIS,
-                TvContract.WatchedPrograms.COLUMN_TITLE };
+            TvContract.WatchedPrograms._ID,
+            TvContract.WatchedPrograms.COLUMN_CHANNEL_ID,
+            TvContract.WatchedPrograms.COLUMN_WATCH_START_TIME_UTC_MILLIS,
+            TvContract.WatchedPrograms.COLUMN_TITLE
+        };
         int[] to = {
-                R.id.watched_program_id,
-                R.id.watched_program_channel_id,
-                R.id.watched_program_watch_time,
-                R.id.watched_program_title};
-        mAdapter = new SimpleCursorAdapter(getActivity(), R.layout.list_item_watched_program, null,
-                from, to, 0);
-        mAdapter.setViewBinder(new SimpleCursorAdapter.ViewBinder() {
-            @Override
-            public boolean setViewValue(View view, Cursor cursor, int columnIndex) {
-                String name = cursor.getColumnName(columnIndex);
-                if (TvContract.WatchedPrograms.COLUMN_CHANNEL_ID.equals(name)) {
-                    long channelId = cursor.getLong(columnIndex);
-                    ((TextView) view).setText(String.valueOf(channelId));
-                    // Update display number
-                    String displayNumber;
-                    Channel channel = dataChannelManager.getChannel(channelId);
-                    if (channel == null) {
-                        displayNumber = EMPTY_STRING;
-                    } else {
-                        displayNumber = channel.getDisplayNumber();
+            R.id.watched_program_id,
+            R.id.watched_program_channel_id,
+            R.id.watched_program_watch_time,
+            R.id.watched_program_title
+        };
+        mAdapter =
+                new SimpleCursorAdapter(
+                        getActivity(), R.layout.list_item_watched_program, null, from, to, 0);
+        mAdapter.setViewBinder(
+                new SimpleCursorAdapter.ViewBinder() {
+                    @Override
+                    public boolean setViewValue(View view, Cursor cursor, int columnIndex) {
+                        String name = cursor.getColumnName(columnIndex);
+                        if (TvContract.WatchedPrograms.COLUMN_CHANNEL_ID.equals(name)) {
+                            long channelId = cursor.getLong(columnIndex);
+                            ((TextView) view).setText(String.valueOf(channelId));
+                            // Update display number
+                            String displayNumber;
+                            Channel channel = dataChannelManager.getChannel(channelId);
+                            if (channel == null) {
+                                displayNumber = EMPTY_STRING;
+                            } else {
+                                displayNumber = channel.getDisplayNumber();
+                            }
+                            TextView displayNumberView =
+                                    ((TextView)
+                                            ((View) view.getParent())
+                                                    .findViewById(
+                                                            R.id.watched_program_channel_display_number));
+                            displayNumberView.setText(displayNumber);
+                            return true;
+                        } else if (TvContract.WatchedPrograms.COLUMN_WATCH_START_TIME_UTC_MILLIS
+                                .equals(name)) {
+                            long time = cursor.getLong(columnIndex);
+                            CharSequence timeString =
+                                    DateUtils.getRelativeTimeSpanString(
+                                            time,
+                                            System.currentTimeMillis(),
+                                            DateUtils.SECOND_IN_MILLIS);
+                            ((TextView) view).setText(String.valueOf(timeString));
+                            return true;
+                        }
+                        return false;
                     }
-                    TextView displayNumberView = ((TextView) ((View) view.getParent())
-                            .findViewById(R.id.watched_program_channel_display_number));
-                    displayNumberView.setText(displayNumber);
-                    return true;
-                } else if (TvContract.WatchedPrograms.COLUMN_WATCH_START_TIME_UTC_MILLIS.equals(
-                        name)) {
-                    long time = cursor.getLong(columnIndex);
-                    CharSequence timeString = DateUtils.getRelativeTimeSpanString(time,
-                            System.currentTimeMillis(), DateUtils.SECOND_IN_MILLIS);
-                    ((TextView) view).setText(String.valueOf(timeString));
-                    return true;
-                }
-                return false;
-            }
-        });
+                });
 
         ListView listView = new ListView(getActivity());
         listView.setAdapter(mAdapter);
@@ -121,12 +128,18 @@ public class RecentlyWatchedDialogFragment extends SafeDismissDialogFragment imp
     @Override
     public Loader<Cursor> onCreateLoader(int id, Bundle args) {
         String[] projection = {
-                TvContract.WatchedPrograms._ID,
-                TvContract.WatchedPrograms.COLUMN_CHANNEL_ID,
-                TvContract.WatchedPrograms.COLUMN_WATCH_START_TIME_UTC_MILLIS,
-                TvContract.WatchedPrograms.COLUMN_TITLE };
-        return new CursorLoader(getActivity(), TvContract.WatchedPrograms.CONTENT_URI, projection,
-                null, null, TvContract.WatchedPrograms._ID + " DESC");
+            TvContract.WatchedPrograms._ID,
+            TvContract.WatchedPrograms.COLUMN_CHANNEL_ID,
+            TvContract.WatchedPrograms.COLUMN_WATCH_START_TIME_UTC_MILLIS,
+            TvContract.WatchedPrograms.COLUMN_TITLE
+        };
+        return new CursorLoader(
+                getActivity(),
+                TvContract.WatchedPrograms.CONTENT_URI,
+                projection,
+                null,
+                null,
+                TvContract.WatchedPrograms._ID + " DESC");
     }
 
     @Override

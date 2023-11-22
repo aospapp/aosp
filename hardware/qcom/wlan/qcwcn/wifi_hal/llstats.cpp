@@ -31,22 +31,19 @@ LLStatsCommand* LLStatsCommand::mLLStatsCommandInstance  = NULL;
 
 // This function implements creation of Vendor command
 // For LLStats just call base Vendor command create
-int LLStatsCommand::create() {
-    int ret = mMsg.create(NL80211_CMD_VENDOR, 0, 0);
-    if (ret < 0) {
+wifi_error LLStatsCommand::create() {
+    wifi_error ret = mMsg.create(NL80211_CMD_VENDOR, 0, 0);
+    if (ret != WIFI_SUCCESS)
         return ret;
-    }
+
     // insert the oui in the msg
     ret = mMsg.put_u32(NL80211_ATTR_VENDOR_ID, mVendor_id);
-    if (ret < 0)
-        goto out;
+    if (ret != WIFI_SUCCESS)
+        return ret;
 
     // insert the subcmd in the msg
     ret = mMsg.put_u32(NL80211_ATTR_VENDOR_SUBCMD, mSubcmd);
-    if (ret < 0)
-        goto out;
 
-out:
     return ret;
 }
 
@@ -851,7 +848,7 @@ void LLStatsCommand::getClearRspParams(u32 *stats_clear_rsp_mask, u8 *stop_rsp)
     *stop_rsp = mClearRspParams.stop_rsp;
 }
 
-int LLStatsCommand::requestResponse()
+wifi_error LLStatsCommand::requestResponse()
 {
     return WifiCommand::requestResponse(mMsg);
 }
@@ -880,10 +877,15 @@ void LLStatsCommand::clearStats()
 {
     if(mResultsParams.radio_stat)
     {
-        if (mResultsParams.radio_stat->tx_time_per_levels)
-        {
-            free(mResultsParams.radio_stat->tx_time_per_levels);
-            mResultsParams.radio_stat->tx_time_per_levels = NULL;
+        wifi_radio_stat *radioStat = mResultsParams.radio_stat;
+        for (u8 radio = 0; radio < mNumRadios; radio++) {
+            if (radioStat->tx_time_per_levels) {
+                free(radioStat->tx_time_per_levels);
+                radioStat->tx_time_per_levels = NULL;
+            }
+            radioStat = (wifi_radio_stat *)((u8 *)radioStat +
+                sizeof(wifi_radio_stat) +  (sizeof(wifi_channel_stat) *
+                    radioStat->num_channels));
         }
         free(mResultsParams.radio_stat);
         mResultsParams.radio_stat = NULL;
@@ -1246,7 +1248,7 @@ cleanup:
 wifi_error wifi_set_link_stats(wifi_interface_handle iface,
                                wifi_link_layer_params params)
 {
-    int ret = 0;
+    wifi_error ret;
     LLStatsCommand *LLCommand;
     struct nlattr *nl_data;
     interface_info *iinfo = getIfaceInfo(iface);
@@ -1263,11 +1265,11 @@ wifi_error wifi_set_link_stats(wifi_interface_handle iface,
 
     /* create the message */
     ret = LLCommand->create();
-    if (ret < 0)
+    if (ret != WIFI_SUCCESS)
         goto cleanup;
 
     ret = LLCommand->set_iface_id(iinfo->name);
-    if (ret < 0)
+    if (ret != WIFI_SUCCESS)
         goto cleanup;
 
     /*add the attributes*/
@@ -1277,23 +1279,22 @@ wifi_error wifi_set_link_stats(wifi_interface_handle iface,
     /**/
     ret = LLCommand->put_u32(QCA_WLAN_VENDOR_ATTR_LL_STATS_SET_CONFIG_MPDU_SIZE_THRESHOLD,
                                   params.mpdu_size_threshold);
-    if (ret < 0)
+    if (ret != WIFI_SUCCESS)
         goto cleanup;
     /**/
     ret = LLCommand->put_u32(
                 QCA_WLAN_VENDOR_ATTR_LL_STATS_SET_CONFIG_AGGRESSIVE_STATS_GATHERING,
                 params.aggressive_statistics_gathering);
-    if (ret < 0)
+    if (ret != WIFI_SUCCESS)
         goto cleanup;
     LLCommand->attr_end(nl_data);
 
     ret = LLCommand->requestResponse();
-    if (ret != 0) {
+    if (ret != WIFI_SUCCESS)
         ALOGE("%s: requestResponse Error:%d",__FUNCTION__, ret);
-    }
 
 cleanup:
-    return mapErrorKernelToWifiHAL(ret);
+    return ret;
 }
 
 //Implementation of the functions exposed in LLStats.h
@@ -1301,7 +1302,7 @@ wifi_error wifi_get_link_stats(wifi_request_id id,
                                wifi_interface_handle iface,
                                wifi_stats_result_handler handler)
 {
-    int ret = 0;
+    wifi_error ret;
     LLStatsCommand *LLCommand;
     struct nlattr *nl_data;
     interface_info *iinfo = getIfaceInfo(iface);
@@ -1320,11 +1321,11 @@ wifi_error wifi_get_link_stats(wifi_request_id id,
 
     /* create the message */
     ret = LLCommand->create();
-    if (ret < 0)
+    if (ret != WIFI_SUCCESS)
         goto cleanup;
 
     ret = LLCommand->set_iface_id(iinfo->name);
-    if (ret < 0)
+    if (ret != WIFI_SUCCESS)
         goto cleanup;
     /*add the attributes*/
     nl_data = LLCommand->attr_start(NL80211_ATTR_VENDOR_DATA);
@@ -1332,31 +1333,30 @@ wifi_error wifi_get_link_stats(wifi_request_id id,
         goto cleanup;
     ret = LLCommand->put_u32(QCA_WLAN_VENDOR_ATTR_LL_STATS_GET_CONFIG_REQ_ID,
                                   id);
-    if (ret < 0)
+    if (ret != WIFI_SUCCESS)
         goto cleanup;
     ret = LLCommand->put_u32(QCA_WLAN_VENDOR_ATTR_LL_STATS_GET_CONFIG_REQ_MASK,
                                   7);
-    if (ret < 0)
+    if (ret != WIFI_SUCCESS)
         goto cleanup;
 
     /**/
     LLCommand->attr_end(nl_data);
 
     ret = LLCommand->requestResponse();
-    if (ret != 0) {
+    if (ret != WIFI_SUCCESS)
         ALOGE("%s: requestResponse Error:%d",__FUNCTION__, ret);
-    }
-    if (ret < 0) {
+
+    if (ret != WIFI_SUCCESS) {
         LLCommand->clearStats();
         goto cleanup;
     }
 
-    if (ret == 0) {
+    if (ret == WIFI_SUCCESS)
         ret = LLCommand->notifyResponse();
-    }
 
 cleanup:
-    return mapErrorKernelToWifiHAL(ret);
+    return ret;
 }
 
 
@@ -1366,7 +1366,7 @@ wifi_error wifi_clear_link_stats(wifi_interface_handle iface,
                                  u32 *stats_clear_rsp_mask,
                                  u8 stop_req, u8 *stop_rsp)
 {
-    int ret = 0;
+    wifi_error ret;
     LLStatsCommand *LLCommand;
     struct nlattr *nl_data;
     interface_info *iinfo = getIfaceInfo(iface);
@@ -1382,11 +1382,11 @@ wifi_error wifi_clear_link_stats(wifi_interface_handle iface,
 
     /* create the message */
     ret = LLCommand->create();
-    if (ret < 0)
+    if (ret != WIFI_SUCCESS)
         goto cleanup;
 
     ret = LLCommand->set_iface_id(iinfo->name);
-    if (ret < 0)
+    if (ret != WIFI_SUCCESS)
         goto cleanup;
     /*add the attributes*/
     nl_data = LLCommand->attr_start(NL80211_ATTR_VENDOR_DATA);
@@ -1395,23 +1395,22 @@ wifi_error wifi_clear_link_stats(wifi_interface_handle iface,
     /**/
     ret = LLCommand->put_u32(QCA_WLAN_VENDOR_ATTR_LL_STATS_CLR_CONFIG_REQ_MASK,
                                   stats_clear_req_mask);
-    if (ret < 0)
+    if (ret != WIFI_SUCCESS)
         goto cleanup;
     /**/
     ret = LLCommand->put_u8(QCA_WLAN_VENDOR_ATTR_LL_STATS_CLR_CONFIG_STOP_REQ,
                                    stop_req);
-    if (ret < 0)
+    if (ret != WIFI_SUCCESS)
         goto cleanup;
     LLCommand->attr_end(nl_data);
 
     ret = LLCommand->requestResponse();
-    if (ret != 0) {
+    if (ret != WIFI_SUCCESS)
         ALOGE("%s: requestResponse Error:%d",__FUNCTION__, ret);
-    }
 
     LLCommand->getClearRspParams(stats_clear_rsp_mask, stop_rsp);
 
 cleanup:
     delete LLCommand;
-    return mapErrorKernelToWifiHAL(ret);
+    return ret;
 }

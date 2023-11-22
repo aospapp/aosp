@@ -42,6 +42,7 @@ import android.widget.TextView;
 
 import junit.framework.Assert;
 
+import java.util.Random;
 import java.util.regex.Pattern;
 
 /**
@@ -49,6 +50,7 @@ import java.util.regex.Pattern;
  */
 public class SettingsHelper {
     private static final String TAG = SettingsHelper.class.getSimpleName();
+    private static final String ANDROID_PACKAGE = "android";
     private static final String SETTINGS_PACKAGE = "com.android.settings";
     private static final String SETTINGS_APP = "Settings";
     private static final String SWITCH_WIDGET = "switch_widget";
@@ -62,9 +64,15 @@ public class SettingsHelper {
     private static final String AUTO_ROTATE_SCREEN = "Auto-rotate screen";
     private static final BySelector SETTINGS_DASHBOARD = By.res(SETTINGS_PACKAGE,
             "dashboard_container");
+    private static final String ACTION_SEARCH = "com.android.settings.action.SETTINGS_SEARCH";
+    private static final String NO_RESULT_QUERY = "no_result_query";
+    private static final String RES_ID_SEARCH_UI_TEXT_BOX = "search_src_text";
+    private static final String RES_ID_SEARCH_UI_NO_RESULT_IMAGE = "no_result_layout";
+
     private static final UiSelector LIST_ITEM_VALUE =
             new UiSelector().className(TextView.class);
     public static final int TIMEOUT = 2000;
+
     private static SettingsHelper sInstance = null;
     private ActivityHelper mActivityHelper = null;
     private ContentResolver mResolver = null;
@@ -85,7 +93,32 @@ public class SettingsHelper {
         return sInstance;
     }
 
-    public static enum SettingsType {
+    /**
+     * Opens Settings search page
+     */
+    public void openSearch(Context context) throws Exception {
+        launchSettingsPage(context, ACTION_SEARCH);
+        // Wait for the search UI to appear
+        mDevice.wait(Until.hasObject(By.res(RES_ID_SEARCH_UI_TEXT_BOX)),
+                TIMEOUT);
+    }
+
+    /**
+     * Performs a query that has no result and clears query afterwards.
+     */
+    public void performNoResultQuery() {
+        final String randomQuery = NO_RESULT_QUERY + new Random().nextInt();
+
+        mDevice.wait(Until.findObject(By.res(ANDROID_PACKAGE, RES_ID_SEARCH_UI_TEXT_BOX)), TIMEOUT)
+                .setText(randomQuery);
+
+        mDevice.wait(Until.hasObject(By.res(RES_ID_SEARCH_UI_NO_RESULT_IMAGE)),
+                TIMEOUT);
+        mDevice.wait(Until.findObject(By.res(ANDROID_PACKAGE, RES_ID_SEARCH_UI_TEXT_BOX)), TIMEOUT)
+                .clear();
+    }
+
+    public enum SettingsType {
         SYSTEM, SECURE, GLOBAL
     }
 
@@ -185,7 +218,7 @@ public class SettingsHelper {
 
     /**
      * Performs click action on a setting when setting has been found
-     * @param name
+     *
      * @throws InterruptedException,UiObjectNotFoundException
      */
     public boolean selectSettingFor(String settingName)

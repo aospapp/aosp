@@ -22,6 +22,8 @@
 #include <binder/Parcel.h>
 #include <binder/Parcelable.h>
 
+#include "wificond/scanning/radio_chain_info.h"
+
 namespace com {
 namespace android {
 namespace server {
@@ -39,7 +41,8 @@ class NativeScanResult : public ::android::Parcelable {
                    int32_t signal_mbm,
                    uint64_t tsf,
                    uint16_t capability,
-                   bool associated);
+                   bool associated,
+                   std::vector<RadioChainInfo>& radio_chain_infos);
   ::android::status_t writeToParcel(::android::Parcel* parcel) const override;
   ::android::status_t readFromParcel(const ::android::Parcel* parcel) override;
 
@@ -78,6 +81,7 @@ class NativeScanResult : public ::android::Parcelable {
   // Bit 15 - Immediate Block Ack
   uint16_t capability;
   bool associated;
+  std::vector<RadioChainInfo> radio_chain_infos;
 };
 
 }  // namespace wificond

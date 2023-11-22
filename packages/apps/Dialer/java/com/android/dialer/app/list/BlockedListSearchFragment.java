@@ -19,7 +19,6 @@ import android.app.Activity;
 import android.os.Bundle;
 import android.support.v7.app.ActionBar;
 import android.support.v7.app.AppCompatActivity;
-import android.telephony.PhoneNumberUtils;
 import android.text.Editable;
 import android.text.TextUtils;
 import android.text.TextWatcher;
@@ -39,11 +38,13 @@ import com.android.dialer.common.LogUtil;
 import com.android.dialer.location.GeoUtil;
 import com.android.dialer.logging.InteractionEvent;
 import com.android.dialer.logging.Logger;
+import com.android.dialer.phonenumberutil.PhoneNumberHelper;
 
+/** TODO(calderwoodra): documentation */
 public class BlockedListSearchFragment extends RegularSearchFragment
     implements BlockNumberDialogFragment.Callback {
 
-  private final TextWatcher mPhoneSearchQueryTextListener =
+  private final TextWatcher phoneSearchQueryTextListener =
       new TextWatcher() {
         @Override
         public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
@@ -56,7 +57,7 @@ public class BlockedListSearchFragment extends RegularSearchFragment
         @Override
         public void afterTextChanged(Editable s) {}
       };
-  private final SearchEditTextLayout.Callback mSearchLayoutCallback =
+  private final SearchEditTextLayout.Callback searchLayoutCallback =
       new SearchEditTextLayout.Callback() {
         @Override
         public void onBackButtonClicked() {
@@ -66,8 +67,8 @@ public class BlockedListSearchFragment extends RegularSearchFragment
         @Override
         public void onSearchViewClicked() {}
       };
-  private FilteredNumberAsyncQueryHandler mFilteredNumberAsyncQueryHandler;
-  private EditText mSearchView;
+  private FilteredNumberAsyncQueryHandler filteredNumberAsyncQueryHandler;
+  private EditText searchView;
 
   @Override
   public void onCreate(Bundle savedInstanceState) {
@@ -82,7 +83,7 @@ public class BlockedListSearchFragment extends RegularSearchFragment
      * query, which results in showing an empty view
      */
     setQueryString(getQueryString() == null ? "" : getQueryString());
-    mFilteredNumberAsyncQueryHandler = new FilteredNumberAsyncQueryHandler(getContext());
+    filteredNumberAsyncQueryHandler = new FilteredNumberAsyncQueryHandler(getContext());
   }
 
   @Override
@@ -98,23 +99,23 @@ public class BlockedListSearchFragment extends RegularSearchFragment
     final SearchEditTextLayout searchEditTextLayout =
         (SearchEditTextLayout) actionBar.getCustomView().findViewById(R.id.search_view_container);
     searchEditTextLayout.expand(false, true);
-    searchEditTextLayout.setCallback(mSearchLayoutCallback);
+    searchEditTextLayout.setCallback(searchLayoutCallback);
     searchEditTextLayout.setBackgroundDrawable(null);
 
-    mSearchView = (EditText) searchEditTextLayout.findViewById(R.id.search_view);
-    mSearchView.addTextChangedListener(mPhoneSearchQueryTextListener);
-    mSearchView.setHint(R.string.block_number_search_hint);
+    searchView = (EditText) searchEditTextLayout.findViewById(R.id.search_view);
+    searchView.addTextChangedListener(phoneSearchQueryTextListener);
+    searchView.setHint(R.string.block_number_search_hint);
 
     searchEditTextLayout
         .findViewById(R.id.search_box_expanded)
         .setBackgroundColor(getContext().getResources().getColor(android.R.color.white));
 
     if (!TextUtils.isEmpty(getQueryString())) {
-      mSearchView.setText(getQueryString());
+      searchView.setText(getQueryString());
     }
 
     // TODO: Don't set custom text size; use default search text size.
-    mSearchView.setTextSize(
+    searchView.setTextSize(
         TypedValue.COMPLEX_UNIT_PX,
         getResources().getDimension(R.dimen.blocked_number_search_text_size));
   }
@@ -173,7 +174,7 @@ public class BlockedListSearchFragment extends RegularSearchFragment
                   id,
                   number,
                   countryIso,
-                  PhoneNumberUtils.formatNumber(number, countryIso),
+                  PhoneNumberHelper.formatNumber(getContext(), number, countryIso),
                   R.id.blocked_numbers_activity_container,
                   getFragmentManager(),
                   BlockedListSearchFragment.this);
@@ -194,7 +195,7 @@ public class BlockedListSearchFragment extends RegularSearchFragment
             }
           }
         };
-    mFilteredNumberAsyncQueryHandler.isBlockedNumber(onCheckListener, number, countryIso);
+    filteredNumberAsyncQueryHandler.isBlockedNumber(onCheckListener, number, countryIso);
   }
 
   @Override

@@ -19,13 +19,13 @@
 
 #include "arch/arm/asm_support_arm.h"
 #include "base/bit_utils.h"
+#include "entrypoints/entrypoint_utils.h"
 #include "entrypoints/jni/jni_entrypoints.h"
+#include "entrypoints/math_entrypoints.h"
 #include "entrypoints/quick/quick_alloc_entrypoints.h"
 #include "entrypoints/quick/quick_default_externs.h"
 #include "entrypoints/quick/quick_default_init_entrypoints.h"
 #include "entrypoints/quick/quick_entrypoints.h"
-#include "entrypoints/entrypoint_utils.h"
-#include "entrypoints/math_entrypoints.h"
 #include "entrypoints/runtime_asm_entrypoints.h"
 #include "interpreter/interpreter.h"
 
@@ -131,19 +131,11 @@ void InitEntryPoints(JniEntryPoints* jpoints, QuickEntryPoints* qpoints) {
   qpoints->pShlLong = art_quick_shl_long;
   qpoints->pShrLong = art_quick_shr_long;
   qpoints->pUshrLong = art_quick_ushr_long;
-  if (kArm32QuickCodeUseSoftFloat) {
-    qpoints->pFmod = fmod;
-    qpoints->pFmodf = fmodf;
-    qpoints->pD2l = art_d2l;
-    qpoints->pF2l = art_f2l;
-    qpoints->pL2f = art_l2f;
-  } else {
-    qpoints->pFmod = art_quick_fmod;
-    qpoints->pFmodf = art_quick_fmodf;
-    qpoints->pD2l = art_quick_d2l;
-    qpoints->pF2l = art_quick_f2l;
-    qpoints->pL2f = art_quick_l2f;
-  }
+  qpoints->pFmod = art_quick_fmod;
+  qpoints->pFmodf = art_quick_fmodf;
+  qpoints->pD2l = art_quick_d2l;
+  qpoints->pF2l = art_quick_f2l;
+  qpoints->pL2f = art_quick_l2f;
 
   // More math.
   qpoints->pCos = cos;
@@ -152,6 +144,7 @@ void InitEntryPoints(JniEntryPoints* jpoints, QuickEntryPoints* qpoints) {
   qpoints->pAsin = asin;
   qpoints->pAtan = atan;
   qpoints->pAtan2 = atan2;
+  qpoints->pPow = pow;
   qpoints->pCbrt = cbrt;
   qpoints->pCosh = cosh;
   qpoints->pExp = exp;

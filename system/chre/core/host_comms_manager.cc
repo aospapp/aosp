@@ -140,29 +140,8 @@ void HostCommsManager::onMessageToHostComplete(const MessageToHost *message) {
           static_cast<MessageToHost *>(data));
     };
 
-    bool eventPosted = EventLoopManagerSingleton::get()->deferCallback(
+    EventLoopManagerSingleton::get()->deferCallback(
         SystemCallbackType::MessageToHostComplete, msgToHost, freeMsgCallback);
-
-    // If this assert/log triggers, we're leaking resources
-    // TODO: disabling this assert temporarily because it can be triggered
-    // during the shutdown sequence if a message to the host is pending at the
-    // time EventLoop::stop() is called. Prior to re-enabling this assert, we
-    // need to rework the EventLoop shutdown sequence to follow this procedure:
-    //   1. In stop(), make it so new events and messages sent by nanoapps are
-    //      rejected, but events sent by the system are accepted
-    //   2. Flush/purge all outstanding events in preparation for unloading
-    //      nanoapps
-    //   3. Unload all nanoapps
-    //   4. Stop accepting events entirely
-    //   5. Flush/purge events
-    //
-    // TODO: should have reserved space in event queue to prevent nanoapps from
-    // negatively impacting system functionality
-    //CHRE_ASSERT_LOG(eventPosted, "Couldn't defer callback to clean up message "
-    //                "to host!");
-    if (!eventPosted) {
-      LOGE("Couldn't defer callback to clean up message to host!");
-    }
   }
 }
 

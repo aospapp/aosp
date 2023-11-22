@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/env python2
 """Script to generate a list of object files.
 
 0 represents a good object file.
@@ -86,8 +86,8 @@ def Main(argv):
 
   obj_num = len(obj_list)
   bad_obj_num = obj_list.count('1')
-  print('Generated {0} object files, with {1} bad ones.'.format(obj_num,
-                                                                bad_obj_num))
+  print('Generated {0} object files, with {1} bad ones.'.format(
+      obj_num, bad_obj_num))
 
   return 0
 

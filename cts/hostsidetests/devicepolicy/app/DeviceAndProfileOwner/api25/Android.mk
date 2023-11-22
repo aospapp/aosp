@@ -17,6 +17,7 @@ LOCAL_PATH:= $(call my-dir)
 include $(CLEAR_VARS)
 
 LOCAL_PACKAGE_NAME := CtsDeviceAndProfileOwnerApp25
+LOCAL_PRIVATE_PLATFORM_APIS := true
 
 LOCAL_MODULE_TAGS := optional
 
@@ -24,13 +25,24 @@ LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
 
 LOCAL_SRC_FILES := $(call all-java-files-under, ../src)
 
-LOCAL_JAVA_LIBRARIES = conscrypt legacy-android-test
+LOCAL_JAVA_LIBRARIES := \
+    android.test.runner.stubs \
+    android.test.base.stubs \
 
-LOCAL_STATIC_JAVA_LIBRARIES = android-support-v4 compatibility-device-util ctstestrunner ub-uiautomator
+LOCAL_USE_AAPT2 := true
 
-LOCAL_SDK_VERSION := test_current
+LOCAL_STATIC_JAVA_LIBRARIES := \
+    compatibility-device-util \
+    ctstestrunner \
+    ub-uiautomator \
+    cts-security-test-support-library
+
+LOCAL_STATIC_ANDROID_LIBRARIES := \
+    androidx.legacy_legacy-support-v4
 
 LOCAL_RESOURCE_DIR := $(LOCAL_PATH)/../res
+
+LOCAL_ASSET_DIR := $(LOCAL_PATH)/../assets
 
 # tag this module as a cts test artifact
 LOCAL_COMPATIBILITY_SUITE := cts vts general-tests

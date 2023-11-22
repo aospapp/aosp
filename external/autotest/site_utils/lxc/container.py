@@ -2,9 +2,12 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import collections
+import json
 import logging
 import os
 import re
+import tempfile
 import time
 
 import common
@@ -18,6 +21,79 @@ try:
     from chromite.lib import metrics
 except ImportError:
     metrics = utils.metrics_mock
+
+
+# Naming convention of test container, e.g., test_300_1422862512_2424, where:
+# 300:        The test job ID.
+# 1422862512: The tick when container is created.
+# 2424:       The PID of autoserv that starts the container.
+_TEST_CONTAINER_NAME_FMT = 'test_%s_%d_%d'
+# Name of the container ID file.
+_CONTAINER_ID_FILENAME = 'container_id.json'
+
+
+class ContainerId(collections.namedtuple('ContainerId',
+                                         ['job_id', 'creation_time', 'pid'])):
+    """An identifier for containers."""
+
+    # Optimization.  Avoids __dict__ creation.  Empty because this subclass has
+    # no instance vars of its own.
+    __slots__ = ()
+
+
+    def __str__(self):
+        return _TEST_CONTAINER_NAME_FMT % self
+
+
+    def save(self, path):
+        """Saves the ID to the given path.
+
+        @param path: Path to a directory where the container ID will be
+                     serialized.
+        """
+        dst = os.path.join(path, _CONTAINER_ID_FILENAME)
+        with open(dst, 'w') as f:
+            json.dump(self, f)
+
+    @classmethod
+    def load(cls, path):
+        """Reads the ID from the given path.
+
+        @param path: Path to check for a serialized container ID.
+
+        @return: A container ID if one is found on the given path, or None
+                 otherwise.
+
+        @raise ValueError: If a JSON load error occurred.
+        @raise TypeError: If the file was valid JSON but didn't contain a valid
+                          ContainerId.
+        """
+        src = os.path.join(path, _CONTAINER_ID_FILENAME)
+
+        try:
+            with open(src, 'r') as f:
+                return cls(*json.load(f))
+        except IOError:
+            # File not found, or couldn't be opened for some other reason.
+            # Treat all these cases as no ID.
+            return None
+
+
+    @classmethod
+    def create(cls, job_id, ctime=None, pid=None):
+        """Creates a new container ID.
+
+        @param job_id: The first field in the ID.
+        @param ctime: The second field in the ID.  Optional. If not provided,
+                      the current epoch timestamp is used.
+        @param pid: The third field in the ID.  Optional.  If not provided, the
+                    PID of the current process is used.
+        """
+        if ctime is None:
+            ctime = int(time.time())
+        if pid is None:
+            pid = os.getpid()
+        return cls(job_id, ctime, pid)
 
 
 class Container(object):
@@ -74,10 +150,30 @@ class Container(object):
             # Clone the source container to initialize this one.
             lxc_utils.clone(src.container_path, src.name, self.container_path,
                             self.name, snapshot)
+            # Newly cloned containers have no ID.
+            self._id = None
+        else:
+            # This may be an existing container.  Try to read the ID.
+            try:
+                self._id = ContainerId.load(
+                        os.path.join(self.container_path, self.name))
+            except (ValueError, TypeError):
+                # Ignore load errors.  ContainerBucket currently queries every
+                # container quite frequently, and emitting exceptions here would
+                # cause any invalid containers on a server to block all
+                # ContainerBucket.get_all calls (see crbug/783865).
+                # TODO(kenobi): Containers with invalid ID files are probably
+                # the result of an aborted or failed operation.  There is a
+                # non-zero chance that such containers would contain leftover
+                # state, or themselves be corrupted or invalid.  Should we
+                # provide APIs for checking if a container is in this state?
+                logging.exception('Error loading ID for container %s:',
+                                  self.name)
+                self._id = None
 
 
     @classmethod
-    def createFromExistingDir(cls, lxc_path, name, **kwargs):
+    def create_from_existing_dir(cls, lxc_path, name, **kwargs):
         """Creates a new container instance for an lxc container that already
         exists on disk.
 
@@ -91,40 +187,64 @@ class Container(object):
         return cls(lxc_path, name, kwargs)
 
 
+    # Containers have a name and an ID.  The name is simply the name of the LXC
+    # container.  The ID is the actual key that is used to identify the
+    # container to the autoserv system.  In the case of a JIT-created container,
+    # we have the ID at the container's creation time so we use that to name the
+    # container.  This may not be the case for other types of containers.
     @classmethod
-    def clone(cls, src, new_name, new_path=None, snapshot=False, cleanup=False):
+    def clone(cls, src, new_name=None, new_path=None, snapshot=False,
+              cleanup=False):
         """Creates a clone of this container.
 
         @param src: The original container.
-        @param new_name: Name for the cloned container.
+        @param new_name: Name for the cloned container.  If this is not
+                         provided, a random unique container name will be
+                         generated.
         @param new_path: LXC path for the cloned container (optional; if not
-                specified, the new container is created in the same directory as
-                the source container).
-        @param snapshot: Whether to snapshot, or create a full clone.
+                         specified, the new container is created in the same
+                         directory as the source container).
+        @param snapshot: Whether to snapshot, or create a full clone.  Note that
+                         snapshot cloning is not supported on all platforms.  If
+                         this code is running on a platform that does not
+                         support snapshot clones, this flag is ignored.
         @param cleanup: If a container with the given name and path already
-                exist, clean it up first.
+                        exist, clean it up first.
         """
         if new_path is None:
             new_path = src.container_path
 
-        # If a container exists at this location, clean it up first
-        container_folder = os.path.join(new_path, new_name)
-        if lxc_utils.path_exists(container_folder):
-            if not cleanup:
-                raise error.ContainerError('Container %s already exists.' %
-                                           new_name)
-            container = Container.createFromExistingDir(new_path, new_name)
-            try:
-                container.destroy()
-            except error.CmdError as e:
-                # The container could be created in a incompleted state. Delete
-                # the container folder instead.
-                logging.warn('Failed to destroy container %s, error: %s',
-                             new_name, e)
-                utils.run('sudo rm -rf "%s"' % container_folder)
+        if new_name is None:
+            _, new_name = os.path.split(
+                tempfile.mkdtemp(dir=new_path, prefix='container.'))
+            logging.debug('Generating new name for container: %s', new_name)
+        else:
+            # If a container exists at this location, clean it up first
+            container_folder = os.path.join(new_path, new_name)
+            if lxc_utils.path_exists(container_folder):
+                if not cleanup:
+                    raise error.ContainerError('Container %s already exists.' %
+                                               new_name)
+                container = Container.create_from_existing_dir(new_path,
+                                                               new_name)
+                try:
+                    container.destroy()
+                except error.CmdError as e:
+                    # The container could be created in a incompleted
+                    # state. Delete the container folder instead.
+                    logging.warn('Failed to destroy container %s, error: %s',
+                                 new_name, e)
+                    utils.run('sudo rm -rf "%s"' % container_folder)
+            # Create the directory prior to creating the new container.  This
+            # puts the ownership of the container under the current process's
+            # user, rather than root.  This is necessary to enable the
+            # ContainerId to serialize properly.
+            os.mkdir(container_folder)
 
         # Create and return the new container.
-        return cls(new_path, new_name, {}, src, snapshot)
+        new_container = cls(new_path, new_name, {}, src, snapshot)
+
+        return new_container
 
 
     def refresh_status(self):
@@ -165,16 +285,7 @@ class Container(object):
         @return: Path to the rootfs of the container.
         """
         if not self._rootfs:
-            cmd = ('sudo lxc-info -P %s -n %s -c lxc.rootfs' %
-                   (self.container_path, self.name))
-            lxc_rootfs_config = utils.run(cmd).stdout.strip()
-            match = re.match('lxc.rootfs = (.*)', lxc_rootfs_config)
-            if not match:
-                raise error.ContainerError(
-                        'Failed to locate rootfs for container %s. lxc.rootfs '
-                        'in the container config file is %s' %
-                        (self.name, lxc_rootfs_config))
-            lxc_rootfs = match.group(1)
+            lxc_rootfs = self._get_lxc_config('lxc.rootfs')[0]
             cloned_from_snapshot = ':' in lxc_rootfs
             if cloned_from_snapshot:
                 self._rootfs = lxc_rootfs.split(':')[-1]
@@ -274,6 +385,9 @@ class Container(object):
         @raise ContainerError: If container does not exist or failed to destroy
                                the container.
         """
+        logging.debug('Destroying container %s/%s',
+                      self.container_path,
+                      self.name)
         cmd = 'sudo lxc-destroy -P %s -n %s' % (self.container_path,
                                                 self.name)
         if force:
@@ -290,15 +404,12 @@ class Container(object):
         """
         # Destination path in container must be relative.
         destination = destination.lstrip('/')
-        # Create directory in container for mount.
+        # Create directory in container for mount.  Changes to container rootfs
+        # require sudo.
         utils.run('sudo mkdir -p %s' % os.path.join(self.rootfs, destination))
-        config_file = os.path.join(self.container_path, self.name, 'config')
-        mount = constants.MOUNT_FMT % {'source': source,
-                                       'destination': destination,
-                                       'readonly': ',ro' if readonly else ''}
-        utils.run(
-            constants.APPEND_CMD_FMT % {'content': mount, 'file': config_file})
-
+        mount = ('%s %s none bind%s 0 0' %
+                 (source, destination, ',ro' if readonly else ''))
+        self._set_lxc_config('lxc.mount.entry', mount)
 
     def verify_autotest_setup(self, job_folder):
         """Verify autotest code is set up properly in the container.
@@ -366,16 +477,22 @@ class Container(object):
 
 
     def set_hostname(self, hostname):
-        """Sets the hostname within the container.  This needs to be called
-        prior to starting the container.
+        """Sets the hostname within the container.
+
+        This method can only be called on a running container.
+
+        @param hostname The new container hostname.
+
+        @raise ContainerError: If the container is not running.
         """
-        config_file = os.path.join(self.container_path, self.name, 'config')
-        lxc_utsname_setting = (
-                'lxc.utsname = ' +
-                constants.CONTAINER_UTSNAME_FORMAT % hostname)
-        utils.run(
-            constants.APPEND_CMD_FMT % {'content': lxc_utsname_setting,
-                                        'file': config_file})
+        if not self.is_running():
+            raise error.ContainerError(
+                    'set_hostname can only be called on running containers.')
+
+        self.attach_run('hostname %s' % (hostname))
+        self.attach_run(constants.APPEND_CMD_FMT % {
+                'content': '127.0.0.1 %s' % (hostname),
+                'file': '/etc/hosts'})
 
 
     def install_ssp(self, ssp_url):
@@ -386,7 +503,7 @@ class Container(object):
         usr_local_path = os.path.join(self.rootfs, 'usr', 'local')
         autotest_pkg_path = os.path.join(usr_local_path,
                                          'autotest_server_package.tar.bz2')
-        # sudo is required so os.makedirs may not work.
+        # Changes within the container rootfs require sudo.
         utils.run('sudo mkdir -p %s'% usr_local_path)
 
         lxc.download_extract(ssp_url, autotest_pkg_path, usr_local_path)
@@ -394,11 +511,94 @@ class Container(object):
 
     def install_control_file(self, control_file):
         """Installs the given control file.
-        The given file will be moved into the container.
+
+        The given file will be copied into the container.
 
         @param control_file: Path to the control file to install.
         """
+        dst = os.path.join(constants.CONTROL_TEMP_PATH,
+                           os.path.basename(control_file))
+        self.copy(control_file, dst)
+
+
+    def copy(self, host_path, container_path):
+        """Copies files into the container.
+
+        @param host_path: Path to the source file/dir to be copied.
+        @param container_path: Path to the destination dir (in the container).
+        """
         dst_path = os.path.join(self.rootfs,
-                                constants.CONTROL_TEMP_PATH.lstrip(os.path.sep))
-        utils.run('sudo mkdir -p %s' % dst_path)
-        utils.run('sudo mv %s %s' % (control_file, dst_path))
+                                container_path.lstrip(os.path.sep))
+        self._do_copy(src=host_path, dst=dst_path)
+
+
+    @property
+    def id(self):
+        """Returns the container ID."""
+        return self._id
+
+
+    @id.setter
+    def id(self, new_id):
+        """Sets the container ID."""
+        self._id = new_id;
+        # Persist the ID so other container objects can pick it up.
+        self._id.save(os.path.join(self.container_path, self.name))
+
+
+    def _do_copy(self, src, dst):
+        """Copies files and directories on the host system.
+
+        @param src: The source file or directory.
+        @param dst: The destination file or directory.  If the path to the
+                    destination does not exist, it will be created.
+        """
+        # Create the dst dir. mkdir -p will not fail if dst_dir exists.
+        dst_dir = os.path.dirname(dst)
+        # Make sure the source ends with `/.` if it's a directory. Otherwise
+        # command cp will not work.
+        if os.path.isdir(src) and os.path.split(src)[1] != '.':
+            src = os.path.join(src, '.')
+        utils.run("sudo sh -c 'mkdir -p \"%s\" && cp -RL \"%s\" \"%s\"'" %
+                  (dst_dir, src, dst))
+
+    def _set_lxc_config(self, key, value):
+        """Sets an LXC config value for this container.
+
+        Configuration changes made while a container is running don't take
+        effect until the container is restarted.  Since this isn't a scenario
+        that should ever come up in our use cases, calling this method on a
+        running container will cause a ContainerError.
+
+        @param key: The LXC config key to set.
+        @param value: The value to use for the given key.
+
+        @raise error.ContainerError: If the container is already started.
+        """
+        if self.is_running():
+            raise error.ContainerError(
+                '_set_lxc_config(%s, %s) called on a running container.' %
+                (key, value))
+        config_file = os.path.join(self.container_path, self.name, 'config')
+        config = '%s = %s' % (key, value)
+        utils.run(
+            constants.APPEND_CMD_FMT % {'content': config, 'file': config_file})
+
+
+    def _get_lxc_config(self, key):
+        """Retrieves an LXC config value from the container.
+
+        @param key The key of the config value to retrieve.
+        """
+        cmd = ('sudo lxc-info -P %s -n %s -c %s' %
+               (self.container_path, self.name, key))
+        config = utils.run(cmd).stdout.strip().splitlines()
+
+        # Strip the decoration from line 1 of the output.
+        match = re.match('%s = (.*)' % key, config[0])
+        if not match:
+            raise error.ContainerError(
+                    'Config %s not found for container %s. (%s)' %
+                    (key, self.name, ','.join(config)))
+        config[0] = match.group(1)
+        return config

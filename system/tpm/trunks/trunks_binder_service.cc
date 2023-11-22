@@ -24,7 +24,7 @@
 #include "trunks/binder_interface.h"
 #include "trunks/command_transceiver.h"
 #include "trunks/error_codes.h"
-#include "trunks/interface.pb.h"
+#include "interface.pb.h"
 
 namespace {
 

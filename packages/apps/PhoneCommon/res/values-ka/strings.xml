@@ -37,9 +37,14 @@
     <string name="callFailed_simError" msgid="3307159523385380486">"SIM არ არის, ან SIM-ის შეცდომაა"</string>
     <string name="callFailed_outOfService" msgid="4535901975891969115">"ფიჭური ქსელი არ არის ხელმისაწვდომი"</string>
     <string name="callFailed_fdn_only" msgid="1720606112619022283">"გამავალი ზარები შეზღუდულია FDN-ის მიერ."</string>
-    <string name="callFailed_dialToUssd" msgid="2093563828737170617">"DIAL მოთხოვნა შეიცვალა USSD მოთხოვნით."</string>
-    <string name="callFailed_dialToSs" msgid="3144952834772702469">"DIAL მოთხოვნა შეიცვალა SS მოთხოვნით."</string>
-    <string name="callFailed_dialToDial" msgid="1143052062100334634">"DIAL მოთხოვნა შეიცვალა DIAL მოთხოვნით სხვა ნომრისთვის."</string>
+    <string name="callFailed_dialToUssd" msgid="2433610980015734954">"ზარი შეიცვალა USSD მოთხოვნით"</string>
+    <string name="callFailed_dialToSs" msgid="1932708241240329683">"ზარი შეიცვალა SS მოთხოვნით"</string>
+    <string name="callFailed_dialToDial" msgid="4383070508519313539">"შეიცვალა სხვა ნომრით"</string>
+    <string name="callFailed_dialToDialVideo" msgid="5132568145494398814">"შეიცვალა ვიდეოზარით"</string>
+    <string name="callFailed_dialVideoToSs" msgid="4775276313558039477">"ვიდეოზარი შეიცვალა SS მოთხოვნით"</string>
+    <string name="callFailed_dialVideoToUssd" msgid="3075648968404725328">"ვიდეოზარი შეიცვალა USSD მოთხოვნით"</string>
+    <string name="callFailed_dialVideoToDial" msgid="7758276428184272770">"შეიცვალა ჩვეულებრივი ზარით"</string>
+    <string name="callFailed_dialVideoToDialVideo" msgid="5451053686606499859">"შეიცვალა სხვა ნომრით"</string>
     <string name="callFailed_cb_enabled" msgid="4745550615395092407">"სანამ ზარების შეზღუდვა ჩართულია, ვერ ხორციელდება გამავალი ზარი."</string>
     <string name="callFailed_dsac_restricted" msgid="4087941056515103695">"ზარები შეზღუდულია წვდომის კონტროლით."</string>
     <string name="callFailed_dsac_restricted_emergency" msgid="9031535611092828510">"გადაუდებელი ზარები შეზღუდულია წვდომის კონტროლით."</string>

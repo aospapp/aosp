@@ -665,7 +665,7 @@ public class AuptTestRunner extends InstrumentationTestRunner {
 
             String fileName =
                     mResultsDirectory.getPath()
-                            + "/" + testName.replaceAll(".", "_")
+                            + "/" + testName.replace('.', '_')
                             + suffix + ".png";
 
             device.takeScreenshot(new File(fileName));

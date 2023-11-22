@@ -32,9 +32,4 @@ cc_binary_host {
     ],
 
     cflags: ["-D__HOST__"],
-
-    host_ldlibs: [
-        "-ldl",
-        "-lpthread",
-    ],
 }

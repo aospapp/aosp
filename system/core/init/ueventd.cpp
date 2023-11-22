@@ -30,12 +30,14 @@
 #include <android-base/chrono_utils.h>
 #include <android-base/logging.h>
 #include <android-base/properties.h>
+#include <fstab/fstab.h>
 #include <selinux/android.h>
 #include <selinux/selinux.h>
 
 #include "devices.h"
 #include "firmware_handler.h"
 #include "log.h"
+#include "selinux.h"
 #include "uevent_listener.h"
 #include "ueventd_parser.h"
 #include "util.h"
@@ -222,10 +224,10 @@ DeviceHandler CreateDeviceHandler() {
     using namespace std::placeholders;
     std::vector<SysfsPermissions> sysfs_permissions;
     std::vector<Permissions> dev_permissions;
-    parser.AddSingleLineParser(
-        "/sys/", std::bind(ParsePermissionsLine, _1, _2, &sysfs_permissions, nullptr));
+    parser.AddSingleLineParser("/sys/",
+                               std::bind(ParsePermissionsLine, _1, &sysfs_permissions, nullptr));
     parser.AddSingleLineParser("/dev/",
-                               std::bind(ParsePermissionsLine, _1, _2, nullptr, &dev_permissions));
+                               std::bind(ParsePermissionsLine, _1, nullptr, &dev_permissions));
 
     parser.ParseConfig("/ueventd.rc");
     parser.ParseConfig("/vendor/ueventd.rc");
@@ -241,8 +243,9 @@ DeviceHandler CreateDeviceHandler() {
     std::string hardware = android::base::GetProperty("ro.hardware", "");
     parser.ParseConfig("/ueventd." + hardware + ".rc");
 
+    auto boot_devices = fs_mgr_get_boot_devices();
     return DeviceHandler(std::move(dev_permissions), std::move(sysfs_permissions),
-                         std::move(subsystems), true);
+                         std::move(subsystems), std::move(boot_devices), true);
 }
 
 int ueventd_main(int argc, char** argv) {
@@ -257,9 +260,8 @@ int ueventd_main(int argc, char** argv) {
 
     LOG(INFO) << "ueventd started!";
 
-    selinux_callback cb;
-    cb.func_log = selinux_klog_callback;
-    selinux_set_callback(SELINUX_CB_LOG, cb);
+    SelinuxSetupKernelLogging();
+    SelabelInitialize();
 
     DeviceHandler device_handler = CreateDeviceHandler();
     UeventListener uevent_listener;

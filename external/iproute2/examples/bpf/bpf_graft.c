@@ -33,34 +33,33 @@
  *   [...]
  */
 
-BPF_PROG_ARRAY(jmp_tc, 0, PIN_GLOBAL_NS, 1);
+struct bpf_elf_map __section_maps jmp_tc = {
+	.type		= BPF_MAP_TYPE_PROG_ARRAY,
+	.size_key	= sizeof(uint32_t),
+	.size_value	= sizeof(uint32_t),
+	.pinning	= PIN_GLOBAL_NS,
+	.max_elem	= 1,
+};
 
 __section("aaa")
 int cls_aaa(struct __sk_buff *skb)
 {
-	char fmt[] = "aaa\n";
-
-	trace_printk(fmt, sizeof(fmt));
+	printt("aaa\n");
 	return TC_H_MAKE(1, 42);
 }
 
 __section("bbb")
 int cls_bbb(struct __sk_buff *skb)
 {
-	char fmt[] = "bbb\n";
-
-	trace_printk(fmt, sizeof(fmt));
+	printt("bbb\n");
 	return TC_H_MAKE(1, 43);
 }
 
 __section_cls_entry
 int cls_entry(struct __sk_buff *skb)
 {
-	char fmt[] = "fallthrough\n";
-
 	tail_call(skb, &jmp_tc, 0);
-	trace_printk(fmt, sizeof(fmt));
-
+	printt("fallthrough\n");
 	return BPF_H_DEFAULT;
 }
 

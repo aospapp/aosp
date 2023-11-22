@@ -20,7 +20,7 @@ package com.android.bluetooth.btservice;
  * @hide
  */
 
-final public class AbstractionLayer {
+public final class AbstractionLayer {
     // Do not modify without upating the HAL files.
 
     // TODO: Some of the constants are repeated from BluetoothAdapter.java.
@@ -48,9 +48,9 @@ final public class AbstractionLayer {
     static final int BT_PROPERTY_REMOTE_VERSION_INFO = 0x0C;
     static final int BT_PROPERTY_LOCAL_LE_FEATURES = 0x0D;
 
-    static final int BT_DEVICE_TYPE_BREDR = 0x01;
-    static final int BT_DEVICE_TYPE_BLE = 0x02;
-    static final int BT_DEVICE_TYPE_DUAL = 0x03;
+    public static final int BT_DEVICE_TYPE_BREDR = 0x01;
+    public static final int BT_DEVICE_TYPE_BLE = 0x02;
+    public static final int BT_DEVICE_TYPE_DUAL = 0x03;
 
     static final int BT_BOND_STATE_NONE = 0x00;
     static final int BT_BOND_STATE_BONDING = 0x01;
@@ -80,6 +80,6 @@ final public class AbstractionLayer {
     public static final int BT_STATUS_UNHANDLED = 8;
     public static final int BT_STATUS_AUTH_FAILURE = 9;
     public static final int BT_STATUS_RMT_DEV_DOWN = 10;
-    public static final int BT_STATUS_AUTH_REJECTED =11;
+    public static final int BT_STATUS_AUTH_REJECTED = 11;
     public static final int BT_STATUS_AUTH_TIMEOUT = 12;
 }

@@ -20,6 +20,9 @@ import static com.android.server.pm.shortcutmanagertest.ShortcutManagerTestUtils
 import android.content.pm.ShortcutManager;
 import android.test.suitebuilder.annotation.SmallTest;
 
+import com.android.compatibility.common.util.CddTest;
+
+@CddTest(requirement="3.8.1/C-4-1")
 @SmallTest
 public class ShortcutManagerMiscTest extends ShortcutManagerCtsTestsBase {
     @Override

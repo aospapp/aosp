@@ -35,21 +35,22 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.doReturn;
 
-import android.support.test.filters.FlakyTest;
+import android.hardware.radio.V1_0.SetupDataCallResult;
 import android.telephony.ServiceState;
+import android.telephony.TelephonyManager;
+import android.telephony.ims.ImsCallSession;
+import android.telephony.ims.ImsReasonInfo;
+import android.telephony.ims.feature.MmTelFeature;
+import android.telephony.ims.stub.ImsRegistrationImplBase;
 import android.test.suitebuilder.annotation.SmallTest;
 import android.util.Base64;
 
-import com.android.ims.ImsConfig;
-import com.android.ims.ImsReasonInfo;
-import com.android.ims.internal.ImsCallSession;
 import com.android.internal.telephony.Call;
 import com.android.internal.telephony.GsmCdmaConnection;
 import com.android.internal.telephony.PhoneConstants;
 import com.android.internal.telephony.SmsResponse;
 import com.android.internal.telephony.TelephonyTest;
 import com.android.internal.telephony.UUSInfo;
-import com.android.internal.telephony.dataconnection.DataCallResponse;
 import com.android.internal.telephony.nano.TelephonyProto;
 import com.android.internal.telephony.nano.TelephonyProto.ImsConnectionState;
 import com.android.internal.telephony.nano.TelephonyProto.RadioAccessTechnology;
@@ -76,9 +77,6 @@ public class TelephonyMetricsTest extends TelephonyTest {
     private ImsCallSession mImsCallSession;
 
     @Mock
-    private ImsReasonInfo mImsReasonInfo;
-
-    @Mock
     private ServiceState mServiceState;
 
     @Mock
@@ -88,15 +86,18 @@ public class TelephonyMetricsTest extends TelephonyTest {
 
     private UUSInfo mUusInfo;
 
+    private ImsReasonInfo mImsReasonInfo;
+
     @Before
     public void setUp() throws Exception {
         super.setUp(getClass().getSimpleName());
         mMetrics = new TelephonyMetrics();
         mUusInfo = new UUSInfo(1, 2, new byte[]{1, 2});
         doReturn("123").when(mImsCallSession).getCallId();
-        doReturn("extramessage").when(mImsReasonInfo).getExtraMessage();
-        doReturn(123).when(mImsReasonInfo).getCode();
-        doReturn(456).when(mImsReasonInfo).getExtraCode();
+        mImsReasonInfo = new ImsReasonInfo();
+        mImsReasonInfo.mExtraMessage = "extramessage";
+        mImsReasonInfo.mCode = 123;
+        mImsReasonInfo.mExtraCode = 456;
 
         doReturn(ROAMING_TYPE_DOMESTIC).when(mServiceState).getVoiceRoamingType();
         doReturn(ROAMING_TYPE_DOMESTIC).when(mServiceState).getDataRoamingType();
@@ -179,6 +180,46 @@ public class TelephonyMetricsTest extends TelephonyTest {
         assertEquals("Test", log.events[0].modemRestart.reason);
     }
 
+    // Test write Carrier Identification matching event
+    @Test
+    @SmallTest
+    public void testWriteCarrierIdMatchingEventWithInvalidMatchingScore() throws Exception {
+
+        mMetrics.writeCarrierIdMatchingEvent(mPhone.getPhoneId(), 1,
+                TelephonyManager.UNKNOWN_CARRIER_ID, "mccmncTest", "gid1Test");
+        TelephonyLog log = buildProto();
+
+        assertEquals(1, log.events.length);
+        assertEquals(0, log.callSessions.length);
+        assertEquals(0, log.smsSessions.length);
+
+        assertEquals(mPhone.getPhoneId(), log.events[0].phoneId);
+        assertEquals(1, log.events[0].carrierIdMatching.cidTableVersion);
+        assertEquals(TelephonyEvent.Type.CARRIER_ID_MATCHING, log.events[0].type);
+        assertEquals("mccmncTest", log.events[0].carrierIdMatching.result.mccmnc);
+        assertTrue(log.events[0].carrierIdMatching.result.gid1.isEmpty());
+    }
+
+    // Test write Carrier Identification matching event
+    @Test
+    @SmallTest
+    public void testWriteCarrierIdMatchingEvent() throws Exception {
+
+        mMetrics.writeCarrierIdMatchingEvent(mPhone.getPhoneId(), 1, 1, "mccmncTest", "gid1Test");
+        TelephonyLog log = buildProto();
+
+        assertEquals(1, log.events.length);
+        assertEquals(0, log.callSessions.length);
+        assertEquals(0, log.smsSessions.length);
+
+        assertEquals(mPhone.getPhoneId(), log.events[0].phoneId);
+        assertEquals(TelephonyEvent.Type.CARRIER_ID_MATCHING, log.events[0].type);
+        assertEquals(1, log.events[0].carrierIdMatching.cidTableVersion);
+        assertEquals(1, log.events[0].carrierIdMatching.result.carrierId);
+        assertEquals("mccmncTest", log.events[0].carrierIdMatching.result.mccmnc);
+        assertEquals("gid1Test", log.events[0].carrierIdMatching.result.gid1);
+    }
+
     // Test write on IMS call start
     @Test
     @SmallTest
@@ -248,9 +289,11 @@ public class TelephonyMetricsTest extends TelephonyTest {
     public void testWriteImsSetFeatureValue() throws Exception {
         mMetrics.writeOnImsCallStart(mPhone.getPhoneId(), mImsCallSession);
         mMetrics.writeImsSetFeatureValue(mPhone.getPhoneId(),
-                ImsConfig.FeatureConstants.FEATURE_TYPE_VOICE_OVER_LTE, 0, 1, 0);
+                MmTelFeature.MmTelCapabilities.CAPABILITY_TYPE_VOICE,
+                ImsRegistrationImplBase.REGISTRATION_TECH_LTE, 1);
         mMetrics.writeImsSetFeatureValue(mPhone.getPhoneId(),
-                ImsConfig.FeatureConstants.FEATURE_TYPE_VOICE_OVER_LTE, 0, 1, 0);
+                MmTelFeature.MmTelCapabilities.CAPABILITY_TYPE_VOICE,
+                ImsRegistrationImplBase.REGISTRATION_TECH_LTE, 1);
         mMetrics.writePhoneState(mPhone.getPhoneId(), PhoneConstants.State.IDLE);
         TelephonyLog log = buildProto();
 
@@ -347,11 +390,21 @@ public class TelephonyMetricsTest extends TelephonyTest {
     @Test
     @SmallTest
     public void testWriteOnSetupDataCallResponse() throws Exception {
-        DataCallResponse response = new DataCallResponse(5, 6, 7, 8, "IPV4V6", FAKE_IFNAME,
-                FAKE_ADDRESS, FAKE_DNS, FAKE_GATEWAY, FAKE_PCSCF_ADDRESS, 1440);
+        SetupDataCallResult result = new SetupDataCallResult();
+        result.status = 5;
+        result.suggestedRetryTime = 6;
+        result.cid = 7;
+        result.active = 8;
+        result.type = "IPV4V6";
+        result.ifname = FAKE_IFNAME;
+        result.addresses = FAKE_ADDRESS;
+        result.dnses = FAKE_DNS;
+        result.gateways = FAKE_GATEWAY;
+        result.pcscf = FAKE_PCSCF_ADDRESS;
+        result.mtu = 1440;
 
         mMetrics.writeOnRilSolicitedResponse(mPhone.getPhoneId(), 1, 2,
-                RIL_REQUEST_SETUP_DATA_CALL, response);
+                RIL_REQUEST_SETUP_DATA_CALL, result);
         TelephonyLog log = buildProto();
 
         assertEquals(1, log.events.length);
@@ -488,8 +541,8 @@ public class TelephonyMetricsTest extends TelephonyTest {
     @Test
     @SmallTest
     public void testWriteRilSetupDataCall() throws Exception {
-        mMetrics.writeRilSetupDataCall(
-                mPhone.getPhoneId(), 1, 14, 3, "apn", 0, "IPV4V6");
+        mMetrics.writeSetupDataCall(
+                mPhone.getPhoneId(), 14, 3, "apn", "IPV4V6");
 
         TelephonyLog log = buildProto();
 
@@ -611,13 +664,19 @@ public class TelephonyMetricsTest extends TelephonyTest {
     @Test
     @SmallTest
     public void testWriteOnImsCapabilities() throws Exception {
-        boolean[] caps1 = new boolean[]{true, false, true, false, true, false};
-        mMetrics.writeOnImsCapabilities(mPhone.getPhoneId(), caps1);
-        boolean[] caps2 = new boolean[]{true, false, true, false, true, false};
+        MmTelFeature.MmTelCapabilities caps1 = new MmTelFeature.MmTelCapabilities();
+        caps1.addCapabilities(MmTelFeature.MmTelCapabilities.CAPABILITY_TYPE_VOICE);
+        caps1.addCapabilities(MmTelFeature.MmTelCapabilities.CAPABILITY_TYPE_UT);
+        mMetrics.writeOnImsCapabilities(mPhone.getPhoneId(),
+                ImsRegistrationImplBase.REGISTRATION_TECH_LTE, caps1);
         // The duplicate one should be filtered out.
-        mMetrics.writeOnImsCapabilities(mPhone.getPhoneId(), caps2);
-        boolean[] caps3 = new boolean[]{false, true, false, true, false, true};
-        mMetrics.writeOnImsCapabilities(mPhone.getPhoneId(), caps3);
+        mMetrics.writeOnImsCapabilities(mPhone.getPhoneId(),
+                ImsRegistrationImplBase.REGISTRATION_TECH_LTE, caps1);
+        MmTelFeature.MmTelCapabilities caps2 = new MmTelFeature.MmTelCapabilities();
+        caps2.addCapabilities(MmTelFeature.MmTelCapabilities.CAPABILITY_TYPE_VIDEO);
+        caps2.addCapabilities(MmTelFeature.MmTelCapabilities.CAPABILITY_TYPE_UT);
+        mMetrics.writeOnImsCapabilities(mPhone.getPhoneId(),
+                ImsRegistrationImplBase.REGISTRATION_TECH_IWLAN, caps2);
         TelephonyLog log = buildProto();
 
         assertEquals(2, log.events.length);
@@ -627,21 +686,27 @@ public class TelephonyMetricsTest extends TelephonyTest {
         TelephonyEvent event = log.events[0];
 
         assertEquals(TelephonyEvent.Type.IMS_CAPABILITIES_CHANGED, event.type);
-        assertEquals(caps1[0], event.imsCapabilities.voiceOverLte);
-        assertEquals(caps1[1], event.imsCapabilities.videoOverLte);
-        assertEquals(caps1[2], event.imsCapabilities.voiceOverWifi);
-        assertEquals(caps1[3], event.imsCapabilities.videoOverWifi);
-        assertEquals(caps1[4], event.imsCapabilities.utOverLte);
-        assertEquals(caps1[5], event.imsCapabilities.utOverWifi);
+        assertEquals(caps1.isCapable(MmTelFeature.MmTelCapabilities.CAPABILITY_TYPE_VOICE),
+                event.imsCapabilities.voiceOverLte);
+        assertEquals(caps1.isCapable(MmTelFeature.MmTelCapabilities.CAPABILITY_TYPE_VIDEO),
+                event.imsCapabilities.videoOverLte);
+        assertEquals(caps1.isCapable(MmTelFeature.MmTelCapabilities.CAPABILITY_TYPE_UT),
+                event.imsCapabilities.utOverLte);
+        assertEquals(false, event.imsCapabilities.voiceOverWifi);
+        assertEquals(false, event.imsCapabilities.videoOverWifi);
+        assertEquals(false, event.imsCapabilities.utOverWifi);
 
         event = log.events[1];
 
         assertEquals(TelephonyEvent.Type.IMS_CAPABILITIES_CHANGED, event.type);
-        assertEquals(caps3[0], event.imsCapabilities.voiceOverLte);
-        assertEquals(caps3[1], event.imsCapabilities.videoOverLte);
-        assertEquals(caps3[2], event.imsCapabilities.voiceOverWifi);
-        assertEquals(caps3[3], event.imsCapabilities.videoOverWifi);
-        assertEquals(caps3[4], event.imsCapabilities.utOverLte);
-        assertEquals(caps3[5], event.imsCapabilities.utOverWifi);
+        assertEquals(caps2.isCapable(MmTelFeature.MmTelCapabilities.CAPABILITY_TYPE_VOICE),
+                event.imsCapabilities.voiceOverWifi);
+        assertEquals(caps2.isCapable(MmTelFeature.MmTelCapabilities.CAPABILITY_TYPE_VIDEO),
+                event.imsCapabilities.videoOverWifi);
+        assertEquals(caps2.isCapable(MmTelFeature.MmTelCapabilities.CAPABILITY_TYPE_UT),
+                event.imsCapabilities.utOverWifi);
+        assertEquals(false, event.imsCapabilities.voiceOverLte);
+        assertEquals(false, event.imsCapabilities.videoOverLte);
+        assertEquals(false, event.imsCapabilities.utOverLte);
     }
 }

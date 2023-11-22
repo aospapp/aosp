@@ -26,7 +26,6 @@ import android.speech.tts.TextToSpeech;
 import android.speech.tts.TtsEngines;
 import android.speech.tts.UtteranceProgressListener;
 import android.support.annotation.Keep;
-import android.support.v17.preference.LeanbackPreferenceFragment;
 import android.support.v7.preference.ListPreference;
 import android.support.v7.preference.Preference;
 import android.support.v7.preference.PreferenceCategory;
@@ -34,7 +33,9 @@ import android.text.TextUtils;
 import android.util.Log;
 import android.widget.Checkable;
 
+import com.android.internal.logging.nano.MetricsProto;
 import com.android.tv.settings.R;
+import com.android.tv.settings.SettingsPreferenceFragment;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -48,7 +49,7 @@ import java.util.Set;
  * Fragment for TextToSpeech settings
  */
 @Keep
-public class TextToSpeechFragment extends LeanbackPreferenceFragment  implements
+public class TextToSpeechFragment extends SettingsPreferenceFragment implements
         Preference.OnPreferenceChangeListener, Preference.OnPreferenceClickListener,
         TtsEnginePreference.RadioButtonGroupState {
     private static final String TAG = "TextToSpeechSettings";
@@ -590,7 +591,7 @@ public class TextToSpeechFragment extends LeanbackPreferenceFragment  implements
         if (mAvailableStrLocals == null) {
             Log.e(TAG, "Voice data check complete, but no available voices found");
             // Set mAvailableStrLocals to empty list
-            mAvailableStrLocals = new ArrayList<String>();
+            mAvailableStrLocals = new ArrayList<>();
         }
         if (evaluateDefaultLocale()) {
             getSampleText();
@@ -622,5 +623,8 @@ public class TextToSpeechFragment extends LeanbackPreferenceFragment  implements
         updateDefaultEngine(mCurrentEngine);
     }
 
-
+    @Override
+    public int getMetricsCategory() {
+        return MetricsProto.MetricsEvent.TTS_TEXT_TO_SPEECH;
+    }
 }

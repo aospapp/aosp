@@ -14,23 +14,16 @@
      limitations under the License.
 -->
 <configuration description="VTS Main Test Plan">
-  <device_recovery class="com.android.tradefed.device.WaitDeviceRecovery" />
-
-  <option name="compatibility:test-arg" value="com.android.tradefed.testtype.AndroidJUnitTest:rerun-from-file:true" />
-  <option name="compatibility:test-arg" value="com.android.tradefed.testtype.AndroidJUnitTest:fallback-to-serial-rerun:false" />
-  <logger class="com.android.tradefed.log.FileLogger">
-    <option name="log-level-display" value="WARN" />
-  </logger>
-  <option name="compatibility:skip-all-system-status-check" value="true" />
-  <option name="max-log-size" value="200" />
-  <object type="vts-vendor-config" class="com.android.tradefed.util.VtsVendorConfigFileUtil" />
-  <result_reporter class="com.android.compatibility.common.tradefed.result.ConsoleReporter" />
-  <result_reporter class="com.android.compatibility.common.tradefed.result.VtsResultReporter" />
-
-  <template-include name="reporters" default="basic-reporters" />
-  <target_preparer class="com.android.tradefed.targetprep.VtsTestPlanResultReporter" />
-  <test class="com.android.compatibility.common.tradefed.testtype.CompatibilityTest" />
+  <include name="vts-base-common" />
 
   <build_provider class="com.android.compatibility.common.tradefed.build.CompatibilityBuildProvider" />
   <target_preparer class="com.android.tradefed.targetprep.VtsDeviceInfoCollector" />
+  <target_preparer class="com.android.compatibility.common.tradefed.targetprep.DeviceInfoCollector">
+    <option name="apk" value="CtsDeviceInfo.apk"/>
+    <option name="package" value="com.android.compatibility.common.deviceinfo"/>
+    <option name="src-dir" value="/sdcard/device-info-files/"/>
+    <option name="dest-dir" value="device-info-files/"/>
+    <option name="temp-dir" value="temp-device-info-files/"/>
+    <option name="throw-error" value="false"/>
+  </target_preparer>
 </configuration>

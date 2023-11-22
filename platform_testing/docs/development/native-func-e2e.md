@@ -262,8 +262,8 @@ the device is setup properly prior to test execution.
 This specifies the TradeFederation test class to use to execute the test and
 passes in the native test location that it was installed.
 
-Look here for more information on [Test Module Configs](../test-config.md)
+Look here for more information on [Test Module Configs](test-config.md)
 
 ## Build & Test Locally
 
-Follow these [Instructions](../native.md) to build and execute your test
+Follow these [Instructions](native.md) to build and execute your test

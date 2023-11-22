@@ -106,7 +106,7 @@
     <string name="upload_success" msgid="4014469387779648949">"<xliff:g id="FILE_SIZE">%1$s</xliff:g> Telah selesai dikirim."</string>
     <string name="inbound_history_title" msgid="6940914942271327563">"Transfer masuk"</string>
     <string name="outbound_history_title" msgid="4279418703178140526">"Transfer keluar"</string>
-    <string name="no_transfers" msgid="3482965619151865672">"Riwayat transfer kosong."</string>
+    <string name="no_transfers" msgid="3482965619151865672">"Histori transfer kosong."</string>
     <string name="transfer_clear_dlg_msg" msgid="1712376797268438075">"Semua item akan dihapus dari daftar."</string>
     <string name="outbound_noti_title" msgid="8051906709452260849">"Berbagi bluetooth: Telah mengirimkan file"</string>
     <string name="inbound_noti_title" msgid="4143352641953027595">"Berbagi Bluetooth: File yang diterima"</string>
@@ -132,4 +132,5 @@
     <string name="bluetooth_connected" msgid="6718623220072656906">"Bluetooth audio terhubung"</string>
     <string name="bluetooth_disconnected" msgid="3318303728981478873">"Bluetooth audio terputus"</string>
     <string name="a2dp_sink_mbs_label" msgid="7566075853395412558">"Bluetooth Audio"</string>
+    <string name="bluetooth_opp_file_limit_exceeded" msgid="8894450394309084519">"File yang berukuran lebih dari 4GB tidak dapat ditransfer"</string>
 </resources>

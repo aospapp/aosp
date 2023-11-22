@@ -18,7 +18,7 @@ package com.android.server.accessibility;
 
 import static android.view.MotionEvent.ACTION_DOWN;
 import static android.view.MotionEvent.ACTION_UP;
-import static android.view.WindowManagerPolicy.FLAG_PASS_TO_USER;
+import static android.view.WindowManagerPolicyConstants.FLAG_PASS_TO_USER;
 import static org.hamcrest.CoreMatchers.allOf;
 import static org.hamcrest.CoreMatchers.anyOf;
 import static org.hamcrest.CoreMatchers.everyItem;
@@ -65,7 +65,6 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.compat.ArgumentMatcher;
 
 /**
  * Tests for MotionEventInjector

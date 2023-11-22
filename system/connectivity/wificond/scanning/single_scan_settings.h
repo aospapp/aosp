@@ -35,14 +35,19 @@ class SingleScanSettings : public ::android::Parcelable {
  public:
   SingleScanSettings() = default;
   bool operator==(const SingleScanSettings& rhs) const {
-    return (channel_settings_ == rhs.channel_settings_ &&
+    return (scan_type_ == rhs.scan_type_ &&
+            channel_settings_ == rhs.channel_settings_ &&
             hidden_networks_ == rhs.hidden_networks_);
   }
   ::android::status_t writeToParcel(::android::Parcel* parcel) const override;
   ::android::status_t readFromParcel(const ::android::Parcel* parcel) override;
 
+  int32_t scan_type_;
   std::vector<ChannelSettings> channel_settings_;
   std::vector<HiddenNetwork> hidden_networks_;
+
+ private:
+  bool isValidScanType() const;
 };
 
 }  // namespace wificond

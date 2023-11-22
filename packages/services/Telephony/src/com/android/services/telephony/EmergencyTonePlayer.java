@@ -16,6 +16,9 @@
 
 package com.android.services.telephony;
 
+import static android.media.AudioManager.RINGER_MODE_NORMAL;
+import static android.media.AudioManager.RINGER_MODE_SILENT;
+
 import android.content.Context;
 import android.media.AudioAttributes;
 import android.media.AudioManager;
@@ -67,11 +70,7 @@ class EmergencyTonePlayer {
                 startVibrate();
                 break;
             case EMERGENCY_TONE_ALERT:
-                // Only start if we are not in silent mode.
-                int ringerMode = mAudioManager.getRingerMode();
-                if (ringerMode == AudioManager.RINGER_MODE_NORMAL) {
-                    startAlert();
-                }
+                startAlert();
                 break;
             case EMERGENCY_TONE_OFF:
                 // nothing;
@@ -85,6 +84,12 @@ class EmergencyTonePlayer {
     }
 
     private void startVibrate() {
+        int ringerMode = mAudioManager.getRingerMode();
+        if (ringerMode == RINGER_MODE_SILENT) {
+            Log.i(this, "startVibrate: skipping vibrate tone due to ringer mode %d", ringerMode);
+            return;
+        }
+
         if (!mIsVibrating) {
             mVibrator.vibrate(VIBRATE_PATTERN, 0, VIBRATION_ATTRIBUTES);
             mIsVibrating = true;
@@ -99,6 +104,12 @@ class EmergencyTonePlayer {
     }
 
     private void startAlert() {
+        int ringerMode = mAudioManager.getRingerMode();
+        if (ringerMode != RINGER_MODE_NORMAL) {
+            Log.i(this, "startAlert: skipping emergency tone due to ringer mode %d", ringerMode);
+            return;
+        }
+
         if (mToneGenerator == null) {
             mToneGenerator = new ToneGenerator(
                     AudioManager.STREAM_VOICE_CALL, ALERT_RELATIVE_VOLUME_PERCENT);
@@ -110,8 +121,6 @@ class EmergencyTonePlayer {
                     mAudioManager.getStreamMaxVolume(AudioManager.STREAM_VOICE_CALL),
                     0);
             mToneGenerator.startTone(ToneGenerator.TONE_CDMA_EMERGENCY_RINGBACK);
-        } else {
-            Log.d(this, "An alert is already running.");
         }
     }
 

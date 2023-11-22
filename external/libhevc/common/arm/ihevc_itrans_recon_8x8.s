@@ -104,6 +104,11 @@
 @   dst_strd
 @   zero_cols
 
+.equ    src_stride_offset,     104
+.equ    pred_stride_offset,    108
+.equ    out_stride_offset,     112
+.equ    zero_cols_offset,      116
+.equ    zero_rows_offset,      120
 
 
 .text
@@ -151,12 +156,13 @@ ihevc_itrans_recon_8x8_a9q:
     @// copy the input pointer to another register
     @// step 1 : load all constants
     stmfd       sp!,{r4-r12,lr}
+    vpush       {d8  -  d15}
 
-    ldr         r8,[sp,#44]                  @ prediction stride
-    ldr         r7,[sp,#48]                  @ destination stride
-    ldr         r6,[sp, #40]                     @ src stride
-    ldr         r12,[sp,#52]
-    ldr         r11,[sp,#56]
+    ldr         r8, [sp, #pred_stride_offset]    @ prediction stride
+    ldr         r7, [sp, #out_stride_offset]     @ destination stride
+    ldr         r6, [sp, #src_stride_offset]     @ src stride
+    ldr         r12, [sp, #zero_cols_offset]
+    ldr         r11, [sp, #zero_rows_offset]
     mov         r6,r6,lsl #1                @ x sizeof(word16)
     add         r9,r0,r6, lsl #1            @ 2 rows
 
@@ -925,7 +931,7 @@ pred_buff_addition:
 
 
 
-
+    vpop        {d8  -  d15}
     ldmfd       sp!,{r4-r12,pc}
 
 

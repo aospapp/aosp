@@ -20,8 +20,11 @@
     <package>com.example.android.wearable.datalayer</package>
 
     <minSdk>18</minSdk>
-    <targetSdkVersion>25</targetSdkVersion>
-    <targetSdkVersionWear>25</targetSdkVersionWear>
+    <targetSdkVersion>27</targetSdkVersion>
+    <compileSdkVersionWear>26</compileSdkVersionWear>
+    <targetSdkVersionWear>26</targetSdkVersionWear>
+
+    <multiDexEnabled>true</multiDexEnabled>
 
     <wearable>
         <has_handheld_app>true</has_handheld_app>
@@ -63,7 +66,7 @@ to produce and consume DataEvents and effectively work with the DataLayer.
         </description>
         <intro>
 <![CDATA[
-This sample demonstrates how to make a handheld and an Android Wear device communicate
+This sample demonstrates how to make a handheld and an Wear device communicate
 using the [DataApi][2].
 It does this by sending a picture between connected devices.
 

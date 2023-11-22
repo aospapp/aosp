@@ -77,5 +77,10 @@
             android:title="@string/menu_settings"
             android:showAsAction="never"
             android:visible="false" />
+       <item
+           android:id="@+id/option_menu_inspect"
+           android:title="@string/menu_inspect"
+           android:showAsAction="never"
+           android:visible="false" />
     </group>
 </menu>

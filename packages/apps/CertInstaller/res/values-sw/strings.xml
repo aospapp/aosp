@@ -19,7 +19,7 @@
     <string name="app_name" msgid="9095072584761066851">"Kisakinishaji Cheti"</string>
     <string name="pick_file_title" msgid="4481949485108233297">"Chagua cheti"</string>
     <string name="pkcs12_password_dialog_title" msgid="5997624645207427161">"Chopoa cheti"</string>
-    <string name="extracting_pkcs12" msgid="1881267738821799771">"Inadondoa..."</string>
+    <string name="extracting_pkcs12" msgid="1881267738821799771">"Zinatolewa..."</string>
     <string name="pkcs12_file_password_dialog_title" msgid="8102721384767269510">"Chopoa kutoka kwa %s"</string>
     <string name="name_credential_dialog_title" msgid="277729846491554437">"Jina lililo kwenye cheti"</string>
     <string name="credential_name" msgid="1974979771369744378">"Jina la cheti:"</string>
@@ -52,6 +52,7 @@
     <item msgid="375085478373011304">"VPN na programu"</item>
     <item msgid="692322974985472861">"Wi-Fi"</item>
   </string-array>
+    <string name="certificate_capabilities_warning" msgid="4158609401937799110">"Kidokezo: Huenda mtoaji wa cheti hiki akakagua data yote inayoingia na kutoka kwenye kifaa hiki."</string>
     <string name="wifi_title" msgid="8475811746333426489">"Wasifu wa Wi-Fi"</string>
     <string name="wifi_detail_title" msgid="3627332137252994395">"Maelezo ya %s"</string>
     <string name="wifi_detail_label" msgid="3032151019356747583">"Maelezo"</string>

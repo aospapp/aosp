@@ -17,7 +17,7 @@
 #ifndef LIBTEXTCLASSIFIER_UTIL_BASE_LOGGING_LEVELS_H_
 #define LIBTEXTCLASSIFIER_UTIL_BASE_LOGGING_LEVELS_H_
 
-namespace libtextclassifier {
+namespace libtextclassifier2 {
 namespace logging {
 
 enum LogSeverity {
@@ -28,6 +28,6 @@ enum LogSeverity {
 };
 
 }  // namespace logging
-}  // namespace libtextclassifier
+}  // namespace libtextclassifier2
 
 #endif  // LIBTEXTCLASSIFIER_UTIL_BASE_LOGGING_LEVELS_H_

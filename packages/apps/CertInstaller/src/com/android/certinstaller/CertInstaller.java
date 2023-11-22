@@ -401,15 +401,20 @@ public class CertInstaller extends Activity {
             view.findViewById(R.id.credential_usage_group).setVisibility(View.GONE);
         } else {
             final Spinner usageSpinner = (Spinner) view.findViewById(R.id.credential_usage);
+            final View ca_capabilities_warning = view.findViewById(R.id.credential_capabilities_warning);
 
             usageSpinner.setOnItemSelectedListener(new OnItemSelectedListener() {
                 @Override
                 public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
                     switch ((int) id) {
                         case USAGE_TYPE_SYSTEM:
+                            ca_capabilities_warning.setVisibility(
+                                    mCredentials.includesVpnAndAppsTrustAnchors() ?
+                                    View.VISIBLE : View.GONE);
                             mCredentials.setInstallAsUid(KeyStore.UID_SELF);
                             break;
                         case USAGE_TYPE_WIFI:
+                            ca_capabilities_warning.setVisibility(View.GONE);
                             mCredentials.setInstallAsUid(Process.WIFI_UID);
                             break;
                         default:

@@ -46,7 +46,6 @@ import com.android.dx.rop.cst.CstString;
 import com.android.dx.rop.cst.CstType;
 import com.android.dx.rop.type.Prototype;
 import com.android.dx.rop.type.Type;
-
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -84,8 +83,6 @@ import java.util.jar.Manifest;
  * Main class for the class file translator.
  */
 public class Main {
-
-    public static final int CONCURRENCY_LEVEL = 4;
 
     /**
      * File extension of a {@code .dex} file.
@@ -567,13 +564,15 @@ public class Main {
                 }
 
                 // remaining files
+                FileNameFilter filter = new RemoveModuleInfoFilter(new NotFilter(mainPassFilter));
                 for (int i = 0; i < fileNames.length; i++) {
-                    processOne(fileNames[i], new NotFilter(mainPassFilter));
+                    processOne(fileNames[i], filter);
                 }
             } else {
                 // without --main-dex-list
+                FileNameFilter filter = new RemoveModuleInfoFilter(ClassPathOpener.acceptAll);
                 for (int i = 0; i < fileNames.length; i++) {
-                    processOne(fileNames[i], ClassPathOpener.acceptAll);
+                    processOne(fileNames[i], filter);
                 }
             }
         } catch (StopProcessing ex) {
@@ -1160,6 +1159,22 @@ public class Main {
     }
 
     /**
+     * Filters "module-info.class" out of the paths accepted by delegate.
+     */
+    private static class RemoveModuleInfoFilter implements FileNameFilter {
+        protected final FileNameFilter delegate;
+
+        public RemoveModuleInfoFilter(FileNameFilter delegate) {
+            this.delegate = delegate;
+        }
+
+        @Override
+        public boolean accept(String path) {
+            return delegate.accept(path) && !("module-info.class".equals(path));
+        }
+    }
+
+    /**
      * A quick and accurate filter for when file path can be trusted.
      */
     private class MainDexListFilter implements FileNameFilter {
@@ -1313,6 +1328,9 @@ public class Main {
         /** whether to force generation of const-string/jumbo for all indexes,
          *  to allow merges between dex files with many strings. */
         public boolean forceJumbo = false;
+
+        /** whether default and static interface methods can be invoked at any API level. */
+        public boolean allowAllInterfaceMethodInvokes = false;
 
         /** {@code non-null} after {@link #parse}; file name arguments */
         public String[] fileNames;
@@ -1581,6 +1599,8 @@ public class Main {
                         throw new UsageException();
                     }
                     minSdkVersion = value;
+                } else if (parser.isArg("--allow-all-interface-method-invokes")) {
+                    allowAllInterfaceMethodInvokes = true;
                 } else {
                     context.err.println("unknown option: " + parser.getCurrent());
                     throw new UsageException();
@@ -1680,9 +1700,10 @@ public class Main {
                 cfOptions.warn = context.noop;
             }
 
-            dexOptions = new DexOptions();
+            dexOptions = new DexOptions(context.err);
             dexOptions.minSdkVersion = minSdkVersion;
             dexOptions.forceJumbo = forceJumbo;
+            dexOptions.allowAllInterfaceMethodInvokes = allowAllInterfaceMethodInvokes;
         }
     }
 
@@ -1939,7 +1960,7 @@ public class Main {
     /** Callable helper class to convert dex files in worker threads */
     private class DexWriter implements Callable<byte[]> {
 
-        private DexFile dexFile;
+        private final DexFile dexFile;
 
         private DexWriter(DexFile dexFile) {
             this.dexFile = dexFile;

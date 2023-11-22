@@ -71,6 +71,7 @@ DEVSERVER_SSH_TIMEOUT_MINS = 1
 
 # Error message for invalid devserver response.
 ERR_MSG_FOR_INVALID_DEVSERVER_RESPONSE = 'Proxy Error'
+ERR_MSG_FOR_DOWN_DEVSERVER = 'Service Unavailable'
 
 # Error message for devserver call timedout.
 ERR_MSG_FOR_TIMED_OUT_CALL = 'timeout'
@@ -145,10 +146,20 @@ AUTO_UPDATE_LOG_DIR = 'autoupdate_logs'
 
 DEFAULT_SUBNET_MASKBIT = 19
 
+# Metrics basepaths.
+METRICS_PATH = 'chromeos/autotest'
+PROVISION_PATH = METRICS_PATH + '/provision'
+
 
 class DevServerException(Exception):
     """Raised when the dev server returns a non-200 HTTP response."""
     pass
+
+
+class BadBuildException(DevServerException):
+    """Raised when build failed to boot on DUT."""
+    pass
+
 
 class RetryableProvisionException(DevServerException):
     """Raised when provision fails due to a retryable reason."""
@@ -161,6 +172,59 @@ class DevServerOverloadException(Exception):
 class DevServerFailToLocateException(Exception):
     """Raised when fail to locate any devserver."""
     pass
+
+
+class DevServerExceptionClassifier(object):
+    """A Class represents exceptions raised from DUT by calling auto_update."""
+    def __init__(self, err, keep_full_trace=True):
+        """
+        @param err: A single string representing one time provision
+            error happened in auto_update().
+        @param keep_full_trace: True to keep the whole track trace of error.
+            False when just keep the last line.
+        """
+        self._err = err if keep_full_trace else err.split('\n')[-1]
+        self._classification = None
+
+    def _classify(self):
+        for err_pattern, classification in _EXCEPTION_PATTERNS:
+            if re.match(err_pattern, self._err):
+                return classification
+
+        return '(0) Unknown exception'
+
+    @property
+    def classification(self):
+        """Classify the error
+
+        @return: return a classified exception type (string) from
+            _EXCEPTION_PATTERNS or 'Unknown exception'. Current patterns in
+            _EXCEPTION_PATTERNS are very specific so that errors cannot match
+            more than one pattern.
+        """
+        if not self._classification:
+            self._classification = self._classify()
+        return self._classification
+
+    @property
+    def summary(self):
+        """Use one line to show the error message."""
+        return ' '.join(self._err.splitlines())
+
+    @property
+    def classified_exception(self):
+        """What kind of exception will be raised to higher.
+
+        @return: return a special Exception when the raised error is an
+            RootfsUpdateError. Otherwise, return general DevServerException.
+        """
+        # The classification of RootfsUpdateError in _EXCEPTION_PATTERNS starts
+        # with "(4)"
+        if self.classification.startswith('(4)'):
+            return BadBuildException
+
+        return DevServerException
+
 
 class MarkupStripper(HTMLParser.HTMLParser):
     """HTML parser that strips HTML tags, coded characters like &amp;
@@ -224,6 +288,28 @@ def _get_storage_server_for_artifacts(artifacts=None):
     if artifacts and factory_artifact and factory_artifact in artifacts:
         return _get_canary_channel_server()
     return _get_image_storage_server()
+
+
+def _gs_or_local_archive_url_args(archive_url):
+    """Infer the devserver call arguments to use with the given archive_url.
+
+    @param archive_url: The archive url to include the in devserver RPC. This
+            can either e a GS path or a local path.
+    @return: A dict of arguments to include in the devserver call.
+    """
+    if not archive_url:
+        return {}
+    elif archive_url.startswith('gs://'):
+        return {'archive_url': archive_url}
+    else:
+        # For a local path, we direct the devserver to move the files while
+        # staging. This is the fastest way to stage local files, but deletes the
+        # files from the source. This is OK because the files are available on
+        # the devserver once staged.
+        return {
+                'local_path': archive_url,
+                'delete_source': True,
+        }
 
 
 def _reverse_lookup_from_config(address):
@@ -542,6 +628,12 @@ class DevServer(object):
         @param kwargs: a dict mapping arg names to arg values.
         @return the URL string.
         """
+        # If the archive_url is a local path, the args expected by the devserver
+        # are a little different.
+        archive_url_args = _gs_or_local_archive_url_args(
+                kwargs.pop('archive_url', None))
+        kwargs.update(archive_url_args)
+
         argstr = '&'.join(map(lambda x: "%s=%s" % x, kwargs.iteritems()))
         return "%(host)s/%(method)s?%(argstr)s" % dict(
                 host=host, method=method, argstr=argstr)
@@ -718,15 +810,16 @@ class DevServer(object):
         # inside a restricted subnet. If so, only return the devservers in the
         # restricted subnet and doesn't allow retry.
         if host_ip and restricted_subnets:
-            for subnet_ip, mask_bits in restricted_subnets:
-                if utils.is_in_same_subnet(host_ip, subnet_ip, mask_bits):
-                    logging.debug('The host %s (%s) is in a restricted subnet. '
-                                  'Try to locate a devserver inside subnet '
-                                  '%s:%d.', hostname, host_ip, subnet_ip,
-                                  mask_bits)
-                    devservers = cls.get_devservers_in_same_subnet(
-                            subnet_ip, mask_bits)
-                    return devservers, False
+            subnet_ip, mask_bits = _get_subnet_for_host_ip(
+                    host_ip, restricted_subnets=restricted_subnets)
+            if subnet_ip:
+                logging.debug('The host %s (%s) is in a restricted subnet. '
+                              'Try to locate a devserver inside subnet '
+                              '%s:%d.', hostname, host_ip, subnet_ip,
+                              mask_bits)
+                devservers = cls.get_devservers_in_same_subnet(
+                        subnet_ip, mask_bits)
+                return devservers, False
 
         # If prefer_local_devserver is set to True and the host is not in
         # restricted subnet, pick a devserver in the same subnet if possible.
@@ -769,10 +862,20 @@ class DevServer(object):
         if devserver:
             return devserver
         else:
-            error_msg = ('All devservers are currently down: %s. '
-                         'dut hostname: %s' %
-                         (tried_devservers, hostname))
+            subnet = 'unrestricted subnet'
+            if hostname is not None:
+                host_ip = bin_utils.get_ip_address(hostname)
+                if host_ip:
+                    subnet_ip, mask_bits = _get_subnet_for_host_ip(host_ip)
+                    subnet = '%s/%s' % (str(subnet_ip), str(mask_bits))
+
+            error_msg = ('All devservers in subnet: %s are currently down: '
+                         '%s. (dut hostname: %s)' %
+                         (subnet, tried_devservers, hostname))
             logging.error(error_msg)
+            c = metrics.Counter(
+                    'chromeos/autotest/devserver/subnet_without_devservers')
+            c.increment(fields={'subnet': subnet, 'hostname': str(hostname)})
             raise DevServerException(error_msg)
 
 
@@ -957,13 +1060,40 @@ class ImageServerBase(DevServer):
         server_name = get_hostname(call)
         is_in_restricted_subnet = utils.get_restricted_subnet(
                 server_name, utils.RESTRICTED_SUBNETS)
-        if (not ENABLE_SSH_CONNECTION_FOR_DEVSERVER or
-            not is_in_restricted_subnet):
-            return super(ImageServerBase, cls).run_call(
-                    call, readline=readline, timeout=timeout)
-        else:
-            return cls.run_ssh_call(
-                    call, readline=readline, timeout=timeout)
+        _EMPTY_SENTINEL_VALUE = object()
+        def kickoff_call():
+            """Invoke a given devserver call using urllib.open or ssh.
+
+            @param call: a url string that calls a method to a devserver.
+            @param is_in_restricted_subnet: whether the devserver is in subnet.
+            @param readline: whether read http response line by line.
+            @param timeout: The timeout seconds for urlopen call or ssh call.
+            """
+            if (not ENABLE_SSH_CONNECTION_FOR_DEVSERVER or
+                not is_in_restricted_subnet):
+                response = super(ImageServerBase, cls).run_call(
+                        call, readline=readline, timeout=timeout)
+            else:
+                response = cls.run_ssh_call(
+                        call, readline=readline, timeout=timeout)
+            # Retry if devserver service is temporarily down, e.g. in a
+            # devserver push.
+            if ERR_MSG_FOR_DOWN_DEVSERVER in response:
+                return False
+
+            # Don't return response directly since it may be empty string,
+            # which causes poll_for_condition to retry.
+            return _EMPTY_SENTINEL_VALUE if not response else response
+
+        try:
+            response = bin_utils.poll_for_condition(
+                    kickoff_call,
+                    exception=bin_utils.TimeoutError(),
+                    timeout=60,
+                    sleep_interval=5)
+            return '' if response is _EMPTY_SENTINEL_VALUE else response
+        except bin_utils.TimeoutError:
+            return ERR_MSG_FOR_DOWN_DEVSERVER
 
 
     @classmethod
@@ -1726,6 +1856,7 @@ class ImageServer(ImageServerBase):
         try:
             return json.loads(response)
         except ValueError as e:
+            logging.debug('Failed to load json response: %s', response)
             raise DevServerException(e)
 
 
@@ -1823,7 +1954,7 @@ class ImageServer(ImageServerBase):
         return response
 
 
-    def _wait_for_auto_update_finished(self, pid, **kwargs):
+    def _check_for_auto_update_finished(self, pid, wait=True, **kwargs):
         """Polling devserver.get_au_status to get current auto-update status.
 
         The current auto-update status is used to identify whether the update
@@ -1831,6 +1962,7 @@ class ImageServer(ImageServerBase):
 
         @param pid:    The background process id for auto-update in devserver.
         @param kwargs: keyword arguments to make get_au_status devserver call.
+        @param wait:   Should the check wait for completion.
 
         @return: True if auto-update is finished for a given dut.
         """
@@ -1903,16 +2035,19 @@ class ImageServer(ImageServerBase):
                 raise DevServerException(
                         '%s (Got AU status: %r)' % (str(e), au_status))
 
-        bin_utils.poll_for_condition(
-                all_finished,
-                exception=bin_utils.TimeoutError(),
-                timeout=DEVSERVER_IS_CROS_AU_FINISHED_TIMEOUT_MIN * 60,
-                sleep_interval=CROS_AU_POLLING_INTERVAL)
+        if wait:
+            bin_utils.poll_for_condition(
+                    all_finished,
+                    exception=bin_utils.TimeoutError(),
+                    timeout=DEVSERVER_IS_CROS_AU_FINISHED_TIMEOUT_MIN * 60,
+                    sleep_interval=CROS_AU_POLLING_INTERVAL)
 
-        return True
+            return True
+        else:
+            return all_finished()
 
 
-    def wait_for_auto_update_finished(self, response, **kwargs):
+    def check_for_auto_update_finished(self, response, wait=True, **kwargs):
         """Processing response of 'cros_au' and polling for auto-update status.
 
         Will wait for the whole auto-update process is finished.
@@ -1921,52 +2056,32 @@ class ImageServer(ImageServerBase):
         @param kwargs: keyword arguments to make get_au_status devserver call.
 
         @return: a tuple includes two elements.
+          finished: True if the operation has completed.
           raised_error: None if everything works well or the raised error.
           pid: the auto-update process id on devserver.
         """
 
         pid = 0
         raised_error = None
+        finished = False
         try:
             response = json.loads(response)
             if response[0]:
                 pid = response[1]
-                logging.debug('start process %r for auto_update in devserver',
-                              pid)
-                self._wait_for_auto_update_finished(pid, **kwargs)
+                # If provision is kicked off asynchronously, pid will be -1.
+                # If provision is not successfully kicked off , pid continues
+                # to be 0.
+                if pid > 0:
+                    logging.debug('start process %r for auto_update in '
+                                  'devserver', pid)
+                    finished = self._check_for_auto_update_finished(
+                            pid, wait=wait, **kwargs)
         except Exception as e:
             logging.debug('Failed to trigger auto-update process on devserver')
+            finished = True
             raised_error = e
         finally:
-            return raised_error, pid
-
-
-    def _parse_AU_error(self, response):
-        """Parse auto_update error returned from devserver."""
-        return re.split('\n', response)[-1]
-
-
-    def _classify_exceptions(self, error_list):
-        """Parse the error that was raised from auto_update.
-
-        @param error_list: The list of errors (string) happened in auto-update
-
-        @return: A classified exception type (string) from _EXCEPTION_PATTERNS
-          or 'Unknown exception'. Current patterns in _EXCEPTION_PATTERNS are
-          very specific so that errors cannot match more than one pattern.
-        """
-        raised_error = ''
-        if not error_list:
-            return raised_error
-        else:
-            target_error = error_list[0]
-
-        for err_pattern, classification in _EXCEPTION_PATTERNS:
-            match = re.match(err_pattern, target_error)
-            if match:
-                return classification
-
-        return '(0) Unknown exception'
+            return finished, raised_error, pid
 
 
     def _check_error_message(self, error_patterns_to_check, error_msg):
@@ -2025,11 +2140,157 @@ class ImageServer(ImageServerBase):
         return board, build_type, milestone
 
 
+    def _emit_auto_update_metrics(self, board, build_type, dut_host_name,
+                                  build_name, attempt,
+                                  success, failure_reason, duration):
+        """Send metrics for a single auto_update attempt.
+
+        @param board: a field in metrics representing which board this
+            auto_update tries to update.
+        @param build_type: a field in metrics representing which build type this
+            auto_update tries to update.
+        @param dut_host_name: a field in metrics representing which DUT this
+            auto_update tries to update.
+        @param build_name: auto update build being updated to.
+        @param attempt: a field in metrics, representing which attempt/retry
+            this auto_update is.
+        @param success: a field in metrics, representing whether this
+            auto_update succeeds or not.
+        @param failure_reason: DevServerExceptionClassifier object to show
+            auto update failure reason, or None.
+        @param duration: auto update duration time, in seconds.
+        """
+        # The following is high cardinality, but sparse.
+        # Each DUT is of a single board type, and likely build type.
+        # The affinity also results in each DUT being attached to the same
+        # dev_server as well.
+        fields = {
+                'board': board,
+                'build_type': build_type,
+                'dut_host_name': dut_host_name,
+                'dev_server': self.resolved_hostname,
+                'attempt': attempt,
+                'success': success,
+        }
+
+        # reset_after=True is required for String gauges events to ensure that
+        # the metrics are not repeatedly emitted until the server restarts.
+
+        metrics.String(PROVISION_PATH + '/auto_update_build_by_devserver_dut',
+                       reset_after=True).set(build_name, fields=fields)
+
+        if not success:
+            metrics.String(
+                PROVISION_PATH +
+                '/auto_update_failure_reason_by_devserver_dut',
+                reset_after=True).set(
+                    failure_reason.classification if failure_reason else '',
+                    fields=fields)
+
+        metrics.SecondsDistribution(
+                PROVISION_PATH + '/auto_update_duration_by_devserver_dut').add(
+                        duration, fields=fields)
+
+
+    def _emit_provision_metrics(self, error_list, duration_list,
+                                is_au_success, board, build_type, milestone,
+                                dut_host_name, is_aue2etest,
+                                total_duration, build_name):
+        """Send metrics for provision request.
+
+        Provision represents potentially multiple auto update attempts.
+
+        Please note: to avoid reaching or exceeding the monarch field
+        cardinality limit, we avoid a metric that includes both dut hostname
+        and other high cardinality fields.
+
+        @param error_list: a list of DevServerExceptionClassifier objects to
+            show errors happened in provision. Usually it contains 1 ~
+            AU_RETRY_LIMIT objects since we only retry provision for several
+            times.
+        @param duration_list: a list of provision duration time, counted by
+            seconds.
+        @param is_au_success: a field in metrics, representing whether this
+            auto_update succeeds or not.
+        @param board: a field in metrics representing which board this
+            auto_update tries to update.
+        @param build_type: a field in metrics representing which build type this
+            auto_update tries to update.
+        @param milestone: a field in metrics representing which milestone this
+            auto_update tries to update.
+        @param dut_host_name: a field in metrics representing which DUT this
+            auto_update tries to update.
+        @param is_aue2etest: a field in metrics representing if provision was
+            done as part of the autoupdate_EndToEndTest.
+        """
+        # The following is high cardinality, but sparse.
+        # Each DUT is of a single board type, and likely build type.
+        # The affinity also results in each DUT being attached to the same
+        # dev_server as well.
+        fields = {
+                'board': board,
+                'build_type': build_type,
+                'dut_host_name': dut_host_name,
+                'dev_server': self.resolved_hostname,
+                'success': is_au_success,
+        }
+
+        # reset_after=True is required for String gauges events to ensure that
+        # the metrics are not repeatedly emitted until the server restarts.
+
+        metrics.String(PROVISION_PATH + '/provision_build_by_devserver_dut',
+                       reset_after=True).set(build_name, fields=fields)
+
+        if error_list:
+            metrics.String(
+                    PROVISION_PATH +
+                    '/provision_failure_reason_by_devserver_dut',
+                    reset_after=True).set(error_list[0].classification,
+                                          fields=fields)
+
+        metrics.SecondsDistribution(
+                PROVISION_PATH + '/provision_duration_by_devserver_dut').add(
+                        total_duration, fields=fields)
+
+
+    def _parse_buildname_from_gs_uri(self, uri):
+        """Get parameters needed for AU metrics when build_name is not known.
+
+        autoupdate_EndToEndTest is run with two Google Storage URIs from the
+        gs://chromeos-releases bucket. URIs in this bucket do not have the
+        build_name in the format samus-release/R60-0000.0.0.
+
+        We can get the milestone and board by checking the instructions.json
+        file contained in the bucket with the payloads.
+
+        @param uri: The partial uri we received from autoupdate_EndToEndTest.
+        """
+        try:
+            # Get the instructions file that contains info about the build.
+            gs_file = 'gs://chromeos-releases/' + uri + '/*instructions.json'
+            files = bin_utils.gs_ls(gs_file)
+            for f in files:
+                gs_folder, _, instruction_file = f.rpartition('/')
+                self.stage_artifacts(image=uri,
+                                     files=[instruction_file],
+                                     archive_url=gs_folder)
+                json_file = self.get_staged_file_url(instruction_file, uri)
+                response = urllib2.urlopen(json_file)
+                data = json.load(response)
+                return data['board'], 'release', data['version']['milestone']
+        except (ValueError, error.CmdError, urllib2.URLError) as e:
+            logging.debug('Problem getting values for metrics: %s', e)
+            logging.warning('Unable to parse build name %s from AU test for '
+                            'metrics. Continuing anyway.', uri)
+
+        return '', '', ''
+
+
     def auto_update(self, host_name, build_name, original_board=None,
                     original_release_version=None, log_dir=None,
                     force_update=False, full_update=False,
                     payload_filename=None, force_original=False,
-                    clobber_stateful=True):
+                    clobber_stateful=True, quick_provision=False):
         """Auto-update a CrOS host.
 
         @param host_name: The hostname of the DUT to auto-update.
@@ -2053,6 +2314,7 @@ class ImageServer(ImageServerBase):
         @param force_original: Whether to force stateful update with the
                                original payload.
         @param clobber_stateful: If True do a clean install of stateful.
+        @param quick_provision: Attempt to use quick provision path first.
 
         @return A set (is_success, pid) in which:
             1. is_success indicates whether this auto_update succeeds.
@@ -2065,9 +2327,12 @@ class ImageServer(ImageServerBase):
                   'build_name': build_name,
                   'force_update': force_update,
                   'full_update': full_update,
-                  'clobber_stateful': clobber_stateful}
+                  'clobber_stateful': clobber_stateful,
+                  'quick_provision': quick_provision}
 
-        if payload_filename is not None:
+        is_aue2etest = payload_filename is not None
+
+        if is_aue2etest:
             kwargs['payload_filename'] = payload_filename
 
         error_msg = 'CrOS auto-update failed for host %s: %s'
@@ -2077,11 +2342,21 @@ class ImageServer(ImageServerBase):
                                   AUTO_UPDATE_LOG_DIR) if log_dir else None
         error_list = []
         retry_with_another_devserver = False
-        board, build_type, milestone = self._parse_buildname_safely(build_name)
+        duration_list = []
 
+        if is_aue2etest:
+            board, build_type, milestone = self._parse_buildname_from_gs_uri(
+                build_name)
+        else:
+            board, build_type, milestone = self._parse_buildname_safely(
+                build_name)
+
+        provision_start_time = time.time()
         for au_attempt in range(AU_RETRY_LIMIT):
             logging.debug('Start CrOS auto-update for host %s at %d time(s).',
                           host_name, au_attempt + 1)
+            au_start_time = time.time()
+            failure_reason = None
             # No matter _trigger_auto_update succeeds or fails, the auto-update
             # track_status_file should be cleaned, and the auto-update execute
             # log should be collected to directory sysinfo. Also, the error
@@ -2112,29 +2387,29 @@ class ImageServer(ImageServerBase):
                     response = self._trigger_auto_update(**kwargs)
             except DevServerException as e:
                 logging.debug(error_msg_attempt, au_attempt+1, str(e))
-                error_list.append(str(e))
+                failure_reason = DevServerExceptionClassifier(str(e))
             else:
-                raised_error, pid = self.wait_for_auto_update_finished(response,
-                                                                       **kwargs)
-                # Error happens in _collect_au_log won't be raised. Auto-update
-                # process will be retried.
+                _, raised_error, pid = self.check_for_auto_update_finished(
+                        response, **kwargs)
+
+                # Error happens in _collect_au_log won't be raised.
                 if au_log_dir:
                     is_collect_success = self.collect_au_log(
                             kwargs['host_name'], pid, au_log_dir)
                 else:
                     is_collect_success = True
 
-                # Error happens in _clean_track_log won't be raised. Auto-update
-                # process will be retried.
-                # TODO(xixuan): Change kwargs['host_name'] back to host_name
-                # if crbug.com/651974 is fixed: host_name represents the host
-                # name of the host, and kwargs['host_name'] could be host_name
-                # or the IP of this host.
-                is_clean_success = self.clean_track_log(kwargs['host_name'],
-                                                        pid)
+                # Error happens in _clean_track_log won't be raised.
+                if pid >= 0:
+                    is_clean_success = self.clean_track_log(
+                            kwargs['host_name'], pid)
+                else:
+                    is_clean_success = True
+
                 # If any error is raised previously, log it and retry
                 # auto-update. Otherwise, claim a successful CrOS auto-update.
-                if not raised_error and is_clean_success and is_collect_success:
+                if (not raised_error and is_clean_success and
+                    is_collect_success):
                     logging.debug('CrOS auto-update succeed for host %s',
                                   host_name)
                     is_au_success = True
@@ -2145,78 +2420,66 @@ class ImageServer(ImageServerBase):
                         logging.debug('Failed to kill auto_update process %d',
                                       pid)
                     if raised_error:
-                        logging.debug(error_msg_attempt, au_attempt+1,
-                                      str(raised_error))
+                        error_str = str(raised_error)
+                        logging.debug(error_msg_attempt, au_attempt + 1,
+                                      error_str)
                         if au_log_dir:
                             logging.debug('Please see error details in log %s',
                                           self._get_au_log_filename(
                                                   au_log_dir,
                                                   kwargs['host_name'],
                                                   pid))
-                        error_list.append(self._parse_AU_error(str(raised_error)))
-                        if self._is_retryable(str(raised_error)):
+                        failure_reason = DevServerExceptionClassifier(
+                            error_str, keep_full_trace=False)
+                        if self._is_retryable(error_str):
                             retry_with_another_devserver = True
 
-                        if self._should_use_original_payload(str(raised_error)):
+                        if self._should_use_original_payload(error_str):
                             force_original = True
 
             finally:
+                duration = int(time.time() - au_start_time)
+                duration_list.append(duration)
+                if failure_reason:
+                    error_list.append(failure_reason)
+                self._emit_auto_update_metrics(board, build_type, host_name,
+                                               build_name, au_attempt + 1,
+                                               is_au_success, failure_reason,
+                                               duration)
                 if retry_with_another_devserver:
                     break
 
                 if not is_au_success and au_attempt < AU_RETRY_LIMIT - 1:
                     time.sleep(CROS_AU_RETRY_INTERVAL)
-                    # TODO(kevcheng): Remove this once crbug.com/651974 is
-                    # fixed.
-                    # DNS is broken in the cassandra lab, so use the IP of the
-                    # hostname instead if it fails. Not rename host_name here
-                    # for error msg reporting.
+                    # Use the IP of DUT if the hostname failed.
                     host_name_ip = socket.gethostbyname(host_name)
                     kwargs['host_name'] = host_name_ip
                     logging.debug(
                             'AU failed, trying IP instead of hostname: %s',
                             host_name_ip)
 
-        # Note: To avoid reaching or exceeding the monarch field cardinality
-        # limit, we avoid a metric that includes both dut hostname and other
-        # high cardinality fields.
-        # Per-devserver cros_update metric.
-        c = metrics.Counter(
-                'chromeos/autotest/provision/cros_update_by_devserver')
-        # Add a field |error| here. Current error's pattern is manually
-        # specified in _EXCEPTION_PATTERNS.
-        raised_error = self._classify_exceptions(error_list)
-        f = {'dev_server': self.resolved_hostname,
-             'success': is_au_success,
-             'board': board,
-             'build_type': build_type,
-             'milestone': milestone,
-             'error': raised_error}
-        c.increment(fields=f)
-
-        # Per-DUT cros_update metric.
-        c = metrics.Counter('chromeos/autotest/provision/cros_update_per_dut')
-        f = {'success': is_au_success,
-             'board': board,
-             'error': raised_error,
-             'dut_host_name': host_name}
-        c.increment(fields=f)
+        total_duration = int(time.time() - provision_start_time)
+        self._emit_provision_metrics(error_list, duration_list, is_au_success,
+                                     board, build_type, milestone, host_name,
+                                     is_aue2etest, total_duration, build_name)
 
         if is_au_success:
             return (is_au_success, pid)
 
-        # If errors happen in the CrOS AU process, report the first error
-        # since the following errors might be caused by the first error.
+        # If errors happen in the CrOS AU process, report the concatenation
+        # of the errors happening in first & second provision.
         # If error happens in RPCs of cleaning track log, collecting
-        # auto-update logs, or killing auto-update processes, just report
-        # them together.
+        # auto-update logs, or killing auto-update processes, just report a
+        # common error here.
         if error_list:
+            real_error = ', '.join(['%d) %s' % (i, e.summary)
+                                    for i, e in enumerate(error_list)])
             if retry_with_another_devserver:
                 raise RetryableProvisionException(
-                        error_msg % (host_name, error_list[0]))
+                        error_msg % (host_name, real_error))
             else:
-                raise DevServerException(
-                        error_msg % (host_name, error_list[0]))
+                raise error_list[0].classified_exception(
+                    error_msg % (host_name, real_error))
         else:
             raise DevServerException(error_msg % (
                         host_name, ('RPC calls after the whole auto-update '
@@ -2504,6 +2767,23 @@ def _compare_load(devserver1, devserver2):
 
     """
     return int(devserver1[DevServer.DISK_IO] - devserver2[DevServer.DISK_IO])
+
+
+def _get_subnet_for_host_ip(host_ip,
+                            restricted_subnets=utils.RESTRICTED_SUBNETS):
+    """Get the subnet for a given host IP.
+
+    @param host_ip: the IP of a DUT.
+    @param restricted_subnets: A list of restriected subnets.
+
+    @return: a (subnet_ip, mask_bits) tuple. If no matched subnet for the
+             host_ip, return (None, None).
+    """
+    for subnet_ip, mask_bits in restricted_subnets:
+        if utils.is_in_same_subnet(host_ip, subnet_ip, mask_bits):
+            return subnet_ip, mask_bits
+
+    return None, None
 
 
 def get_least_loaded_devserver(devserver_type=ImageServer, hostname=None):

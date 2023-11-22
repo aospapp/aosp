@@ -1,7 +1,7 @@
 /** @file
 This file contains the implementation of Usb Hc Protocol.
 
-Copyright (c) 2013-2015 Intel Corporation.
+Copyright (c) 2013-2016 Intel Corporation.
 
 This program and the accompanying materials
 are licensed and made available under the terms and conditions of the BSD License
@@ -637,13 +637,11 @@ OhciBulkTransfer(
   USB_OHCI_HC_DEV                *Ohc;
   ED_DESCRIPTOR                  *HeadEd;
   ED_DESCRIPTOR                  *Ed;
-  UINT8                          EdDir;
   UINT32                         DataPidDir;
   TD_DESCRIPTOR                  *HeadTd;
   TD_DESCRIPTOR                  *DataTd;
   TD_DESCRIPTOR                  *EmptyTd;
   EFI_STATUS                     Status;
-  EFI_USB_DATA_DIRECTION         TransferDirection;
   UINT8                          EndPointNum;
   UINTN                          TimeCount;
   OHCI_ED_RESULT                 EdResult;
@@ -672,13 +670,9 @@ OhciBulkTransfer(
   Ohc = USB_OHCI_HC_DEV_FROM_THIS (This);
 
   if ((EndPointAddress & 0x80) != 0) {
-    TransferDirection = EfiUsbDataIn;
-    EdDir = ED_IN_DIR;
     DataPidDir = TD_IN_PID;
     MapOp = EfiPciIoOperationBusMasterWrite;
   } else {
-    TransferDirection = EfiUsbDataOut;
-    EdDir = ED_OUT_DIR;
     DataPidDir = TD_OUT_PID;
     MapOp = EfiPciIoOperationBusMasterRead;
   }
@@ -941,7 +935,6 @@ OhciInterruptTransfer (
   EFI_STATUS               Status;
   UINT8                    EndPointNum;
   UINT32                   DataPidDir;
-  EFI_USB_DATA_DIRECTION   TransferDirection;
   INTERRUPT_CONTEXT_ENTRY  *Entry;
   EFI_TPL                  OldTpl;
   BOOLEAN                  FirstTD;
@@ -959,11 +952,9 @@ OhciInterruptTransfer (
   }
 
   if ((EndPointAddress & 0x80) != 0) {
-    TransferDirection = EfiUsbDataIn;
     EdDir = ED_IN_DIR;
     DataPidDir = TD_IN_PID;
   } else {
-    TransferDirection = EfiUsbDataOut;
     EdDir = ED_OUT_DIR;
     DataPidDir = TD_OUT_PID;
   }
@@ -2212,7 +2203,7 @@ OhciCleanDevUp (
   One notified function to stop the Host Controller when gBS->ExitBootServices() called.
 
   @param  Event                 Pointer to this event
-  @param  Context               Event hanlder private data
+  @param  Context               Event handler private data
 **/
 VOID
 EFIAPI
@@ -2438,7 +2429,7 @@ CLOSE_PCIIO:
 }
 
 /**
-  Stop this driver on ControllerHandle. Support stoping any child handles
+  Stop this driver on ControllerHandle. Support stopping any child handles
   created by this driver.
 
   @param  This                  Protocol instance pointer.

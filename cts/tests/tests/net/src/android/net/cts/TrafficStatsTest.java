@@ -81,26 +81,6 @@ public class TrafficStatsTest extends AndroidTestCase {
         return packetCount * (20 + 32 + bytes);
     }
 
-    private void accessOwnTrafficStats() throws IOException {
-        final int ownAppUid = getContext().getApplicationInfo().uid;
-        Log.d(LOG_TAG, "accesOwnTrafficStatsWithTags(): about to read qtaguid stats for own uid " + ownAppUid);
-
-        boolean foundOwnDetailedStats = false;
-        try {
-            BufferedReader qtaguidReader = new BufferedReader(new FileReader("/proc/net/xt_qtaguid/stats"));
-            String line;
-            while ((line = qtaguidReader.readLine()) != null) {
-                String tokens[] = line.split(" ");
-                if (tokens.length > 3 && tokens[3].equals(String.valueOf(ownAppUid))) {
-                    Log.d(LOG_TAG, "accessOwnTrafficStatsWithTags(): got own stats: " + line);
-                }
-            }
-            qtaguidReader.close();
-        } catch (FileNotFoundException e) {
-            fail("Was not able to access qtaguid/stats: " + e);
-        }
-    }
-
     public void testTrafficStatsForLocalhost() throws IOException {
         final long mobileTxPacketsBefore = TrafficStats.getMobileTxPackets();
         final long mobileRxPacketsBefore = TrafficStats.getMobileRxPackets();
@@ -132,7 +112,6 @@ public class TrafficStatsTest extends AndroidTestCase {
                     byte[] buf = new byte[byteCount];
                     TrafficStats.setThreadStatsTag(0x42);
                     TrafficStats.tagSocket(socket);
-                    accessOwnTrafficStats();
                     for (int i = 0; i < packetCount; i++) {
                         out.write(buf);
                         out.flush();
@@ -145,7 +124,6 @@ public class TrafficStatsTest extends AndroidTestCase {
                     }
                     out.close();
                     socket.close();
-                    accessOwnTrafficStats();
                 } catch (IOException e) {
                     Log.i(LOG_TAG, "Badness during writes to socket: " + e);
                 }

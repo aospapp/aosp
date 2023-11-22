@@ -19,6 +19,9 @@ COMMON_CFLAGS += -DCHRE_VARIANT_SUPPLIES_STATIC_NANOAPP_LIST
 # Enable exceptions for TCLAP.
 GOOGLE_X86_LINUX_CFLAGS += -fexceptions
 
+# Enable audio support
+CHRE_AUDIO_SUPPORT_ENABLED = true
+
 # Common Source Files ##########################################################
 
 COMMON_SRCS += variant/simulator/static_nanoapps.cc
@@ -26,4 +29,3 @@ COMMON_SRCS += variant/simulator/static_nanoapps.cc
 # Makefile Includes ############################################################
 
 include apps/ash_world/ash_world.mk
-include apps/imu_cal/imu_cal.mk

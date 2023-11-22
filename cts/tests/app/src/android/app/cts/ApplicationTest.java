@@ -21,16 +21,25 @@ import android.app.Application;
 import android.app.Instrumentation;
 import android.app.stubs.MockApplication;
 import android.app.stubs.MockApplicationActivity;
-import android.app.stubs.OrientationTestUtils;
 import android.content.Context;
 import android.content.Intent;
-import android.content.pm.PackageManager;
 import android.test.InstrumentationTestCase;
+
+import com.android.compatibility.common.util.SystemUtil;
 
 /**
  * Test {@link Application}.
  */
 public class ApplicationTest extends InstrumentationTestCase {
+    private static final String ERASE_FONT_SCALE_CMD = "settings delete system font_scale";
+    // 2 is an arbitrary value.
+    private static final String PUT_FONT_SCALE_CMD = "settings put system font_scale 2";
+
+    @Override
+    public void tearDown() throws Exception {
+        SystemUtil.runShellCommand(getInstrumentation(), ERASE_FONT_SCALE_CMD);
+    }
+
 
     public void testApplication() throws Throwable {
         final Instrumentation instrumentation = getInstrumentation();
@@ -43,27 +52,30 @@ public class ApplicationTest extends InstrumentationTestCase {
         final MockApplication mockApp = (MockApplication) activity.getApplication();
         assertTrue(mockApp.isConstructorCalled);
         assertTrue(mockApp.isOnCreateCalled);
+        toggleFontScale();
+        assertTrue(waitForOnConfigurationChange(mockApp));
+    }
 
-        //skip if the device doesn't support both of portrait and landscape orientation screens.
-        final PackageManager pm = targetContext.getPackageManager();
-        if(!(pm.hasSystemFeature(PackageManager.FEATURE_SCREEN_LANDSCAPE)
-                && pm.hasSystemFeature(PackageManager.FEATURE_SCREEN_PORTRAIT))){
-            return;
-        }
+    // Font scale is a global configuration.
+    // This function will delete any previous font scale changes, apply one, and remove it.
+    private void toggleFontScale() throws Throwable {
+        SystemUtil.runShellCommand(getInstrumentation(), ERASE_FONT_SCALE_CMD);
+        getInstrumentation().waitForIdleSync();
+        SystemUtil.runShellCommand(getInstrumentation(), PUT_FONT_SCALE_CMD);
+        getInstrumentation().waitForIdleSync();
+        SystemUtil.runShellCommand(getInstrumentation(), ERASE_FONT_SCALE_CMD);
+    }
 
-        runTestOnUiThread(new Runnable() {
-            public void run() {
-               OrientationTestUtils.toggleOrientation(activity);
+    // Wait for a maximum of 5 seconds for global config change to occur.
+    private boolean waitForOnConfigurationChange(MockApplication mockApp) throws Throwable {
+        int retriesLeft = 5;
+        while(retriesLeft-- > 0) {
+            if (mockApp.isOnConfigurationChangedCalled) {
+                return true;
             }
-        });
-        instrumentation.waitForIdleSync();
-        final boolean isInMultiwindowMode = activity.isInMultiWindowMode();
-        if (activity.isInMultiWindowMode()) {
-            assertFalse("Orientation change should not trigger global configuration change when "
-                    + " in multi-window mode.", mockApp.isOnConfigurationChangedCalled);
-        } else {
-            assertTrue(mockApp.isOnConfigurationChangedCalled);
+            Thread.sleep(1000);
         }
+        return false;
     }
 
 }

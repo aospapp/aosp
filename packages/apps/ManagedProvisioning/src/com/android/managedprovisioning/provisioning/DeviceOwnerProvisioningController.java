@@ -25,6 +25,7 @@ import com.android.managedprovisioning.finalization.FinalizationController;
 import com.android.managedprovisioning.model.ProvisioningParams;
 import com.android.managedprovisioning.task.AbstractProvisioningTask;
 import com.android.managedprovisioning.task.AddWifiNetworkTask;
+import com.android.managedprovisioning.task.ConnectMobileNetworkTask;
 import com.android.managedprovisioning.task.CopyAccountToUserTask;
 import com.android.managedprovisioning.task.DeleteNonRequiredAppsTask;
 import com.android.managedprovisioning.task.DeviceOwnerInitializeProvisioningTask;
@@ -62,6 +63,8 @@ public class DeviceOwnerProvisioningController extends AbstractProvisioningContr
 
         if (mParams.wifiInfo != null) {
             addTasks(new AddWifiNetworkTask(mContext, mParams, this));
+        } else if (mParams.useMobileData) {
+            addTasks(new ConnectMobileNetworkTask(mContext, mParams, this));
         }
 
         if (mParams.deviceAdminDownloadInfo != null) {

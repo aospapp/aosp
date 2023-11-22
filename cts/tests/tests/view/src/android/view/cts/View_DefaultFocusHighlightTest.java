@@ -52,8 +52,7 @@ public class View_DefaultFocusHighlightTest {
     @Test
     public void testSettersAndGetters() {
         Activity activity = mActivityRule.getActivity();
-        if (!activity.getResources().getBoolean(
-                com.android.internal.R.bool.config_useDefaultFocusHighlight)) {
+        if (!View.isDefaultFocusHighlightEnabled()) {
             // Skip the test when config_useDefaultFocusHighlight is false
             return;
         }
@@ -87,8 +86,7 @@ public class View_DefaultFocusHighlightTest {
     @Test
     public void testInflating() {
         Activity activity = mActivityRule.getActivity();
-        if (!activity.getResources().getBoolean(
-                com.android.internal.R.bool.config_useDefaultFocusHighlight)) {
+        if (!View.isDefaultFocusHighlightEnabled()) {
             // Skip the test when config_useDefaultFocusHighlight is false
             return;
         }
@@ -111,8 +109,7 @@ public class View_DefaultFocusHighlightTest {
     @Test
     public void testIsDefaultFocusHighlightNeeded() {
         Activity activity = mActivityRule.getActivity();
-        if (!activity.getResources().getBoolean(
-                com.android.internal.R.bool.config_useDefaultFocusHighlight)) {
+        if (!View.isDefaultFocusHighlightEnabled()) {
             // Skip the test when config_useDefaultFocusHighlight is false
             return;
         }

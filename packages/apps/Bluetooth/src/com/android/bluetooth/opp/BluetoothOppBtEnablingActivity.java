@@ -32,8 +32,6 @@
 
 package com.android.bluetooth.opp;
 
-import com.android.bluetooth.R;
-
 import android.bluetooth.BluetoothAdapter;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -47,6 +45,7 @@ import android.view.KeyEvent;
 import android.view.View;
 import android.widget.TextView;
 
+import com.android.bluetooth.R;
 import com.android.internal.app.AlertActivity;
 import com.android.internal.app.AlertController;
 
@@ -94,7 +93,7 @@ public class BluetoothOppBtEnablingActivity extends AlertActivity {
 
     private View createView() {
         View view = getLayoutInflater().inflate(R.layout.bt_enabling_progress, null);
-        TextView contentView = (TextView)view.findViewById(R.id.progress_info);
+        TextView contentView = (TextView) view.findViewById(R.id.progress_info);
         contentView.setText(getString(R.string.enabling_progress_content));
 
         return view;
@@ -103,7 +102,9 @@ public class BluetoothOppBtEnablingActivity extends AlertActivity {
     @Override
     public boolean onKeyDown(int keyCode, KeyEvent event) {
         if (keyCode == KeyEvent.KEYCODE_BACK) {
-            if (D) Log.d(TAG, "onKeyDown() called; Key: back key");
+            if (D) {
+                Log.d(TAG, "onKeyDown() called; Key: back key");
+            }
             mTimeoutHandler.removeMessages(BT_ENABLING_TIMEOUT);
             cancelSendingProgress();
         }
@@ -123,7 +124,9 @@ public class BluetoothOppBtEnablingActivity extends AlertActivity {
         public void handleMessage(Message msg) {
             switch (msg.what) {
                 case BT_ENABLING_TIMEOUT:
-                    if (V) Log.v(TAG, "Received BT_ENABLING_TIMEOUT msg.");
+                    if (V) {
+                        Log.v(TAG, "Received BT_ENABLING_TIMEOUT msg.");
+                    }
                     cancelSendingProgress();
                     break;
                 default:
@@ -136,7 +139,9 @@ public class BluetoothOppBtEnablingActivity extends AlertActivity {
         @Override
         public void onReceive(Context context, Intent intent) {
             String action = intent.getAction();
-            if (V) Log.v(TAG, "Received intent: " + action) ;
+            if (V) {
+                Log.v(TAG, "Received intent: " + action);
+            }
             if (action.equals(BluetoothAdapter.ACTION_STATE_CHANGED)) {
                 switch (intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, BluetoothAdapter.ERROR)) {
                     case BluetoothAdapter.STATE_ON:

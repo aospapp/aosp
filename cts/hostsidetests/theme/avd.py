@@ -46,8 +46,12 @@ class AVD(object):
         port_adb = find_free_port()
         port_tty = find_free_port()
         # -no-window might be useful here
-        emu_cmd = "%s -avd %s %s-ports %d,%d" \
-                  % (self._emu_path, self._name, self._opts, port_adb, port_tty)
+        if self._name == "local":
+            emu_cmd = "emulator %s-ports %d,%d -gpu on -wipe-data" \
+                      % (self._opts, port_adb, port_tty)
+        else:
+            emu_cmd = "%s -avd %s %s-ports %d,%d" \
+                      % (self._emu_path, self._name, self._opts, port_adb, port_tty)
         print(emu_cmd)
 
         emu_proc = subprocess.Popen(emu_cmd.split(" "), bufsize=-1, stdout=subprocess.PIPE,

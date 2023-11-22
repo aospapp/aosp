@@ -31,6 +31,7 @@ import android.content.res.Resources;
 import android.content.res.Resources.NotFoundException;
 import android.content.res.TypedArray;
 import android.content.res.XmlResourceParser;
+import android.graphics.Paint;
 import android.graphics.Typeface;
 import android.graphics.drawable.AdaptiveIconDrawable;
 import android.graphics.drawable.ColorDrawable;
@@ -209,6 +210,16 @@ public class ResourcesTest extends AndroidTestCase {
         assertEquals(mResources.getColor(R.color.testcolor1), focusColor);
     }
 
+    public void testGetColorStateListThrows() {
+        try {
+            // XML that's not a selector or gradient throws
+            mResources.getColorStateList(R.drawable.density_test);
+            fail("Failed at testGetColorStateList");
+        } catch (NotFoundException expected) {
+            // expected
+        }
+    }
+
     public void testGetColor() {
         try {
             mResources.getColor(-1);
@@ -313,12 +324,24 @@ public class ResourcesTest extends AndroidTestCase {
         assertNotNull(draw);
         assertEquals(212 * targetDensity / defaultDensity, draw.getIntrinsicWidth(), 1);
         assertEquals(142 * targetDensity / defaultDensity, draw.getIntrinsicHeight(), 1);
+
+        // Some apps rely on the fact that this will return null (rather than throwing).
+        assertNull(mResources.getDrawable(R.drawable.fake_image_will_not_decode));
     }
 
     public void testGetDrawable_StackOverflowErrorDrawable() {
         try {
             mResources.getDrawable(R.drawable.drawable_recursive);
             fail("Failed at testGetDrawable_StackOverflowErrorDrawable");
+        } catch (NotFoundException e) {
+            //expected
+        }
+    }
+
+    public void testGetDrawable_StackOverflowErrorDrawable_mipmap() {
+        try {
+            mResources.getDrawable(R.mipmap.icon_recursive);
+            fail("Failed at testGetDrawable_StackOverflowErrorDrawable_mipmap");
         } catch (NotFoundException e) {
             //expected
         }
@@ -786,6 +809,55 @@ public class ResourcesTest extends AndroidTestCase {
 
         assertNotNull(font);
         assertNotSame(Typeface.DEFAULT, font);
+    }
+
+    private Typeface getLargerTypeface(String text, Typeface typeface1, Typeface typeface2) {
+        Paint p1 = new Paint();
+        p1.setTypeface(typeface1);
+        float width1 = p1.measureText(text);
+        Paint p2 = new Paint();
+        p2.setTypeface(typeface2);
+        float width2 = p2.measureText(text);
+
+        if (width1 > width2) {
+            return typeface1;
+        } else if (width1 < width2) {
+            return typeface2;
+        } else {
+            fail("The widths of the text should not be the same");
+            return null;
+        }
+    }
+
+    public void testGetFont_xmlFileWithTtc() {
+        // Here we test that building typefaces by indexing in font collections works correctly.
+        // We want to ensure that the built typefaces correspond to the fonts with the right index.
+        // sample_font_collection.ttc contains two fonts (with indices 0 and 1). The first one has
+        // glyph "a" of 3em width, and all the other glyphs 1em. The second one has glyph "b" of
+        // 3em width, and all the other glyphs 1em. Hence, we can compare the width of these
+        // glyphs to assert that ttc indexing works.
+        Typeface normalFont = mResources.getFont(R.font.sample_ttc_family);
+        assertNotNull(normalFont);
+        Typeface italicFont = Typeface.create(normalFont, Typeface.ITALIC);
+        assertNotNull(italicFont);
+
+        assertEquals(getLargerTypeface("a", normalFont, italicFont), normalFont);
+        assertEquals(getLargerTypeface("b", normalFont, italicFont), italicFont);
+    }
+
+    public void testGetFont_xmlFileWithVariationSettings() {
+        // Here we test that specifying variation settings for fonts in XMLs works.
+        // We build typefaces from two families containing one font each, using the same font
+        // resource, but having different values for the 'wdth' tag. Then we measure the painted
+        // text to ensure that the tag affects the text width. The font resource used supports
+        // the 'wdth' axis for the dash (-) character.
+        Typeface typeface1 = mResources.getFont(R.font.sample_variation_settings_family1);
+        assertNotNull(typeface1);
+        Typeface typeface2 = mResources.getFont(R.font.sample_variation_settings_family2);
+        assertNotNull(typeface2);
+
+        assertNotSame(typeface1, typeface2);
+        assertEquals(getLargerTypeface("-", typeface1, typeface2), typeface2);
     }
 
     public void testGetFont_invalidXmlFile() {

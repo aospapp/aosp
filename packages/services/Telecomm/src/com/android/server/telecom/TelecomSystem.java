@@ -19,6 +19,7 @@ package com.android.server.telecom;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.server.telecom.bluetooth.BluetoothDeviceManager;
 import com.android.server.telecom.bluetooth.BluetoothRouteManager;
+import com.android.server.telecom.bluetooth.BluetoothStateReceiver;
 import com.android.server.telecom.components.UserCallIntentProcessor;
 import com.android.server.telecom.components.UserCallIntentProcessorFactory;
 import com.android.server.telecom.ui.IncomingCallNotifier;
@@ -185,6 +186,8 @@ public class TelecomSystem {
             AudioServiceFactory audioServiceFactory,
             BluetoothPhoneServiceImplFactory
                     bluetoothPhoneServiceImplFactory,
+            ConnectionServiceFocusManager.ConnectionServiceFocusManagerFactory
+                    connectionServiceFocusManagerFactory,
             Timeouts.Adapter timeoutsAdapter,
             AsyncRingtonePlayer asyncRingtonePlayer,
             PhoneNumberUtilsAdapter phoneNumberUtilsAdapter,
@@ -227,6 +230,10 @@ public class TelecomSystem {
                 new BluetoothAdapterProxy(), mLock);
         BluetoothRouteManager bluetoothRouteManager = new BluetoothRouteManager(mContext, mLock,
                 bluetoothDeviceManager, new Timeouts.Adapter());
+        BluetoothStateReceiver bluetoothStateReceiver = new BluetoothStateReceiver(
+                bluetoothDeviceManager, bluetoothRouteManager);
+        mContext.registerReceiver(bluetoothStateReceiver, BluetoothStateReceiver.INTENT_FILTER);
+
         WiredHeadsetManager wiredHeadsetManager = new WiredHeadsetManager(mContext);
         SystemStateProvider systemStateProvider = new SystemStateProvider(mContext);
 
@@ -235,6 +242,17 @@ public class TelecomSystem {
 
         EmergencyCallHelper emergencyCallHelper = new EmergencyCallHelper(mContext,
                 mContext.getResources().getString(R.string.ui_default_package), timeoutsAdapter);
+
+        InCallControllerFactory inCallControllerFactory = new InCallControllerFactory() {
+            @Override
+            public InCallController create(Context context, SyncRoot lock,
+                    CallsManager callsManager, SystemStateProvider systemStateProvider,
+                    DefaultDialerCache defaultDialerCache, Timeouts.Adapter timeoutsAdapter,
+                    EmergencyCallHelper emergencyCallHelper) {
+                return new InCallController(context, lock, callsManager, systemStateProvider,
+                        defaultDialerCache, timeoutsAdapter, emergencyCallHelper);
+            }
+        };
 
         mCallsManager = new CallsManager(
                 mContext,
@@ -246,6 +264,7 @@ public class TelecomSystem {
                 headsetMediaButtonFactory,
                 proximitySensorManagerFactory,
                 inCallWakeLockControllerFactory,
+                connectionServiceFocusManagerFactory,
                 audioServiceFactory,
                 bluetoothRouteManager,
                 wiredHeadsetManager,
@@ -256,7 +275,9 @@ public class TelecomSystem {
                 phoneNumberUtilsAdapter,
                 emergencyCallHelper,
                 toneGeneratorFactory,
-                clockProxy);
+                clockProxy,
+                bluetoothStateReceiver,
+                inCallControllerFactory);
 
         mIncomingCallNotifier = incomingCallNotifier;
         incomingCallNotifier.setCallsManagerProxy(new IncomingCallNotifier.CallsManagerProxy() {

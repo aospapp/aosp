@@ -154,7 +154,7 @@
 
 using namespace std;
 
-static bool parseCommandLine(int argc, char* argv[], unsigned int* maxApiLevel, bool* forVerification,
+static bool parseCommandLine(int argc, char* argv[], unsigned int* maxApiLevel,
                              vector<string>* specFileNames) {
     for (int i = 1; i < argc; i++) {
         if (argv[i][0] == '-') {
@@ -171,8 +171,6 @@ static bool parseCommandLine(int argc, char* argv[], unsigned int* maxApiLevel, 
                     cerr << "Missing version number after -v\n";
                     return false;
                 }
-            } else if (argv[i][1] == 'H') {
-                *forVerification = true;
             } else {
                 cerr << "Unrecognized flag %s\n" << argv[i] << "\n";
                 return false;
@@ -192,9 +190,9 @@ int main(int argc, char* argv[]) {
     // If there's no restriction, generated test files for the very highest version.
     unsigned int maxApiLevel = VersionInfo::kUnreleasedVersion;
     vector<string> specFileNames;
-    bool forVerification = false;
-    if (!parseCommandLine(argc, argv, &maxApiLevel, &forVerification, &specFileNames)) {
-        cout << "Usage: gen_runtime spec_file [spec_file...] [-v version_of_test_files][-H]\n";
+    if (!parseCommandLine(argc, argv, &maxApiLevel, &specFileNames)) {
+        cout << "Usage: gen_runtime spec_file [spec_file...] [-v "
+                "version_of_test_files]\n";
         return -1;
     }
     bool success = true;
@@ -204,7 +202,7 @@ int main(int argc, char* argv[]) {
         }
     }
     if (success) {
-        success = systemSpecification.generateFiles(forVerification, maxApiLevel);
+        success = systemSpecification.generateFiles(maxApiLevel);
     }
     return success ? 0 : -2;
 }

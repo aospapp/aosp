@@ -50,7 +50,7 @@ public class CellBroadcastAlertServiceTest extends
     static SmsCbMessage createMessage(int serialNumber) {
         return new SmsCbMessage(1, 2, serialNumber, new SmsCbLocation(),
                 SmsCbConstants.MESSAGE_ID_CMAS_ALERT_PRESIDENTIAL_LEVEL, "language", "body",
-                SmsCbMessage.MESSAGE_PRIORITY_EMERGENCY, null, new SmsCbCmasInfo(1, 2, 3, 4, 5, 6));
+                SmsCbMessage.MESSAGE_PRIORITY_EMERGENCY, null, new SmsCbCmasInfo(0, 2, 3, 4, 5, 6));
     }
 
     @Before
@@ -134,7 +134,7 @@ public class CellBroadcastAlertServiceTest extends
         // verify audio service intent
         assertEquals(CellBroadcastAlertAudio.ACTION_START_ALERT_AUDIO,
                 mServiceIntentToVerify.getAction());
-        assertEquals(CellBroadcastAlertService.AlertType.CMAS_DEFAULT,
+        assertEquals(CellBroadcastAlertService.AlertType.DEFAULT,
                 mServiceIntentToVerify.getSerializableExtra(ALERT_AUDIO_TONE_TYPE));
         assertEquals(message.getMessageBody(),
                 mServiceIntentToVerify.getStringExtra(

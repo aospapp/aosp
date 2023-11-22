@@ -152,4 +152,27 @@ public class MultinetworkApiTest extends AndroidTestCase {
         // to query on the default network.
         // assertEquals(-OsConstants.ENONET, runGetaddrinfoCheck(eNoNetHandle));
     }
+
+    public void testNetworkHandle() {
+        // Test Network -> NetworkHandle -> Network results in the same Network.
+        for (Network network : getTestableNetworks()) {
+            long networkHandle = network.getNetworkHandle();
+            Network newNetwork = Network.fromNetworkHandle(networkHandle);
+            assertEquals(newNetwork, network);
+        }
+
+        // Test that only obfuscated handles are allowed.
+        try {
+            Network.fromNetworkHandle(100);
+            fail();
+        } catch (IllegalArgumentException e) {}
+        try {
+            Network.fromNetworkHandle(-1);
+            fail();
+        } catch (IllegalArgumentException e) {}
+        try {
+            Network.fromNetworkHandle(0);
+            fail();
+        } catch (IllegalArgumentException e) {}
+    }
 }

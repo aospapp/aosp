@@ -29,7 +29,10 @@ class firmware_ECHash(FirmwareTest):
         self.setup_rw_boot()
 
     def cleanup(self):
-        self.restore_firmware()
+        try:
+            self.restore_firmware()
+        except Exception as e:
+            logging.error("Caught exception: %s", str(e))
         super(firmware_ECHash, self).cleanup()
 
     def get_echash(self):

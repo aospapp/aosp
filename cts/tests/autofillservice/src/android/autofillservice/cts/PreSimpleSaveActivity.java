@@ -29,9 +29,19 @@ public class PreSimpleSaveActivity extends AbstractAutoFillActivity {
     static final String ID_PRE_LABEL = "preLabel";
     static final String ID_PRE_INPUT = "preInput";
 
+    private static PreSimpleSaveActivity sInstance;
+
     TextView mPreLabel;
     EditText mPreInput;
     Button mSubmit;
+
+    public static PreSimpleSaveActivity getInstance() {
+        return sInstance;
+    }
+
+    public PreSimpleSaveActivity() {
+        sInstance = this;
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -47,5 +57,23 @@ public class PreSimpleSaveActivity extends AbstractAutoFillActivity {
             finish();
             startActivity(new Intent(this, SimpleSaveActivity.class));
         });
+    }
+
+    FillExpectation expectAutoFill(String input) {
+        final FillExpectation expectation = new FillExpectation(input);
+        mPreInput.addTextChangedListener(expectation.mInputWatcher);
+        return expectation;
+    }
+
+    final class FillExpectation {
+        private final OneTimeTextWatcher mInputWatcher;
+
+        private FillExpectation(String input) {
+            mInputWatcher = new OneTimeTextWatcher("input", mPreInput, input);
+        }
+
+        void assertAutoFilled() throws Exception {
+            mInputWatcher.assertAutoFilled();
+        }
     }
 }

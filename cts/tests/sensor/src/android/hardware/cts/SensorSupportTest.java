@@ -19,6 +19,7 @@ package android.hardware.cts;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.hardware.Sensor;
+import android.hardware.SensorDirectChannel;
 import android.hardware.SensorManager;
 
 /**
@@ -53,6 +54,10 @@ public class SensorSupportTest extends SensorTestCase {
 
     public void testSupportsAccelerometer() {
         checkSupportsSensor(Sensor.TYPE_ACCELEROMETER);
+    }
+
+    public void testSupportsAccelerometerUncalibrated() {
+        checkSupportsSensor(Sensor.TYPE_ACCELEROMETER_UNCALIBRATED);
     }
 
     public void testSupportsGyroscope() {
@@ -97,9 +102,12 @@ public class SensorSupportTest extends SensorTestCase {
     }
 
     private boolean sensorRequiredForVrHighPerformanceMode(int sensorType) {
-        if (sensorType == Sensor.TYPE_MAGNETIC_FIELD ||
+        if (sensorType == Sensor.TYPE_ACCELEROMETER ||
+            sensorType == Sensor.TYPE_ACCELEROMETER_UNCALIBRATED ||
             sensorType == Sensor.TYPE_GYROSCOPE ||
-            sensorType == Sensor.TYPE_ACCELEROMETER) {
+            sensorType == Sensor.TYPE_GYROSCOPE_UNCALIBRATED ||
+            sensorType == Sensor.TYPE_MAGNETIC_FIELD ||
+            sensorType == Sensor.TYPE_MAGNETIC_FIELD_UNCALIBRATED) {
             return true;
         } else {
             return false;
@@ -107,10 +115,14 @@ public class SensorSupportTest extends SensorTestCase {
     }
 
     private void checkSupportsSensor(int sensorType) {
-        if (mAreHifiSensorsSupported ||
-            (mVrHighPerformanceModeSupported &&
-             sensorRequiredForVrHighPerformanceMode(sensorType))) {
-            assertTrue(mSensorManager.getDefaultSensor(sensorType) != null);
+        boolean isVrSensor = mVrHighPerformanceModeSupported &&
+            sensorRequiredForVrHighPerformanceMode(sensorType);
+        if (mAreHifiSensorsSupported || isVrSensor) {
+            Sensor sensor = mSensorManager.getDefaultSensor(sensorType);
+            assertTrue(sensor != null);
+            if (isVrSensor) {
+                assertTrue(sensor.isDirectChannelTypeSupported(SensorDirectChannel.TYPE_HARDWARE_BUFFER));
+            }
         }
     }
 }

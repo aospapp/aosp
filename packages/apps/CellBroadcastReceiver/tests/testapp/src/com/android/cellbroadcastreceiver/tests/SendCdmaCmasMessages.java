@@ -60,9 +60,9 @@ public class SendCdmaCmasMessages {
                 AppOpsManager.OP_RECEIVE_EMERGECY_SMS, null, null, Activity.RESULT_OK, null, null);
     }
 
-    public static void testSendCmasPresAlert(Activity activity, int messageId) {
+    public static void testSendCmasPresAlert(Activity activity, int serialNumber) {
         SmsCbMessage cbMessage = createCmasSmsMessage(
-                SmsEnvelope.SERVICE_CATEGORY_CMAS_PRESIDENTIAL_LEVEL_ALERT, messageId, "en",
+                SmsEnvelope.SERVICE_CATEGORY_CMAS_PRESIDENTIAL_LEVEL_ALERT, serialNumber, "en",
                 PRES_ALERT, SmsCbCmasInfo.CMAS_CATEGORY_GEO,
                 SmsCbCmasInfo.CMAS_RESPONSE_TYPE_PREPARE, SmsCbCmasInfo.CMAS_SEVERITY_EXTREME,
                 SmsCbCmasInfo.CMAS_URGENCY_EXPECTED, SmsCbCmasInfo.CMAS_CERTAINTY_LIKELY);
@@ -70,9 +70,9 @@ public class SendCdmaCmasMessages {
         sendBroadcast(activity, cbMessage);
     }
 
-    public static void testSendCmasExtremeAlert(Activity activity, int messageId) {
+    public static void testSendCmasExtremeAlert(Activity activity, int serialNumber) {
         SmsCbMessage cbMessage = createCmasSmsMessage(
-                SmsEnvelope.SERVICE_CATEGORY_CMAS_EXTREME_THREAT, messageId, "en",
+                SmsEnvelope.SERVICE_CATEGORY_CMAS_EXTREME_THREAT, serialNumber, "en",
                 EXTREME_ALERT, SmsCbCmasInfo.CMAS_CATEGORY_MET,
                 SmsCbCmasInfo.CMAS_RESPONSE_TYPE_PREPARE, SmsCbCmasInfo.CMAS_SEVERITY_EXTREME,
                 SmsCbCmasInfo.CMAS_URGENCY_EXPECTED, SmsCbCmasInfo.CMAS_CERTAINTY_OBSERVED);
@@ -80,9 +80,9 @@ public class SendCdmaCmasMessages {
         sendBroadcast(activity, cbMessage);
     }
 
-    public static void testSendCmasSevereAlert(Activity activity, int messageId) {
+    public static void testSendCmasSevereAlert(Activity activity, int serialNumber) {
         SmsCbMessage cbMessage = createCmasSmsMessage(
-                SmsEnvelope.SERVICE_CATEGORY_CMAS_SEVERE_THREAT, messageId, "en",
+                SmsEnvelope.SERVICE_CATEGORY_CMAS_SEVERE_THREAT, serialNumber, "en",
                 SEVERE_ALERT, SmsCbCmasInfo.CMAS_CATEGORY_HEALTH,
                 SmsCbCmasInfo.CMAS_RESPONSE_TYPE_AVOID, SmsCbCmasInfo.CMAS_SEVERITY_SEVERE,
                 SmsCbCmasInfo.CMAS_URGENCY_IMMEDIATE, SmsCbCmasInfo.CMAS_CERTAINTY_LIKELY);
@@ -90,9 +90,9 @@ public class SendCdmaCmasMessages {
         sendBroadcast(activity, cbMessage);
     }
 
-    public static void testSendCmasAmberAlert(Activity activity, int messageId) {
+    public static void testSendCmasAmberAlert(Activity activity, int serialNumber) {
         SmsCbMessage cbMessage = createCmasSmsMessage(
-                SmsEnvelope.SERVICE_CATEGORY_CMAS_CHILD_ABDUCTION_EMERGENCY, messageId, "en",
+                SmsEnvelope.SERVICE_CATEGORY_CMAS_CHILD_ABDUCTION_EMERGENCY, serialNumber, "en",
                 AMBER_ALERT, SmsCbCmasInfo.CMAS_CATEGORY_UNKNOWN,
                 SmsCbCmasInfo.CMAS_RESPONSE_TYPE_UNKNOWN, SmsCbCmasInfo.CMAS_SEVERITY_UNKNOWN,
                 SmsCbCmasInfo.CMAS_URGENCY_UNKNOWN, SmsCbCmasInfo.CMAS_CERTAINTY_UNKNOWN);
@@ -100,9 +100,9 @@ public class SendCdmaCmasMessages {
         sendBroadcast(activity, cbMessage);
     }
 
-    public static void testSendCmasMonthlyTest(Activity activity, int messageId) {
+    public static void testSendCmasMonthlyTest(Activity activity, int serialNumber) {
         SmsCbMessage cbMessage = createCmasSmsMessage(
-                SmsEnvelope.SERVICE_CATEGORY_CMAS_TEST_MESSAGE, messageId, "en",
+                SmsEnvelope.SERVICE_CATEGORY_CMAS_TEST_MESSAGE, serialNumber, "en",
                 MONTHLY_TEST_ALERT, SmsCbCmasInfo.CMAS_CATEGORY_UNKNOWN,
                 SmsCbCmasInfo.CMAS_RESPONSE_TYPE_UNKNOWN, SmsCbCmasInfo.CMAS_SEVERITY_UNKNOWN,
                 SmsCbCmasInfo.CMAS_URGENCY_UNKNOWN, SmsCbCmasInfo.CMAS_CERTAINTY_UNKNOWN);
@@ -113,7 +113,7 @@ public class SendCdmaCmasMessages {
     /**
      * Create a new SmsCbMessage for testing CDMA CMAS support.
      * @param serviceCategory the CDMA service category
-     * @param messageId the 16-bit message identifier
+     * @param serialNumber the 16-bit message identifier
      * @param language message language code
      * @param body message body
      * @param cmasCategory CMAS category (or -1 to skip adding CMAS type 1 elements record)
@@ -123,16 +123,16 @@ public class SendCdmaCmasMessages {
      * @param certainty CMAS certainty
      * @return the newly created SmsMessage object
      */
-    private static SmsCbMessage createCmasSmsMessage(int serviceCategory, int messageId,
+    private static SmsCbMessage createCmasSmsMessage(int serviceCategory, int serialNumber,
             String language, String body, int cmasCategory, int responseType, int severity,
             int urgency, int certainty) {
         int cmasMessageClass = serviceCategoryToCmasMessageClass(serviceCategory);
         SmsCbCmasInfo cmasInfo = new SmsCbCmasInfo(cmasMessageClass, cmasCategory, responseType,
                 severity, urgency, certainty);
         return new SmsCbMessage(SmsCbMessage.MESSAGE_FORMAT_3GPP2,
-                SmsCbMessage.GEOGRAPHICAL_SCOPE_PLMN_WIDE, messageId, new SmsCbLocation("123456"),
-                serviceCategory, language, body, SmsCbMessage.MESSAGE_PRIORITY_EMERGENCY, null,
-                cmasInfo);
+                SmsCbMessage.GEOGRAPHICAL_SCOPE_PLMN_WIDE, serialNumber,
+                new SmsCbLocation("123456"), serviceCategory, language, body,
+                SmsCbMessage.MESSAGE_PRIORITY_EMERGENCY, null, cmasInfo);
     }
 
     /**

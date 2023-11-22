@@ -107,6 +107,14 @@
 @   r7 =>  lvl_shift2
 @   r8 =>  ht
 @   r9 =>  wd
+
+.equ    src_strd2_offset,       104
+.equ    dst_strd_offset,        108
+.equ    lvl_shift1_offset,      112
+.equ    lvl_shift2_offset,      116
+.equ    ht_offset,              120
+.equ    wd_offset,              124
+
 .text
 .syntax unified
 .align 4
@@ -121,14 +129,15 @@
 ihevc_weighted_pred_bi_default_a9q:
 
     stmfd       sp!, {r4-r12, r14}          @stack stores the values of the arguments
-    ldr         r4,[sp,#40]                 @load src_strd2
+    vpush       {d8  -  d15}
+    ldr         r4,[sp,#src_strd2_offset]   @load src_strd2
     lsl         r3,r3,#1
-    ldr         r5,[sp,#44]                 @load dst_strd
-    ldr         r6,[sp,#48]                 @load lvl_shift1
+    ldr         r5,[sp,#dst_strd_offset]    @load dst_strd
+    ldr         r6,[sp,#lvl_shift1_offset]  @load lvl_shift1
     lsl         r4,r4,#1
-    ldr         r7,[sp,#52]                 @load lvl_shift2
-    ldr         r8,[sp,#56]                 @load ht
-    ldr         r9,[sp,#60]                 @load wd
+    ldr         r7,[sp,#lvl_shift2_offset]  @load lvl_shift2
+    ldr         r8,[sp,#ht_offset]          @load ht
+    ldr         r9,[sp,#wd_offset]          @load wd
     vdup.16     q2,r6                       @lvl_shift1_t = vmov_n_s16((int16_t)lvl_shift1)
     vdup.16     q3,r7                       @lvl_shift2_t = vmov_n_s16((int16_t)lvl_shift2)
     vmov.i16    q0,#0x40                    @tmp_lvl_shift = 1 << (shift - 1)
@@ -488,6 +497,7 @@ end_core_loop_16:
 
 
 end_loops:
+    vpop        {d8  -  d15}
     ldmfd       sp!,{r4-r12,r15}            @reload the registers from sp
 
 

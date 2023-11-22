@@ -15,24 +15,26 @@
  */
 package com.android.voicemail.impl.transcribe;
 
-import android.annotation.TargetApi;
 import android.app.job.JobWorkItem;
 import android.content.Context;
 import android.net.Uri;
-import android.text.TextUtils;
+import android.support.annotation.MainThread;
+import android.support.annotation.VisibleForTesting;
+import android.telecom.PhoneAccountHandle;
+import android.util.Pair;
+import com.android.dialer.common.Assert;
 import com.android.dialer.common.concurrent.ThreadUtil;
+import com.android.dialer.compat.android.provider.VoicemailCompat;
 import com.android.dialer.logging.DialerImpression;
 import com.android.dialer.logging.Logger;
 import com.android.voicemail.impl.VvmLog;
 import com.android.voicemail.impl.transcribe.TranscriptionService.JobCallback;
 import com.android.voicemail.impl.transcribe.grpc.TranscriptionClient;
 import com.android.voicemail.impl.transcribe.grpc.TranscriptionClientFactory;
+import com.android.voicemail.impl.transcribe.grpc.TranscriptionResponse;
 import com.google.internal.communications.voicemailtranscription.v1.AudioFormat;
-import com.google.internal.communications.voicemailtranscription.v1.TranscribeVoicemailRequest;
+import com.google.internal.communications.voicemailtranscription.v1.TranscriptionStatus;
 import com.google.protobuf.ByteString;
-import io.grpc.Status;
-import java.io.IOException;
-import java.io.InputStream;
 
 /**
  * Background task to get a voicemail transcription and update the database.
@@ -41,7 +43,7 @@ import java.io.InputStream;
  * This task performs the following steps:
  *   1. Update the transcription-state in the database to 'in-progress'
  *   2. Create grpc client and transcription request
- *   3. Make synchronous grpc transcription request to backend server
+ *   3. Make synchronous or asynchronous grpc transcription request to backend server
  *     3a. On response
  *       Update the database with transcription (if successful) and new transcription-state
  *     3b. On network error
@@ -50,32 +52,47 @@ import java.io.InputStream;
  *   4. Notify the callback that the work item is complete
  * </pre>
  */
-public class TranscriptionTask implements Runnable {
+public abstract class TranscriptionTask implements Runnable {
   private static final String TAG = "TranscriptionTask";
 
-  private final Context context;
   private final JobCallback callback;
   private final JobWorkItem workItem;
   private final TranscriptionClientFactory clientFactory;
-  private final Uri voicemailUri;
-  private final TranscriptionDbHelper databaseHelper;
-  private ByteString audioData;
-  private AudioFormat encoding;
+  protected final Context context;
+  protected final Uri voicemailUri;
+  protected final PhoneAccountHandle phoneAccountHandle;
+  protected final TranscriptionConfigProvider configProvider;
+  protected final TranscriptionDbHelper dbHelper;
+  protected ByteString audioData;
+  protected AudioFormat encoding;
+  protected volatile boolean cancelled;
 
-  private static final int MAX_RETRIES = 2;
-  static final String AMR_PREFIX = "#!AMR\n";
+  /** Functional interface for sending requests to the transcription server */
+  public interface Request {
+    TranscriptionResponse getResponse(TranscriptionClient client);
+  }
 
-  public TranscriptionTask(
+  TranscriptionTask(
       Context context,
       JobCallback callback,
       JobWorkItem workItem,
-      TranscriptionClientFactory clientFactory) {
+      TranscriptionClientFactory clientFactory,
+      TranscriptionConfigProvider configProvider) {
     this.context = context;
     this.callback = callback;
     this.workItem = workItem;
     this.clientFactory = clientFactory;
-    this.voicemailUri = getVoicemailUri(workItem);
-    databaseHelper = new TranscriptionDbHelper(context, voicemailUri);
+    this.voicemailUri = TranscriptionService.getVoicemailUri(workItem);
+    this.phoneAccountHandle = TranscriptionService.getPhoneAccountHandle(workItem);
+    this.configProvider = configProvider;
+    dbHelper = new TranscriptionDbHelper(context, voicemailUri);
+  }
+
+  @MainThread
+  void cancel() {
+    Assert.isMainThread();
+    VvmLog.i(TAG, "cancel");
+    cancelled = true;
   }
 
   @Override
@@ -85,6 +102,13 @@ public class TranscriptionTask implements Runnable {
       updateTranscriptionState(VoicemailCompat.TRANSCRIPTION_IN_PROGRESS);
       transcribeVoicemail();
     } else {
+      if (AudioFormat.AUDIO_FORMAT_UNSPECIFIED.equals(encoding)) {
+        Logger.get(context)
+            .logImpression(DialerImpression.Type.VVM_TRANSCRIPTION_VOICEMAIL_FORMAT_NOT_SUPPORTED);
+      } else {
+        Logger.get(context)
+            .logImpression(DialerImpression.Type.VVM_TRANSCRIPTION_VOICEMAIL_INVALID_DATA);
+      }
       updateTranscriptionState(VoicemailCompat.TRANSCRIPTION_FAILED);
     }
     ThreadUtil.postOnUiThread(
@@ -93,86 +117,117 @@ public class TranscriptionTask implements Runnable {
         });
   }
 
+  protected abstract Pair<String, TranscriptionStatus> getTranscription();
+
+  protected abstract DialerImpression.Type getRequestSentImpression();
+
   private void transcribeVoicemail() {
     VvmLog.i(TAG, "transcribeVoicemail");
-    TranscribeVoicemailRequest request = makeRequest();
+    recordResult(context, getTranscription(), dbHelper, cancelled);
+  }
+
+  protected TranscriptionResponse sendRequest(Request request) {
+    VvmLog.i(TAG, "sendRequest");
     TranscriptionClient client = clientFactory.getClient();
-    String transcript = null;
-    for (int i = 0; transcript == null && i < MAX_RETRIES; i++) {
-      VvmLog.i(TAG, "transcribeVoicemail, try: " + (i + 1));
+    for (int i = 0; i < configProvider.getMaxTranscriptionRetries(); i++) {
+      if (cancelled) {
+        VvmLog.i(TAG, "sendRequest, cancelled");
+        return null;
+      }
+
+      VvmLog.i(TAG, "sendRequest, try: " + (i + 1));
       if (i == 0) {
-        Logger.get(context).logImpression(DialerImpression.Type.VVM_TRANSCRIPTION_REQUEST_SENT);
+        Logger.get(context).logImpression(getRequestSentImpression());
       } else {
         Logger.get(context).logImpression(DialerImpression.Type.VVM_TRANSCRIPTION_REQUEST_RETRY);
       }
-      TranscriptionClient.TranscriptionResponseWrapper responseWrapper =
-          client.transcribeVoicemail(request);
-      if (responseWrapper.status != null) {
-        VvmLog.i(TAG, "transcribeVoicemail, status: " + responseWrapper.status.getCode());
-        if (shouldRetryRequest(responseWrapper.status)) {
-          Logger.get(context)
-              .logImpression(DialerImpression.Type.VVM_TRANSCRIPTION_RESPONSE_RECOVERABLE_ERROR);
-          backoff(i);
-        } else {
-          Logger.get(context)
-              .logImpression(DialerImpression.Type.VVM_TRANSCRIPTION_RESPONSE_FATAL_ERROR);
-          break;
-        }
-      } else if (responseWrapper.response != null) {
-        if (!TextUtils.isEmpty(responseWrapper.response.getTranscript())) {
-          VvmLog.i(TAG, "transcribeVoicemail, got response");
-          transcript = responseWrapper.response.getTranscript();
-          Logger.get(context)
-              .logImpression(DialerImpression.Type.VVM_TRANSCRIPTION_RESPONSE_SUCCESS);
-        } else {
-          VvmLog.i(TAG, "transcribeVoicemail, empty transcription");
-          Logger.get(context).logImpression(DialerImpression.Type.VVM_TRANSCRIPTION_RESPONSE_EMPTY);
-        }
+
+      TranscriptionResponse response = request.getResponse(client);
+      if (cancelled) {
+        VvmLog.i(TAG, "sendRequest, cancelled");
+        return null;
+      } else if (response.hasRecoverableError()) {
+        Logger.get(context)
+            .logImpression(DialerImpression.Type.VVM_TRANSCRIPTION_RESPONSE_RECOVERABLE_ERROR);
+        backoff(i);
       } else {
-        VvmLog.w(TAG, "transcribeVoicemail, no response");
-        Logger.get(context).logImpression(DialerImpression.Type.VVM_TRANSCRIPTION_RESPONSE_INVALID);
+        return response;
       }
     }
 
-    int newState =
-        (transcript == null)
-            ? VoicemailCompat.TRANSCRIPTION_FAILED
-            : VoicemailCompat.TRANSCRIPTION_AVAILABLE;
-    updateTranscriptionAndState(transcript, newState);
-  }
-
-  private static boolean shouldRetryRequest(Status status) {
-    return status.getCode() == Status.Code.UNAVAILABLE;
+    Logger.get(context)
+        .logImpression(DialerImpression.Type.VVM_TRANSCRIPTION_RESPONSE_TOO_MANY_ERRORS);
+    return null;
   }
 
   private static void backoff(int retryCount) {
     VvmLog.i(TAG, "backoff, count: " + retryCount);
+    long millis = (1L << retryCount) * 1000;
+    sleep(millis);
+  }
+
+  protected static void sleep(long millis) {
     try {
-      long millis = (1 << retryCount) * 1000;
       Thread.sleep(millis);
     } catch (InterruptedException e) {
-      VvmLog.w(TAG, "interrupted");
+      VvmLog.e(TAG, "interrupted", e);
       Thread.currentThread().interrupt();
     }
   }
 
-  private void updateTranscriptionAndState(String transcript, int newState) {
-    databaseHelper.setTranscriptionAndState(transcript, newState);
+  protected void updateTranscriptionState(int newState) {
+    dbHelper.setTranscriptionState(newState);
   }
 
-  private void updateTranscriptionState(int newState) {
-    databaseHelper.setTranscriptionState(newState);
+  protected void updateTranscriptionAndState(String transcript, int newState) {
+    dbHelper.setTranscriptionAndState(transcript, newState);
   }
 
-  private TranscribeVoicemailRequest makeRequest() {
-    return TranscribeVoicemailRequest.newBuilder()
-        .setVoicemailData(audioData)
-        .setAudioFormat(encoding)
-        .build();
+  static void recordResult(
+      Context context, Pair<String, TranscriptionStatus> result, TranscriptionDbHelper dbHelper) {
+    recordResult(context, result, dbHelper, false);
   }
 
-  // Uses try-with-resource
-  @TargetApi(android.os.Build.VERSION_CODES.M)
+  static void recordResult(
+      Context context,
+      Pair<String, TranscriptionStatus> result,
+      TranscriptionDbHelper dbHelper,
+      boolean cancelled) {
+    if (result.first != null) {
+      VvmLog.i(TAG, "recordResult, got transcription");
+      dbHelper.setTranscriptionAndState(result.first, VoicemailCompat.TRANSCRIPTION_AVAILABLE);
+      Logger.get(context).logImpression(DialerImpression.Type.VVM_TRANSCRIPTION_RESPONSE_SUCCESS);
+    } else if (result.second != null) {
+      VvmLog.i(TAG, "recordResult, failed to transcribe, reason: " + result.second);
+      switch (result.second) {
+        case FAILED_NO_SPEECH_DETECTED:
+          dbHelper.setTranscriptionState(VoicemailCompat.TRANSCRIPTION_FAILED_NO_SPEECH_DETECTED);
+          Logger.get(context)
+              .logImpression(DialerImpression.Type.VVM_TRANSCRIPTION_RESPONSE_NO_SPEECH_DETECTED);
+          break;
+        case FAILED_LANGUAGE_NOT_SUPPORTED:
+          dbHelper.setTranscriptionState(
+              VoicemailCompat.TRANSCRIPTION_FAILED_LANGUAGE_NOT_SUPPORTED);
+          Logger.get(context)
+              .logImpression(
+                  DialerImpression.Type.VVM_TRANSCRIPTION_RESPONSE_LANGUAGE_NOT_SUPPORTED);
+          break;
+        case EXPIRED:
+          dbHelper.setTranscriptionState(VoicemailCompat.TRANSCRIPTION_FAILED);
+          Logger.get(context)
+              .logImpression(DialerImpression.Type.VVM_TRANSCRIPTION_RESPONSE_EXPIRED);
+          break;
+        default:
+          dbHelper.setTranscriptionState(
+              cancelled
+                  ? VoicemailCompat.TRANSCRIPTION_NOT_STARTED
+                  : VoicemailCompat.TRANSCRIPTION_FAILED);
+          Logger.get(context).logImpression(DialerImpression.Type.VVM_TRANSCRIPTION_RESPONSE_EMPTY);
+          break;
+      }
+    }
+  }
+
   private boolean readAndValidateAudioFile() {
     if (voicemailUri == null) {
       VvmLog.i(TAG, "Transcriber.readAndValidateAudioFile, file not found.");
@@ -181,26 +236,26 @@ public class TranscriptionTask implements Runnable {
       VvmLog.i(TAG, "Transcriber.readAndValidateAudioFile, reading: " + voicemailUri);
     }
 
-    try (InputStream in = context.getContentResolver().openInputStream(voicemailUri)) {
-      audioData = ByteString.readFrom(in);
-      VvmLog.i(TAG, "Transcriber.readAndValidateAudioFile, read " + audioData.size() + " bytes");
-    } catch (IOException e) {
-      VvmLog.e(TAG, "Transcriber.readAndValidateAudioFile", e);
+    audioData = TranscriptionUtils.getAudioData(context, voicemailUri);
+    if (audioData != null) {
+      VvmLog.i(TAG, "readAndValidateAudioFile, read " + audioData.size() + " bytes");
+    } else {
+      VvmLog.i(TAG, "readAndValidateAudioFile, unable to read audio data for " + voicemailUri);
       return false;
     }
 
-    if (audioData.startsWith(ByteString.copyFromUtf8(AMR_PREFIX))) {
-      encoding = AudioFormat.AMR_NB_8KHZ;
-    } else {
+    encoding = TranscriptionUtils.getAudioFormat(audioData);
+    if (encoding == AudioFormat.AUDIO_FORMAT_UNSPECIFIED) {
       VvmLog.i(TAG, "Transcriber.readAndValidateAudioFile, unknown encoding");
-      encoding = AudioFormat.AUDIO_FORMAT_UNSPECIFIED;
       return false;
     }
 
     return true;
   }
 
-  private static Uri getVoicemailUri(JobWorkItem workItem) {
-    return workItem.getIntent().getParcelableExtra(TranscriptionService.EXTRA_VOICEMAIL_URI);
+  @VisibleForTesting
+  void setAudioDataForTesting(ByteString audioData) {
+    this.audioData = audioData;
+    encoding = TranscriptionUtils.getAudioFormat(audioData);
   }
 }

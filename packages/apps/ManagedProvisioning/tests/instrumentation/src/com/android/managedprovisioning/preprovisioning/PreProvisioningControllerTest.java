@@ -47,6 +47,7 @@ import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.res.Resources;
 import android.graphics.drawable.VectorDrawable;
+import android.os.UserHandle;
 import android.os.UserManager;
 import android.service.persistentdata.PersistentDataBlockManager;
 import android.support.test.InstrumentationRegistry;
@@ -653,7 +654,7 @@ public class PreProvisioningControllerTest extends AndroidTestCase {
     private void prepareMocksForManagedProfileIntent(boolean skipEncryption) throws Exception {
         final String action = ACTION_PROVISION_MANAGED_PROFILE;
         when(mIntent.getAction()).thenReturn(action);
-        when(mUtils.findDeviceAdmin(TEST_MDM_PACKAGE, null, mContext))
+        when(mUtils.findDeviceAdmin(TEST_MDM_PACKAGE, null, mContext, UserHandle.myUserId()))
                 .thenReturn(TEST_MDM_COMPONENT_NAME);
         when(mSettingsFacade.isDeviceProvisioned(mContext)).thenReturn(true);
         when(mDevicePolicyManager.checkProvisioningPreCondition(action, TEST_MDM_PACKAGE))

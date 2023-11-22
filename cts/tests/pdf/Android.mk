@@ -20,21 +20,20 @@ LOCAL_MODULE_TAGS := tests
 
 LOCAL_MULTILIB := both
 
-LOCAL_JAVA_LIBRARIES := android.test.runner
+LOCAL_JAVA_LIBRARIES := android.test.runner.stubs
 
 LOCAL_STATIC_JAVA_LIBRARIES += \
     android-support-test \
     mockito-target-minus-junit4 \
     compatibility-device-util \
     ctstestrunner \
-    android-support-annotations \
-    junit \
-    legacy-android-test
+    androidx.annotation_annotation \
+    junit
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
 # Tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
+LOCAL_COMPATIBILITY_SUITE := cts vts general-tests cts_instant
 
 LOCAL_PACKAGE_NAME := CtsPdfTestCases
 

@@ -10,11 +10,15 @@ from autotest_lib.client.cros import cryptohome
 
 class platform_CryptohomeNonDirs(test.test):
     version = 1
-    cryptohome_proxy = None
 
     def require_mount_fail(self, user):
-        if self.cryptohome_proxy.mount(user, 'test', create=True):
-            raise error.TestFail('Mount failed for %s' % user)
+        try:
+            cryptohome.mount_vault(user, 'test', create=True)
+        except:
+            pass
+        else:
+            raise error.TestFail('Mount succeeded for %s' % user)
+
 
     def replace(self, src, dest):
         """Replaces dest with src.
@@ -28,8 +32,6 @@ class platform_CryptohomeNonDirs(test.test):
         os.rename(src, dest)
 
     def run_once(self):
-        self.cryptohome_proxy = cryptohome.CryptohomeProxy()
-
         # Leaf element of user path is non-dir.
         user = utils.random_username()
         path = cryptohome.user_path(user)

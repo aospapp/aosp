@@ -31,7 +31,11 @@
 #include "update_engine/omaha_request_params.h"
 #include "update_engine/payload_consumer/delta_performer.h"
 #include "update_engine/payload_state_interface.h"
+#include "update_engine/update_manager/policy.h"
+#include "update_engine/update_manager/update_manager.h"
 
+using chromeos_update_manager::Policy;
+using chromeos_update_manager::UpdateManager;
 using std::string;
 
 namespace chromeos_update_engine {
@@ -69,8 +73,10 @@ void OmahaResponseHandlerAction::PerformAction() {
     return;
   }
 
+  // This is the url to the first package, not all packages.
   install_plan_.download_url = current_url;
   install_plan_.version = response.version;
+  install_plan_.system_version = response.system_version;
 
   OmahaRequestParams* const params = system_state_->request_params();
   PayloadStateInterface* const payload_state = system_state_->payload_state();
@@ -133,7 +139,7 @@ void OmahaResponseHandlerAction::PerformAction() {
   system_state_->prefs()->SetString(current_channel_key,
                                     params->download_channel());
 
-  if (params->to_more_stable_channel() && params->is_powerwash_allowed())
+  if (params->ShouldPowerwash())
     install_plan_.powerwash_required = true;
 
   TEST_AND_RETURN(HasOutputPipe());
@@ -156,7 +162,14 @@ void OmahaResponseHandlerAction::PerformAction() {
     chmod(deadline_file_.c_str(), S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
   }
 
-  completer.set_code(ErrorCode::kSuccess);
+  // Check the generated install-plan with the Policy to confirm that
+  // it can be applied at this time (or at all).
+  UpdateManager* const update_manager = system_state_->update_manager();
+  CHECK(update_manager);
+  auto ec = ErrorCode::kSuccess;
+  update_manager->PolicyRequest(
+      &Policy::UpdateCanBeApplied, &ec, &install_plan_);
+  completer.set_code(ec);
 }
 
 bool OmahaResponseHandlerAction::AreHashChecksMandatory(

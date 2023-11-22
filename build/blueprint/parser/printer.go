@@ -68,6 +68,14 @@ func Print(file *File) ([]byte, error) {
 	return p.output, nil
 }
 
+func PrintExpression(expression Expression) ([]byte, error) {
+	dummyFile := &File{}
+	p := newPrinter(dummyFile)
+	p.printExpression(expression)
+	p.flush()
+	return p.output, nil
+}
+
 func (p *printer) Print() ([]byte, error) {
 	for _, def := range p.defs {
 		p.printDef(def)
@@ -115,6 +123,8 @@ func (p *printer) printExpression(value Expression) {
 			s = "false"
 		}
 		p.printToken(s, v.LiteralPos)
+	case *Int64:
+		p.printToken(strconv.FormatInt(v.Value, 10), v.LiteralPos)
 	case *String:
 		p.printToken(strconv.Quote(v.Value), v.LiteralPos)
 	case *List:

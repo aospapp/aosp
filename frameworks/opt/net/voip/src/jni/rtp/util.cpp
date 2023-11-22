@@ -20,7 +20,7 @@
 #include <netinet/in.h>
 
 #include "jni.h"
-#include "JNIHelp.h"
+#include <nativehelper/JNIHelp.h>
 
 int parse(JNIEnv *env, jstring jAddress, int port, sockaddr_storage *ss)
 {

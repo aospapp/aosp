@@ -13,7 +13,7 @@
 
 namespace {
 
-const FX_CHAR* const g_sATypes[] = {
+const char* const g_sATypes[] = {
     "Unknown",     "GoTo",       "GoToR",     "GoToE",      "Launch",
     "Thread",      "URI",        "Sound",     "Movie",      "Hide",
     "Named",       "SubmitForm", "ResetForm", "ImportData", "JavaScript",
@@ -21,11 +21,17 @@ const FX_CHAR* const g_sATypes[] = {
 
 }  // namespace
 
+CPDF_Action::CPDF_Action(CPDF_Dictionary* pDict) : m_pDict(pDict) {}
+
+CPDF_Action::CPDF_Action(const CPDF_Action& that) = default;
+
+CPDF_Action::~CPDF_Action() {}
+
 CPDF_Dest CPDF_Action::GetDest(CPDF_Document* pDoc) const {
   if (!m_pDict)
     return CPDF_Dest();
 
-  CFX_ByteString type = m_pDict->GetStringFor("S");
+  ByteString type = m_pDict->GetStringFor("S");
   if (type != "GoTo" && type != "GoToR")
     return CPDF_Dest();
 
@@ -34,7 +40,7 @@ CPDF_Dest CPDF_Action::GetDest(CPDF_Document* pDoc) const {
     return CPDF_Dest();
   if (pDest->IsString() || pDest->IsName()) {
     CPDF_NameTree name_tree(pDoc, "Dests");
-    return CPDF_Dest(name_tree.LookupNamedDest(pDoc, pDest->GetString()));
+    return CPDF_Dest(name_tree.LookupNamedDest(pDoc, pDest->GetUnicodeText()));
   }
   if (CPDF_Array* pArray = pDest->AsArray())
     return CPDF_Dest(pArray);
@@ -46,7 +52,7 @@ CPDF_Action::ActionType CPDF_Action::GetType() const {
   if (!m_pDict)
     return Unknown;
 
-  CFX_ByteString csType = m_pDict->GetStringFor("S");
+  ByteString csType = m_pDict->GetStringFor("S");
   if (csType.IsEmpty())
     return Unknown;
 
@@ -57,50 +63,46 @@ CPDF_Action::ActionType CPDF_Action::GetType() const {
   return Unknown;
 }
 
-CFX_WideString CPDF_Action::GetFilePath() const {
-  CFX_ByteString type = m_pDict->GetStringFor("S");
+WideString CPDF_Action::GetFilePath() const {
+  ByteString type = m_pDict->GetStringFor("S");
   if (type != "GoToR" && type != "Launch" && type != "SubmitForm" &&
       type != "ImportData") {
-    return CFX_WideString();
+    return WideString();
   }
 
   CPDF_Object* pFile = m_pDict->GetDirectObjectFor("F");
-  CFX_WideString path;
-  if (!pFile) {
-    if (type == "Launch") {
-      CPDF_Dictionary* pWinDict = m_pDict->GetDictFor("Win");
-      if (pWinDict) {
-        return CFX_WideString::FromLocal(
-            pWinDict->GetStringFor("F").AsStringC());
-      }
-    }
-    return path;
-  }
+  if (pFile)
+    return CPDF_FileSpec(pFile).GetFileName();
 
-  CPDF_FileSpec filespec(pFile);
-  filespec.GetFileName(&path);
-  return path;
+  if (type == "Launch") {
+    CPDF_Dictionary* pWinDict = m_pDict->GetDictFor("Win");
+    if (pWinDict) {
+      return WideString::FromLocal(pWinDict->GetStringFor("F").AsStringView());
+    }
+  }
+  return WideString();
 }
 
-CFX_ByteString CPDF_Action::GetURI(CPDF_Document* pDoc) const {
-  CFX_ByteString csURI;
+ByteString CPDF_Action::GetURI(const CPDF_Document* pDoc) const {
+  ByteString csURI;
   if (!m_pDict)
     return csURI;
   if (m_pDict->GetStringFor("S") != "URI")
     return csURI;
 
   csURI = m_pDict->GetStringFor("URI");
-  CPDF_Dictionary* pRoot = pDoc->GetRoot();
+  const CPDF_Dictionary* pRoot = pDoc->GetRoot();
   CPDF_Dictionary* pURI = pRoot->GetDictFor("URI");
   if (pURI) {
-    if (csURI.Find(":", 0) < 1)
+    auto result = csURI.Find(":");
+    if (!result.has_value() || result.value() == 0)
       csURI = pURI->GetStringFor("Base") + csURI;
   }
   return csURI;
 }
 
-CFX_WideString CPDF_Action::GetJavaScript() const {
-  CFX_WideString csJS;
+WideString CPDF_Action::GetJavaScript() const {
+  WideString csJS;
   if (!m_pDict)
     return csJS;
 
@@ -124,14 +126,14 @@ size_t CPDF_Action::GetSubActionsCount() const {
 
 CPDF_Action CPDF_Action::GetSubAction(size_t iIndex) const {
   if (!m_pDict || !m_pDict->KeyExist("Next"))
-    return CPDF_Action();
+    return CPDF_Action(nullptr);
 
   CPDF_Object* pNext = m_pDict->GetDirectObjectFor("Next");
+  if (CPDF_Array* pArray = ToArray(pNext))
+    return CPDF_Action(pArray->GetDictAt(iIndex));
   if (CPDF_Dictionary* pDict = ToDictionary(pNext)) {
     if (iIndex == 0)
       return CPDF_Action(pDict);
-  } else if (CPDF_Array* pArray = ToArray(pNext)) {
-    return CPDF_Action(pArray->GetDictAt(iIndex));
   }
-  return CPDF_Action();
+  return CPDF_Action(nullptr);
 }

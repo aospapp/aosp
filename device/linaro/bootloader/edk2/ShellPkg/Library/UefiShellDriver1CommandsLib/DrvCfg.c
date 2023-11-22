@@ -2,7 +2,7 @@
   Main file for DrvCfg shell Driver1 function.
 
   (C) Copyright 2015 Hewlett-Packard Development Company, L.P.<BR>
-  Copyright (c) 2010 - 2015, Intel Corporation. All rights reserved.<BR>
+  Copyright (c) 2010 - 2016, Intel Corporation. All rights reserved.<BR>
   This program and the accompanying materials
   are licensed and made available under the terms and conditions of the BSD License
   which accompanies this distribution.  The full text of the license may be found at
@@ -30,7 +30,6 @@ STATIC CONST EFI_GUID *CfgGuidList[] = {&gEfiDriverConfigurationProtocolGuid, &g
   @retval EFI_NOT_FOUND   There was no EFI_HII_HANDLE found for that deviec path.
 **/
 EFI_STATUS
-EFIAPI
 FindHiiHandleViaDevPath(
   IN CONST EFI_DEVICE_PATH_PROTOCOL *DevPath1,
   OUT EFI_HII_HANDLE                *HiiHandle,
@@ -57,8 +56,11 @@ FindHiiHandleViaDevPath(
   Status = HiiDb->ListPackageLists(HiiDb, EFI_HII_PACKAGE_DEVICE_PATH, NULL, &HandleBufferSize, HandleBuffer);
   if (Status == EFI_BUFFER_TOO_SMALL) {
     HandleBuffer = AllocateZeroPool(HandleBufferSize);
-    ASSERT (HandleBuffer != NULL);
-    Status = HiiDb->ListPackageLists(HiiDb, EFI_HII_PACKAGE_DEVICE_PATH, NULL, &HandleBufferSize, HandleBuffer);
+    if (HandleBuffer == NULL) {
+      Status = EFI_OUT_OF_RESOURCES;
+    } else {
+      Status = HiiDb->ListPackageLists (HiiDb, EFI_HII_PACKAGE_DEVICE_PATH, NULL, &HandleBufferSize, HandleBuffer);
+    }
   }
   if (EFI_ERROR(Status)) {
     SHELL_FREE_NON_NULL(HandleBuffer);
@@ -75,8 +77,12 @@ FindHiiHandleViaDevPath(
     Status = HiiDb->ExportPackageLists(HiiDb, HandleBuffer[LoopVariable], &MainBufferSize, MainBuffer);
     if (Status == EFI_BUFFER_TOO_SMALL) {
       MainBuffer = AllocateZeroPool(MainBufferSize);
-      ASSERT (MainBuffer != NULL);
-      Status = HiiDb->ExportPackageLists(HiiDb, HandleBuffer[LoopVariable], &MainBufferSize, MainBuffer);
+      if (MainBuffer != NULL) {
+        Status = HiiDb->ExportPackageLists (HiiDb, HandleBuffer[LoopVariable], &MainBufferSize, MainBuffer);
+      }
+    }
+    if (EFI_ERROR (Status)) {
+      continue;
     }
     //
     // Enumerate through the block of returned memory.
@@ -117,7 +123,6 @@ FindHiiHandleViaDevPath(
   @retval EFI_SUCCESS   The operation was successful.
 **/
 EFI_STATUS
-EFIAPI
 ConvertHandleToHiiHandle(
   IN CONST EFI_HANDLE           Handle,
   OUT EFI_HII_HANDLE            *HiiHandle,
@@ -152,7 +157,6 @@ ConvertHandleToHiiHandle(
   @param[in] FileName         The filename to rwite the info to.
 **/
 SHELL_STATUS
-EFIAPI
 ConfigToFile(
   IN CONST EFI_HANDLE     Handle,
   IN CONST CHAR16         *FileName
@@ -262,7 +266,6 @@ ConfigToFile(
   @param[in] FileName         The filename to read the info from.
 **/
 SHELL_STATUS
-EFIAPI
 ConfigFromFile(
   IN       EFI_HANDLE     Handle,
   IN CONST CHAR16         *FileName
@@ -479,7 +482,6 @@ ConfigFromFile(
   @retval SHELL_INVALID_PARAMETER   A parameter has a invalid value.
 **/
 EFI_STATUS
-EFIAPI
 ShellCmdDriverConfigurationProcessActionRequired (
   EFI_HANDLE                                DriverImageHandle,
   EFI_HANDLE                                ControllerHandle,
@@ -547,7 +549,6 @@ ShellCmdDriverConfigurationProcessActionRequired (
   @retval SHELL_INVALID_PARAMETER   A parameter has a invalid value.
 **/
 SHELL_STATUS
-EFIAPI
 PreHiiDrvCfg (
   IN CONST CHAR8    *Language,
   IN BOOLEAN        ForceDefaults,
@@ -1055,7 +1056,6 @@ Done:
   @retval SHELL_SUCCESS     The operation was successful.
 **/
 SHELL_STATUS
-EFIAPI
 PrintConfigInfoOnAll(
   IN CONST BOOLEAN ChildrenToo,
   IN CONST CHAR8   *Language,
@@ -1205,6 +1205,11 @@ ShellCommandRunDrvCfg (
     }
   } 
   if (ShellStatus == SHELL_SUCCESS) {
+    if (ShellCommandLineGetCount(Package) > 4) {
+      ShellPrintHiiEx(-1, -1, NULL, STRING_TOKEN (STR_GEN_TOO_MANY), gShellDriver1HiiHandle, L"drvcfg");
+      ShellStatus = SHELL_INVALID_PARAMETER;
+      goto Done;
+    }
     Lang = ShellCommandLineGetValue(Package, L"-l");
     if (Lang != NULL) {
       Language = AllocateZeroPool(StrSize(Lang));

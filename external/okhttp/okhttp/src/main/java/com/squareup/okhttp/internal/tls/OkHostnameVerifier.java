@@ -29,7 +29,6 @@ import java.util.regex.Pattern;
 import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.SSLException;
 import javax.net.ssl.SSLSession;
-import javax.security.auth.x500.X500Principal;
 
 /**
  * A HostnameVerifier consistent with <a
@@ -105,6 +104,8 @@ public final class OkHostnameVerifier implements HostnameVerifier {
       }
     }
 
+    // BEGIN Android-removed: Ignore common name in hostname verification. http://b/70278814
+    /*
     if (!hasDns) {
       X500Principal principal = certificate.getSubjectX500Principal();
       // RFC 2818 advises using the most specific name for matching.
@@ -113,6 +114,8 @@ public final class OkHostnameVerifier implements HostnameVerifier {
         return verifyHostName(hostName, cn);
       }
     }
+    */
+    // END Android-removed: Ignore common name in hostname verification. http://b/70278814
 
     return false;
   }

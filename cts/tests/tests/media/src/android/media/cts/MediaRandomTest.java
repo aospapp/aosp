@@ -20,6 +20,7 @@ import android.media.cts.R;
 
 import android.media.MediaRecorder;
 import android.media.MediaPlayer;
+import android.platform.test.annotations.AppModeFull;
 import android.view.SurfaceHolder;
 import android.test.ActivityInstrumentationTestCase2;
 import android.os.Environment;
@@ -40,6 +41,7 @@ import java.util.Random;
  * Blender Foundation / www.bigbuckbunny.org, and are licensed under the Creative Commons
  * Attribution 3.0 License at http://creativecommons.org/licenses/by/3.0/us/.
  */
+@AppModeFull(reason = "TODO: evaluate and port to instant")
 public class MediaRandomTest extends ActivityInstrumentationTestCase2<MediaStubActivity> {
     private static final String TAG = "MediaRandomTest";
 

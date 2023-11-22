@@ -25,23 +25,30 @@
  */
 package org.apache.harmony.jpda.tests.jdwp.ObjectReference;
 
+import org.apache.harmony.jpda.tests.share.GcMarker;
 import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
 import org.apache.harmony.jpda.tests.share.SyncDebuggee;
 
 public class EnableCollectionDebuggee extends SyncDebuggee {
-    
+
     static EnableCollectionObject001_01 checkedObject;
     static boolean checkedObject_Finalized = false;
     static EnableCollectionObject001_02 patternObject;
     static boolean patternObject_Finalized = false;
 
+    static GcMarker marker;
+
     @Override
     public void run() {
         logWriter.println("--> Debuggee: EnableCollectionDebuggee: START");
-        
+
         // Allocates test objects to be sure there is no local reference
         // to them.
         allocateTestObjects();
+
+        marker = new GcMarker();
+        marker.add(checkedObject);
+        marker.add(patternObject);
 
         synchronizer.sendMessage(JPDADebuggeeSynchronizer.SGNL_READY);
         String messageFromTest = synchronizer.receiveMessage();
@@ -49,7 +56,13 @@ public class EnableCollectionDebuggee extends SyncDebuggee {
             logWriter.println("--> Debuggee: EnableCollectionDebuggee: FINISH");
             return;
         }
-        
+
+        int numberOfExpectedFinalizations = 2;
+        if (!messageFromTest.equals(JPDADebuggeeSynchronizer.SGNL_CONTINUE)) {
+          logWriter.println("--> Unexpected message: \"" + messageFromTest + "\"");
+          return;
+        }
+
         // Releases test objects so there is no more reference to them. We do it in a
         // separate method to avoid having any local reference to them.
         releaseTestObjects();
@@ -57,10 +70,7 @@ public class EnableCollectionDebuggee extends SyncDebuggee {
         // Allocates many objects to increase the heap.
         causeMemoryDepletion();
 
-        // Requests GC and finalization of objects.
-        System.gc();
-        System.runFinalization();
-        System.gc();
+        marker.waitForGc(numberOfExpectedFinalizations);
 
         logWriter.println("--> Debuggee: AFTER System.gc():");
         logWriter.println("--> Debuggee: checkedObject = " + checkedObject);
@@ -137,7 +147,7 @@ class EnableCollectionObject001_01 {
         EnableCollectionDebuggee.checkedObject_Finalized = true;
         super.finalize();
     }
-}   
+}
 
 class EnableCollectionObject001_02 {
     @Override
@@ -145,5 +155,5 @@ class EnableCollectionObject001_02 {
         EnableCollectionDebuggee.patternObject_Finalized = true;
         super.finalize();
     }
-}   
+}
 

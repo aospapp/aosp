@@ -26,6 +26,14 @@
       android:layout_width="match_parent"
       android:layout_height="wrap_content"
       android:text="@string/voicemail_broadcast_instructions"/>
+
+    <TextView
+        android:id="@+id/no_carrier_support"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/voicemail_broadcast_no_carrier_support"
+        android:visibility="gone"/>
+
     <LinearLayout
       android:layout_width="wrap_content"
       android:layout_height="wrap_content"

@@ -86,7 +86,7 @@ class SecurityPoCKernelTest(base_test.BaseTestClass):
         testcase_path = os.path.join(*testcase.split("/"))
         test_config_path = os.path.join(
             self.data_file_path, "vts", "testcases", "security", "poc",
-            "target", testcase_path, "poc.config")
+            "target", testcase_path, "poc.runner_conf")
 
         with open(test_config_path) as test_config_file:
             poc_config = json.load(test_config_file)["target_models"]

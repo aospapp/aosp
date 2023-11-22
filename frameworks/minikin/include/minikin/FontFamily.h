@@ -22,73 +22,25 @@
 #include <unordered_set>
 #include <vector>
 
-#include <hb.h>
-
-#include <utils/TypeHelpers.h>
-
-#include <minikin/SparseBitSet.h>
+#include "minikin/FontStyle.h"
+#include "minikin/HbUtils.h"
+#include "minikin/Macros.h"
+#include "minikin/SparseBitSet.h"
 
 namespace minikin {
 
+class Font;
 class MinikinFont;
-
-// FontStyle represents all style information needed to select an actual font
-// from a collection. The implementation is packed into two 32-bit words
-// so it can be efficiently copied, embedded in other objects, etc.
-class FontStyle {
-public:
-    FontStyle() : FontStyle(0 /* variant */, 4 /* weight */, false /* italic */) {}
-    FontStyle(int weight, bool italic) : FontStyle(0 /* variant */, weight, italic) {}
-    FontStyle(uint32_t langListId)  // NOLINT(implicit)
-            : FontStyle(langListId, 0 /* variant */, 4 /* weight */, false /* italic */) {}
-
-    FontStyle(int variant, int weight, bool italic);
-    FontStyle(uint32_t langListId, int variant, int weight, bool italic);
-
-    int getWeight() const { return bits & kWeightMask; }
-    bool getItalic() const { return (bits & kItalicMask) != 0; }
-    int getVariant() const { return (bits >> kVariantShift) & kVariantMask; }
-    uint32_t getLanguageListId() const { return mLanguageListId; }
-
-    bool operator==(const FontStyle other) const {
-          return bits == other.bits && mLanguageListId == other.mLanguageListId;
-    }
-
-    android::hash_t hash() const;
-
-    // Looks up a language list from an internal cache and returns its ID.
-    // If the passed language list is not in the cache, registers it and returns newly assigned ID.
-    static uint32_t registerLanguageList(const std::string& languages);
-private:
-    static const uint32_t kWeightMask = (1 << 4) - 1;
-    static const uint32_t kItalicMask = 1 << 4;
-    static const int kVariantShift = 5;
-    static const uint32_t kVariantMask = (1 << 2) - 1;
-
-    static uint32_t pack(int variant, int weight, bool italic);
-
-    uint32_t bits;
-    uint32_t mLanguageListId;
-};
-
-enum FontVariant {
-    VARIANT_DEFAULT = 0,
-    VARIANT_COMPACT = 1,
-    VARIANT_ELEGANT = 2,
-};
-
-inline android::hash_t hash_type(const FontStyle &style) {
-    return style.hash();
-}
 
 // attributes representing transforms (fake bold, fake italic) to match styles
 class FontFakery {
 public:
-    FontFakery() : mFakeBold(false), mFakeItalic(false) { }
-    FontFakery(bool fakeBold, bool fakeItalic) : mFakeBold(fakeBold), mFakeItalic(fakeItalic) { }
+    FontFakery() : mFakeBold(false), mFakeItalic(false) {}
+    FontFakery(bool fakeBold, bool fakeItalic) : mFakeBold(fakeBold), mFakeItalic(fakeItalic) {}
     // TODO: want to support graded fake bolding
     bool isFakeBold() { return mFakeBold; }
     bool isFakeItalic() { return mFakeItalic; }
+
 private:
     bool mFakeBold;
     bool mFakeItalic;
@@ -96,22 +48,73 @@ private:
 
 struct FakedFont {
     // ownership is the enclosing FontCollection
-    MinikinFont* font;
+    const Font* font;
     FontFakery fakery;
 };
 
 typedef uint32_t AxisTag;
 
-struct Font {
-    Font(const std::shared_ptr<MinikinFont>& typeface, FontStyle style);
-    Font(std::shared_ptr<MinikinFont>&& typeface, FontStyle style);
-    Font(Font&& o);
-    Font(const Font& o);
+// Represents a single font file.
+class Font {
+public:
+    class Builder {
+    public:
+        Builder(const std::shared_ptr<MinikinFont>& typeface) : mTypeface(typeface) {}
 
-    std::shared_ptr<MinikinFont> typeface;
-    FontStyle style;
+        // Override the font style. If not called, info from OS/2 table is used.
+        Builder& setStyle(FontStyle style) {
+            mWeight = style.weight();
+            mSlant = style.slant();
+            mIsWeightSet = mIsSlantSet = true;
+            return *this;
+        }
 
-    std::unordered_set<AxisTag> getSupportedAxesLocked() const;
+        // Override the font weight. If not called, info from OS/2 table is used.
+        Builder& setWeight(uint16_t weight) {
+            mWeight = weight;
+            mIsWeightSet = true;
+            return *this;
+        }
+
+        // Override the font slant. If not called, info from OS/2 table is used.
+        Builder& setSlant(FontStyle::Slant slant) {
+            mSlant = slant;
+            mIsSlantSet = true;
+            return *this;
+        }
+
+        Font build();
+
+    private:
+        std::shared_ptr<MinikinFont> mTypeface;
+        uint16_t mWeight = static_cast<uint16_t>(FontStyle::Weight::NORMAL);
+        FontStyle::Slant mSlant = FontStyle::Slant::UPRIGHT;
+        bool mIsWeightSet = false;
+        bool mIsSlantSet = false;
+    };
+
+    Font(Font&& o) = default;
+    Font& operator=(Font&& o) = default;
+
+    inline const std::shared_ptr<MinikinFont>& typeface() const { return mTypeface; }
+    inline FontStyle style() const { return mStyle; }
+    inline const HbFontUniquePtr& baseFont() const { return mBaseFont; }
+
+    std::unordered_set<AxisTag> getSupportedAxes() const;
+
+private:
+    // Use Builder instead.
+    Font(std::shared_ptr<MinikinFont>&& typeface, FontStyle style, HbFontUniquePtr&& baseFont)
+            : mTypeface(std::move(typeface)), mStyle(style), mBaseFont(std::move(baseFont)) {}
+
+    static HbFontUniquePtr prepareFont(const std::shared_ptr<MinikinFont>& typeface);
+    static FontStyle analyzeStyle(const HbFontUniquePtr& font);
+
+    std::shared_ptr<MinikinFont> mTypeface;
+    FontStyle mStyle;
+    HbFontUniquePtr mBaseFont;
+
+    MINIKIN_PREVENT_COPY_AND_ASSIGN(Font);
 };
 
 struct FontVariation {
@@ -122,25 +125,27 @@ struct FontVariation {
 
 class FontFamily {
 public:
-    explicit FontFamily(std::vector<Font>&& fonts);
-    FontFamily(int variant, std::vector<Font>&& fonts);
-    FontFamily(uint32_t langId, int variant, std::vector<Font>&& fonts);
+    // Must be the same value as FontConfig.java
+    enum class Variant : uint8_t {
+        DEFAULT = 0,  // Must be the same as FontConfig.VARIANT_DEFAULT
+        COMPACT = 1,  // Must be the same as FontConfig.VARIANT_COMPACT
+        ELEGANT = 2,  // Must be the same as FontConfig.VARIANT_ELEGANT
+    };
 
-    // TODO: Good to expose FontUtil.h.
-    static bool analyzeStyle(const std::shared_ptr<MinikinFont>& typeface, int* weight,
-            bool* italic);
+    explicit FontFamily(std::vector<Font>&& fonts);
+    FontFamily(Variant variant, std::vector<Font>&& fonts);
+    FontFamily(uint32_t localeListId, Variant variant, std::vector<Font>&& fonts);
+
     FakedFont getClosestMatch(FontStyle style) const;
 
-    uint32_t langId() const { return mLangId; }
-    int variant() const { return mVariant; }
+    uint32_t localeListId() const { return mLocaleListId; }
+    Variant variant() const { return mVariant; }
 
     // API's for enumerating the fonts in a family. These don't guarantee any particular order
     size_t getNumFonts() const { return mFonts.size(); }
-    const std::shared_ptr<MinikinFont>& getFont(size_t index) const {
-        return mFonts[index].typeface;
-    }
-    FontStyle getStyle(size_t index) const { return mFonts[index].style; }
-    bool isColorEmojiFamily() const;
+    const Font* getFont(size_t index) const { return &mFonts[index]; }
+    FontStyle getStyle(size_t index) const { return mFonts[index].style(); }
+    bool isColorEmojiFamily() const { return mIsColorEmoji; }
     const std::unordered_set<AxisTag>& supportedAxes() const { return mSupportedAxes; }
 
     // Get Unicode coverage.
@@ -161,17 +166,16 @@ public:
 private:
     void computeCoverage();
 
-    uint32_t mLangId;
-    int mVariant;
+    uint32_t mLocaleListId;
+    Variant mVariant;
     std::vector<Font> mFonts;
     std::unordered_set<AxisTag> mSupportedAxes;
+    bool mIsColorEmoji;
 
     SparseBitSet mCoverage;
     std::vector<std::unique_ptr<SparseBitSet>> mCmapFmt14Coverage;
 
-    // Forbid copying and assignment.
-    FontFamily(const FontFamily&) = delete;
-    void operator=(const FontFamily&) = delete;
+    MINIKIN_PREVENT_COPY_AND_ASSIGN(FontFamily);
 };
 
 }  // namespace minikin

@@ -17,19 +17,38 @@
 #ifndef ANDROID_NET_HW_SERVICE_H
 #define ANDROID_NET_HW_SERVICE_H
 
-#include <android/system/net/netd/1.0/INetd.h>
+#include <android/system/net/netd/1.1/INetd.h>
 
 using android::hardware::Return;
-using android::system::net::netd::V1_0::INetd;
+using android::hardware::hidl_string;
+using android::system::net::netd::V1_1::INetd;
+using StatusCode = android::system::net::netd::V1_1::INetd::StatusCode;
 
 namespace android {
 namespace net {
 
 class NetdHwService : public INetd {
 public:
+    // 1.0
     status_t start();
     Return<void> createOemNetwork(createOemNetwork_cb _hidl_cb) override;
-    Return<INetd::StatusCode> destroyOemNetwork(uint64_t netHandle) override;
+    Return<StatusCode> destroyOemNetwork(uint64_t netHandle) override;
+
+    // 1.1
+    Return <StatusCode> addRouteToOemNetwork(
+            uint64_t networkHandle, const hidl_string& ifname, const hidl_string& destination,
+            const hidl_string& nexthop) override;
+    Return <StatusCode> removeRouteFromOemNetwork(
+            uint64_t networkHandle, const hidl_string& ifname, const hidl_string& destination,
+            const hidl_string& nexthop) override;
+    Return <StatusCode> addInterfaceToOemNetwork(uint64_t networkHandle,
+                                                 const hidl_string& ifname) override;
+    Return <StatusCode> removeInterfaceFromOemNetwork(uint64_t networkHandle,
+                                                      const hidl_string& ifname) override;
+    Return <StatusCode> setIpForwardEnable(bool enable) override;
+    Return <StatusCode> setForwardingBetweenInterfaces(const hidl_string& inputIfName,
+                                                       const hidl_string& outputIfName,
+                                                       bool enable) override;
 };
 
 }  // namespace net

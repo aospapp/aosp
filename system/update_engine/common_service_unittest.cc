@@ -28,9 +28,10 @@
 #include "update_engine/omaha_utils.h"
 
 using std::string;
-using testing::Return;
-using testing::SetArgumentPointee;
 using testing::_;
+using testing::Return;
+using testing::SetArgPointee;
+using update_engine::UpdateAttemptFlags;
 
 namespace chromeos_update_engine {
 
@@ -56,13 +57,32 @@ class UpdateEngineServiceTest : public ::testing::Test {
 };
 
 TEST_F(UpdateEngineServiceTest, AttemptUpdate) {
-  EXPECT_CALL(*mock_update_attempter_, CheckForUpdate(
-      "app_ver", "url", false /* interactive */));
-  // The update is non-interactive when we pass the non-interactive flag.
-  EXPECT_TRUE(common_service_.AttemptUpdate(
-      &error_, "app_ver", "url",
-      UpdateEngineService::kAttemptUpdateFlagNonInteractive));
+  EXPECT_CALL(
+      *mock_update_attempter_,
+      CheckForUpdate("app_ver", "url", UpdateAttemptFlags::kFlagNonInteractive))
+      .WillOnce(Return(true));
+
+  // The non-interactive flag needs to be passed through to CheckForUpdate.
+  bool result = false;
+  EXPECT_TRUE(
+      common_service_.AttemptUpdate(&error_,
+                                    "app_ver",
+                                    "url",
+                                    UpdateAttemptFlags::kFlagNonInteractive,
+                                    &result));
   EXPECT_EQ(nullptr, error_);
+  EXPECT_TRUE(result);
+}
+
+TEST_F(UpdateEngineServiceTest, AttemptUpdateReturnsFalse) {
+  EXPECT_CALL(*mock_update_attempter_,
+              CheckForUpdate("app_ver", "url", UpdateAttemptFlags::kNone))
+      .WillOnce(Return(false));
+  bool result = true;
+  EXPECT_TRUE(common_service_.AttemptUpdate(
+      &error_, "app_ver", "url", UpdateAttemptFlags::kNone, &result));
+  EXPECT_EQ(nullptr, error_);
+  EXPECT_FALSE(result);
 }
 
 // SetChannel is allowed when there's no device policy (the device is not
@@ -82,7 +102,7 @@ TEST_F(UpdateEngineServiceTest, SetChannelWithDelegatedPolicy) {
   policy::MockDevicePolicy mock_device_policy;
   fake_system_state_.set_device_policy(&mock_device_policy);
   EXPECT_CALL(mock_device_policy, GetReleaseChannelDelegated(_))
-      .WillOnce(DoAll(SetArgumentPointee<0>(true), Return(true)));
+      .WillOnce(DoAll(SetArgPointee<0>(true), Return(true)));
   EXPECT_CALL(*fake_system_state_.mock_request_params(),
               SetTargetChannel("beta-channel", true, _))
       .WillOnce(Return(true));

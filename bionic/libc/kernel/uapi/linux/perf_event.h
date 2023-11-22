@@ -98,7 +98,8 @@ enum perf_event_sample_format {
   PERF_SAMPLE_IDENTIFIER = 1U << 16,
   PERF_SAMPLE_TRANSACTION = 1U << 17,
   PERF_SAMPLE_REGS_INTR = 1U << 18,
-  PERF_SAMPLE_MAX = 1U << 19,
+  PERF_SAMPLE_PHYS_ADDR = 1U << 19,
+  PERF_SAMPLE_MAX = 1U << 20,
 };
 enum perf_branch_sample_type_shift {
   PERF_SAMPLE_BRANCH_USER_SHIFT = 0,
@@ -117,6 +118,7 @@ enum perf_branch_sample_type_shift {
   PERF_SAMPLE_BRANCH_CALL_SHIFT = 13,
   PERF_SAMPLE_BRANCH_NO_FLAGS_SHIFT = 14,
   PERF_SAMPLE_BRANCH_NO_CYCLES_SHIFT = 15,
+  PERF_SAMPLE_BRANCH_TYPE_SAVE_SHIFT = 16,
   PERF_SAMPLE_BRANCH_MAX_SHIFT
 };
 enum perf_branch_sample_type {
@@ -136,7 +138,22 @@ enum perf_branch_sample_type {
   PERF_SAMPLE_BRANCH_CALL = 1U << PERF_SAMPLE_BRANCH_CALL_SHIFT,
   PERF_SAMPLE_BRANCH_NO_FLAGS = 1U << PERF_SAMPLE_BRANCH_NO_FLAGS_SHIFT,
   PERF_SAMPLE_BRANCH_NO_CYCLES = 1U << PERF_SAMPLE_BRANCH_NO_CYCLES_SHIFT,
+  PERF_SAMPLE_BRANCH_TYPE_SAVE = 1U << PERF_SAMPLE_BRANCH_TYPE_SAVE_SHIFT,
   PERF_SAMPLE_BRANCH_MAX = 1U << PERF_SAMPLE_BRANCH_MAX_SHIFT,
+};
+enum {
+  PERF_BR_UNKNOWN = 0,
+  PERF_BR_COND = 1,
+  PERF_BR_UNCOND = 2,
+  PERF_BR_IND = 3,
+  PERF_BR_CALL = 4,
+  PERF_BR_IND_CALL = 5,
+  PERF_BR_RET = 6,
+  PERF_BR_SYSCALL = 7,
+  PERF_BR_SYSRET = 8,
+  PERF_BR_COND_CALL = 9,
+  PERF_BR_COND_RET = 10,
+  PERF_BR_MAX,
 };
 #define PERF_SAMPLE_BRANCH_PLM_ALL (PERF_SAMPLE_BRANCH_USER | PERF_SAMPLE_BRANCH_KERNEL | PERF_SAMPLE_BRANCH_HV)
 enum perf_sample_regs_abi {
@@ -180,7 +197,7 @@ struct perf_event_attr {
   };
   __u64 sample_type;
   __u64 read_format;
-  __u64 disabled : 1, inherit : 1, pinned : 1, exclusive : 1, exclude_user : 1, exclude_kernel : 1, exclude_hv : 1, exclude_idle : 1, mmap : 1, comm : 1, freq : 1, inherit_stat : 1, enable_on_exec : 1, task : 1, watermark : 1, precise_ip : 2, mmap_data : 1, sample_id_all : 1, exclude_host : 1, exclude_guest : 1, exclude_callchain_kernel : 1, exclude_callchain_user : 1, mmap2 : 1, comm_exec : 1, use_clockid : 1, context_switch : 1, write_backward : 1, __reserved_1 : 36;
+  __u64 disabled : 1, inherit : 1, pinned : 1, exclusive : 1, exclude_user : 1, exclude_kernel : 1, exclude_hv : 1, exclude_idle : 1, mmap : 1, comm : 1, freq : 1, inherit_stat : 1, enable_on_exec : 1, task : 1, watermark : 1, precise_ip : 2, mmap_data : 1, sample_id_all : 1, exclude_host : 1, exclude_guest : 1, exclude_callchain_kernel : 1, exclude_callchain_user : 1, mmap2 : 1, comm_exec : 1, use_clockid : 1, context_switch : 1, write_backward : 1, namespaces : 1, __reserved_1 : 35;
   union {
     __u32 wakeup_events;
     __u32 wakeup_watermark;
@@ -265,6 +282,20 @@ struct perf_event_header {
   __u16 misc;
   __u16 size;
 };
+struct perf_ns_link_info {
+  __u64 dev;
+  __u64 ino;
+};
+enum {
+  NET_NS_INDEX = 0,
+  UTS_NS_INDEX = 1,
+  IPC_NS_INDEX = 2,
+  PID_NS_INDEX = 3,
+  USER_NS_INDEX = 4,
+  MNT_NS_INDEX = 5,
+  CGROUP_NS_INDEX = 6,
+  NR_NAMESPACES,
+};
 enum perf_event_type {
   PERF_RECORD_MMAP = 1,
   PERF_RECORD_LOST = 2,
@@ -281,6 +312,7 @@ enum perf_event_type {
   PERF_RECORD_LOST_SAMPLES = 13,
   PERF_RECORD_SWITCH = 14,
   PERF_RECORD_SWITCH_CPU_WIDE = 15,
+  PERF_RECORD_NAMESPACES = 16,
   PERF_RECORD_MAX,
 };
 #define PERF_MAX_STACK_DEPTH 127
@@ -296,16 +328,29 @@ enum perf_callchain_context {
 };
 #define PERF_AUX_FLAG_TRUNCATED 0x01
 #define PERF_AUX_FLAG_OVERWRITE 0x02
+#define PERF_AUX_FLAG_PARTIAL 0x04
+#define PERF_AUX_FLAG_COLLISION 0x08
 #define PERF_FLAG_FD_NO_GROUP (1UL << 0)
 #define PERF_FLAG_FD_OUTPUT (1UL << 1)
 #define PERF_FLAG_PID_CGROUP (1UL << 2)
 #define PERF_FLAG_FD_CLOEXEC (1UL << 3)
+#ifdef __LITTLE_ENDIAN_BITFIELD
 union perf_mem_data_src {
   __u64 val;
   struct {
-    __u64 mem_op : 5, mem_lvl : 14, mem_snoop : 5, mem_lock : 2, mem_dtlb : 7, mem_rsvd : 31;
+    __u64 mem_op : 5, mem_lvl : 14, mem_snoop : 5, mem_lock : 2, mem_dtlb : 7, mem_lvl_num : 4, mem_remote : 1, mem_snoopx : 2, mem_rsvd : 24;
   };
 };
+#elif defined(__BIG_ENDIAN_BITFIELD)
+union perf_mem_data_src {
+  __u64 val;
+  struct {
+    __u64 mem_rsvd : 24, mem_snoopx : 2, mem_remote : 1, mem_lvl_num : 4, mem_dtlb : 7, mem_lock : 2, mem_snoop : 5, mem_lvl : 14, mem_op : 5;
+  };
+};
+#else
+#error "Unknown endianness"
+#endif
 #define PERF_MEM_OP_NA 0x01
 #define PERF_MEM_OP_LOAD 0x02
 #define PERF_MEM_OP_STORE 0x04
@@ -327,12 +372,26 @@ union perf_mem_data_src {
 #define PERF_MEM_LVL_IO 0x1000
 #define PERF_MEM_LVL_UNC 0x2000
 #define PERF_MEM_LVL_SHIFT 5
+#define PERF_MEM_REMOTE_REMOTE 0x01
+#define PERF_MEM_REMOTE_SHIFT 37
+#define PERF_MEM_LVLNUM_L1 0x01
+#define PERF_MEM_LVLNUM_L2 0x02
+#define PERF_MEM_LVLNUM_L3 0x03
+#define PERF_MEM_LVLNUM_L4 0x04
+#define PERF_MEM_LVLNUM_ANY_CACHE 0x0b
+#define PERF_MEM_LVLNUM_LFB 0x0c
+#define PERF_MEM_LVLNUM_RAM 0x0d
+#define PERF_MEM_LVLNUM_PMEM 0x0e
+#define PERF_MEM_LVLNUM_NA 0x0f
+#define PERF_MEM_LVLNUM_SHIFT 33
 #define PERF_MEM_SNOOP_NA 0x01
 #define PERF_MEM_SNOOP_NONE 0x02
 #define PERF_MEM_SNOOP_HIT 0x04
 #define PERF_MEM_SNOOP_MISS 0x08
 #define PERF_MEM_SNOOP_HITM 0x10
 #define PERF_MEM_SNOOP_SHIFT 19
+#define PERF_MEM_SNOOPX_FWD 0x01
+#define PERF_MEM_SNOOPX_SHIFT 37
 #define PERF_MEM_LOCK_NA 0x01
 #define PERF_MEM_LOCK_LOCKED 0x02
 #define PERF_MEM_LOCK_SHIFT 24
@@ -348,6 +407,6 @@ union perf_mem_data_src {
 struct perf_branch_entry {
   __u64 from;
   __u64 to;
-  __u64 mispred : 1, predicted : 1, in_tx : 1, abort : 1, cycles : 16, reserved : 44;
+  __u64 mispred : 1, predicted : 1, in_tx : 1, abort : 1, cycles : 16, type : 4, reserved : 40;
 };
 #endif

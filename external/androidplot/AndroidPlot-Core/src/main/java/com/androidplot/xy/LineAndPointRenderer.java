@@ -205,7 +205,7 @@ public class LineAndPointRenderer<FormatterType extends LineAndPointFormatter> e
             RectF regionRect = r.getRectF(plotArea, minX, maxX, minY, maxY);
             if (regionRect != null) {
                 try {
-                canvas.save(Canvas.ALL_SAVE_FLAG);
+                canvas.save();
                 canvas.clipPath(path);
                 canvas.drawRect(regionRect, f.getPaint());
                 } finally {

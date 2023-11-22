@@ -45,6 +45,7 @@ In the end, the script will print the failed and skipped tests if any.
 
 """
 import argparse
+import collections
 import fnmatch
 import itertools
 import json
@@ -59,22 +60,8 @@ import time
 
 import env
 from target_config import target_config
+from device_config import device_config
 
-TARGET_TYPES = set()
-RUN_TYPES = set()
-PREBUILD_TYPES = set()
-COMPILER_TYPES = set()
-RELOCATE_TYPES = set()
-TRACE_TYPES = set()
-GC_TYPES = set()
-JNI_TYPES = set()
-IMAGE_TYPES = set()
-PICTEST_TYPES = set()
-DEBUGGABLE_TYPES = set()
-ADDRESS_SIZES = set()
-OPTIMIZING_COMPILER_TYPES = set()
-JVMTI_TYPES = set()
-ADDRESS_SIZES_TARGET = {'host': set(), 'target': set()}
 # timeout for individual tests.
 # TODO: make it adjustable per tests and for buildbots
 timeout = 3000 # 50 minutes
@@ -123,10 +110,21 @@ test_count = 0
 total_test_count = 0
 verbose = False
 dry_run = False
+ignore_skips = False
 build = False
 gdb = False
 gdb_arg = ''
 stop_testrunner = False
+dex2oat_jobs = -1   # -1 corresponds to default threads for dex2oat
+run_all_configs = False
+
+# Dict containing extra arguments
+extra_arguments = { "host" : [], "target" : [] }
+
+# Dict to store user requested test variants.
+# key: variant_type.
+# value: set of variants user wants to run of type <key>.
+_user_input_variants = collections.defaultdict(set)
 
 def gather_test_info():
   """The method gathers test information about the test to be run which includes
@@ -138,19 +136,20 @@ def gather_test_info():
   # TODO: Avoid duplication of the variant names in different lists.
   VARIANT_TYPE_DICT['pictest'] = {'pictest', 'npictest'}
   VARIANT_TYPE_DICT['run'] = {'ndebug', 'debug'}
-  VARIANT_TYPE_DICT['target'] = {'target', 'host'}
+  VARIANT_TYPE_DICT['target'] = {'target', 'host', 'jvm'}
   VARIANT_TYPE_DICT['trace'] = {'trace', 'ntrace', 'stream'}
   VARIANT_TYPE_DICT['image'] = {'picimage', 'no-image', 'multipicimage'}
   VARIANT_TYPE_DICT['debuggable'] = {'ndebuggable', 'debuggable'}
   VARIANT_TYPE_DICT['gc'] = {'gcstress', 'gcverify', 'cms'}
   VARIANT_TYPE_DICT['prebuild'] = {'no-prebuild', 'no-dex2oat', 'prebuild'}
+  VARIANT_TYPE_DICT['cdex_level'] = {'cdex-none', 'cdex-fast'}
   VARIANT_TYPE_DICT['relocate'] = {'relocate-npatchoat', 'relocate', 'no-relocate'}
   VARIANT_TYPE_DICT['jni'] = {'jni', 'forcecopy', 'checkjni'}
   VARIANT_TYPE_DICT['address_sizes'] = {'64', '32'}
   VARIANT_TYPE_DICT['jvmti'] = {'no-jvmti', 'jvmti-stress', 'redefine-stress', 'trace-stress',
                                 'field-stress', 'step-stress'}
   VARIANT_TYPE_DICT['compiler'] = {'interp-ac', 'interpreter', 'jit', 'optimizing',
-                              'regalloc_gc', 'speed-profile'}
+                                   'regalloc_gc', 'speed-profile'}
 
   for v_type in VARIANT_TYPE_DICT:
     TOTAL_VARIANTS_SET = TOTAL_VARIANTS_SET.union(VARIANT_TYPE_DICT.get(v_type))
@@ -172,109 +171,85 @@ def setup_test_env():
     # Bisection search writes to standard output.
     env.ART_TEST_QUIET = False
 
-  if not TARGET_TYPES:
-    TARGET_TYPES.add('host')
-    TARGET_TYPES.add('target')
+  global _user_input_variants
+  global run_all_configs
+  if run_all_configs:
+    target_types = _user_input_variants['target']
+    _user_input_variants = VARIANT_TYPE_DICT
+    _user_input_variants['target'] = target_types
 
-  if env.ART_TEST_RUN_TEST_NO_PREBUILD:
-    PREBUILD_TYPES.add('no-prebuild')
-  if env.ART_TEST_RUN_TEST_NO_DEX2OAT:
-    PREBUILD_TYPES.add('no-dex2oat')
-  if env.ART_TEST_RUN_TEST_PREBUILD or not PREBUILD_TYPES: # Default
-    PREBUILD_TYPES.add('prebuild')
+  if not _user_input_variants['target']:
+    _user_input_variants['target'].add('host')
+    _user_input_variants['target'].add('target')
 
-  if env.ART_TEST_INTERPRETER_ACCESS_CHECKS:
-    COMPILER_TYPES.add('interp-ac')
-  if env.ART_TEST_INTERPRETER:
-    COMPILER_TYPES.add('interpreter')
-  if env.ART_TEST_JIT:
-    COMPILER_TYPES.add('jit')
-  if env.ART_TEST_OPTIMIZING_GRAPH_COLOR:
-    COMPILER_TYPES.add('regalloc_gc')
-    OPTIMIZING_COMPILER_TYPES.add('regalloc_gc')
-  if env.ART_TEST_OPTIMIZING:
-    COMPILER_TYPES.add('optimizing')
-    OPTIMIZING_COMPILER_TYPES.add('optimizing')
-  if env.ART_TEST_SPEED_PROFILE:
-    COMPILER_TYPES.add('speed-profile')
+  if not _user_input_variants['prebuild']: # Default
+    _user_input_variants['prebuild'].add('prebuild')
+
+  if not _user_input_variants['cdex_level']: # Default
+    _user_input_variants['cdex_level'].add('cdex-fast')
 
   # By default only run without jvmti
-  if not JVMTI_TYPES:
-    JVMTI_TYPES.add('no-jvmti')
+  if not _user_input_variants['jvmti']:
+    _user_input_variants['jvmti'].add('no-jvmti')
 
   # By default we run all 'compiler' variants.
-  if not COMPILER_TYPES:
-    COMPILER_TYPES.add('optimizing')
-    COMPILER_TYPES.add('jit')
-    COMPILER_TYPES.add('interpreter')
-    COMPILER_TYPES.add('interp-ac')
-    COMPILER_TYPES.add('speed-profile')
-    OPTIMIZING_COMPILER_TYPES.add('optimizing')
+  if not _user_input_variants['compiler'] and _user_input_variants['target'] != 'jvm':
+    _user_input_variants['compiler'].add('optimizing')
+    _user_input_variants['compiler'].add('jit')
+    _user_input_variants['compiler'].add('interpreter')
+    _user_input_variants['compiler'].add('interp-ac')
+    _user_input_variants['compiler'].add('speed-profile')
 
-  if env.ART_TEST_RUN_TEST_RELOCATE:
-    RELOCATE_TYPES.add('relocate')
-  if env.ART_TEST_RUN_TEST_RELOCATE_NO_PATCHOAT:
-    RELOCATE_TYPES.add('relocate-npatchoat')
-  if not RELOCATE_TYPES: # Default
-    RELOCATE_TYPES.add('no-relocate')
+  if not _user_input_variants['relocate']: # Default
+    _user_input_variants['relocate'].add('no-relocate')
 
-  if env.ART_TEST_TRACE:
-    TRACE_TYPES.add('trace')
-  if env.ART_TEST_TRACE_STREAM:
-    TRACE_TYPES.add('stream')
-  if not TRACE_TYPES: # Default
-    TRACE_TYPES.add('ntrace')
+  if not _user_input_variants['trace']: # Default
+    _user_input_variants['trace'].add('ntrace')
 
-  if env.ART_TEST_GC_STRESS:
-    GC_TYPES.add('gcstress')
-  if env.ART_TEST_GC_VERIFY:
-    GC_TYPES.add('gcverify')
-  if not GC_TYPES: # Default
-    GC_TYPES.add('cms')
+  if not _user_input_variants['gc']: # Default
+    _user_input_variants['gc'].add('cms')
 
-  if env.ART_TEST_JNI_FORCECOPY:
-    JNI_TYPES.add('forcecopy')
-  if not JNI_TYPES: # Default
-    JNI_TYPES.add('checkjni')
+  if not _user_input_variants['jni']: # Default
+    _user_input_variants['jni'].add('checkjni')
 
-  if env.ART_TEST_RUN_TEST_NO_IMAGE:
-    IMAGE_TYPES.add('no-image')
-  if env.ART_TEST_RUN_TEST_MULTI_IMAGE:
-    IMAGE_TYPES.add('multipicimage')
-  if env.ART_TEST_RUN_TEST_IMAGE or not IMAGE_TYPES: # Default
-    IMAGE_TYPES.add('picimage')
+  if not _user_input_variants['image']: # Default
+    _user_input_variants['image'].add('picimage')
 
-  if env.ART_TEST_PIC_TEST:
-    PICTEST_TYPES.add('pictest')
-  if not PICTEST_TYPES: # Default
-    PICTEST_TYPES.add('npictest')
+  if not _user_input_variants['pictest']: # Default
+    _user_input_variants['pictest'].add('npictest')
 
-  if env.ART_TEST_RUN_TEST_NDEBUG:
-    RUN_TYPES.add('ndebug')
-  if env.ART_TEST_RUN_TEST_DEBUG or not RUN_TYPES: # Default
-    RUN_TYPES.add('debug')
+  if not _user_input_variants['debuggable']: # Default
+    _user_input_variants['debuggable'].add('ndebuggable')
 
-  if env.ART_TEST_RUN_TEST_DEBUGGABLE:
-    DEBUGGABLE_TYPES.add('debuggable')
-  if not DEBUGGABLE_TYPES: # Default
-    DEBUGGABLE_TYPES.add('ndebuggable')
+  if not _user_input_variants['run']: # Default
+    _user_input_variants['run'].add('debug')
 
-  if not ADDRESS_SIZES:
-    ADDRESS_SIZES_TARGET['target'].add(env.ART_PHONY_TEST_TARGET_SUFFIX)
-    ADDRESS_SIZES_TARGET['host'].add(env.ART_PHONY_TEST_HOST_SUFFIX)
+  _user_input_variants['address_sizes_target'] = collections.defaultdict(set)
+  if not _user_input_variants['address_sizes']:
+    _user_input_variants['address_sizes_target']['target'].add(
+        env.ART_PHONY_TEST_TARGET_SUFFIX)
+    _user_input_variants['address_sizes_target']['host'].add(
+        env.ART_PHONY_TEST_HOST_SUFFIX)
     if env.ART_TEST_RUN_TEST_2ND_ARCH:
-      ADDRESS_SIZES_TARGET['host'].add(env.ART_2ND_PHONY_TEST_HOST_SUFFIX)
-      ADDRESS_SIZES_TARGET['target'].add(env.ART_2ND_PHONY_TEST_TARGET_SUFFIX)
+      _user_input_variants['address_sizes_target']['host'].add(
+          env.ART_2ND_PHONY_TEST_HOST_SUFFIX)
+      _user_input_variants['address_sizes_target']['target'].add(
+          env.ART_2ND_PHONY_TEST_TARGET_SUFFIX)
   else:
-    ADDRESS_SIZES_TARGET['host'] = ADDRESS_SIZES_TARGET['host'].union(ADDRESS_SIZES)
-    ADDRESS_SIZES_TARGET['target'] = ADDRESS_SIZES_TARGET['target'].union(ADDRESS_SIZES)
+    _user_input_variants['address_sizes_target']['host'] = _user_input_variants['address_sizes']
+    _user_input_variants['address_sizes_target']['target'] = _user_input_variants['address_sizes']
 
   global n_thread
   if n_thread is -1:
-    if 'target' in TARGET_TYPES:
+    if 'target' in _user_input_variants['target']:
       n_thread = get_default_threads('target')
     else:
       n_thread = get_default_threads('host')
+    print_text("Concurrency: " + str(n_thread) + "\n")
+
+  global extra_arguments
+  for target in _user_input_variants['target']:
+    extra_arguments[target] = find_extra_device_arguments(target)
 
   global semaphore
   semaphore = threading.Semaphore(n_thread)
@@ -289,6 +264,32 @@ def setup_test_env():
     COLOR_SKIP = ''
     COLOR_NORMAL = ''
 
+def find_extra_device_arguments(target):
+  """
+  Gets any extra arguments from the device_config.
+  """
+  device_name = target
+  if target == 'target':
+    device_name = get_device_name()
+  return device_config.get(device_name, { 'run-test-args' : [] })['run-test-args']
+
+def get_device_name():
+  """
+  Gets the value of ro.product.name from remote device.
+  """
+  proc = subprocess.Popen(['adb', 'shell', 'getprop', 'ro.product.name'],
+                          stderr=subprocess.STDOUT,
+                          stdout = subprocess.PIPE,
+                          universal_newlines=True)
+  # only wait 2 seconds.
+  output = proc.communicate(timeout = 2)[0]
+  success = not proc.wait()
+  if success:
+    return output.strip()
+  else:
+    print_text("Unable to determine device type!\n")
+    print_text("Continuing anyway.\n")
+    return "UNKNOWN_TARGET"
 
 def run_tests(tests):
   """Creates thread workers to run the tests.
@@ -305,23 +306,27 @@ def run_tests(tests):
     tests: The set of tests to be run.
   """
   options_all = ''
+
+  # jvm does not run with all these combinations,
+  # or at least it doesn't make sense for most of them.
+  # TODO: support some jvm variants like jvmti ?
+  target_input_variants = _user_input_variants['target']
+  uncombinated_target_input_variants = []
+  if 'jvm' in target_input_variants:
+    _user_input_variants['target'].remove('jvm')
+    uncombinated_target_input_variants.append('jvm')
+
   global total_test_count
   total_test_count = len(tests)
-  total_test_count *= len(RUN_TYPES)
-  total_test_count *= len(PREBUILD_TYPES)
-  total_test_count *= len(RELOCATE_TYPES)
-  total_test_count *= len(TRACE_TYPES)
-  total_test_count *= len(GC_TYPES)
-  total_test_count *= len(JNI_TYPES)
-  total_test_count *= len(IMAGE_TYPES)
-  total_test_count *= len(PICTEST_TYPES)
-  total_test_count *= len(DEBUGGABLE_TYPES)
-  total_test_count *= len(COMPILER_TYPES)
-  total_test_count *= len(JVMTI_TYPES)
+  if target_input_variants:
+    for variant_type in VARIANT_TYPE_DICT:
+      if not (variant_type == 'target' or 'address_sizes' in variant_type):
+        total_test_count *= len(_user_input_variants[variant_type])
   target_address_combinations = 0
-  for target in TARGET_TYPES:
-    for address_size in ADDRESS_SIZES_TARGET[target]:
+  for target in target_input_variants:
+    for address_size in _user_input_variants['address_sizes_target'][target]:
       target_address_combinations += 1
+  target_address_combinations += len(uncombinated_target_input_variants)
   total_test_count *= target_address_combinations
 
   if env.ART_TEST_WITH_STRACE:
@@ -341,14 +346,35 @@ def run_tests(tests):
     if gdb_arg:
       options_all += ' --gdb-arg ' + gdb_arg
 
-  config = itertools.product(tests, TARGET_TYPES, RUN_TYPES, PREBUILD_TYPES,
-                             COMPILER_TYPES, RELOCATE_TYPES, TRACE_TYPES,
-                             GC_TYPES, JNI_TYPES, IMAGE_TYPES, PICTEST_TYPES,
-                             DEBUGGABLE_TYPES, JVMTI_TYPES)
+  if dex2oat_jobs != -1:
+    options_all += ' --dex2oat-jobs ' + str(dex2oat_jobs)
 
-  for test, target, run, prebuild, compiler, relocate, trace, gc, \
-      jni, image, pictest, debuggable, jvmti in config:
-    for address_size in ADDRESS_SIZES_TARGET[target]:
+  def iter_config(tests, input_variants, user_input_variants):
+    config = itertools.product(tests, input_variants, user_input_variants['run'],
+                                 user_input_variants['prebuild'], user_input_variants['compiler'],
+                                 user_input_variants['relocate'], user_input_variants['trace'],
+                                 user_input_variants['gc'], user_input_variants['jni'],
+                                 user_input_variants['image'], user_input_variants['pictest'],
+                                 user_input_variants['debuggable'], user_input_variants['jvmti'],
+                                 user_input_variants['cdex_level'])
+    return config
+
+  # [--host, --target] combines with all the other user input variants.
+  config = iter_config(tests, target_input_variants, _user_input_variants)
+  # [--jvm] currently combines with nothing else. most of the extra flags we'd insert
+  # would be unrecognizable by the 'java' binary, so avoid inserting any extra flags for now.
+  uncombinated_config = iter_config(tests, uncombinated_target_input_variants, { 'run': [''],
+      'prebuild': [''], 'compiler': [''],
+      'relocate': [''], 'trace': [''],
+      'gc': [''], 'jni': [''],
+      'image': [''], 'pictest': [''],
+      'debuggable': [''], 'jvmti': [''],
+      'cdex_level': ['']})
+
+  def start_combination(config_tuple, address_size):
+      test, target, run, prebuild, compiler, relocate, trace, gc, \
+      jni, image, pictest, debuggable, jvmti, cdex_level = config_tuple
+
       if stop_testrunner:
         # When ART_TEST_KEEP_GOING is set to false, then as soon as a test
         # fails, stop_testrunner is set to True. When this happens, the method
@@ -357,6 +383,8 @@ def run_tests(tests):
         while threading.active_count() > 2:
           time.sleep(0.1)
           return
+      # NB The order of components here should match the order of
+      # components in the regex parser in parse_test_name.
       test_name = 'test-art-'
       test_name += target + '-run-test-'
       test_name += run + '-'
@@ -370,16 +398,19 @@ def run_tests(tests):
       test_name += pictest + '-'
       test_name += debuggable + '-'
       test_name += jvmti + '-'
+      test_name += cdex_level + '-'
       test_name += test
       test_name += address_size
 
       variant_set = {target, run, prebuild, compiler, relocate, trace, gc, jni,
-                     image, pictest, debuggable, jvmti, address_size}
+                     image, pictest, debuggable, jvmti, cdex_level, address_size}
 
       options_test = options_all
 
       if target == 'host':
         options_test += ' --host'
+      elif target == 'jvm':
+        options_test += ' --jvm'
 
       if run == 'ndebug':
         options_test += ' -O'
@@ -390,6 +421,9 @@ def run_tests(tests):
         options_test += ' --no-prebuild'
       elif prebuild == 'no-dex2oat':
         options_test += ' --no-prebuild --no-dex2oat'
+
+      # Add option and remove the cdex- prefix.
+      options_test += ' --compact-dex-level ' + cdex_level.replace('cdex-','')
 
       if compiler == 'optimizing':
         options_test += ' --optimizing'
@@ -465,18 +499,29 @@ def run_tests(tests):
       elif env.ANDROID_COMPILE_WITH_JACK == False:
         options_test += ' --build-with-javac-dx'
 
+      if env.USE_D8_BY_DEFAULT == True:
+        options_test += ' --build-with-d8'
+
       # TODO(http://36039166): This is a temporary solution to
       # fix build breakages.
       options_test = (' --output-path %s') % (
           tempfile.mkdtemp(dir=env.ART_HOST_TEST_DIR)) + options_test
 
       run_test_sh = env.ANDROID_BUILD_TOP + '/art/test/run-test'
-      command = run_test_sh + ' ' + options_test + ' ' + test
+      command = ' '.join((run_test_sh, options_test, ' '.join(extra_arguments[target]), test))
 
       semaphore.acquire()
       worker = threading.Thread(target=run_test, args=(command, test, variant_set, test_name))
       worker.daemon = True
       worker.start()
+
+  for config_tuple in config:
+    target = config_tuple[1]
+    for address_size in _user_input_variants['address_sizes_target'][target]:
+      start_combination(config_tuple, address_size)
+
+  for config_tuple in uncombinated_config:
+      start_combination(config_tuple, "")  # no address size
 
   while threading.active_count() > 2:
     time.sleep(0.1)
@@ -518,7 +563,7 @@ def run_test(command, test, test_variant, test_name):
       if test_passed:
         print_test_info(test_name, 'PASS')
       else:
-        failed_tests.append((test_name, script_output))
+        failed_tests.append((test_name, str(command) + "\n" + script_output))
         if not env.ART_TEST_KEEP_GOING:
           stop_testrunner = True
         print_test_info(test_name, 'FAIL', ('%s\n%s') % (
@@ -573,11 +618,17 @@ def print_test_info(test_name, result, failed_test_info=""):
       total_test_count)
 
     if result == 'FAIL' or result == 'TIMEOUT':
-      info += ('%s %s %s\n%s\n') % (
-        progress_info,
-        test_name,
-        COLOR_ERROR + result + COLOR_NORMAL,
-        failed_test_info)
+      if not verbose:
+        info += ('%s %s %s\n') % (
+          progress_info,
+          test_name,
+          COLOR_ERROR + result + COLOR_NORMAL)
+      else:
+        info += ('%s %s %s\n%s\n') % (
+          progress_info,
+          test_name,
+          COLOR_ERROR + result + COLOR_NORMAL,
+          failed_test_info)
     else:
       result_text = ''
       if result == 'PASS':
@@ -613,6 +664,7 @@ def print_test_info(test_name, result, failed_test_info=""):
 def verify_knownfailure_entry(entry):
   supported_field = {
       'tests' : (list, str),
+      'test_patterns' : (list,),
       'description' : (list, str),
       'bug' : (str,),
       'variant' : (str,),
@@ -646,6 +698,11 @@ def get_disabled_test_info():
     tests = failure.get('tests', [])
     if isinstance(tests, str):
       tests = [tests]
+    patterns = failure.get("test_patterns", [])
+    if (not isinstance(patterns, list)):
+      raise ValueError("test_patters is not a list in %s" % failure)
+
+    tests += [f for f in RUN_TEST_SET if any(re.match(pat, f) is not None for pat in patterns)]
     variants = parse_variants(failure.get('variant'))
     env_vars = failure.get('env_vars')
 
@@ -689,6 +746,8 @@ def is_test_disabled(test, variant_set):
     return True
   if test in env.EXTRA_DISABLED_TESTS:
     return True
+  if ignore_skips:
+    return False
   variants_list = DISABLED_TEST_CONTAINER.get(test, {})
   for variants in variants_list:
     variants_present = True
@@ -796,24 +855,26 @@ def parse_test_name(test_name):
   regex += '(' + '|'.join(VARIANT_TYPE_DICT['pictest']) + ')-'
   regex += '(' + '|'.join(VARIANT_TYPE_DICT['debuggable']) + ')-'
   regex += '(' + '|'.join(VARIANT_TYPE_DICT['jvmti']) + ')-'
+  regex += '(' + '|'.join(VARIANT_TYPE_DICT['cdex_level']) + ')-'
   regex += '(' + '|'.join(RUN_TEST_SET) + ')'
   regex += '(' + '|'.join(VARIANT_TYPE_DICT['address_sizes']) + ')$'
   match = re.match(regex, test_name)
   if match:
-    TARGET_TYPES.add(match.group(1))
-    RUN_TYPES.add(match.group(2))
-    PREBUILD_TYPES.add(match.group(3))
-    COMPILER_TYPES.add(match.group(4))
-    RELOCATE_TYPES.add(match.group(5))
-    TRACE_TYPES.add(match.group(6))
-    GC_TYPES.add(match.group(7))
-    JNI_TYPES.add(match.group(8))
-    IMAGE_TYPES.add(match.group(9))
-    PICTEST_TYPES.add(match.group(10))
-    DEBUGGABLE_TYPES.add(match.group(11))
-    JVMTI_TYPES.add(match.group(12))
-    ADDRESS_SIZES.add(match.group(14))
-    return {match.group(13)}
+    _user_input_variants['target'].add(match.group(1))
+    _user_input_variants['run'].add(match.group(2))
+    _user_input_variants['prebuild'].add(match.group(3))
+    _user_input_variants['compiler'].add(match.group(4))
+    _user_input_variants['relocate'].add(match.group(5))
+    _user_input_variants['trace'].add(match.group(6))
+    _user_input_variants['gc'].add(match.group(7))
+    _user_input_variants['jni'].add(match.group(8))
+    _user_input_variants['image'].add(match.group(9))
+    _user_input_variants['pictest'].add(match.group(10))
+    _user_input_variants['debuggable'].add(match.group(11))
+    _user_input_variants['jvmti'].add(match.group(12))
+    _user_input_variants['cdex_level'].add(match.group(13))
+    _user_input_variants['address_sizes'].add(match.group(15))
+    return {match.group(14)}
   raise ValueError(test_name + " is not a valid test")
 
 
@@ -855,26 +916,28 @@ def get_default_threads(target):
 def parse_option():
   global verbose
   global dry_run
+  global ignore_skips
   global n_thread
   global build
   global gdb
   global gdb_arg
   global timeout
+  global dex2oat_jobs
+  global run_all_configs
 
   parser = argparse.ArgumentParser(description="Runs all or a subset of the ART test suite.")
-  parser.add_argument('-t', '--test', dest='test', help='name of the test')
+  parser.add_argument('-t', '--test', action='append', dest='tests', help='name(s) of the test(s)')
   parser.add_argument('-j', type=int, dest='n_thread')
   parser.add_argument('--timeout', default=timeout, type=int, dest='timeout')
   for variant in TOTAL_VARIANTS_SET:
     flag = '--' + variant
-    flag_dest = variant.replace('-', '_')
-    if variant == '32' or variant == '64':
-      flag_dest = 'n' + flag_dest
-    parser.add_argument(flag, action='store_true', dest=flag_dest)
+    parser.add_argument(flag, action='store_true', dest=variant)
   parser.add_argument('--verbose', '-v', action='store_true', dest='verbose')
   parser.add_argument('--dry-run', action='store_true', dest='dry_run')
   parser.add_argument("--skip", action="append", dest="skips", default=[],
                       help="Skip the given test in all circumstances.")
+  parser.add_argument("--no-skips", dest="ignore_skips", action="store_true", default=False,
+                      help="Don't skip any run-test configurations listed in knownfailures.json.")
   parser.add_argument('--no-build-dependencies',
                       action='store_false', dest='build',
                       help="Don't build dependencies under any circumstances. This is the " +
@@ -887,96 +950,33 @@ def parse_option():
   parser.set_defaults(build = env.ART_TEST_RUN_TEST_BUILD)
   parser.add_argument('--gdb', action='store_true', dest='gdb')
   parser.add_argument('--gdb-arg', dest='gdb_arg')
+  parser.add_argument('--dex2oat-jobs', type=int, dest='dex2oat_jobs',
+                      help='Number of dex2oat jobs')
+  parser.add_argument('-a', '--all', action='store_true', dest='run_all',
+                      help="Run all the possible configurations for the input test set")
 
   options = vars(parser.parse_args())
   if options['build_target']:
     options = setup_env_for_build_target(target_config[options['build_target']],
                                          parser, options)
 
-  test = ''
+  tests = None
   env.EXTRA_DISABLED_TESTS.update(set(options['skips']))
-  if options['test']:
-    test = parse_test_name(options['test'])
-  if options['pictest']:
-    PICTEST_TYPES.add('pictest')
-  if options['ndebug']:
-    RUN_TYPES.add('ndebug')
-  if options['interp_ac']:
-    COMPILER_TYPES.add('interp-ac')
-  if options['picimage']:
-    IMAGE_TYPES.add('picimage')
-  if options['n64']:
-    ADDRESS_SIZES.add('64')
-  if options['interpreter']:
-    COMPILER_TYPES.add('interpreter')
-  if options['jni']:
-    JNI_TYPES.add('jni')
-  if options['relocate_npatchoat']:
-    RELOCATE_TYPES.add('relocate-npatchoat')
-  if options['no_prebuild']:
-    PREBUILD_TYPES.add('no-prebuild')
-  if options['npictest']:
-    PICTEST_TYPES.add('npictest')
-  if options['no_dex2oat']:
-    PREBUILD_TYPES.add('no-dex2oat')
-  if options['jit']:
-    COMPILER_TYPES.add('jit')
-  if options['relocate']:
-    RELOCATE_TYPES.add('relocate')
-  if options['ndebuggable']:
-    DEBUGGABLE_TYPES.add('ndebuggable')
-  if options['no_image']:
-    IMAGE_TYPES.add('no-image')
-  if options['optimizing']:
-    COMPILER_TYPES.add('optimizing')
-  if options['speed_profile']:
-    COMPILER_TYPES.add('speed-profile')
-  if options['trace']:
-    TRACE_TYPES.add('trace')
-  if options['gcstress']:
-    GC_TYPES.add('gcstress')
-  if options['no_relocate']:
-    RELOCATE_TYPES.add('no-relocate')
-  if options['target']:
-    TARGET_TYPES.add('target')
-  if options['forcecopy']:
-    JNI_TYPES.add('forcecopy')
-  if options['n32']:
-    ADDRESS_SIZES.add('32')
-  if options['host']:
-    TARGET_TYPES.add('host')
-  if options['gcverify']:
-    GC_TYPES.add('gcverify')
-  if options['debuggable']:
-    DEBUGGABLE_TYPES.add('debuggable')
-  if options['prebuild']:
-    PREBUILD_TYPES.add('prebuild')
-  if options['debug']:
-    RUN_TYPES.add('debug')
-  if options['checkjni']:
-    JNI_TYPES.add('checkjni')
-  if options['ntrace']:
-    TRACE_TYPES.add('ntrace')
-  if options['cms']:
-    GC_TYPES.add('cms')
-  if options['multipicimage']:
-    IMAGE_TYPES.add('multipicimage')
-  if options['jvmti_stress']:
-    JVMTI_TYPES.add('jvmti-stress')
-  if options['redefine_stress']:
-    JVMTI_TYPES.add('redefine-stress')
-  if options['field_stress']:
-    JVMTI_TYPES.add('field-stress')
-  if options['step_stress']:
-    JVMTI_TYPES.add('step-stress')
-  if options['trace_stress']:
-    JVMTI_TYPES.add('trace-stress')
-  if options['no_jvmti']:
-    JVMTI_TYPES.add('no-jvmti')
+  if options['tests']:
+    tests = set()
+    for test_name in options['tests']:
+      tests |= parse_test_name(test_name)
+
+  for variant_type in VARIANT_TYPE_DICT:
+    for variant in VARIANT_TYPE_DICT[variant_type]:
+      if options.get(variant):
+        _user_input_variants[variant_type].add(variant)
+
   if options['verbose']:
     verbose = True
   if options['n_thread']:
     n_thread = max(1, options['n_thread'])
+  ignore_skips = options['ignore_skips']
   if options['dry_run']:
     dry_run = True
     verbose = True
@@ -987,20 +987,27 @@ def parse_option():
     if options['gdb_arg']:
       gdb_arg = options['gdb_arg']
   timeout = options['timeout']
+  if options['dex2oat_jobs']:
+    dex2oat_jobs = options['dex2oat_jobs']
+  if options['run_all']:
+    run_all_configs = True
 
-  return test
+  return tests
 
 def main():
   gather_test_info()
-  user_requested_test = parse_option()
+  user_requested_tests = parse_option()
   setup_test_env()
   if build:
     build_targets = ''
-    if 'host' in TARGET_TYPES:
+    if 'host' in _user_input_variants['target']:
       build_targets += 'test-art-host-run-test-dependencies'
-    if 'target' in TARGET_TYPES:
+    if 'target' in _user_input_variants['target']:
       build_targets += 'test-art-target-run-test-dependencies'
+    if 'jvm' in _user_input_variants['target']:
+      build_targets += 'test-art-host-run-test-dependencies'
     build_command = 'make'
+    build_command += ' DX='
     build_command += ' -j'
     build_command += ' -C ' + env.ANDROID_BUILD_TOP
     build_command += ' ' + build_targets
@@ -1008,14 +1015,19 @@ def main():
     build_command += ' dist'
     if subprocess.call(build_command.split()):
       sys.exit(1)
-  if user_requested_test:
-    test_runner_thread = threading.Thread(target=run_tests, args=(user_requested_test,))
+  if user_requested_tests:
+    test_runner_thread = threading.Thread(target=run_tests, args=(user_requested_tests,))
   else:
     test_runner_thread = threading.Thread(target=run_tests, args=(RUN_TEST_SET,))
   test_runner_thread.daemon = True
   try:
     test_runner_thread.start()
-    while threading.active_count() > 1:
+    # This loops waits for all the threads to finish, unless
+    # stop_testrunner is set to True. When ART_TEST_KEEP_GOING
+    # is set to false, stop_testrunner is set to True as soon as
+    # a test fails to signal the parent thread  to stop
+    # the execution of the testrunner.
+    while threading.active_count() > 1 and not stop_testrunner:
       time.sleep(0.1)
     print_analysis()
   except Exception as e:

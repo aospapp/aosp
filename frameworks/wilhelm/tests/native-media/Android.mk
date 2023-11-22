@@ -9,6 +9,7 @@ LOCAL_SRC_FILES := \
     src/com/example/nativemedia/MyGLSurfaceView.java
 
 LOCAL_PACKAGE_NAME := native-media
+LOCAL_SDK_VERSION := current
 LOCAL_CERTIFICATE := platform
 
 LOCAL_JNI_SHARED_LIBRARIES := libnative-media-jni

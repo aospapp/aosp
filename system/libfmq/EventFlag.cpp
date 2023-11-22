@@ -16,14 +16,17 @@
 
 #define LOG_TAG "FMQ_EventFlags"
 
-#include <fmq/EventFlag.h>
 #include <linux/futex.h>
+#include <string.h>
 #include <sys/mman.h>
 #include <sys/syscall.h>
 #include <unistd.h>
+
+#include <new>
+
+#include <fmq/EventFlag.h>
 #include <utils/Log.h>
 #include <utils/SystemClock.h>
-#include <new>
 
 namespace android {
 namespace hardware {

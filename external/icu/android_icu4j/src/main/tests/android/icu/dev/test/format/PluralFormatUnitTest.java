@@ -20,6 +20,8 @@ import java.util.Map;
 import java.util.Set;
 
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import android.icu.dev.test.TestFmwk;
 import android.icu.text.DecimalFormat;
@@ -31,11 +33,14 @@ import android.icu.text.PluralRules;
 import android.icu.text.PluralRules.PluralType;
 import android.icu.text.PluralRules.SampleType;
 import android.icu.util.ULocale;
+import android.icu.testsharding.MainTestShard;
 
 /**
  * @author tschumann (Tim Schumann)
  *
  */
+@MainTestShard
+@RunWith(JUnit4.class)
 public class PluralFormatUnitTest extends TestFmwk {
     @Test
     public void TestConstructor() {
@@ -86,6 +91,7 @@ public class PluralFormatUnitTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestEquals() {
         // There is neither clone() nor a copy constructor.
         PluralFormat de_fee_1 = new PluralFormat(ULocale.GERMAN, PluralType.CARDINAL, "other{fee}");
@@ -98,6 +104,7 @@ public class PluralFormatUnitTest extends TestFmwk {
         assertFalse("different locales", de_fee_1.equals(fr_fee));
     }
 
+    @Test
     public void TestApplyPatternAndFormat() {
         // Create rules for testing.
         PluralRules oddAndEven =  PluralRules.createRules("odd: n mod 2 is 1");
@@ -401,7 +408,7 @@ public class PluralFormatUnitTest extends TestFmwk {
         assertEquals("offset-decimals format(2)", "another 1.0 meters", pf2.format(2));
         assertEquals("offset-decimals format(2.5)", "another 1.5 meters", pf2.format(2.5));
     }
-    
+
     @Test
     public void TestNegative() {
         PluralFormat pluralFormat = new PluralFormat(ULocale.ENGLISH, "one{# foot}other{# feet}");

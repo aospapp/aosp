@@ -17,11 +17,13 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android">
 
     <style name="ActionBarTheme" parent="@*android:style/ThemeOverlay.Material.Dark.ActionBar">
+        <item name="android:colorControlNormal">@android:color/white</item>
         <item name="android:textSelectHandle">@drawable/text_select_handle_middle</item>
         <item name="android:textSelectHandleLeft">@drawable/text_select_handle_left</item>
         <item name="android:textSelectHandleRight">@drawable/text_select_handle_right</item>
         <item name="android:textCursorDrawable">@drawable/text_cursor</item>
         <item name="android:textColorHighlight">@color/text_highlight</item>
+        <item name="android:textColorPrimary">@android:color/white</item>
     </style>
     <style name="ActionBarPopupTheme" parent="@*android:style/ThemeOverlay.Material.Light" />
 

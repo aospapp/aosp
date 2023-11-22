@@ -12,8 +12,8 @@ Fail if the following file systems are less than our threshhold size:
   - /tmp
   - /dev/shm
   - /var/tmp
-  - /var/run
-  - /var/lock
+  - /run
+  - /run/lock
 """
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"

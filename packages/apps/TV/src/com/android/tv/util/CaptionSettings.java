@@ -18,7 +18,6 @@ package com.android.tv.util;
 
 import android.content.Context;
 import android.view.accessibility.CaptioningManager;
-
 import java.util.Locale;
 
 public class CaptionSettings {
@@ -32,8 +31,8 @@ public class CaptionSettings {
     private String mTrackId;
 
     public CaptionSettings(Context context) {
-        mCaptioningManager = (CaptioningManager) context.getSystemService(
-                Context.CAPTIONING_SERVICE);
+        mCaptioningManager =
+                (CaptioningManager) context.getSystemService(Context.CAPTIONING_SERVICE);
     }
 
     public final String getSystemLanguage() {
@@ -84,16 +83,12 @@ public class CaptionSettings {
         mLanguage = language;
     }
 
-    /**
-     * Returns the track ID to be used as an alternative key.
-     */
+    /** Returns the track ID to be used as an alternative key. */
     public String getTrackId() {
         return mTrackId;
     }
 
-    /**
-     * Sets the track ID to be used as an alternative key.
-     */
+    /** Sets the track ID to be used as an alternative key. */
     public void setTrackId(String trackId) {
         mTrackId = trackId;
     }

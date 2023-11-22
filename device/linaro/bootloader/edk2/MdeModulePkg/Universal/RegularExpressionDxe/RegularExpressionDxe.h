@@ -26,8 +26,6 @@
 #include <Library/DebugLib.h>
 #include <Library/BaseLib.h>
 
-#define ARRAY_SIZE(Array) (sizeof(Array) / sizeof(*Array))
-
 /**
   Checks if the input string matches to the regular expression pattern.
 

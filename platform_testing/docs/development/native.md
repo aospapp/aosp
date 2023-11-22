@@ -10,7 +10,7 @@ Here are some general instructions:
 1. See sample native test module setup at: `libs/hwui/unit_tests`
 1. Test module makefile should use `BUILD_NATIVE_TEST` build rule so that
 gtest dependencies are included automatically
-1. Write a [test config](../test-config.md)
+1. Write a [test config](test-config.md)
 1. Build the test module with `mmm` or `mma` (depends on if it's an
 incremental or full build), e.g.:
 

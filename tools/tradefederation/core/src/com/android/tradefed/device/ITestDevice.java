@@ -414,16 +414,18 @@ public interface ITestDevice extends INativeDevice {
      * Remove a given user from the device.
      *
      * @param userId of the user to remove
-     * @return true if we were succesful in removing the user, false otherwise.
+     * @return true if we were successful in removing the user, false otherwise.
      * @throws DeviceNotAvailableException
      */
     public boolean removeUser(int userId) throws DeviceNotAvailableException;
 
     /**
-     * Gets the list of users on the device. Defaults to null.
+     * Gets the list of users on the device. Will throw {@link DeviceRuntimeException} if output
+     * from device is not as expected.
      *
-     * @return the list of user ids or null if there was an error.
+     * @return the list of user ids.
      * @throws DeviceNotAvailableException
+     * @throws DeviceRuntimeException
      */
     ArrayList<Integer> listUsers() throws DeviceNotAvailableException;
 
@@ -434,6 +436,14 @@ public interface ITestDevice extends INativeDevice {
      * @throws DeviceNotAvailableException
      */
     public int getMaxNumberOfUsersSupported() throws DeviceNotAvailableException;
+
+    /**
+     * Get the maximum number of supported simultaneously running users. Defaults to 0.
+     *
+     * @return an integer indicating the number of simultaneously running users
+     * @throws DeviceNotAvailableException
+     */
+    public int getMaxNumberOfRunningUsersSupported() throws DeviceNotAvailableException;
 
     /**
      * Starts a given user in the background if it is currently stopped. If the user is already
@@ -469,8 +479,10 @@ public interface ITestDevice extends INativeDevice {
 
     /**
      * Returns the primary user id.
+     *
      * @return the userId of the primary user if there is one, and null if there is no primary user.
      * @throws DeviceNotAvailableException
+     * @throws DeviceRuntimeException if the output from the device is not as expected.
      */
     public Integer getPrimaryUserId() throws DeviceNotAvailableException;
 

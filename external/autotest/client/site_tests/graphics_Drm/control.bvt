@@ -22,8 +22,8 @@ Runs various graphics_Drm related tests.
 """
 
 job.run_test('graphics_Drm',
+             tag='bvt',
              tests=['drm_cursor_test',
                     'linear_bo_test',
                     'null_platform_test',
-                    'swrast_test'],
-             perf_report=True)
+                    'swrast_test'])

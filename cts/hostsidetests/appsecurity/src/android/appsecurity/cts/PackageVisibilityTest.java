@@ -16,11 +16,22 @@
 
 package android.appsecurity.cts;
 
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+
+import android.platform.test.annotations.AppModeFull;
 import com.android.tradefed.device.DeviceNotAvailableException;
+import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
+
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 /**
  * Tests for visibility of packages installed in one user, in a different user.
  */
+@RunWith(DeviceJUnit4ClassRunner.class)
 public class PackageVisibilityTest extends BaseAppSecurityTest {
 
     private static final String TINY_APK = "CtsPkgInstallTinyApp.apk";
@@ -35,8 +46,8 @@ public class PackageVisibilityTest extends BaseAppSecurityTest {
     private int[] mUsers;
     private String mOldVerifierValue;
 
-    public void setUp() throws Exception {
-        super.setUp();
+    @Before
+    public void setUpPackage() throws Exception {
 
         mUsers = Utils.prepareMultipleUsers(getDevice());
         mOldVerifierValue =
@@ -47,14 +58,16 @@ public class PackageVisibilityTest extends BaseAppSecurityTest {
         installTestAppForUser(TEST_APK, mPrimaryUserId);
     }
 
+    @After
     public void tearDown() throws Exception {
         getDevice().uninstallPackage(TEST_PKG);
         getDevice().uninstallPackage(TINY_PKG);
         getDevice().executeShellCommand("settings put global package_verifier_enable "
                 + mOldVerifierValue);
-        super.tearDown();
     }
 
+    @Test
+    @AppModeFull // TODO: Needs porting to instant
     public void testUninstalledPackageVisibility() throws Exception {
         if (!mSupportsMultiUser) {
             return;

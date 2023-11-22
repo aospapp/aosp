@@ -50,4 +50,15 @@ public class NativeThread {
     // no effect.
     //
     public static native void signal(long nt);
+
+    // Android-removed: Code to load native libraries, doesn't make sense on Android.
+    /*
+    private static native void init();
+
+    static {
+        IOUtil.load();
+        init();
+    }
+    */
+
 }

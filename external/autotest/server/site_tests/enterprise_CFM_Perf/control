@@ -9,7 +9,7 @@ NAME = "enterprise_CFM_Perf"
 TIME = "MEDIUM"
 TEST_CATEGORY = "Performance"
 TEST_CLASS = "enterprise"
-ATTRIBUTES = "suite:hotrod"
+ATTRIBUTES = "suite:hotrod, suite:hotrod-release"
 TEST_TYPE = "server"
 JOB_RETRIES = 3
 
@@ -17,6 +17,8 @@ DOC = """
 This test enrolls ChromeOS device in to hotrod mode and captures device usage
 data including cpu, memory and temperature data and uploads it to Google Cloud
 Storage as part of the test logs.
+
+See go/cfm-perf-metrics for details about the metrics.
 """
 
 args_dict = utils.args_to_dict(args)

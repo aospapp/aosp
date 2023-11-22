@@ -17,6 +17,8 @@ The common options are:
 See topic_common.py for a High Level Design and Algorithm.
 """
 
+import warnings
+
 from autotest_lib.cli import topic_common, action_common
 
 
@@ -112,7 +114,9 @@ class suite_create(action_common.atest_create, suite):
                                 'to receive suite name: %s' % name)
         self.data['suite_name'] = name[0]
         self.data['pool'] = options.pool  # None is OK.
-        self.data['num'] = options.num  # None is OK.
+        if options.num is not None:
+            warnings.warn('num is deprecated')
+        del options.num
         self.data['check_hosts'] = options.check_hosts
         self.data['file_bugs'] = options.file_bugs
         self.data['wait_for_results'] = options.wait_for_results

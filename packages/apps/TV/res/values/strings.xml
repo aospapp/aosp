@@ -129,7 +129,7 @@
     <string name="multi_audio_unknown_language">Unknown language</string>
 
     <!-- Default string for unknown language used in "Closed Caption" options. [CHAR LIMIT=30] -->
-    <string name="closed_caption_unknown_language">Closed captions %1$d</string>
+    <string name="closed_caption_unknown_language">Closed captions <xliff:g id="unknown_language_index" example="1">%1$d</xliff:g></string>
 
     <!-- Inside "Closed captions" option side panel -->
     <eat-comment />
@@ -162,7 +162,7 @@
     <!-- Label of audio track with eight audio channels [CHAR LIMIT=30] -->
     <string name="multi_audio_channel_surround_8">7.1 surround</string>
     <!-- Label of audio track with other audio channels than 1, 2, 6, and 8 [CHAR LIMIT=30] -->
-    <string name="multi_audio_channel_suffix">%d channels</string>
+    <string name="multi_audio_channel_suffix"><xliff:g id="audio_channel_count" example="5">%d</xliff:g> channels</string>
 
     <!-- Inside "Edit Channels for a specific input" option side panel -->
     <eat-comment />
@@ -329,15 +329,6 @@
     <string name="pin_toast_wrong">That PIN was wrong. Try again.</string>
     <!-- Toast message when an user couldn't pass the PIN confirmation. [CHAR LIMIT=NONE] -->
     <string name="pin_toast_not_match">Try again, PIN doesn\'t match</string>
-
-    <!-- Title of postal/zip code input guided step fragment  [CHAR LIMIT=30] -->
-    <string name="postal_code_guidance_title">Enter your ZIP Code.</string>
-    <!-- Description of postal/zip code input guided step fragment  [CHAR LIMIT=NONE] -->
-    <string name="postal_code_guidance_description">Live TV app will use the ZIP Code to provide a complete program guide for the TV channels.</string>
-    <!-- Description of postal/zip code input edit text view to prompt users entering ZIP Code  [CHAR LIMIT=30] -->
-    <string name="postal_code_action_description">Enter your ZIP Code</string>
-    <!-- Warning message shown in description field of postal/zip code input edit text view when user enters an invalid ZIP Code and presses Done [CHAR LIMIT=30] -->
-    <string name="postal_code_invalid_warning">Invalid ZIP Code</string>
 
     <!-- menu for "Settings" option -->
     <eat-comment />
@@ -522,6 +513,13 @@
     <!-- Content text of DVR recording service's notification during updating schedules. -->
     <string name="dvr_notification_content_text_loading" translatable="false">Live TV are updating recording schedules.</string>
 
+    <!-- Default content title of tuner installing notifications. -->
+    <string name="tuner_install_notification_content_title" translatable="false">Install <xliff:g id="tuner_package" example="Tuner package">%s</xliff:g></string>
+    <!-- Default application name for tuner installing notifications. -->
+    <string name="tuner_install_default_application_name" translatable="false">Tuner Package</string>
+    <!-- Default content text of tuner installing notifications. -->
+    <string name="tuner_install_notification_content_text" translatable="false">Install tuner package to watch tuner channels.</string>
+
     <!-- EPG Search strings. -->
     <!-- Remove translatable="false" once UI is finalized -->
     <string name="search_result_no_result" translatable="false">No result</string>
@@ -533,7 +531,7 @@
     <string name="setup_sources_text">Set up your sources</string>
     <!-- Description for channel sources screen in onboarding. -->
     <string name="setup_sources_description">Live channels combines the experience of traditional TV channels with streaming channels provided by apps.
-\n\nGet started by setting up the channel sources already installed. Or browse Google Play Store for more apps that offer live channels.</string>
+\n\nGet started by setting up the channel sources already installed. Or browse the online store for more apps that offer live channels.</string>
 
     <!-- Menu item label to start DVR manager UI. -->
     <string name="channels_item_dvr">Recordings &amp; schedules</string>
@@ -574,8 +572,12 @@
     <!-- Toast message that a new recording schedule of the current program has been created
          from the user action. -->
     <string name="dvr_msg_current_program_scheduled">Recording <xliff:g id="programName" example="Big bang theory">%1$s</xliff:g> from now to <xliff:g id="endTime" example="12:30 PM">%2$s</xliff:g></string>
+    <!-- Description of a card view to show Recording (DVR) history.[CHAR LIMIT=25]-->
+    <string name="dvr_history_card_view_title">Recording History</string>
     <!-- Description of a card view to show full list of scheduled recordings. [CHAR LIMIT=25] -->
     <string name="dvr_full_schedule_card_view_title">Full schedule</string>
+    <!-- Description of failed recordings. [CHAR LIMIT=25] -->
+    <string name="dvr_recording_failed">Recording Failed</string>
     <!-- Description of how many following days the schedule list will show. [CHAR LIMIT=25] -->
     <plurals name="dvr_full_schedule_card_view_content">
         <item quantity="one">Next %1$d day</item>
@@ -752,9 +754,9 @@
          sufficient space.-->
     <string name="dvr_error_insufficient_space_description_three_or_more_recordings">The recordings of <xliff:g id="programName_1" example="Friends">%1$s</xliff:g>, <xliff:g id="programName_2" example="Friends">%2$s</xliff:g> and <xliff:g id="programName_3" example="Friends">%3$s</xliff:g> didn\'t complete due to insufficient storage.</string>
     <!-- Dialog title which will be shown when the current storage is too small for DVR. -->
-    <string name="dvr_error_small_sized_storage_title">DVR needs more storage</string>
+    <string name="dvr_error_small_sized_storage_title">More stroage needed</string>
     <!-- Dialog description which will be shown when the current storage is too small for DVR. -->
-    <string name="dvr_error_small_sized_storage_description">You will be able to record programs with DVR. However there is not enough storage on your device now for DVR to work. Please connect an external drive that is <xliff:g id="storage size" example="10GB">%1$d</xliff:g>GB or larger and follow the steps to format it as device storage.</string>
+    <string name="dvr_error_small_sized_storage_description">You will be able to record programs. However there is not enough storage on your device to start recording. Please connect an external drive that is <xliff:g id="storage_size" example="10GB">%1$d</xliff:g>GB or larger and follow the steps to format it as device storage.</string>
     <!-- Dialog title which will be shown when there is no free space on the current storage for DVR. -->
     <string name="dvr_error_no_free_space_title">Not enough storage</string>
     <!-- Dialog description which will be shown when there is no free space on the current storage for DVR. -->
@@ -762,7 +764,7 @@
     <!-- Dialog title which will be shown when the current DVR storage is not accessible. -->
     <string name="dvr_error_missing_storage_title">Missing storage</string>
     <!-- Dialog description which will be shown when the current DVR storage is not accessible. -->
-    <string name="dvr_error_missing_storage_description" translatable="false">Some of the storage used by DVR is missing. Please connect the external drive you used before to re-enable DVR. Alternately, you can forget the storage in the storage settings, if it\'s no longer available.</string>
+    <string name="dvr_error_missing_storage_description" translatable="false">Some of the storage used for recording is missing. Please connect the external drive you used before to re-enable recording. Alternately, you can forget the storage in the storage settings, if it\'s no longer available.</string>
     <!-- The recording being requested to play is not existent in storage. It may be deleted. -->
     <string name="dvr_toast_recording_deleted" translatable="false">The recording seems to be deleted.</string>
 
@@ -892,7 +894,10 @@
     <string name="dvr_schedules_tuner_conflict_will_not_be_recorded_info">Won\'t be recorded due to tuner conflicts.</string>
     <!-- Description of no schedule recording for now, and ask user to schedule recordings from
          the program guide. -->
-    <string name="dvr_schedules_empty_state">There are no recordings on schedule yet.\nYou can schedule recording from the program guide.</string>
+    <string name="dvr_schedules_empty_state">There are no recordings scheduled yet.\nYou can schedule recordings from the program guide.</string>
+    <!-- Description of no recording history for now, and ask user to schedule recordings from
+         the program guide. -->
+    <string name="dvr_history_empty_state">There is no recording history.\nYou can schedule recordings from the program guide.</string>
     <!-- Description of schedule list header about how many recordings conflict. -->
     <plurals name="dvr_series_schedules_header_description">
         <item quantity="one">%1$d recording conflict</item>

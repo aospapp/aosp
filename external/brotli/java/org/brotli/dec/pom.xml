@@ -13,6 +13,11 @@
 
   <name>${project.groupId}:${project.artifactId}</name>
 
+  <properties>
+    <manifestdir>${project.build.directory}/osgi</manifestdir>
+    <manifestfile>${manifestdir}/MANIFEST.MF</manifestfile>
+  </properties>
+
   <build>
     <sourceDirectory>../../..</sourceDirectory>
     <testSourceDirectory>../../..</testSourceDirectory>
@@ -22,14 +27,17 @@
         <artifactId>maven-compiler-plugin</artifactId>
         <configuration>
           <includes>
-            <include>**/dec/*.java</include>
+            <include>org/brotli/dec/*.java</include>
           </includes>
           <excludes>
             <exclude>**/*Test*.java</exclude>
           </excludes>
           <testIncludes>
-            <include>**/dec/*Test*.java</include>
+            <include>org/brotli/dec/*Test*.java</include>
           </testIncludes>
+          <testExcludes>
+            <exclude>org/brotli/dec/SetDictionaryTest.java</exclude>
+          </testExcludes>
         </configuration>
       </plugin>
       <plugin>
@@ -45,7 +53,7 @@
             </goals>
             <configuration>
               <includes>
-                <include>**/dec/*.java</include>
+                <include>org/brotli/dec/*.java</include>
               </includes>
               <excludes>
                 <exclude>**/*Test*.java</exclude>
@@ -73,6 +81,47 @@
             </configuration>
           </execution>
         </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.felix</groupId>
+        <artifactId>maven-bundle-plugin</artifactId>
+        <version>3.0.1</version>
+        <configuration>
+          <archive>
+            <forced>true</forced>
+          </archive>
+          <excludeDependencies>true</excludeDependencies>
+          <manifestLocation>${manifestdir}</manifestLocation>
+          <instructions>
+            <_nouses>true</_nouses>
+            <Bundle-SymbolicName>org.brotli.${project.artifactId}</Bundle-SymbolicName>
+            <Bundle-Description>${project.description}</Bundle-Description>
+            <Export-Package>org.brotli.dec;version=${project.version};-noimport:=true</Export-Package>
+            <Private-Package></Private-Package>
+            <Import-Package>*</Import-Package>
+            <DynamicImport-Package></DynamicImport-Package>
+            <Bundle-DocURL>${project.url}</Bundle-DocURL>
+          </instructions>
+        </configuration>
+        <executions>
+          <execution>
+            <id>bundle-manifest</id>
+            <phase>process-classes</phase>
+            <goals>
+              <goal>manifest</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <version>2.5</version>
+        <configuration>
+          <archive>
+            <manifestFile>${manifestfile}</manifestFile>
+          </archive>
+        </configuration>
       </plugin>
     </plugins>
   </build>

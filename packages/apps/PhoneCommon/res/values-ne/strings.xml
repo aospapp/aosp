@@ -37,9 +37,14 @@
     <string name="callFailed_simError" msgid="3307159523385380486">"सिम छैन वा सिम त्रुटि"</string>
     <string name="callFailed_outOfService" msgid="4535901975891969115">"सेलुलर सञ्जाल उपलब्ध छैन"</string>
     <string name="callFailed_fdn_only" msgid="1720606112619022283">"FDN द्वारा बहिर्गमन कल निषेधित गरिएको छ।"</string>
-    <string name="callFailed_dialToUssd" msgid="2093563828737170617">"DIAL अनुरोधलाई USSD अनुरोधमा परिमार्जन गरियो।"</string>
-    <string name="callFailed_dialToSs" msgid="3144952834772702469">"DIAL अनुरोधलाई SS अनुरोधमा परिमार्जन गरियो।"</string>
-    <string name="callFailed_dialToDial" msgid="1143052062100334634">"DIAL अनुरोधलाई फरक नम्बरमा DIAL मा परिमार्जन गरियो।"</string>
+    <string name="callFailed_dialToUssd" msgid="2433610980015734954">"कल USSD अनुरोधमा परिवर्तन गरियो"</string>
+    <string name="callFailed_dialToSs" msgid="1932708241240329683">"कल SS अनुरोधमा परिवर्तन गरियो"</string>
+    <string name="callFailed_dialToDial" msgid="4383070508519313539">"फरक नम्बरमा परिवर्तन गरियो"</string>
+    <string name="callFailed_dialToDialVideo" msgid="5132568145494398814">"भिडियो कलमा परिवर्तन गरियो"</string>
+    <string name="callFailed_dialVideoToSs" msgid="4775276313558039477">"भिडियो कल SS अनुरोधमा परिवर्तन गरियो"</string>
+    <string name="callFailed_dialVideoToUssd" msgid="3075648968404725328">"भिडियो कल USSD अनुरोधमा परिवर्तन गरियो"</string>
+    <string name="callFailed_dialVideoToDial" msgid="7758276428184272770">"नियमित कलमा परिवर्तन गरियो"</string>
+    <string name="callFailed_dialVideoToDialVideo" msgid="5451053686606499859">"फरक नम्बरमा परिवर्तन गरियो"</string>
     <string name="callFailed_cb_enabled" msgid="4745550615395092407">"कल निषेध सकृय हुँदा बहिर्गमन कल गर्न सक्दैन।"</string>
     <string name="callFailed_dsac_restricted" msgid="4087941056515103695">"पहुँच नियन्त्रणमार्फत कलहरू प्रतिबन्धित।"</string>
     <string name="callFailed_dsac_restricted_emergency" msgid="9031535611092828510">"पहुँच नियन्त्रणमार्फत आपतकालीन कलहरू प्रतिबन्धित।"</string>

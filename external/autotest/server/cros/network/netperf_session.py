@@ -11,6 +11,7 @@ class NetperfSession(object):
 
     MAX_DEVIATION_FRACTION = 0.03
     MEASUREMENT_MAX_SAMPLES = 10
+    MEASUREMENT_MAX_FAILURES = 2
     MEASUREMENT_MIN_SAMPLES = 3
     WARMUP_SAMPLE_TIME_SECONDS = 2
     WARMUP_WINDOW_SIZE = 2
@@ -112,6 +113,11 @@ class NetperfSession(object):
                 result = runner.run(ignore_failures=self._ignore_failures)
                 if result is None:
                     none_count += 1
+                    # Might occur when, e.g., signal strength is too low.
+                    if none_count > self.MEASUREMENT_MAX_FAILURES:
+                        logging.error('Too many failures (%d), aborting',
+                                      none_count)
+                        break
                     continue
 
                 history.append(result)

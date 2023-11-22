@@ -19,7 +19,9 @@
 #define AST_H_
 
 #include <android-base/macros.h>
+#include <hidl-hash/Hash.h>
 #include <hidl-util/FQName.h>
+#include <functional>
 #include <map>
 #include <set>
 #include <string>
@@ -31,16 +33,19 @@
 namespace android {
 
 struct Coordinator;
+struct ConstantExpression;
+struct EnumValue;
 struct Formatter;
 struct Interface;
 struct Location;
 struct Method;
 struct NamedType;
-struct TypedVar;
-struct EnumValue;
+template <class T>
+struct NamedReference;
+struct Type;
 
 struct AST {
-    AST(const Coordinator *coordinator, const std::string &path);
+    AST(const Coordinator* coordinator, const Hash* fileHash);
 
     bool setPackage(const char *package);
     bool addImport(const char *import);
@@ -50,14 +55,17 @@ struct AST {
     bool isInterface() const;
     bool containsInterfaces() const;
 
-    // Returns true iff successful.
-    bool addTypeDef(const char* localName, Type* type, const Location& location,
-                    std::string* errorMsg, Scope* scope);
+    // Adds package, version and scope stack to local name
+    FQName makeFullName(const char* localName, Scope* scope) const;
 
-    // Returns true iff successful.
-    bool addScopedType(NamedType* type, std::string* errorMsg, Scope* scope);
+    void addScopedType(NamedType* type, Scope* scope);
 
-    const std::string &getFilename() const;
+    const std::string& getFilename() const;
+    const Hash* getFileHash() const;
+
+    // Look up local identifier.
+    // It could be plain identifier or enum value as described by lookupEnumValue.
+    LocalIdentifier* lookupLocalIdentifier(const Reference<LocalIdentifier>& ref, Scope* scope);
 
     // Look up an enum value by "FQName:valueName".
     EnumValue* lookupEnumValue(const FQName& fqName, std::string* errorMsg, Scope* scope);
@@ -69,20 +77,66 @@ struct AST {
 
     void addImportedAST(AST *ast);
 
-    status_t generateCpp(const std::string &outputPath) const;
-    status_t generateCppHeaders(const std::string &outputPath) const;
-    status_t generateCppSources(const std::string &outputPath) const;
-    status_t generateCppImpl(const std::string &outputPath) const;
-    status_t generateStubImplHeader(const std::string& outputPath) const;
-    status_t generateStubImplSource(const std::string& outputPath) const;
+    // Calls all passes after parsing required before
+    // being ready to generate output.
+    status_t postParse();
 
-    status_t generateJava(
-            const std::string &outputPath,
-            const std::string &limitToType) const;
+    // Recursive pass on constant expression tree
+    status_t constantExpressionRecursivePass(
+        const std::function<status_t(ConstantExpression*)>& func, bool processBeforeDependencies);
 
-    status_t generateJavaTypes(
-            const std::string &outputPath,
-            const std::string &limitToType) const;
+    // Recursive tree pass that looks up all referenced types
+    status_t lookupTypes();
+
+    // Recursive tree pass that looks up all referenced local identifiers
+    status_t lookupLocalIdentifiers();
+
+    // Recursive tree pass that validates that all defined types
+    // have unique names in their scopes.
+    status_t validateDefinedTypesUniqueNames() const;
+
+    // Recursive tree pass that completes type declarations
+    // that depend on super types
+    status_t resolveInheritance();
+
+    // Recursive tree pass that evaluates constant expressions
+    status_t evaluate();
+
+    // Recursive tree pass that validates all type-related
+    // syntax restrictions
+    status_t validate() const;
+
+    // Recursive tree pass that ensures that type definitions and references
+    // are acyclic and reorderes type definitions in reversed topological order.
+    status_t topologicalReorder();
+
+    // Recursive tree pass that ensures that constant expressions
+    // are acyclic.
+    status_t checkAcyclicConstantExpressions() const;
+
+    // Recursive tree pass that checks C++ forward declaration restrictions.
+    status_t checkForwardReferenceRestrictions() const;
+
+    status_t gatherReferencedTypes();
+
+    void generateCppSource(Formatter& out) const;
+
+    void generateInterfaceHeader(Formatter& out) const;
+    void generateHwBinderHeader(Formatter& out) const;
+    void generateStubHeader(Formatter& out) const;
+    void generateProxyHeader(Formatter& out) const;
+    void generatePassthroughHeader(Formatter& out) const;
+
+    void generateCppImplHeader(Formatter& out) const;
+    void generateCppImplSource(Formatter& out) const;
+
+    void generateCppAdapterHeader(Formatter& out) const;
+    void generateCppAdapterSource(Formatter& out) const;
+
+    void generateJava(Formatter& out, const std::string& limitToType) const;
+    void generateJavaTypes(Formatter& out, const std::string& limitToType) const;
+
+    void generateVts(Formatter& out) const;
 
     void getImportedPackages(std::set<FQName> *importSet) const;
 
@@ -90,18 +144,24 @@ struct AST {
     // each AST in each package referenced in importSet.
     void getImportedPackagesHierarchy(std::set<FQName> *importSet) const;
 
-    status_t generateVts(const std::string &outputPath) const;
-
     bool isJavaCompatible() const;
 
-    // Return the set of FQNames for those interfaces and types that are
-    // actually referenced in the AST, not merely imported.
-    const std::set<FQName>& getImportedNames() const {
-        return mImportedNames;
-    }
-
-    // Get transitive closure of imported interface/types.
+    // Warning: this only includes names explicitly referenced in code.
+    //   It does not include all names which are imported.
+    //
+    // Currently, there is one valid usecase for this: importing exactly
+    // the names which need to be imported in generated code. If you import
+    // based on getAllImportedNamesGranular instead, you will import things
+    // that aren't actually used in the resultant code.
+    //
+    // Get transitive closure of imported interface/types. This will add
+    // everything exported by a package even if only a single type from
+    // that package was explicitly imported!
     void getAllImportedNames(std::set<FQName> *allImportSet) const;
+
+    // Get imported types, this includes those explicitly imported as well
+    // as all types defined in imported packages.
+    void getAllImportedNamesGranular(std::set<FQName> *allImportSet) const;
 
     void appendToExportedTypesVector(
             std::vector<const Type *> *exportedTypes) const;
@@ -120,9 +180,17 @@ struct AST {
 
     Scope* getRootScope();
 
+    static void generateCppPackageInclude(Formatter& out, const FQName& package,
+                                          const std::string& klass);
+
+    void addDefinedTypes(std::set<FQName> *definedTypes) const;
+    void addReferencedTypes(std::set<FQName> *referencedTypes) const;
+
+    void addToImportedNamesGranular(const FQName &fqName);
+
    private:
-    const Coordinator *mCoordinator;
-    std::string mPath;
+    const Coordinator* mCoordinator;
+    const Hash* mFileHash;
 
     RootScope mRootScope;
 
@@ -130,8 +198,16 @@ struct AST {
 
     // A set of all external interfaces/types that are _actually_ referenced
     // in this AST, this is a subset of those specified in import statements.
+    // Note that this set only resolves to the granularity of either an
+    // interface type or a whole package.
     std::set<FQName> mImportedNames;
 
+    // This is the set of actually imported types.
+    std::set<FQName> mImportedNamesGranular;
+
+    // Warning: this only includes names explicitly referenced in code.
+    //   It does not include all names which are imported.
+    //
     // A set of all ASTs we explicitly or implicitly (types.hal) import.
     std::set<AST *> mImportedASTs;
 
@@ -147,7 +223,7 @@ struct AST {
     // used by the parser.
     size_t mSyntaxErrors = 0;
 
-    bool addScopedTypeInternal(NamedType* type, std::string* errorMsg, Scope* scope);
+    std::set<FQName> mReferencedTypeNames;
 
     // Helper functions for lookupType.
     Type* lookupTypeLocally(const FQName& fqName, Scope* scope);
@@ -164,65 +240,47 @@ struct AST {
     void getPackageAndVersionComponents(
             std::vector<std::string> *components, bool cpp_compatible) const;
 
-    static void generateCppPackageInclude(
-            Formatter &out,
-            const FQName &package,
-            const std::string &klass);
-
     std::string makeHeaderGuard(const std::string &baseName,
                                 bool indicateGenerated = true) const;
     void enterLeaveNamespace(Formatter &out, bool enter) const;
 
     static void generateCheckNonNull(Formatter &out, const std::string &nonNull);
 
-    status_t generateInterfaceHeader(const std::string &outputPath) const;
-    status_t generateHwBinderHeader(const std::string &outputPath) const;
-    status_t generateStubHeader(const std::string &outputPath) const;
-    status_t generateProxyHeader(const std::string &outputPath) const;
-    status_t generatePassthroughHeader(const std::string &outputPath) const;
-
-    status_t generateTypeSource(
-            Formatter &out, const std::string &ifaceName) const;
+    void generateTypeSource(Formatter& out, const std::string& ifaceName) const;
 
     // a method, and in which interface is it originally defined.
     // be careful of the case where method.isHidlReserved(), where interface
     // is effectively useless.
-    using MethodGenerator = std::function<status_t(const Method *, const Interface *)>;
+    using MethodGenerator = std::function<void(const Method*, const Interface*)>;
 
     void generateTemplatizationLink(Formatter& out) const;
+    void generateCppTag(Formatter& out, const std::string& tag) const;
 
-    status_t generateMethods(Formatter &out, MethodGenerator gen, bool includeParents = true) const;
-    status_t generateStubImplMethod(Formatter &out,
-                                    const std::string &className,
-                                    const Method *method) const;
-    status_t generatePassthroughMethod(Formatter &out,
-                                       const Method *method) const;
-    status_t generateStaticProxyMethodSource(Formatter &out,
-                                             const std::string &className,
-                                             const Method *method) const;
-    status_t generateProxyMethodSource(Formatter &out,
-                                       const std::string &className,
-                                       const Method *method,
-                                       const Interface *superInterface) const;
+    void generateMethods(Formatter& out, const MethodGenerator& gen,
+                         bool includeParents = true) const;
+    void generateStubImplMethod(Formatter& out, const std::string& className,
+                                const Method* method) const;
+    void generatePassthroughMethod(Formatter& out, const Method* method) const;
+    void generateStaticProxyMethodSource(Formatter& out, const std::string& className,
+                                         const Method* method) const;
+    void generateProxyMethodSource(Formatter& out, const std::string& className,
+                                   const Method* method, const Interface* superInterface) const;
+    void generateAdapterMethod(Formatter& out, const Method* method) const;
 
     void generateFetchSymbol(Formatter &out, const std::string &ifaceName) const;
 
-    status_t generateProxySource(
-            Formatter &out, const FQName &fqName) const;
+    void generateProxySource(Formatter& out, const FQName& fqName) const;
 
-    status_t generateStubSource(
-            Formatter &out, const Interface *iface) const;
+    void generateStubSource(Formatter& out, const Interface* iface) const;
 
-    status_t generateStubSourceForMethod(Formatter &out,
-                                         const Method *method,
-                                         const Interface *superInterface) const;
-    status_t generateStaticStubMethodSource(Formatter &out,
-                                            const std::string &className,
-                                            const Method *method) const;
+    void generateStubSourceForMethod(Formatter& out, const Method* method,
+                                     const Interface* superInterface) const;
+    void generateStaticStubMethodSource(Formatter& out, const FQName& fqName,
+                                        const Method* method) const;
 
-    status_t generatePassthroughSource(Formatter &out) const;
+    void generatePassthroughSource(Formatter& out) const;
 
-    status_t generateInterfaceSource(Formatter &out) const;
+    void generateInterfaceSource(Formatter& out) const;
 
     enum InstrumentationEvent {
         SERVER_API_ENTRY = 0,
@@ -247,39 +305,24 @@ struct AST {
             InstrumentationEvent event,
             const Method *method) const;
 
-    void declareCppReaderLocals(
-            Formatter &out,
-            const std::vector<TypedVar *> &arg,
-            bool forResults) const;
+    void declareCppReaderLocals(Formatter& out, const std::vector<NamedReference<Type>*>& arg,
+                                bool forResults) const;
 
-    void emitCppReaderWriter(
-            Formatter &out,
-            const std::string &parcelObj,
-            bool parcelObjIsPointer,
-            const TypedVar *arg,
-            bool isReader,
-            Type::ErrorMode mode,
-            bool addPrefixToName) const;
+    void emitCppReaderWriter(Formatter& out, const std::string& parcelObj, bool parcelObjIsPointer,
+                             const NamedReference<Type>* arg, bool isReader, Type::ErrorMode mode,
+                             bool addPrefixToName) const;
 
-    void emitCppResolveReferences(
-            Formatter &out,
-            const std::string &parcelObj,
-            bool parcelObjIsPointer,
-            const TypedVar *arg,
-            bool isReader,
-            Type::ErrorMode mode,
-            bool addPrefixToName) const;
+    void emitCppResolveReferences(Formatter& out, const std::string& parcelObj,
+                                  bool parcelObjIsPointer, const NamedReference<Type>* arg,
+                                  bool isReader, Type::ErrorMode mode, bool addPrefixToName) const;
 
-    void emitJavaReaderWriter(
-            Formatter &out,
-            const std::string &parcelObj,
-            const TypedVar *arg,
-            bool isReader,
-            bool addPrefixToName) const;
+    void emitJavaReaderWriter(Formatter& out, const std::string& parcelObj,
+                              const NamedReference<Type>* arg, bool isReader,
+                              bool addPrefixToName) const;
 
-    status_t emitTypeDeclarations(Formatter &out) const;
-    status_t emitJavaTypeDeclarations(Formatter &out) const;
-    status_t emitVtsTypeDeclarations(Formatter &out) const;
+    void emitTypeDeclarations(Formatter& out) const;
+    void emitJavaTypeDeclarations(Formatter& out) const;
+    void emitVtsTypeDeclarations(Formatter& out) const;
 
     DISALLOW_COPY_AND_ASSIGN(AST);
 };

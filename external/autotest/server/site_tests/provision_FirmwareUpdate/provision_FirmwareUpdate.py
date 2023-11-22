@@ -7,6 +7,7 @@
 
 
 import logging
+import sys
 
 from autotest_lib.client.common_lib import error
 from autotest_lib.server import test
@@ -75,7 +76,7 @@ class provision_FirmwareUpdate(test.test):
             host.firmware_install(build=value, rw_only=rw_only)
         except Exception as e:
             logging.error(e)
-            raise error.TestFail(str(e))
+            raise error.TestFail, str(e), sys.exc_info()[2]
 
         # DUT reboots after the above firmware_install(). Wait it to boot.
         host.test_wait_for_boot()

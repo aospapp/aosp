@@ -22,7 +22,6 @@
 #include <utility>
 #include <vector>
 
-#include <sysutils/SocketClient.h>
 #include <utils/RWLock.h>
 
 #include "NetdConstants.h"
@@ -31,45 +30,10 @@ class BandwidthController {
 public:
     android::RWLock lock;
 
-    class TetherStats {
-    public:
-        TetherStats() = default;
-        TetherStats(std::string intIfn, std::string extIfn,
-                int64_t rxB, int64_t rxP,
-                int64_t txB, int64_t txP)
-                        : intIface(intIfn), extIface(extIfn),
-                            rxBytes(rxB), rxPackets(rxP),
-                            txBytes(txB), txPackets(txP) {};
-        /* Internal interface. Same as NatController's notion. */
-        std::string intIface;
-        /* External interface. Same as NatController's notion. */
-        std::string extIface;
-        int64_t rxBytes = -1;
-        int64_t rxPackets = -1;
-        int64_t txBytes = -1;
-        int64_t txPackets = -1;
-        /*
-         * Allocates a new string representing this:
-         * intIface extIface rx_bytes rx_packets tx_bytes tx_packets
-         * The caller is responsible for free()'ing the returned ptr.
-         */
-        std::string getStatsLine() const;
-
-        bool addStatsIfMatch(const TetherStats& other) {
-            if (intIface == other.intIface && extIface == other.extIface) {
-                rxBytes   += other.rxBytes;
-                rxPackets += other.rxPackets;
-                txBytes   += other.txBytes;
-                txPackets += other.txPackets;
-                return true;
-            }
-            return false;
-        }
-    };
-
     BandwidthController();
 
     int setupIptablesHooks();
+    static bool getBpfStatsStatus();
 
     int enableBandwidthControl(bool force);
     int disableBandwidthControl();
@@ -98,16 +62,6 @@ public:
 
     int setInterfaceAlert(const std::string& iface, int64_t bytes);
     int removeInterfaceAlert(const std::string& iface);
-
-    /*
-     * For single pair of ifaces, stats should have ifaceIn and ifaceOut initialized.
-     * For all pairs, stats should have ifaceIn=ifaceOut="".
-     * Sends out to the cli the single stat (TetheringStatsReluts) or a list of stats
-     * (TetheringStatsListResult+CommandOkay).
-     * Error is to be handled on the outside.
-     * It results in an error if invoked and no tethering counter rules exist.
-     */
-    int getTetherStats(SocketClient *cli, TetherStats &stats, std::string &extraProcessingInfo);
 
     static const char LOCAL_INPUT[];
     static const char LOCAL_FORWARD[];
@@ -145,23 +99,6 @@ public:
 
     int setCostlyAlert(const std::string& costName, int64_t bytes, int64_t* alertBytes);
     int removeCostlyAlert(const std::string& costName, int64_t* alertBytes);
-
-    typedef std::vector<TetherStats> TetherStatsList;
-
-    static void addStats(TetherStatsList& statsList, const TetherStats& stats);
-
-    /*
-     * stats should never have only intIface initialized. Other 3 combos are ok.
-     * fp should be a file to the apropriate FORWARD chain of iptables rules.
-     * extraProcessingInfo: contains raw parsed data, and error info.
-     * This strongly requires that setup of the rules is in a specific order:
-     *  in:intIface out:extIface
-     *  in:extIface out:intIface
-     * and the rules are grouped in pairs when more that one tethering was setup.
-     */
-    static int addForwardChainStats(const TetherStats& filter,
-                                    TetherStatsList& statsList, const std::string& iptOutput,
-                                    std::string &extraProcessingInfo);
 
     /*
      * Attempt to find the bw_costly_* tables that need flushing,

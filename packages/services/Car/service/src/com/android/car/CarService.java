@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.android.car;
 
 import static android.os.SystemClock.elapsedRealtime;
@@ -27,9 +28,12 @@ import android.os.Build;
 import android.os.IBinder;
 import android.os.IHwBinder.DeathRecipient;
 import android.os.RemoteException;
+import android.os.ServiceManager;
 import android.os.SystemClock;
 import android.os.SystemProperties;
 import android.util.Log;
+
+import com.android.car.systeminterface.SystemInterface;
 
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.util.RingBufferIndices;
@@ -85,16 +89,23 @@ public class CarService extends Service {
 
         Log.i(CarLog.TAG_SERVICE, "Connected to " + mVehicleInterfaceName);
 
-        mICarImpl = new ICarImpl(this, mVehicle, SystemInterface.getDefault(this),
-                mCanBusErrorNotifier);
+        mICarImpl = new ICarImpl(this,
+                mVehicle,
+                SystemInterface.Builder.defaultSystemInterface(this).build(),
+                mCanBusErrorNotifier,
+                mVehicleInterfaceName);
         mICarImpl.init();
         SystemProperties.set("boot.car_service_created", "1");
 
         linkToDeath(mVehicle, mVehicleDeathRecipient);
 
+        ServiceManager.addService("car_service", mICarImpl);
         super.onCreate();
     }
 
+    // onDestroy is best-effort and might not get called on shutdown/reboot. As such it is not
+    // suitable for permanently saving state or other need-to-happen operation. If you have a
+    // cleanup task that you want to make sure happens on shutdown/reboot, see OnShutdownReboot.
     @Override
     public void onDestroy() {
         Log.i(CarLog.TAG_SERVICE, "Service onDestroy");
@@ -126,24 +137,10 @@ public class CarService extends Service {
 
     @Override
     protected void dump(FileDescriptor fd, PrintWriter writer, String[] args) {
-        if (checkCallingOrSelfPermission(android.Manifest.permission.DUMP)
-                != PackageManager.PERMISSION_GRANTED) {
-            writer.println("Permission Denial: can't dump CarService from from pid="
-                    + Binder.getCallingPid() + ", uid=" + Binder.getCallingUid()
-                    + " without permission " + android.Manifest.permission.DUMP);
-            return;
-        }
-        if (args == null || args.length == 0) {
-            writer.println("*dump car service*");
-            writer.println("Vehicle HAL Interface: " + mVehicleInterfaceName);
-            mICarImpl.dump(writer);
-
-            writer.println("**Debug info**");
-            writer.println("Vehicle HAL reconnected: "
-                    + mVehicleDeathRecipient.deathCount + " times.");
-        } else {
-            mICarImpl.execShellCmd(args, writer);
-        }
+        // historically, the way to get a dumpsys from CarService has been to use
+        // "dumpsys activity service com.android.car/.CarService" - leaving this
+        // as a forward to car_service makes the previously well-known command still work
+        mICarImpl.dump(fd, writer, args);
     }
 
     @Nullable

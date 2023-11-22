@@ -44,25 +44,25 @@ public class CarPackageManagerTest extends CarApiTestBase {
         mCarPm = (CarPackageManager) getCar().getCarManager(Car.PACKAGE_SERVICE);
     }
 
-   public void testActivityAllowedWhileDriving() throws Exception {
-       assertFalse(mCarPm.isActivityAllowedWhileDriving("com.basic.package", "DummyActivity"));
+   public void testActivityDistractionOptimized() throws Exception {
+       assertFalse(mCarPm.isActivityDistractionOptimized("com.basic.package", "DummyActivity"));
        // Real system activity is not allowed as well.
-       assertFalse(mCarPm.isActivityAllowedWhileDriving("com.android.phone", "CallActivity"));
+       assertFalse(mCarPm.isActivityDistractionOptimized("com.android.phone", "CallActivity"));
 
        try {
-           mCarPm.isActivityAllowedWhileDriving("com.android.settings", null);
+           mCarPm.isActivityDistractionOptimized("com.android.settings", null);
            fail();
        } catch (IllegalArgumentException expected) {
            // Expected.
        }
        try {
-           mCarPm.isActivityAllowedWhileDriving(null, "Any");
+           mCarPm.isActivityDistractionOptimized(null, "Any");
            fail();
        } catch (IllegalArgumentException expected) {
            // Expected.
        }
        try {
-           mCarPm.isActivityAllowedWhileDriving(null, null);
+           mCarPm.isActivityDistractionOptimized(null, null);
            fail();
        } catch (IllegalArgumentException expected) {
            // Expected.
@@ -89,20 +89,20 @@ public class CarPackageManagerTest extends CarApiTestBase {
                     String activity = info.activities[0].name;
                     String packageName = info.packageName;
                     assertTrue("Failed for package: " + packageName + ", activity: " + activity,
-                            mCarPm.isActivityAllowedWhileDriving(packageName, activity));
+                            mCarPm.isActivityDistractionOptimized(packageName, activity));
                 }
             }
         }
     }
 
-    public void testServiceAllowedWhileDriving() throws Exception {
-        assertFalse(mCarPm.isServiceAllowedWhileDriving("com.basic.package", ""));
-        assertTrue(mCarPm.isServiceAllowedWhileDriving("com.android.settings", "Any"));
-        assertTrue(mCarPm.isServiceAllowedWhileDriving("com.android.settings", ""));
-        assertTrue(mCarPm.isServiceAllowedWhileDriving("com.android.settings", null));
+    public void testServiceDistractionOptimized() throws Exception {
+        assertFalse(mCarPm.isServiceDistractionOptimized("com.basic.package", ""));
+        assertTrue(mCarPm.isServiceDistractionOptimized("com.android.settings", "Any"));
+        assertTrue(mCarPm.isServiceDistractionOptimized("com.android.settings", ""));
+        assertTrue(mCarPm.isServiceDistractionOptimized("com.android.settings", null));
 
         try {
-            mCarPm.isServiceAllowedWhileDriving(null, "Any");
+            mCarPm.isServiceDistractionOptimized(null, "Any");
             fail();
         } catch (IllegalArgumentException expected) {
             // Expected.

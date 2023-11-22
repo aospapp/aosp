@@ -26,6 +26,7 @@ import android.os.CancellationSignal;
 import android.os.ParcelFileDescriptor;
 import android.os.storage.StorageManager;
 import android.provider.DocumentsContract;
+import android.provider.MetadataReader;
 import android.provider.DocumentsContract.Document;
 import android.support.annotation.Nullable;
 import android.system.ErrnoException;
@@ -281,7 +282,10 @@ public abstract class Archive implements Closeable {
         final String mimeType = getMimeTypeForEntry(entry);
         row.add(Document.COLUMN_MIME_TYPE, mimeType);
 
-        final int flags = mimeType.startsWith("image/") ? Document.FLAG_SUPPORTS_THUMBNAIL : 0;
+        int flags = mimeType.startsWith("image/") ? Document.FLAG_SUPPORTS_THUMBNAIL : 0;
+        if (MetadataReader.isSupportedMimeType(mimeType)) {
+            flags |= Document.FLAG_SUPPORTS_METADATA;
+        }
         row.add(Document.COLUMN_FLAGS, flags);
     }
 

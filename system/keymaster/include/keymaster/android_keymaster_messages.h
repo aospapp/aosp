@@ -18,6 +18,7 @@
 #define SYSTEM_KEYMASTER_ANDROID_KEYMASTER_MESSAGES_H_
 
 #include <assert.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -27,7 +28,7 @@
 namespace keymaster {
 
 // Commands
-enum AndroidKeymasterCommand {
+enum AndroidKeymasterCommand : uint32_t {
     GENERATE_KEY = 0,
     BEGIN_OPERATION = 1,
     UPDATE_OPERATION = 2,
@@ -47,6 +48,9 @@ enum AndroidKeymasterCommand {
     ATTEST_KEY = 16,
     UPGRADE_KEY = 17,
     CONFIGURE = 18,
+    GET_HMAC_SHARING_PARAMETERS = 19,
+    COMPUTE_SHARED_HMAC = 20,
+    VERIFY_AUTHORIZATION = 21,
 };
 
 /**
@@ -95,6 +99,7 @@ inline int32_t MessageVersion(uint8_t major_ver, uint8_t minor_ver, uint8_t /* s
 
 struct KeymasterMessage : public Serializable {
     explicit KeymasterMessage(int32_t ver) : message_version(ver) { assert(ver >= 0); }
+    KeymasterMessage(KeymasterMessage&& other) : message_version(move(other.message_version)) {}
     uint32_t message_version;
 };
 
@@ -107,6 +112,9 @@ struct KeymasterMessage : public Serializable {
 struct KeymasterResponse : public KeymasterMessage {
     explicit KeymasterResponse(int32_t ver)
         : KeymasterMessage(ver), error(KM_ERROR_UNKNOWN_ERROR) {}
+    KeymasterResponse(KeymasterResponse&& other)
+        : KeymasterMessage(move(other)), error(move(other.error)) {}
+    KeymasterResponse& operator=(KeymasterResponse&&) = default;
 
     size_t SerializedSize() const override;
     uint8_t* Serialize(uint8_t* buf, const uint8_t* end) const override;
@@ -216,8 +224,7 @@ template <typename T> struct SupportedResponse : public KeymasterResponse {
         delete[] results;
         results = nullptr;
         UniquePtr<T[]> tmp;
-        if (!copy_uint32_array_from_buf(buf_ptr, end, &tmp, &results_length))
-            return false;
+        if (!copy_uint32_array_from_buf(buf_ptr, end, &tmp, &results_length)) return false;
         results = tmp.release();
         return true;
     }
@@ -678,6 +685,221 @@ struct ConfigureResponse : public KeymasterResponse {
     size_t NonErrorSerializedSize() const override { return 0; }
     uint8_t* NonErrorSerialize(uint8_t* buf, const uint8_t*) const override { return buf; }
     bool NonErrorDeserialize(const uint8_t**, const uint8_t*) override { return true; }
+};
+
+struct HmacSharingParameters : public Serializable {
+    HmacSharingParameters() : seed({}) { memset(nonce, 0, sizeof(nonce)); }
+    HmacSharingParameters(HmacSharingParameters&& other) {
+        seed = move(other.seed);
+        memcpy(nonce, other.nonce, sizeof(nonce));
+    }
+
+    void SetSeed(KeymasterBlob&& value) { seed = move(value); }
+
+    size_t SerializedSize() const override;
+    uint8_t* Serialize(uint8_t* buf, const uint8_t* end) const override;
+    bool Deserialize(const uint8_t** buf_ptr, const uint8_t* end) override;
+
+    KeymasterBlob seed{};
+    uint8_t nonce[32];
+};
+
+struct HmacSharingParametersArray : public Serializable {
+    HmacSharingParametersArray() : params_array(nullptr), num_params(0) {}
+    HmacSharingParametersArray(HmacSharingParametersArray&& other) {
+        delete[] params_array;
+        params_array = other.params_array;
+        num_params = other.num_params;
+        other.params_array = nullptr;
+        other.num_params = 0;
+    }
+    ~HmacSharingParametersArray() override { delete[] params_array; }
+
+    size_t SerializedSize() const override;
+    uint8_t* Serialize(uint8_t* buf, const uint8_t* end) const override;
+    bool Deserialize(const uint8_t** buf_ptr, const uint8_t* end) override;
+
+    HmacSharingParameters* params_array;
+    size_t num_params;
+};
+
+struct GetHmacSharingParametersResponse : public KeymasterResponse {
+    explicit GetHmacSharingParametersResponse(int32_t ver = MAX_MESSAGE_VERSION)
+        : KeymasterResponse(ver) {}
+    GetHmacSharingParametersResponse(GetHmacSharingParametersResponse&& other)
+        : KeymasterResponse(other.message_version), params(move(other.params)) {}
+
+    void SetSeed(KeymasterBlob&& seed_data) { params.SetSeed(move(seed_data)); }
+
+    size_t NonErrorSerializedSize() const override { return params.SerializedSize(); }
+    uint8_t* NonErrorSerialize(uint8_t* buf, const uint8_t* end) const override {
+        return params.Serialize(buf, end);
+    }
+    bool NonErrorDeserialize(const uint8_t** buf_ptr, const uint8_t* end) override {
+        return params.Deserialize(buf_ptr, end);
+    }
+
+    HmacSharingParameters params;
+};
+
+struct ComputeSharedHmacRequest : public KeymasterMessage {
+    explicit ComputeSharedHmacRequest(int32_t ver = MAX_MESSAGE_VERSION) : KeymasterMessage(ver) {}
+
+    size_t SerializedSize() const override { return params_array.SerializedSize(); }
+    uint8_t* Serialize(uint8_t* buf, const uint8_t* end) const override {
+        return params_array.Serialize(buf, end);
+    }
+    bool Deserialize(const uint8_t** buf_ptr, const uint8_t* end) override {
+        return params_array.Deserialize(buf_ptr, end);
+    }
+
+    HmacSharingParametersArray params_array;
+};
+
+struct ComputeSharedHmacResponse : public KeymasterResponse {
+    explicit ComputeSharedHmacResponse(int32_t ver = MAX_MESSAGE_VERSION)
+        : KeymasterResponse(ver) {}
+    ComputeSharedHmacResponse(ComputeSharedHmacResponse&& other) : KeymasterResponse(move(other)) {
+        sharing_check = move(other.sharing_check);
+    }
+
+    size_t NonErrorSerializedSize() const override;
+    uint8_t* NonErrorSerialize(uint8_t* buf, const uint8_t* end) const override;
+    bool NonErrorDeserialize(const uint8_t** buf_ptr, const uint8_t* end) override;
+
+    KeymasterBlob sharing_check;
+};
+
+struct ImportWrappedKeyRequest : public KeymasterMessage {
+    explicit ImportWrappedKeyRequest(int32_t ver = MAX_MESSAGE_VERSION) : KeymasterMessage(ver) {}
+
+    void SetWrappedMaterial(const void* key_material, size_t length);
+    void SetWrappingMaterial(const void* key_material, size_t length);
+    void SetMaskingKeyMaterial(const void* key_material, size_t length);
+
+    void SetKeyMaterial(const keymaster_key_blob_t& wrapped, const keymaster_key_blob_t& wrapping) {
+        SetWrappedMaterial(wrapped.key_material, wrapped.key_material_size);
+        SetWrappingMaterial(wrapping.key_material, wrapping.key_material_size);
+    }
+
+    size_t SerializedSize() const override;
+    uint8_t* Serialize(uint8_t* buf, const uint8_t* end) const override;
+    bool Deserialize(const uint8_t** buf_ptr, const uint8_t* end) override;
+
+    KeymasterKeyBlob wrapped_key;
+    KeymasterKeyBlob wrapping_key;
+    KeymasterKeyBlob masking_key;
+    AuthorizationSet additional_params;
+    uint64_t password_sid;
+    uint64_t biometric_sid;
+};
+
+struct ImportWrappedKeyResponse : public KeymasterResponse {
+    explicit ImportWrappedKeyResponse(int32_t ver = MAX_MESSAGE_VERSION) : KeymasterResponse(ver) {}
+
+    void SetKeyMaterial(const void* key_material, size_t length);
+    void SetKeyMaterial(const keymaster_key_blob_t& blob) {
+        SetKeyMaterial(blob.key_material, blob.key_material_size);
+    }
+
+    size_t NonErrorSerializedSize() const override;
+    uint8_t* NonErrorSerialize(uint8_t* buf, const uint8_t* end) const override;
+    bool NonErrorDeserialize(const uint8_t** buf_ptr, const uint8_t* end) override;
+
+    KeymasterKeyBlob key_blob;
+    AuthorizationSet enforced;
+    AuthorizationSet unenforced;
+};
+
+struct HardwareAuthToken : public Serializable {
+    HardwareAuthToken() = default;
+    HardwareAuthToken(HardwareAuthToken&& other) {
+        challenge = other.challenge;
+        user_id = other.user_id;
+        authenticator_id = other.authenticator_id;
+        authenticator_type = other.authenticator_type;
+        timestamp = other.timestamp;
+        mac = move(other.mac);
+    }
+
+    size_t SerializedSize() const override;
+    uint8_t* Serialize(uint8_t* buf, const uint8_t* end) const override;
+    bool Deserialize(const uint8_t** buf_ptr, const uint8_t* end) override;
+
+    uint64_t challenge{};
+    uint64_t user_id{};
+    uint64_t authenticator_id{};
+    hw_authenticator_type_t authenticator_type{};
+    uint64_t timestamp{};
+    KeymasterBlob mac;
+};
+
+struct VerificationToken : public Serializable {
+    VerificationToken() = default;
+    VerificationToken(VerificationToken&& other) {
+        challenge = other.challenge;
+        timestamp = other.timestamp;
+        parameters_verified = move(other.parameters_verified);
+        security_level = other.security_level;
+        mac = move(other.mac);
+    }
+
+    size_t SerializedSize() const override;
+    uint8_t* Serialize(uint8_t* buf, const uint8_t* end) const override;
+    bool Deserialize(const uint8_t** buf_ptr, const uint8_t* end) override;
+
+    uint64_t challenge{};
+    uint64_t timestamp{};
+    AuthorizationSet parameters_verified{};
+    keymaster_security_level_t security_level{};
+    KeymasterBlob mac{};
+};
+
+struct VerifyAuthorizationRequest : public KeymasterMessage {
+    explicit VerifyAuthorizationRequest(int32_t ver = MAX_MESSAGE_VERSION)
+        : KeymasterMessage(ver) {}
+    VerifyAuthorizationRequest(VerifyAuthorizationRequest&& other) = default;
+
+    size_t SerializedSize() const override {
+        return sizeof(challenge) + parameters_to_verify.SerializedSize() +
+               auth_token.SerializedSize();
+    }
+
+    uint8_t* Serialize(uint8_t* buf, const uint8_t* end) const override {
+        buf = append_uint64_to_buf(buf, end, challenge);
+        buf = parameters_to_verify.Serialize(buf, end);
+        return auth_token.Serialize(buf, end);
+    }
+
+    bool Deserialize(const uint8_t** buf_ptr, const uint8_t* end) override {
+        return (copy_uint64_from_buf(buf_ptr, end, &challenge) &&
+                parameters_to_verify.Deserialize(buf_ptr, end) &&
+                auth_token.Deserialize(buf_ptr, end));
+    }
+
+    uint64_t challenge{};
+    AuthorizationSet parameters_to_verify;
+    HardwareAuthToken auth_token;
+};
+
+struct VerifyAuthorizationResponse : public KeymasterResponse {
+    explicit VerifyAuthorizationResponse(int32_t ver = MAX_MESSAGE_VERSION)
+        : KeymasterResponse(ver) {}
+    VerifyAuthorizationResponse(VerifyAuthorizationResponse&& other) = default;
+
+    size_t NonErrorSerializedSize() const override {
+        return sizeof(error) + token.SerializedSize();
+    }
+    uint8_t* NonErrorSerialize(uint8_t* buf, const uint8_t* end) const override {
+        buf = append_uint32_to_buf(buf, end, error);
+        return token.Serialize(buf, end);
+    }
+    bool NonErrorDeserialize(const uint8_t** buf_ptr, const uint8_t* end) override {
+        return copy_uint32_from_buf(buf_ptr, end, &error) && token.Deserialize(buf_ptr, end);
+    }
+
+    keymaster_error_t error{KM_ERROR_UNKNOWN_ERROR};
+    VerificationToken token;
 };
 
 }  // namespace keymaster

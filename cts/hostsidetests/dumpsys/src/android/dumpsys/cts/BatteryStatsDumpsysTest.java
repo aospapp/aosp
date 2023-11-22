@@ -43,7 +43,6 @@ public class BatteryStatsDumpsysTest extends BaseDumpsysTest {
         assertTrue(batterystats.length() > 0);
 
         Set<String> seenTags = new HashSet<>();
-        int version = -1;
 
         try (BufferedReader reader = new BufferedReader(
                 new StringReader(batterystats))) {
@@ -95,7 +94,10 @@ public class BatteryStatsDumpsysTest extends BaseDumpsysTest {
                         checkVibrator(parts);
                         break;
                     case "fg":
-                        checkForeground(parts);
+                        checkForegroundActivity(parts);
+                        break;
+                    case "fgs":
+                        checkForegroundService(parts);
                         break;
                     case "st":
                         checkStateTime(parts);
@@ -111,6 +113,12 @@ public class BatteryStatsDumpsysTest extends BaseDumpsysTest {
                         break;
                     case "jb":
                         checkJob(parts);
+                        break;
+                    case "jbc":
+                        checkJobCompletion(parts);
+                        break;
+                    case "jbd":
+                        checkJobsDeferred(parts);
                         break;
                     case "kwl":
                         checkKernelWakelock(parts);
@@ -258,20 +266,27 @@ public class BatteryStatsDumpsysTest extends BaseDumpsysTest {
         assertInteger(parts[5]); // count
     }
 
-    private void checkForeground(String[] parts) {
+    private void checkForegroundActivity(String[] parts) {
+        assertEquals(6, parts.length);
+        assertInteger(parts[4]); // totalTime
+        assertInteger(parts[5]); // count
+    }
+
+    private void checkForegroundService(String[] parts) {
         assertEquals(6, parts.length);
         assertInteger(parts[4]); // totalTime
         assertInteger(parts[5]); // count
     }
 
     private void checkStateTime(String[] parts) {
-        assertEquals(10, parts.length);
-        assertInteger(parts[4]); // top
-        assertInteger(parts[5]); // foreground_service
-        assertInteger(parts[6]); // top_sleeping
-        assertInteger(parts[7]); // foreground
-        assertInteger(parts[8]); // background
-        assertInteger(parts[9]); // cached
+        assertEquals(11, parts.length);
+        assertInteger(parts[4]);  // top
+        assertInteger(parts[5]);  // foreground_service
+        assertInteger(parts[6]);  // foreground
+        assertInteger(parts[7]);  // background
+        assertInteger(parts[8]);  // top_sleeping
+        assertInteger(parts[9]);  // heavy_weight
+        assertInteger(parts[10]); // cached
     }
 
     private void checkWakelock(String[] parts) {
@@ -335,6 +350,28 @@ public class BatteryStatsDumpsysTest extends BaseDumpsysTest {
         assertInteger(parts[6]); // count
         assertInteger(parts[7]); // bgTime
         assertInteger(parts[8]); // bgCount
+    }
+
+    private void checkJobCompletion(String[] parts) {
+        assertEquals(10, parts.length);
+        assertNotNull(parts[4]); // job
+        assertInteger(parts[5]); // reason_canceled
+        assertInteger(parts[6]); // reason_constraints_not_satisfied
+        assertInteger(parts[7]); // reason_preempt
+        assertInteger(parts[8]); // reason_timeout
+        assertInteger(parts[9]); // reason_device_idle
+    }
+
+    private void checkJobsDeferred(String[] parts) {
+        assertEquals(12, parts.length);
+        assertInteger(parts[4]); // jobsDeferredEventCount
+        assertInteger(parts[5]); // jobsDeferredCount
+        assertInteger(parts[6]); // totalLatencyMillis
+        assertInteger(parts[7]); // count at latency < 1 hr
+        assertInteger(parts[8]); // count at latency 1-2 hrs
+        assertInteger(parts[9]); // count at latency 2-4 hrs
+        assertInteger(parts[10]); // count at latency 4-8 hrs
+        assertInteger(parts[11]); // count at latency 8+ hrs
     }
 
     private void checkKernelWakelock(String[] parts) {
@@ -442,7 +479,7 @@ public class BatteryStatsDumpsysTest extends BaseDumpsysTest {
     }
 
     private void checkBatteryDischarge(String[] parts) {
-        assertEquals(12, parts.length);
+        assertEquals(14, parts.length);
         assertInteger(parts[4]); // low
         assertInteger(parts[5]); // high
         assertInteger(parts[6]); // screenOn
@@ -451,6 +488,8 @@ public class BatteryStatsDumpsysTest extends BaseDumpsysTest {
         assertInteger(parts[9]); // dischargeScreenOffMah
         assertInteger(parts[10]); // dischargeDozeCount
         assertInteger(parts[11]); // dischargeDozeMah
+        assertInteger(parts[12]); // dischargeLightDozeMah
+        assertInteger(parts[13]); // dischargeDeepDozeMah
     }
 
     private void checkBatteryLevel(String[] parts) {
@@ -528,7 +567,7 @@ public class BatteryStatsDumpsysTest extends BaseDumpsysTest {
     }
 
     private void checkDataConnection(String[] parts) {
-        assertEquals(21, parts.length);
+        assertEquals(25, parts.length);
         assertInteger(parts[4]);  // none
         assertInteger(parts[5]);  // gprs
         assertInteger(parts[6]);  // edge
@@ -545,7 +584,11 @@ public class BatteryStatsDumpsysTest extends BaseDumpsysTest {
         assertInteger(parts[17]); // lte
         assertInteger(parts[18]); // ehrpd
         assertInteger(parts[19]); // hspap
-        assertInteger(parts[20]); // other
+        assertInteger(parts[20]); // gsm
+        assertInteger(parts[21]); // td_scdma
+        assertInteger(parts[22]); // iwlan
+        assertInteger(parts[23]); // lte_ca
+        assertInteger(parts[24]); // other
     }
 
     private void checkWifiState(String[] parts) {
@@ -723,7 +766,8 @@ public class BatteryStatsDumpsysTest extends BaseDumpsysTest {
                 for (int i = 0; i < TIMESTAMP_COUNT; i++) {
                     numparts[i] = assertInteger(parts[i]);
                 }
-                if (numparts[0] != 0) {
+                // Flags = 1 just means the first frame of the window
+                if (numparts[0] != 0 && numparts[0] != 1) {
                     continue;
                 }
                 // assert VSYNC >= INTENDED_VSYNC

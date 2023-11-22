@@ -182,13 +182,16 @@ class Host(object):
         raise NotImplementedError('Get file not implemented!')
 
 
-    def send_file(self, source, dest, delete_dest=False):
+    def send_file(self, source, dest, delete_dest=False, excludes=None):
         """Send a file to the host.
 
         @param source: Local file path (directory, file or list).
         @param dest: Remote file path (directory, file or list).
         @param delete_dest: Delete files in remote path that are not in local
-            path.
+                path.
+        @param excludes: A list of file pattern that matches files not to be
+                         sent. `send_file` will fail if exclude is not
+                         supported.
         """
         raise NotImplementedError('Send file not implemented!')
 
@@ -292,8 +295,6 @@ class Host(object):
 
         @raises AutoservRebootError if host does not come back up.
         """
-        key_string = 'Reboot.%s' % dargs.get('board')
-
         if not self.wait_down(timeout=down_timeout,
                               warning_timer=down_warning,
                               old_boot_id=old_boot_id):
@@ -345,13 +346,30 @@ class Host(object):
         1000 based SI units are used.
 
         @raises AutoservDiskFullHostError if path has less than gb GB free.
+        @raises AutoservDirectoryNotFoundError if path is not a valid directory.
+        @raises AutoservDiskSizeUnknownError the return from du is not parsed
+            correctly.
         """
         one_mb = 10 ** 6  # Bytes (SI unit).
         mb_per_gb = 1000.0
         logging.info('Checking for >= %s GB of space under %s on machine %s',
                      gb, path, self.hostname)
-        df = self.run('df -PB %d %s | tail -1' % (one_mb, path)).stdout.split()
-        free_space_gb = int(df[3]) / mb_per_gb
+
+        if not self.path_exists(path):
+            msg = 'Path does not exist on host: %s' % path
+            logging.warning(msg)
+            raise error.AutoservDirectoryNotFoundError(msg)
+
+        cmd = 'df -PB %d %s | tail -1' % (one_mb, path)
+        df = self.run(cmd).stdout.split()
+        try:
+            free_space_gb = int(df[3]) / mb_per_gb
+        except (IndexError, ValueError):
+            msg = ('Could not determine the size of %s. '
+                   'Output from df: %s') % (path, df)
+            logging.error(msg)
+            raise error.AutoservDiskSizeUnknownError(msg)
+
         if free_space_gb < gb:
             raise error.AutoservDiskFullHostError(path, gb, free_space_gb)
         else:
@@ -692,3 +710,13 @@ class Host(object):
         """
         raise NotImplementedError("Get labels not implemented!")
 
+
+    def check_cached_up_status(self, expiration_seconds):
+        """Check if the DUT responded to ping in the past `expiration_seconds`.
+
+        @param expiration_seconds: The number of seconds to keep the cached
+                status of whether the DUT responded to ping.
+        @return: True if the DUT has responded to ping during the past
+                 `expiration_seconds`.
+        """
+        raise NotImplementedError("check_cached_up_status not implemented!")

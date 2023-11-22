@@ -16,15 +16,16 @@
 
 package com.android.cts.usespermissiondiffcertapp;
 
-import android.content.BroadcastReceiver;
-import android.content.ComponentName;
-import android.content.Context;
+import static com.android.cts.permissiondeclareapp.UtilsProvider.ACTION_SET_INSTALLER_PACKAGE_NAME;
+import static com.android.cts.permissiondeclareapp.UtilsProvider.EXTRA_INSTALLER_PACKAGE_NAME;
+import static com.android.cts.permissiondeclareapp.UtilsProvider.EXTRA_PACKAGE_NAME;
+
 import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.net.Uri;
-import android.os.SystemClock;
+import android.os.Bundle;
 import android.test.AndroidTestCase;
-import android.util.Log;
+
+import com.android.cts.permissiondeclareapp.UtilsProvider;
 
 /**
  * Tests that one application can and can not modify the installer package
@@ -33,83 +34,17 @@ import android.util.Log;
  * Accesses app cts/tests/appsecurity-tests/test-apps/PermissionDeclareApp/...
  */
 public class ModifyInstallerPackageTest extends AndroidTestCase {
-    static final ComponentName SET_INSTALLER_PACKAGE_COMP
-            = new ComponentName("com.android.cts.permissiondeclareapp",
-                    "com.android.cts.permissiondeclareapp.SetInstallerPackage");
     static final String OTHER_PACKAGE = "com.android.cts.permissiondeclareapp";
     static final String MY_PACKAGE = "com.android.cts.usespermissiondiffcertapp";
 
-    static class SetInstallerPackageReceiver extends BroadcastReceiver {
-        boolean mHaveResult = false;
-        boolean mGoodResult = false;
-        boolean mSucceeded = false;
-
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            synchronized (this) {
-                mHaveResult = true;
-                switch (getResultCode()) {
-                    case 100:
-                        mGoodResult = true;
-                        mSucceeded = false;
-                        break;
-                    case 101:
-                        mGoodResult = true;
-                        mSucceeded = true;
-                        break;
-                    default:
-                        mGoodResult = false;
-                        break;
-                }
-                notifyAll();
-            }
-        }
-
-        void assertSuccess(String failureMessage) {
-            synchronized (this) {
-                final long startTime = SystemClock.uptimeMillis();
-                while (!mHaveResult) {
-                    try {
-                        wait(5000);
-                    } catch (InterruptedException e) {
-                    }
-                    if (SystemClock.uptimeMillis() >= (startTime+5000)) {
-                        throw new RuntimeException("Timeout");
-                    }
-                }
-                if (!mGoodResult) {
-                    fail("Broadcast receiver did not return good result");
-                }
-                if (!mSucceeded) {
-                    fail(failureMessage);
-                }
-            }
-        }
-
-        void assertFailure(String failureMessage) {
-            synchronized (this) {
-                final long startTime = SystemClock.uptimeMillis();
-                while (!mHaveResult) {
-                    try {
-                        wait(5000);
-                    } catch (InterruptedException e) {
-                    }
-                    if (SystemClock.uptimeMillis() >= (startTime+5000)) {
-                        throw new RuntimeException("Timeout");
-                    }
-                }
-                if (!mGoodResult) {
-                    fail("Broadcast receiver did not return good result");
-                }
-                if (mSucceeded) {
-                    fail(failureMessage);
-                }
-            }
-        }
-    }
-
     PackageManager getPackageManager() {
         return getContext().getPackageManager();
+    }
+
+    private void call(Intent intent) {
+        final Bundle extras = new Bundle();
+        extras.putParcelable(Intent.EXTRA_INTENT, intent);
+        getContext().getContentResolver().call(UtilsProvider.URI, "", "", extras);
     }
 
     /**
@@ -182,12 +117,10 @@ public class ModifyInstallerPackageTest extends AndroidTestCase {
 
         // Have the other package set the installer, under its cert.
         Intent intent = new Intent();
-        intent.setComponent(SET_INSTALLER_PACKAGE_COMP);
-        intent.putExtra("target", OTHER_PACKAGE);
-        intent.putExtra("installer", OTHER_PACKAGE);
-        SetInstallerPackageReceiver receiver = new SetInstallerPackageReceiver();
-        getContext().sendOrderedBroadcast(intent, null, receiver, null, 0, null, null);
-        receiver.assertSuccess("Failure initializing with other installer");
+        intent.setAction(ACTION_SET_INSTALLER_PACKAGE_NAME);
+        intent.putExtra(EXTRA_PACKAGE_NAME, OTHER_PACKAGE);
+        intent.putExtra(EXTRA_INSTALLER_PACKAGE_NAME, OTHER_PACKAGE);
+        call(intent);
 
         assertEquals(OTHER_PACKAGE, getPackageManager().getInstallerPackageName(OTHER_PACKAGE));
 
@@ -201,11 +134,10 @@ public class ModifyInstallerPackageTest extends AndroidTestCase {
         assertEquals(OTHER_PACKAGE, getPackageManager().getInstallerPackageName(OTHER_PACKAGE));
 
         // Now clear the installer
-        intent.putExtra("target", OTHER_PACKAGE);
-        intent.putExtra("installer", (String)null);
-        receiver = new SetInstallerPackageReceiver();
-        getContext().sendOrderedBroadcast(intent, null, receiver, null, 0, null, null);
-        receiver.assertSuccess("Failure clearing other installer");
+        intent.setAction(ACTION_SET_INSTALLER_PACKAGE_NAME);
+        intent.putExtra(EXTRA_PACKAGE_NAME, OTHER_PACKAGE);
+        intent.putExtra(EXTRA_INSTALLER_PACKAGE_NAME, (String)null);
+        call(intent);
 
         assertEquals(null, getPackageManager().getInstallerPackageName(OTHER_PACKAGE));
     }

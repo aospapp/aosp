@@ -17,6 +17,7 @@
 package android.permission2.cts;
 
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.test.AndroidTestCase;
 
 /**
@@ -47,21 +48,7 @@ public class ProtectedBroadcastsTest extends AndroidTestCase {
         Intent.ACTION_SHUTDOWN,
         Intent.ACTION_DEVICE_STORAGE_LOW,
         Intent.ACTION_DEVICE_STORAGE_OK,
-        Intent.ACTION_NEW_OUTGOING_CALL,
         Intent.ACTION_REBOOT,
-        "android.intent.action.SERVICE_STATE",
-        "android.intent.action.RADIO_TECHNOLOGY",
-        "android.intent.action.EMERGENCY_CALLBACK_MODE_CHANGED",
-        "android.intent.action.SIG_STR",
-        "android.intent.action.ANY_DATA_STATE",
-        "android.intent.action.DATA_CONNECTION_FAILED",
-        "android.intent.action.SIM_STATE_CHANGED",
-        "android.intent.action.NETWORK_SET_TIME",
-        "android.intent.action.NETWORK_SET_TIMEZONE",
-        "com.android.internal.intent.action.ACTION_SHOW_NOTICE_ECM_BLOCK_OTHERS",
-        "android.intent.action.ACTION_MDN_STATE_CHANGED",
-        "android.provider.Telephony.SPN_STRINGS_UPDATED",
-        "android.intent.action.ANY_DATA_STATE",
         "com.android.server.WifiManager.action.START_SCAN",
         "com.android.server.WifiManager.action.DELAYED_DRIVER_STOP",
         "android.net.wifi.WIFI_STATE_CHANGED",
@@ -85,6 +72,23 @@ public class ProtectedBroadcastsTest extends AndroidTestCase {
         "com.android.server.InputMethodManagerService.SHOW_INPUT_METHOD_PICKER"
     };
 
+    private static final String BROADCASTS_TELEPHONY[] = new String[] {
+        Intent.ACTION_NEW_OUTGOING_CALL,
+        "android.intent.action.SERVICE_STATE",
+        "android.intent.action.SIG_STR",
+        "android.intent.action.RADIO_TECHNOLOGY",
+        "android.intent.action.ANY_DATA_STATE",
+        "android.intent.action.ACTION_MDN_STATE_CHANGED",
+        "android.provider.Telephony.SPN_STRINGS_UPDATED",
+        "android.intent.action.EMERGENCY_CALLBACK_MODE_CHANGED",
+        "android.intent.action.SIM_STATE_CHANGED",
+        "android.intent.action.DATA_CONNECTION_FAILED",
+        "android.intent.action.NETWORK_SET_TIME",
+        "android.intent.action.NETWORK_SET_TIMEZONE",
+        "com.android.internal.intent.action.ACTION_SHOW_NOTICE_ECM_BLOCK_OTHERS",
+        "android.telephony.action.SUBSCRIPTION_CARRIER_IDENTITY_CHANGED",
+    };
+
     /**
      * Verify that protected broadcast actions can't be sent.
      */
@@ -94,6 +98,21 @@ public class ProtectedBroadcastsTest extends AndroidTestCase {
                 Intent intent = new Intent(action);
                 getContext().sendBroadcast(intent);
                 fail("expected security exception broadcasting action: " + action);
+            } catch (SecurityException expected) {
+                assertNotNull("security exception's error message.", expected.getMessage());
+            }
+        }
+    }
+
+    public void testSendProtectedTelephonyBroadcasts() {
+        if (!getContext().getPackageManager().hasSystemFeature(PackageManager.FEATURE_TELEPHONY)) {
+            return;
+        }
+        for (String action : BROADCASTS_TELEPHONY) {
+            try {
+                Intent intent = new Intent(action);
+                getContext().sendBroadcast(intent);
+                fail("expected security exception broadcasting telephony action: " + action);
             } catch (SecurityException expected) {
                 assertNotNull("security exception's error message.", expected.getMessage());
             }

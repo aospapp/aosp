@@ -24,10 +24,12 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
-#include <cutils/properties.h>
+#include <android-base/logging.h>
+#ifdef __BIONIC__
+#include <android-base/properties.h>
+#endif
 
 #include "cpuconfig.h"
-#include "perfprofdutils.h"
 
 #define SYSFSCPU "/sys/devices/system/cpu"
 
@@ -53,9 +55,11 @@ HardwireCpuHelper::~HardwireCpuHelper()
 
 bool HardwireCpuHelper::GetMpdecisionRunning()
 {
-  char propBuf[PROPERTY_VALUE_MAX];
-  property_get("init.svc.mpdecision", propBuf, "");
-  return strcmp(propBuf, "running") == 0;
+#ifdef __BIONIC__
+  return android::base::GetProperty("init.svc.mpdecision", "") == "running";
+#else
+  return false;
+#endif
 }
 
 
@@ -83,23 +87,27 @@ void HardwireCpuHelper::OnlineCore(int i, int onoff)
     fprintf(fp, onoff ? "1\n" : "0\n");
     fclose(fp);
   } else {
-    W_ALOGW("open failed for %s", ss.str().c_str());
+    PLOG(WARNING) << "open failed for " << ss.str();
   }
 }
 
 void HardwireCpuHelper::StopMpdecision()
 {
-  if (property_set("ctl.stop", "mpdecision")) {
-    W_ALOGE("setprop ctl.stop mpdecision failed");
+#ifdef __BIONIC__
+  if (!android::base::SetProperty("ctl.stop", "mpdecision")) {
+    LOG(ERROR) << "setprop ctl.stop mpdecision failed";
   }
+#endif
 }
 
 void HardwireCpuHelper::RestartMpdecision()
 {
+#ifdef __BIONIC__
   // Don't try to offline the cores we previously onlined -- let
   // mpdecision figure out what to do
 
-  if (property_set("ctl.start", "mpdecision")) {
-    W_ALOGE("setprop ctl.start mpdecision failed");
+  if (!android::base::SetProperty("ctl.start", "mpdecision")) {
+    LOG(ERROR) << "setprop ctl.start mpdecision failed";
   }
+#endif
 }

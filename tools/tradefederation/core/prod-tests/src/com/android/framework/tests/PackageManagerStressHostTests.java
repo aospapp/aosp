@@ -34,7 +34,7 @@ public class PackageManagerStressHostTests extends DeviceTestCase {
     // Path to the app repository and various subdirectories of it
     // Note: These stress tests require large apks that cannot be checked into the tree.
     // These variables define static locations that point to existing APKs (not built from
-    // the tree) which can be used by the the stress tests in this file.
+    // the tree) which can be used by the stress tests in this file.
     private static final String LARGE_APPS_DIRECTORY_NAME = "largeApps";
     private static final String MISC_APPS_DIRECTORY_NAME = "miscApps";
     private static final String VERSIONED_APPS_DIRECTORY_NAME = "versionedApps";

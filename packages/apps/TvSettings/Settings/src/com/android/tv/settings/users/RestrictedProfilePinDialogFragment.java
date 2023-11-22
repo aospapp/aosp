@@ -30,8 +30,32 @@ import com.android.tv.settings.dialog.PinDialogFragment;
 public class RestrictedProfilePinDialogFragment extends PinDialogFragment {
 
     public interface Callback extends ResultListener {
-        void saveLockPassword(String pin, int quality);
+        /**
+         * Save the PIN password for the profile
+         * @param pin Password to save
+         * @param originalPin Previously saved password, or null if no password was previously set
+         * @param quality Password quality, see {@link DevicePolicyManager}
+         */
+        void saveLockPassword(String pin, String originalPin, int quality);
+
+        /**
+         * Clear the PIN password
+         * @param oldPin Current PIN password (required)
+         */
+        void clearLockPassword(String oldPin);
+
+        /**
+         * Check the PIN password for the specified userID
+         * @param password Password to check
+         * @param userId ID to check against
+         * @return {@code True} if password is correct
+         */
         boolean checkPassword(String password, int userId);
+
+        /**
+         * Query if there is a password set
+         * @return {@code True} if password is set
+         */
         boolean hasLockscreenSecurity();
     }
 
@@ -75,7 +99,7 @@ public class RestrictedProfilePinDialogFragment extends PinDialogFragment {
     }
 
     @Override
-    public void setPin(String pin) {
+    public void setPin(String pin, String originalPin) {
         Callback callback = null;
 
         Fragment f = getTargetFragment();
@@ -88,7 +112,26 @@ public class RestrictedProfilePinDialogFragment extends PinDialogFragment {
         }
 
         if (callback != null) {
-            callback.saveLockPassword(pin, DevicePolicyManager.PASSWORD_QUALITY_SOMETHING);
+            callback.saveLockPassword(pin, originalPin,
+                    DevicePolicyManager.PASSWORD_QUALITY_SOMETHING);
+        }
+    }
+
+    @Override
+    public void deletePin(String oldPin) {
+        Callback callback = null;
+
+        Fragment f = getTargetFragment();
+        if (f instanceof Callback) {
+            callback = (Callback) f;
+        }
+
+        if (callback == null && getActivity() instanceof Callback) {
+            callback = (Callback) getActivity();
+        }
+
+        if (callback != null) {
+            callback.clearLockPassword(oldPin);
         }
     }
 
@@ -107,8 +150,11 @@ public class RestrictedProfilePinDialogFragment extends PinDialogFragment {
 
         if (callback != null) {
             UserInfo myUserInfo = UserManager.get(getActivity()).getUserInfo(UserHandle.myUserId());
-            return myUserInfo != null &&
-                    callback.checkPassword(pin, myUserInfo.restrictedProfileParentId);
+            // UserInfo.restrictedProfileParentId may not be set if the restricted profile was
+            // created on Android M devices.
+            return myUserInfo != null && callback.checkPassword(pin,
+                    myUserInfo.restrictedProfileParentId == UserHandle.USER_NULL
+                            ? UserHandle.USER_OWNER : myUserInfo.restrictedProfileParentId);
         }
         return false;
     }

@@ -17,9 +17,14 @@ LOCAL_PATH:= $(call my-dir)
 include $(CLEAR_VARS)
 
 LOCAL_PACKAGE_NAME := CtsLibcoreOjTestCases
+LOCAL_PRIVATE_PLATFORM_APIS := true
 
 LOCAL_STATIC_JAVA_LIBRARIES := \
     core-ojtests-public
+
+LOCAL_JAVA_LIBRARIES := testng
+
+LOCAL_DX_FLAGS := --core-library
 
 # Don't include this package in any target
 LOCAL_MODULE_TAGS := tests

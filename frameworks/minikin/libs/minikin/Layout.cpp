@@ -16,205 +16,108 @@
 
 #define LOG_TAG "Minikin"
 
-#include <algorithm>
-#include <fstream>
-#include <iostream>  // for debugging
-#include <math.h>
-#include <string>
-#include <unicode/ubidi.h>
-#include <unicode/utf16.h>
-#include <vector>
+#include "minikin/Layout.h"
 
-#include <log/log.h>
-#include <utils/JenkinsHash.h>
-#include <utils/LruCache.h>
-#include <utils/Singleton.h>
-#include <utils/String16.h>
+#include <cmath>
+#include <iostream>
+#include <mutex>
+#include <string>
+#include <vector>
 
 #include <hb-icu.h>
 #include <hb-ot.h>
+#include <log/log.h>
+#include <unicode/ubidi.h>
+#include <unicode/utf16.h>
+#include <utils/JenkinsHash.h>
+#include <utils/LruCache.h>
 
-#include "FontLanguage.h"
-#include "FontLanguageListCache.h"
-#include "HbFontCache.h"
+#include "minikin/Emoji.h"
+#include "minikin/HbUtils.h"
+#include "minikin/LayoutCache.h"
+#include "minikin/LayoutPieces.h"
+#include "minikin/Macros.h"
+
+#include "BidiUtils.h"
 #include "LayoutUtils.h"
+#include "LocaleListCache.h"
 #include "MinikinInternal.h"
-#include <minikin/Emoji.h>
-#include <minikin/Layout.h>
-
-using std::string;
-using std::vector;
 
 namespace minikin {
 
-const int kDirection_Mask = 0x1;
+namespace {
 
-struct LayoutContext {
-    MinikinPaint paint;
-    FontStyle style;
-    std::vector<hb_font_t*> hbFonts;  // parallel to mFaces
-
-    void clearHbFonts() {
-        for (size_t i = 0; i < hbFonts.size(); i++) {
-            hb_font_set_funcs(hbFonts[i], nullptr, nullptr, nullptr);
-            hb_font_destroy(hbFonts[i]);
-        }
-        hbFonts.clear();
-    }
+struct SkiaArguments {
+    const MinikinFont* font;
+    const MinikinPaint* paint;
+    FontFakery fakery;
 };
 
-// Layout cache datatypes
-
-class LayoutCacheKey {
-public:
-    LayoutCacheKey(const std::shared_ptr<FontCollection>& collection, const MinikinPaint& paint,
-            FontStyle style, const uint16_t* chars, size_t start, size_t count, size_t nchars,
-            bool dir)
-            : mChars(chars), mNchars(nchars),
-            mStart(start), mCount(count), mId(collection->getId()), mStyle(style),
-            mSize(paint.size), mScaleX(paint.scaleX), mSkewX(paint.skewX),
-            mLetterSpacing(paint.letterSpacing),
-            mPaintFlags(paint.paintFlags), mHyphenEdit(paint.hyphenEdit), mIsRtl(dir),
-            mHash(computeHash()) {
-    }
-    bool operator==(const LayoutCacheKey &other) const;
-
-    android::hash_t hash() const {
-        return mHash;
-    }
-
-    void copyText() {
-        uint16_t* charsCopy = new uint16_t[mNchars];
-        memcpy(charsCopy, mChars, mNchars * sizeof(uint16_t));
-        mChars = charsCopy;
-    }
-    void freeText() {
-        delete[] mChars;
-        mChars = NULL;
-    }
-
-    void doLayout(Layout* layout, LayoutContext* ctx,
-            const std::shared_ptr<FontCollection>& collection) const {
-        layout->mAdvances.resize(mCount, 0);
-        ctx->clearHbFonts();
-        layout->doLayoutRun(mChars, mStart, mCount, mNchars, mIsRtl, ctx, collection);
-    }
-
-private:
-    const uint16_t* mChars;
-    size_t mNchars;
-    size_t mStart;
-    size_t mCount;
-    uint32_t mId;  // for the font collection
-    FontStyle mStyle;
-    float mSize;
-    float mScaleX;
-    float mSkewX;
-    float mLetterSpacing;
-    int32_t mPaintFlags;
-    HyphenEdit mHyphenEdit;
-    bool mIsRtl;
-    // Note: any fields added to MinikinPaint must also be reflected here.
-    // TODO: language matching (possibly integrate into style)
-    android::hash_t mHash;
-
-    android::hash_t computeHash() const;
-};
-
-class LayoutCache : private android::OnEntryRemoved<LayoutCacheKey, Layout*> {
-public:
-    LayoutCache() : mCache(kMaxEntries) {
-        mCache.setOnEntryRemovedListener(this);
-    }
-
-    void clear() {
-        mCache.clear();
-    }
-
-    Layout* get(LayoutCacheKey& key, LayoutContext* ctx,
-            const std::shared_ptr<FontCollection>& collection) {
-        Layout* layout = mCache.get(key);
-        if (layout == NULL) {
-            key.copyText();
-            layout = new Layout();
-            key.doLayout(layout, ctx, collection);
-            mCache.put(key, layout);
-        }
-        return layout;
-    }
-
-private:
-    // callback for OnEntryRemoved
-    void operator()(LayoutCacheKey& key, Layout*& value) {
-        key.freeText();
-        delete value;
-    }
-
-    android::LruCache<LayoutCacheKey, Layout*> mCache;
-
-    //static const size_t kMaxEntries = LruCache<LayoutCacheKey, Layout*>::kUnlimitedCapacity;
-
-    // TODO: eviction based on memory footprint; for now, we just use a constant
-    // number of strings
-    static const size_t kMaxEntries = 5000;
-};
-
-static unsigned int disabledDecomposeCompatibility(hb_unicode_funcs_t*, hb_codepoint_t,
-                                                   hb_codepoint_t*, void*) {
-    return 0;
+static hb_position_t harfbuzzGetGlyphHorizontalAdvance(hb_font_t* /* hbFont */, void* fontData,
+                                                       hb_codepoint_t glyph, void* /* userData */) {
+    SkiaArguments* args = reinterpret_cast<SkiaArguments*>(fontData);
+    float advance = args->font->GetHorizontalAdvance(glyph, *args->paint, args->fakery);
+    return 256 * advance + 0.5;
 }
 
-class LayoutEngine : public ::android::Singleton<LayoutEngine> {
-public:
-    LayoutEngine() {
+static hb_bool_t harfbuzzGetGlyphHorizontalOrigin(hb_font_t* /* hbFont */, void* /* fontData */,
+                                                  hb_codepoint_t /* glyph */,
+                                                  hb_position_t* /* x */, hb_position_t* /* y */,
+                                                  void* /* userData */) {
+    // Just return true, following the way that Harfbuzz-FreeType implementation does.
+    return true;
+}
+
+// TODO: Initialize in Zygote if it helps.
+hb_unicode_funcs_t* getUnicodeFunctions() {
+    static hb_unicode_funcs_t* unicodeFunctions = nullptr;
+    static std::once_flag once;
+    std::call_once(once, [&]() {
         unicodeFunctions = hb_unicode_funcs_create(hb_icu_get_unicode_funcs());
         /* Disable the function used for compatibility decomposition */
         hb_unicode_funcs_set_decompose_compatibility_func(
-                unicodeFunctions, disabledDecomposeCompatibility, NULL, NULL);
-        hbBuffer = hb_buffer_create();
-        hb_buffer_set_unicode_funcs(hbBuffer, unicodeFunctions);
-    }
-
-    hb_buffer_t* hbBuffer;
-    hb_unicode_funcs_t* unicodeFunctions;
-    LayoutCache layoutCache;
-};
-
-bool LayoutCacheKey::operator==(const LayoutCacheKey& other) const {
-    return mId == other.mId
-            && mStart == other.mStart
-            && mCount == other.mCount
-            && mStyle == other.mStyle
-            && mSize == other.mSize
-            && mScaleX == other.mScaleX
-            && mSkewX == other.mSkewX
-            && mLetterSpacing == other.mLetterSpacing
-            && mPaintFlags == other.mPaintFlags
-            && mHyphenEdit == other.mHyphenEdit
-            && mIsRtl == other.mIsRtl
-            && mNchars == other.mNchars
-            && !memcmp(mChars, other.mChars, mNchars * sizeof(uint16_t));
+                unicodeFunctions,
+                [](hb_unicode_funcs_t*, hb_codepoint_t, hb_codepoint_t*, void*) -> unsigned int {
+                    return 0;
+                },
+                nullptr, nullptr);
+    });
+    return unicodeFunctions;
 }
 
-android::hash_t LayoutCacheKey::computeHash() const {
-    uint32_t hash = android::JenkinsHashMix(0, mId);
-    hash = android::JenkinsHashMix(hash, mStart);
-    hash = android::JenkinsHashMix(hash, mCount);
-    hash = android::JenkinsHashMix(hash, hash_type(mStyle));
-    hash = android::JenkinsHashMix(hash, hash_type(mSize));
-    hash = android::JenkinsHashMix(hash, hash_type(mScaleX));
-    hash = android::JenkinsHashMix(hash, hash_type(mSkewX));
-    hash = android::JenkinsHashMix(hash, hash_type(mLetterSpacing));
-    hash = android::JenkinsHashMix(hash, hash_type(mPaintFlags));
-    hash = android::JenkinsHashMix(hash, hash_type(mHyphenEdit.getHyphen()));
-    hash = android::JenkinsHashMix(hash, hash_type(mIsRtl));
-    hash = android::JenkinsHashMixShorts(hash, mChars, mNchars);
-    return android::JenkinsHashWhiten(hash);
+// TODO: Initialize in Zygote if it helps.
+hb_font_funcs_t* getFontFuncs() {
+    static hb_font_funcs_t* fontFuncs = nullptr;
+    static std::once_flag once;
+    std::call_once(once, [&]() {
+        fontFuncs = hb_font_funcs_create();
+        // Override the h_advance function since we can't use HarfBuzz's implemenation. It may
+        // return the wrong value if the font uses hinting aggressively.
+        hb_font_funcs_set_glyph_h_advance_func(fontFuncs, harfbuzzGetGlyphHorizontalAdvance, 0, 0);
+        hb_font_funcs_set_glyph_h_origin_func(fontFuncs, harfbuzzGetGlyphHorizontalOrigin, 0, 0);
+        hb_font_funcs_make_immutable(fontFuncs);
+    });
+    return fontFuncs;
 }
 
-android::hash_t hash_type(const LayoutCacheKey& key) {
-    return key.hash();
+// TODO: Initialize in Zygote if it helps.
+hb_font_funcs_t* getFontFuncsForEmoji() {
+    static hb_font_funcs_t* fontFuncs = nullptr;
+    static std::once_flag once;
+    std::call_once(once, [&]() {
+        fontFuncs = hb_font_funcs_create();
+        // Don't override the h_advance function since we use HarfBuzz's implementation for emoji
+        // for performance reasons.
+        // Note that it is technically possible for a TrueType font to have outline and embedded
+        // bitmap at the same time. We ignore modified advances of hinted outline glyphs in that
+        // case.
+        hb_font_funcs_set_glyph_h_origin_func(fontFuncs, harfbuzzGetGlyphHorizontalOrigin, 0, 0);
+        hb_font_funcs_make_immutable(fontFuncs);
+    });
+    return fontFuncs;
 }
+
+}  // namespace
 
 void MinikinRect::join(const MinikinRect& r) {
     if (isEmpty()) {
@@ -232,64 +135,21 @@ void Layout::reset() {
     mFaces.clear();
     mBounds.setEmpty();
     mAdvances.clear();
+    mExtents.clear();
     mAdvance = 0;
 }
 
-static hb_position_t harfbuzzGetGlyphHorizontalAdvance(hb_font_t* /* hbFont */, void* fontData,
-        hb_codepoint_t glyph, void* /* userData */) {
-    MinikinPaint* paint = reinterpret_cast<MinikinPaint*>(fontData);
-    float advance = paint->font->GetHorizontalAdvance(glyph, *paint);
-    return 256 * advance + 0.5;
+static bool isColorBitmapFont(const HbFontUniquePtr& font) {
+    HbBlob cbdt(font, HB_TAG('C', 'B', 'D', 'T'));
+    return cbdt;
 }
 
-static hb_bool_t harfbuzzGetGlyphHorizontalOrigin(hb_font_t* /* hbFont */, void* /* fontData */,
-        hb_codepoint_t /* glyph */, hb_position_t* /* x */, hb_position_t* /* y */,
-        void* /* userData */) {
-    // Just return true, following the way that Harfbuzz-FreeType
-    // implementation does.
-    return true;
+static float HBFixedToFloat(hb_position_t v) {
+    return scalbnf(v, -8);
 }
 
-hb_font_funcs_t* getHbFontFuncs(bool forColorBitmapFont) {
-    assertMinikinLocked();
-
-    static hb_font_funcs_t* hbFuncs = nullptr;
-    static hb_font_funcs_t* hbFuncsForColorBitmap = nullptr;
-
-    hb_font_funcs_t** funcs = forColorBitmapFont ? &hbFuncs : &hbFuncsForColorBitmap;
-    if (*funcs == nullptr) {
-        *funcs = hb_font_funcs_create();
-        if (forColorBitmapFont) {
-            // Don't override the h_advance function since we use HarfBuzz's implementation for
-            // emoji for performance reasons.
-            // Note that it is technically possible for a TrueType font to have outline and embedded
-            // bitmap at the same time. We ignore modified advances of hinted outline glyphs in that
-            // case.
-        } else {
-            // Override the h_advance function since we can't use HarfBuzz's implemenation. It may
-            // return the wrong value if the font uses hinting aggressively.
-            hb_font_funcs_set_glyph_h_advance_func(*funcs, harfbuzzGetGlyphHorizontalAdvance, 0, 0);
-        }
-        hb_font_funcs_set_glyph_h_origin_func(*funcs, harfbuzzGetGlyphHorizontalOrigin, 0, 0);
-        hb_font_funcs_make_immutable(*funcs);
-    }
-    return *funcs;
-}
-
-static bool isColorBitmapFont(hb_font_t* font) {
-    hb_face_t* face = hb_font_get_face(font);
-    HbBlob cbdt(hb_face_reference_table(face, HB_TAG('C', 'B', 'D', 'T')));
-    return cbdt.size() > 0;
-}
-
-static float HBFixedToFloat(hb_position_t v)
-{
-    return scalbnf (v, -8);
-}
-
-static hb_position_t HBFloatToFixed(float v)
-{
-    return scalbnf (v, +8);
+static hb_position_t HBFloatToFixed(float v) {
+    return scalbnf(v, +8);
 }
 
 void Layout::dump() const {
@@ -299,39 +159,27 @@ void Layout::dump() const {
     }
 }
 
-int Layout::findFace(const FakedFont& face, LayoutContext* ctx) {
-    unsigned int ix;
-    for (ix = 0; ix < mFaces.size(); ix++) {
+uint8_t Layout::findOrPushBackFace(const FakedFont& face) {
+    MINIKIN_ASSERT(mFaces.size() < MAX_FAMILY_COUNT, "mFaces must not exceeds %d",
+                   MAX_FAMILY_COUNT);
+    uint8_t ix = 0;
+    for (; ix < mFaces.size(); ix++) {
         if (mFaces[ix].font == face.font) {
             return ix;
         }
     }
+    ix = mFaces.size();
     mFaces.push_back(face);
-    // Note: ctx == NULL means we're copying from the cache, no need to create
-    // corresponding hb_font object.
-    if (ctx != NULL) {
-        hb_font_t* font = getHbFontLocked(face.font);
-        hb_font_set_funcs(font, getHbFontFuncs(isColorBitmapFont(font)), &ctx->paint, 0);
-        ctx->hbFonts.push_back(font);
-    }
     return ix;
-}
-
-static hb_script_t codePointToScript(hb_codepoint_t codepoint) {
-    static hb_unicode_funcs_t* u = 0;
-    if (!u) {
-        u = LayoutEngine::getInstance().unicodeFunctions;
-    }
-    return hb_unicode_script(u, codepoint);
 }
 
 static hb_codepoint_t decodeUtf16(const uint16_t* chars, size_t len, ssize_t* iter) {
     UChar32 result;
-    U16_NEXT(chars, *iter, (ssize_t) len, result);
-    if (U_IS_SURROGATE(result)) { // isolated surrogate
-        result = 0xFFFDu; // U+FFFD REPLACEMENT CHARACTER
+    U16_NEXT(chars, *iter, (ssize_t)len, result);
+    if (U_IS_SURROGATE(result)) {  // isolated surrogate
+        result = 0xFFFDu;          // U+FFFD REPLACEMENT CHARACTER
     }
-    return (hb_codepoint_t) result;
+    return (hb_codepoint_t)result;
 }
 
 static hb_script_t getScriptRun(const uint16_t* chars, size_t len, ssize_t* iter) {
@@ -339,19 +187,16 @@ static hb_script_t getScriptRun(const uint16_t* chars, size_t len, ssize_t* iter
         return HB_SCRIPT_UNKNOWN;
     }
     uint32_t cp = decodeUtf16(chars, len, iter);
-    hb_script_t current_script = codePointToScript(cp);
+    hb_script_t current_script = hb_unicode_script(getUnicodeFunctions(), cp);
     for (;;) {
-        if (size_t(*iter) == len)
-            break;
+        if (size_t(*iter) == len) break;
         const ssize_t prev_iter = *iter;
         cp = decodeUtf16(chars, len, iter);
-        const hb_script_t script = codePointToScript(cp);
+        const hb_script_t script = hb_unicode_script(getUnicodeFunctions(), cp);
         if (script != current_script) {
-            if (current_script == HB_SCRIPT_INHERITED ||
-                current_script == HB_SCRIPT_COMMON) {
+            if (current_script == HB_SCRIPT_INHERITED || current_script == HB_SCRIPT_COMMON) {
                 current_script = script;
-            } else if (script == HB_SCRIPT_INHERITED ||
-                script == HB_SCRIPT_COMMON) {
+            } else if (script == HB_SCRIPT_INHERITED || script == HB_SCRIPT_COMMON) {
                 continue;
             } else {
                 *iter = prev_iter;
@@ -371,338 +216,236 @@ static hb_script_t getScriptRun(const uint16_t* chars, size_t len, ssize_t* iter
  * applied. See https://github.com/behdad/harfbuzz/issues/64 for more details.
  */
 static bool isScriptOkForLetterspacing(hb_script_t script) {
-    return !(
-            script == HB_SCRIPT_ARABIC ||
-            script == HB_SCRIPT_NKO ||
-            script == HB_SCRIPT_PSALTER_PAHLAVI ||
-            script == HB_SCRIPT_MANDAIC ||
-            script == HB_SCRIPT_MONGOLIAN ||
-            script == HB_SCRIPT_PHAGS_PA ||
-            script == HB_SCRIPT_DEVANAGARI ||
-            script == HB_SCRIPT_BENGALI ||
-            script == HB_SCRIPT_GURMUKHI ||
-            script == HB_SCRIPT_MODI ||
-            script == HB_SCRIPT_SHARADA ||
-            script == HB_SCRIPT_SYLOTI_NAGRI ||
-            script == HB_SCRIPT_TIRHUTA ||
-            script == HB_SCRIPT_OGHAM
-            );
+    return !(script == HB_SCRIPT_ARABIC || script == HB_SCRIPT_NKO ||
+             script == HB_SCRIPT_PSALTER_PAHLAVI || script == HB_SCRIPT_MANDAIC ||
+             script == HB_SCRIPT_MONGOLIAN || script == HB_SCRIPT_PHAGS_PA ||
+             script == HB_SCRIPT_DEVANAGARI || script == HB_SCRIPT_BENGALI ||
+             script == HB_SCRIPT_GURMUKHI || script == HB_SCRIPT_MODI ||
+             script == HB_SCRIPT_SHARADA || script == HB_SCRIPT_SYLOTI_NAGRI ||
+             script == HB_SCRIPT_TIRHUTA || script == HB_SCRIPT_OGHAM);
 }
 
-class BidiText {
-public:
-    class Iter {
-    public:
-        struct RunInfo {
-            int32_t mRunStart;
-            int32_t mRunLength;
-            bool mIsRtl;
-        };
-
-        Iter(UBiDi* bidi, size_t start, size_t end, size_t runIndex, size_t runCount, bool isRtl);
-
-        bool operator!= (const Iter& other) const {
-            return mIsEnd != other.mIsEnd || mNextRunIndex != other.mNextRunIndex
-                    || mBidi != other.mBidi;
-        }
-
-        const RunInfo& operator* () const {
-            return mRunInfo;
-        }
-
-        const Iter& operator++ () {
-            updateRunInfo();
-            return *this;
-        }
-
-    private:
-        UBiDi* const mBidi;
-        bool mIsEnd;
-        size_t mNextRunIndex;
-        const size_t mRunCount;
-        const int32_t mStart;
-        const int32_t mEnd;
-        RunInfo mRunInfo;
-
-        void updateRunInfo();
-    };
-
-    BidiText(const uint16_t* buf, size_t start, size_t count, size_t bufSize, int bidiFlags);
-
-    ~BidiText() {
-        if (mBidi) {
-            ubidi_close(mBidi);
-        }
-    }
-
-    Iter begin () const {
-        return Iter(mBidi, mStart, mEnd, 0, mRunCount, mIsRtl);
-    }
-
-    Iter end() const {
-        return Iter(mBidi, mStart, mEnd, mRunCount, mRunCount, mIsRtl);
-    }
-
-private:
-    const size_t mStart;
-    const size_t mEnd;
-    const size_t mBufSize;
-    UBiDi* mBidi;
-    size_t mRunCount;
-    bool mIsRtl;
-
-    BidiText(const BidiText&) = delete;
-    void operator=(const BidiText&) = delete;
-};
-
-BidiText::Iter::Iter(UBiDi* bidi, size_t start, size_t end, size_t runIndex, size_t runCount,
-        bool isRtl)
-    : mBidi(bidi), mIsEnd(runIndex == runCount), mNextRunIndex(runIndex), mRunCount(runCount),
-      mStart(start), mEnd(end), mRunInfo() {
-    if (mRunCount == 1) {
-        mRunInfo.mRunStart = start;
-        mRunInfo.mRunLength = end - start;
-        mRunInfo.mIsRtl = isRtl;
-        mNextRunIndex = mRunCount;
-        return;
-    }
-    updateRunInfo();
-}
-
-void BidiText::Iter::updateRunInfo() {
-    if (mNextRunIndex == mRunCount) {
-        // All runs have been iterated.
-        mIsEnd = true;
-        return;
-    }
-    int32_t startRun = -1;
-    int32_t lengthRun = -1;
-    const UBiDiDirection runDir = ubidi_getVisualRun(mBidi, mNextRunIndex, &startRun, &lengthRun);
-    mNextRunIndex++;
-    if (startRun == -1 || lengthRun == -1) {
-        ALOGE("invalid visual run");
-        // skip the invalid run.
-        updateRunInfo();
-        return;
-    }
-    const int32_t runEnd = std::min(startRun + lengthRun, mEnd);
-    mRunInfo.mRunStart = std::max(startRun, mStart);
-    mRunInfo.mRunLength = runEnd - mRunInfo.mRunStart;
-    if (mRunInfo.mRunLength <= 0) {
-        // skip the empty run.
-        updateRunInfo();
-        return;
-    }
-    mRunInfo.mIsRtl = (runDir == UBIDI_RTL);
-}
-
-BidiText::BidiText(const uint16_t* buf, size_t start, size_t count, size_t bufSize, int bidiFlags)
-    : mStart(start), mEnd(start + count), mBufSize(bufSize), mBidi(NULL), mRunCount(1),
-      mIsRtl((bidiFlags & kDirection_Mask) != 0) {
-    if (bidiFlags == kBidi_Force_LTR || bidiFlags == kBidi_Force_RTL) {
-        // force single run.
-        return;
-    }
-    mBidi = ubidi_open();
-    if (!mBidi) {
-        ALOGE("error creating bidi object");
-        return;
-    }
-    UErrorCode status = U_ZERO_ERROR;
-    // Set callbacks to override bidi classes of new emoji
-    ubidi_setClassCallback(mBidi, emojiBidiOverride, nullptr, nullptr, nullptr, &status);
-    if (!U_SUCCESS(status)) {
-        ALOGE("error setting bidi callback function, status = %d", status);
-        return;
-    }
-
-    UBiDiLevel bidiReq = bidiFlags;
-    if (bidiFlags == kBidi_Default_LTR) {
-        bidiReq = UBIDI_DEFAULT_LTR;
-    } else if (bidiFlags == kBidi_Default_RTL) {
-        bidiReq = UBIDI_DEFAULT_RTL;
-    }
-    ubidi_setPara(mBidi, reinterpret_cast<const UChar*>(buf), mBufSize, bidiReq, NULL, &status);
-    if (!U_SUCCESS(status)) {
-        ALOGE("error calling ubidi_setPara, status = %d", status);
-        return;
-    }
-    const int paraDir = ubidi_getParaLevel(mBidi) & kDirection_Mask;
-    const ssize_t rc = ubidi_countRuns(mBidi, &status);
-    if (!U_SUCCESS(status) || rc < 0) {
-        ALOGW("error counting bidi runs, status = %d", status);
-    }
-    if (!U_SUCCESS(status) || rc <= 0) {
-        mIsRtl = (paraDir == kBidi_RTL);
-        return;
-    }
-    if (rc == 1) {
-        const UBiDiDirection runDir = ubidi_getVisualRun(mBidi, 0, nullptr, nullptr);
-        mIsRtl = (runDir == UBIDI_RTL);
-        return;
-    }
-    mRunCount = rc;
-}
-
-void Layout::doLayout(const uint16_t* buf, size_t start, size_t count, size_t bufSize,
-        int bidiFlags, const FontStyle &style, const MinikinPaint &paint,
-        const std::shared_ptr<FontCollection>& collection) {
-    android::AutoMutex _l(gMinikinLock);
-
-    LayoutContext ctx;
-    ctx.style = style;
-    ctx.paint = paint;
-
+void Layout::doLayout(const U16StringPiece& textBuf, const Range& range, Bidi bidiFlags,
+                      const MinikinPaint& paint, StartHyphenEdit startHyphen,
+                      EndHyphenEdit endHyphen) {
+    const uint32_t count = range.getLength();
     reset();
     mAdvances.resize(count, 0);
+    mExtents.resize(count);
 
-    for (const BidiText::Iter::RunInfo& runInfo : BidiText(buf, start, count, bufSize, bidiFlags)) {
-        doLayoutRunCached(buf, runInfo.mRunStart, runInfo.mRunLength, bufSize, runInfo.mIsRtl, &ctx,
-                start, collection, this, NULL);
+    for (const BidiText::RunInfo& runInfo : BidiText(textBuf, range, bidiFlags)) {
+        doLayoutRunCached(textBuf, runInfo.range, runInfo.isRtl, paint, range.getStart(),
+                          startHyphen, endHyphen, nullptr, this, nullptr, nullptr, nullptr,
+                          nullptr);
     }
-    ctx.clearHbFonts();
 }
 
-float Layout::measureText(const uint16_t* buf, size_t start, size_t count, size_t bufSize,
-        int bidiFlags, const FontStyle &style, const MinikinPaint &paint,
-        const std::shared_ptr<FontCollection>& collection, float* advances) {
-    android::AutoMutex _l(gMinikinLock);
+void Layout::doLayoutWithPrecomputedPieces(const U16StringPiece& textBuf, const Range& range,
+                                           Bidi bidiFlags, const MinikinPaint& paint,
+                                           StartHyphenEdit startHyphen, EndHyphenEdit endHyphen,
+                                           const LayoutPieces& lpIn) {
+    const uint32_t count = range.getLength();
+    reset();
+    mAdvances.resize(count, 0);
+    mExtents.resize(count);
 
-    LayoutContext ctx;
-    ctx.style = style;
-    ctx.paint = paint;
-
-    float advance = 0;
-    for (const BidiText::Iter::RunInfo& runInfo : BidiText(buf, start, count, bufSize, bidiFlags)) {
-        float* advancesForRun = advances ? advances + (runInfo.mRunStart - start) : advances;
-        advance += doLayoutRunCached(buf, runInfo.mRunStart, runInfo.mRunLength, bufSize,
-                runInfo.mIsRtl, &ctx, 0, collection, NULL, advancesForRun);
+    for (const BidiText::RunInfo& runInfo : BidiText(textBuf, range, bidiFlags)) {
+        doLayoutRunCached(textBuf, runInfo.range, runInfo.isRtl, paint, range.getStart(),
+                          startHyphen, endHyphen, &lpIn, this, nullptr, nullptr, nullptr, nullptr);
     }
+}
 
-    ctx.clearHbFonts();
+std::pair<float, MinikinRect> Layout::getBoundsWithPrecomputedPieces(const U16StringPiece& textBuf,
+                                                                     const Range& range,
+                                                                     Bidi bidiFlags,
+                                                                     const MinikinPaint& paint,
+                                                                     const LayoutPieces& pieces) {
+    MinikinRect rect;
+    float advance = 0;
+    for (const BidiText::RunInfo& runInfo : BidiText(textBuf, range, bidiFlags)) {
+        advance += doLayoutRunCached(textBuf, runInfo.range, runInfo.isRtl, paint, 0,
+                                     StartHyphenEdit::NO_EDIT, EndHyphenEdit::NO_EDIT, &pieces,
+                                     nullptr, nullptr, nullptr, &rect, nullptr);
+    }
+    return std::make_pair(advance, rect);
+}
+
+float Layout::measureText(const U16StringPiece& textBuf, const Range& range, Bidi bidiFlags,
+                          const MinikinPaint& paint, StartHyphenEdit startHyphen,
+                          EndHyphenEdit endHyphen, float* advances, MinikinExtent* extents,
+                          LayoutPieces* pieces) {
+    float advance = 0;
+    for (const BidiText::RunInfo& runInfo : BidiText(textBuf, range, bidiFlags)) {
+        const size_t offset = range.toRangeOffset(runInfo.range.getStart());
+        float* advancesForRun = advances ? advances + offset : nullptr;
+        MinikinExtent* extentsForRun = extents ? extents + offset : nullptr;
+        advance += doLayoutRunCached(textBuf, runInfo.range, runInfo.isRtl, paint, 0, startHyphen,
+                                     endHyphen, nullptr, nullptr, advancesForRun, extentsForRun,
+                                     nullptr, pieces);
+    }
     return advance;
 }
 
-float Layout::doLayoutRunCached(const uint16_t* buf, size_t start, size_t count, size_t bufSize,
-        bool isRtl, LayoutContext* ctx, size_t dstStart,
-        const std::shared_ptr<FontCollection>& collection, Layout* layout, float* advances) {
-    const uint32_t originalHyphen = ctx->paint.hyphenEdit.getHyphen();
+float Layout::doLayoutRunCached(const U16StringPiece& textBuf, const Range& range, bool isRtl,
+                                const MinikinPaint& paint, size_t dstStart,
+                                StartHyphenEdit startHyphen, EndHyphenEdit endHyphen,
+                                const LayoutPieces* lpIn, Layout* layout, float* advances,
+                                MinikinExtent* extents, MinikinRect* bounds, LayoutPieces* lpOut) {
+    if (!range.isValid()) {
+        return 0.0f;  // ICU failed to retrieve the bidi run?
+    }
+    const uint16_t* buf = textBuf.data();
+    const uint32_t bufSize = textBuf.size();
+    const uint32_t start = range.getStart();
+    const uint32_t end = range.getEnd();
     float advance = 0;
     if (!isRtl) {
         // left to right
-        size_t wordstart =
+        uint32_t wordstart =
                 start == bufSize ? start : getPrevWordBreakForCache(buf, start + 1, bufSize);
-        size_t wordend;
-        for (size_t iter = start; iter < start + count; iter = wordend) {
+        uint32_t wordend;
+        for (size_t iter = start; iter < end; iter = wordend) {
             wordend = getNextWordBreakForCache(buf, iter, bufSize);
-            // Only apply hyphen to the first or last word in the string.
-            uint32_t hyphen = originalHyphen;
-            if (iter != start) { // Not the first word
-                hyphen &= ~HyphenEdit::MASK_START_OF_LINE;
-            }
-            if (wordend < start + count) { // Not the last word
-                hyphen &= ~HyphenEdit::MASK_END_OF_LINE;
-            }
-            ctx->paint.hyphenEdit = hyphen;
-            size_t wordcount = std::min(start + count, wordend) - iter;
+            const uint32_t wordcount = std::min(end, wordend) - iter;
+            const uint32_t offset = iter - start;
             advance += doLayoutWord(buf + wordstart, iter - wordstart, wordcount,
-                    wordend - wordstart, isRtl, ctx, iter - dstStart, collection, layout,
-                    advances ? advances + (iter - start) : advances);
+                                    wordend - wordstart, isRtl, paint, iter - dstStart,
+                                    // Only apply hyphen to the first or last word in the string.
+                                    iter == start ? startHyphen : StartHyphenEdit::NO_EDIT,
+                                    wordend >= end ? endHyphen : EndHyphenEdit::NO_EDIT, lpIn,
+                                    layout, advances ? advances + offset : nullptr,
+                                    extents ? extents + offset : nullptr, bounds, lpOut);
             wordstart = wordend;
         }
     } else {
         // right to left
-        size_t wordstart;
-        size_t end = start + count;
-        size_t wordend = end == 0 ? 0 : getNextWordBreakForCache(buf, end - 1, bufSize);
+        uint32_t wordstart;
+        uint32_t wordend = end == 0 ? 0 : getNextWordBreakForCache(buf, end - 1, bufSize);
         for (size_t iter = end; iter > start; iter = wordstart) {
             wordstart = getPrevWordBreakForCache(buf, iter, bufSize);
-            // Only apply hyphen to the first (rightmost) or last (leftmost) word in the string.
-            uint32_t hyphen = originalHyphen;
-            if (wordstart > start) { // Not the first word
-                hyphen &= ~HyphenEdit::MASK_START_OF_LINE;
-            }
-            if (iter != end) { // Not the last word
-                hyphen &= ~HyphenEdit::MASK_END_OF_LINE;
-            }
-            ctx->paint.hyphenEdit = hyphen;
-            size_t bufStart = std::max(start, wordstart);
+            uint32_t bufStart = std::max(start, wordstart);
+            const uint32_t offset = bufStart - start;
             advance += doLayoutWord(buf + wordstart, bufStart - wordstart, iter - bufStart,
-                    wordend - wordstart, isRtl, ctx, bufStart - dstStart, collection, layout,
-                    advances ? advances + (bufStart - start) : advances);
+                                    wordend - wordstart, isRtl, paint, bufStart - dstStart,
+                                    // Only apply hyphen to the first (rightmost) or last (leftmost)
+                                    // word in the string.
+                                    wordstart <= start ? startHyphen : StartHyphenEdit::NO_EDIT,
+                                    iter == end ? endHyphen : EndHyphenEdit::NO_EDIT, lpIn, layout,
+                                    advances ? advances + offset : nullptr,
+                                    extents ? extents + offset : nullptr, bounds, lpOut);
             wordend = wordstart;
         }
     }
     return advance;
 }
 
+class LayoutAppendFunctor {
+public:
+    LayoutAppendFunctor(const U16StringPiece& textBuf, const Range& range,
+                        const MinikinPaint& paint, bool dir, StartHyphenEdit startEdit,
+                        EndHyphenEdit endEdit, Layout* layout, float* advances,
+                        MinikinExtent* extents, LayoutPieces* pieces, float* totalAdvance,
+                        MinikinRect* bounds, uint32_t outOffset, float wordSpacing)
+            : mTextBuf(textBuf),
+              mRange(range),
+              mPaint(paint),
+              mDir(dir),
+              mStartEdit(startEdit),
+              mEndEdit(endEdit),
+              mLayout(layout),
+              mAdvances(advances),
+              mExtents(extents),
+              mPieces(pieces),
+              mTotalAdvance(totalAdvance),
+              mBounds(bounds),
+              mOutOffset(outOffset),
+              mWordSpacing(wordSpacing) {}
+
+    void operator()(const Layout& layout) {
+        if (mLayout) {
+            mLayout->appendLayout(layout, mOutOffset, mWordSpacing);
+        }
+        if (mAdvances) {
+            layout.getAdvances(mAdvances);
+        }
+        if (mTotalAdvance) {
+            *mTotalAdvance = layout.getAdvance();
+        }
+        if (mExtents) {
+            layout.getExtents(mExtents);
+        }
+        if (mBounds) {
+            mBounds->join(layout.getBounds());
+        }
+        if (mPieces) {
+            mPieces->insert(mTextBuf, mRange, mPaint, mDir, mStartEdit, mEndEdit, layout);
+        }
+    }
+
+private:
+    const U16StringPiece& mTextBuf;
+    const Range& mRange;
+    const MinikinPaint& mPaint;
+    bool mDir;
+    StartHyphenEdit mStartEdit;
+    EndHyphenEdit mEndEdit;
+    Layout* mLayout;
+    float* mAdvances;
+    MinikinExtent* mExtents;
+    LayoutPieces* mPieces;
+    float* mTotalAdvance;
+    MinikinRect* mBounds;
+    const uint32_t mOutOffset;
+    const float mWordSpacing;
+};
+
 float Layout::doLayoutWord(const uint16_t* buf, size_t start, size_t count, size_t bufSize,
-        bool isRtl, LayoutContext* ctx, size_t bufStart,
-        const std::shared_ptr<FontCollection>& collection, Layout* layout, float* advances) {
-    LayoutCache& cache = LayoutEngine::getInstance().layoutCache;
-    LayoutCacheKey key(collection, ctx->paint, ctx->style, buf, start, count, bufSize, isRtl);
+                           bool isRtl, const MinikinPaint& paint, size_t bufStart,
+                           StartHyphenEdit startHyphen, EndHyphenEdit endHyphen,
+                           const LayoutPieces* lpIn, Layout* layout, float* advances,
+                           MinikinExtent* extents, MinikinRect* bounds, LayoutPieces* lpOut) {
+    float wordSpacing = count == 1 && isWordSpace(buf[start]) ? paint.wordSpacing : 0;
+    float totalAdvance;
 
-    float wordSpacing = count == 1 && isWordSpace(buf[start]) ? ctx->paint.wordSpacing : 0;
-
-    float advance;
-    if (ctx->paint.skipCache()) {
-        Layout layoutForWord;
-        key.doLayout(&layoutForWord, ctx, collection);
-        if (layout) {
-            layout->appendLayout(&layoutForWord, bufStart, wordSpacing);
-        }
-        if (advances) {
-            layoutForWord.getAdvances(advances);
-        }
-        advance = layoutForWord.getAdvance();
+    const U16StringPiece textBuf(buf, bufSize);
+    const Range range(start, start + count);
+    LayoutAppendFunctor f(textBuf, range, paint, isRtl, startHyphen, endHyphen, layout, advances,
+                          extents, lpOut, &totalAdvance, bounds, bufStart, wordSpacing);
+    if (lpIn != nullptr) {
+        lpIn->getOrCreate(textBuf, range, paint, isRtl, startHyphen, endHyphen, f);
     } else {
-        Layout* layoutForWord = cache.get(key, ctx, collection);
-        if (layout) {
-            layout->appendLayout(layoutForWord, bufStart, wordSpacing);
-        }
-        if (advances) {
-            layoutForWord->getAdvances(advances);
-        }
-        advance = layoutForWord->getAdvance();
+        LayoutCache::getInstance().getOrCreate(textBuf, range, paint, isRtl, startHyphen, endHyphen,
+                                               f);
     }
 
     if (wordSpacing != 0) {
-        advance += wordSpacing;
+        totalAdvance += wordSpacing;
         if (advances) {
             advances[0] += wordSpacing;
         }
     }
-    return advance;
+    return totalAdvance;
 }
 
-static void addFeatures(const string &str, vector<hb_feature_t>* features) {
-    if (!str.size())
-        return;
-
-    const char* start = str.c_str();
-    const char* end = start + str.size();
-
-    while (start < end) {
+static void addFeatures(const std::string& str, std::vector<hb_feature_t>* features) {
+    SplitIterator it(str, ',');
+    while (it.hasNext()) {
+        StringPiece featureStr = it.next();
         static hb_feature_t feature;
-        const char* p = strchr(start, ',');
-        if (!p)
-            p = end;
         /* We do not allow setting features on ranges.  As such, reject any
          * setting that has non-universal range. */
-        if (hb_feature_from_string (start, p - start, &feature)
-                && feature.start == 0 && feature.end == (unsigned int) -1)
+        if (hb_feature_from_string(featureStr.data(), featureStr.size(), &feature) &&
+            feature.start == 0 && feature.end == (unsigned int)-1) {
             features->push_back(feature);
-        start = p + 1;
+        }
     }
 }
 
-static const hb_codepoint_t CHAR_HYPHEN = 0x2010; /* HYPHEN */
-
 static inline hb_codepoint_t determineHyphenChar(hb_codepoint_t preferredHyphen, hb_font_t* font) {
     hb_codepoint_t glyph;
-    if (preferredHyphen == 0x058A /* ARMENIAN_HYPHEN */
-                || preferredHyphen == 0x05BE /* HEBREW PUNCTUATION MAQAF */
-                || preferredHyphen == 0x1400 /* CANADIAN SYLLABIC HYPHEN */) {
+    if (preferredHyphen == 0x058A    /* ARMENIAN_HYPHEN */
+        || preferredHyphen == 0x05BE /* HEBREW PUNCTUATION MAQAF */
+        || preferredHyphen == 0x1400 /* CANADIAN SYLLABIC HYPHEN */) {
         if (hb_font_get_nominal_glyph(font, preferredHyphen, &glyph)) {
             return preferredHyphen;
         } else {
@@ -716,37 +459,36 @@ static inline hb_codepoint_t determineHyphenChar(hb_codepoint_t preferredHyphen,
         // Note that we intentionally don't do anything special if the font doesn't have a
         // HYPHEN-MINUS either, so a tofu could be shown, hinting towards something missing.
         if (!hb_font_get_nominal_glyph(font, preferredHyphen, &glyph)) {
-            return 0x002D; // HYPHEN-MINUS
+            return 0x002D;  // HYPHEN-MINUS
         }
     }
     return preferredHyphen;
 }
 
-static inline void addHyphenToHbBuffer(hb_buffer_t* buffer, hb_font_t* font, uint32_t hyphen,
-        uint32_t cluster) {
-    const uint32_t* hyphenStr = HyphenEdit::getHyphenString(hyphen);
-    while (*hyphenStr != 0) {
-        hb_codepoint_t hyphenChar = determineHyphenChar(*hyphenStr, font);
-        hb_buffer_add(buffer, hyphenChar, cluster);
-        hyphenStr++;
+template <typename HyphenEdit>
+static inline void addHyphenToHbBuffer(const HbBufferUniquePtr& buffer, const HbFontUniquePtr& font,
+                                       HyphenEdit hyphen, uint32_t cluster) {
+    const uint32_t* chars;
+    size_t size;
+    std::tie(chars, size) = getHyphenString(hyphen);
+    for (size_t i = 0; i < size; i++) {
+        hb_buffer_add(buffer.get(), determineHyphenChar(chars[i], font.get()), cluster);
     }
 }
 
 // Returns the cluster value assigned to the first codepoint added to the buffer, which can be used
 // to translate cluster values returned by HarfBuzz to input indices.
-static inline uint32_t addToHbBuffer(hb_buffer_t* buffer,
-        const uint16_t* buf, size_t start, size_t count, size_t bufSize,
-        ssize_t scriptRunStart, ssize_t scriptRunEnd,
-        HyphenEdit hyphenEdit, hb_font_t* hbFont) {
-
+static inline uint32_t addToHbBuffer(const HbBufferUniquePtr& buffer, const uint16_t* buf,
+                                     size_t start, size_t count, size_t bufSize,
+                                     ssize_t scriptRunStart, ssize_t scriptRunEnd,
+                                     StartHyphenEdit inStartHyphen, EndHyphenEdit inEndHyphen,
+                                     const HbFontUniquePtr& hbFont) {
     // Only hyphenate the very first script run for starting hyphens.
-    const uint32_t startHyphen = (scriptRunStart == 0)
-            ? hyphenEdit.getStart()
-            : HyphenEdit::NO_EDIT;
+    const StartHyphenEdit startHyphen =
+            (scriptRunStart == 0) ? inStartHyphen : StartHyphenEdit::NO_EDIT;
     // Only hyphenate the very last script run for ending hyphens.
-    const uint32_t endHyphen = (static_cast<size_t>(scriptRunEnd) == count)
-            ? hyphenEdit.getEnd()
-            : HyphenEdit::NO_EDIT;
+    const EndHyphenEdit endHyphen =
+            (static_cast<size_t>(scriptRunEnd) == count) ? inEndHyphen : EndHyphenEdit::NO_EDIT;
 
     // In the following code, we drop the pre-context and/or post-context if there is a
     // hyphen edit at that end. This is not absolutely necessary, since HarfBuzz uses
@@ -762,19 +504,19 @@ static inline uint32_t addToHbBuffer(hb_buffer_t* buffer,
 
     // We don't have any start-of-line replacement edit yet, so we don't need to check for
     // those.
-    if (HyphenEdit::isInsertion(startHyphen)) {
+    if (isInsertion(startHyphen)) {
         // A cluster value of zero guarantees that the inserted hyphen will be in the same
         // cluster with the next codepoint, since there is no pre-context.
-        addHyphenToHbBuffer(buffer, hbFont, startHyphen, 0 /* cluster value */);
+        addHyphenToHbBuffer(buffer, hbFont, startHyphen, 0 /* cluster */);
     }
 
     const uint16_t* hbText;
     int hbTextLength;
     unsigned int hbItemOffset;
-    unsigned int hbItemLength = scriptRunEnd - scriptRunStart; // This is >= 1.
+    unsigned int hbItemLength = scriptRunEnd - scriptRunStart;  // This is >= 1.
 
-    const bool hasEndInsertion = HyphenEdit::isInsertion(endHyphen);
-    const bool hasEndReplacement = HyphenEdit::isReplacement(endHyphen);
+    const bool hasEndInsertion = isInsertion(endHyphen);
+    const bool hasEndReplacement = isReplacement(endHyphen);
     if (hasEndReplacement) {
         // Skip the last code unit while copying the buffer for HarfBuzz if it's a replacement. We
         // don't need to worry about non-BMP characters yet since replacements are only done for
@@ -782,7 +524,7 @@ static inline uint32_t addToHbBuffer(hb_buffer_t* buffer,
         hbItemLength -= 1;
     }
 
-    if (startHyphen == HyphenEdit::NO_EDIT) {
+    if (startHyphen == StartHyphenEdit::NO_EDIT) {
         // No edit at the beginning. Use the whole pre-context.
         hbText = buf;
         hbItemOffset = start + scriptRunStart;
@@ -793,7 +535,7 @@ static inline uint32_t addToHbBuffer(hb_buffer_t* buffer,
         hbItemOffset = 0;
     }
 
-    if (endHyphen == HyphenEdit::NO_EDIT) {
+    if (endHyphen == EndHyphenEdit::NO_EDIT) {
         // No edit at the end, use the whole post-context.
         hbTextLength = (buf + bufSize) - hbText;
     } else {
@@ -801,10 +543,10 @@ static inline uint32_t addToHbBuffer(hb_buffer_t* buffer,
         hbTextLength = hbItemOffset + hbItemLength;
     }
 
-    hb_buffer_add_utf16(buffer, hbText, hbTextLength, hbItemOffset, hbItemLength);
+    hb_buffer_add_utf16(buffer.get(), hbText, hbTextLength, hbItemOffset, hbItemLength);
 
     unsigned int numCodepoints;
-    hb_glyph_info_t* cpInfo = hb_buffer_get_glyph_infos(buffer, &numCodepoints);
+    hb_glyph_info_t* cpInfo = hb_buffer_get_glyph_infos(buffer.get(), &numCodepoints);
 
     // Add the hyphen at the end, if there's any.
     if (hasEndInsertion || hasEndReplacement) {
@@ -823,61 +565,67 @@ static inline uint32_t addToHbBuffer(hb_buffer_t* buffer,
             // we have a replacement that is replacing a one-code unit script run.
             hyphenCluster = 0;
         } else {
-            hyphenCluster = cpInfo[numCodepoints - 1].cluster + (uint32_t) hasEndReplacement;
+            hyphenCluster = cpInfo[numCodepoints - 1].cluster + (uint32_t)hasEndReplacement;
         }
         addHyphenToHbBuffer(buffer, hbFont, endHyphen, hyphenCluster);
         // Since we have just added to the buffer, cpInfo no longer necessarily points to
         // the right place. Refresh it.
-        cpInfo = hb_buffer_get_glyph_infos(buffer, nullptr /* we don't need the size */);
+        cpInfo = hb_buffer_get_glyph_infos(buffer.get(), nullptr /* we don't need the size */);
     }
     return cpInfo[0].cluster;
 }
 
-
 void Layout::doLayoutRun(const uint16_t* buf, size_t start, size_t count, size_t bufSize,
-        bool isRtl, LayoutContext* ctx, const std::shared_ptr<FontCollection>& collection) {
-    hb_buffer_t* buffer = LayoutEngine::getInstance().hbBuffer;
-    vector<FontCollection::Run> items;
-    collection->itemize(buf + start, count, ctx->style, &items);
+                         bool isRtl, const MinikinPaint& paint, StartHyphenEdit startHyphen,
+                         EndHyphenEdit endHyphen) {
+    HbBufferUniquePtr buffer(hb_buffer_create());
+    hb_buffer_set_unicode_funcs(buffer.get(), getUnicodeFunctions());
+    std::vector<FontCollection::Run> items;
+    paint.font->itemize(buf + start, count, paint, &items);
 
-    vector<hb_feature_t> features;
+    std::vector<hb_feature_t> features;
     // Disable default-on non-required ligature features if letter-spacing
     // See http://dev.w3.org/csswg/css-text-3/#letter-spacing-property
     // "When the effective spacing between two characters is not zero (due to
     // either justification or a non-zero value of letter-spacing), user agents
     // should not apply optional ligatures."
-    if (fabs(ctx->paint.letterSpacing) > 0.03)
-    {
-        static const hb_feature_t no_liga = { HB_TAG('l', 'i', 'g', 'a'), 0, 0, ~0u };
-        static const hb_feature_t no_clig = { HB_TAG('c', 'l', 'i', 'g'), 0, 0, ~0u };
+    if (fabs(paint.letterSpacing) > 0.03) {
+        static const hb_feature_t no_liga = {HB_TAG('l', 'i', 'g', 'a'), 0, 0, ~0u};
+        static const hb_feature_t no_clig = {HB_TAG('c', 'l', 'i', 'g'), 0, 0, ~0u};
         features.push_back(no_liga);
         features.push_back(no_clig);
     }
-    addFeatures(ctx->paint.fontFeatureSettings, &features);
+    addFeatures(paint.fontFeatureSettings, &features);
 
-    double size = ctx->paint.size;
-    double scaleX = ctx->paint.scaleX;
+    std::vector<HbFontUniquePtr> hbFonts;
+    double size = paint.size;
+    double scaleX = paint.scaleX;
 
     float x = mAdvance;
     float y = 0;
     for (int run_ix = isRtl ? items.size() - 1 : 0;
-            isRtl ? run_ix >= 0 : run_ix < static_cast<int>(items.size());
-            isRtl ? --run_ix : ++run_ix) {
-        FontCollection::Run &run = items[run_ix];
-        if (run.fakedFont.font == NULL) {
-            ALOGE("no font for run starting u+%04x length %d", buf[run.start], run.end - run.start);
-            continue;
+         isRtl ? run_ix >= 0 : run_ix < static_cast<int>(items.size());
+         isRtl ? --run_ix : ++run_ix) {
+        FontCollection::Run& run = items[run_ix];
+        const FakedFont& fakedFont = run.fakedFont;
+        const uint8_t font_ix = findOrPushBackFace(fakedFont);
+        if (hbFonts.size() == font_ix) {  // findOrPushBackFace push backed the new face.
+            // We override some functions which are not thread safe.
+            HbFontUniquePtr font(hb_font_create_sub_font(fakedFont.font->baseFont().get()));
+            hb_font_set_funcs(
+                    font.get(), isColorBitmapFont(font) ? getFontFuncsForEmoji() : getFontFuncs(),
+                    new SkiaArguments({fakedFont.font->typeface().get(), &paint, fakedFont.fakery}),
+                    [](void* data) { delete reinterpret_cast<SkiaArguments*>(data); });
+            hbFonts.push_back(std::move(font));
         }
-        int font_ix = findFace(run.fakedFont, ctx);
-        ctx->paint.font = mFaces[font_ix].font;
-        ctx->paint.fakery = mFaces[font_ix].fakery;
-        hb_font_t* hbFont = ctx->hbFonts[font_ix];
-#ifdef VERBOSE_DEBUG
-        ALOGD("Run %zu, font %d [%d:%d]", run_ix, font_ix, run.start, run.end);
-#endif
+        const HbFontUniquePtr& hbFont = hbFonts[font_ix];
 
-        hb_font_set_ppem(hbFont, size * scaleX, size);
-        hb_font_set_scale(hbFont, HBFloatToFixed(size * scaleX), HBFloatToFixed(size));
+        MinikinExtent verticalExtent;
+        fakedFont.font->typeface()->GetFontExtent(&verticalExtent, paint, fakedFont.fakery);
+        std::fill(&mExtents[run.start], &mExtents[run.end], verticalExtent);
+
+        hb_font_set_ppem(hbFont.get(), size * scaleX, size);
+        hb_font_set_scale(hbFont.get(), HBFloatToFixed(size * scaleX), HBFloatToFixed(size));
 
         const bool is_color_bitmap_font = isColorBitmapFont(hbFont);
 
@@ -888,9 +636,8 @@ void Layout::doLayoutRun(const uint16_t* buf, size_t start, size_t count, size_t
         // Note: scriptRunStart and scriptRunEnd, as well as run.start and run.end, run between 0
         // and count.
         ssize_t scriptRunEnd;
-        for (ssize_t scriptRunStart = run.start;
-                scriptRunStart < run.end;
-                scriptRunStart = scriptRunEnd) {
+        for (ssize_t scriptRunStart = run.start; scriptRunStart < run.end;
+             scriptRunStart = scriptRunEnd) {
             scriptRunEnd = scriptRunStart;
             hb_script_t script = getScriptRun(buf + start, run.end, &scriptRunEnd /* iterator */);
             // After the last line, scriptRunEnd is guaranteed to have increased, since the only
@@ -904,9 +651,9 @@ void Layout::doLayoutRun(const uint16_t* buf, size_t start, size_t count, size_t
             double letterSpaceHalfLeft = 0.0;
             double letterSpaceHalfRight = 0.0;
 
-            if (ctx->paint.letterSpacing != 0.0 && isScriptOkForLetterspacing(script)) {
-                letterSpace = ctx->paint.letterSpacing * size * scaleX;
-                if ((ctx->paint.paintFlags & LinearTextFlag) == 0) {
+            if (paint.letterSpacing != 0.0 && isScriptOkForLetterspacing(script)) {
+                letterSpace = paint.letterSpacing * size * scaleX;
+                if ((paint.paintFlags & LinearTextFlag) == 0) {
                     letterSpace = round(letterSpace);
                     letterSpaceHalfLeft = floor(letterSpace * 0.5);
                 } else {
@@ -915,32 +662,30 @@ void Layout::doLayoutRun(const uint16_t* buf, size_t start, size_t count, size_t
                 letterSpaceHalfRight = letterSpace - letterSpaceHalfLeft;
             }
 
-            hb_buffer_clear_contents(buffer);
-            hb_buffer_set_script(buffer, script);
-            hb_buffer_set_direction(buffer, isRtl? HB_DIRECTION_RTL : HB_DIRECTION_LTR);
-            const FontLanguages& langList =
-                    FontLanguageListCache::getById(ctx->style.getLanguageListId());
-            if (langList.size() != 0) {
-                const FontLanguage* hbLanguage = &langList[0];
-                for (size_t i = 0; i < langList.size(); ++i) {
-                    if (langList[i].supportsHbScript(script)) {
-                        hbLanguage = &langList[i];
+            hb_buffer_clear_contents(buffer.get());
+            hb_buffer_set_script(buffer.get(), script);
+            hb_buffer_set_direction(buffer.get(), isRtl ? HB_DIRECTION_RTL : HB_DIRECTION_LTR);
+            const LocaleList& localeList = LocaleListCache::getById(paint.localeListId);
+            if (localeList.size() != 0) {
+                hb_language_t hbLanguage = localeList.getHbLanguage(0);
+                for (size_t i = 0; i < localeList.size(); ++i) {
+                    if (localeList[i].supportsHbScript(script)) {
+                        hbLanguage = localeList.getHbLanguage(i);
                         break;
                     }
                 }
-                hb_buffer_set_language(buffer, hbLanguage->getHbLanguage());
+                hb_buffer_set_language(buffer.get(), hbLanguage);
             }
 
-            const uint32_t clusterStart = addToHbBuffer(
-                buffer,
-                buf, start, count, bufSize,
-                scriptRunStart, scriptRunEnd,
-                ctx->paint.hyphenEdit, hbFont);
+            const uint32_t clusterStart =
+                    addToHbBuffer(buffer, buf, start, count, bufSize, scriptRunStart, scriptRunEnd,
+                                  startHyphen, endHyphen, hbFont);
 
-            hb_shape(hbFont, buffer, features.empty() ? NULL : &features[0], features.size());
+            hb_shape(hbFont.get(), buffer.get(), features.empty() ? NULL : &features[0],
+                     features.size());
             unsigned int numGlyphs;
-            hb_glyph_info_t* info = hb_buffer_get_glyph_infos(buffer, &numGlyphs);
-            hb_glyph_position_t* positions = hb_buffer_get_glyph_positions(buffer, NULL);
+            hb_glyph_info_t* info = hb_buffer_get_glyph_infos(buffer.get(), &numGlyphs);
+            hb_glyph_position_t* positions = hb_buffer_get_glyph_positions(buffer.get(), NULL);
 
             // At this point in the code, the cluster values in the info buffer correspond to the
             // input characters with some shift. The cluster value clusterStart corresponds to the
@@ -950,39 +695,32 @@ void Layout::doLayoutRun(const uint16_t* buf, size_t start, size_t count, size_t
             // mAdvances.
             const ssize_t clusterOffset = clusterStart - scriptRunStart;
 
-            if (numGlyphs)
-            {
+            if (numGlyphs) {
                 mAdvances[info[0].cluster - clusterOffset] += letterSpaceHalfLeft;
                 x += letterSpaceHalfLeft;
             }
             for (unsigned int i = 0; i < numGlyphs; i++) {
-#ifdef VERBOSE_DEBUG
-                ALOGD("%d %d %d %d",
-                        positions[i].x_advance, positions[i].y_advance,
-                        positions[i].x_offset, positions[i].y_offset);
-                ALOGD("DoLayout %u: %f; %d, %d",
-                        info[i].codepoint, HBFixedToFloat(positions[i].x_advance),
-                        positions[i].x_offset, positions[i].y_offset);
-#endif
+                const size_t clusterBaseIndex = info[i].cluster - clusterOffset;
                 if (i > 0 && info[i - 1].cluster != info[i].cluster) {
                     mAdvances[info[i - 1].cluster - clusterOffset] += letterSpaceHalfRight;
-                    mAdvances[info[i].cluster - clusterOffset] += letterSpaceHalfLeft;
+                    mAdvances[clusterBaseIndex] += letterSpaceHalfLeft;
                     x += letterSpace;
                 }
 
                 hb_codepoint_t glyph_ix = info[i].codepoint;
                 float xoff = HBFixedToFloat(positions[i].x_offset);
                 float yoff = -HBFixedToFloat(positions[i].y_offset);
-                xoff += yoff * ctx->paint.skewX;
+                xoff += yoff * paint.skewX;
                 LayoutGlyph glyph = {font_ix, glyph_ix, x + xoff, y + yoff};
                 mGlyphs.push_back(glyph);
                 float xAdvance = HBFixedToFloat(positions[i].x_advance);
-                if ((ctx->paint.paintFlags & LinearTextFlag) == 0) {
+                if ((paint.paintFlags & LinearTextFlag) == 0) {
                     xAdvance = roundf(xAdvance);
                 }
                 MinikinRect glyphBounds;
                 hb_glyph_extents_t extents = {};
-                if (is_color_bitmap_font && hb_font_get_glyph_extents(hbFont, glyph_ix, &extents)) {
+                if (is_color_bitmap_font &&
+                    hb_font_get_glyph_extents(hbFont.get(), glyph_ix, &extents)) {
                     // Note that it is technically possible for a TrueType font to have outline and
                     // embedded bitmap at the same time. We ignore modified bbox of hinted outline
                     // glyphs in that case.
@@ -992,20 +730,22 @@ void Layout::doLayoutRun(const uint16_t* buf, size_t start, size_t count, size_t
                     glyphBounds.mBottom =
                             roundf(HBFixedToFloat(-extents.y_bearing - extents.height));
                 } else {
-                    ctx->paint.font->GetBounds(&glyphBounds, glyph_ix, ctx->paint);
+                    fakedFont.font->typeface()->GetBounds(&glyphBounds, glyph_ix, paint,
+                                                          fakedFont.fakery);
                 }
-                glyphBounds.offset(x + xoff, y + yoff);
-                mBounds.join(glyphBounds);
-                if (static_cast<size_t>(info[i].cluster - clusterOffset) < count) {
-                    mAdvances[info[i].cluster - clusterOffset] += xAdvance;
+                glyphBounds.offset(xoff, yoff);
+
+                if (clusterBaseIndex < count) {
+                    mAdvances[clusterBaseIndex] += xAdvance;
                 } else {
-                    ALOGE("cluster %zu (start %zu) out of bounds of count %zu",
-                        info[i].cluster - clusterOffset, start, count);
+                    ALOGE("cluster %zu (start %zu) out of bounds of count %zu", clusterBaseIndex,
+                          start, count);
                 }
+                glyphBounds.offset(x, y);
+                mBounds.join(glyphBounds);
                 x += xAdvance;
             }
-            if (numGlyphs)
-            {
+            if (numGlyphs) {
                 mAdvances[info[numGlyphs - 1].cluster - clusterOffset] += letterSpaceHalfRight;
                 x += letterSpaceHalfRight;
             }
@@ -1014,21 +754,21 @@ void Layout::doLayoutRun(const uint16_t* buf, size_t start, size_t count, size_t
     mAdvance = x;
 }
 
-void Layout::appendLayout(Layout* src, size_t start, float extraAdvance) {
+void Layout::appendLayout(const Layout& src, size_t start, float extraAdvance) {
     int fontMapStack[16];
     int* fontMap;
-    if (src->mFaces.size() < sizeof(fontMapStack) / sizeof(fontMapStack[0])) {
+    if (src.mFaces.size() < sizeof(fontMapStack) / sizeof(fontMapStack[0])) {
         fontMap = fontMapStack;
     } else {
-        fontMap = new int[src->mFaces.size()];
+        fontMap = new int[src.mFaces.size()];
     }
-    for (size_t i = 0; i < src->mFaces.size(); i++) {
-        int font_ix = findFace(src->mFaces[i], NULL);
+    for (size_t i = 0; i < src.mFaces.size(); i++) {
+        uint8_t font_ix = findOrPushBackFace(src.mFaces[i]);
         fontMap[i] = font_ix;
     }
     int x0 = mAdvance;
-    for (size_t i = 0; i < src->mGlyphs.size(); i++) {
-        LayoutGlyph& srcGlyph = src->mGlyphs[i];
+    for (size_t i = 0; i < src.mGlyphs.size(); i++) {
+        const LayoutGlyph& srcGlyph = src.mGlyphs[i];
         int font_ix = fontMap[srcGlyph.font_ix];
         unsigned int glyph_id = srcGlyph.glyph_id;
         float x = x0 + srcGlyph.x;
@@ -1036,15 +776,17 @@ void Layout::appendLayout(Layout* src, size_t start, float extraAdvance) {
         LayoutGlyph glyph = {font_ix, glyph_id, x, y};
         mGlyphs.push_back(glyph);
     }
-    for (size_t i = 0; i < src->mAdvances.size(); i++) {
-        mAdvances[i + start] = src->mAdvances[i];
-        if (i == 0)
-          mAdvances[i + start] += extraAdvance;
+    for (size_t i = 0; i < src.mAdvances.size(); i++) {
+        mAdvances[i + start] = src.mAdvances[i];
+        if (i == 0) {
+            mAdvances[start] += extraAdvance;
+        }
+        mExtents[i + start] = src.mExtents[i];
     }
-    MinikinRect srcBounds(src->mBounds);
+    MinikinRect srcBounds(src.mBounds);
     srcBounds.offset(x0, 0);
     mBounds.join(srcBounds);
-    mAdvance += src->mAdvance + extraAdvance;
+    mAdvance += src.mAdvance + extraAdvance;
 
     if (fontMap != fontMapStack) {
         delete[] fontMap;
@@ -1057,7 +799,7 @@ size_t Layout::nGlyphs() const {
 
 const MinikinFont* Layout::getFont(int i) const {
     const LayoutGlyph& glyph = mGlyphs[i];
-    return mFaces[glyph.font_ix].font;
+    return mFaces[glyph.font_ix].font->typeface().get();
 }
 
 FontFakery Layout::getFakery(int i) const {
@@ -1084,8 +826,12 @@ float Layout::getAdvance() const {
     return mAdvance;
 }
 
-void Layout::getAdvances(float* advances) {
+void Layout::getAdvances(float* advances) const {
     memcpy(advances, &mAdvances[0], mAdvances.size() * sizeof(float));
+}
+
+void Layout::getExtents(MinikinExtent* extents) const {
+    memcpy(extents, &mExtents[0], mExtents.size() * sizeof(MinikinExtent));
 }
 
 void Layout::getBounds(MinikinRect* bounds) const {
@@ -1093,17 +839,11 @@ void Layout::getBounds(MinikinRect* bounds) const {
 }
 
 void Layout::purgeCaches() {
-    android::AutoMutex _l(gMinikinLock);
-    LayoutCache& layoutCache = LayoutEngine::getInstance().layoutCache;
-    layoutCache.clear();
-    purgeHbFontCacheLocked();
+    LayoutCache::getInstance().clear();
+}
+
+void Layout::dumpMinikinStats(int fd) {
+    LayoutCache::getInstance().dumpStats(fd);
 }
 
 }  // namespace minikin
-
-// Unable to define the static data member outside of android.
-// TODO: introduce our own Singleton to drop android namespace.
-namespace android {
-ANDROID_SINGLETON_STATIC_INSTANCE(minikin::LayoutEngine);
-}  // namespace android
-

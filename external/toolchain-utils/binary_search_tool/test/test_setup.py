@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/env python2
 """Emulate running of test setup script, is_good.py should fail without this."""
 
 from __future__ import print_function

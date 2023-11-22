@@ -27,6 +27,8 @@ LOCAL_STATIC_JAVA_LIBRARIES := \
     ctstestserver \
     ctstestrunner
 
+LOCAL_JAVA_LIBRARIES := android.test.runner.stubs android.test.base.stubs
+
 # When built, explicitly put it in the data partition.
 #LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
 
@@ -38,6 +40,6 @@ LOCAL_PROGUARD_ENABLED := disabled
 LOCAL_DEX_PREOPT := false
 
 # Tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
+LOCAL_COMPATIBILITY_SUITE := cts vts general-tests cts_instant
 
 include $(BUILD_CTS_SUPPORT_PACKAGE)

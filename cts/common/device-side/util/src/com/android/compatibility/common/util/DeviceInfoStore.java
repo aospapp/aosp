@@ -56,6 +56,7 @@ public class DeviceInfoStore extends InfoStore {
     @Override
     public void close() throws IOException {
         mJsonWriter.endObject();
+        mJsonWriter.flush();
         mJsonWriter.close();
     }
 

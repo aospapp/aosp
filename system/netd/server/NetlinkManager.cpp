@@ -14,8 +14,9 @@
  * limitations under the License.
  */
 
-#include <stdio.h>
 #include <errno.h>
+#include <stdio.h>
+#include <string.h>
 
 #include <sys/socket.h>
 #include <sys/select.h>
@@ -29,11 +30,6 @@
 #define LOG_TAG "Netd"
 
 #include <cutils/log.h>
-
-#include <netlink/attr.h>
-#include <netlink/genl/genl.h>
-#include <netlink/handlers.h>
-#include <netlink/msg.h>
 
 #include <linux/netfilter/nfnetlink.h>
 #include <linux/netfilter/nfnetlink_log.h>
@@ -86,8 +82,12 @@ NetlinkHandler *NetlinkManager::setupSocket(int *sock, int netlinkFamily,
         return NULL;
     }
 
-    if (setsockopt(*sock, SOL_SOCKET, SO_RCVBUFFORCE, &sz, sizeof(sz)) < 0) {
-        ALOGE("Unable to set uevent socket SO_RCVBUFFORCE option: %s", strerror(errno));
+    // When running in a net/user namespace, SO_RCVBUFFORCE will fail because
+    // it will check for the CAP_NET_ADMIN capability in the root namespace.
+    // Try using SO_RCVBUF if that fails.
+    if (setsockopt(*sock, SOL_SOCKET, SO_RCVBUFFORCE, &sz, sizeof(sz)) < 0 &&
+        setsockopt(*sock, SOL_SOCKET, SO_RCVBUF, &sz, sizeof(sz)) < 0) {
+        ALOGE("Unable to set uevent socket SO_RCVBUF option: %s", strerror(errno));
         close(*sock);
         return NULL;
     }

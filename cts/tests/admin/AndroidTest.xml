@@ -14,6 +14,7 @@
      limitations under the License.
 -->
 <configuration description="Config for the CTS device admin tests">
+    <option name="test-suite-tag" value="cts" />
     <option name="config-descriptor:metadata" key="component" value="framework" />
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />
@@ -25,10 +26,12 @@
     <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
         <option name="run-command" value="dpm set-active-admin --user cur android.admin.app/.CtsDeviceAdminReceiver" />
         <option name="run-command" value="dpm set-active-admin --user cur android.admin.app/.CtsDeviceAdminReceiver2" />
+        <option name="run-command" value="dpm set-active-admin --user cur android.admin.app/.CtsDeviceAdminReceiver3" />
         <option name="run-command" value="dpm set-profile-owner --user cur android.admin.app/.CtsDeviceAdminProfileOwner" />
         <option name="teardown-command" value="dpm remove-active-admin --user cur android.admin.app/.CtsDeviceAdminProfileOwner" />
         <option name="teardown-command" value="dpm remove-active-admin --user cur android.admin.app/.CtsDeviceAdminReceiver" />
         <option name="teardown-command" value="dpm remove-active-admin --user cur android.admin.app/.CtsDeviceAdminReceiver2" />
+        <option name="teardown-command" value="dpm remove-active-admin --user cur android.admin.app/.CtsDeviceAdminReceiver3" />
     </target_preparer>
 
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >

@@ -34,7 +34,6 @@ import org.junit.Before;
 import org.junit.Test;
 
 import org.mockito.Mock;
-import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 
 /**
@@ -48,8 +47,8 @@ public class ImsConferenceControllerTest {
 
     private TelecomAccountRegistry mTelecomAccountRegistry;
 
-    private MockTelephonyConnection mMockTelephonyConnectionA;
-    private MockTelephonyConnection mMockTelephonyConnectionB;
+    private TestTelephonyConnection mTestTelephonyConnectionA;
+    private TestTelephonyConnection mTestTelephonyConnectionB;
 
     private ImsConferenceController mControllerTest;
 
@@ -60,8 +59,8 @@ public class ImsConferenceControllerTest {
             Looper.prepare();
         }
         mTelecomAccountRegistry = TelecomAccountRegistry.getInstance(null);
-        mMockTelephonyConnectionA = new MockTelephonyConnection();
-        mMockTelephonyConnectionB = new MockTelephonyConnection();
+        mTestTelephonyConnectionA = new TestTelephonyConnection();
+        mTestTelephonyConnectionB = new TestTelephonyConnection();
 
         mControllerTest = new ImsConferenceController(mTelecomAccountRegistry,
                 mMockTelephonyConnectionServiceProxy);
@@ -80,25 +79,25 @@ public class ImsConferenceControllerTest {
     @SmallTest
     public void testConferenceable() {
 
-        mControllerTest.add(mMockTelephonyConnectionB);
-        mControllerTest.add(mMockTelephonyConnectionA);
+        mControllerTest.add(mTestTelephonyConnectionB);
+        mControllerTest.add(mTestTelephonyConnectionA);
 
-        mMockTelephonyConnectionA.setActive();
-        mMockTelephonyConnectionB.setOnHold();
+        mTestTelephonyConnectionA.setActive();
+        mTestTelephonyConnectionB.setOnHold();
 
-        assertTrue(mMockTelephonyConnectionA.getConferenceables()
-                .contains(mMockTelephonyConnectionB));
-        assertTrue(mMockTelephonyConnectionB.getConferenceables()
-                .contains(mMockTelephonyConnectionA));
+        assertTrue(mTestTelephonyConnectionA.getConferenceables()
+                .contains(mTestTelephonyConnectionB));
+        assertTrue(mTestTelephonyConnectionB.getConferenceables()
+                .contains(mTestTelephonyConnectionA));
 
         // verify addConference method is never called
         verify(mMockTelephonyConnectionServiceProxy, never())
                 .addConference(any(ImsConference.class));
 
         // call A removed
-        mControllerTest.remove(mMockTelephonyConnectionA);
-        assertFalse(mMockTelephonyConnectionB.getConferenceables()
-                .contains(mMockTelephonyConnectionA));
+        mControllerTest.remove(mTestTelephonyConnectionA);
+        assertFalse(mTestTelephonyConnectionB.getConferenceables()
+                .contains(mTestTelephonyConnectionA));
     }
 
     /**
@@ -114,18 +113,18 @@ public class ImsConferenceControllerTest {
     @SmallTest
     public void testMergeMultiPartyCalls() {
 
-        when(mMockTelephonyConnectionA.mMockRadioConnection.getPhoneType())
+        when(mTestTelephonyConnectionA.mMockRadioConnection.getPhoneType())
                 .thenReturn(PhoneConstants.PHONE_TYPE_IMS);
-        when(mMockTelephonyConnectionB.mMockRadioConnection.getPhoneType())
+        when(mTestTelephonyConnectionB.mMockRadioConnection.getPhoneType())
                 .thenReturn(PhoneConstants.PHONE_TYPE_IMS);
-        when(mMockTelephonyConnectionA.mMockRadioConnection.isMultiparty()).thenReturn(true);
-        when(mMockTelephonyConnectionB.mMockRadioConnection.isMultiparty()).thenReturn(true);
+        when(mTestTelephonyConnectionA.mMockRadioConnection.isMultiparty()).thenReturn(true);
+        when(mTestTelephonyConnectionB.mMockRadioConnection.isMultiparty()).thenReturn(true);
 
-        mControllerTest.add(mMockTelephonyConnectionB);
-        mControllerTest.add(mMockTelephonyConnectionA);
+        mControllerTest.add(mTestTelephonyConnectionB);
+        mControllerTest.add(mTestTelephonyConnectionA);
 
-        mMockTelephonyConnectionA.setActive();
-        mMockTelephonyConnectionB.setOnHold();
+        mTestTelephonyConnectionA.setActive();
+        mTestTelephonyConnectionB.setOnHold();
 
         verify(mMockTelephonyConnectionServiceProxy, times(2))
                 .addConference(any(ImsConference.class));

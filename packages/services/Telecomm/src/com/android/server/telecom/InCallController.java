@@ -677,6 +677,16 @@ public class InCallController extends CallsManagerListenerBase {
         }
 
         @Override
+        public void onHandoverFailed(Call call, int error) {
+            notifyHandoverFailed(call, error);
+        }
+
+        @Override
+        public void onHandoverComplete(Call call) {
+            notifyHandoverComplete(call);
+        }
+
+        @Override
         public void onRttInitiationFailure(Call call, int reason) {
             notifyRttInitiationFailure(call, reason);
             updateCall(call, false, true);
@@ -1020,6 +1030,29 @@ public class InCallController extends CallsManagerListenerBase {
                     });
         }
     }
+
+    private void notifyHandoverFailed(Call call, int error) {
+        if (!mInCallServices.isEmpty()) {
+            for (IInCallService inCallService : mInCallServices.values()) {
+                try {
+                    inCallService.onHandoverFailed(mCallIdMapper.getCallId(call), error);
+                } catch (RemoteException ignored) {
+                }
+            }
+        }
+    }
+
+    private void notifyHandoverComplete(Call call) {
+        if (!mInCallServices.isEmpty()) {
+            for (IInCallService inCallService : mInCallServices.values()) {
+                try {
+                    inCallService.onHandoverComplete(mCallIdMapper.getCallId(call));
+                } catch (RemoteException ignored) {
+                }
+            }
+        }
+    }
+
     /**
      * Unbinds an existing bound connection to the in-call app.
      */

@@ -16,21 +16,33 @@
 
 package com.android.cts.usespermissiondiffcertapp;
 
-import android.content.BroadcastReceiver;
+import static com.android.cts.permissiondeclareapp.UtilsProvider.ACTION_CLEAR_PRIMARY_CLIP;
+import static com.android.cts.permissiondeclareapp.UtilsProvider.ACTION_GRANT_URI;
+import static com.android.cts.permissiondeclareapp.UtilsProvider.ACTION_REVOKE_URI;
+import static com.android.cts.permissiondeclareapp.UtilsProvider.ACTION_SET_PRIMARY_CLIP;
+import static com.android.cts.permissiondeclareapp.UtilsProvider.ACTION_START_ACTIVITY;
+import static com.android.cts.permissiondeclareapp.UtilsProvider.ACTION_START_SERVICE;
+import static com.android.cts.permissiondeclareapp.UtilsProvider.ACTION_VERIFY_OUTGOING_PERSISTED;
+import static com.android.cts.permissiondeclareapp.UtilsProvider.EXTRA_INTENT;
+import static com.android.cts.permissiondeclareapp.UtilsProvider.EXTRA_MODE;
+import static com.android.cts.permissiondeclareapp.UtilsProvider.EXTRA_PACKAGE_NAME;
+import static com.android.cts.permissiondeclareapp.UtilsProvider.EXTRA_URI;
+
 import android.content.ClipData;
-import android.content.ComponentName;
+import android.content.ClipboardManager;
 import android.content.ContentResolver;
 import android.content.ContentValues;
-import android.content.Context;
 import android.content.Intent;
 import android.content.UriPermission;
 import android.database.Cursor;
 import android.net.Uri;
-import android.os.SystemClock;
+import android.os.Bundle;
+import android.provider.CalendarContract;
+import android.provider.ContactsContract;
 import android.test.AndroidTestCase;
 import android.util.Log;
 
-import com.android.cts.permissiondeclareapp.GrantUriPermission;
+import com.android.cts.permissiondeclareapp.UtilsProvider;
 
 import java.io.IOException;
 import java.util.List;
@@ -42,9 +54,6 @@ import java.util.List;
  * Accesses app cts/tests/appsecurity-tests/test-apps/PermissionDeclareApp/...
  */
 public class AccessPermissionWithDiffSigTest extends AndroidTestCase {
-    private static final ComponentName GRANT_URI_PERM_COMP
-            = new ComponentName("com.android.cts.permissiondeclareapp",
-                    "com.android.cts.permissiondeclareapp.GrantUriPermission");
     private static final Uri PERM_URI = Uri.parse("content://ctspermissionwithsignature");
     private static final Uri PERM_URI_GRANTING = Uri.parse("content://ctspermissionwithsignaturegranting");
     private static final Uri PERM_URI_PATH = Uri.parse("content://ctspermissionwithsignaturepath");
@@ -57,6 +66,20 @@ public class AccessPermissionWithDiffSigTest extends AndroidTestCase {
     private static final Uri AMBIGUOUS_URI_COMPAT = Uri.parse("content://ctsambiguousprovidercompat");
     private static final String EXPECTED_MIME_TYPE_AMBIGUOUS = "got/theUnspecifiedMIME";
     private static final Uri AMBIGUOUS_URI = Uri.parse("content://ctsambiguousprovider");
+
+    private static final Uri[] GRANTABLE = new Uri[] {
+            Uri.withAppendedPath(PERM_URI_GRANTING, "foo"),
+            Uri.withAppendedPath(PRIV_URI_GRANTING, "foo"),
+            Uri.withAppendedPath(PERM_URI_PATH, "foo"),
+    };
+
+    private static final Uri[] NOT_GRANTABLE = new Uri[] {
+            Uri.withAppendedPath(PERM_URI, "foo"),
+            Uri.withAppendedPath(PRIV_URI, "foo"),
+            Uri.withAppendedPath(PERM_URI_PATH_RESTRICTING, "foo"),
+            CalendarContract.CONTENT_URI,
+            ContactsContract.AUTHORITY_URI,
+    };
 
     @Override
     protected void tearDown() throws Exception {
@@ -81,6 +104,10 @@ public class AccessPermissionWithDiffSigTest extends AndroidTestCase {
         } catch (SecurityException e) {
             fail("unexpected SecurityException reading " + uri + ": " + e.getMessage());
         }
+    }
+
+    private void assertReadingClipNotAllowed(ClipData clip) {
+        assertReadingClipNotAllowed(clip, null);
     }
 
     private void assertReadingClipNotAllowed(ClipData clip, String msg) {
@@ -171,6 +198,10 @@ public class AccessPermissionWithDiffSigTest extends AndroidTestCase {
         } catch (SecurityException e) {
             fail("unexpected SecurityException writing " + uri + ": " + e.getMessage());
         }
+    }
+
+    private void assertWritingClipNotAllowed(ClipData clip) {
+        assertWritingClipNotAllowed(clip, null);
     }
 
     private void assertWritingClipNotAllowed(ClipData clip, String msg) {
@@ -425,76 +456,6 @@ public class AccessPermissionWithDiffSigTest extends AndroidTestCase {
                 Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
     }
 
-    private static class GrantResultReceiver extends BroadcastReceiver {
-        boolean mHaveResult = false;
-        boolean mGoodResult = false;
-        boolean mSucceeded = false;
-        static final int TIMEOUT_MS = 30000;
-        
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            synchronized (this) {
-                mHaveResult = true;
-                switch (getResultCode()) {
-                    case GrantUriPermission.FAILURE:
-                        mGoodResult = true;
-                        mSucceeded = false;
-                        break;
-                    case GrantUriPermission.SUCCESS:
-                        mGoodResult = true;
-                        mSucceeded = true;
-                        break;
-                    default:
-                        mGoodResult = false;
-                        break;
-                }
-                notifyAll();
-            }
-        }
-        
-        void assertSuccess(String failureMessage) {
-            synchronized (this) {
-                final long startTime = SystemClock.uptimeMillis();
-                while (!mHaveResult) {
-                    try {
-                        wait(TIMEOUT_MS);
-                    } catch (InterruptedException e) {
-                    }
-                    if (SystemClock.uptimeMillis() >= (startTime + TIMEOUT_MS)) {
-                        throw new RuntimeException("Timeout");
-                    }
-                }
-                if (!mGoodResult) {
-                    fail("Broadcast receiver did not return good result");
-                }
-                if (!mSucceeded) {
-                    fail(failureMessage);
-                }
-            }
-        }
-        
-        void assertFailure(String failureMessage) {
-            synchronized (this) {
-                final long startTime = SystemClock.uptimeMillis();
-                while (!mHaveResult) {
-                    try {
-                        wait(TIMEOUT_MS);
-                    } catch (InterruptedException e) {
-                    }
-                    if (SystemClock.uptimeMillis() >= (startTime + TIMEOUT_MS)) {
-                        throw new RuntimeException("Timeout");
-                    }
-                }
-                if (!mGoodResult) {
-                    fail("Broadcast receiver did not return good result");
-                }
-                if (mSucceeded) {
-                    fail(failureMessage);
-                }
-            }
-        }
-    }
-
     private void grantUriPermissionFail(Uri uri, int mode, boolean service) {
         Uri grantDataUri = Uri.withAppendedPath(uri, "data");
         Intent grantIntent = new Intent();
@@ -503,26 +464,26 @@ public class AccessPermissionWithDiffSigTest extends AndroidTestCase {
         grantIntent.setClass(getContext(),
                 service ? ReceiveUriService.class : ReceiveUriActivity.class);
         Intent intent = new Intent();
-        intent.setComponent(GRANT_URI_PERM_COMP);
-        intent.setAction(service ? GrantUriPermission.ACTION_START_SERVICE
-                : GrantUriPermission.ACTION_START_ACTIVITY);
-        intent.putExtra(GrantUriPermission.EXTRA_INTENT, grantIntent);
-        GrantResultReceiver receiver = new GrantResultReceiver();
-        getContext().sendOrderedBroadcast(intent, null, receiver, null, 0, null, null);
-        receiver.assertFailure("Able to grant URI permission to " + grantDataUri + " when should not");
+        intent.setAction(service ? ACTION_START_SERVICE : ACTION_START_ACTIVITY);
+        intent.putExtra(EXTRA_INTENT, grantIntent);
+        try {
+            call(intent);
+            fail("Able to grant URI permission to " + grantDataUri + " when should not");
+        } catch (Exception expected) {
+        }
 
         grantIntent = makeClipIntent(uri, mode);
         grantIntent.setClass(getContext(),
                 service ? ReceiveUriService.class : ReceiveUriActivity.class);
         intent = new Intent();
-        intent.setComponent(GRANT_URI_PERM_COMP);
-        intent.setAction(service ? GrantUriPermission.ACTION_START_SERVICE
-                : GrantUriPermission.ACTION_START_ACTIVITY);
-        intent.putExtra(GrantUriPermission.EXTRA_INTENT, grantIntent);
-        receiver = new GrantResultReceiver();
-        getContext().sendOrderedBroadcast(intent, null, receiver, null, 0, null, null);
-        receiver.assertFailure("Able to grant URI permission to " + grantIntent.getClipData()
-                + " when should not");
+        intent.setAction(service ? ACTION_START_SERVICE : ACTION_START_ACTIVITY);
+        intent.putExtra(EXTRA_INTENT, grantIntent);
+        try {
+            call(intent);
+            fail("Able to grant URI permission to " + grantIntent.getClipData()
+                    + " when should not");
+        } catch (Exception expected) {
+        }
     }
 
     private void doTestGrantUriPermissionFail(Uri uri) {
@@ -574,6 +535,12 @@ public class AccessPermissionWithDiffSigTest extends AndroidTestCase {
         doTestGrantUriPermissionFail(Uri.withAppendedPath(PRIV_URI_GRANTING, "invalid"));
     }
 
+    private void call(Intent intent) {
+        final Bundle extras = new Bundle();
+        extras.putParcelable(Intent.EXTRA_INTENT, intent);
+        getContext().getContentResolver().call(UtilsProvider.URI, "", "", extras);
+    }
+
     private void grantClipUriPermission(ClipData clip, int mode, boolean service) {
         Intent grantIntent = new Intent();
         if (clip.getItemCount() == 1) {
@@ -592,33 +559,39 @@ public class AccessPermissionWithDiffSigTest extends AndroidTestCase {
         grantIntent.setClass(getContext(),
                 service ? ReceiveUriService.class : ReceiveUriActivity.class);
         Intent intent = new Intent();
-        intent.addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
-        intent.setComponent(GRANT_URI_PERM_COMP);
-        intent.setAction(service ? GrantUriPermission.ACTION_START_SERVICE
-                : GrantUriPermission.ACTION_START_ACTIVITY);
-        intent.putExtra(GrantUriPermission.EXTRA_INTENT, grantIntent);
-        getContext().sendBroadcast(intent);
+        intent.setAction(service ? ACTION_START_SERVICE : ACTION_START_ACTIVITY);
+        intent.putExtra(EXTRA_INTENT, grantIntent);
+        call(intent);
     }
 
     private void grantClipUriPermissionViaContext(Uri uri, int mode) {
         Intent intent = new Intent();
-        intent.addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
-        intent.setComponent(GRANT_URI_PERM_COMP);
-        intent.setAction(GrantUriPermission.ACTION_GRANT_URI);
-        intent.putExtra(GrantUriPermission.EXTRA_PACKAGE_NAME, getContext().getPackageName());
-        intent.putExtra(GrantUriPermission.EXTRA_URI, uri);
-        intent.putExtra(GrantUriPermission.EXTRA_MODE, mode);
-        getContext().sendBroadcast(intent);
+        intent.setAction(ACTION_GRANT_URI);
+        intent.putExtra(EXTRA_PACKAGE_NAME, getContext().getPackageName());
+        intent.putExtra(EXTRA_URI, uri);
+        intent.putExtra(EXTRA_MODE, mode);
+        call(intent);
     }
 
     private void revokeClipUriPermissionViaContext(Uri uri, int mode) {
         Intent intent = new Intent();
-        intent.addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
-        intent.setComponent(GRANT_URI_PERM_COMP);
-        intent.setAction(GrantUriPermission.ACTION_REVOKE_URI);
-        intent.putExtra(GrantUriPermission.EXTRA_URI, uri);
-        intent.putExtra(GrantUriPermission.EXTRA_MODE, mode);
-        getContext().sendBroadcast(intent);
+        intent.setAction(ACTION_REVOKE_URI);
+        intent.putExtra(EXTRA_URI, uri);
+        intent.putExtra(EXTRA_MODE, mode);
+        call(intent);
+    }
+
+    private void setPrimaryClip(ClipData clip) {
+        Intent intent = new Intent();
+        intent.setAction(ACTION_SET_PRIMARY_CLIP);
+        intent.setClipData(clip);
+        call(intent);
+    }
+
+    private void clearPrimaryClip() {
+        Intent intent = new Intent();
+        intent.setAction(ACTION_CLEAR_PRIMARY_CLIP);
+        call(intent);
     }
 
     private void assertReadingClipAllowed(ClipData clip) {
@@ -1371,12 +1344,9 @@ public class AccessPermissionWithDiffSigTest extends AndroidTestCase {
 
         // And assert remote
         Intent intent = new Intent();
-        intent.setComponent(GRANT_URI_PERM_COMP);
-        intent.setAction(GrantUriPermission.ACTION_VERIFY_OUTGOING_PERSISTED);
-        intent.putExtra(GrantUriPermission.EXTRA_URI, uri);
-        GrantResultReceiver receiver = new GrantResultReceiver();
-        getContext().sendOrderedBroadcast(intent, null, receiver, null, 0, null, null);
-        receiver.assertSuccess("unexpected outgoing persisted Uri status");
+        intent.setAction(ACTION_VERIFY_OUTGOING_PERSISTED);
+        intent.putExtra(EXTRA_URI, uri);
+        call(intent);
     }
 
     /**
@@ -1500,7 +1470,6 @@ public class AccessPermissionWithDiffSigTest extends AndroidTestCase {
         grantClipUriPermissionViaContext(targetMeow, Intent.FLAG_GRANT_READ_URI_PERMISSION
                 | Intent.FLAG_GRANT_PREFIX_URI_PERMISSION);
         grantClipUriPermissionViaContext(targetMeow, Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
-        SystemClock.sleep(2000);
 
         long before = System.currentTimeMillis();
         resolver.takePersistableUriPermission(targetMeowCat, Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
@@ -1517,7 +1486,6 @@ public class AccessPermissionWithDiffSigTest extends AndroidTestCase {
 
         // Revoke anyone with write under meow
         revokeClipUriPermissionViaContext(targetMeow, Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
-        SystemClock.sleep(2000);
 
         // This should have nuked persisted permission at lower level, but it
         // shoulnd't have touched our prefix read.
@@ -1531,7 +1499,6 @@ public class AccessPermissionWithDiffSigTest extends AndroidTestCase {
 
         // Revoking read at top of tree should nuke everything else
         revokeClipUriPermissionViaContext(target, Intent.FLAG_GRANT_READ_URI_PERMISSION);
-        SystemClock.sleep(2000);
         assertReadingClipNotAllowed(clip, "reading should have failed");
         assertReadingClipNotAllowed(clipMeow, "reading should have failed");
         assertReadingClipNotAllowed(clipMeowCat, "reading should have failed");
@@ -1569,7 +1536,6 @@ public class AccessPermissionWithDiffSigTest extends AndroidTestCase {
         grantClipUriPermissionViaContext(targetMeow, Intent.FLAG_GRANT_READ_URI_PERMISSION
                 | Intent.FLAG_GRANT_PREFIX_URI_PERMISSION);
         grantClipUriPermissionViaContext(targetMeow, Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
-        SystemClock.sleep(2000);
 
         long before = System.currentTimeMillis();
         resolver.takePersistableUriPermission(targetMeowCat, Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
@@ -1606,5 +1572,57 @@ public class AccessPermissionWithDiffSigTest extends AndroidTestCase {
         assertWritingClipNotAllowed(clipMeow, "writing should have failed");
         assertWritingClipNotAllowed(clipMeowCat, "writing should have failed");
         assertNoPersistedUriPermission();
+    }
+
+    public void testClipboardWithPermission() throws Exception {
+        for (Uri target : GRANTABLE) {
+            final ClipData clip = makeSingleClipData(target);
+
+            // Normally we can't see the underlying clip data
+            assertReadingClipNotAllowed(clip);
+            assertWritingClipNotAllowed(clip);
+
+            // But if someone puts it on the clipboard, we can read it
+            setPrimaryClip(clip);
+            final ClipData clipFromClipboard = getContext().getSystemService(ClipboardManager.class)
+                    .getPrimaryClip();
+            assertClipDataEquals(clip, clipFromClipboard);
+            assertReadingClipAllowed(clipFromClipboard);
+            assertWritingClipNotAllowed(clipFromClipboard);
+
+            // And if clipboard is cleared, we lose access
+            clearPrimaryClip();
+            assertReadingClipNotAllowed(clipFromClipboard);
+            assertWritingClipNotAllowed(clipFromClipboard);
+        }
+    }
+
+    public void testClipboardWithoutPermission() throws Exception {
+        for (Uri target : NOT_GRANTABLE) {
+            final ClipData clip = makeSingleClipData(target);
+
+            // Can't see it directly
+            assertReadingClipNotAllowed(clip);
+            assertWritingClipNotAllowed(clip);
+
+            // Can't put on clipboard if we don't own it
+            try {
+                setPrimaryClip(clip);
+                fail("Unexpected ability to put protected data " + clip + " on clipboard!");
+            } catch (Exception expected) {
+            }
+        }
+    }
+
+    private static void assertClipDataEquals(ClipData expected, ClipData actual) {
+        assertEquals(expected.getItemCount(), actual.getItemCount());
+        for (int i = 0; i < expected.getItemCount(); i++) {
+            final ClipData.Item expectedItem = expected.getItemAt(i);
+            final ClipData.Item actualItem = actual.getItemAt(i);
+            assertEquals(expectedItem.getText(), actualItem.getText());
+            assertEquals(expectedItem.getHtmlText(), actualItem.getHtmlText());
+            assertEquals(expectedItem.getIntent(), actualItem.getIntent());
+            assertEquals(expectedItem.getUri(), actualItem.getUri());
+        }
     }
 }

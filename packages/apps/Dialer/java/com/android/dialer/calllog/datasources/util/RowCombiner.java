@@ -19,6 +19,7 @@ import android.content.ContentValues;
 import com.android.dialer.common.Assert;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Objects;
 
 /** Convenience class for aggregating row values. */
 public class RowCombiner {
@@ -31,8 +32,27 @@ public class RowCombiner {
   }
 
   /** Use the most recent value for the specified column. */
+  public RowCombiner useMostRecentInt(String columnName) {
+    combinedRow.put(
+        columnName, individualRowsSortedByTimestampDesc.get(0).getAsInteger(columnName));
+    return this;
+  }
+
+  /** Use the most recent value for the specified column. */
   public RowCombiner useMostRecentLong(String columnName) {
     combinedRow.put(columnName, individualRowsSortedByTimestampDesc.get(0).getAsLong(columnName));
+    return this;
+  }
+
+  /** Use the most recent value for the specified column. */
+  public RowCombiner useMostRecentString(String columnName) {
+    combinedRow.put(columnName, individualRowsSortedByTimestampDesc.get(0).getAsString(columnName));
+    return this;
+  }
+
+  public RowCombiner useMostRecentBlob(String columnName) {
+    combinedRow.put(
+        columnName, individualRowsSortedByTimestampDesc.get(0).getAsByteArray(columnName));
     return this;
   }
 
@@ -41,9 +61,44 @@ public class RowCombiner {
     Iterator<ContentValues> iterator = individualRowsSortedByTimestampDesc.iterator();
     String singleValue = iterator.next().getAsString(columnName);
     while (iterator.hasNext()) {
-      Assert.checkState(iterator.next().getAsString(columnName).equals(singleValue));
+      String current = iterator.next().getAsString(columnName);
+      Assert.checkState(Objects.equals(singleValue, current), "Values different for " + columnName);
     }
     combinedRow.put(columnName, singleValue);
+    return this;
+  }
+
+  /** Asserts that all column values for the given column name are the same, and uses it. */
+  public RowCombiner useSingleValueLong(String columnName) {
+    Iterator<ContentValues> iterator = individualRowsSortedByTimestampDesc.iterator();
+    Long singleValue = iterator.next().getAsLong(columnName);
+    while (iterator.hasNext()) {
+      Long current = iterator.next().getAsLong(columnName);
+      Assert.checkState(Objects.equals(singleValue, current), "Values different for " + columnName);
+    }
+    combinedRow.put(columnName, singleValue);
+    return this;
+  }
+
+  /** Asserts that all column values for the given column name are the same, and uses it. */
+  public RowCombiner useSingleValueInt(String columnName) {
+    Iterator<ContentValues> iterator = individualRowsSortedByTimestampDesc.iterator();
+    Integer singleValue = iterator.next().getAsInteger(columnName);
+    while (iterator.hasNext()) {
+      Integer current = iterator.next().getAsInteger(columnName);
+      Assert.checkState(Objects.equals(singleValue, current), "Values different for " + columnName);
+    }
+    combinedRow.put(columnName, singleValue);
+    return this;
+  }
+
+  /** Performs a bitwise OR on the specified column and yields the result. */
+  public RowCombiner bitwiseOr(String columnName) {
+    int combinedValue = 0;
+    for (ContentValues val : individualRowsSortedByTimestampDesc) {
+      combinedValue |= val.getAsInteger(columnName);
+    }
+    combinedRow.put(columnName, combinedValue);
     return this;
   }
 

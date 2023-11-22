@@ -28,7 +28,16 @@ struct TransportArch {
     Transport transport = Transport::EMPTY;
     Arch arch = Arch::ARCH_EMPTY;
 
-private:
+    inline bool operator==(const TransportArch& other) const {
+        return transport == other.transport && arch == other.arch;
+    }
+    inline bool operator<(const TransportArch& other) const {
+        if (transport < other.transport) return true;
+        if (transport > other.transport) return false;
+        return arch < other.arch;
+    }
+
+   private:
     friend struct TransportArchConverter;
     friend struct ManifestHalConverter;
     friend struct ManifestHal;

@@ -22,12 +22,12 @@
  * SOFTWARE.
  */
 
-#include "libavb_atx/avb_atx_validate.h"
+#include "avb_atx_validate.h"
 
-#include "libavb/avb_rsa.h"
-#include "libavb/avb_sha.h"
-#include "libavb/avb_sysdeps.h"
-#include "libavb/avb_util.h"
+#include <libavb/avb_rsa.h>
+#include <libavb/avb_sha.h>
+#include <libavb/avb_sysdeps.h>
+#include <libavb/avb_util.h>
 
 /* Computes the SHA256 |hash| of |length| bytes of |data|. */
 static void sha256(const uint8_t* data,
@@ -240,6 +240,16 @@ AvbIOResult avb_atx_validate_vbmeta_public_key(
     avb_error("Public key mismatch.\n");
     return AVB_IO_RESULT_OK;
   }
+
+  /* Report the key versions used during verification. */
+  ops->atx_ops->set_key_version(
+      ops->atx_ops,
+      AVB_ATX_PIK_VERSION_LOCATION,
+      metadata.product_intermediate_key_certificate.signed_data.key_version);
+  ops->atx_ops->set_key_version(
+      ops->atx_ops,
+      AVB_ATX_PSK_VERSION_LOCATION,
+      metadata.product_signing_key_certificate.signed_data.key_version);
 
   *out_is_trusted = true;
   return AVB_IO_RESULT_OK;

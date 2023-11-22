@@ -15,10 +15,14 @@
  */
 package android.media.cts;
 
+import static android.media.cts.Utils.compareRemoteUserInfo;
+
 import android.content.ComponentName;
 import android.media.browse.MediaBrowser;
 import android.media.browse.MediaBrowser.MediaItem;
+import android.media.session.MediaSessionManager.RemoteUserInfo;
 import android.os.Bundle;
+import android.os.Process;
 import android.service.media.MediaBrowserService;
 import android.service.media.MediaBrowserService.BrowserRoot;
 import android.test.InstrumentationTestCase;
@@ -26,7 +30,7 @@ import android.test.InstrumentationTestCase;
 import java.util.List;
 
 /**
- * Test {@link android.media.browse.MediaBrowserService}.
+ * Test {@link android.service.media.MediaBrowserService}.
  */
 public class MediaBrowserServiceTest extends InstrumentationTestCase {
     // The maximum time to wait for an operation.
@@ -89,6 +93,7 @@ public class MediaBrowserServiceTest extends InstrumentationTestCase {
     };
 
     private MediaBrowser mMediaBrowser;
+    private RemoteUserInfo mBrowserInfo;
     private StubMediaBrowserService mMediaBrowserService;
     private boolean mOnChildrenLoaded;
     private boolean mOnChildrenLoadedWithOptions;
@@ -106,6 +111,10 @@ public class MediaBrowserServiceTest extends InstrumentationTestCase {
                 mRootHints.putBoolean(MediaBrowserService.BrowserRoot.EXTRA_SUGGESTED, true);
                 mMediaBrowser = new MediaBrowser(getInstrumentation().getTargetContext(),
                         TEST_BROWSER_SERVICE, mConnectionCallback, mRootHints);
+                mBrowserInfo = new RemoteUserInfo(
+                        getInstrumentation().getTargetContext().getPackageName(),
+                        Process.myPid(),
+                        Process.myUid());
             }
         });
         synchronized (mWaitLock) {
@@ -188,6 +197,25 @@ public class MediaBrowserServiceTest extends InstrumentationTestCase {
             mMediaBrowserService.sendDelayedItemLoaded();
             mWaitLock.wait(TIME_OUT_MS);
             assertTrue(mOnItemLoaded);
+        }
+    }
+
+    public void testGetBrowserInfo() throws Exception {
+        synchronized (mWaitLock) {
+            // StubMediaBrowserService stores the browser info in its onGetRoot().
+            assertTrue(compareRemoteUserInfo(mBrowserInfo, StubMediaBrowserService.sBrowserInfo));
+
+            StubMediaBrowserService.clearBrowserInfo();
+            mMediaBrowser.subscribe(StubMediaBrowserService.MEDIA_ID_ROOT, mSubscriptionCallback);
+            mWaitLock.wait(TIME_OUT_MS);
+            assertTrue(mOnChildrenLoaded);
+            assertTrue(compareRemoteUserInfo(mBrowserInfo, StubMediaBrowserService.sBrowserInfo));
+
+            StubMediaBrowserService.clearBrowserInfo();
+            mMediaBrowser.getItem(StubMediaBrowserService.MEDIA_ID_CHILDREN[0], mItemCallback);
+            mWaitLock.wait(TIME_OUT_MS);
+            assertTrue(mOnItemLoaded);
+            assertTrue(compareRemoteUserInfo(mBrowserInfo, StubMediaBrowserService.sBrowserInfo));
         }
     }
 

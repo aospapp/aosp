@@ -72,39 +72,38 @@ public abstract class BluetoothMapEmailProvider extends ContentProvider {
      * @param out the FileOurputStream to write to.
      * @throws IOException
      */
-    abstract protected void WriteMessageToStream(long accountId, long messageId,
-            boolean includeAttachment, boolean download, FileOutputStream out)
-        throws IOException;
+    protected abstract void WriteMessageToStream(long accountId, long messageId,
+            boolean includeAttachment, boolean download, FileOutputStream out) throws IOException;
 
     /**
      * @return the CONTENT_URI exposed. This will be used to send out notifications.
      */
-    abstract protected Uri getContentUri();
+    protected abstract Uri getContentUri();
 
-   /**
-    * Implementation is provided by the parent class.
-    */
-   @Override
-   public void attachInfo(Context context, ProviderInfo info) {
-       mAuthority = info.authority;
+    /**
+     * Implementation is provided by the parent class.
+     */
+    @Override
+    public void attachInfo(Context context, ProviderInfo info) {
+        mAuthority = info.authority;
 
-       mMatcher = new UriMatcher(UriMatcher.NO_MATCH);
-       mMatcher.addURI(mAuthority, BluetoothMapContract.TABLE_ACCOUNT, MATCH_ACCOUNT);
-       mMatcher.addURI(mAuthority, "#/"+BluetoothMapContract.TABLE_FOLDER, MATCH_FOLDER);
-       mMatcher.addURI(mAuthority, "#/"+BluetoothMapContract.TABLE_MESSAGE, MATCH_MESSAGE);
+        mMatcher = new UriMatcher(UriMatcher.NO_MATCH);
+        mMatcher.addURI(mAuthority, BluetoothMapContract.TABLE_ACCOUNT, MATCH_ACCOUNT);
+        mMatcher.addURI(mAuthority, "#/" + BluetoothMapContract.TABLE_FOLDER, MATCH_FOLDER);
+        mMatcher.addURI(mAuthority, "#/" + BluetoothMapContract.TABLE_MESSAGE, MATCH_MESSAGE);
 
-       // Sanity check our setup
-       if (!info.exported) {
-           throw new SecurityException("Provider must be exported");
-       }
-       // Enforce correct permissions are used
-       if (!android.Manifest.permission.BLUETOOTH_MAP.equals(info.writePermission)){
-           throw new SecurityException("Provider must be protected by " +
-                   android.Manifest.permission.BLUETOOTH_MAP);
-       }
-       mResolver = context.getContentResolver();
-       super.attachInfo(context, info);
-   }
+        // Sanity check our setup
+        if (!info.exported) {
+            throw new SecurityException("Provider must be exported");
+        }
+        // Enforce correct permissions are used
+        if (!android.Manifest.permission.BLUETOOTH_MAP.equals(info.writePermission)) {
+            throw new SecurityException(
+                    "Provider must be protected by " + android.Manifest.permission.BLUETOOTH_MAP);
+        }
+        mResolver = context.getContentResolver();
+        super.attachInfo(context, info);
+    }
 
 
     /**
@@ -125,8 +124,8 @@ public abstract class BluetoothMapEmailProvider extends ContentProvider {
          * @param opts Options supplied by caller.
          * @param args Your own custom arguments.
          */
-        public void readDataFromPipe(ParcelFileDescriptor input, Uri uri, String mimeType,
-                Bundle opts, T args);
+        void readDataFromPipe(ParcelFileDescriptor input, Uri uri, String mimeType, Bundle opts,
+                T args);
     }
 
     public class PipeReader implements PipeDataReader<Cursor> {
@@ -135,8 +134,8 @@ public abstract class BluetoothMapEmailProvider extends ContentProvider {
          * Use the message to do an update of the message specified by the URI.
          */
         @Override
-        public void readDataFromPipe(ParcelFileDescriptor input, Uri uri,
-                String mimeType, Bundle opts, Cursor args) {
+        public void readDataFromPipe(ParcelFileDescriptor input, Uri uri, String mimeType,
+                Bundle opts, Cursor args) {
             Log.v(TAG, "readDataFromPipe(): uri=" + uri.toString());
             FileInputStream fIn = null;
             try {
@@ -145,16 +144,18 @@ public abstract class BluetoothMapEmailProvider extends ContentProvider {
                 long accountId = Long.valueOf(getAccountId(uri));
                 UpdateMimeMessageFromStream(fIn, accountId, messageId);
             } catch (IOException e) {
-                Log.w(TAG,"IOException: ", e);
-                /* TODO: How to signal the error to the calling entity? Had expected readDataFromPipe
+                Log.w(TAG, "IOException: ", e);
+                /* TODO: How to signal the error to the calling entity? Had expected
+                readDataFromPipe
                  *       to throw IOException?
                  */
             } finally {
                 try {
-                    if(fIn != null)
+                    if (fIn != null) {
                         fIn.close();
+                    }
                 } catch (IOException e) {
-                    Log.w(TAG,e);
+                    Log.w(TAG, e);
                 }
             }
         }
@@ -170,7 +171,7 @@ public abstract class BluetoothMapEmailProvider extends ContentProvider {
      * @param accountId the accountId
      * @param messageId ID of the message to update
      */
-    abstract protected void UpdateMimeMessageFromStream(FileInputStream input, long accountId,
+    protected abstract void UpdateMimeMessageFromStream(FileInputStream input, long accountId,
             long messageId) throws IOException;
 
     public class PipeWriter implements PipeDataWriter<Cursor> {
@@ -178,10 +179,13 @@ public abstract class BluetoothMapEmailProvider extends ContentProvider {
          * Generate a message based on the cursor, and write the encoded data to the stream.
          */
 
+        @Override
         public void writeDataToPipe(ParcelFileDescriptor output, Uri uri, String mimeType,
                 Bundle opts, Cursor c) {
-            if (D) Log.d(TAG, "writeDataToPipe(): uri=" + uri.toString() +
-                    " - getLastPathSegment() = " + uri.getLastPathSegment());
+            if (D) {
+                Log.d(TAG, "writeDataToPipe(): uri=" + uri.toString() + " - getLastPathSegment() = "
+                        + uri.getLastPathSegment());
+            }
 
             FileOutputStream fout = null;
 
@@ -193,14 +197,15 @@ public abstract class BluetoothMapEmailProvider extends ContentProvider {
                 List<String> segments = uri.getPathSegments();
                 long messageId = Long.parseLong(segments.get(2));
                 long accountId = Long.parseLong(getAccountId(uri));
-                if(segments.size() >= 4) {
+                if (segments.size() >= 4) {
                     String format = segments.get(3);
-                    if(format.equalsIgnoreCase(BluetoothMapContract.FILE_MSG_NO_ATTACHMENTS)) {
+                    if (format.equalsIgnoreCase(BluetoothMapContract.FILE_MSG_NO_ATTACHMENTS)) {
                         includeAttachments = false;
-                    } else if(format.equalsIgnoreCase(BluetoothMapContract.FILE_MSG_DOWNLOAD_NO_ATTACHMENTS)) {
+                    } else if (format.equalsIgnoreCase(
+                            BluetoothMapContract.FILE_MSG_DOWNLOAD_NO_ATTACHMENTS)) {
                         includeAttachments = false;
                         download = true;
-                    } else if(format.equalsIgnoreCase(BluetoothMapContract.FILE_MSG_DOWNLOAD)) {
+                    } else if (format.equalsIgnoreCase(BluetoothMapContract.FILE_MSG_DOWNLOAD)) {
                         download = true;
                     }
                 }
@@ -235,15 +240,17 @@ public abstract class BluetoothMapEmailProvider extends ContentProvider {
     protected void onAccountChanged(String accountId) {
         Uri newUri = null;
 
-        if(mAuthority == null){
+        if (mAuthority == null) {
             return;
         }
-        if(accountId == null){
+        if (accountId == null) {
             newUri = BluetoothMapContract.buildAccountUri(mAuthority);
         } else {
             newUri = BluetoothMapContract.buildAccountUriwithId(mAuthority, accountId);
         }
-        if(D) Log.d(TAG,"onAccountChanged() accountId = " + accountId + " URI: " + newUri);
+        if (D) {
+            Log.d(TAG, "onAccountChanged() accountId = " + accountId + " URI: " + newUri);
+        }
         mResolver.notifyChange(newUri, null);
     }
 
@@ -258,21 +265,24 @@ public abstract class BluetoothMapEmailProvider extends ContentProvider {
     protected void onMessageChanged(String accountId, String messageId) {
         Uri newUri = null;
 
-        if(mAuthority == null){
+        if (mAuthority == null) {
             return;
         }
 
-        if(accountId == null){
+        if (accountId == null) {
             newUri = BluetoothMapContract.buildMessageUri(mAuthority);
         } else {
-            if(messageId == null)
-            {
-                newUri = BluetoothMapContract.buildMessageUri(mAuthority,accountId);
+            if (messageId == null) {
+                newUri = BluetoothMapContract.buildMessageUri(mAuthority, accountId);
             } else {
-                newUri = BluetoothMapContract.buildMessageUriWithId(mAuthority,accountId, messageId);
+                newUri = BluetoothMapContract.buildMessageUriWithId(mAuthority, accountId,
+                        messageId);
             }
         }
-        if(D) Log.d(TAG,"onMessageChanged() accountId = " + accountId + " messageId = " + messageId + " URI: " + newUri);
+        if (D) {
+            Log.d(TAG, "onMessageChanged() accountId = " + accountId + " messageId = " + messageId
+                    + " URI: " + newUri);
+        }
         mResolver.notifyChange(newUri, null);
     }
 
@@ -317,18 +327,20 @@ public abstract class BluetoothMapEmailProvider extends ContentProvider {
     @Override
     public ParcelFileDescriptor openFile(Uri uri, String mode) throws FileNotFoundException {
         long callingId = Binder.clearCallingIdentity();
-        if(D)Log.d(TAG, "openFile(): uri=" + uri.toString() + " - getLastPathSegment() = " +
-                uri.getLastPathSegment());
+        if (D) {
+            Log.d(TAG, "openFile(): uri=" + uri.toString() + " - getLastPathSegment() = "
+                    + uri.getLastPathSegment());
+        }
         try {
             /* To be able to do abstraction of the file IO, we simply ignore the URI at this
              * point and let the read/write function implementations parse the URI. */
-            if(mode.equals("w")) {
+            if (mode.equals("w")) {
                 return openInversePipeHelper(uri, null, null, null, mPipeReader);
             } else {
-                return openPipeHelper (uri, null, null, null, mPipeWriter);
+                return openPipeHelper(uri, null, null, null, mPipeWriter);
             }
         } catch (IOException e) {
-            Log.w(TAG,e);
+            Log.w(TAG, e);
         } finally {
             Binder.restoreCallingIdentity(callingId);
         }
@@ -370,7 +382,7 @@ public abstract class BluetoothMapEmailProvider extends ContentProvider {
                     return null;
                 }
             };
-            task.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, (Object[])null);
+            task.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, (Object[]) null);
 
             return fds[1];
         } catch (IOException e) {
@@ -386,28 +398,35 @@ public abstract class BluetoothMapEmailProvider extends ContentProvider {
      */
     @Override
     public int delete(Uri uri, String where, String[] selectionArgs) {
-        if (D) Log.d(TAG, "delete(): uri=" + uri.toString() );
+        if (D) {
+            Log.d(TAG, "delete(): uri=" + uri.toString());
+        }
         int result = 0;
 
         String table = uri.getPathSegments().get(1);
-        if(table == null)
+        if (table == null) {
             throw new IllegalArgumentException("Table missing in URI");
+        }
         // the id of the entry to be deleted from the database
         String messageId = uri.getLastPathSegment();
-        if (messageId == null)
+        if (messageId == null) {
             throw new IllegalArgumentException("Message ID missing in update values!");
+        }
 
 
         String accountId = getAccountId(uri);
-        if (accountId == null)
+        if (accountId == null) {
             throw new IllegalArgumentException("Account ID missing in update values!");
+        }
 
         long callingId = Binder.clearCallingIdentity();
         try {
-            if(table.equals(BluetoothMapContract.TABLE_MESSAGE)) {
+            if (table.equals(BluetoothMapContract.TABLE_MESSAGE)) {
                 return deleteMessage(accountId, messageId);
             } else {
-                if (D) Log.w(TAG, "Unknown table name: " + table);
+                if (D) {
+                    Log.w(TAG, "Unknown table name: " + table);
+                }
                 return result;
             }
         } finally {
@@ -421,7 +440,7 @@ public abstract class BluetoothMapEmailProvider extends ContentProvider {
      * @param messageId the ID of the message to delete.
      * @return the number of messages deleted - 0 if the message was not found.
      */
-    abstract protected int deleteMessage(String accountId, String messageId);
+    protected abstract int deleteMessage(String accountId, String messageId);
 
     /**
      * Insert is used to add new messages to the data base.
@@ -434,23 +453,25 @@ public abstract class BluetoothMapEmailProvider extends ContentProvider {
     @Override
     public Uri insert(Uri uri, ContentValues values) {
         String table = uri.getLastPathSegment();
-        if(table == null){
+        if (table == null) {
             throw new IllegalArgumentException("Table missing in URI");
         }
         String accountId = getAccountId(uri);
         Long folderId = values.getAsLong(BluetoothMapContract.MessageColumns.FOLDER_ID);
-        if(folderId == null) {
+        if (folderId == null) {
             throw new IllegalArgumentException("FolderId missing in ContentValues");
         }
 
         String id; // the id of the entry inserted into the database
         long callingId = Binder.clearCallingIdentity();
-        Log.d(TAG, "insert(): uri=" + uri.toString() + " - getLastPathSegment() = " +
-                uri.getLastPathSegment());
+        Log.d(TAG, "insert(): uri=" + uri.toString() + " - getLastPathSegment() = "
+                + uri.getLastPathSegment());
         try {
-            if(table.equals(BluetoothMapContract.TABLE_MESSAGE)) {
+            if (table.equals(BluetoothMapContract.TABLE_MESSAGE)) {
                 id = insertMessage(accountId, folderId.toString());
-                if(D) Log.i(TAG, "insert() ID: " + id);
+                if (D) {
+                    Log.i(TAG, "insert() ID: " + id);
+                }
                 return Uri.parse(uri.toString() + "/" + id);
             } else {
                 Log.w(TAG, "Unknown table name: " + table);
@@ -469,9 +490,9 @@ public abstract class BluetoothMapEmailProvider extends ContentProvider {
      * @param folderId the ID of the folder to create a new message in.
      * @return the message id as a string
      */
-    abstract protected String insertMessage(String accountId, String folderId);
+    protected abstract String insertMessage(String accountId, String folderId);
 
-     /**
+    /**
      * Utility function to build a projection based on a projectionMap.
      *
      *   "btColumnName" -> "emailColumnName as btColumnName" for each entry.
@@ -481,16 +502,17 @@ public abstract class BluetoothMapEmailProvider extends ContentProvider {
      * @param projectionMap <btColumnName, emailColumnName>
      * @return the converted projection
      */
-    protected String[] convertProjection(String[] projection, Map<String,String> projectionMap) {
+    protected String[] convertProjection(String[] projection, Map<String, String> projectionMap) {
         String[] newProjection = new String[projection.length];
-        for(int i = 0; i < projection.length; i++) {
+        for (int i = 0; i < projection.length; i++) {
             newProjection[i] = projectionMap.get(projection[i]) + " as " + projection[i];
         }
         return newProjection;
     }
 
     /**
-     * This query needs to map from the data used in the e-mail client to BluetoothMapContract type of data.
+     * This query needs to map from the data used in the e-mail client to BluetoothMapContract
+     * type of data.
      */
     @Override
     public Cursor query(Uri uri, String[] projection, String selection, String[] selectionArgs,
@@ -525,8 +547,8 @@ public abstract class BluetoothMapEmailProvider extends ContentProvider {
      * @param sortOrder
      * @return a cursor to the accounts that are subject to exposure over BT.
      */
-    abstract protected Cursor queryAccount(String[] projection, String selection, String[] selectionArgs,
-            String sortOrder);
+    protected abstract Cursor queryAccount(String[] projection, String selection,
+            String[] selectionArgs, String sortOrder);
 
     /**
      * Filter out the non usable folders and ensure to name the mandatory folders
@@ -538,8 +560,9 @@ public abstract class BluetoothMapEmailProvider extends ContentProvider {
      * @param sortOrder
      * @return
      */
-    abstract protected Cursor queryFolder(String accountId, String[] projection, String selection, String[] selectionArgs,
-            String sortOrder);
+    protected abstract Cursor queryFolder(String accountId, String[] projection, String selection,
+            String[] selectionArgs, String sortOrder);
+
     /**
      * For the message table the selection (where clause) can only include the following columns:
      *    date: less than, greater than and equals
@@ -558,8 +581,8 @@ public abstract class BluetoothMapEmailProvider extends ContentProvider {
      * @param sortOrder
      * @return a cursor to query result
      */
-    abstract protected Cursor queryMessage(String accountId, String[] projection, String selection, String[] selectionArgs,
-            String sortOrder);
+    protected abstract Cursor queryMessage(String accountId, String[] projection, String selection,
+            String[] selectionArgs, String sortOrder);
 
     /**
      * update()
@@ -575,40 +598,47 @@ public abstract class BluetoothMapEmailProvider extends ContentProvider {
     public int update(Uri uri, ContentValues values, String selection, String[] selectionArgs) {
 
         String table = uri.getLastPathSegment();
-        if(table == null){
+        if (table == null) {
             throw new IllegalArgumentException("Table missing in URI");
         }
-        if(selection != null) {
-            throw new IllegalArgumentException("selection shall not be used, ContentValues shall contain the data");
+        if (selection != null) {
+            throw new IllegalArgumentException(
+                    "selection shall not be used, ContentValues shall contain the data");
         }
 
         long callingId = Binder.clearCallingIdentity();
-        if(D)Log.w(TAG, "update(): uri=" + uri.toString() + " - getLastPathSegment() = " +
-                uri.getLastPathSegment());
+        if (D) {
+            Log.w(TAG, "update(): uri=" + uri.toString() + " - getLastPathSegment() = "
+                    + uri.getLastPathSegment());
+        }
         try {
-            if(table.equals(BluetoothMapContract.TABLE_ACCOUNT)) {
+            if (table.equals(BluetoothMapContract.TABLE_ACCOUNT)) {
                 String accountId = values.getAsString(BluetoothMapContract.AccountColumns._ID);
-                if(accountId == null) {
+                if (accountId == null) {
                     throw new IllegalArgumentException("Account ID missing in update values!");
                 }
-                Integer exposeFlag = values.getAsInteger(BluetoothMapContract.AccountColumns.FLAG_EXPOSE);
-                if(exposeFlag == null){
+                Integer exposeFlag =
+                        values.getAsInteger(BluetoothMapContract.AccountColumns.FLAG_EXPOSE);
+                if (exposeFlag == null) {
                     throw new IllegalArgumentException("Expose flag missing in update values!");
                 }
                 return updateAccount(accountId, exposeFlag);
-            } else if(table.equals(BluetoothMapContract.TABLE_FOLDER)) {
+            } else if (table.equals(BluetoothMapContract.TABLE_FOLDER)) {
                 return 0; // We do not support changing folders
-            } else if(table.equals(BluetoothMapContract.TABLE_MESSAGE)) {
+            } else if (table.equals(BluetoothMapContract.TABLE_MESSAGE)) {
                 String accountId = getAccountId(uri);
                 Long messageId = values.getAsLong(BluetoothMapContract.MessageColumns._ID);
-                if(messageId == null) {
+                if (messageId == null) {
                     throw new IllegalArgumentException("Message ID missing in update values!");
                 }
                 Long folderId = values.getAsLong(BluetoothMapContract.MessageColumns.FOLDER_ID);
-                Boolean flagRead = values.getAsBoolean(BluetoothMapContract.MessageColumns.FLAG_READ);
+                Boolean flagRead =
+                        values.getAsBoolean(BluetoothMapContract.MessageColumns.FLAG_READ);
                 return updateMessage(accountId, messageId, folderId, flagRead);
             } else {
-                if(D)Log.w(TAG, "Unknown table name: " + table);
+                if (D) {
+                    Log.w(TAG, "Unknown table name: " + table);
+                }
                 return 0;
             }
         } finally {
@@ -623,7 +653,7 @@ public abstract class BluetoothMapEmailProvider extends ContentProvider {
      * @param flagExpose the updated value.
      * @return the number of entries changed - 0 if account not found or value cannot be changed.
      */
-    abstract protected int updateAccount(String accountId, int flagExpose);
+    protected abstract int updateAccount(String accountId, int flagExpose);
 
     /**
      * Update an entry in the message table.
@@ -633,28 +663,32 @@ public abstract class BluetoothMapEmailProvider extends ContentProvider {
      * @param flagRead the new flagRead value to set - ignore if null.
      * @return
      */
-    abstract protected int updateMessage(String accountId, Long messageId, Long folderId, Boolean flagRead);
+    protected abstract int updateMessage(String accountId, Long messageId, Long folderId,
+            Boolean flagRead);
 
 
     @Override
     public Bundle call(String method, String arg, Bundle extras) {
         long callingId = Binder.clearCallingIdentity();
-        if(D)Log.d(TAG, "call(): method=" + method + " arg=" + arg + "ThreadId: " + Thread.currentThread().getId());
+        if (D) {
+            Log.d(TAG, "call(): method=" + method + " arg=" + arg + "ThreadId: "
+                    + Thread.currentThread().getId());
+        }
 
         try {
-            if(method.equals(BluetoothMapContract.METHOD_UPDATE_FOLDER)) {
+            if (method.equals(BluetoothMapContract.METHOD_UPDATE_FOLDER)) {
                 long accountId = extras.getLong(BluetoothMapContract.EXTRA_UPDATE_ACCOUNT_ID, -1);
-                if(accountId == -1) {
+                if (accountId == -1) {
                     Log.w(TAG, "No account ID in CALL");
                     return null;
                 }
                 long folderId = extras.getLong(BluetoothMapContract.EXTRA_UPDATE_FOLDER_ID, -1);
-                if(folderId == -1) {
+                if (folderId == -1) {
                     Log.w(TAG, "No folder ID in CALL");
                     return null;
                 }
                 int ret = syncFolder(accountId, folderId);
-                if(ret == 0) {
+                if (ret == 0) {
                     return new Bundle();
                 }
                 return null;
@@ -671,7 +705,7 @@ public abstract class BluetoothMapEmailProvider extends ContentProvider {
      * @param folderId the ID of the folder.
      * @return 0 at success
      */
-    abstract protected int syncFolder(long accountId, long folderId);
+    protected abstract int syncFolder(long accountId, long folderId);
 
     /**
      * Need this to suppress warning in unit tests.

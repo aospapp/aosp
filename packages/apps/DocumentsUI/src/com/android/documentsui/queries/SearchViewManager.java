@@ -16,10 +16,12 @@
 
 package com.android.documentsui.queries;
 
-import static com.android.documentsui.base.Shared.DEBUG;
+import static com.android.documentsui.base.SharedMinimal.DEBUG;
 
 import android.annotation.Nullable;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.provider.DocumentsContract.Root;
 import android.text.TextUtils;
 import android.util.Log;
@@ -38,6 +40,11 @@ import com.android.documentsui.base.DocumentStack;
 import com.android.documentsui.base.EventHandler;
 import com.android.documentsui.base.RootInfo;
 import com.android.documentsui.base.Shared;
+import com.android.internal.annotations.GuardedBy;
+import com.android.internal.annotations.VisibleForTesting;
+
+import java.util.Timer;
+import java.util.TimerTask;
 
 /**
  * Manages searching UI behavior.
@@ -48,9 +55,19 @@ public class SearchViewManager implements
 
     private static final String TAG = "SearchManager";
 
+    // How long we wait after the user finishes typing before kicking off a search.
+    public static final int SEARCH_DELAY_MS = 750;
+
     private final SearchManagerListener mListener;
     private final EventHandler<String> mCommandProcessor;
+    private final Timer mTimer;
+    private final Handler mUiHandler;
 
+    private final Object mSearchLock;
+    @GuardedBy("mSearchLock")
+    private @Nullable Runnable mQueuedSearchRunnable;
+    @GuardedBy("mSearchLock")
+    private @Nullable TimerTask mQueuedSearchTask;
     private @Nullable String mCurrentSearch;
     private boolean mSearchExpanded;
     private boolean mIgnoreNextClose;
@@ -64,12 +81,25 @@ public class SearchViewManager implements
             SearchManagerListener listener,
             EventHandler<String> commandProcessor,
             @Nullable Bundle savedState) {
+        this(listener, commandProcessor, savedState, new Timer(),
+                new Handler(Looper.getMainLooper()));
+    }
 
+    @VisibleForTesting
+    protected SearchViewManager(
+            SearchManagerListener listener,
+            EventHandler<String> commandProcessor,
+            @Nullable Bundle savedState,
+            Timer timer,
+            Handler handler) {
         assert (listener != null);
         assert (commandProcessor != null);
 
+        mSearchLock = new Object();
         mListener = listener;
         mCommandProcessor = commandProcessor;
+        mTimer = timer;
+        mUiHandler = handler;
         mCurrentSearch = savedState != null ? savedState.getString(Shared.EXTRA_QUERY) : null;
     }
 
@@ -169,6 +199,7 @@ public class SearchViewManager implements
      */
     public boolean cancelSearch() {
         if (isExpanded() || isSearching()) {
+            cancelQueuedSearch();
             // If the query string is not empty search view won't get iconified
             mSearchView.setQuery("", false);
 
@@ -183,13 +214,24 @@ public class SearchViewManager implements
         return false;
     }
 
+    private void cancelQueuedSearch() {
+        synchronized (mSearchLock) {
+            if (mQueuedSearchTask != null) {
+                mQueuedSearchTask.cancel();
+            }
+            mQueuedSearchTask = null;
+            mUiHandler.removeCallbacks(mQueuedSearchRunnable);
+            mQueuedSearchRunnable = null;
+        }
+    }
+
     /**
      * Sets search view into the searching state. Used to restore state after device orientation
      * change.
      */
     private void restoreSearch() {
         if (isSearching()) {
-            if(mFullBar) {
+            if (mFullBar) {
                 mMenuItem.expandActionView();
             } else {
                 mSearchView.setIconified(false);
@@ -202,7 +244,7 @@ public class SearchViewManager implements
 
     private void onSearchExpanded() {
         mSearchExpanded = true;
-        if(mFullBar) {
+        if (mFullBar) {
             mMenu.setGroupVisible(R.id.group_hide_when_searching, false);
         }
 
@@ -228,7 +270,7 @@ public class SearchViewManager implements
             mListener.onSearchChanged(mCurrentSearch);
         }
 
-        if(mFullBar) {
+        if (mFullBar) {
             mMenuItem.collapseActionView();
         }
         mListener.onSearchFinished();
@@ -261,9 +303,13 @@ public class SearchViewManager implements
         if (mCommandProcessor.accept(query)) {
             mSearchView.setQuery("", false);
         } else {
-            mCurrentSearch = query;
+            cancelQueuedSearch();
+            // Don't kick off a search if we've already finished it.
+            if (mCurrentSearch != query) {
+                mCurrentSearch = query;
+                mListener.onSearchChanged(mCurrentSearch);
+            }
             mSearchView.clearFocus();
-            mListener.onSearchChanged(mCurrentSearch);
         }
 
         return true;
@@ -283,9 +329,35 @@ public class SearchViewManager implements
         }
     }
 
+    @VisibleForTesting
+    protected TimerTask createSearchTask(String newText) {
+        return new TimerTask() {
+            @Override
+            public void run() {
+                // Do the actual work on the main looper.
+                synchronized (mSearchLock) {
+                    mQueuedSearchRunnable = () -> {
+                        mCurrentSearch = newText;
+                        if (mCurrentSearch != null && mCurrentSearch.isEmpty()) {
+                            mCurrentSearch = null;
+                        }
+                        mListener.onSearchChanged(mCurrentSearch);
+                    };
+                    mUiHandler.post(mQueuedSearchRunnable);
+                }
+            }
+        };
+    }
+
     @Override
     public boolean onQueryTextChange(String newText) {
-        return false;
+        cancelQueuedSearch();
+        synchronized (mSearchLock) {
+            mQueuedSearchTask = createSearchTask(newText);
+
+            mTimer.schedule(mQueuedSearchTask, SEARCH_DELAY_MS);
+        }
+        return true;
     }
 
     @Override

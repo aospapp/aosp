@@ -42,8 +42,13 @@ ifeq ($(FRAMESEQUENCE_INCLUDE_WEBP),true)
 	LOCAL_STATIC_LIBRARIES += libwebp-decode
 endif
 
-LOCAL_CFLAGS += -Wall -Wno-unused-parameter -Wno-unused-variable -Wno-overloaded-virtual
-LOCAL_CFLAGS += -fvisibility=hidden
+LOCAL_CFLAGS += \
+    -Wall \
+    -Werror \
+    -Wno-unused-parameter \
+    -Wno-unused-variable \
+    -Wno-overloaded-virtual \
+    -fvisibility=hidden \
 
 LOCAL_SDK_VERSION := 8
 

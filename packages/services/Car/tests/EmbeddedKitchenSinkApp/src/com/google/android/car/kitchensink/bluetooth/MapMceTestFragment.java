@@ -16,6 +16,8 @@
 
 package com.google.android.car.kitchensink.bluetooth;
 
+import android.Manifest;
+import android.annotation.TargetApi;
 import android.app.PendingIntent;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
@@ -26,10 +28,13 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.pm.PackageManager;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
+import android.telecom.PhoneAccount;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -38,20 +43,26 @@ import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.TextView;
+import android.widget.Toast;
 
+import com.google.android.car.kitchensink.KitchenSinkActivity;
 import com.google.android.car.kitchensink.R;
 
 import java.util.List;
 
+@TargetApi(Build.VERSION_CODES.LOLLIPOP)
 public class MapMceTestFragment extends Fragment {
     static final String MESSAGE_TO_SEND = "Im Busy Driving";
+    static final String NEW_MESSAGE_TO_SEND = "This is new msg";
     private static final String TAG = "CAR.BLUETOOTH.KS";
+    private static final int SEND_SMS_PERMISSIONS_REQUEST = 1;
     BluetoothMapClient mMapProfile;
     BluetoothAdapter mBluetoothAdapter;
     Button mDevicePicker;
     Button mDeviceDisconnect;
     TextView mMessage;
     EditText mOriginator;
+    EditText mSmsTelNum;
     TextView mOriginatorDisplayName;
     CheckBox mSent;
     CheckBox mDelivered;
@@ -60,6 +71,7 @@ public class MapMceTestFragment extends Fragment {
     PendingIntent mDeliveredIntent;
     NotificationReceiver mTransmissionStatusReceiver;
     Object mLock = new Object();
+    private KitchenSinkActivity mActivity;
     private Intent mSendIntent;
     private Intent mDeliveryIntent;
 
@@ -67,10 +79,12 @@ public class MapMceTestFragment extends Fragment {
     public View onCreateView(LayoutInflater inflater, @Nullable ViewGroup container,
             @Nullable Bundle savedInstanceState) {
         View v = inflater.inflate(R.layout.sms_received, container, false);
-
+        mActivity = (KitchenSinkActivity) getHost();
         Button reply = (Button) v.findViewById(R.id.reply);
         Button checkMessages = (Button) v.findViewById(R.id.check_messages);
         mBluetoothDevice = (TextView) v.findViewById(R.id.bluetoothDevice);
+        Button sendNewMsg = (Button) v.findViewById(R.id.sms_new_message);
+        mSmsTelNum = (EditText) v.findViewById(R.id.sms_tel_num);
         mOriginator = (EditText) v.findViewById(R.id.messageOriginator);
         mOriginatorDisplayName = (TextView) v.findViewById(R.id.messageOriginatorDisplayName);
         mSent = (CheckBox) v.findViewById(R.id.sent_checkbox);
@@ -86,6 +100,17 @@ public class MapMceTestFragment extends Fragment {
             public void onClick(View view) {
                 sendMessage(new Uri[]{Uri.parse(mOriginator.getText().toString())},
                         MESSAGE_TO_SEND);
+            }
+        });
+
+        sendNewMsg.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                String s = mSmsTelNum.getText().toString();
+                Toast.makeText(getContext(), "sending msg to " + s, Toast.LENGTH_SHORT).show();
+                Uri.Builder builder = new Uri.Builder();
+                Uri uri = builder.appendPath(s).scheme(PhoneAccount.SCHEME_TEL).build();
+                sendMessage(new Uri[]{uri}, NEW_MESSAGE_TO_SEND);
             }
         });
 
@@ -169,6 +194,15 @@ public class MapMceTestFragment extends Fragment {
     }
 
     private void sendMessage(Uri[] recipients, String message) {
+        if (mActivity.checkSelfPermission(Manifest.permission.SEND_SMS)
+                != PackageManager.PERMISSION_GRANTED) {
+            Log.d(TAG,"Don't have SMS permission in kitchesink app. Requesting it");
+            mActivity.requestPermissions(new String[]{Manifest.permission.SEND_SMS},
+                    SEND_SMS_PERMISSIONS_REQUEST);
+            Toast.makeText(getContext(), "Try again after granting SEND_SMS perm!",
+                    Toast.LENGTH_SHORT).show();
+            return;
+        }
         synchronized (mLock) {
             BluetoothDevice remoteDevice;
             try {
@@ -195,9 +229,26 @@ public class MapMceTestFragment extends Fragment {
                         PendingIntent.FLAG_ONE_SHOT);
                 mDeliveredIntent = PendingIntent.getBroadcast(getContext(), 0, mDeliveryIntent,
                         PendingIntent.FLAG_ONE_SHOT);
+                Log.d(TAG,"Sending message in kitchesink app: " + message);
                 mMapProfile.sendMessage(
                         remoteDevice,
                         recipients, message, mSentIntent, mDeliveredIntent);
+            }
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions,
+            int[] grantResults) {
+        Log.d(TAG, "onRequestPermissionsResult reqCode=" + requestCode);
+        if (SEND_SMS_PERMISSIONS_REQUEST == requestCode) {
+            for (int i=0; i<permissions.length; i++) {
+                if (grantResults[i] == PackageManager.PERMISSION_GRANTED) {
+                    if (permissions[i] == Manifest.permission.SEND_SMS) {
+                        Log.d(TAG, "Got the SEND_SMS perm");
+                        return;
+                    }
+                }
             }
         }
     }

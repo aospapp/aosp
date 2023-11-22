@@ -139,7 +139,7 @@ message TestCaseReportMessage {
   repeated ProfilingReportMessage profiling = 41;
 
   // systrace report message per file
-  repeated SystraceReportMessage systrace = 42;
+  repeated SystraceReportMessage systrace = 42 [deprecated=true];
 
   // log for each test case. May contain multiple logs such as logcat, host log,
   // etc.
@@ -195,7 +195,7 @@ message CoverageReportMessage {
   optional bytes revision = 13;
 
   // i-th element gives the number of times i-th line is executed.
-  repeated int32 line_coverage_vector = 23;
+  repeated int64 line_coverage_vector = 23;
 
   // the number of source code lines that are instrumented for code coverage
   // measurement.
@@ -277,7 +277,7 @@ message TestReportMessage {
   repeated ProfilingReportMessage profiling = 21;
 
   // Systrace report per file
-  repeated SystraceReportMessage systrace = 22;
+  repeated SystraceReportMessage systrace = 22  [deprecated=true];
 
   // Execution start and end time stamp.
   optional int64 start_timestamp = 101;
@@ -289,6 +289,9 @@ message TestReportMessage {
   // Log for a test module. May contain multiple logs such as logcat, host log,
   // etc.
   repeated LogMessage log = 1001;
+
+  // URL links for the test run.
+  repeated UrlResourceMessage link_resource = 1011;
 }
 
 // To specify a test execution report.

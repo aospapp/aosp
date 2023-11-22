@@ -18,10 +18,12 @@
 
 #include <vector>
 
+#include <linux/if_ether.h>
+
 #include <android-base/logging.h>
-#include <wifi_system/supplicant_manager.h>
 
 #include "wificond/client_interface_binder.h"
+#include "wificond/logging_utils.h"
 #include "wificond/net/mlme_event.h"
 #include "wificond/net/netlink_utils.h"
 #include "wificond/scanning/offload/offload_service_utils.h"
@@ -33,7 +35,6 @@ using android::net::wifi::IClientInterface;
 using com::android::server::wifi::wificond::NativeScanResult;
 using android::sp;
 using android::wifi_system::InterfaceTool;
-using android::wifi_system::SupplicantManager;
 
 using std::endl;
 using std::string;
@@ -65,14 +66,9 @@ void MlmeEventHandlerImpl::OnConnect(unique_ptr<MlmeConnectEvent> event) {
 }
 
 void MlmeEventHandlerImpl::OnRoam(unique_ptr<MlmeRoamEvent> event) {
-  if (event->GetStatusCode() == 0) {
-    client_interface_->is_associated_ = true;
-    client_interface_->RefreshAssociateFreq();
-    client_interface_->bssid_ = event->GetBSSID();
-  } else {
-    client_interface_->is_associated_ = false;
-    client_interface_->bssid_.clear();
-  }
+  client_interface_->is_associated_ = true;
+  client_interface_->RefreshAssociateFreq();
+  client_interface_->bssid_ = event->GetBSSID();
 }
 
 void MlmeEventHandlerImpl::OnAssociate(unique_ptr<MlmeAssociateEvent> event) {
@@ -106,7 +102,6 @@ ClientInterfaceImpl::ClientInterfaceImpl(
     uint32_t interface_index,
     const std::vector<uint8_t>& interface_mac_addr,
     InterfaceTool* if_tool,
-    SupplicantManager* supplicant_manager,
     NetlinkUtils* netlink_utils,
     ScanUtils* scan_utils)
     : wiphy_index_(wiphy_index),
@@ -114,7 +109,6 @@ ClientInterfaceImpl::ClientInterfaceImpl(
       interface_index_(interface_index),
       interface_mac_addr_(interface_mac_addr),
       if_tool_(if_tool),
-      supplicant_manager_(supplicant_manager),
       netlink_utils_(netlink_utils),
       scan_utils_(scan_utils),
       offload_service_utils_(new OffloadServiceUtils()),
@@ -132,12 +126,10 @@ ClientInterfaceImpl::ClientInterfaceImpl(
   }
   LOG(INFO) << "create scanner for interface with index: "
             << (int)interface_index_;
-  scanner_ = new ScannerImpl(wiphy_index,
-                             interface_index_,
+  scanner_ = new ScannerImpl(interface_index_,
                              scan_capabilities_,
                              wiphy_features_,
                              this,
-                             netlink_utils_,
                              scan_utils_,
                              offload_service_utils_);
 }
@@ -145,7 +137,6 @@ ClientInterfaceImpl::ClientInterfaceImpl(
 ClientInterfaceImpl::~ClientInterfaceImpl() {
   binder_->NotifyImplDead();
   scanner_->Invalidate();
-  DisableSupplicant();
   netlink_utils_->UnsubscribeMlmeEvent(interface_index_);
   if_tool_->SetUpState(interface_name_.c_str(), false);
 }
@@ -172,17 +163,15 @@ void ClientInterfaceImpl::Dump(std::stringstream* ss) const {
       << scan_capabilities_.max_scan_plan_iterations << endl;
   *ss << "Device supports random MAC for single shot scan: "
       << wiphy_features_.supports_random_mac_oneshot_scan << endl;
+  *ss << "Device supports low span single shot scan: "
+      << wiphy_features_.supports_low_span_oneshot_scan << endl;
+  *ss << "Device supports low power single shot scan: "
+      << wiphy_features_.supports_low_power_oneshot_scan << endl;
+  *ss << "Device supports high accuracy single shot scan: "
+      << wiphy_features_.supports_high_accuracy_oneshot_scan << endl;
   *ss << "Device supports random MAC for scheduled scan: "
       << wiphy_features_.supports_random_mac_sched_scan << endl;
   *ss << "------- Dump End -------" << endl;
-}
-
-bool ClientInterfaceImpl::EnableSupplicant() {
-  return supplicant_manager_->StartSupplicant();
-}
-
-bool ClientInterfaceImpl::DisableSupplicant() {
-  return supplicant_manager_->StopSupplicant();
 }
 
 bool ClientInterfaceImpl::GetPacketCounters(vector<int32_t>* out_packet_counters) {
@@ -226,10 +215,26 @@ const vector<uint8_t>& ClientInterfaceImpl::GetMacAddress() {
   return interface_mac_addr_;
 }
 
-bool ClientInterfaceImpl::requestANQP(
-      const ::std::vector<uint8_t>& bssid,
-      const ::android::sp<::android::net::wifi::IANQPDoneCallback>& callback) {
-  // TODO(nywang): query ANQP information from wpa_supplicant.
+bool ClientInterfaceImpl::SetMacAddress(const ::std::vector<uint8_t>& mac) {
+  if (mac.size() != ETH_ALEN) {
+    LOG(ERROR) << "Invalid MAC length " << mac.size();
+    return false;
+  }
+  if (!if_tool_->SetWifiUpState(false)) {
+    LOG(ERROR) << "SetWifiUpState(false) failed.";
+    return false;
+  }
+  if (!if_tool_->SetMacAddress(interface_name_.c_str(),
+      {{mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]}})) {
+    LOG(ERROR) << "SetMacAddress(" << interface_name_ << ", "
+               << LoggingUtils::GetMacString(mac) << ") failed.";
+    return false;
+  }
+  if (!if_tool_->SetWifiUpState(true)) {
+    LOG(ERROR) << "SetWifiUpState(true) failed.";
+    return false;
+  }
+  LOG(DEBUG) << "Successfully SetMacAddress.";
   return true;
 }
 

@@ -151,18 +151,20 @@ class ProfilingFeature(feature_utils.Feature):
 
         Args:
             shell: shell to control the testing device.
-            hal_instrumentation_lib_path: directory that stores profiling libraries.
+            hal_instrumentation_lib_path: string, the path of directory that stores
+                                          profiling libraries.
         """
-        if not hal_instrumentation_lib_path:
+        hal_instrumentation_lib_path_32 = HAL_INSTRUMENTATION_LIB_PATH_32
+        hal_instrumentation_lib_path_64 = HAL_INSTRUMENTATION_LIB_PATH_64
+        if hal_instrumentation_lib_path is not None:
             bitness = getattr(self, keys.ConfigKeys.IKEY_ABI_BITNESS, None)
             if bitness == '64':
-                hal_instrumentation_lib_path = HAL_INSTRUMENTATION_LIB_PATH_64
+                hal_instrumentation_lib_path_64 = hal_instrumentation_lib_path
             elif bitness == '32':
-                hal_instrumentation_lib_path = HAL_INSTRUMENTATION_LIB_PATH_32
+                hal_instrumentation_lib_path_32 = hal_instrumentation_lib_path
             else:
                 logging.error('Unknown abi bitness "%s". Using 64bit hal '
                               'instrumentation lib path.', bitness)
-                hal_instrumentation_lib_path = HAL_INSTRUMENTATION_LIB_PATH_64
 
         # cleanup any existing traces.
         shell.Execute("rm " + os.path.join(TARGET_PROFILING_TRACE_PATH,
@@ -172,8 +174,11 @@ class ProfilingFeature(feature_utils.Feature):
         # give permission to write the trace file.
         shell.Execute("chmod 777 " + TARGET_PROFILING_TRACE_PATH)
 
-        shell.Execute("setprop hal.instrumentation.lib.path " +
-                      hal_instrumentation_lib_path)
+        shell.Execute("setprop hal.instrumentation.lib.path.32 " +
+                      hal_instrumentation_lib_path_32)
+        shell.Execute("setprop hal.instrumentation.lib.path.64 " +
+                      hal_instrumentation_lib_path_64)
+
         shell.Execute("setprop hal.instrumentation.enable true")
 
     def DisableVTSProfiling(self, shell):
@@ -206,7 +211,7 @@ class ProfilingFeature(feature_utils.Feature):
         trace_processor_lib = os.path.join(data_file_path, "host", "lib64")
         trace_processor_cmd = [
             "chmod a+x %s" % trace_processor_binary,
-            "LD_LIBRARY_PATH=%s %s --profiling %s" %
+            "LD_LIBRARY_PATH=%s %s -m profiling_trace %s" %
             (trace_processor_lib, trace_processor_binary, trace_file)
         ]
 

@@ -19,6 +19,7 @@ package com.android.calculator2;
 import com.hp.creals.CR;
 
 import java.math.BigInteger;
+import java.util.Objects;
 import java.util.Random;
 
 /**
@@ -59,6 +60,60 @@ public class BoundedRational {
     public BoundedRational(long n) {
         mNum = BigInteger.valueOf(n);
         mDen = BigInteger.valueOf(1);
+    }
+
+    /**
+     * Produce BoundedRational equal to the given double.
+     */
+    public static BoundedRational valueOf(double x) {
+        final long l = Math.round(x);
+        if ((double) l == x && Math.abs(l) <= 1000) {
+            return valueOf(l);
+        }
+        final long allBits = Double.doubleToRawLongBits(Math.abs(x));
+        long mantissa = (allBits & ((1L << 52) - 1));
+        final int biased_exp = (int)(allBits >>> 52);
+        if ((biased_exp & 0x7ff) == 0x7ff) {
+            throw new ArithmeticException("Infinity or NaN not convertible to BoundedRational");
+        }
+        final long sign = x < 0.0 ? -1 : 1;
+        int exp = biased_exp - 1075;  // 1023 + 52; we treat mantissa as integer.
+        if (biased_exp == 0) {
+            exp += 1;  // Denormal exponent is 1 greater.
+        } else {
+            mantissa += (1L << 52);  // Implied leading one.
+        }
+        BigInteger num = BigInteger.valueOf(sign * mantissa);
+        BigInteger den = BigInteger.ONE;
+        if (exp >= 0) {
+            num = num.shiftLeft(exp);
+        } else {
+            den = den.shiftLeft(-exp);
+        }
+        return new BoundedRational(num, den);
+    }
+
+    /**
+     * Produce BoundedRational equal to the given long.
+     */
+    public static BoundedRational valueOf(long x) {
+        if (x >= -2 && x <= 10) {
+            switch((int) x) {
+              case -2:
+                return MINUS_TWO;
+              case -1:
+                return MINUS_ONE;
+              case 0:
+                return ZERO;
+              case 1:
+                return ONE;
+              case 2:
+                return TWO;
+              case 10:
+                return TEN;
+            }
+        }
+        return new BoundedRational(x);
     }
 
     /**
@@ -108,12 +163,50 @@ public class BoundedRational {
 
     /**
      * Return a double approximation.
-     * The result is correctly rounded if numerator and denominator are
-     * exactly representable as a double.
-     * TODO: This should always be correctly rounded.
+     * The result is correctly rounded to nearest, with ties rounded away from zero.
+     * TODO: Should round ties to even.
      */
     public double doubleValue() {
-        return mNum.doubleValue() / mDen.doubleValue();
+        final int sign = signum();
+        if (sign < 0) {
+            return -BoundedRational.negate(this).doubleValue();
+        }
+        // We get the mantissa by dividing the numerator by denominator, after
+        // suitably prescaling them so that the integral part of the result contains
+        // enough bits. We do the prescaling to avoid any precision loss, so the division result
+        // is correctly truncated towards zero.
+        final int apprExp = mNum.bitLength() - mDen.bitLength();
+        if (apprExp < -1100 || sign == 0) {
+            // Bail fast for clearly zero result.
+            return 0.0;
+        }
+        final int neededPrec = apprExp - 80;
+        final BigInteger dividend = neededPrec < 0 ? mNum.shiftLeft(-neededPrec) : mNum;
+        final BigInteger divisor = neededPrec > 0 ? mDen.shiftLeft(neededPrec) : mDen;
+        final BigInteger quotient = dividend.divide(divisor);
+        final int qLength = quotient.bitLength();
+        int extraBits = qLength - 53;
+        int exponent = neededPrec + qLength;  // Exponent assuming leading binary point.
+        if (exponent >= -1021) {
+            // Binary point is actually to right of leading bit.
+            --exponent;
+        } else {
+            // We're in the gradual underflow range. Drop more bits.
+            extraBits += (-1022 - exponent) + 1;
+            exponent = -1023;
+        }
+        final BigInteger bigMantissa =
+                quotient.add(BigInteger.ONE.shiftLeft(extraBits - 1)).shiftRight(extraBits);
+        if (exponent > 1024) {
+            return Double.POSITIVE_INFINITY;
+        }
+        if (exponent > -1023 && bigMantissa.bitLength() != 53
+                || exponent <= -1023 && bigMantissa.bitLength() >= 53) {
+            throw new AssertionError("doubleValue internal error");
+        }
+        final long mantissa = bigMantissa.longValue();
+        final long bits = (mantissa & ((1l << 52) - 1)) | (((long) exponent + 1023) << 52);
+        return Double.longBitsToDouble(bits);
     }
 
     public CR crValue() {
@@ -138,6 +231,10 @@ public class BoundedRational {
         }
     }
 
+    /**
+     * Is this number too big for us to continue with rational arithmetic?
+     * We return fals for integers on the assumption that we have no better fallback.
+     */
     private boolean tooBig() {
         if (mDen.equals(BigInteger.ONE)) {
             return false;
@@ -198,8 +295,16 @@ public class BoundedRational {
         return mNum.signum() * mDen.signum();
     }
 
-    public boolean equals(BoundedRational r) {
-        return compareTo(r) == 0;
+    @Override
+    public int hashCode() {
+        // Note that this may be too expensive to be useful.
+        BoundedRational reduced = reduce().positiveDen();
+        return Objects.hash(reduced.mNum, reduced.mDen);
+    }
+
+    @Override
+    public boolean equals(Object r) {
+        return r != null && r instanceof BoundedRational && compareTo((BoundedRational) r) == 0;
     }
 
     // We use static methods for arithmetic, so that we can easily handle the null case.  We try
@@ -332,6 +437,7 @@ public class BoundedRational {
     public final static BoundedRational MINUS_NINETY = new BoundedRational(-90);
 
     private static final BigInteger BIG_TWO = BigInteger.valueOf(2);
+    private static final BigInteger BIG_MINUS_ONE = BigInteger.valueOf(-1);
 
     /**
      * Compute integral power of this, assuming this has been reduced and exp is >= 0.
@@ -350,31 +456,58 @@ public class BoundedRational {
         if (Thread.interrupted()) {
             throw new CR.AbortedException();
         }
-        return rawMultiply(tmp, tmp);
+        BoundedRational result = rawMultiply(tmp, tmp);
+        if (result == null || result.tooBig()) {
+            return null;
+        }
+        return result;
     }
 
     /**
      * Compute an integral power of this.
      */
     public BoundedRational pow(BigInteger exp) {
-        if (exp.signum() < 0) {
-            return inverse(pow(exp.negate()));
+        int expSign = exp.signum();
+        if (expSign == 0) {
+            // Questionable if base has undefined or zero value.
+            // java.lang.Math.pow() returns 1 anyway, so we do the same.
+            return BoundedRational.ONE;
         }
         if (exp.equals(BigInteger.ONE)) {
             return this;
         }
         // Reducing once at the beginning means there's no point in reducing later.
-        return reduce().rawPow(exp);
+        BoundedRational reduced = reduce().positiveDen();
+        // First handle cases in which huge exponents could give compact results.
+        if (reduced.mDen.equals(BigInteger.ONE)) {
+            if (reduced.mNum.equals(BigInteger.ZERO)) {
+                return ZERO;
+            }
+            if (reduced.mNum.equals(BigInteger.ONE)) {
+                return ONE;
+            }
+            if (reduced.mNum.equals(BIG_MINUS_ONE)) {
+                if (exp.testBit(0)) {
+                    return MINUS_ONE;
+                } else {
+                    return ONE;
+                }
+            }
+        }
+        if (exp.bitLength() > 1000) {
+            // Stack overflow is likely; a useful rational result is not.
+            return null;
+        }
+        if (expSign < 0) {
+            return inverse(reduced).rawPow(exp.negate());
+        } else {
+            return reduced.rawPow(exp);
+        }
     }
 
     public static BoundedRational pow(BoundedRational base, BoundedRational exp) {
         if (exp == null) {
             return null;
-        }
-        if (exp.mNum.signum() == 0) {
-            // Questionable if base has undefined value.  Java.lang.Math.pow() returns 1 anyway,
-            // so we do the same.
-            return new BoundedRational(1);
         }
         if (base == null) {
             return null;
@@ -388,7 +521,6 @@ public class BoundedRational {
 
 
     private static final BigInteger BIG_FIVE = BigInteger.valueOf(5);
-    private static final BigInteger BIG_MINUS_ONE = BigInteger.valueOf(-1);
 
     /**
      * Return the number of decimal digits to the right of the decimal point required to represent

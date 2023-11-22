@@ -41,7 +41,7 @@
     <string name="menu_compress" msgid="37539111904724188">"ਆਕਾਰ ਛੋਟਾ ਕਰੋ"</string>
     <string name="menu_extract" msgid="8171946945982532262">"ਇਸ ਵਿੱਚ ਐਕਸਟ੍ਰੈਕਟ ਕਰੋ…"</string>
     <string name="menu_rename" msgid="1883113442688817554">"ਮੁੜ-ਨਾਮਕਰਨ ਕਰੋ"</string>
-    <string name="menu_inspector" msgid="8217713416277319588">"ਜਾਣਕਾਰੀ ਪ੍ਰਾਪਤ ਕਰੋ"</string>
+    <string name="menu_inspect" msgid="7279855349299446224">"ਜਾਣਕਾਰੀ ਪ੍ਰਾਪਤ ਕਰੋ"</string>
     <string name="menu_view_in_owner" msgid="7228948660557554770">"<xliff:g id="SOURCE">%1$s</xliff:g> ਵਿੱਚ ਦੇਖੋ"</string>
     <string name="menu_new_window" msgid="2947837751796109126">"ਨਵੀਂ ਵਿੰਡੋ"</string>
     <string name="menu_cut_to_clipboard" msgid="2878752142015026229">"ਕੱਟੋ"</string>
@@ -57,6 +57,8 @@
     <string name="button_move" msgid="8596460499325291272">"ਤਬਦੀਲ ਕਰੋ"</string>
     <string name="button_dismiss" msgid="7235249361023803349">"ਖਾਰਜ ਕਰੋ"</string>
     <string name="button_retry" msgid="4011461781916631389">"ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ"</string>
+    <string name="button_clear" msgid="5412304437764369441">"ਕਲੀਅਰ ਕਰੋ"</string>
+    <string name="button_show_provider" msgid="6905880493806292753">"ਪ੍ਰਦਾਨਕ ਸੇਵਾ ਵਿੱਚ ਦਿਖਾਓ"</string>
     <string name="not_sorted" msgid="7813496644889115530">"ਛਾਂਟੀ ਨਹੀਂ ਕੀਤੀ ਗਈ"</string>
     <string name="sort_dimension_name" msgid="6325591541414177579">"ਨਾਮ"</string>
     <string name="sort_dimension_summary" msgid="7724534446881397860">"ਸਾਰਾਂਸ਼"</string>
@@ -64,14 +66,6 @@
     <string name="sort_dimension_size" msgid="2190547351159472884">"ਆਕਾਰ"</string>
     <string name="sort_dimension_date" msgid="4231005651895254033">"ਸੋਧਣ ਦਾ ਸਮਾਂ"</string>
     <string name="directory_items" msgid="6645621978998614003">"ਆਈਟਮਾਂ ਦੀ ਗਿਣਤੀ"</string>
-    <string name="handler_app_file_opens_with" msgid="2667097605117000751">"ਇਸ ਕਿਸਮ ਦੀ ਫ਼ਾਈਲ ਇਸ ਨਾਲ ਖੁੱਲ੍ਹਦੀ ਹੈ:"</string>
-    <string name="handler_app_belongs_to" msgid="5956928604521893459">"ਇਹ ਫ਼ਾਈਲ ਇਸ ਨਾਲ ਸਬੰਧਿਤ ਹੈ:"</string>
-    <string name="handler_app_button_info_1" msgid="4271199640671067569">"ਦੂਜੀਆਂ ਐਪਾਂ ਇਸ ਫ਼ਾਈਲ ਕਿਸਮ ਨੂੰ ਖੋਲ੍ਹ ਸਕਦੀਆਂ ਹਨ। ਕਲੀਅਰ ਕਰੋ"</string>
-    <string name="handler_app_button_info_2" msgid="4299969771512815898">"ਪੂਰਵ-ਨਿਰਧਾਰਤ ਵਜੋਂ।"</string>
-    <string name="handler_app_clear" msgid="206579047716445033">"ਕਲੀਅਰ ਕਰੋ"</string>
-    <string name="handler_app_show_in" msgid="7923573101129079048">"ਪ੍ਰਦਾਨਕ ਵਿੱਚ ਦਿਖਾਓ"</string>
-    <string name="handler_app_not_selected" msgid="8178393676227130360">"ਚੁਣੀ ਨਹੀਂ ਗਈ"</string>
-    <string name="handler_app_unknown" msgid="56574249066388341">"ਅਗਿਆਤ"</string>
     <string name="sort_direction_ascending" msgid="5882787683763248102">"ਵਧਦਾ ਕ੍ਰਮ"</string>
     <string name="sort_direction_descending" msgid="1729187589765894076">"ਘਟਦਾ ਕ੍ਰਮ"</string>
     <string name="drawer_open" msgid="8071673398187261741">"ਰੂਟਾਂ ਨੂੰ  ਦਿਖਾਓ"</string>
@@ -90,7 +84,6 @@
     <string name="toast_no_application" msgid="7555319548595113121">"ਫ਼ਾਈਲ ਨੂੰ ਖੋਲ੍ਹਿਆ ਨਹੀਂ ਜਾ ਸਕਦਾ"</string>
     <string name="toast_view_in_archives_unsupported" msgid="1923221390170964845">"ਪੁਰਾਲੇਖਾਂ ਵਿੱਚ ਫ਼ਾਈਲਾਂ ਨੂੰ ਖੋਲ੍ਹਿਆ ਨਹੀਂ ਜਾ ਸਕਦਾ"</string>
     <string name="toast_failed_delete" msgid="3453846588205817591">"ਕੁਝ ਦਸਤਾਵੇਜ਼ਾਂ ਨੂੰ ਮਿਟਾਉਣ ਦੇ ਅਯੋਗ"</string>
-    <string name="file_inspector_load_error" msgid="1226344446677541109">"ਵਿਸ਼ੇਸ਼ਤਾਵਾਂ ਨੂੰ ਲੋਡ ਨਹੀਂ ਕੀਤਾ ਜਾ ਸਕਿਆ"</string>
     <string name="share_via" msgid="8725082736005677161">"ਇਸ ਰਾਹੀਂ ਸਾਂਝਾ ਕਰੋ"</string>
     <string name="copy_notification_title" msgid="52256435625098456">"ਫ਼ਾਈਲਾਂ ਕਾਪੀ ਕਰ ਰਿਹਾ ਹੈ"</string>
     <string name="compress_notification_title" msgid="6830195148113751021">"ਆਕਾਰ ਛੋਟਾ ਕੀਤਾ ਜਾ ਰਿਹਾ"</string>
@@ -119,11 +112,11 @@
       <item quantity="other"><xliff:g id="COUNT_1">%1$d</xliff:g> ਆਈਟਮਾਂ ਨੂੰ ਮਿਟਾਇਆ ਜਾ ਰਿਹਾ ਹੈ।</item>
     </plurals>
     <string name="undo" msgid="2902438994196400565">"ਅਣਕੀਤਾ ਕਰੋ"</string>
-    <string name="copy_preparing" msgid="5326063807006898223">"ਕਾਪੀ ਕਰਨ ਦੀ ਤਿਆਰੀ ਹੋ ਰਹੀ ਹੈ…"</string>
-    <string name="compress_preparing" msgid="6650018601382062672">"ਆਕਾਰ ਛੋਟਾ ਕਰਨ ਦੀ ਤਿਆਰੀ ਅਧੀਨ…"</string>
-    <string name="extract_preparing" msgid="58266275455027829">"ਐਕਸਟ੍ਰੈਕਟ ਕਰਨ ਦੀ ਤਿਆਰੀ…"</string>
-    <string name="move_preparing" msgid="8742573245485449429">"ਤਬਦੀਲ ਕਰਨ ਦੀ ਤਿਆਰੀ ਹੋ ਰਹੀ ਹੈ…"</string>
-    <string name="delete_preparing" msgid="6513863752916028147">"ਮਿਟਾਉਣ ਦੀ ਤਿਆਰੀ ਕੀਤੀ ਜਾ ਰਹੀ ਹੈ…"</string>
+    <string name="copy_preparing" msgid="4759516490222449324">"ਤਿਆਰ ਕੀਤੀਆਂ ਜਾ ਰਹੀਆਂ ਹਨ..."</string>
+    <string name="compress_preparing" msgid="7401605598969019696">"ਤਿਆਰ ਕੀਤੀਆਂ ਜਾ ਰਹੀਆਂ ਹਨ..."</string>
+    <string name="extract_preparing" msgid="4796626960061745796">"ਤਿਆਰ ਕੀਤੀਆਂ ਜਾ ਰਹੀਆਂ ਹਨ..."</string>
+    <string name="move_preparing" msgid="6504239656430530761">"ਤਿਆਰ ਕੀਤੀਆਂ ਜਾ ਰਹੀਆਂ ਹਨ..."</string>
+    <string name="delete_preparing" msgid="7339349837842802508">"ਤਿਆਰ ਕੀਤੀਆਂ ਜਾ ਰਹੀਆਂ ਹਨ..."</string>
     <string name="delete_progress" msgid="2627631054702306423">"<xliff:g id="COUNT_0">%1$d</xliff:g> / <xliff:g id="TOTALCOUNT">%2$d</xliff:g>"</string>
     <plurals name="copy_error_notification_title" formatted="false" msgid="3188432450429390963">
       <item quantity="one"><xliff:g id="COUNT_1">%1$d</xliff:g> ਆਈਟਮਾਂ ਨੂੰ ਕਾਪੀ ਨਹੀਂ ਕੀਤਾ ਜਾ ਸਕਿਆ</item>
@@ -213,5 +206,4 @@
     <string name="new_archive_file_name" msgid="1604650338077249838">"ਪੁਰਾਲੇਖ<xliff:g id="EXTENSION">%s</xliff:g>"</string>
     <string name="overwrite_file_confirmation_message" msgid="2496109652768222716">"<xliff:g id="NAME">%1$s</xliff:g> ਉੱਤੇ ਲਿਖੀਏ?"</string>
     <string name="continue_in_background" msgid="1974214559047793331">"ਬੈਕਗ੍ਰਾਊਂਡ ਵਿੱਚ ਜਾਰੀ ਰੱਖੋ"</string>
-    <string name="inspector_debug_section" msgid="3447621501565766900">"ਡੀਬੱਗ ਜਾਣਕਾਰੀ (ਸਿਰਫ਼ ਵਿਕਾਸਕਾਰ)"</string>
 </resources>

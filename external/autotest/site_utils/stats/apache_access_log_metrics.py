@@ -11,6 +11,7 @@ from __future__ import print_function
 import argparse
 import re
 import sys
+import urlparse
 
 import common
 
@@ -18,6 +19,10 @@ from chromite.lib import ts_mon_config
 from chromite.lib import metrics
 
 from autotest_lib.site_utils.stats import log_daemon_common
+# Not used, but needed for importing rpc_interface.
+from autotest_lib.frontend import setup_django_environment
+from autotest_lib.frontend.afe import rpc_interface
+from autotest_lib.frontend.afe import moblab_rpc_interface
 
 
 """
@@ -69,20 +74,16 @@ ACCESS_MATCHER = re.compile(
 ACCESS_TIME_METRIC = '/chromeos/autotest/http/server/response_seconds'
 ACCESS_BYTES_METRIC = '/chromeos/autotest/http/server/response_bytes'
 
+RPC_ACCESS_TIME_METRIC = '/chromeos/autotest/http/server/rpc/response_seconds'
+RPC_ACCESS_BYTES_METRIC = '/chromeos/autotest/http/server/rpc/response_bytes'
+RPC_METHOD_ARGUMENT = 'method'
 
-# TODO(phobbs) use something more systematic than a whitelist.
+
+# TODO(phobbs) use a memory-efficient structure to detect non-unique paths.
+# We can't just include the endpoint because it will cause a cardinality
+# explosion.
 WHITELISTED_ENDPOINTS = frozenset((
     '/',
-    '/afe/clear.cache.gif',
-    '/afe/Open+Sans:300.woff',
-    '/embedded_spreadsheet/autotest.EmbeddedSpreadsheetClient.nocache.js',
-    '/afe/afeclient.css',
-    '/afe/common.css',
-    '/afe/header.png',
-    '/afe/spinner.gif',
-    '/afe/standard.css',
-    '/afe/2371F6F3D4E42171A3563D94B7BF42BF.cache.html',
-    '/afe/autotest.AfeClient.nocache.js',
     '/afe/',
     '/new_tko/server/rpc/',
     '/afe/server/rpc/',
@@ -92,20 +93,28 @@ WHITELISTED_ENDPOINTS = frozenset((
 ))
 
 
+# A bad actor could DOS Monarch by requesting millions of different RPC methods,
+# each of which would create a different stream. Only allow a whitelist of
+# methods to be recorded in Monarch.
+WHITELISTED_METHODS = (frozenset(dir(rpc_interface)) |
+                       frozenset(dir(moblab_rpc_interface)))
+
+
 def EmitRequestMetrics(m):
     """Emits metrics for each line in the access log.
 
     @param m: A regex match object
     """
-    # TODO(phobbs) use a memory-efficient structure to detect non-unique paths.
-    # We can't just include the endpoint because it will cause a cardinality
-    # explosion.
-    endpoint = SanitizeEndpoint(m.group('endpoint'))
     fields = {
         'request_method': m.groupdict().get('request_method', ''),
-        'endpoint': endpoint,
+        'endpoint': SanitizeEndpoint(m.group('endpoint')),
         'response_code': int(m.group('response_code')),
     }
+
+    send_rpc_metrics = (
+        '?' in m.group('endpoint') and '/rpc' in m.group('endpoint'))
+    if send_rpc_metrics:
+      EmitRPCMetrics(m)
 
     # Request seconds and bytes sent are both extremely high cardinality, so
     # they must be the VAL of a metric, not a metric field.
@@ -117,6 +126,34 @@ def EmitRequestMetrics(m):
     bytes_sent = int(m.group('bytes_sent'))
     metrics.CumulativeDistribution(ACCESS_BYTES_METRIC).add(
         bytes_sent, fields=fields)
+
+
+def EmitRPCMetrics(m):
+  """Emit a special metric including the method when the request was an RPC."""
+  fields = {
+      'request_method': m.groupdict().get('request_method', ''),
+      'rpc_method': ParseRPCMethod(m.group('endpoint')),
+      'response_code': int(m.group('response_code')),
+  }
+
+  if m.group('response_seconds'):
+    response_seconds = int(m.group('response_seconds'))
+    metrics.SecondsDistribution(RPC_ACCESS_TIME_METRIC).add(
+        response_seconds, fields=fields)
+
+  bytes_sent = int(m.group('bytes_sent'))
+  metrics.CumulativeDistribution(RPC_ACCESS_BYTES_METRIC).add(
+    bytes_sent, fields=fields)
+
+
+def ParseRPCMethod(url):
+  """Parses the RPC method from an RPC query string.
+
+  Args:
+    url: The URL requested.
+  """
+  query = urlparse.urlparse(url).query
+  return urlparse.parse_qs(query)[RPC_METHOD_ARGUMENT][-1]
 
 
 def SanitizeEndpoint(endpoint):

@@ -14,6 +14,7 @@ keyTypeData:table(nofallback){
         }
         valueType{
             ca{"incremental"}
+            h0{"single"}
             kr{"multiple"}
             vt{"multiple"}
             x0{"any"}
@@ -36,6 +37,7 @@ keyTypeData:table(nofallback){
         d0{""}
         em{""}
         fw{""}
+        h0{""}
         hours{"hc"}
         i0{""}
         k0{""}
@@ -216,6 +218,7 @@ keyTypeData:table(nofallback){
             buk{""}
             bwp{""}
             byb{""}
+            byn{""}
             byr{""}
             bzd{""}
             cad{""}
@@ -226,6 +229,7 @@ keyTypeData:table(nofallback){
             cle{""}
             clf{""}
             clp{""}
+            cnh{""}
             cnx{""}
             cny{""}
             cop{""}
@@ -389,6 +393,7 @@ keyTypeData:table(nofallback){
             srg{""}
             ssp{""}
             std{""}
+            stn{""}
             sur{""}
             svc{""}
             syp{""}
@@ -497,6 +502,9 @@ keyTypeData:table(nofallback){
             tue{""}
             wed{""}
         }
+        h0{
+            hybrid{""}
+        }
         hours{
             h11{""}
             h12{""}
@@ -602,6 +610,7 @@ keyTypeData:table(nofallback){
             finance{""}
             fullwide{""}
             geor{""}
+            gonm{""}
             grek{""}
             greklow{""}
             gujr{""}

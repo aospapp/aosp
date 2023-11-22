@@ -25,6 +25,10 @@ cc_binary {
         "liblog",
         "libnetd_client",
     ],
-    cflags: ["-DANDROID_CHANGES"],
+    cflags: [
+        "-DANDROID_CHANGES",
+        "-Wall",
+        "-Werror",
+    ],
     init_rc: ["mtpd.rc"],
 }

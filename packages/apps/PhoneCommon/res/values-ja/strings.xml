@@ -37,9 +37,14 @@
     <string name="callFailed_simError" msgid="3307159523385380486">"SIMがない、またはSIMエラー"</string>
     <string name="callFailed_outOfService" msgid="4535901975891969115">"モバイルネットワークが利用できません"</string>
     <string name="callFailed_fdn_only" msgid="1720606112619022283">"発信は発信番号制限によって制限されています。"</string>
-    <string name="callFailed_dialToUssd" msgid="2093563828737170617">"DIALリクエストはUSSDリクエストに変更されました。"</string>
-    <string name="callFailed_dialToSs" msgid="3144952834772702469">"DIALリクエストはSSリクエストに変更されました。"</string>
-    <string name="callFailed_dialToDial" msgid="1143052062100334634">"DIALリクエストは別の番号のDIALに変更されました。"</string>
+    <string name="callFailed_dialToUssd" msgid="2433610980015734954">"通話は USSD リクエストに変更されました"</string>
+    <string name="callFailed_dialToSs" msgid="1932708241240329683">"通話は SS リクエストに変更されました"</string>
+    <string name="callFailed_dialToDial" msgid="4383070508519313539">"別の番号に変更されました"</string>
+    <string name="callFailed_dialToDialVideo" msgid="5132568145494398814">"ビデオハングアウトに変更されました"</string>
+    <string name="callFailed_dialVideoToSs" msgid="4775276313558039477">"ビデオハングアウトは SS リクエストに変更されました"</string>
+    <string name="callFailed_dialVideoToUssd" msgid="3075648968404725328">"ビデオハングアウトは USSD リクエストに変更されました"</string>
+    <string name="callFailed_dialVideoToDial" msgid="7758276428184272770">"通常の通話に変更されました"</string>
+    <string name="callFailed_dialVideoToDialVideo" msgid="5451053686606499859">"別の番号に変更されました"</string>
     <string name="callFailed_cb_enabled" msgid="4745550615395092407">"通話制限中は発信できません。"</string>
     <string name="callFailed_dsac_restricted" msgid="4087941056515103695">"通話の発信制限が設定されています。"</string>
     <string name="callFailed_dsac_restricted_emergency" msgid="9031535611092828510">"緊急通報の発信制限が設定されています。"</string>

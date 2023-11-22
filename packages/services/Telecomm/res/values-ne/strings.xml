@@ -82,5 +82,19 @@
     <string name="cant_call_due_to_ongoing_unknown_call" msgid="149091978697302211">"अर्को अनुप्रयोगमा जारी कलका कारण कल गर्न सकिँदैन।"</string>
     <string name="notification_channel_incoming_call" msgid="3513761697082968084">"आगमन कलहरू"</string>
     <string name="notification_channel_missed_call" msgid="8727062678632713146">"छुटेका कलहरू"</string>
+    <string name="notification_channel_call_blocking" msgid="2943358779746676070">"कलमाथि रोक लगाउने सुविधा"</string>
     <string name="alert_outgoing_call" msgid="982908156825958001">"यो कल गर्नुले तपाईंको <xliff:g id="OTHER_APP">%1$s</xliff:g> कल अन्त्य गर्दछ।"</string>
+    <string name="phone_settings_call_blocking_txt" msgid="3976004073043846733">"कलमाथि रोक लगाउने सुविधा"</string>
+    <string name="phone_settings_number_not_in_contact_txt" msgid="3126829421867168652">"सम्पर्क सूचीहरूमा नरहेका नम्बरहरू"</string>
+    <string name="phone_settings_number_not_in_contact_summary_txt" msgid="9043147855140079119">"आफ्नो सम्पर्क सूचीहरूमा सूचीबद्ध नगरिएका नम्बरहरूमाथि रोक लगाउनुहोस्"</string>
+    <string name="phone_settings_private_num_txt" msgid="8623574188879134262">"निजी"</string>
+    <string name="phone_settings_private_num_summary_txt" msgid="7516314821207782191">"आफ्नो नम्बरको खुलासा नगरी कल गर्ने व्यक्तिहरूमाथि रोक लगाउनुहोस्"</string>
+    <string name="phone_settings_payphone_txt" msgid="2493356957416981318">"पे फोन"</string>
+    <string name="phone_settings_payphone_summary_txt" msgid="6126709946103814653">"पे फोनहरूबाट आउने कलहरूमाथि रोक लगाउनुहोस्"</string>
+    <string name="phone_settings_unknown_txt" msgid="5836407031508172721">"अज्ञात"</string>
+    <string name="phone_settings_unknown_summary_txt" msgid="3457690230497753233">"अज्ञात कल गर्ने व्यक्तिहरूको कलमाथि रोक लगाउनुहोस्"</string>
+    <string name="phone_strings_call_blocking_turned_off_notification_title_txt" msgid="628536625775266096">"कलमाथि रोक लगाउने सुविधा"</string>
+    <string name="phone_strings_call_blocking_turned_off_notification_text_txt" msgid="6264230048947693941">"कलमाथि रोक लगाउने सुविधालाई असक्षम पारियो"</string>
+    <string name="phone_strings_emergency_call_made_dialog_title_txt" msgid="7421611725400166580">"आपतकालीन कल गरियो"</string>
+    <string name="phone_strings_emergency_call_made_dialog_call_blocking_text_txt" msgid="4083285098613193052">"आपतकालीन अवस्थामा उद्दार गर्ने मान्छेहरूलाई तपाईंलाई सम्पर्क गर्न दिन कलमाथि रोक लगाउने सुविधा असक्षम पारिएको छ।"</string>
 </resources>

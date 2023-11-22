@@ -19,12 +19,9 @@ cc_binary {
     proprietary: true,
     srcs: ["main.c", "hw.c", "buffer.c", "payload.c"],
     shared_libs: ["liblog", "libese"],
-    host_ldlibs: ["-ldl"],
     host_supported: true,
+    cflags: ["-Wall", "-Werror"],
     target: {
-        android: {
-          shared_libs: ["libdl"],
-        },
         darwin: {
             enabled: false,
         },

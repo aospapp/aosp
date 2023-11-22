@@ -17,6 +17,7 @@
 package com.android.documentsui.inspector.actions;
 
 import android.annotation.Nullable;
+import android.annotation.StringRes;
 import android.content.Context;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
@@ -53,6 +54,8 @@ public abstract class Action {
     public abstract boolean canPerformAction();
 
     public abstract @Nullable String getPackageName();
+
+    public abstract @StringRes int getButtonLabel();
 
     public @Nullable Drawable getAppIcon() {
 

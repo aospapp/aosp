@@ -24,6 +24,7 @@ import common
 from autotest_lib.frontend.afe import rpc_client_lib
 from autotest_lib.client.common_lib import control_data
 from autotest_lib.client.common_lib import global_config
+from autotest_lib.client.common_lib import host_states
 from autotest_lib.client.common_lib import priorities
 from autotest_lib.client.common_lib import utils
 from autotest_lib.tko import db
@@ -89,7 +90,7 @@ class RpcClient(object):
         self.debug = debug
         self.reply_debug = reply_debug
         headers = {'AUTHORIZATION': self.user}
-        rpc_server = 'http://' + server + path
+        rpc_server = rpc_client_lib.add_protocol(server) + path
         if debug:
             print 'SERVER: %s' % rpc_server
             print 'HEADERS: %s' % headers
@@ -545,6 +546,15 @@ class AFE(RpcClient):
         return self.run('reverify_hosts', **query_args)
 
 
+    def repair_hosts(self, hostnames=(), status=None, label=None):
+        query_args = dict(locked=False,
+                          aclgroup__users__login=self.user)
+        query_args.update(self._dict_for_host_query(hostnames=hostnames,
+                                                    status=status,
+                                                    label=label))
+        return self.run('repair_hosts', **query_args)
+
+
     def create_host(self, hostname, **dargs):
         id = self.run('add_host', hostname=hostname, **dargs)
         return self.get_hosts(id=id)[0]
@@ -798,11 +808,15 @@ class Label(RpcObject):
 
 
     def add_hosts(self, hosts):
-        return self.afe.run('label_add_hosts', id=self.id, hosts=hosts)
+        # We must use the label's name instead of the id because label ids are
+        # not consistent across master-shard.
+        return self.afe.run('label_add_hosts', id=self.name, hosts=hosts)
 
 
     def remove_hosts(self, hosts):
-        return self.afe.run('label_remove_hosts', id=self.id, hosts=hosts)
+        # We must use the label's name instead of the id because label ids are
+        # not consistent across master-shard.
+        return self.afe.run('label_remove_hosts', id=self.name, hosts=hosts)
 
 
 class Acl(RpcObject):
@@ -934,6 +948,15 @@ class Host(RpcObject):
     def remove_labels(self, labels):
         self.afe.log('Removing labels %s from host %s' % (labels,self.hostname))
         return self.afe.run('host_remove_labels', id=self.id, labels=labels)
+
+
+    def is_available(self):
+        """Check whether DUT host is available.
+
+        @return: bool
+        """
+        return not (self.locked
+                    or self.status in host_states.UNAVAILABLE_STATES)
 
 
 class User(RpcObject):

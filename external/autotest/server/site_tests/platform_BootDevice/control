@@ -17,6 +17,6 @@ This is useful for testing firmware.
 
 def run_bootdevice(machine):
     host = hosts.create_host(machine)
-    job.run_test("platform_BootDevice", host=host, iterations=10)
+    job.run_test("platform_BootDevice", host=host, reboot_iterations=10)
 
 parallel_simple(run_bootdevice, machines)

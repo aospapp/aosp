@@ -25,26 +25,26 @@
             android:id="@+id/container"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_margin="64px"
+            android:layout_margin="42dp"
             android:background="#BBBBBB">
         <FrameLayout
                 android:id="@+id/subcontainer"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_margin="64px"
+                android:layout_margin="42dp"
                 android:background="#666666">
             <View
                     android:id="@+id/inner"
-                    android:layout_width="64px"
-                    android:layout_height="64px"
-                    android:layout_margin="64px"
+                    android:layout_width="42dp"
+                    android:layout_height="42dp"
+                    android:layout_margin="42dp"
                     android:background="#00FF00" />
         </FrameLayout>
     </FrameLayout>
     <View
             android:id="@+id/draggable"
-            android:layout_width="64px"
-            android:layout_height="64px"
-            android:layout_margin="64px"
+            android:layout_width="42dp"
+            android:layout_height="42dp"
+            android:layout_margin="42dp"
             android:background="#0000FF" />
 </LinearLayout>

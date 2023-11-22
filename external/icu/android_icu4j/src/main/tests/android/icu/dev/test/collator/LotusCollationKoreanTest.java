@@ -8,46 +8,51 @@
  *******************************************************************************
  */
 
-/** 
+/**
  * Port From:   ICU4C v2.1 : Collate/LotusCollationKoreanTest
  * Source File: $ICU4CRoot/source/test/intltest/lcukocol.cpp
  **/
- 
+
 package android.icu.dev.test.collator;
- 
+
 import java.util.Locale;
 
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import android.icu.dev.test.TestFmwk;
 import android.icu.text.CollationKey;
 import android.icu.text.Collator;
- 
+import android.icu.testsharding.MainTestShard;
+
+@MainTestShard
+@RunWith(JUnit4.class)
 public class LotusCollationKoreanTest extends TestFmwk{
     private static char[][] testSourceCases = {
         {0xac00}
     };
-    
+
     private static char[][] testTargetCases = {
         {0xac01}
     };
-    
+
     private static int[] results = {
         -1
     };
-    
+
     private Collator myCollation;
-    
+
     public LotusCollationKoreanTest() {
     }
-    
+
     @Before
     public void init()throws Exception {
         myCollation = Collator.getInstance(Locale.KOREAN);
         myCollation.setDecomposition(Collator.CANONICAL_DECOMPOSITION);
     }
-    
+
     // performs test with strength TERIARY
     @Test
     public void TestTertiary() {
@@ -57,7 +62,7 @@ public class LotusCollationKoreanTest extends TestFmwk{
             doTest(testSourceCases[i], testTargetCases[i], results[i]);
             }
         }
-    
+
     // main test routine, tests rules specific to "Korean" locale
     private void doTest( char[] source, char[] target, int result) {
         String s = new String(source);
@@ -67,7 +72,7 @@ public class LotusCollationKoreanTest extends TestFmwk{
         sortKey1 = myCollation.getCollationKey(s);
         sortKey2 = myCollation.getCollationKey(t);
         int keyResult = sortKey1.compareTo(sortKey2);
-        reportCResult( s, t, sortKey1, sortKey2, compareResult, keyResult, compareResult, result ); 
+        reportCResult( s, t, sortKey1, sortKey2, compareResult, keyResult, compareResult, result );
     }
 
     private void reportCResult( String source, String target, CollationKey sourceKey, CollationKey targetKey,
@@ -82,13 +87,13 @@ public class LotusCollationKoreanTest extends TestFmwk{
         boolean ok3 = (incResult == expectedResult);
 
         if (ok1 && ok2 && ok3 && !isVerbose()) {
-            return;    
+            return;
         } else {
             String msg1 = ok1? "Ok: compare(\"" : "FAIL: compare(\"";
             String msg2 = "\", \"";
             String msg3 = "\") returned ";
             String msg4 = "; expected ";
-            
+
             String sExpect = new String("");
             String sResult = new String("");
             sResult = CollationTest.appendCompareResult(compareResult, sResult);
@@ -98,7 +103,7 @@ public class LotusCollationKoreanTest extends TestFmwk{
             } else {
                 errln(msg1 + source + msg2 + target + msg3 + sResult + msg4 + sExpect);
             }
-            
+
             msg1 = ok2 ? "Ok: key(\"" : "FAIL: key(\"";
             msg2 = "\").compareTo(key(\"";
             msg3 = "\")) returned ";
@@ -111,7 +116,7 @@ public class LotusCollationKoreanTest extends TestFmwk{
                 msg2 = " vs. ";
                 errln(msg1 + CollationTest.prettify(sourceKey) + msg2 + CollationTest.prettify(targetKey));
             }
-            
+
             msg1 = ok3 ? "Ok: incCompare(\"" : "FAIL: incCompare(\"";
             msg2 = "\", \"";
             msg3 = "\") returned ";
@@ -122,7 +127,7 @@ public class LotusCollationKoreanTest extends TestFmwk{
                 logln(msg1 + source + msg2 + target + msg3 + sResult);
             } else {
                 errln(msg1 + source + msg2 + target + msg3 + sResult + msg4 + sExpect);
-            }                
+            }
         }
     }
 }

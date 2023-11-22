@@ -16,20 +16,25 @@
 
 package android.permission2.cts;
 
+import static android.os.Build.VERSION.SECURITY_PATCH;
+
+import android.content.Context;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
+import android.content.pm.PackageManager.NameNotFoundException;
 import android.content.pm.PermissionGroupInfo;
 import android.content.pm.PermissionInfo;
+import android.platform.test.annotations.AppModeFull;
 import android.test.AndroidTestCase;
 import android.text.TextUtils;
 import android.util.ArrayMap;
 import android.util.ArraySet;
 import android.util.Log;
 import android.util.Xml;
+
 import org.xmlpull.v1.XmlPullParser;
 
 import java.io.InputStream;
-import java.lang.String;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -38,13 +43,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static android.os.Build.VERSION.SECURITY_PATCH;
-
 /**
  * Tests for permission policy on the platform.
  */
+@AppModeFull(reason = "Instant apps cannot read the system servers permission")
 public class PermissionPolicyTest extends AndroidTestCase {
-    private static final Date HIDE_NON_SYSTEM_OVERLAY_WINDOWS_PATCH_DATE = parseDate("2017-09-05");
+    private static final Date HIDE_NON_SYSTEM_OVERLAY_WINDOWS_PATCH_DATE = parseDate("2017-11-01");
     private static final String HIDE_NON_SYSTEM_OVERLAY_WINDOWS_PERMISSION
             = "android.permission.HIDE_NON_SYSTEM_OVERLAY_WINDOWS";
 
@@ -54,6 +58,8 @@ public class PermissionPolicyTest extends AndroidTestCase {
 
     private static final String PLATFORM_ROOT_NAMESPACE = "android.";
 
+    private static final String AUTOMOTIVE_SERVICE_PACKAGE_NAME = "com.android.car";
+
     private static final String TAG_PERMISSION = "permission";
 
     private static final String ATTR_NAME = "name";
@@ -61,14 +67,10 @@ public class PermissionPolicyTest extends AndroidTestCase {
     private static final String ATTR_PROTECTION_LEVEL = "protectionLevel";
 
     public void testPlatformPermissionPolicyUnaltered() throws Exception {
-        PackageInfo platformPackage = getContext().getPackageManager()
-                .getPackageInfo(PLATFORM_PACKAGE_NAME, PackageManager.GET_PERMISSIONS);
-        Map<String, PermissionInfo> declaredPermissionsMap = new ArrayMap<>();
-        List<String> offendingList = new ArrayList<String>();
+        Map<String, PermissionInfo> declaredPermissionsMap =
+                getPermissionsForPackage(getContext(), PLATFORM_PACKAGE_NAME);
 
-        for (PermissionInfo declaredPermission : platformPackage.permissions) {
-            declaredPermissionsMap.put(declaredPermission.name, declaredPermission);
-        }
+        List<String> offendingList = new ArrayList<>();
 
         List<PermissionGroupInfo> declaredGroups = getContext().getPackageManager()
                 .getAllPermissionGroups(0);
@@ -77,9 +79,16 @@ public class PermissionPolicyTest extends AndroidTestCase {
             declaredGroupsSet.add(declaredGroup.name);
         }
 
-        Set<String> expectedPermissionGroups = new ArraySet<String>();
+        Set<String> expectedPermissionGroups = new ArraySet<>();
+        List<PermissionInfo> expectedPermissions = loadExpectedPermissions(R.raw.android_manifest);
 
-        for (PermissionInfo expectedPermission : loadExpectedPermissions()) {
+        if (getContext().getPackageManager().hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE)) {
+            expectedPermissions.addAll(loadExpectedPermissions(R.raw.automotive_android_manifest));
+            declaredPermissionsMap.putAll(
+                    getPermissionsForPackage(getContext(), AUTOMOTIVE_SERVICE_PACKAGE_NAME));
+        }
+
+        for (PermissionInfo expectedPermission : expectedPermissions) {
             String expectedPermissionName = expectedPermission.name;
             if (shouldSkipPermission(expectedPermissionName)) {
                 continue;
@@ -110,10 +119,8 @@ public class PermissionPolicyTest extends AndroidTestCase {
             }
 
             // OEMs cannot change permission protection flags
-            final int expectedProtectionFlags = expectedPermission.protectionLevel
-                    & PermissionInfo.PROTECTION_MASK_FLAGS;
-            final int declaredProtectionFlags = declaredPermission.protectionLevel
-                    & PermissionInfo.PROTECTION_MASK_FLAGS;
+            final int expectedProtectionFlags = expectedPermission.getProtectionFlags();
+            final int declaredProtectionFlags = declaredPermission.getProtectionFlags();
             if (expectedProtectionFlags != declaredProtectionFlags) {
                 offendingList.add(
                         String.format(
@@ -127,12 +134,14 @@ public class PermissionPolicyTest extends AndroidTestCase {
             if ((declaredPermission.protectionLevel & PermissionInfo.PROTECTION_DANGEROUS) != 0) {
                 if (!expectedPermission.group.equals(declaredPermission.group)) {
                     offendingList.add(
-                            "Permission " + expectedPermissionName + " not in correct group");
+                            "Permission " + expectedPermissionName + " not in correct group "
+                            + "(expected=" + expectedPermission.group + " actual="
+                                    + declaredPermission.group);
                 }
 
                 if (!declaredGroupsSet.contains(declaredPermission.group)) {
                     offendingList.add(
-                            "Permission group " + expectedPermission.group + "must be defined");
+                            "Permission group " + expectedPermission.group + " must be defined");
                 }
             }
         }
@@ -140,7 +149,11 @@ public class PermissionPolicyTest extends AndroidTestCase {
         // OEMs cannot define permissions in the platform namespace
         for (String permission : declaredPermissionsMap.keySet()) {
             if (permission.startsWith(PLATFORM_ROOT_NAMESPACE)) {
-                offendingList.add("Cannot define permission in android namespace:" + permission);
+                final PermissionInfo permInfo = declaredPermissionsMap.get(permission);
+                offendingList.add(
+                        "Cannot define permission " + permission
+                        + ", package " + permInfo.packageName
+                        + " in android namespace");
             }
         }
 
@@ -149,13 +162,11 @@ public class PermissionPolicyTest extends AndroidTestCase {
             if (!expectedPermissionGroups.contains(declaredGroup.name)) {
                 if (declaredGroup.name != null) {
                     if (declaredGroup.packageName.equals(PLATFORM_PACKAGE_NAME)
-                            || declaredGroup.name.startsWith(PLATFORM_ROOT_NAMESPACE)) {
+                            && declaredGroup.name.startsWith(PLATFORM_ROOT_NAMESPACE)) {
                         offendingList.add(
-                                "Cannot define group "
-                                        + declaredGroup.name
-                                        + ", package "
-                                        + declaredGroup.packageName
-                                        + " in android namespace");
+                                "Cannot define group " + declaredGroup.name
+                                + ", package " + declaredGroup.packageName
+                                + " in android namespace");
                     }
                 }
             }
@@ -177,12 +188,9 @@ public class PermissionPolicyTest extends AndroidTestCase {
         assertTrue(errMsg, offendingList.isEmpty());
     }
 
-    private List<PermissionInfo> loadExpectedPermissions() throws Exception {
+    private List<PermissionInfo> loadExpectedPermissions(int resourceId) throws Exception {
         List<PermissionInfo> permissions = new ArrayList<>();
-        try (
-                InputStream in = getContext().getResources()
-                        .openRawResource(android.permission2.cts.R.raw.android_manifest)
-        ) {
+        try (InputStream in = getContext().getResources().openRawResource(resourceId)) {
             XmlPullParser parser = Xml.newPullParser();
             parser.setInput(in, null);
 
@@ -250,8 +258,14 @@ public class PermissionPolicyTest extends AndroidTestCase {
                 case "privileged": {
                     protectionLevel |= PermissionInfo.PROTECTION_FLAG_PRIVILEGED;
                 } break;
+                case "vendorPrivileged": {
+                    protectionLevel |= PermissionInfo.PROTECTION_FLAG_VENDOR_PRIVILEGED;
+                } break;
                 case "setup": {
                     protectionLevel |= PermissionInfo.PROTECTION_FLAG_SETUP;
+                } break;
+                case "textClassifier": {
+                    protectionLevel |= PermissionInfo.PROTECTION_FLAG_SYSTEM_TEXT_CLASSIFIER;
                 } break;
                 case "instant": {
                     protectionLevel |= PermissionInfo.PROTECTION_FLAG_INSTANT;
@@ -262,6 +276,18 @@ public class PermissionPolicyTest extends AndroidTestCase {
             }
         }
         return protectionLevel;
+    }
+
+    private static Map<String, PermissionInfo> getPermissionsForPackage(Context context, String pkg)
+            throws NameNotFoundException {
+        PackageInfo packageInfo = context.getPackageManager()
+                .getPackageInfo(pkg, PackageManager.GET_PERMISSIONS);
+        Map<String, PermissionInfo> declaredPermissionsMap = new ArrayMap<>();
+
+        for (PermissionInfo declaredPermission : packageInfo.permissions) {
+            declaredPermissionsMap.put(declaredPermission.name, declaredPermission);
+        }
+        return declaredPermissionsMap;
     }
 
     private static Date parseDate(String date) {

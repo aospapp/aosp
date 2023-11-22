@@ -107,6 +107,10 @@ public class PackageInfo extends DocInfo implements ContainerInfo {
     return mHidden;
   }
 
+  public void setHidden(boolean hidden) {
+    mHidden = hidden;
+  }
+
   @Override
   public boolean isRemoved() {
     if (mRemoved == null) {
@@ -277,7 +281,23 @@ public class PackageInfo extends DocInfo implements ContainerInfo {
     mContainingApi = api;
   }
 
-  // in hashed containers, treat the name as the key
+  @Override
+  public String toString() {
+    return this.name();
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    } else if (o instanceof PackageInfo) {
+      final PackageInfo p = (PackageInfo) o;
+      return mName.equals(p.mName);
+    } else {
+      return false;
+    }
+  }
+
   @Override
   public int hashCode() {
     return mName.hashCode();

@@ -24,11 +24,11 @@ import com.android.tradefed.log.LogUtil.CLog;
 
 /**
  * A {@link ITargetPreparer} that configures wifi on the device if necessary.
- * <p/>
- * Unlike {@link DeviceSetup}, this preparer works when adb is not root aka user builds.
+ *
+ * <p>Unlike {@link DeviceSetup}, this preparer works when adb is not root aka user builds.
  */
 @OptionClass(alias = "wifi")
-public class WifiPreparer implements ITargetPreparer, ITargetCleaner {
+public class WifiPreparer extends BaseTargetPreparer implements ITargetCleaner {
 
     @Option(name="wifi-network", description="the name of wifi network to connect to.")
     private String mWifiNetwork = null;
@@ -47,6 +47,9 @@ public class WifiPreparer implements ITargetPreparer, ITargetCleaner {
     @Option(name = "skip", description = "skip the connectivity check and wifi setup")
     private boolean mSkip = false;
 
+    @Option(name = "verify-only", description = "Skip setup and verify a wifi connection.")
+    private boolean mVerifyOnly = false;
+
     /**
      * {@inheritDoc}
      */
@@ -56,6 +59,17 @@ public class WifiPreparer implements ITargetPreparer, ITargetCleaner {
         if (mSkip) {
             return;
         }
+        if (mVerifyOnly) {
+            if (!device.isWifiEnabled()) {
+                throw new TargetSetupError(
+                        "The device does not have wifi enabled.", device.getDeviceDescriptor());
+            } else if (!device.checkConnectivity()) {
+                throw new TargetSetupError(
+                        "The device has no wifi connection.", device.getDeviceDescriptor());
+            }
+            return;
+        }
+
         if (mWifiNetwork == null) {
             throw new TargetSetupError("wifi-network not specified", device.getDeviceDescriptor());
         }
@@ -76,7 +90,7 @@ public class WifiPreparer implements ITargetPreparer, ITargetCleaner {
     @Override
     public void tearDown(ITestDevice device, IBuildInfo buildInfo, Throwable e)
             throws DeviceNotAvailableException {
-        if (mSkip) {
+        if (mSkip || mVerifyOnly) {
             return;
         }
 

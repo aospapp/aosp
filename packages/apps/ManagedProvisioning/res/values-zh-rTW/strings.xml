@@ -19,17 +19,17 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_label" msgid="2400883737290705700">"Work 設定檔設定"</string>
+    <string name="app_label" msgid="2400883737290705700">"工作資料夾設定"</string>
     <string name="provisioning_error_title" msgid="6320515739861578118">"糟糕！"</string>
-    <string name="setup_work_profile" msgid="1468934631731845267">"設定 Work 設定檔"</string>
+    <string name="setup_work_profile" msgid="1468934631731845267">"設定工作資料夾"</string>
     <string name="company_controls_workspace" msgid="2808025277267917221">"貴機構可控制這個設定檔並確保其安全性，裝置上的其他所有內容則由你自行管理。"</string>
     <string name="company_controls_device" msgid="8230957518758871390">"你的機構將控管這個裝置並確保其安全。"</string>
     <string name="the_following_is_your_mdm" msgid="6613658218262376404">"下列應用程式需要存取這個設定檔："</string>
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"下列應用程式將管理你的裝置："</string>
     <string name="next" msgid="1004321437324424398">"繼續"</string>
-    <string name="setting_up_workspace" msgid="7862472373642601041">"正在設定 Work 設定檔…"</string>
-    <string name="admin_has_ability_to_monitor_profile" msgid="4552308842716093826">"你的管理員可以監控及管理與這個設定檔相關聯的設定、公司系統權限、應用程式、權限和資料，包括你的網路活動，以及裝置的位置資訊、通話紀錄和聯絡人搜尋紀錄。<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>如要瞭解詳情 (包括貴機構的隱私權政策)，請與你的管理員聯絡。"</string>
-    <string name="admin_has_ability_to_monitor_device" msgid="8598573866079474861">"你的管理員可以監控及管理與這個裝置相關聯的設定、公司系統權限、應用程式、權限和資料，包括你的網路活動，以及裝置的位置資訊、通話紀錄和聯絡人搜尋紀錄。<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>如要瞭解詳情 (包括貴機構的隱私權政策)，請與你的管理員聯絡。"</string>
+    <string name="setting_up_workspace" msgid="7862472373642601041">"正在設定工作資料夾…"</string>
+    <string name="admin_has_ability_to_monitor_profile" msgid="4552308842716093826">"你的管理員可以監控及管理與這個設定檔相關聯的設定、公司系統權限、應用程式、權限和資料，包括你的網路活動，以及裝置的位置資訊、通話記錄和聯絡人搜尋記錄。<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>如要瞭解詳情 (包括貴機構的隱私權政策)，請與你的管理員聯絡。"</string>
+    <string name="admin_has_ability_to_monitor_device" msgid="8598573866079474861">"你的管理員可以監控及管理與這個裝置相關聯的設定、公司系統權限、應用程式、權限和資料，包括你的網路活動，以及裝置的位置資訊、通話記錄和聯絡人搜尋記錄。<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>如要瞭解詳情 (包括貴機構的隱私權政策)，請與你的管理員聯絡。"</string>
     <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"你必須為裝置設定以密碼保護的螢幕鎖定，才能使用防盜功能。"</string>
     <string name="contact_your_admin_for_more_info" msgid="5959191345827902911">"如需詳細資訊 (包括貴機構的隱私權政策)，請與你的管理員聯絡。"</string>
     <string name="learn_more_link" msgid="3012495805919550043">"瞭解詳情"</string>
@@ -38,28 +38,28 @@
     <string name="user_consent_msg" msgid="8820951802130353584">"我同意"</string>
     <string name="url_error" msgid="5958494012986243186">"無法顯示這個連結。"</string>
     <string name="terms" msgid="8295436105384703903">"條款"</string>
-    <string name="work_profile_info" msgid="5433388376309583996">"Work 設定檔資訊"</string>
+    <string name="work_profile_info" msgid="5433388376309583996">"工作資料夾資訊"</string>
     <string name="managed_device_info" msgid="1529447646526616811">"受管理的裝置資訊"</string>
     <string name="default_managed_profile_name" msgid="5370257687074907055">"工作設定檔"</string>
     <string name="default_first_meat_user_name" msgid="7540515892748490540">"主要使用者"</string>
     <string name="delete_profile_title" msgid="2841349358380849525">"要刪除現有的設定檔嗎？"</string>
-    <string name="opening_paragraph_delete_profile" msgid="4913885310795775967">"你已經有透過下列應用程式管理的 Work 設定檔："</string>
+    <string name="opening_paragraph_delete_profile" msgid="4913885310795775967">"你已經有透過下列應用程式管理的工作資料夾："</string>
     <string name="read_more_delete_profile" msgid="7789171620401666343">"在繼續之前，請參閱"<a href="#read_this_link">"詳細資訊"</a>"。"</string>
     <string name="sure_you_want_to_delete_profile" msgid="6927697984573575564">"如果繼續執行，這個設定檔中的所有應用程式和資料都將遭到刪除。"</string>
     <string name="delete_profile" msgid="2299218578684663459">"刪除"</string>
     <string name="cancel_delete_profile" msgid="5155447537894046036">"取消"</string>
-    <string name="encrypt_device_text_for_profile_owner_setup" msgid="7828515754696057140">"必須先為這個裝置加密才能設定你的 Work 設定檔，這可能需要一段時間。"</string>
+    <string name="encrypt_device_text_for_profile_owner_setup" msgid="7828515754696057140">"必須先為這個裝置加密才能設定你的工作資料夾，這可能需要一段時間。"</string>
     <string name="encrypt_device_text_for_device_owner_setup" msgid="5194673142404735676">"必須先為這個裝置加密才能進行設定程序，這可能需要一段時間。"</string>
     <string name="encrypt_this_device_question" msgid="8719916619866892601">"要為這個裝置加密嗎？"</string>
     <string name="encrypt" msgid="1749320161747489212">"加密"</string>
     <string name="continue_provisioning_notify_title" msgid="5191449100153186648">"加密完成"</string>
-    <string name="continue_provisioning_notify_text" msgid="1066841819786425980">"輕觸即可繼續設定你的 Work 設定檔"</string>
+    <string name="continue_provisioning_notify_text" msgid="1066841819786425980">"輕觸即可繼續設定你的工作資料夾"</string>
     <string name="managed_provisioning_error_text" msgid="7063621174570680890">"無法設定你的工作設定檔，請與你的 IT 部門聯絡或稍後再試。"</string>
-    <string name="cant_add_work_profile" msgid="9217268909964154934">"無法新增 Work 設定檔"</string>
-    <string name="cant_replace_or_remove_work_profile" msgid="7861054306792698290">"無法取代或移除 Work 設定檔"</string>
-    <string name="work_profile_cant_be_added_contact_admin" msgid="4740182491195894659">"無法在這個裝置上新增 Work 設定檔。如有任何問題，請與管理員聯絡。"</string>
+    <string name="cant_add_work_profile" msgid="9217268909964154934">"無法新增工作資料夾"</string>
+    <string name="cant_replace_or_remove_work_profile" msgid="7861054306792698290">"無法取代或移除工作資料夾"</string>
+    <string name="work_profile_cant_be_added_contact_admin" msgid="4740182491195894659">"無法在這個裝置上新增工作資料夾。如有任何問題，請與管理員聯絡。"</string>
     <string name="change_device_launcher" msgid="4523563368433637980">"請變更裝置啟動器"</string>
-    <string name="launcher_app_cant_be_used_by_work_profile" msgid="3524366082000739743">"這個啟動器應用程式不支援 Work 設定檔"</string>
+    <string name="launcher_app_cant_be_used_by_work_profile" msgid="3524366082000739743">"這個啟動器應用程式不支援工作資料夾"</string>
     <string name="cancel_provisioning" msgid="3408069559452653724">"取消"</string>
     <string name="pick_launcher" msgid="4257084827403983845">"確定"</string>
     <string name="user_setup_incomplete" msgid="6494920045526591079">"使用者設定未完成"</string>
@@ -67,6 +67,7 @@
     <string name="setup_work_device" msgid="6003988351437862369">"正在設定 Work 裝置…"</string>
     <string name="progress_data_process" msgid="1707745321954672971">"正在處理設定資料…"</string>
     <string name="progress_connect_to_wifi" msgid="472251154628863539">"正在連線至 Wi-Fi…"</string>
+    <string name="progress_connect_to_mobile_network" msgid="3852054186860657088">"正在連線至行動網路…"</string>
     <string name="progress_download" msgid="3522436271691064624">"正在下載管理應用程式…"</string>
     <string name="progress_install" msgid="2258045670385866183">"正在安裝管理應用程式…"</string>
     <string name="progress_delete_non_required_apps" msgid="7633458399262691256">"正在移除不需要的系統應用程式…"</string>
@@ -98,16 +99,16 @@
     <string name="profile_owner_cancel_ok" msgid="5951679183850766029">"是"</string>
     <string name="profile_owner_cancelling" msgid="5679573829145112822">"取消中…"</string>
     <string name="work_profile_setup_later_title" msgid="9069148190226279892">"要停止設定檔設定程序嗎？"</string>
-    <string name="work_profile_setup_later_message" msgid="122069011117225292">"你可以稍後再透過貴機構的裝置管理應用程式設定 Work 設定檔"</string>
+    <string name="work_profile_setup_later_message" msgid="122069011117225292">"你可以稍後再透過貴機構的裝置管理應用程式設定工作資料夾"</string>
     <string name="continue_button" msgid="7177918589510964446">"繼續"</string>
     <string name="work_profile_setup_stop" msgid="6772128629992514750">"停止"</string>
     <string name="dismiss" msgid="9009534756748565880">"關閉"</string>
-    <string name="profile_owner_info" msgid="8975319972303812298">"你即將建立 Work 設定檔，該設定檔將由貴機構管理及監控。適用相關條款。"</string>
-    <string name="profile_owner_info_with_terms_headers" msgid="7373591910245655373">"你即將建立 Work 設定檔，該設定檔將由貴機構管理及監控。適用「<xliff:g id="TERMS_HEADERS">%1$s</xliff:g>」的相關條款。"</string>
+    <string name="profile_owner_info" msgid="8975319972303812298">"你即將建立工作資料夾，該設定檔將由貴機構管理及監控。適用相關條款。"</string>
+    <string name="profile_owner_info_with_terms_headers" msgid="7373591910245655373">"你即將建立工作資料夾，該設定檔將由貴機構管理及監控。適用「<xliff:g id="TERMS_HEADERS">%1$s</xliff:g>」的相關條款。"</string>
     <string name="profile_owner_info_comp" msgid="9190421701126119142">"系統將為你的工作應用程式建立設定檔，該設定檔和你的整個裝置都將由貴機構管理及監控。適用相關條款。"</string>
     <string name="profile_owner_info_with_terms_headers_comp" msgid="2012766614492554556">"系統將為你的工作應用程式建立設定檔，該設定檔和你的整個裝置都將由貴機構管理及監控。適用「<xliff:g id="TERMS_HEADERS">%1$s</xliff:g>」的相關條款。"</string>
-    <string name="device_owner_info" msgid="2883639372446424007">"這個裝置將由「<xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g>」負責管理，並確保其安全。適用相關條款。<xliff:g id="VIEW_TERMS">%2$s</xliff:g>"</string>
-    <string name="device_owner_info_with_terms_headers" msgid="7333703548160002079">"這個裝置將由「<xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g>」負責管理，並確保其安全。適用「<xliff:g id="TERMS_HEADERS">%2$s</xliff:g>」的相關條款。<xliff:g id="VIEW_TERMS">%3$s</xliff:g>"</string>
+    <string name="device_owner_info" msgid="3716661456037934467">"這個裝置將由「<xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g>」負責管理及監控，並確保其安全。適用相關條款。<xliff:g id="VIEW_TERMS">%2$s</xliff:g>"</string>
+    <string name="device_owner_info_with_terms_headers" msgid="1254243288669282977">"這個裝置將由「<xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g>」負責管理及監控，並確保其安全。適用「<xliff:g id="TERMS_HEADERS">%2$s</xliff:g>」的相關條款。<xliff:g id="VIEW_TERMS">%3$s</xliff:g>"</string>
     <string name="link_isnt_secure_and_cant_be_opened_until_device_setup_finished" msgid="1604497932637832657">"這個連結並不安全，並且在裝置設定完成前都無法開啟：<xliff:g id="LINK_RAW_TEST">%1$s</xliff:g>"</string>
     <string name="contact_device_provider" msgid="9100405424740726066">"如有任何問題，請與你的<xliff:g id="ORGANIZATIONS_ADMIN">%1$s</xliff:g>聯絡。"</string>
     <string name="if_questions_contact_admin" msgid="6147462485780267795">"如有任何問題，請與貴機構的管理員聯絡"</string>
@@ -128,8 +129,8 @@
     <string name="provisioning" msgid="4512493827019163451">"佈建中"</string>
     <string name="copying_certs" msgid="5697938664953550881">"正在設定 CA 憑證"</string>
     <string name="setup_profile" msgid="5573950582159698549">"設定你的設定檔"</string>
-    <string name="profile_benefits_description" msgid="758432985984252636">"只要使用 Work 設定檔，就能將你的工作資料與個人資料區分開來"</string>
-    <string name="comp_profile_benefits_description" msgid="379837075456998273">"只要使用 Work 設定檔，就能集中存放你的工作應用程式"</string>
+    <string name="profile_benefits_description" msgid="758432985984252636">"只要使用工作資料夾，就能將你的工作資料與個人資料區分開來"</string>
+    <string name="comp_profile_benefits_description" msgid="379837075456998273">"只要使用工作資料夾，就能集中存放你的工作應用程式"</string>
     <string name="setup_profile_encryption" msgid="5241291404536277038">"設定你的設定檔。加密資訊"</string>
     <string name="setup_profile_progress" msgid="7742718527853325656">"設定你的設定檔。顯示進度"</string>
     <string name="setup_device" msgid="6725265673245816366">"設定你的裝置"</string>
@@ -154,4 +155,7 @@
     <string name="join_many_items_last" msgid="7469666990442158802">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g>和<xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
     <string name="join_many_items_first" msgid="8365482726853276608">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g>，<xliff:g id="ALL_BUT_FIRST_AND_LAST_ITEM">%2$s</xliff:g>"</string>
     <string name="join_many_items_middle" msgid="8569294838319639963">"<xliff:g id="ADDED_ITEM">%1$s</xliff:g>，<xliff:g id="REST_OF_ITEMS">%2$s</xliff:g>"</string>
+    <string name="take_a_few_minutes" msgid="6282806501305322838">"請稍候片刻"</string>
+    <string name="work_profile_description" msgid="8524116010729569213">"你的辦公應用程式會保存在這個設定檔中，並由貴機構管理"</string>
+    <string name="device_owner_description" msgid="168013145812679664">"這個裝置將由貴機構負責管理，並確保其安全"</string>
 </resources>

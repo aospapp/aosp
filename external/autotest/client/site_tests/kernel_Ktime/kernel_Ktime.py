@@ -18,7 +18,9 @@ class kernel_Ktime(test.test):
     version = 1
 
     MIN_KERNEL_VER = '3.8'
+    KERNEL_VER = '3.18'
     MODULE_NAME = 'udelay_test'
+    MODULE_NAME_NEW = 'test_udelay'
     UDELAY_PATH = '/sys/kernel/debug/udelay_test'
     RTC_PATH = '/sys/class/rtc/rtc0/since_epoch'
 
@@ -152,8 +154,10 @@ class kernel_Ktime(test.test):
                     'skipping test: old kernel %s (min %s) missing module %s',
                     kernel_ver, self.MIN_KERNEL_VER, self.MODULE_NAME)
             return
-
-        utils.load_module(self.MODULE_NAME)
+        elif utils.compare_versions(kernel_ver, self.KERNEL_VER) < 0:
+            utils.load_module(self.MODULE_NAME)
+        elif utils.compare_versions(kernel_ver, self.KERNEL_VER) > 0:
+            utils.load_module(self.MODULE_NAME_NEW)
 
         start_rtc, start_ktime, start_error = self._get_times()
         logging.info(

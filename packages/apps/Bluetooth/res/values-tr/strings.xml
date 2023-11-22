@@ -132,4 +132,5 @@
     <string name="bluetooth_connected" msgid="6718623220072656906">"Bluetooth ses bağlandı"</string>
     <string name="bluetooth_disconnected" msgid="3318303728981478873">"Bluetooth ses bağlantısı kesildi"</string>
     <string name="a2dp_sink_mbs_label" msgid="7566075853395412558">"Bluetooth Ses"</string>
+    <string name="bluetooth_opp_file_limit_exceeded" msgid="8894450394309084519">"4 GB\'tan büyük dosyalar aktarılamaz"</string>
 </resources>

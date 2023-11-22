@@ -5,7 +5,7 @@
 #include <hidl/MQDescriptor.h>
 #include <hidl/Status.h>
 
-#include <keystore/IKeystoreService.h>
+#include <android/security/IKeystoreService.h>
 #include <binder/IServiceManager.h>
 
 namespace android {

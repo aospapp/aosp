@@ -35,6 +35,7 @@
 #include <nanohubCommand.h>
 #include <nanohubPacket.h>
 #include <seos.h>
+#include <seos_priv.h>
 #include <util.h>
 #include <atomicBitset.h>
 #include <atomic.h>
@@ -1097,18 +1098,36 @@ static void hostIntfAddBlock(struct HostIntfDataBuffer *data, bool discardable, 
 
 static void hostIntfNotifyReboot(uint32_t reason)
 {
-    struct NanohubHalRebootTx *resp = heapAlloc(sizeof(*resp));
     __le32 raw_reason = htole32(reason);
 
+    struct NanohubHalSysMgmtTx *resp;
+    resp = heapAlloc(sizeof(*resp));
     if (resp) {
-        resp->hdr = (struct NanohubHalHdr){
+        resp->hdr = (struct NanohubHalHdr) {
             .appId = APP_ID_MAKE(NANOHUB_VENDOR_GOOGLE, 0),
-            .len = sizeof(*resp) - sizeof(resp->hdr) + sizeof(resp->hdr.msg),
-            .msg = NANOHUB_HAL_REBOOT,
+            .len = sizeof(*resp) - sizeof(resp->hdr),
         };
-        memcpy(&resp->reason, &raw_reason, sizeof(resp->reason));
-        osEnqueueEvtOrFree(EVT_APP_TO_HOST, resp, heapFree);
+        resp->ret = (struct NanohubHalRet) {
+            .msg = NANOHUB_HAL_SYS_MGMT,
+            .status = raw_reason,
+        };
+        resp->cmd = NANOHUB_HAL_SYS_MGMT_REBOOT;
+        osEnqueueEvtOrFree(EVT_APP_TO_HOST_CHRE, resp, heapFree);
     }
+
+#ifdef LEGACY_HAL_ENABLED
+    struct NanohubHalLegacyRebootTx *respLegacy;
+    respLegacy = heapAlloc(sizeof(*respLegacy));
+    if (respLegacy) {
+        respLegacy->hdr = (struct NanohubHalLegacyHdr) {
+            .appId = APP_ID_MAKE(NANOHUB_VENDOR_GOOGLE, 0),
+            .len = sizeof(*respLegacy) - sizeof(respLegacy->hdr) + sizeof(respLegacy->hdr.msg),
+            .msg = NANOHUB_HAL_LEGACY_REBOOT,
+        };
+        memcpy(&respLegacy->reason, &raw_reason, sizeof(respLegacy->reason));
+        osEnqueueEvtOrFree(EVT_APP_TO_HOST, respLegacy, heapFree);
+    }
+#endif
 }
 
 static void queueFlush(struct ActiveSensor *sensor)
@@ -1151,9 +1170,10 @@ static void onEvtAppStart(const void *evtData)
         struct HostIntfDataBuffer *data;
 
         osEventUnsubscribe(mHostIntfTid, EVT_APP_START);
-        osEventSubscribe(mHostIntfTid, EVT_NO_SENSOR_CONFIG_EVENT);
-        osEventSubscribe(mHostIntfTid, EVT_APP_TO_SENSOR_HAL_DATA);
-        osEventSubscribe(mHostIntfTid, EVT_APP_TO_HOST);
+        osEventsSubscribe(4, EVT_NO_SENSOR_CONFIG_EVENT,
+                             EVT_APP_TO_SENSOR_HAL_DATA,
+                             EVT_APP_TO_HOST,
+                             EVT_APP_TO_HOST_CHRE);
 #ifdef DEBUG_LOG_EVT
         osEventSubscribe(mHostIntfTid, EVT_DEBUG_LOG);
         platEarlyLogFlush();
@@ -1186,12 +1206,59 @@ static void onEvtAppToHost(const void *evtData)
     }
 }
 
+static void onEvtAppToHostChre(const void *evtData)
+{
+    const struct HostHubChrePacket *hostMsg = evtData;
+
+    if (hostMsg->messageSize <= HOST_HUB_CHRE_PACKET_MAX_LEN) {
+        struct HostIntfDataBuffer *data = alloca(sizeof(uint32_t) + sizeof(*hostMsg) + hostMsg->messageSize);
+
+        data->sensType = SENS_TYPE_INVALID;
+        data->length = sizeof(*hostMsg) + hostMsg->messageSize;
+        data->dataType = HOSTINTF_DATA_TYPE_APP_TO_HOST;
+        data->interrupt = NANOHUB_INT_WAKEUP;
+        memcpy(data->buffer, evtData, data->length);
+        hostIntfAddBlock(data, false, true);
+    }
+}
+
+#ifdef LEGACY_HAL_ENABLED
+static void handleLegacyHalCmd(const uint8_t *halData, uint8_t size)
+{
+    const struct NanohubHalLegacyCommand *halCmd = nanohubHalLegacyFindCommand(halData[0]);
+    if (halCmd)
+        halCmd->handler((void *)&halData[1], size - 1);
+}
+
 static void onEvtAppFromHost(const void *evtData)
 {
     const uint8_t *halMsg = evtData;
-    const struct NanohubHalCommand *halCmd = nanohubHalFindCommand(halMsg[1]);
-    if (halCmd)
-        halCmd->handler((void *)&halMsg[2], halMsg[0] - 1);
+    handleLegacyHalCmd(&halMsg[1], halMsg[0]);
+}
+#endif
+
+static void onEvtAppFromHostChre(const void *evtData)
+{
+    const struct NanohubMsgChreHdr *halMsg = (const struct NanohubMsgChreHdr *)evtData;
+    const struct NanohubHalCommand *halCmd;
+    const uint8_t *halData = (const uint8_t *)(halMsg+1);
+    uint8_t len;
+    uint32_t transactionId;
+
+    memcpy(&transactionId, &halMsg->appEvent, sizeof(halMsg->appEvent));
+
+    if (halMsg->size >= 1) {
+        len = halMsg->size - 1;
+        halCmd = nanohubHalFindCommand(halData[0]);
+        if (halCmd) {
+            if (len >= halCmd->minDataLen && len <= halCmd->maxDataLen)
+                halCmd->handler((void *)&halData[1], len, transactionId);
+            return;
+        }
+    }
+#ifdef LEGACY_HAL_ENABLED
+    handleLegacyHalCmd(halData, halMsg->size);
+#endif
 }
 
 #ifdef DEBUG_LOG_EVT
@@ -1485,15 +1552,23 @@ static void onEvtSensorData(uint32_t evtType, const void* evtData)
 
 static void hostIntfHandleEvent(uint32_t evtType, const void* evtData)
 {
-    switch (evtType) {
+    switch (EVENT_GET_EVENT(evtType)) {
     case EVT_APP_START:
         onEvtAppStart(evtData);
         break;
     case EVT_APP_TO_HOST:
         onEvtAppToHost(evtData);
         break;
+    case EVT_APP_TO_HOST_CHRE:
+        onEvtAppToHostChre(evtData);
+        break;
+#ifdef LEGACY_HAL_ENABLED
     case EVT_APP_FROM_HOST:
         onEvtAppFromHost(evtData);
+        break;
+#endif
+    case EVT_APP_FROM_HOST_CHRE:
+        onEvtAppFromHostChre(evtData);
         break;
 #ifdef DEBUG_LOG_EVT
     case EVT_DEBUG_LOG:
@@ -1510,7 +1585,7 @@ static void hostIntfHandleEvent(uint32_t evtType, const void* evtData)
         onEvtAppToSensorHalData(evtData);
         break;
     default:
-        onEvtSensorData(evtType, evtData);
+        onEvtSensorData(EVENT_GET_EVENT(evtType), evtData);
         break;
     }
 }
@@ -1613,4 +1688,4 @@ void hostIntfClearInterruptMask(uint32_t bit)
     cpuIntsRestore(state);
 }
 
-INTERNAL_APP_INIT(APP_ID_MAKE(NANOHUB_VENDOR_GOOGLE, 0), 0, hostIntfRequest, hostIntfRelease, hostIntfHandleEvent);
+INTERNAL_CHRE_APP_INIT(APP_ID_MAKE(NANOHUB_VENDOR_GOOGLE, 0), 0, hostIntfRequest, hostIntfRelease, hostIntfHandleEvent);

@@ -17,37 +17,27 @@
 package com.android.tv.dvr.ui;
 
 import android.support.annotation.NonNull;
-
 import com.android.tv.common.SoftPreconditions;
-
 import java.util.HashMap;
 import java.util.Map;
 
-/**
- * Stores the object to pass through activities/fragments.
- */
+/** Stores the object to pass through activities/fragments. */
 public class BigArguments {
-    private final static String TAG = "BigArguments";
+    private static final String TAG = "BigArguments";
     private static Map<String, Object> sBigArgumentMap = new HashMap<>();
 
-    /**
-     * Sets the argument.
-     */
+    /** Sets the argument. */
     public static void setArgument(String name, @NonNull Object value) {
         SoftPreconditions.checkState(value != null, TAG, "Set argument, but value is null");
         sBigArgumentMap.put(name, value);
     }
 
-    /**
-     * Returns the argument which is associated to the name.
-     */
+    /** Returns the argument which is associated to the name. */
     public static Object getArgument(String name) {
         return sBigArgumentMap.get(name);
     }
 
-    /**
-     * Resets the arguments.
-     */
+    /** Resets the arguments. */
     public static void reset() {
         sBigArgumentMap.clear();
     }

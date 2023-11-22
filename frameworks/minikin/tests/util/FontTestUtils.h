@@ -17,9 +17,11 @@
 #ifndef MINIKIN_FONT_TEST_UTILS_H
 #define MINIKIN_FONT_TEST_UTILS_H
 
-#include <minikin/FontCollection.h>
-
 #include <memory>
+
+#include "minikin/FontCollection.h"
+
+#include "PathUtils.h"
 
 namespace minikin {
 
@@ -27,20 +29,37 @@ namespace minikin {
  * Returns list of FontFamily from installed fonts.
  *
  * This function reads an XML file and makes font families.
- *
- * Caller must unref the returned pointer.
  */
-std::vector<std::shared_ptr<FontFamily>> getFontFamilies(const char* fontDir, const char* fontXml);
+std::vector<std::shared_ptr<FontFamily>> getFontFamilies(const std::string& fontDir,
+                                                         const std::string& xmlAbsPath);
 
 /**
  * Returns FontCollection from installed fonts.
  *
  * This function reads an XML file and makes font families and collections of them.
- * MinikinFontForTest is used for FontFamily creation.
- *
- * Caller must unref the returned pointer.
+ * The XML path and font files are needed to be in the test data directory.
  */
-std::shared_ptr<FontCollection> getFontCollection(const char* fontDir, const char* fontXml);
+inline std::shared_ptr<FontCollection> buildFontCollectionFromXml(const std::string& xmlPath) {
+    return std::make_shared<FontCollection>(
+            getFontFamilies(getTestDataDir(), getTestDataDir() + xmlPath));
+}
+
+/**
+ * Build new FontCollection from single file.
+ * The font file needs to be in the test data directory.
+ */
+std::shared_ptr<FontCollection> buildFontCollection(const std::string& filePath);
+
+/**
+ * Build new FontFamily from single file.
+ * The font file needs to be in the test data directory.
+ */
+std::shared_ptr<FontFamily> buildFontFamily(const std::string& filePath);
+
+/**
+ * Build new FontFamily from single file with locale.
+ */
+std::shared_ptr<FontFamily> buildFontFamily(const std::string& filePath, const std::string& lang);
 
 }  // namespace minikin
 #endif  // MINIKIN_FONT_TEST_UTILS_H

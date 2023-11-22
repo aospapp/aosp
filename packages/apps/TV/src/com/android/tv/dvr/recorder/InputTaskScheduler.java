@@ -25,17 +25,15 @@ import android.support.annotation.VisibleForTesting;
 import android.util.ArrayMap;
 import android.util.Log;
 import android.util.LongSparseArray;
-
 import com.android.tv.InputSessionManager;
-import com.android.tv.data.Channel;
+import com.android.tv.common.util.Clock;
 import com.android.tv.data.ChannelDataManager;
+import com.android.tv.data.api.Channel;
 import com.android.tv.dvr.DvrDataManager;
 import com.android.tv.dvr.DvrManager;
 import com.android.tv.dvr.WritableDvrDataManager;
 import com.android.tv.dvr.data.ScheduledRecording;
-import com.android.tv.util.Clock;
 import com.android.tv.util.CompositeComparator;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -43,9 +41,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
-/**
- * The scheduler for a TV input.
- */
+/** The scheduler for a TV input. */
 public class InputTaskScheduler {
     private static final String TAG = "InputTaskScheduler";
     private static final boolean DEBUG = false;
@@ -66,9 +62,7 @@ public class InputTaskScheduler {
                     RecordingTask.END_TIME_COMPARATOR,
                     RecordingTask.ID_COMPARATOR);
 
-    /**
-     * Returns the comparator which the schedules are sorted with when executed.
-     */
+    /** Returns the comparator which the schedules are sorted with when executed. */
     public static Comparator<ScheduledRecording> getRecordingOrderComparator() {
         return ScheduledRecording.START_TIME_THEN_PRIORITY_THEN_ID_COMPARATOR;
     }
@@ -81,8 +75,8 @@ public class InputTaskScheduler {
         private final long mId;
         private final RecordingTask mTask;
 
-        HandlerWrapper(Looper looper, ScheduledRecording scheduledRecording,
-                RecordingTask recordingTask) {
+        HandlerWrapper(
+                Looper looper, ScheduledRecording scheduledRecording, RecordingTask recordingTask) {
             super(looper, recordingTask);
             mId = scheduledRecording.getId();
             mTask = recordingTask;
@@ -94,7 +88,7 @@ public class InputTaskScheduler {
             // The RecordingTask gets a chance first.
             // It must return false to pass this message to here.
             if (msg.what == MESSAGE_REMOVE) {
-                if (DEBUG)  Log.d(TAG, "done " + mId);
+                if (DEBUG) Log.d(TAG, "done " + mId);
                 mPendingRecordings.remove(mId);
             }
             removeCallbacksAndMessages(null);
@@ -120,17 +114,37 @@ public class InputTaskScheduler {
     private final Object mInputLock = new Object();
     private final RecordingTaskFactory mRecordingTaskFactory;
 
-    public InputTaskScheduler(Context context, TvInputInfo input, Looper looper,
-            ChannelDataManager channelDataManager, DvrManager dvrManager,
-            DvrDataManager dataManager, InputSessionManager sessionManager, Clock clock) {
-        this(context, input, looper, channelDataManager, dvrManager, dataManager, sessionManager,
-                clock, null);
+    public InputTaskScheduler(
+            Context context,
+            TvInputInfo input,
+            Looper looper,
+            ChannelDataManager channelDataManager,
+            DvrManager dvrManager,
+            DvrDataManager dataManager,
+            InputSessionManager sessionManager,
+            Clock clock) {
+        this(
+                context,
+                input,
+                looper,
+                channelDataManager,
+                dvrManager,
+                dataManager,
+                sessionManager,
+                clock,
+                null);
     }
 
     @VisibleForTesting
-    InputTaskScheduler(Context context, TvInputInfo input, Looper looper,
-            ChannelDataManager channelDataManager, DvrManager dvrManager,
-            DvrDataManager dataManager, InputSessionManager sessionManager, Clock clock,
+    InputTaskScheduler(
+            Context context,
+            TvInputInfo input,
+            Looper looper,
+            ChannelDataManager channelDataManager,
+            DvrManager dvrManager,
+            DvrDataManager dataManager,
+            InputSessionManager sessionManager,
+            Clock clock,
             RecordingTaskFactory recordingTaskFactory) {
         if (DEBUG) Log.d(TAG, "Creating scheduler for " + input);
         mContext = context;
@@ -142,22 +156,32 @@ public class InputTaskScheduler {
         mSessionManager = sessionManager;
         mClock = clock;
         mMainThreadHandler = new Handler(Looper.getMainLooper());
-        mRecordingTaskFactory = recordingTaskFactory != null ? recordingTaskFactory
-                : new RecordingTaskFactory() {
-            @Override
-            public RecordingTask createRecordingTask(ScheduledRecording schedule, Channel channel,
-                    DvrManager dvrManager, InputSessionManager sessionManager,
-                    WritableDvrDataManager dataManager, Clock clock) {
-                return new RecordingTask(mContext, schedule, channel, mDvrManager, mSessionManager,
-                        mDataManager, mClock);
-            }
-        };
+        mRecordingTaskFactory =
+                recordingTaskFactory != null
+                        ? recordingTaskFactory
+                        : new RecordingTaskFactory() {
+                            @Override
+                            public RecordingTask createRecordingTask(
+                                    ScheduledRecording schedule,
+                                    Channel channel,
+                                    DvrManager dvrManager,
+                                    InputSessionManager sessionManager,
+                                    WritableDvrDataManager dataManager,
+                                    Clock clock) {
+                                return new RecordingTask(
+                                        mContext,
+                                        schedule,
+                                        channel,
+                                        mDvrManager,
+                                        mSessionManager,
+                                        mDataManager,
+                                        mClock);
+                            }
+                        };
         mHandler = new WorkerThreadHandler(looper);
     }
 
-    /**
-     * Adds a {@link ScheduledRecording}.
-     */
+    /** Adds a {@link ScheduledRecording}. */
     public void addSchedule(ScheduledRecording schedule) {
         mHandler.sendMessage(mHandler.obtainMessage(MSG_ADD_SCHEDULED_RECORDING, schedule));
     }
@@ -173,9 +197,7 @@ public class InputTaskScheduler {
         mHandler.sendEmptyMessage(MSG_BUILD_SCHEDULE);
     }
 
-    /**
-     * Removes the {@link ScheduledRecording}.
-     */
+    /** Removes the {@link ScheduledRecording}. */
     public void removeSchedule(ScheduledRecording schedule) {
         mHandler.sendMessage(mHandler.obtainMessage(MSG_REMOVE_SCHEDULED_RECORDING, schedule));
     }
@@ -194,9 +216,7 @@ public class InputTaskScheduler {
         }
     }
 
-    /**
-     * Updates the {@link ScheduledRecording}.
-     */
+    /** Updates the {@link ScheduledRecording}. */
     public void updateSchedule(ScheduledRecording schedule) {
         mHandler.sendMessage(mHandler.obtainMessage(MSG_UPDATE_SCHEDULED_RECORDING, schedule));
     }
@@ -224,18 +244,14 @@ public class InputTaskScheduler {
         }
     }
 
-    /**
-     * Updates the TV input.
-     */
+    /** Updates the TV input. */
     public void updateTvInputInfo(TvInputInfo input) {
         synchronized (mInputLock) {
             mInput = input;
         }
     }
 
-    /**
-     * Stops the input task scheduler.
-     */
+    /** Stops the input task scheduler. */
     public void stop() {
         mHandler.removeCallbacksAndMessages(null);
         mHandler.sendEmptyMessage(MSG_STOP_SCHEDULE);
@@ -262,7 +278,9 @@ public class InputTaskScheduler {
             ScheduledRecording schedule = iter.next();
             if (schedule.getEndTimeMs() - currentTimeMs
                     <= MIN_REMAIN_DURATION_PERCENT * schedule.getDuration()) {
-                fail(schedule);
+                Log.e(TAG, "Error! Program ended before recording started:" + schedule);
+                fail(schedule,
+                        ScheduledRecording.FAILED_REASON_PROGRAM_ENDED_BEFORE_RECORDING_STARTED);
                 iter.remove();
             }
         }
@@ -274,7 +292,8 @@ public class InputTaskScheduler {
         for (ScheduledRecording schedule : mWaitingSchedules.values()) {
             if (schedule.getState() != ScheduledRecording.STATE_RECORDING_CANCELED
                     && schedule.getStartTimeMs() - RecordingTask.RECORDING_EARLY_START_OFFSET_MS
-                    <= currentTimeMs && schedule.getEndTimeMs() > currentTimeMs) {
+                            <= currentTimeMs
+                    && schedule.getEndTimeMs() > currentTimeMs) {
                 schedulesToStart.add(schedule);
             }
         }
@@ -321,10 +340,12 @@ public class InputTaskScheduler {
                     earliest = schedule.getEndTimeMs();
                 }
             } else {
-                if (earliest > schedule.getStartTimeMs()
-                        - RecordingTask.RECORDING_EARLY_START_OFFSET_MS) {
-                    earliest = schedule.getStartTimeMs()
-                            - RecordingTask.RECORDING_EARLY_START_OFFSET_MS;
+                if (earliest
+                        > schedule.getStartTimeMs()
+                                - RecordingTask.RECORDING_EARLY_START_OFFSET_MS) {
+                    earliest =
+                            schedule.getStartTimeMs()
+                                    - RecordingTask.RECORDING_EARLY_START_OFFSET_MS;
                 }
             }
         }
@@ -333,8 +354,9 @@ public class InputTaskScheduler {
 
     private RecordingTask createRecordingTask(ScheduledRecording schedule) {
         Channel channel = mChannelDataManager.getChannel(schedule.getChannelId());
-        RecordingTask recordingTask = mRecordingTaskFactory.createRecordingTask(schedule, channel,
-                mDvrManager, mSessionManager, mDataManager, mClock);
+        RecordingTask recordingTask =
+                mRecordingTaskFactory.createRecordingTask(
+                        schedule, channel, mDvrManager, mSessionManager, mDataManager, mClock);
         HandlerWrapper handlerWrapper = new HandlerWrapper(mLooper, schedule, recordingTask);
         mPendingRecordings.put(schedule.getId(), handlerWrapper);
         return recordingTask;
@@ -369,21 +391,24 @@ public class InputTaskScheduler {
         return candidate;
     }
 
-    private void fail(ScheduledRecording schedule) {
+    private void fail(ScheduledRecording schedule, int reason) {
         // It's called when the scheduling has been failed without creating RecordingTask.
-        runOnMainHandler(new Runnable() {
-            @Override
-            public void run() {
-                ScheduledRecording scheduleInManager =
-                        mDataManager.getScheduledRecording(schedule.getId());
-                if (scheduleInManager != null) {
-                    // The schedule should be updated based on the object from DataManager in case
-                    // when it has been updated.
-                    mDataManager.changeState(scheduleInManager,
-                            ScheduledRecording.STATE_RECORDING_FAILED);
-                }
-            }
-        });
+        runOnMainHandler(
+                new Runnable() {
+                    @Override
+                    public void run() {
+                        ScheduledRecording scheduleInManager =
+                                mDataManager.getScheduledRecording(schedule.getId());
+                        if (scheduleInManager != null) {
+                            // The schedule should be updated based on the object from DataManager
+                            // in case when it has been updated.
+                            mDataManager.changeState(
+                                    scheduleInManager,
+                                    ScheduledRecording.STATE_RECORDING_FAILED,
+                                    reason);
+                        }
+                    }
+                });
     }
 
     private void runOnMainHandler(Runnable runnable) {
@@ -396,9 +421,13 @@ public class InputTaskScheduler {
 
     @VisibleForTesting
     interface RecordingTaskFactory {
-        RecordingTask createRecordingTask(ScheduledRecording scheduledRecording, Channel channel,
-                DvrManager dvrManager, InputSessionManager sessionManager,
-                WritableDvrDataManager dataManager, Clock clock);
+        RecordingTask createRecordingTask(
+                ScheduledRecording scheduledRecording,
+                Channel channel,
+                DvrManager dvrManager,
+                InputSessionManager sessionManager,
+                WritableDvrDataManager dataManager,
+                Clock clock);
     }
 
     private class WorkerThreadHandler extends Handler {
@@ -417,6 +446,7 @@ public class InputTaskScheduler {
                     break;
                 case MSG_UPDATE_SCHEDULED_RECORDING:
                     handleUpdateSchedule((ScheduledRecording) msg.obj);
+                    break;
                 case MSG_BUILD_SCHEDULE:
                     handleBuildSchedule();
                     break;

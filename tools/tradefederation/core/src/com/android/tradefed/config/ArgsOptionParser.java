@@ -214,6 +214,19 @@ public class ArgsOptionParser extends OptionSetter {
      * @return a {@link List} of the left over arguments
      */
     public List<String> parseBestEffort(List<String> args) {
+        return parseBestEffort(args, false);
+    }
+
+    /**
+     * Alternate {@link #parseBestEffort(String... args)} method that takes a {@link List} of
+     * arguments, and can be forced to continue parsing until the end, even if some args do not
+     * parse.
+     *
+     * @param args list that will contain the left over args.
+     * @param forceContinue True if it should continue to parse even if some args do not parse.
+     * @return a {@link List} of the left over arguments
+     */
+    public List<String> parseBestEffort(List<String> args, boolean forceContinue) {
         final List<String> leftovers = new ArrayList<String>(args.size());
         final ListIterator<String> argsIter = args.listIterator();
         int lastProcessedIdx = -1;
@@ -227,17 +240,28 @@ public class ArgsOptionParser extends OptionSetter {
          * For this reason, we grab the index from the iterator itself, rather than trying to
          * increment it ourselves.
          */
+        boolean lastCheckThrew = false;
         while (argsIter.hasNext()) {
             lastProcessedIdx = argsIter.nextIndex();
             final String arg = argsIter.next();
             try {
                 // All of the work happens within parseArg(...) by side-effect
-                if (!parseArg(arg, argsIter, leftovers)) break;
+                if (!parseArg(arg, argsIter, leftovers)) {
+                    if (!lastCheckThrew) {
+                        break;
+                    }
+                }
+                lastCheckThrew = false;
             } catch (ConfigurationException e) {
+                lastCheckThrew = true;
                 // Something failed.  Add all of the not-fully-processed and not-yet-processed args
                 // to leftovers and return
-                leftovers.addAll(args.subList(lastProcessedIdx, args.size()));
-                return leftovers;
+                if (!forceContinue) {
+                    leftovers.addAll(args.subList(lastProcessedIdx, args.size()));
+                    return leftovers;
+                } else {
+                    leftovers.add(arg);
+                }
             }
         }
 

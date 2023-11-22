@@ -16,12 +16,18 @@
 
 package util.build;
 
-import com.sun.tools.javac.Main;
-
 import java.io.File;
-import java.io.PrintWriter;
+import java.lang.Iterable;
+import java.util.stream.Collectors;
+import java.util.Arrays;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
+import javax.tools.JavaCompiler;
+import javax.tools.JavaFileObject;
+import javax.tools.StandardJavaFileManager;
+import javax.tools.StandardLocation;
+import javax.tools.ToolProvider;
 
 public class JavacBuildStep extends SourceBuildStep {
 
@@ -55,23 +61,37 @@ public class JavacBuildStep extends SourceBuildStep {
                 System.err.println("failed to create destination dir");
                 return false;
             }
-            int args = 8;
-            String[] commandLine = new String[sourceFiles.size()+args];
-            commandLine[0] = "-classpath";
-            commandLine[1] = classPath;
-            commandLine[2] = "-d";
-            commandLine[3] = destPath;
-            commandLine[4] = "-source";
-            commandLine[5] = "1.7";
-            commandLine[6] = "-target";
-            commandLine[7] = "1.7";
 
-            String[] files = new String[sourceFiles.size()];
-            sourceFiles.toArray(files);
+            Iterable<File> classPathFiles = Arrays.asList(classPath.split(":"))
+                    .stream()
+                    .map(File::new)
+                    .collect(Collectors.toList());
 
-            System.arraycopy(files, 0, commandLine, args, files.length);
+            JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
+            try (StandardJavaFileManager fileManager = compiler.getStandardFileManager(
+                    null,     // diagnosticListener: we don't care about the details.
+                    null,     // locale: use default locale.
+                    null)) {  // charset: use platform default.
+                fileManager.setLocation(StandardLocation.CLASS_OUTPUT, Arrays.asList(
+                        new File(destPath)));
+                fileManager.setLocation(StandardLocation.CLASS_PATH, classPathFiles);
 
-            return Main.compile(commandLine, new PrintWriter(System.err)) == 0;
+                Iterable<? extends JavaFileObject> compilationUnits =
+                        fileManager.getJavaFileObjectsFromStrings(sourceFiles);
+
+                List<String> options = Arrays.asList("-source", "1.7", "-target", "1.7");
+
+                return compiler.getTask(
+                        null,  // out: write errors to System.err.
+                        fileManager,
+                        null,  // diagnosticListener: we don't care about the details.
+                        options,
+                        null,  // classes: classes for annotation processing = none.
+                        compilationUnits).call();
+            } catch (Exception e) {
+                e.printStackTrace();
+                return false;
+            }
         }
         return false;
     }

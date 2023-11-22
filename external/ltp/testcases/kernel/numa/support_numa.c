@@ -22,7 +22,7 @@
 /*                                                                            */
 /* File:        support_numa.c                                                */
 /*                                                                            */
-/* Description: Allocates 1MB of memory and touches it to verify numa         */
+/* Description: Allocates memory and touches it to verify numa                */
 /*                                                                            */
 /* Author:      Sivakumar Chinnaiah  Sivakumar.C@in.ibm.com                   */
 /*                                                                            */
@@ -39,6 +39,7 @@
 #include <sys/stat.h>
 #include <sys/mman.h>
 #include <fcntl.h>
+#include "lapi/mmap.h"
 
 /* Global Variables */
 #define MB (1<<20)
@@ -50,18 +51,46 @@
 static void help(void)
 {
 	printf("Input:	Describe input arguments to this program\n");
-	printf("	argv[1] == 1 then allocate 1MB of memory\n");
-	printf("	argv[1] == 2 then allocate 1MB of share memory\n");
-	printf("	argv[1] == 3 then pause the program to catch sigint\n");
+	printf("	argv[1] == \"alloc_1MB\" then allocate 1MB of memory\n");
+	printf("	argv[1] == \"alloc_1MB_shared\" then allocate 1MB of share memory\n");
+	printf("	argv[1] == \"alloc_2HPSZ_THP\" then allocate 2HUGE PAGE SIZE of THP memory\n");
+	printf("        argv[1] == \"alloc_1huge_page\" then allocate 1HUGE PAGE SIZE of memory\n");
+	printf("        argv[1] == \"pause\" then pause the program to catch sigint\n");
 	printf("Exit:	On failure - Exits with non-zero value\n");
 	printf("	On success - exits with 0 exit value\n");
 
 	exit(1);
 }
 
+static int read_hugepagesize(void)
+{
+	FILE *fp;
+	char line[BUFSIZ], buf[BUFSIZ];
+	int val;
+
+	fp = fopen("/proc/meminfo", "r");
+	if (fp == NULL) {
+		fprintf(stderr, "Failed to open /proc/meminfo");
+		return 0;
+	}
+
+	while (fgets(line, BUFSIZ, fp) != NULL) {
+		if (sscanf(line, "%64s %d", buf, &val) == 2)
+			if (strcmp(buf, "Hugepagesize:") == 0) {
+				fclose(fp);
+				return 1024 * val;
+			}
+	}
+
+	fclose(fp);
+	fprintf(stderr, "can't find \"%s\" in %s", "Hugepagesize:", "/proc/meminfo");
+
+	return 0;
+}
+
 int main(int argc, char *argv[])
 {
-	int i, fd, rc;
+	int i, fd, rc, hpsz;
 	char *buf = NULL;
 	struct stat sb;
 
@@ -70,8 +99,7 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 
-	switch (atoi(argv[1])) {
-	case 1:
+	if (!strcmp(argv[1], "alloc_1MB")) {
 		buf = malloc(MB);
 		if (!buf) {
 			fprintf(stderr, "Memory is not available\n");
@@ -85,8 +113,7 @@ int main(int argc, char *argv[])
 		raise(SIGSTOP);
 
 		free(buf);
-		break;
-	case 2:
+	} else if (!strcmp(argv[1], "alloc_1MB_shared")) {
 		fd = open(TEST_SFILE, O_RDWR | O_CREAT, 0666);
 		/* Writing 1MB of random data into this file [32 * 32768 = 1024 * 1024] */
 		for (i = 0; i < 32768; i++){
@@ -112,11 +139,46 @@ int main(int argc, char *argv[])
 		munmap(buf, sb.st_size);
 		close(fd);
 		remove(TEST_SFILE);
-		break;
-	case 3:
+	} else if (!strcmp(argv[1], "alloc_2HPSZ_THP")) {
+		ssize_t size = 2 * read_hugepagesize();
+		if (size == 0)
+			exit(1);
+
+		buf = mmap(NULL, size, PROT_READ | PROT_WRITE,
+				MAP_PRIVATE | MAP_ANONYMOUS,
+				-1, 0);
+		if (buf == MAP_FAILED) {
+			perror("mmap failed");
+			exit(1);
+		}
+
+		memset(buf, 'a', size);
+
 		raise(SIGSTOP);
-		break;
-	default:
+
+		munmap(buf, size);
+	} else if (!strcmp(argv[1], "alloc_1huge_page")) {
+		hpsz = read_hugepagesize();
+		if (hpsz == 0)
+			exit(1);
+
+		buf = mmap(NULL, hpsz, PROT_READ | PROT_WRITE,
+				MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB,
+				-1, 0);
+
+		if (buf == MAP_FAILED) {
+			perror("mmap failed");
+			exit(1);
+		}
+
+		memset(buf, 'a', hpsz);
+
+		raise(SIGSTOP);
+
+		munmap(buf, hpsz);
+	} else if (!strcmp(argv[1], "pause")) {
+		raise(SIGSTOP);
+	} else {
 		help();
 	}
 

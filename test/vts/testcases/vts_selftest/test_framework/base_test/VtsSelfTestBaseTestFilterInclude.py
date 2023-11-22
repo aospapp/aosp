@@ -39,6 +39,7 @@ class VtsSelfTestBaseTestFilterInclude(
         'suite1.test2_32bit',
         'suite2.any_matching_regex',
         'suite3.test1',
+        'added.test1_64bit',
     ]
 
     SHOULD_NOT_PASS_FILTER = [
@@ -47,6 +48,11 @@ class VtsSelfTestBaseTestFilterInclude(
         'any.other',
         'suite3.test2',
     ]
+
+    # Override
+    def setUpClass(self):
+        super(VtsSelfTestBaseTestFilterInclude, self).setUpClass()
+        self.test_filter.add_to_include_filter('added.test1')
 
 
 if __name__ == "__main__":

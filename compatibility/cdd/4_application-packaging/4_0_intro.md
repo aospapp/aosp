@@ -31,20 +31,25 @@ intent and the storage manager app handling [ACTION_MANAGE_STORAGE](
 https://developer.android.com/reference/android/os/storage/StorageManager.html#ACTION_MANAGE_STORAGE)
 intent.
 
-Device implementations MUST NOT install application packages from unknown
+*    [C-0-5] MUST have an activity that handles the
+[`android.settings.MANAGE_UNKNOWN_APP_SOURCES`](http://developer.android.com/reference/android/provider/Settings.html#ACTION_MANAGE_UNKNOWN_APP_SOURCES)
+intent.
+
+*    [C-0-6] MUST NOT install application packages from unknown
 sources, unless the app that [requests the installation](https://developer.android.com/reference/android/content/Intent.html#ACTION_INSTALL_PACKAGE)
 meets all the following requirements:
 
-*   It MUST declare the [`REQUEST_INSTALL_PACKAGES`](http://developer.android.com/reference/android/Manifest.permission.html#REQUEST_INSTALL_PACKAGES)
+    *   It MUST declare the [`REQUEST_INSTALL_PACKAGES`](http://developer.android.com/reference/android/Manifest.permission.html#REQUEST_INSTALL_PACKAGES)
     permission or have the `android:targetSdkVersion` set at 24 or lower.
-*   It MUST have been granted permission by the user to install apps from
+    *   It MUST have been granted permission by the user to install apps from
     unknown sources.
 
-Device implementations MUST have an activity that handles the
-[`android.settings.MANAGE_UNKNOWN_APP_SOURCES`](http://developer.android.com/reference/android/provider/Settings.html#ACTION_MANAGE_UNKNOWN_APP_SOURCES)
-intent. They SHOULD provide a user affordance to grant/revoke the permission to
+*    SHOULD provide a user affordance to grant/revoke the permission to
 install apps from unknown sources per application, but MAY choose to implement
-this as a no-op and return `RESULT_CANCELED` for [`startActivityForResult()`](http://developer.android.com/reference/android/app/Activity.html#startActivityForResult%28android.content.Intent, int%29),
+this as a no-op and return `RESULT_CANCELED` for
+[`startActivityForResult()`](http://developer.android.com/reference/android/app/Activity.html#startActivityForResult%28android.content.Intent,
+int%29),
 if the device implementation does not want to allow users to have this choice.
-However even in such cases, they SHOULD indicate to the user why there is no such
+However, even in such cases, they SHOULD indicate to the user why there is no
+such
 choice presented.

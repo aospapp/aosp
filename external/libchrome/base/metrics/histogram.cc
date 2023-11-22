@@ -130,7 +130,7 @@ class Histogram::Factory {
   // Perform any required datafill on the just-created histogram.  If
   // overridden, be sure to call the "super" version -- this method may not
   // always remain empty.
-  virtual void FillHistogram(HistogramBase* /*histogram*/) {}
+  virtual void FillHistogram(HistogramBase* histogram) {}
 
   // These values are protected (instead of private) because they need to
   // be accessible to methods of sub-classes in order to avoid passing
@@ -217,7 +217,7 @@ HistogramBase* Histogram::Factory::Build() {
     ReportHistogramActivity(*histogram, HISTOGRAM_LOOKUP);
   }
 
-  DCHECK_EQ(histogram_type_, histogram->GetHistogramType()) << name_;
+  CHECK_EQ(histogram_type_, histogram->GetHistogramType()) << name_;
   if (bucket_count_ != 0 &&
       !histogram->HasConstructionArguments(minimum_, maximum_, bucket_count_)) {
     // The construction arguments do not match the existing histogram.  This can
@@ -533,7 +533,7 @@ Histogram::Histogram(const std::string& name,
 Histogram::~Histogram() {
 }
 
-bool Histogram::PrintEmptyBucket(uint32_t /*index*/) const {
+bool Histogram::PrintEmptyBucket(uint32_t index) const {
   return true;
 }
 
@@ -674,15 +674,14 @@ void Histogram::WriteAsciiHeader(const SampleVector& samples,
                 "Histogram: %s recorded %d samples",
                 histogram_name().c_str(),
                 sample_count);
-  if (0 == sample_count) {
+  if (sample_count == 0) {
     DCHECK_EQ(samples.sum(), 0);
   } else {
-    double average = static_cast<float>(samples.sum()) / sample_count;
-
-    StringAppendF(output, ", average = %.1f", average);
+    double mean = static_cast<float>(samples.sum()) / sample_count;
+    StringAppendF(output, ", mean = %.1f", mean);
   }
-  if (flags() & ~kHexRangePrintingFlag)
-    StringAppendF(output, " (flags = 0x%x)", flags() & ~kHexRangePrintingFlag);
+  if (flags())
+    StringAppendF(output, " (flags = 0x%x)", flags());
 }
 
 void Histogram::WriteAsciiBucketContext(const int64_t past,
@@ -754,8 +753,7 @@ class LinearHistogram::Factory : public Histogram::Factory {
 
   std::unique_ptr<HistogramBase> HeapAlloc(
       const BucketRanges* ranges) override {
-    return WrapUnique(
-        new LinearHistogram(name_, minimum_, maximum_, ranges));
+    return WrapUnique(new LinearHistogram(name_, minimum_, maximum_, ranges));
   }
 
   void FillHistogram(HistogramBase* base_histogram) override {
@@ -1139,8 +1137,10 @@ bool CustomHistogram::SerializeInfoImpl(Pickle* pickle) const {
   return true;
 }
 
-double CustomHistogram::GetBucketSize(Count /*current*/, uint32_t /*i*/) const {
-  return 1;
+double CustomHistogram::GetBucketSize(Count current, uint32_t i) const {
+  // If this is a histogram of enum values, normalizing the bucket count
+  // by the bucket range is not helpful, so just return the bucket count.
+  return current;
 }
 
 // static

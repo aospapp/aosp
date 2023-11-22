@@ -1,4 +1,5 @@
-#include "benchmark/benchmark_api.h"
+#include <benchmark/benchmark.h>
+
 #include <string>
 #include <cstring>
 #include <cstdlib>
@@ -152,4 +153,4 @@ static void benchLinearWrite(benchmark::State& state) {
 }
 BENCHMARK(benchLinearWrite);
 
-BENCHMARK_MAIN()
+BENCHMARK_MAIN();

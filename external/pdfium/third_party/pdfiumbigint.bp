@@ -1,6 +1,6 @@
 cc_library_static {
     name: "libpdfiumbigint",
-    defaults: ["pdfium-defaults"],
+    defaults: ["pdfium-third-party"],
 
     srcs: [
         "bigint/BigInteger.cc",

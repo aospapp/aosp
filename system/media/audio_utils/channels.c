@@ -86,6 +86,40 @@ static inline uint8x3_t int32_to_uint8x3(int32_t in) {
     return num_out_samples * sizeof(*(out_buff)); \
 }
 
+/* Channel expands from an input buffer to an output buffer.
+ * See expand_selected_channels() function below for parameter definitions.
+ * Selected channels are replaced in the output buffer, with any extra channels
+ * per frame left alone.
+ *
+ * Move from back to front so that the conversion can be done in-place
+ * i.e. in_buff == out_buff
+ * NOTE: num_in_bytes must be a multiple of in_buff_channels * in_buff_sample_size.
+ */
+/* This is written as a C macro because it operates on generic types,
+ * which in a C++ file could be alternatively achieved by a "template"
+ * or an "auto" declaration.
+ * TODO: convert this from a C file to a C++ file.
+ */
+#define EXPAND_SELECTED_CHANNELS( \
+        in_buff, in_buff_chans, out_buff, out_buff_chans, num_in_bytes) \
+{ \
+    size_t num_in_samples = (num_in_bytes) / sizeof(*(in_buff)); \
+    size_t num_out_samples = (num_in_samples * (out_buff_chans)) / (in_buff_chans); \
+    typeof(out_buff) dst_ptr = (out_buff) + num_out_samples - 1; \
+    size_t src_index; \
+    typeof(in_buff) src_ptr = (in_buff) + num_in_samples - 1; \
+    size_t num_extra_chans = (out_buff_chans) - (in_buff_chans); \
+    for (src_index = 0; src_index < num_in_samples; src_index += (in_buff_chans)) { \
+        dst_ptr -= num_extra_chans; \
+        for (size_t dst_offset = num_extra_chans; dst_offset < (out_buff_chans); dst_offset++) { \
+            *dst_ptr-- = *src_ptr--; \
+        } \
+    } \
+    /* return number of *bytes* generated */ \
+    return num_out_samples * sizeof(*(out_buff)); \
+}
+
+
 /* Channel expands from a MONO input buffer to a MULTICHANNEL output buffer by duplicating the
  * single input channel to the first 2 output channels and 0-filling the remaining.
  * See expand_channels() function below for parameter definitions.
@@ -375,3 +409,75 @@ size_t adjust_channels(const void* in_buff, size_t in_buff_chans,
 
     return num_in_bytes;
 }
+
+/*
+ * Convert a buffer of N-channel, interleaved samples to M-channel
+ * (where N < M).
+ *   in_buff points to the buffer of samples
+ *   in_buff_channels Specifies the number of channels in the input buffer.
+ *   out_buff points to the buffer to receive converted samples.
+ *   out_buff_channels Specifies the number of channels in the output buffer.
+ *   sample_size_in_bytes Specifies the number of bytes per sample.
+ *   num_in_bytes size of input buffer in BYTES
+ * returns
+ *   the number of BYTES of output data.
+ * NOTE
+ *   channels > N are left alone in out_buff.
+ *   The out and in buffers must either be completely separate (non-overlapping), or
+ *   they must both start at the same address. Partially overlapping buffers are not supported.
+ */
+static size_t expand_selected_channels(const void* in_buff, size_t in_buff_chans,
+                              void* out_buff, size_t out_buff_chans,
+                              unsigned sample_size_in_bytes, size_t num_in_bytes)
+{
+    switch (sample_size_in_bytes) {
+    case 1:
+
+        EXPAND_SELECTED_CHANNELS((const uint8_t*)in_buff, in_buff_chans,
+                        (uint8_t*)out_buff, out_buff_chans,
+                        num_in_bytes);
+        // returns in macro
+
+    case 2:
+
+        EXPAND_SELECTED_CHANNELS((const int16_t*)in_buff, in_buff_chans,
+                        (int16_t*)out_buff, out_buff_chans,
+                        num_in_bytes);
+        // returns in macro
+
+    case 3:
+
+        EXPAND_SELECTED_CHANNELS((const uint8x3_t*)in_buff, in_buff_chans,
+                        (uint8x3_t*)out_buff, out_buff_chans,
+                        num_in_bytes);
+        // returns in macro
+
+    case 4:
+
+        EXPAND_SELECTED_CHANNELS((const int32_t*)in_buff, in_buff_chans,
+                        (int32_t*)out_buff, out_buff_chans,
+                        num_in_bytes);
+        // returns in macro
+
+    default:
+        return 0;
+    }
+}
+
+size_t adjust_selected_channels(const void* in_buff, size_t in_buff_chans,
+                       void* out_buff, size_t out_buff_chans,
+                       unsigned sample_size_in_bytes, size_t num_in_bytes)
+{
+    if (out_buff_chans > in_buff_chans) {
+        return expand_selected_channels(in_buff, in_buff_chans, out_buff, out_buff_chans,
+                               sample_size_in_bytes, num_in_bytes);
+    } else if (out_buff_chans < in_buff_chans) {
+        return contract_channels(in_buff, in_buff_chans, out_buff, out_buff_chans,
+                                 sample_size_in_bytes, num_in_bytes);
+    } else if (in_buff != out_buff) {
+        memcpy(out_buff, in_buff, num_in_bytes);
+    }
+
+    return num_in_bytes;
+}
+

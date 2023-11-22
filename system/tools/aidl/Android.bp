@@ -16,10 +16,10 @@
 
 cc_defaults {
     name: "aidl_defaults",
-    clang_cflags: [
+    cflags: [
         "-Wall",
-        "-Wextra",
         "-Werror",
+        "-Wextra",
     ],
     whole_static_libs: ["libgtest_prod"],
     static_libs: [
@@ -133,12 +133,6 @@ cc_test_host {
         "libcutils",
         "libgmock_host",
     ],
-
-    target: {
-        linux: {
-            host_ldlibs: ["-lrt"],
-        },
-    },
 }
 
 //

@@ -1,6 +1,7 @@
 // Copyright 2016 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+// Note: ported from Chromium commit head: 2de6929
 
 #include "vp9_compressed_header_parser.h"
 
@@ -59,7 +60,7 @@ Vp9Prob InvRemapProb(uint8_t delta_prob, uint8_t prob) {
 
 }  // namespace
 
-Vp9CompressedHeaderParser::Vp9CompressedHeaderParser() {}
+Vp9CompressedHeaderParser::Vp9CompressedHeaderParser() = default;
 
 // 6.3.1 Tx mode syntax
 void Vp9CompressedHeaderParser::ReadTxMode(Vp9FrameHeader* fhdr) {

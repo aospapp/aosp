@@ -49,6 +49,55 @@ extern "C" {
 
 namespace qcamera {
 
+using android::hidl::base::V1_0::IBase;
+using android::hardware::hidl_death_recipient;
+
+static std::mutex gPowerHalMutex;
+static sp<IPower> gPowerHal = nullptr;
+static void getPowerHalLocked();
+
+// struct PowerHalDeathRecipient;
+struct PowerHalDeathRecipient : virtual public hidl_death_recipient {
+    // hidl_death_recipient interface
+    virtual void serviceDied(uint64_t, const wp<IBase>&) override {
+        std::lock_guard<std::mutex> lock(gPowerHalMutex);
+        ALOGE("PowerHAL just died");
+        gPowerHal = nullptr;
+        getPowerHalLocked();
+    }
+};
+
+sp<PowerHalDeathRecipient> gPowerHalDeathRecipient = nullptr;
+
+// The caller must be holding gPowerHalMutex.
+static void getPowerHalLocked() {
+    if (gPowerHal != nullptr) {
+        return;
+    }
+
+    gPowerHal = IPower::getService();
+
+    if (gPowerHal == nullptr) {
+        ALOGE("Unable to get Power service.");
+    } else {
+        if (gPowerHalDeathRecipient == nullptr) {
+            gPowerHalDeathRecipient = new PowerHalDeathRecipient();
+        }
+        hardware::Return<bool> linked = gPowerHal->linkToDeath(
+            gPowerHalDeathRecipient, 0x451F /* cookie */);
+        if (!linked.isOk()) {
+            ALOGE("Transaction error in linking to PowerHAL death: %s",
+                  linked.description().c_str());
+            gPowerHal = nullptr;
+        } else if (!linked) {
+            ALOGW("Unable to link to PowerHal death notifications");
+            gPowerHal = nullptr;
+        } else {
+            ALOGD("Link to death notification successful");
+        }
+    }
+}
+
 typedef enum {
     MPCTLV3_MIN_FREQ_CLUSTER_BIG_CORE_0     = 0x40800000,
     MPCTLV3_MIN_FREQ_CLUSTER_BIG_CORE_1     = 0x40800010,
@@ -281,11 +330,11 @@ bool QCameraPerfLockMgr::releasePerfLock(
 void QCameraPerfLockMgr::powerHintInternal(
         PerfLockEnum perfLockType,
         PowerHint    powerHint,
-        bool         enable)
+        int32_t      time_out)
 {
     if ((mState == LOCK_MGR_STATE_READY) &&
         isValidPerfLockEnum(perfLockType)) {
-        mPerfLock[perfLockType]->powerHintInternal(powerHint, enable);
+        mPerfLock[perfLockType]->powerHintInternal(powerHint, time_out);
     }
 }
 
@@ -421,10 +470,24 @@ bool QCameraPerfLock::acquirePerfLock(
     bool ret = true;
     Mutex::Autolock lock(mMutex);
 
-    if ((mPerfLockType == PERF_LOCK_POWERHINT_PREVIEW) ||
-        (mPerfLockType == PERF_LOCK_POWERHINT_ENCODE)) {
-        powerHintInternal(PowerHint::VIDEO_ENCODE, true);
-        return true;
+    switch (mPerfLockType) {
+        case PERF_LOCK_POWERHINT_PREVIEW:
+        case PERF_LOCK_POWERHINT_ENCODE:
+            powerHintInternal(PowerHint::VIDEO_ENCODE, true);
+            return true;
+        case PERF_LOCK_OPEN_CAMERA:
+        case PERF_LOCK_CLOSE_CAMERA:
+            powerHintInternal(PowerHint::CAMERA_LAUNCH, timer);
+            return true;
+        case PERF_LOCK_START_PREVIEW:
+            powerHintInternal(PowerHint::CAMERA_STREAMING, timer);
+            return true;
+        case PERF_LOCK_TAKE_SNAPSHOT:
+            powerHintInternal(PowerHint::CAMERA_SHOT, timer);
+            return true;
+        default:
+            LOGE("Unknown powerhint %d",(int)mPerfLockType);
+            return false;
     }
 
     if (!mIsPerfdEnabled) return ret;
@@ -473,10 +536,24 @@ bool QCameraPerfLock::releasePerfLock()
     bool ret = true;
     Mutex::Autolock lock(mMutex);
 
-    if ((mPerfLockType == PERF_LOCK_POWERHINT_PREVIEW) ||
-        (mPerfLockType == PERF_LOCK_POWERHINT_ENCODE)) {
-        powerHintInternal(PowerHint::VIDEO_ENCODE, false);
-        return true;
+    switch (mPerfLockType) {
+        case PERF_LOCK_POWERHINT_PREVIEW:
+        case PERF_LOCK_POWERHINT_ENCODE:
+            powerHintInternal(PowerHint::VIDEO_ENCODE, false);
+            return true;
+        case PERF_LOCK_OPEN_CAMERA:
+        case PERF_LOCK_CLOSE_CAMERA:
+            powerHintInternal(PowerHint::CAMERA_LAUNCH, false);
+            return true;
+        case PERF_LOCK_START_PREVIEW:
+            powerHintInternal(PowerHint::CAMERA_STREAMING, false);
+            return true;
+        case PERF_LOCK_TAKE_SNAPSHOT:
+            powerHintInternal(PowerHint::CAMERA_SHOT, false);
+            return true;
+        default:
+            LOGE("Unknown powerhint %d",(int)mPerfLockType);
+            return false;
     }
 
     if (!mIsPerfdEnabled) return ret;
@@ -519,10 +596,10 @@ bool QCameraPerfLock::releasePerfLock()
  *==========================================================================*/
 void QCameraPerfLock::powerHintInternal(
         PowerHint    powerHint,
-        bool         enable)
+        int32_t      time_out)
 {
 #ifdef HAS_MULTIMEDIA_HINTS
-    if (!mPerfLockIntf->powerHint(powerHint, enable)) {
+    if (!mPerfLockIntf->powerHint(powerHint, time_out)) {
         LOGE("Send powerhint to PowerHal failed");
     }
 #endif
@@ -559,8 +636,9 @@ QCameraPerfLockIntf* QCameraPerfLockIntf::createSingleton()
             mInstance = new QCameraPerfLockIntf();
             if (mInstance) {
                 #ifdef HAS_MULTIMEDIA_HINTS
-                mInstance->mPowerHal = IPower::getService();
-                if (mInstance->mPowerHal == nullptr) {
+                std::lock_guard<std::mutex> lock(gPowerHalMutex);
+                getPowerHalLocked();
+                if (gPowerHal == nullptr) {
                     ALOGE("Couldn't load PowerHAL module");
                 }
                 else
@@ -581,6 +659,13 @@ QCameraPerfLockIntf* QCameraPerfLockIntf::createSingleton()
                             error = false;
                         } else {
                             LOGE("Failed to link the symbols- perf_lock_acq, perf_lock_rel");
+                            bool IsPerfdEnabled = android::base::GetBoolProperty("persist.camera.perfd.enable", false);
+                            if (!IsPerfdEnabled) {
+                                mInstance->mDlHandle    = nullptr;
+                                mInstance->mPerfLockAcq = nullptr;
+                                mInstance->mPerfLockRel = nullptr;
+                                error = false;
+                            }
                         }
                     } else {
                         LOGE("Unable to load lib: %s", value);
@@ -638,6 +723,20 @@ QCameraPerfLockIntf::~QCameraPerfLockIntf()
     if (mDlHandle) {
         dlclose(mDlHandle);
     }
+}
+
+bool QCameraPerfLockIntf::powerHint(PowerHint hint, int32_t data) {
+    std::lock_guard<std::mutex> lock(gPowerHalMutex);
+    getPowerHalLocked();
+    if (gPowerHal == nullptr) {
+        ALOGE("Couldn't do powerHint because of HAL error.");
+        return false;
+    }
+    auto ret = gPowerHal->powerHintAsync_1_2(hint, data);
+    if (!ret.isOk()) {
+        ALOGE("powerHint failed error: %s", ret.description().c_str());
+    }
+    return ret.isOk();
 }
 
 }; // namespace qcamera

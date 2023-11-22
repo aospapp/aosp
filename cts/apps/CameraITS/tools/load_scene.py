@@ -18,16 +18,21 @@ import subprocess
 import sys
 import time
 
+import numpy as np
+
 
 def main():
     """Load charts on device and display."""
-    camera_id = -1
     scene = None
     for s in sys.argv[1:]:
         if s[:6] == 'scene=' and len(s) > 6:
             scene = s[6:]
         elif s[:7] == 'screen=' and len(s) > 7:
             screen_id = s[7:]
+        elif s[:5] == 'dist=' and len(s) > 5:
+            chart_distance = float(re.sub('cm', '', s[5:]))
+        elif s[:4] == 'fov=' and len(s) > 4:
+            camera_fov = float(s[4:])
 
     cmd = ('adb -s %s shell am force-stop com.google.android.apps.docs' %
            screen_id)
@@ -43,8 +48,13 @@ def main():
 
     remote_scene_file = '/sdcard/Download/%s.pdf' % scene
     local_scene_file = os.path.join(os.environ['CAMERA_ITS_TOP'], 'tests',
-                                    scene, scene+'.pdf')
-    print 'Loading %s on %s' % (remote_scene_file, screen_id)
+                                    scene)
+    if np.isclose(chart_distance, 20, rtol=0.1) and camera_fov < 90:
+        local_scene_file = os.path.join(local_scene_file,
+                                        scene+'_0.67_scaled.pdf')
+    else:
+        local_scene_file = os.path.join(local_scene_file, scene+'.pdf')
+    print 'Loading %s on %s' % (local_scene_file, screen_id)
     cmd = 'adb -s %s push %s /mnt%s' % (screen_id, local_scene_file,
                                         remote_scene_file)
     subprocess.Popen(cmd.split())

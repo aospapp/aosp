@@ -21,9 +21,7 @@ import android.content.Intent;
 import android.net.Uri;
 import android.preference.PreferenceManager;
 
-/**
- * A utility class related to onboarding experience.
- */
+/** A utility class related to onboarding experience. */
 public final class OnboardingUtils {
     private static final String PREF_KEY_IS_FIRST_BOOT = "pref_onbaording_is_first_boot";
     private static final String PREF_KEY_ONBOARDING_VERSION_CODE = "pref_onbaording_versionCode";
@@ -31,23 +29,17 @@ public final class OnboardingUtils {
 
     private static final String MERCHANT_COLLECTION_URL_STRING = getMerchantCollectionUrl();
 
-    /**
-     * Intent to show merchant collection in online store.
-     */
-    public static final Intent ONLINE_STORE_INTENT = new Intent(Intent.ACTION_VIEW,
-            Uri.parse(MERCHANT_COLLECTION_URL_STRING));
+    /** Intent to show merchant collection in online store. */
+    public static final Intent ONLINE_STORE_INTENT =
+            new Intent(Intent.ACTION_VIEW, Uri.parse(MERCHANT_COLLECTION_URL_STRING));
 
-    /**
-     * Checks if this is the first boot after the onboarding experience has been applied.
-     */
+    /** Checks if this is the first boot after the onboarding experience has been applied. */
     public static boolean isFirstBoot(Context context) {
         return PreferenceManager.getDefaultSharedPreferences(context)
                 .getBoolean(PREF_KEY_IS_FIRST_BOOT, true);
     }
 
-    /**
-     * Marks that the first boot has been completed.
-     */
+    /** Marks that the first boot has been completed. */
     public static void setFirstBootCompleted(Context context) {
         PreferenceManager.getDefaultSharedPreferences(context)
                 .edit()
@@ -56,27 +48,28 @@ public final class OnboardingUtils {
     }
 
     /**
-     * Checks if this is the first run of {@link com.android.tv.MainActivity} with the
-     * current onboarding version.
+     * Checks if this is the first run of {@link com.android.tv.MainActivity} with the current
+     * onboarding version.
      */
     public static boolean isFirstRunWithCurrentVersion(Context context) {
-        int versionCode = PreferenceManager.getDefaultSharedPreferences(context)
-                .getInt(PREF_KEY_ONBOARDING_VERSION_CODE, 0);
+        int versionCode =
+                PreferenceManager.getDefaultSharedPreferences(context)
+                        .getInt(PREF_KEY_ONBOARDING_VERSION_CODE, 0);
         return versionCode != ONBOARDING_VERSION;
     }
 
     /**
-     * Marks that the first run of {@link com.android.tv.MainActivity} with the current
-     * onboarding version has been completed.
+     * Marks that the first run of {@link com.android.tv.MainActivity} with the current onboarding
+     * version has been completed.
      */
     public static void setFirstRunWithCurrentVersionCompleted(Context context) {
-        PreferenceManager.getDefaultSharedPreferences(context).edit()
-                .putInt(PREF_KEY_ONBOARDING_VERSION_CODE, ONBOARDING_VERSION).apply();
+        PreferenceManager.getDefaultSharedPreferences(context)
+                .edit()
+                .putInt(PREF_KEY_ONBOARDING_VERSION_CODE, ONBOARDING_VERSION)
+                .apply();
     }
 
-    /**
-     * Returns merchant collection URL.
-     */
+    /** Returns merchant collection URL. */
     private static String getMerchantCollectionUrl() {
         return "TODO: add a merchant collection url";
     }

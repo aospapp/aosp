@@ -75,6 +75,8 @@ from acts.test_utils.tel.tel_test_utils import wait_for_wfc_disabled
 from acts.test_utils.tel.tel_test_utils import wait_for_wfc_enabled
 from acts.test_utils.tel.tel_test_utils import wait_for_wifi_data_connection
 from acts.test_utils.tel.tel_test_utils import verify_http_connection
+from acts.test_utils.tel.tel_test_utils import get_telephony_signal_strength
+from acts.test_utils.tel.tel_test_utils import get_wifi_signal_strength
 from acts.test_utils.tel.tel_voice_utils import is_phone_in_call_3g
 from acts.test_utils.tel.tel_voice_utils import is_phone_in_call_csfb
 from acts.test_utils.tel.tel_voice_utils import is_phone_in_call_iwlan
@@ -346,11 +348,15 @@ class TelWifiVoiceTest(TelephonyBaseTest):
                 self.log.info(
                     "Expected exception happened: <{}>, return True.".format(
                         e))
+                get_telephony_signal_strength(self.android_devices[0])
+                get_wifi_signal_strength(self.android_devices[0])
                 return True
             else:
                 self.log.info(
                     "Unexpected exception happened: <{}>, return False.".
                     format(e))
+                get_telephony_signal_strength(self.android_devices[0])
+                get_wifi_signal_strength(self.android_devices[0])
                 return False
         finally:
             ensure_phones_default_state(self.log, [ads[0], ads[1]])
@@ -455,7 +461,7 @@ class TelWifiVoiceTest(TelephonyBaseTest):
 
     def _wfc_phone_setup_cellular_absent(self, wfc_mode):
         is_exception_happened = False
-        time.sleep(60)
+        time.sleep(90)
         try:
             if not toggle_airplane_mode(self.log, self.android_devices[0],
                                         False):
@@ -2559,6 +2565,7 @@ class TelWifiVoiceTest(TelephonyBaseTest):
         # ensure cellular rat, wfc mode, wifi associated
         toggle_airplane_mode(self.log, self.android_devices[0], False)
         toggle_volte(self.log, self.android_devices[0], True)
+
         if not ensure_network_generation(
                 self.log,
                 self.android_devices[0],
@@ -2566,25 +2573,35 @@ class TelWifiVoiceTest(TelephonyBaseTest):
                 voice_or_data=NETWORK_SERVICE_DATA):
             self.log.error("_rove_out_test: {} failed to be in rat: {}".format(
                 self.android_devices[0].serial, cellular_rat))
+            get_telephony_signal_strength(self.android_devices[0])
+            get_wifi_signal_strength(self.android_devices[0])
             return False
+
         if not set_wfc_mode(self.log, self.android_devices[0], wfc_mode):
             self.log.error("{} set WFC mode failed.".format(
                 self.android_devices[0].serial))
             return False
+
         if not ensure_wifi_connected(self.log, self.android_devices[0],
                                      self.live_network_ssid,
                                      self.live_network_pwd):
             self.log.error("{} connect WiFI failed, expected succeed".format(
                 self.android_devices[0].serial))
             return False
+
         if (not wait_for_wifi_data_connection(self.log,
                                               self.android_devices[0], True) or
                 not verify_http_connection(self.log, self.android_devices[0])):
             self.log.error("No Data on Wifi")
+            get_telephony_signal_strength(self.android_devices[0])
+            get_wifi_signal_strength(self.android_devices[0])
             return False
+
         if not self._phone_idle_iwlan():
             self.log.error("Phone failed to report iwlan in {}dBm.".format(
                 WIFI_RSSI_FOR_ROVE_OUT_TEST_PHONE_INITIAL_STATE))
+            get_telephony_signal_strength(self.android_devices[0])
+            get_wifi_signal_strength(self.android_devices[0])
             return False
 
         # set up wifi to WIFI_RSSI_FOR_ROVE_OUT_TEST_PHONE_NOT_ROVE_OUT in 10 seconds
@@ -2598,10 +2615,15 @@ class TelWifiVoiceTest(TelephonyBaseTest):
                                               self.android_devices[0], True) or
                 not verify_http_connection(self.log, self.android_devices[0])):
             self.log.error("No Data on Wifi")
+            get_telephony_signal_strength(self.android_devices[0])
+            get_wifi_signal_strength(self.android_devices[0])
             return False
+
         if self._phone_wait_for_not_wfc() or not self._phone_idle_iwlan():
             self.log.error("Phone should not rove-out in {}dBm.".format(
                 WIFI_RSSI_FOR_ROVE_OUT_TEST_PHONE_NOT_ROVE_OUT))
+            get_telephony_signal_strength(self.android_devices[0])
+            get_wifi_signal_strength(self.android_devices[0])
             return False
 
         # set up wifi to WIFI_RSSI_FOR_ROVE_OUT_TEST_PHONE_ROVE_OUT in 10 seconds
@@ -2615,12 +2637,17 @@ class TelWifiVoiceTest(TelephonyBaseTest):
                                               self.android_devices[0], True) or
                 not verify_http_connection(self.log, self.android_devices[0])):
             self.log.error("No Data on Wifi")
+            get_telephony_signal_strength(self.android_devices[0])
+            get_wifi_signal_strength(self.android_devices[0])
             return False
 
         if not self._phone_wait_for_not_wfc() or self._phone_idle_iwlan():
             self.log.error("Phone should rove-out in {}dBm.".format(
                 WIFI_RSSI_FOR_ROVE_OUT_TEST_PHONE_ROVE_OUT))
+            get_telephony_signal_strength(self.android_devices[0])
+            get_wifi_signal_strength(self.android_devices[0])
             return False
+
         # make a call.
         if wfc_mode == WFC_MODE_WIFI_ONLY:
             return self._wfc_call_sequence(
@@ -3126,8 +3153,13 @@ class TelWifiVoiceTest(TelephonyBaseTest):
                  self.wifi_rssi_with_no_atten, MIN_RSSI_RESERVED_VALUE, 2, 1)
         # Make sure phone hand-out, not drop call
         if not self._phone_wait_for_not_wfc():
-            self.log.error("Phone should hand out.")
+            self.log.error("Phone should hand out to LTE.")
+            get_telephony_signal_strength(self.android_devices[0])
+            get_wifi_signal_strength(self.android_devices[0])
             return False
+        self.log.info("iWLAN to LTE switch happened at below Signal Strengths")
+        get_telephony_signal_strength(self.android_devices[0])
+        get_wifi_signal_strength(self.android_devices[0])
         if not self._is_phone_in_call_volte():
             self.log.error("Phone should be in volte call.")
             return False
@@ -3402,7 +3434,12 @@ class TelWifiVoiceTest(TelephonyBaseTest):
         # Make sure phone hand-out to iWLAN, not drop call
         if not self._phone_wait_for_wfc():
             self.log.error("Phone should hand out to iWLAN.")
+            get_telephony_signal_strength(self.android_devices[0])
+            get_wifi_signal_strength(self.android_devices[0])
             return False
+        self.log.info("LTE to iWLAN switch happened at below Signal Strengths")
+        get_telephony_signal_strength(self.android_devices[0])
+        get_wifi_signal_strength(self.android_devices[0])
         time.sleep(30)
         if not self._is_phone_in_call_iwlan():
             self.log.error("Phone should be in iWLAN call.")

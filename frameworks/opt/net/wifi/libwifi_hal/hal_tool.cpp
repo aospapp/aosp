@@ -26,6 +26,10 @@ wifi_error wifi_initialize_stub(wifi_handle* handle) {
   return WIFI_ERROR_NOT_SUPPORTED;
 }
 
+wifi_error wifi_wait_for_driver_ready_stub(void) {
+  return WIFI_ERROR_NOT_SUPPORTED;
+}
+
 void wifi_cleanup_stub(wifi_handle handle, wifi_cleaned_up_handler handler) {}
 
 void wifi_event_loop_stub(wifi_handle handle) {}
@@ -464,6 +468,7 @@ bool init_wifi_stub_hal_func_table(wifi_hal_fn* hal_fn) {
     return false;
   }
   hal_fn->wifi_initialize = wifi_initialize_stub;
+  hal_fn->wifi_wait_for_driver_ready = wifi_wait_for_driver_ready_stub;
   hal_fn->wifi_cleanup = wifi_cleanup_stub;
   hal_fn->wifi_event_loop = wifi_event_loop_stub;
   hal_fn->wifi_get_error_info = wifi_get_error_info_stub;

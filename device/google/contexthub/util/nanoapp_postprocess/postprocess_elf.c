@@ -109,6 +109,7 @@ static void fatalUsage(const char *name, const char *msg, const char *arg)
                     "       -n <layout name> : app, os, key\n"
                     "       -i <layout id>   : 1 (app), 2 (key), 3 (os)\n"
                     "       -f <layout flags>: 16-bit hex value, stored as layout-specific flags\n"
+                    "       -c <chre api>    : 16-bit hex value, stored as chre-major + chre-minor\n"
                     "       -a <app ID>      : 64-bit hex number != 0\n"
                     "       -e <app version> : 32-bit hex number\n"
                     "       -k <key ID>      : 64-bit hex number != 0\n"
@@ -225,7 +226,7 @@ static uint8_t *packNanoRelocs(struct NanoRelocEntry *nanoRelocs, uint32_t outNu
     return packedNanoRelocs;
 }
 
-static int finalizeAndWrite(uint8_t *buf, uint32_t bufUsed, uint32_t bufSz, FILE *out, uint32_t layoutFlags, uint64_t appId)
+static int finalizeAndWrite(uint8_t *buf, uint32_t bufUsed, uint32_t bufSz, FILE *out, uint32_t layoutFlags, uint64_t appId, uint32_t chreApi)
 {
     int ret;
     struct AppInfo app;
@@ -238,12 +239,14 @@ static int finalizeAndWrite(uint8_t *buf, uint32_t bufUsed, uint32_t bufSz, FILE
             .app_id = appId,
             .app_version = bin->hdr.appVer,
             .flags       = 0, // encrypted (1), signed (2) (will be set by other tools)
+            .chre_api_major = chreApi >> 8,
+            .chre_api_minor = chreApi & 0xFF,
         },
         .layout = (struct ImageLayout) {
             .magic = GOOGLE_LAYOUT_MAGIC,
             .version = 1,
             .payload = LAYOUT_APP,
-            .flags = layoutFlags,
+            .flags = layoutFlags | (chreApi ? 0x0010 : 0x0000),
         },
     };
     uint32_t dataOffset = sizeof(outHeader) + sizeof(app);
@@ -285,7 +288,7 @@ static int finalizeAndWrite(uint8_t *buf, uint32_t bufUsed, uint32_t bufSz, FILE
     return ret;
 }
 
-static int handleApp(uint8_t **pbuf, uint32_t bufUsed, FILE *out, uint32_t layoutFlags, uint64_t appId, uint32_t appVer, bool verbose)
+static int handleApp(uint8_t **pbuf, uint32_t bufUsed, FILE *out, uint32_t layoutFlags, uint64_t appId, uint32_t appVer, uint32_t chreApi, bool verbose)
 {
     uint32_t i, numRelocs, numSyms, outNumRelocs = 0, packedNanoRelocSz;
     struct NanoRelocEntry *nanoRelocs = NULL;
@@ -529,7 +532,7 @@ static int handleApp(uint8_t **pbuf, uint32_t bufUsed, FILE *out, uint32_t layou
     sect->rel_start -= FLASH_BASE + BINARY_RELOC_OFFSET;
     sect->rel_end -= FLASH_BASE + BINARY_RELOC_OFFSET;
 
-    ret = finalizeAndWrite(buf, bufUsed, bufSz, out, layoutFlags, appId);
+    ret = finalizeAndWrite(buf, bufUsed, bufSz, out, layoutFlags, appId, chreApi);
 out:
     free(nanoRelocs);
     return ret;
@@ -786,7 +789,7 @@ out:
     return success;
 }
 
-static int handleAppStatic(const char *fileName, FILE *out, uint32_t layoutFlags, uint64_t appId, uint32_t appVer, bool verbose)
+static int handleAppStatic(const char *fileName, FILE *out, uint32_t layoutFlags, uint64_t appId, uint32_t appVer, uint32_t chreApi, bool verbose)
 {
     struct ElfNanoApp app;
 
@@ -823,7 +826,7 @@ static int handleAppStatic(const char *fileName, FILE *out, uint32_t layoutFlags
     hdr->sect.rel_end = hdr->sect.rel_start + app.packedNanoRelocs.size;
     hdr->hdr.appVer = appVer;
 
-    return finalizeAndWrite(buf, offset, bufSize, out, layoutFlags, appId);
+    return finalizeAndWrite(buf, offset, bufSize, out, layoutFlags, appId, chreApi);
     // TODO: should free all memory we allocated... just letting the OS handle
     // it for now
 }
@@ -896,6 +899,7 @@ int main(int argc, char **argv)
     uint64_t appId = 0;
     uint64_t keyId = 0;
     uint32_t appVer = 0;
+    uint32_t chreApi = 0;
     uint32_t layoutId = 0;
     uint32_t layoutFlags = 0;
     int ret = -1;
@@ -923,6 +927,8 @@ int main(int argc, char **argv)
                 staticElf = true;
             else if (!strcmp(argv[i], "-a"))
                 u64Arg = &appId;
+            else if (!strcmp(argv[i], "-c"))
+                u32Arg = &chreApi;
             else if (!strcmp(argv[i], "-e"))
                 u32Arg = &appVer;
             else if (!strcmp(argv[i], "-k"))
@@ -1000,9 +1006,9 @@ int main(int argc, char **argv)
     switch(layoutId) {
     case LAYOUT_APP:
         if (staticElf) {
-            ret = handleAppStatic(posArg[0], out, layoutFlags, appId, appVer, verbose);
+            ret = handleAppStatic(posArg[0], out, layoutFlags, appId, appVer, chreApi, verbose);
         } else {
-            ret = handleApp(&buf, bufUsed, out, layoutFlags, appId, appVer, verbose);
+            ret = handleApp(&buf, bufUsed, out, layoutFlags, appId, appVer, chreApi, verbose);
         }
         break;
     case LAYOUT_KEY:

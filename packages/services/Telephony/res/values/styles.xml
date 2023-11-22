@@ -187,6 +187,12 @@
         <item name="android:preferenceScreenStyle">@style/SettingsPreferenceScreen</item>
     </style>
 
+    <style name="TrimmedHorizontalProgressBar" parent="android:Widget.Material.ProgressBar.Horizontal">
+        <item name="android:indeterminateDrawable">@drawable/progress_indeterminate_horizontal_material_trimmed</item>
+        <item name="android:minHeight">3dip</item>
+        <item name="android:maxHeight">3dip</item>
+    </style>
+
     <style name="Empty" parent="@android:style/Theme.Material.Light">
         <item name="android:windowIsTranslucent">true</item>
         <item name="android:windowBackground">@android:color/transparent</item>
@@ -304,4 +310,7 @@
         <item name="android:backgroundDimEnabled">false</item>
     </style>
 
+    <style name="CallSettingsWithoutDividerTheme" parent="SettingsLight">
+        <item name="android:listDivider">@null</item>
+    </style>
 </resources>

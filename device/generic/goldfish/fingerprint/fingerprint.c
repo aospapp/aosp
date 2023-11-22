@@ -68,6 +68,7 @@ typedef enum worker_state_t {
 typedef struct worker_thread_t {
     pthread_t thread;
     worker_state_t state;
+    int samples_remaining;
     uint64_t secureid[MAX_NUM_FINGERS];
     uint64_t fingerid[MAX_NUM_FINGERS];
     char fp_filename[PATH_MAX];
@@ -340,6 +341,7 @@ static int fingerprint_enroll(struct fingerprint_device *device,
 
     pthread_mutex_lock(&dev->lock);
     dev->listener.state = STATE_ENROLL;
+    dev->listener.samples_remaining = 2;
     pthread_mutex_unlock(&dev->lock);
 
     // fingerprint id, authenticator id, and secure_user_id
@@ -621,26 +623,26 @@ static void send_enroll_notice(qemu_fingerprint_device_t* qdev, int fid) {
         }
     }
     if (idx >= MAX_NUM_FINGERS) {
-        qdev->listener.state = STATE_SCAN;
+        qdev->listener.state = STATE_IDLE;
         pthread_mutex_unlock(&qdev->lock);
         ALOGD("Fingerprint ID table is full");
         return;
     }
-
-    qdev->listener.secureid[idx] = qdev->secure_user_id;
-    qdev->listener.fingerid[idx] = fid;
-    saveFingerprint(&qdev->listener, idx);
-
-    qdev->listener.state = STATE_SCAN;
+    qdev->listener.samples_remaining--;
+    int samples_remaining = qdev->listener.samples_remaining;
+    if (samples_remaining <= 0) {
+        qdev->listener.secureid[idx] = qdev->secure_user_id;
+        qdev->listener.fingerid[idx] = fid;
+        saveFingerprint(&qdev->listener, idx);
+        qdev->listener.state = STATE_IDLE;
+    }
     pthread_mutex_unlock(&qdev->lock);
-
     // LOCKED notification?
     fingerprint_msg_t msg = {0, {0}};
     msg.type = FINGERPRINT_TEMPLATE_ENROLLING;
     msg.data.enroll.finger.fid = fid;
-    msg.data.enroll.samples_remaining = 0;
+    msg.data.enroll.samples_remaining = samples_remaining > 0 ? samples_remaining : 0;
     qdev->device.notify(&msg);
-
     return;
 }
 

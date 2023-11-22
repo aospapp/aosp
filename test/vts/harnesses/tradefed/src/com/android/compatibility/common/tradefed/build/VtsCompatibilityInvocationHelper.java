@@ -15,6 +15,8 @@
  */
 package com.android.compatibility.common.tradefed.build;
 
+import com.android.tradefed.build.IBuildInfo;
+import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.testtype.suite.TestSuiteInfo;
 
 import java.io.File;
@@ -31,23 +33,30 @@ public class VtsCompatibilityInvocationHelper {
      */
     public File getTestsDir() throws FileNotFoundException {
         if (mTestCasesDir == null) {
-            String rootDirPath = null;
-
-            rootDirPath = System.getProperty(String.format("%s_ROOT",
-                    TestSuiteInfo.getInstance().getName()), rootDirPath);
-            if (rootDirPath == null || rootDirPath.trim().equals("")) {
-                throw new IllegalArgumentException(
-                        String.format("Missing install path property %s_ROOT",
-                                TestSuiteInfo.getInstance().getName()));
+            String testCasesRootDirPath;
+            testCasesRootDirPath = System.getenv(
+                    String.format("%s_TESTCASES", TestSuiteInfo.getInstance().getName()));
+            File testCaseDir;
+            if (testCasesRootDirPath != null && !testCasesRootDirPath.trim().equals("")) {
+                testCaseDir = new File(testCasesRootDirPath);
+            } else {
+                String rootDirPath;
+                rootDirPath = System.getProperty(
+                        String.format("%s_ROOT", TestSuiteInfo.getInstance().getName()));
+                if (rootDirPath == null || rootDirPath.trim().equals("")) {
+                    throw new IllegalArgumentException(
+                            String.format("Missing install path property %s_ROOT",
+                                    TestSuiteInfo.getInstance().getName()));
+                }
+                testCaseDir = new File(rootDirPath, "android-vts/testcases");
             }
-
-            File testCaseDir = new File(rootDirPath, "android-vts/testcases");
             if (!testCaseDir.exists()) {
                 throw new FileNotFoundException(String.format(
                         "Root directory doesn't exist %s", testCaseDir.getAbsolutePath()));
             }
-
             mTestCasesDir = testCaseDir.getAbsoluteFile();
+            CLog.i(String.format(
+                    "%s TEST CASES DIR: %s", TestSuiteInfo.getInstance().getName(), mTestCasesDir));
         }
 
         return mTestCasesDir;

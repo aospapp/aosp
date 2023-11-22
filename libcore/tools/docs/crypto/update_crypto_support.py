@@ -195,10 +195,10 @@ def update_data(prev_data, current_data, name_dict, api_level, date):
         alg_union = set(prev_algorithms) | set(current_category)
         for alg in alg_union:
             prev_alg = find_by_normalized_name(prev_category['algorithms'], alg)
-            if alg in name_dict:
-                new_algorithm = {'name': name_dict[alg]}
-            elif prev_alg is not None:
+            if prev_alg is not None:
                 new_algorithm = {'name': prev_alg['name']}
+            elif alg in name_dict:
+                new_algorithm = {'name': name_dict[alg]}
             else:
                 new_algorithm = {'name': alg}
             if category not in CASE_SENSITIVE_CATEGORIES:
@@ -226,6 +226,8 @@ def update_data(prev_data, current_data, name_dict, api_level, date):
             else:
                 # Only in the new set, so add it
                 new_level = '%d+' % api_level
+            if alg in prev_algorithms and 'note' in prev_alg:
+                new_algorithm['note'] = prev_alg['note']
             new_algorithm['supported_api_levels'] = new_level
             new_category['algorithms'].append(new_algorithm)
         if new_category['algorithms']:

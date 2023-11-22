@@ -162,13 +162,11 @@ static void test6_cleanup(void)
 }
 
 static struct tst_test test = {
-	.tid = "creat06",
 	.tcnt = ARRAY_SIZE(tcases),
 	.test = verify_creat,
 	.needs_root = 1,
+	.needs_rofs = 1,
 	.needs_tmpdir = 1,
-	.mount_device = 1,
 	.mntpoint = "mntpoint",
-	.mnt_flags = MS_RDONLY,
 	.setup = setup,
 };

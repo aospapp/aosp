@@ -1,7 +1,7 @@
 /** @file
 Elf64 convert solution
 
-Copyright (c) 2010 - 2014, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2010 - 2016, Intel Corporation. All rights reserved.<BR>
 Portions copyright (c) 2013-2014, ARM Ltd. All rights reserved.<BR>
 
 This program and the accompanying materials are licensed and made available
@@ -21,6 +21,7 @@ WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 #include <io.h>
 #endif
 #include <assert.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -171,6 +172,10 @@ InitializeElf64 (
   //
   VerboseMsg ("Create COFF Section Offset Buffer");
   mCoffSectionsOffset = (UINT32 *)malloc(mEhdr->e_shnum * sizeof (UINT32));
+  if (mCoffSectionsOffset == NULL) {
+    Error (NULL, 0, 4001, "Resource", "memory cannot be allocated!");
+    return FALSE;
+  }
   memset(mCoffSectionsOffset, 0, mEhdr->e_shnum * sizeof(UINT32));
 
   //
@@ -197,8 +202,11 @@ GetShdrByIndex (
   UINT32 Num
   )
 {
-  if (Num >= mEhdr->e_shnum)
-    return NULL;
+  if (Num >= mEhdr->e_shnum) {
+    Error (NULL, 0, 3000, "Invalid", "GetShdrByIndex: Index %u is too high.", Num);
+    exit(EXIT_FAILURE);
+  }
+
   return (Elf_Shdr*)((UINT8*)mShdrBase + Num * mEhdr->e_shentsize);
 }
 
@@ -255,6 +263,62 @@ IsDataShdr (
   return (BOOLEAN) (Shdr->sh_flags & (SHF_WRITE | SHF_ALLOC)) == (SHF_ALLOC | SHF_WRITE);
 }
 
+STATIC
+BOOLEAN
+IsStrtabShdr (
+  Elf_Shdr *Shdr
+  )
+{
+  Elf_Shdr *Namedr = GetShdrByIndex(mEhdr->e_shstrndx);
+
+  return (BOOLEAN) (strcmp((CHAR8*)mEhdr + Namedr->sh_offset + Shdr->sh_name, ELF_STRTAB_SECTION_NAME) == 0);
+}
+
+STATIC
+Elf_Shdr *
+FindStrtabShdr (
+  VOID
+  )
+{
+  UINT32 i;
+  for (i = 0; i < mEhdr->e_shnum; i++) {
+    Elf_Shdr *shdr = GetShdrByIndex(i);
+    if (IsStrtabShdr(shdr)) {
+      return shdr;
+    }
+  }
+  return NULL;
+}
+
+STATIC
+const UINT8 *
+GetSymName (
+  Elf_Sym *Sym
+  )
+{
+  if (Sym->st_name == 0) {
+    return NULL;
+  }
+
+  Elf_Shdr *StrtabShdr = FindStrtabShdr();
+  if (StrtabShdr == NULL) {
+    return NULL;
+  }
+
+  assert(Sym->st_name < StrtabShdr->sh_size);
+
+  UINT8* StrtabContents = (UINT8*)mEhdr + StrtabShdr->sh_offset;
+
+  bool foundEnd = false;
+  UINT32 i;
+  for (i= Sym->st_name; (i < StrtabShdr->sh_size) && !foundEnd; i++) {
+    foundEnd = StrtabContents[i] == 0;
+  }
+  assert(foundEnd);
+
+  return StrtabContents + Sym->st_name;
+}
+
 //
 // Elf functions interface implementation
 //
@@ -287,7 +351,7 @@ ScanSections64 (
     mCoffOffset += sizeof (EFI_IMAGE_NT_HEADERS64);
   break;
   default:
-    VerboseMsg ("%s unknown e_machine type. Assume X64", (UINTN)mEhdr->e_machine);
+    VerboseMsg ("%s unknown e_machine type %hu. Assume X64", mInImageName, mEhdr->e_machine);
     mCoffOffset += sizeof (EFI_IMAGE_NT_HEADERS64);
   break;
   }
@@ -458,6 +522,10 @@ ScanSections64 (
   // Allocate base Coff file.  Will be expanded later for relocations.
   //
   mCoffFile = (UINT8 *)malloc(mCoffOffset);
+  if (mCoffFile == NULL) {
+    Error (NULL, 0, 4001, "Resource", "memory cannot be allocated!");
+  }
+  assert (mCoffFile != NULL);
   memset(mCoffFile, 0, mCoffOffset);
 
   //
@@ -623,6 +691,20 @@ WriteSections64 (
     }
 
     //
+    // If this is a ET_DYN (PIE) executable, we will encounter a dynamic SHT_RELA
+    // section that applies to the entire binary, and which will have its section
+    // index set to #0 (which is a NULL section with the SHF_ALLOC bit cleared).
+    //
+    // In the absence of GOT based relocations (which we currently don't support),
+    // this RELA section will contain redundant R_xxx_RELATIVE relocations, one
+    // for every R_xxx_xx64 relocation appearing in the per-section RELA sections.
+    // (i.e., .rela.text and .rela.data)
+    //
+    if (RelShdr->sh_info == 0) {
+      continue;
+    }
+
+    //
     // Relocation section found.  Now extract section information that the relocations
     // apply to in the ELF data and the new COFF data.
     //
@@ -664,9 +746,18 @@ WriteSections64 (
         // header location.
         //
         if (Sym->st_shndx == SHN_UNDEF
-            || Sym->st_shndx == SHN_ABS
-            || Sym->st_shndx > mEhdr->e_shnum) {
-          Error (NULL, 0, 3000, "Invalid", "%s bad symbol definition.", mInImageName);
+            || Sym->st_shndx >= mEhdr->e_shnum) {
+          const UINT8 *SymName = GetSymName(Sym);
+          if (SymName == NULL) {
+            SymName = (const UINT8 *)"<unknown>";
+          }
+
+          Error (NULL, 0, 3000, "Invalid",
+                 "%s: Bad definition for symbol '%s'@%#llx or unsupported symbol type.  "
+                 "For example, absolute and undefined symbols are not supported.",
+                 mInImageName, SymName, Sym->st_value);
+
+          exit(EXIT_FAILURE);
         }
         SymShdr = GetShdrByIndex(Sym->st_shndx);
 
@@ -716,6 +807,17 @@ WriteSections64 (
             *(INT32 *)Targ = (INT32)((INT64)(*(INT32 *)Targ) - SymShdr->sh_addr + mCoffSectionsOffset[Sym->st_shndx]);
             VerboseMsg ("Relocation:  0x%08X", *(UINT32*)Targ);
             break;
+
+          case R_X86_64_PLT32:
+            //
+            // Treat R_X86_64_PLT32 relocations as R_X86_64_PC32: this is
+            // possible since we know all code symbol references resolve to
+            // definitions in the same module (UEFI has no shared libraries),
+            // and so there is never a reason to jump via a PLT entry,
+            // allowing us to resolve the reference using the symbol directly.
+            //
+            VerboseMsg ("Treating R_X86_64_PLT32 as R_X86_64_PC32 ...");
+            /* fall through */
           case R_X86_64_PC32:
             //
             // Relative relocation: Symbol - Ip + Addend
@@ -737,26 +839,59 @@ WriteSections64 (
           switch (ELF_R_TYPE(Rel->r_info)) {
 
           case R_AARCH64_ADR_PREL_PG_HI21:
+            //
+            // AArch64 PG_H21 relocations are typically paired with ABS_LO12
+            // relocations, where a PC-relative reference with +/- 4 GB range is
+            // split into a relative high part and an absolute low part. Since
+            // the absolute low part represents the offset into a 4 KB page, we
+            // either have to convert the ADRP into an ADR instruction, or we
+            // need to use a section alignment of at least 4 KB, so that the
+            // binary appears at a correct offset at runtime. In any case, we
+            // have to make sure that the 4 KB relative offsets of both the
+            // section containing the reference as well as the section to which
+            // it refers have not been changed during PE/COFF conversion (i.e.,
+            // in ScanSections64() above).
+            //
+            if (mCoffAlignment < 0x1000) {
+              //
+              // Attempt to convert the ADRP into an ADR instruction.
+              // This is only possible if the symbol is within +/- 1 MB.
+              //
+              INT64 Offset;
+
+              // Decode the ADRP instruction
+              Offset = (INT32)((*(UINT32 *)Targ & 0xffffe0) << 8);
+              Offset = (Offset << (6 - 5)) | ((*(UINT32 *)Targ & 0x60000000) >> (29 - 12));
+
+              //
+              // ADRP offset is relative to the previous page boundary,
+              // whereas ADR offset is relative to the instruction itself.
+              // So fix up the offset so it points to the page containing
+              // the symbol.
+              //
+              Offset -= (UINTN)(Targ - mCoffFile) & 0xfff;
+
+              if (Offset < -0x100000 || Offset > 0xfffff) {
+                Error (NULL, 0, 3000, "Invalid", "WriteSections64(): %s  due to its size (> 1 MB), this module requires 4 KB section alignment.",
+                  mInImageName);
+                break;
+              }
+
+              // Re-encode the offset as an ADR instruction
+              *(UINT32 *)Targ &= 0x1000001f;
+              *(UINT32 *)Targ |= ((Offset & 0x1ffffc) << (5 - 2)) | ((Offset & 0x3) << 29);
+            }
+            /* fall through */
+
           case R_AARCH64_ADD_ABS_LO12_NC:
           case R_AARCH64_LDST8_ABS_LO12_NC:
           case R_AARCH64_LDST16_ABS_LO12_NC:
           case R_AARCH64_LDST32_ABS_LO12_NC:
           case R_AARCH64_LDST64_ABS_LO12_NC:
           case R_AARCH64_LDST128_ABS_LO12_NC:
-            //
-            // AArch64 PG_H21 relocations are typically paired with ABS_LO12
-            // relocations, where a PC-relative reference with +/- 4 GB range is
-            // split into a relative high part and an absolute low part. Since
-            // the absolute low part represents the offset into a 4 KB page, we
-            // have to make sure that the 4 KB relative offsets of both the
-            // section containing the reference as well as the section to which
-            // it refers have not been changed during PE/COFF conversion (i.e.,
-            // in ScanSections64() above).
-            //
             if (((SecShdr->sh_addr ^ SecOffset) & 0xfff) != 0 ||
-                ((SymShdr->sh_addr ^ mCoffSectionsOffset[Sym->st_shndx]) & 0xfff) != 0 ||
-                mCoffAlignment < 0x1000) {
-              Error (NULL, 0, 3000, "Invalid", "WriteSections64(): %s AARCH64 small code model requires 4 KB section alignment.",
+                ((SymShdr->sh_addr ^ mCoffSectionsOffset[Sym->st_shndx]) & 0xfff) != 0) {
+              Error (NULL, 0, 3000, "Invalid", "WriteSections64(): %s AARCH64 small code model requires identical ELF and PE/COFF section offsets modulo 4 KB.",
                 mInImageName);
               break;
             }
@@ -767,6 +902,9 @@ WriteSections64 (
           case R_AARCH64_LD_PREL_LO19:
           case R_AARCH64_CALL26:
           case R_AARCH64_JUMP26:
+          case R_AARCH64_PREL64:
+          case R_AARCH64_PREL32:
+          case R_AARCH64_PREL16:
             //
             // The GCC toolchains (i.e., binutils) may corrupt section relative
             // relocations when emitting relocation sections into fully linked
@@ -830,6 +968,7 @@ WriteRelocations64 (
             switch (ELF_R_TYPE(Rel->r_info)) {
             case R_X86_64_NONE:
             case R_X86_64_PC32:
+            case R_X86_64_PLT32:
               break;
             case R_X86_64_64:
               VerboseMsg ("EFI_IMAGE_REL_BASED_DIR64 Offset: 0x%08X", 
@@ -855,20 +994,13 @@ WriteRelocations64 (
 
             switch (ELF_R_TYPE(Rel->r_info)) {
             case R_AARCH64_ADR_PREL_LO21:
-              break;
-
             case R_AARCH64_CONDBR19:
-              break;
-
             case R_AARCH64_LD_PREL_LO19:
-              break;
-
             case R_AARCH64_CALL26:
-              break;
-
             case R_AARCH64_JUMP26:
-              break;
-
+            case R_AARCH64_PREL64:
+            case R_AARCH64_PREL32:
+            case R_AARCH64_PREL16:
             case R_AARCH64_ADR_PREL_PG_HI21:
             case R_AARCH64_ADD_ABS_LO12_NC:
             case R_AARCH64_LDST8_ABS_LO12_NC:
@@ -876,6 +1008,12 @@ WriteRelocations64 (
             case R_AARCH64_LDST32_ABS_LO12_NC:
             case R_AARCH64_LDST64_ABS_LO12_NC:
             case R_AARCH64_LDST128_ABS_LO12_NC:
+              //
+              // No fixups are required for relative relocations, provided that
+              // the relative offsets between sections have been preserved in
+              // the ELF to PE/COFF conversion. We have already asserted that
+              // this is the case in WriteSections64 ().
+              //
               break;
 
             case R_AARCH64_ABS64:

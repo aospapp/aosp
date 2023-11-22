@@ -274,6 +274,87 @@ public class MediaStore_Images_ThumbnailsTest extends InstrumentationTestCase {
         assertEquals(1, mContentResolver.delete(uri, null, null));
     }
 
+    public void testThumbnailGenerationAndCleanup() throws Exception {
+        // insert an image
+        Bitmap src = BitmapFactory.decodeResource(mContext.getResources(), R.raw.scenery);
+        Uri uri = Uri.parse(Media.insertImage(mContentResolver, src, "test", "test description"));
+
+        // query its thumbnail
+        Cursor c = mContentResolver.query(
+                Thumbnails.EXTERNAL_CONTENT_URI,
+                new String [] {Thumbnails.DATA},
+                "image_id=?",
+                new String[] {uri.getLastPathSegment()},
+                null /* sort */
+                );
+        assertTrue("couldn't find thumbnail", c.moveToNext());
+        String path = c.getString(0);
+        c.close();
+        assertTrue("thumbnail does not exist", new File(path).exists());
+
+        // delete the source image and check that the thumbnail is gone too
+        mContentResolver.delete(uri, null /* where clause */, null /* where args */);
+        assertFalse("thumbnail still exists after source file delete", new File(path).exists());
+
+        // insert again
+        uri = Uri.parse(Media.insertImage(mContentResolver, src, "test", "test description"));
+
+        // query its thumbnail again
+        c = mContentResolver.query(
+                Thumbnails.EXTERNAL_CONTENT_URI,
+                new String [] {Thumbnails.DATA},
+                "image_id=?",
+                new String[] {uri.getLastPathSegment()},
+                null /* sortOrder */
+                );
+        assertTrue("couldn't find thumbnail", c.moveToNext());
+        path = c.getString(0);
+        c.close();
+        assertTrue("thumbnail does not exist", new File(path).exists());
+
+        // update the media type
+        ContentValues values = new ContentValues();
+        values.put("media_type", 0);
+        assertEquals("unexpected number of updated rows",
+                1, mContentResolver.update(uri, values, null /* where */, null /* where args */));
+
+        // image was marked as regular file in the database, which should have deleted its thumbnail
+
+        // query its thumbnail again
+        c = mContentResolver.query(
+                Thumbnails.EXTERNAL_CONTENT_URI,
+                new String [] {Thumbnails.DATA},
+                "image_id=?",
+                new String[] {uri.getLastPathSegment()},
+                null /* sort */
+                );
+        if (c != null) {
+            assertFalse("thumbnail entry exists for non-thumbnail file", c.moveToNext());
+            c.close();
+        }
+        assertFalse("thumbnail remains after source file type change", new File(path).exists());
+
+        // check source no longer exists as image
+        c = mContentResolver.query(uri,
+                null /* projection */, null /* where */, null /* where args */, null /* sort */);
+        assertFalse("source entry should be gone", c.moveToNext());
+        c.close();
+
+        // check source still exists as file
+        Uri fileUri = ContentUris.withAppendedId(
+                MediaStore.Files.getContentUri("external"),
+                Long.valueOf(uri.getLastPathSegment()));
+        c = mContentResolver.query(fileUri,
+                null /* projection */, null /* where */, null /* where args */, null /* sort */);
+        assertTrue("source entry is gone", c.moveToNext());
+        String sourcePath = c.getString(c.getColumnIndex("_data"));
+        c.close();
+
+        // clean up
+        mContentResolver.delete(uri, null /* where */, null /* where args */);
+        new File(sourcePath).delete();
+    }
+
     public void testStoreImagesMediaInternal() {
         // can not insert any data, so other operations can not be tested
         try {

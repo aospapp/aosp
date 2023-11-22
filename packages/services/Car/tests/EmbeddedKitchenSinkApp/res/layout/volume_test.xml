@@ -48,4 +48,37 @@
             android:layout_height="wrap_content"
             android:text="@string/volume_down"/>
     </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_marginLeft="80dp"
+        android:orientation="vertical"
+        android:layout_weight="1">
+
+        <TextView
+            android:id="@+id/fader_title"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Fade" />
+
+        <SeekBar
+            android:id="@+id/fade_bar"
+            android:max="200"
+            android:layout_width="200dp"
+            android:layout_height="200dp"
+            android:rotation="270"/>
+
+        <TextView
+            android:id="@+id/balance_title"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Balance" />
+
+        <SeekBar
+            android:id="@+id/balance_bar"
+            android:max="200"
+            android:layout_width="200dp"
+            android:layout_height="20dp"/>
+    </LinearLayout>
 </LinearLayout>

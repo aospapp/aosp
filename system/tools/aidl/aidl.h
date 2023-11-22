@@ -58,6 +58,7 @@ AidlError load_and_validate_aidl(
     const std::vector<std::string>& preprocessed_files,
     const std::vector<std::string>& import_paths,
     const std::string& input_file_name,
+    const bool generate_traces,
     const IoDelegate& io_delegate,
     TypeNamespace* types,
     std::unique_ptr<AidlInterface>* returned_interface,

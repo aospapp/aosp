@@ -16,7 +16,7 @@ LOCAL_PATH:= $(call my-dir)
 
 include $(CLEAR_VARS)
 
-LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
+LOCAL_COMPATIBILITY_SUITE := arcts cts vts general-tests
 
 LOCAL_PACKAGE_NAME := CtsCustomizationApp
 
@@ -26,7 +26,11 @@ LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
-LOCAL_STATIC_JAVA_LIBRARIES := android-support-test compatibility-device-util
+LOCAL_STATIC_JAVA_LIBRARIES := \
+    android-support-test \
+    compatibility-device-util \
+
+LOCAL_JAVA_LIBRARIES := android.test.base.stubs
 
 LOCAL_SDK_VERSION := current
 

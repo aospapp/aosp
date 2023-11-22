@@ -53,7 +53,7 @@ class BnVtsFuzzer : public BnInterface<IVtsFuzzer> {
 
 status_t BnVtsFuzzer::onTransact(uint32_t code, const Parcel& data,
                                  Parcel* reply, uint32_t flags) {
-  ALOGD("BnVtsFuzzer::%s(%i) %i", __FUNCTION__, code, flags);
+  ALOGD("BnVtsFuzzer::%s(%i) %i", __func__, code, flags);
 
   data.checkInterface(this);
 #ifdef VTS_FUZZER_BINDER_DEBUG

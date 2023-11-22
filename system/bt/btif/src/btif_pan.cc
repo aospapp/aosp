@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2009-2012 Broadcom Corporation
+ *  Copyright 2009-2012 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -27,6 +27,7 @@
 
 #define LOG_TAG "bt_btif_pan"
 
+#include <base/bind.h>
 #include <base/logging.h>
 #include <ctype.h>
 #include <errno.h>
@@ -53,6 +54,7 @@
 
 #include "bt_common.h"
 #include "bta_api.h"
+#include "bta_closure_api.h"
 #include "bta_pan_api.h"
 #include "btif_common.h"
 #include "btif_pan_internal.h"
@@ -105,13 +107,13 @@ static void btpan_tap_fd_signaled(int fd, int type, int flags,
                                   uint32_t user_id);
 static void btpan_cleanup_conn(btpan_conn_t* conn);
 static void bta_pan_callback(tBTA_PAN_EVT event, tBTA_PAN* p_data);
-static void btu_exec_tap_fd_read(void* p_param);
+static void btu_exec_tap_fd_read(const int fd);
 
 static btpan_interface_t pan_if = {
     sizeof(pan_if), btpan_jni_init,   btpan_enable,     btpan_get_local_role,
     btpan_connect,  btpan_disconnect, btpan_jni_cleanup};
 
-btpan_interface_t* btif_pan_get_interface() { return &pan_if; }
+const btpan_interface_t* btif_pan_get_interface() { return &pan_if; }
 
 /*******************************************************************************
  **
@@ -286,7 +288,7 @@ static int tap_if_up(const char* devname, const RawAddress* addr) {
 
   // set mac addr
   memset(&ifr, 0, sizeof(ifr));
-  strncpy(ifr.ifr_name, devname, IFNAMSIZ - 1);
+  strlcpy(ifr.ifr_name, devname, IFNAMSIZ);
   err = ioctl(sk, SIOCGIFHWADDR, &ifr);
   if (err < 0) {
     BTIF_TRACE_ERROR(
@@ -296,7 +298,7 @@ static int tap_if_up(const char* devname, const RawAddress* addr) {
     return -1;
   }
 
-  strncpy(ifr.ifr_name, devname, IFNAMSIZ - 1);
+  strlcpy(ifr.ifr_name, devname, IFNAMSIZ);
   memcpy(ifr.ifr_hwaddr.sa_data, addr->address, 6);
 
   /* The IEEE has specified that the most significant bit of the most
@@ -324,7 +326,7 @@ static int tap_if_up(const char* devname, const RawAddress* addr) {
 
   // bring it up
   memset(&ifr, 0, sizeof(ifr));
-  strncpy(ifr.ifr_name, devname, IF_NAMESIZE - 1);
+  strlcpy(ifr.ifr_name, devname, IF_NAMESIZE);
 
   ifr.ifr_flags |= IFF_UP;
   ifr.ifr_flags |= IFF_MULTICAST;
@@ -350,7 +352,7 @@ static int tap_if_down(const char* devname) {
   if (sk < 0) return -1;
 
   memset(&ifr, 0, sizeof(ifr));
-  strncpy(ifr.ifr_name, devname, IF_NAMESIZE - 1);
+  strlcpy(ifr.ifr_name, devname, IF_NAMESIZE);
 
   ifr.ifr_flags &= ~IFF_UP;
 
@@ -367,7 +369,8 @@ void btpan_set_flow_control(bool enable) {
   btpan_cb.flow = enable;
   if (enable) {
     btsock_thread_add_fd(pan_pth, btpan_cb.tap_fd, 0, SOCK_THREAD_FD_RD, 0);
-    bta_dmexecutecallback(btu_exec_tap_fd_read, INT_TO_PTR(btpan_cb.tap_fd));
+    do_in_bta_thread(FROM_HERE,
+                     base::Bind(btu_exec_tap_fd_read, btpan_cb.tap_fd));
   }
 }
 
@@ -387,7 +390,7 @@ int btpan_tap_open() {
   memset(&ifr, 0, sizeof(ifr));
   ifr.ifr_flags = IFF_TAP | IFF_NO_PI;
 
-  strncpy(ifr.ifr_name, TAP_IF_NAME, IFNAMSIZ);
+  strlcpy(ifr.ifr_name, TAP_IF_NAME, IFNAMSIZ);
 
   /* try to create the device */
   err = ioctl(fd, TUNSETIFF, (void*)&ifr);
@@ -663,9 +666,8 @@ static void bta_pan_callback(tBTA_PAN_EVT event, tBTA_PAN* p_data) {
 }
 
 #define IS_EXCEPTION(e) ((e) & (POLLHUP | POLLRDHUP | POLLERR | POLLNVAL))
-static void btu_exec_tap_fd_read(void* p_param) {
+static void btu_exec_tap_fd_read(int fd) {
   struct pollfd ufd;
-  int fd = PTR_TO_INT(p_param);
 
   if (fd == INVALID_FD || fd != btpan_cb.tap_fd) return;
 
@@ -770,6 +772,7 @@ static void btpan_tap_fd_signaled(int fd, int type, int flags,
     btpan_cb.tap_fd = INVALID_FD;
     btpan_tap_close(fd);
     btif_pan_close_all_conns();
-  } else if (flags & SOCK_THREAD_FD_RD)
-    bta_dmexecutecallback(btu_exec_tap_fd_read, INT_TO_PTR(fd));
+  } else if (flags & SOCK_THREAD_FD_RD) {
+    do_in_bta_thread(FROM_HERE, base::Bind(btu_exec_tap_fd_read, fd));
+  }
 }

@@ -1,7 +1,7 @@
 /******************************************************************************
  *
- *  Copyright (C) 2016 The Android Open Source Project
- *  Copyright (C) 2002-2012 Broadcom Corporation
+ *  Copyright 2016 The Android Open Source Project
+ *  Copyright 2002-2012 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -80,12 +80,7 @@ extern "C" {
 /******************************************************************************
  * Main Control Block
  ******************************************************************************/
-#if HID_DYNAMIC_MEMORY == FALSE
 extern tHID_DEV_CTB hd_cb;
-#else
-extern tHID_DEV_CTB* hidd_cb_ptr;
-#define hd_cb (*hidd_cb_ptr)
-#endif
 
 #ifdef __cplusplus
 }

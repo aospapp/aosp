@@ -14,41 +14,47 @@ class platform_CryptohomeMigrateKey(test.test):
         old_pass = 'old'
         new_pass = 'new'
 
-        if not self.proxy.mount(user, old_pass, create=True):
-            raise error.TestFail('Could not create good user.')
-        if not self.proxy.unmount(user):
-            raise error.TestFail('Could not unmount good user.')
-        if not self.proxy.migrate(user, old_pass, new_pass):
-            raise error.TestFail('Could not migrate good user.')
-        if self.proxy.mount(user, old_pass):
+        cryptohome.mount_vault(user, old_pass, create=True)
+        cryptohome.unmount_vault(user)
+        cryptohome.change_password(user, old_pass, new_pass)
+        try:
+            cryptohome.mount_vault(user, old_pass)
+        except:
+            pass
+        else:
             raise error.TestFail('Old password still works.')
-        if not self.proxy.mount(user, new_pass):
-            raise error.TestFail('Could not mount good user.')
-        if not self.proxy.unmount(user):
-            raise error.TestFail('Could not unmount good user.')
-        self.proxy.remove(user)
+        cryptohome.mount_vault(user, new_pass)
+        cryptohome.unmount_vault(user)
+        cryptohome.remove_vault(user)
+
 
     def bad_password(self):
         user = utils.random_username()
         old_pass = 'old'
         new_pass = 'new'
-        if not self.proxy.mount(user, old_pass, create=True):
-            raise error.TestFail('Could not create bad user.')
-        if not self.proxy.unmount(user):
-            raise error.TestFail('Could not unmount bad user.')
-        if self.proxy.migrate(user, 'bad', new_pass):
+        cryptohome.mount_vault(user, old_pass, create=True)
+        cryptohome.unmount_vault(user)
+        try:
+            cryptohome.change_password(user, 'bad', new_pass)
+        except:
+            pass
+        else:
             raise error.TestFail('Migrated with bad password.')
-        self.proxy.remove(user)
+        cryptohome.remove_vault(user)
+
 
     def nonexistent_user(self):
         user = utils.random_username()
         old_pass = 'old'
         new_pass = 'new'
-        if self.proxy.migrate(user, old_pass, new_pass):
-            raise error.TestFail('Migration nonexistent user.')
+        try:
+            cryptohome.change_password(user, old_pass, new_pass)
+        except:
+            pass
+        else:
+            raise error.TestFail('Migrated a nonexistent user.')
 
     def run_once(self):
-        self.proxy = cryptohome.CryptohomeProxy()
         self.good()
         self.bad_password()
         self.nonexistent_user()

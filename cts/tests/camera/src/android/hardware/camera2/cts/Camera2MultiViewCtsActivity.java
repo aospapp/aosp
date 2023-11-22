@@ -27,7 +27,8 @@ import android.camera.cts.R;
 
 public class Camera2MultiViewCtsActivity extends Activity {
     private final static String TAG = "Camera2MultiViewCtsActivity";
-    private TextureView[] mTextureView = new TextureView[2];
+    public final static int MAX_TEXTURE_VIEWS = 5;
+    private TextureView[] mTextureView = new TextureView[MAX_TEXTURE_VIEWS];
     private SurfaceView[] mSurfaceView = new SurfaceView[2];
 
     @Override
@@ -36,6 +37,9 @@ public class Camera2MultiViewCtsActivity extends Activity {
         setContentView(R.layout.multi_view);
         mTextureView[0] = (TextureView) findViewById(R.id.texture_view_1);
         mTextureView[1] = (TextureView) findViewById(R.id.texture_view_2);
+        mTextureView[2] = (TextureView) findViewById(R.id.texture_view_3);
+        mTextureView[3] = (TextureView) findViewById(R.id.texture_view_4);
+        mTextureView[4] = (TextureView) findViewById(R.id.texture_view_5);
         mSurfaceView[0] = (SurfaceView) findViewById(R.id.surface_view_1);
         mSurfaceView[1] = (SurfaceView) findViewById(R.id.surface_view_2);
 
@@ -44,8 +48,9 @@ public class Camera2MultiViewCtsActivity extends Activity {
     }
 
     public TextureView getTextureView(int index) {
-        if (index < 0 || index > 1) {
-            throw new IllegalArgumentException("Texture view index must be 0 or 1");
+        if (index < 0 || index > (MAX_TEXTURE_VIEWS - 1)) {
+            throw new IllegalArgumentException("Texture view index must be between 0 and " +
+                    MAX_TEXTURE_VIEWS);
         }
         return mTextureView[index];
     }

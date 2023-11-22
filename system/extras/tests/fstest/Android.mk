@@ -18,6 +18,7 @@ include $(CLEAR_VARS)
 LOCAL_MODULE_TAGS := tests
 LOCAL_MODULE := recovery_test
 LOCAL_SRC_FILES := recovery_test.cpp
+LOCAL_CFLAGS := -Wall -Werror
 LOCAL_SHARED_LIBRARIES += libcutils libutils libbase liblog \
                           liblogwrap libext4_utils
 LOCAL_STATIC_LIBRARIES += libtestUtil libfs_mgr

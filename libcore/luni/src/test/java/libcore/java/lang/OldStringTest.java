@@ -166,6 +166,7 @@ public class OldStringTest extends junit.framework.TestCase {
         assertEquals("Returned incorrect string.", hw1, hw1.replace("!", "."));
     }
 
+    @SuppressWarnings("InvalidPatternSyntax")
     public void test_replaceAll() {
         String str = "!'123123.123HelloWorld!123123helloworld#";
         String [] patterns = {"[hw\\p{Upper}]", "(o|l){2,}", "([\'\"]?)(\\d+)",
@@ -188,6 +189,7 @@ public class OldStringTest extends junit.framework.TestCase {
         }
     }
 
+    @SuppressWarnings("InvalidPatternSyntax")
     public void test_replaceFirst() {
         String str = "!'123123.123HelloWorld!123123helloworld#";
         String [] patterns = {"[hw\\p{Upper}]", "(o|l){2,}", "([\'\"]?)(\\d+)",
@@ -210,6 +212,7 @@ public class OldStringTest extends junit.framework.TestCase {
         }
     }
 
+    @SuppressWarnings("InvalidPatternSyntax")
     public void test_splitLString() {
         String str = "!'123123.123HelloWorld!123123helloworld#";
         String [] patterns = {"[!.1]", "(\\d+).*e(l+)o.*orld"};
@@ -230,6 +233,7 @@ public class OldStringTest extends junit.framework.TestCase {
         }
     }
 
+    @SuppressWarnings("InvalidPatternSyntax")
     public void test_splitLStringLint() {
         String str = "!'123123.123HelloWorld!123123helloworld#";
         String pattern = "[!.1]";
@@ -403,7 +407,7 @@ public class OldStringTest extends junit.framework.TestCase {
                  "null", String.valueOf((Object) null));
     }
 
-    @SuppressWarnings("boxing")
+    @SuppressWarnings({ "boxing", "FormatString" })
     public void test_format() {
         assertEquals("3 2 1 4 3 2 1", String.format(
                 "%3$d %2$d %1$d %4$d %3$d %2$d %1$d", 1, 2, 3, 4));
@@ -430,7 +434,7 @@ public class OldStringTest extends junit.framework.TestCase {
 
     }
 
-    @SuppressWarnings("boxing")
+    @SuppressWarnings({ "boxing", "FormatString" })
     public void test_format_Locale() {
         Locale l = new Locale("UK");
         assertEquals("13% of sum is 0x11",

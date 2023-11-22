@@ -9,6 +9,18 @@ then
   exit 1
 fi
 
+function jdk_switcher {
+  DIR=$1
+  if [ ! -d "$DIR" ]; then
+    echo "Not found: $DIR"
+    exit 1
+  fi
+  export JAVA_HOME="$DIR"
+  export JDK_HOME="${JAVA_HOME}"
+  export JAVAC="${JAVA_HOME}/bin/javac"
+  export PATH="${JAVA_HOME}/bin:${PATH}"
+}
+
 # Switch to desired JDK, download if required:
 function install_jdk {
   JDK_URL=$1
@@ -27,33 +39,30 @@ function install_jdk {
 
   if [ -z "${2+false}" ]
   then
-    export JAVA_HOME="/tmp/jdk/$JDK"
-    export JDK_HOME="${JAVA_HOME}"
-    export JAVAC="${JAVA_HOME}/bin/javac"
-    export PATH="${JAVA_HOME}/bin:${PATH}"
+    jdk_switcher "/tmp/jdk/$JDK"
   fi
 }
 
-source $HOME/.jdk_switcher_rc
 case "$JDK" in
 5)
-  jdk_switcher use oraclejdk8
   install_jdk $JDK5_URL false
   ;;
 6)
-  jdk_switcher use openjdk6
   ;;
-7|8)
-  jdk_switcher use oraclejdk${JDK}
+7)
+  jdk_switcher /usr/lib/jvm/java-7-openjdk-amd64
+  ;;
+8)
+  jdk_switcher /usr/lib/jvm/java-8-oracle
   ;;
 8-ea)
   install_jdk $JDK8_EA_URL
   ;;
-9-ea)
-  install_jdk $JDK9_EA_URL
+9)
+  install_jdk $JDK9_URL
   ;;
-9-ea-stable)
-  install_jdk $JDK9_EA_STABLE_URL
+10-ea)
+  install_jdk $JDK10_EA_URL
   ;;
 esac
 
@@ -69,14 +78,14 @@ case "$JDK" in
   if [[ ${TRAVIS_PULL_REQUEST} == 'false' && ${TRAVIS_BRANCH} == 'master' ]]
   then
     # goal "deploy:deploy" used directly instead of "deploy" phase to avoid pollution of Maven repository by "install" phase
-    mvn -V -B -e -f org.jacoco.build verify sonar:sonar deploy:deploy -DdeployAtEnd -Djdk.version=1.5 --toolchains=./.travis/toolchains.xml --settings=./.travis/settings.xml -Dsonar.host.url=${SONARQUBE_URL} -Dsonar.login=${SONARQUBE_TOKEN}
+    mvn -V -B -e -f org.jacoco.build verify deploy:deploy -DdeployAtEnd -Djdk.version=1.5 --toolchains=./.travis/toolchains.xml --settings=./.travis/settings.xml -Dsonar.host.url=${SONARQUBE_URL} -Dsonar.login=${SONARQUBE_TOKEN}
     python ./.travis/trigger-site-deployment.py
   else
     mvn -V -B -e verify -Djdk.version=1.5 --toolchains=./.travis/toolchains.xml
   fi
   ;;
 6)
-  mvn -V -B -e verify -Dbytecode.version=1.6
+  mvn -V -B -e verify -Djdk.version=1.6 -Dbytecode.version=1.6 --toolchains=./.travis/travis-toolchains.xml
   ;;
 7)
   mvn -V -B -e verify -Dbytecode.version=1.7
@@ -84,13 +93,13 @@ case "$JDK" in
 8 | 8-ea)
   mvn -V -B -e verify -Dbytecode.version=1.8 -Decj=${ECJ:-}
   ;;
-9-ea | 9-ea-stable)
-  # Groovy version should be updated to get rid of "--add-opens" options (see https://twitter.com/CedricChampeau/status/807285853580103684)
-  export MAVEN_OPTS="--add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/java.io=ALL-UNNAMED"
-
-  # see https://bugs.openjdk.java.net/browse/JDK-8131041 about "java.locale.providers"
+9)
+  export MAVEN_OPTS="-Djavax.net.ssl.trustStore=/etc/ssl/certs/java/cacerts"
   mvn -V -B -e verify -Dbytecode.version=1.9 \
-    -DargLine=-Djava.locale.providers=JRE,SPI
+    -Dinvoker.mavenOpts="-Djavax.net.ssl.trustStore=/etc/ssl/certs/java/cacerts"
+  ;;
+10-ea)
+  mvn -V -B -e verify -Dbytecode.version=1.9
   ;;
 *)
   echo "Incorrect JDK [$JDK]"

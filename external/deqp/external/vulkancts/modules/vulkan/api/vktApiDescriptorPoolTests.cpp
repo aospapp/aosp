@@ -29,6 +29,7 @@
 #include "vkRefUtil.hpp"
 #include "vkPlatform.hpp"
 #include "vkDeviceUtil.hpp"
+#include "vkQueryUtil.hpp"
 
 #include "tcuCommandLine.hpp"
 #include "tcuTestLog.hpp"
@@ -147,7 +148,7 @@ tcu::TestStatus outOfPoolMemoryTest (Context& context)
 {
 	const DeviceInterface&	vkd							= context.getDeviceInterface();
 	const VkDevice			device						= context.getDevice();
-	const bool				expectOutOfPoolMemoryError	= de::contains(context.getDeviceExtensions().begin(), context.getDeviceExtensions().end(), "VK_KHR_maintenance1");
+	const bool				expectOutOfPoolMemoryError	= isDeviceExtensionSupported(context.getUsedApiVersion(), context.getDeviceExtensions(), "VK_KHR_maintenance1");
 	deUint32				numErrorsReturned			= 0;
 
 	const struct FailureCase
@@ -212,7 +213,13 @@ tcu::TestStatus outOfPoolMemoryTest (Context& context)
 				DE_NULL,													// const VkSampler*      pImmutableSamplers;
 			};
 
-			const vector<VkDescriptorSetLayoutBinding>	descriptorSetLayoutBindings (params.bindingCount, descriptorSetLayoutBinding);
+			vector<VkDescriptorSetLayoutBinding>	descriptorSetLayoutBindings (params.bindingCount, descriptorSetLayoutBinding);
+
+			for (deUint32 binding = 0; binding < deUint32(descriptorSetLayoutBindings.size()); ++binding)
+			{
+				descriptorSetLayoutBindings[binding].binding = binding;
+			}
+
 			const VkDescriptorSetLayoutCreateInfo		descriptorSetLayoutInfo =
 			{
 				VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,		// VkStructureType                        sType;
@@ -241,8 +248,8 @@ tcu::TestStatus outOfPoolMemoryTest (Context& context)
 			{
 				++numErrorsReturned;
 
-				if (expectOutOfPoolMemoryError && result != VK_ERROR_OUT_OF_POOL_MEMORY_KHR)
-					return tcu::TestStatus::fail("Expected VK_ERROR_OUT_OF_POOL_MEMORY_KHR but got " + string(getResultName(result)) + " instead");
+				if (expectOutOfPoolMemoryError && result != VK_ERROR_OUT_OF_POOL_MEMORY)
+					return tcu::TestStatus::fail("Expected VK_ERROR_OUT_OF_POOL_MEMORY but got " + string(getResultName(result)) + " instead");
 			}
 			else
 				context.getTestContext().getLog() << tcu::TestLog::Message << "  Allocation was successful anyway" << tcu::TestLog::EndMessage;

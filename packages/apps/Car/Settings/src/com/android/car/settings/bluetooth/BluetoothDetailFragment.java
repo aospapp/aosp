@@ -17,24 +17,19 @@ package com.android.car.settings.bluetooth;
 
 import android.bluetooth.BluetoothDevice;
 import android.os.Bundle;
-import android.util.Log;
 import android.view.View;
-import android.widget.TextView;
+import android.widget.Button;
 
+import com.android.car.list.EditTextLineItem;
+import com.android.car.list.SingleTextLineItem;
+import com.android.car.list.TypedPagedListAdapter;
 import com.android.car.settings.R;
-import com.android.car.settings.common.EditTextLineItem;
 import com.android.car.settings.common.ListSettingsFragment;
-import com.android.car.settings.common.SingleTextLineItem;
-import com.android.car.settings.common.TypedPagedListAdapter;
-import com.android.car.view.PagedListView;
-
+import com.android.car.settings.common.Logger;
 import com.android.settingslib.bluetooth.CachedBluetoothDevice;
 import com.android.settingslib.bluetooth.CachedBluetoothDeviceManager;
 import com.android.settingslib.bluetooth.LocalBluetoothManager;
 import com.android.settingslib.bluetooth.LocalBluetoothProfile;
-import com.android.settingslib.bluetooth.MapClientProfile;
-import com.android.settingslib.bluetooth.PanProfile;
-import com.android.settingslib.bluetooth.PbapClientProfile;
 
 import java.util.ArrayList;
 
@@ -45,7 +40,7 @@ import java.util.ArrayList;
  */
 public class BluetoothDetailFragment extends ListSettingsFragment implements
         BluetoothProfileLineItem.DataChangedListener {
-    private static final String TAG = "BluetoothDetailFragment";
+    private static final Logger LOG = new Logger(BluetoothDetailFragment.class);
 
     public static final String EXTRA_BT_DEVICE = "extra_bt_device";
 
@@ -55,7 +50,7 @@ public class BluetoothDetailFragment extends ListSettingsFragment implements
     private CachedBluetoothDeviceManager mDeviceManager;
     private LocalBluetoothManager mLocalManager;
     private EditTextLineItem mInputLineItem;
-    private TextView mOkButton;
+    private Button mOkButton;
 
     public static BluetoothDetailFragment getInstance(BluetoothDevice btDevice) {
         BluetoothDetailFragment bluetoothDetailFragment = new BluetoothDetailFragment();
@@ -71,9 +66,10 @@ public class BluetoothDetailFragment extends ListSettingsFragment implements
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         mDevice = getArguments().getParcelable(EXTRA_BT_DEVICE);
-        mLocalManager = LocalBluetoothManager.getInstance(getContext(), null /* listener */);
+        mLocalManager =
+                LocalBluetoothManager.getInstance(getContext(), /* onInitCallback= */ null);
         if (mLocalManager == null) {
-            Log.e(TAG, "Bluetooth is not supported on this device");
+            LOG.e("Bluetooth is not supported on this device");
             return;
         }
         mDeviceManager = mLocalManager.getCachedDeviceManager();
@@ -89,7 +85,7 @@ public class BluetoothDetailFragment extends ListSettingsFragment implements
     @Override
     public void onActivityCreated(Bundle savedInstanceState) {
         if (mDevice == null) {
-            Log.w(TAG, "No bluetooth device set.");
+            LOG.w("No bluetooth device set.");
             return;
         }
         super.onActivityCreated(savedInstanceState);
@@ -125,23 +121,23 @@ public class BluetoothDetailFragment extends ListSettingsFragment implements
     }
 
     private void setupForgetButton() {
-        TextView fortgetButton = getActivity().findViewById(R.id.action_button2);
+        Button fortgetButton = getActivity().findViewById(R.id.action_button2);
         fortgetButton.setVisibility(View.VISIBLE);
         fortgetButton.setText(R.string.forget);
         fortgetButton.setOnClickListener(v -> {
             mCachedDevice.unpair();
-            mFragmentController.goBack();
+            getFragmentController().goBack();
         });
     }
 
     private void setupOkButton() {
         mOkButton = getActivity().findViewById(R.id.action_button1);
-        mOkButton.setText(R.string.okay);
+        mOkButton.setText(android.R.string.ok);
         mOkButton.setOnClickListener(v -> {
             if (!mInputLineItem.getInput().equals(mCachedDevice.getName())) {
                 mCachedDevice.setName(mInputLineItem.getInput());
             }
-            mFragmentController.goBack();
+            getFragmentController().goBack();
         });
     }
 }

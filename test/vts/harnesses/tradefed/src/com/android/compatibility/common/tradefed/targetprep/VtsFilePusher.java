@@ -42,7 +42,7 @@ import java.io.FileNotFoundException;
 /**
  * Pushes specified testing artifacts from Compatibility repository.
  */
-@OptionClass(alias = "file-pusher")
+@OptionClass(alias = "vts-file-pusher")
 public class VtsFilePusher extends PushFilePreparer implements IAbiReceiver {
     @Option(name="push-group", description=
             "A push group name. Must be a .push file under tools/vts-tradefed/res/push_groups/. "
@@ -190,6 +190,7 @@ public class VtsFilePusher extends PushFilePreparer implements IAbiReceiver {
     @Override
     public void setUp(ITestDevice device, IBuildInfo buildInfo)
             throws TargetSetupError, BuildError, DeviceNotAvailableException {
+        device.enableAdbRoot();
         mInvocationHelper = new VtsCompatibilityInvocationHelper();
         pushFileGroups(device, buildInfo);
 
@@ -204,6 +205,7 @@ public class VtsFilePusher extends PushFilePreparer implements IAbiReceiver {
             throws DeviceNotAvailableException {
 
         if (!(e instanceof DeviceNotAvailableException) && mPushGroupCleanup && mFilesPushed != null) {
+            device.enableAdbRoot();
             if (mPushGroupRemount) {
                 device.remountSystemWritable();
             }
@@ -221,6 +223,14 @@ public class VtsFilePusher extends PushFilePreparer implements IAbiReceiver {
     @Override
     public void setAbi(IAbi abi) {
         mAbi = abi;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public IAbi getAbi() {
+        return mAbi;
     }
 
     /**

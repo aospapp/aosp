@@ -69,6 +69,8 @@
   gAndroidFastbootPlatformProtocolGuid =  { 0x524685a0, 0x89a0, 0x11e3, {0x9d, 0x4d, 0xbf, 0xa9, 0xf6, 0xa4, 0x03, 0x08}}
   gUsbDeviceProtocolGuid =  { 0x021bd2ca, 0x51d2, 0x11e3, {0x8e, 0x56, 0xb7, 0x54, 0x17, 0xc7,  0x0b, 0x44 }}
   gPlatformGpioProtocolGuid = { 0x52ce9845, 0x5af4, 0x43e2, {0xba, 0xfd, 0x23, 0x08, 0x12, 0x54, 0x7a, 0xc2 }}
+  gAbootimgProtocolGuid = { 0x9859bb19, 0x407c, 0x4f8b, {0xbc, 0xe1, 0xf8, 0xda, 0x65, 0x65, 0xf4, 0xa5 }}
+
 
 [PcdsFeatureFlag.common]
   gEmbeddedTokenSpaceGuid.PcdEmbeddedMacBoot|FALSE|BOOLEAN|0x00000001
@@ -97,7 +99,6 @@
   gEmbeddedTokenSpaceGuid.PcdEmbeddedMemVariableStoreSize|0x10000|UINT32|0x00000009
   gEmbeddedTokenSpaceGuid.PcdEmbeddedPrompt|"Ebl"|VOID*|0x00000034
 
-  gEmbeddedTokenSpaceGuid.PcdPrePiHobBase|131072|UINT32|0x00000040
   gEmbeddedTokenSpaceGuid.PcdPrePiStackBase|0|UINT32|0x0000000b
   gEmbeddedTokenSpaceGuid.PcdPrePiStackSize|131072|UINT32|0x0000000c
 
@@ -146,6 +147,10 @@
   # LAN9118 Ethernet Driver PCDs
   gEmbeddedTokenSpaceGuid.PcdLan9118DxeBaseAddress|0x0|UINT32|0x00000025
   gEmbeddedTokenSpaceGuid.PcdLan9118DefaultMacAddress|0x0|UINT64|0x00000026
+  gEmbeddedTokenSpaceGuid.PcdLan9118DefaultNegotiationTimeout|4000|UINT32|0x00000027
+  # The default feature mask below disables full duplex negotiation, since full
+  # duplex operation is suspected to be broken in the driver.
+  gEmbeddedTokenSpaceGuid.PcdLan9118NegotiationFeatureMask|0xFFFFFEBF|UINT32|0x00000028
 
   #
   # Android FastBoot
@@ -157,6 +162,9 @@
   gEmbeddedTokenSpaceGuid.PcdAndroidFastbootUsbVendorId|0xf00d|UINT32|0x00000022
   gEmbeddedTokenSpaceGuid.PcdAndroidFastbootUsbProductId|0xbeef|UINT32|0x00000023
   gEmbeddedTokenSpaceGuid.PcdAndroidFastbootTcpPort|1234|UINT32|0x00000024
+
+  gEmbeddedTokenSpaceGuid.PcdAndroidBootDevicePath|L""|VOID*|0x00000057
+  gEmbeddedTokenSpaceGuid.PcdSdBootDevicePath|L""|VOID*|0x00000058
 
 
 [PcdsFixedAtBuild.ARM]

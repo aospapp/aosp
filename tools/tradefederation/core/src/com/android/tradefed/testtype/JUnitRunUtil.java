@@ -17,6 +17,7 @@ package com.android.tradefed.testtype;
 
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.log.LogUtil.CLog;
+import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.result.JUnitToInvocationResultForwarder;
 import com.android.tradefed.testtype.DeviceTestResult.RuntimeDeviceNotAvailableException;
@@ -24,8 +25,7 @@ import com.android.tradefed.testtype.DeviceTestResult.RuntimeDeviceNotAvailableE
 import junit.framework.Test;
 import junit.framework.TestResult;
 
-import java.util.Collections;
-import java.util.Map;
+import java.util.HashMap;
 
 /**
  * A helper class for directing a {@link IRemoteTest#run(ITestInvocationListener)} call to a
@@ -48,7 +48,7 @@ public class JUnitRunUtil {
         long startTime = System.currentTimeMillis();
         // forward the JUnit results to the invocation listener
         JUnitToInvocationResultForwarder resultForwarder =
-            new JUnitToInvocationResultForwarder(listener);
+                new JUnitToInvocationResultForwarder(listener);
         DeviceTestResult result = new DeviceTestResult();
         result.addListener(resultForwarder);
         try {
@@ -57,8 +57,8 @@ public class JUnitRunUtil {
             listener.testRunFailed(e.getDeviceException().getMessage());
             throw e.getDeviceException();
         } finally {
-            Map<String, String> emptyMap = Collections.emptyMap();
-            listener.testRunEnded(System.currentTimeMillis() - startTime, emptyMap);
+            listener.testRunEnded(
+                    System.currentTimeMillis() - startTime, new HashMap<String, Metric>());
         }
     }
 }

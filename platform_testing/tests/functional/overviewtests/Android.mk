@@ -23,9 +23,10 @@ LOCAL_STATIC_JAVA_LIBRARIES := \
     ub-uiautomator \
     timeresult-helper-lib \
     launcher-helper-lib \
-    android-support-test
+    android-support-test \
+    platform-test-annotations \
 
-LOCAL_JAVA_LIBRARIES := legacy-android-test
+LOCAL_JAVA_LIBRARIES := android.test.base.stubs
 
 LOCAL_SDK_VERSION := current
 

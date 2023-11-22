@@ -19,6 +19,7 @@ cc_library_static {
     name: "libgsl",
     host_supported: true,
     export_include_dirs: ["include"],
+    cflags: ["-Wall", "-Werror"],
 }
 
 // Tests pending approval of external/Microsoft-unittest-cpp: http://b/32512867

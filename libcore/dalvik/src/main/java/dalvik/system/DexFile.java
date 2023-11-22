@@ -17,12 +17,11 @@
 package dalvik.system;
 
 import android.system.ErrnoException;
-import android.system.StructStat;
+import dalvik.annotation.optimization.ReachabilitySensitive;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Enumeration;
 import java.util.List;
@@ -44,7 +43,9 @@ public final class DexFile {
    * If close is called, mCookie becomes null but the internal cookie is preserved if the close
    * failed so that we can free resources in the finalizer.
    */
+    @ReachabilitySensitive
     private Object mCookie;
+
     private Object mInternalCookie;
     private final String mFileName;
 
@@ -378,6 +379,13 @@ public final class DexFile {
     }
 
     /*
+     * Set the dex file as trusted: it can access hidden APIs of the platform.
+     */
+    /*package*/ void setTrusted() {
+        setTrusted(mCookie);
+    }
+
+    /*
      * Returns true if we managed to close the dex file.
      */
     private static native boolean closeDexFile(Object cookie);
@@ -386,6 +394,7 @@ public final class DexFile {
             throws ClassNotFoundException, NoClassDefFoundError;
     private static native String[] getClassNameList(Object cookie);
     private static native boolean isBackedByOatFile(Object cookie);
+    private static native void setTrusted(Object cookie);
     /*
      * Open a DEX file.  The value returned is a magic VM cookie.  On
      * failure, an IOException is thrown.
@@ -456,6 +465,21 @@ public final class DexFile {
      */
     public static final int DEX2OAT_FOR_RELOCATION = 4;
 
+
+    /**
+     * Calls {@link #getDexOptNeeded(String, String, String, String, String, boolean, boolean)}
+     * with a null class loader context.
+     *
+     * TODO(ngeoffray, calin): deprecate / remove.
+     * @hide
+     */
+    public static int getDexOptNeeded(String fileName,
+        String instructionSet, String compilerFilter, boolean newProfile, boolean downgrade)
+        throws FileNotFoundException, IOException {
+            return getDexOptNeeded(
+                fileName, instructionSet, compilerFilter, null, newProfile, downgrade);
+    }
+
     /**
      * Returns the VM's opinion of what kind of dexopt is needed to make the
      * apk/jar file up to date, where {@code targetMode} is used to indicate what
@@ -464,6 +488,8 @@ public final class DexFile {
      *
      * @param fileName the absolute path to the apk/jar file to examine.
      * @param compilerFilter a compiler filter to use for what a caller considers up-to-date.
+     * @param classLoaderContext a string encoding the class loader context the dex file
+     *        is intended to have at runtime.
      * @param newProfile flag that describes whether a profile corresponding
      *        to the dex file has been recently updated and should be considered
      *        in the state of the file.
@@ -483,7 +509,8 @@ public final class DexFile {
      * @hide
      */
     public static native int getDexOptNeeded(String fileName,
-            String instructionSet, String compilerFilter, boolean newProfile, boolean downgrade)
+            String instructionSet, String compilerFilter, String classLoaderContext,
+            boolean newProfile, boolean downgrade)
             throws FileNotFoundException, IOException;
 
     /**
@@ -496,6 +523,61 @@ public final class DexFile {
      */
     public static native String getDexFileStatus(String fileName, String instructionSet)
         throws FileNotFoundException;
+
+    /**
+     * Encapsulates information about the optimizations performed on a dex file.
+     *
+     * Note that the info is only meant for debugging and is not guaranteed to be
+     * stable across releases and/or devices.
+     *
+     * @hide
+     */
+    public static final class OptimizationInfo {
+        // The optimization status.
+        private final String status;
+        // The optimization reason. The reason might be "unknown" if the
+        // the compiler artifacts were not annotated during optimizations.
+        private final String reason;
+
+        private OptimizationInfo(String status, String reason) {
+            this.status = status;
+            this.reason = reason;
+        }
+
+        public String getStatus() {
+            return status;
+        }
+
+        public String getReason() {
+            return reason;
+        }
+    }
+
+    /**
+     * Retrieves the optimization info for a dex file.
+     *
+     * @hide
+     */
+    public static OptimizationInfo getDexFileOptimizationInfo(
+            String fileName, String instructionSet) throws FileNotFoundException {
+        String[] status = getDexFileOptimizationStatus(fileName, instructionSet);
+        return new OptimizationInfo(status[0], status[1]);
+    }
+
+    /**
+     * Returns the optimization status of the dex file {@code fileName}. The returned
+     * array will have 2 elements which specify:
+     *   - index 0: the level of optimizations
+     *   - index 1: the optimization reason. The reason might be "unknown" if the
+     *              the compiler artifacts were not annotated during optimizations.
+     *
+     * The output is only meant for debugging and is not guaranteed to be stable across
+     * releases and/or devices.
+     *
+     * @hide
+     */
+    private static native String[] getDexFileOptimizationStatus(
+            String fileName, String instructionSet) throws FileNotFoundException;
 
     /**
      * Returns the paths of the optimized files generated for {@code fileName}.
@@ -537,4 +619,23 @@ public final class DexFile {
      */
     public native static String getSafeModeCompilerFilter(String filter);
 
+    /**
+     * Returns the static file size of the original dex file.
+     * The original size of the uncompressed dex file is returned.
+     * On device the dex file may be compressed or embedded in some other
+     * file (e.g. oat) in a platform implementation dependent manner. This
+     * method abstracts away from those details and provides an efficient
+     * implementation given that the dex file in question has already been
+     * uncompressed, extracted, and/or loaded by the runtime as appropriate.
+     * <p>
+     * In the case of multidex, returns the sum of the original uncompressed
+     * multidex entry file sizes.
+     *
+     * @hide
+     */
+    public long getStaticSizeOfDexFile() {
+      return getStaticSizeOfDexFile(mCookie);
+    }
+
+    private static native long getStaticSizeOfDexFile(Object cookie);
 }

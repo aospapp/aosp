@@ -35,20 +35,19 @@ import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.Icon;
-import android.media.AudioManager;
 import android.net.Uri;
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.provider.ContactsContract;
 import android.provider.Settings;
-import android.support.annotation.Nullable;
 import android.text.TextUtils;
 import android.util.Log;
 import android.widget.Toast;
 
+import androidx.annotation.Nullable;
+
 import com.android.car.apps.common.LetterTileDrawable;
 import com.android.car.messenger.tts.TTSHelper;
-
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.request.RequestOptions;
 import com.bumptech.glide.request.target.SimpleTarget;
@@ -93,8 +92,6 @@ class MapMessageMonitor {
     private final Map<SenderKey, NotificationInfo> mNotificationInfos = new HashMap<>();
     private final TTSHelper mTTSHelper;
     private final HashMap<String, Boolean> mReplyFeatureMap = new HashMap<>();
-    private final AudioManager mAudioManager;
-    private final AudioManager.OnAudioFocusChangeListener mNoOpAFChangeListener = (f) -> {};
 
     MapMessageMonitor(Context context) {
         mContext = context;
@@ -103,8 +100,6 @@ class MapMessageMonitor {
         mNotificationManager =
                 (NotificationManager) mContext.getSystemService(Context.NOTIFICATION_SERVICE);
         mTTSHelper = new TTSHelper(mContext);
-
-        mAudioManager = (AudioManager) mContext.getSystemService(Context.AUDIO_SERVICE);
     }
 
     public boolean isPlaying() {
@@ -347,34 +342,29 @@ class MapMessageMonitor {
         ttsMessages.add(mContext.getString(R.string.tts_sender_says, notificationInfo.mSenderName));
         ttsMessages.add(ttsMessage);
 
-        int result = mAudioManager.requestAudioFocus(mNoOpAFChangeListener,
-                // Use the music stream.
-                AudioManager.STREAM_MUSIC,
-                // Request permanent focus.
-                AudioManager.AUDIOFOCUS_GAIN_TRANSIENT);
-        if (result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
-            mTTSHelper.requestPlay(ttsMessages,
-                    new TTSHelper.Listener() {
-                        @Override
-                        public void onTTSStarted() {
-                            Intent intent = new Intent(ACTION_MESSAGE_PLAY_START);
-                            mContext.sendBroadcast(intent);
-                        }
+        mTTSHelper.requestPlay(ttsMessages,
+                new TTSHelper.Listener() {
+                    @Override
+                    public void onTTSStarted() {
+                        Intent intent = new Intent(ACTION_MESSAGE_PLAY_START);
+                        mContext.sendBroadcast(intent);
+                    }
 
-                        @Override
-                        public void onTTSStopped(boolean error) {
-                            mAudioManager.abandonAudioFocus(mNoOpAFChangeListener);
-                            Intent intent = new Intent(ACTION_MESSAGE_PLAY_STOP);
-                            mContext.sendBroadcast(intent);
-                            if (error) {
-                                Toast.makeText(mContext, R.string.tts_failed_toast,
-                                        Toast.LENGTH_SHORT).show();
-                            }
+                    @Override
+                    public void onTTSStopped(boolean error) {
+                        Intent intent = new Intent(ACTION_MESSAGE_PLAY_STOP);
+                        mContext.sendBroadcast(intent);
+                        if (error) {
+                            Toast.makeText(mContext, R.string.tts_failed_toast,
+                                    Toast.LENGTH_SHORT).show();
                         }
-                    });
-        } else {
-            Log.w(TAG, "failed to require audio focus.");
-        }
+                    }
+
+                    @Override
+                    public void onAudioFocusFailed() {
+                        Log.w(TAG, "failed to require audio focus.");
+                    }
+                });
     }
 
     void stopPlayout() {

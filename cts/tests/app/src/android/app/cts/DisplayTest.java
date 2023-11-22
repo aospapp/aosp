@@ -19,6 +19,7 @@ package android.app.cts;
 import android.app.Instrumentation;
 import android.app.stubs.DisplayTestActivity;
 import android.app.stubs.OrientationTestUtils;
+import android.graphics.Point;
 import android.test.ActivityInstrumentationTestCase2;
 import android.view.Display;
 
@@ -51,32 +52,36 @@ public class DisplayTest extends ActivityInstrumentationTestCase2<DisplayTestAct
         final Display origDisplay = mActivity.getDisplay();
 
         // Capture the originally reported width and heights
-        final int origWidth = origDisplay.getWidth();
-        final int origHeight = origDisplay.getHeight();
+        final Point origSize = new Point();
+        origDisplay.getSize(origSize);
 
         // Change orientation
         mActivity.configurationChangeObserver.startObserving();
         OrientationTestUtils.switchOrientation(mActivity);
         mActivity.configurationChangeObserver.await();
 
+        final Point newOrigSize = new Point();
+        origDisplay.getSize(newOrigSize);
+
         // Get a {@link Display} instance after rotation.
         final Display updatedDisplay = mActivity.getDisplay();
+        final Point updatedSize = new Point();
+        updatedDisplay.getSize(updatedSize);
 
-        // For square sreens the following assertions do not make sense and will always fail.
-        if (origWidth != origHeight) {
+        // For square screens the following assertions do not make sense and will always fail.
+        if (origSize.x != origSize.y) {
             // Ensure that the width and height of the original instance no longer are the same. Note
             // that this will be false if the device width and height are identical.
-            assertFalse("width from original display instance should have changed",
-                    origWidth == origDisplay.getWidth());
-            assertFalse("height from original display instance should have changed",
-                    origHeight == origDisplay.getHeight());
+            // Note there are cases where width and height may not all be updated, such as on docked
+            // devices where the app is letterboxed. However at least one dimension needs to be
+            // updated.
+            assertFalse("size from original display instance should have changed",
+                    origSize.equals(newOrigSize));
         }
 
         // Ensure that the width and height of the original instance have been updated to match the
         // values that would be found in a new instance.
-        assertTrue("width from original display instance should match current",
-                origDisplay.getWidth() == updatedDisplay.getWidth());
-        assertTrue("height from original display instance should match current",
-                origDisplay.getHeight() == updatedDisplay.getHeight());
+        assertTrue("size from original display instance should match current",
+                newOrigSize.equals(updatedSize));
     }
 }

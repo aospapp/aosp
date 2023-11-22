@@ -29,6 +29,7 @@ import android.os.storage.StorageManager;
 import android.os.storage.VolumeInfo;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.support.annotation.VisibleForTesting;
 import android.support.v4.content.LocalBroadcastManager;
 import android.text.TextUtils;
 import android.util.Log;
@@ -57,13 +58,15 @@ public class FormatActivity extends Activity
             "StorageResetActivity.formatPrivateDiskId";
 
     // Non-null means we're in the process of formatting this volume as private
-    private String mFormatAsPrivateDiskId;
+    @VisibleForTesting
+    String mFormatAsPrivateDiskId;
     // Non-null means we're in the process of formatting this volume as public
-    private String mFormatAsPublicDiskId;
+    @VisibleForTesting
+    String mFormatAsPublicDiskId;
 
     private String mFormatDiskDesc;
 
-    private final BroadcastReceiver mFormatReceiver = new FormatReceiver();
+    private final BroadcastReceiver mFormatReceiver = new FormatReceiver(this);
     private PackageManager mPackageManager;
     private StorageManager mStorageManager;
 
@@ -153,7 +156,8 @@ public class FormatActivity extends Activity
         outState.putString(SAVE_STATE_FORMAT_DISK_DESC, mFormatDiskDesc);
     }
 
-    private void handleFormatAsPrivateComplete(float privateBench, float internalBench) {
+    @VisibleForTesting
+    void handleFormatAsPrivateComplete(float privateBench, float internalBench) {
         if (Math.abs(-1 - privateBench) < 0.1) {
             final float frac = privateBench / internalBench;
             Log.d(TAG, "New volume is " + frac + "x the speed of internal");
@@ -170,53 +174,61 @@ public class FormatActivity extends Activity
         launchMigrateStorageAndFinish(mFormatAsPrivateDiskId);
     }
 
-    private class FormatReceiver extends BroadcastReceiver {
+    @VisibleForTesting
+    static class FormatReceiver extends BroadcastReceiver {
+
+        private final FormatActivity mActivity;
+
+        FormatReceiver(FormatActivity activity) {
+            mActivity = activity;
+        }
 
         @Override
         public void onReceive(Context context, Intent intent) {
             if (TextUtils.equals(intent.getAction(),
                     SettingsStorageService.ACTION_FORMAT_AS_PRIVATE)
-                    && !TextUtils.isEmpty(mFormatAsPrivateDiskId)) {
+                    && !TextUtils.isEmpty(mActivity.mFormatAsPrivateDiskId)) {
                 final String diskId = intent.getStringExtra(DiskInfo.EXTRA_DISK_ID);
-                if (TextUtils.equals(mFormatAsPrivateDiskId, diskId)) {
+                if (TextUtils.equals(mActivity.mFormatAsPrivateDiskId, diskId)) {
                     final boolean success =
                             intent.getBooleanExtra(SettingsStorageService.EXTRA_SUCCESS, false);
                     if (success) {
-                        if (isResumed()) {
-                            final float privateBench = intent.getFloatExtra(
+                        if (mActivity.isResumed()) {
+                            final float privateBench = intent.getLongExtra(
                                     SettingsStorageService.EXTRA_PRIVATE_BENCH, -1);
-                            final float internalBench = intent.getFloatExtra(
+                            final float internalBench = intent.getLongExtra(
                                     SettingsStorageService.EXTRA_INTERNAL_BENCH, -1);
-                            handleFormatAsPrivateComplete(privateBench, internalBench);
+                            mActivity.handleFormatAsPrivateComplete(privateBench, internalBench);
                         }
 
-                        Toast.makeText(context, getString(
-                                R.string.storage_format_success, mFormatDiskDesc),
+                        Toast.makeText(context, mActivity.getString(
+                                R.string.storage_format_success, mActivity.mFormatDiskDesc),
                                 Toast.LENGTH_SHORT).show();
                     } else {
                         Toast.makeText(context,
-                                getString(R.string.storage_format_failure, mFormatDiskDesc),
+                                mActivity.getString(R.string.storage_format_failure,
+                                        mActivity.mFormatDiskDesc),
                                 Toast.LENGTH_SHORT).show();
-                        finish();
+                        mActivity.finish();
                     }
                 }
             } else if (TextUtils.equals(intent.getAction(),
                     SettingsStorageService.ACTION_FORMAT_AS_PUBLIC)
-                    && !TextUtils.isEmpty(mFormatAsPublicDiskId)) {
+                    && !TextUtils.isEmpty(mActivity.mFormatAsPublicDiskId)) {
                 final String diskId = intent.getStringExtra(DiskInfo.EXTRA_DISK_ID);
-                if (TextUtils.equals(mFormatAsPublicDiskId, diskId)) {
+                if (TextUtils.equals(mActivity.mFormatAsPublicDiskId, diskId)) {
                     final boolean success =
                             intent.getBooleanExtra(SettingsStorageService.EXTRA_SUCCESS, false);
                     if (success) {
                         Toast.makeText(context,
-                                getString(R.string.storage_format_success,
-                                        mFormatDiskDesc), Toast.LENGTH_SHORT).show();
+                                mActivity.getString(R.string.storage_format_success,
+                                        mActivity.mFormatDiskDesc), Toast.LENGTH_SHORT).show();
                     } else {
                         Toast.makeText(context,
-                                getString(R.string.storage_format_failure,
-                                        mFormatDiskDesc), Toast.LENGTH_SHORT).show();
+                                mActivity.getString(R.string.storage_format_failure,
+                                        mActivity.mFormatDiskDesc), Toast.LENGTH_SHORT).show();
                     }
-                    finish();
+                    mActivity.finish();
                 }
             }
         }

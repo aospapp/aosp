@@ -67,7 +67,7 @@ int netdClientAccept4(int sockfd, sockaddr* addr, socklen_t* addrlen, int flags)
         }
     }
     if (FwmarkClient::shouldSetFwmark(family)) {
-        FwmarkCommand command = {FwmarkCommand::ON_ACCEPT, 0, 0};
+        FwmarkCommand command = {FwmarkCommand::ON_ACCEPT, 0, 0, 0};
         if (int error = FwmarkClient().send(&command, acceptedSocket, nullptr)) {
             return closeFdAndSetErrno(acceptedSocket, error);
         }
@@ -79,7 +79,7 @@ int netdClientConnect(int sockfd, const sockaddr* addr, socklen_t addrlen) {
     const bool shouldSetFwmark = (sockfd >= 0) && addr
             && FwmarkClient::shouldSetFwmark(addr->sa_family);
     if (shouldSetFwmark) {
-        FwmarkCommand command = {FwmarkCommand::ON_CONNECT, 0, 0};
+        FwmarkCommand command = {FwmarkCommand::ON_CONNECT, 0, 0, 0};
         if (int error = FwmarkClient().send(&command, sockfd, nullptr)) {
             errno = -error;
             return -1;
@@ -96,7 +96,7 @@ int netdClientConnect(int sockfd, const sockaddr* addr, socklen_t addrlen) {
         FwmarkConnectInfo connectInfo(ret == 0 ? 0 : connectErrno, latencyMs, addr);
         // TODO: get the netId from the socket mark once we have continuous benchmark runs
         FwmarkCommand command = {FwmarkCommand::ON_CONNECT_COMPLETE, /* netId (ignored) */ 0,
-                /* uid (filled in by the server) */ 0};
+                                 /* uid (filled in by the server) */ 0, 0};
         // Ignore return value since it's only used for logging
         FwmarkClient().send(&command, sockfd, &connectInfo);
     }
@@ -122,6 +122,10 @@ unsigned getNetworkForResolv(unsigned netId) {
     if (netId != NETID_UNSET) {
         return netId;
     }
+    // Special case for DNS-over-TLS bypass; b/72345192 .
+    if ((netIdForResolv & ~NETID_USE_LOCAL_NAMESERVERS) != NETID_UNSET) {
+        return netIdForResolv;
+    }
     netId = netIdForProcess;
     if (netId != NETID_UNSET) {
         return netId;
@@ -130,6 +134,9 @@ unsigned getNetworkForResolv(unsigned netId) {
 }
 
 int setNetworkForTarget(unsigned netId, std::atomic_uint* target) {
+    const unsigned requestedNetId = netId;
+    netId &= ~NETID_USE_LOCAL_NAMESERVERS;
+
     if (netId == NETID_UNSET) {
         *target = netId;
         return 0;
@@ -148,7 +155,7 @@ int setNetworkForTarget(unsigned netId, std::atomic_uint* target) {
     }
     int error = setNetworkForSocket(netId, socketFd);
     if (!error) {
-        *target = netId;
+        *target = (target == &netIdForResolv) ? requestedNetId : netId;
     }
     close(socketFd);
     return error;
@@ -205,7 +212,7 @@ extern "C" int setNetworkForSocket(unsigned netId, int socketFd) {
     if (socketFd < 0) {
         return -EBADF;
     }
-    FwmarkCommand command = {FwmarkCommand::SELECT_NETWORK, netId, 0};
+    FwmarkCommand command = {FwmarkCommand::SELECT_NETWORK, netId, 0, 0};
     return FwmarkClient().send(&command, socketFd, nullptr);
 }
 
@@ -221,7 +228,7 @@ extern "C" int protectFromVpn(int socketFd) {
     if (socketFd < 0) {
         return -EBADF;
     }
-    FwmarkCommand command = {FwmarkCommand::PROTECT_FROM_VPN, 0, 0};
+    FwmarkCommand command = {FwmarkCommand::PROTECT_FROM_VPN, 0, 0, 0};
     return FwmarkClient().send(&command, socketFd, nullptr);
 }
 
@@ -229,11 +236,31 @@ extern "C" int setNetworkForUser(uid_t uid, int socketFd) {
     if (socketFd < 0) {
         return -EBADF;
     }
-    FwmarkCommand command = {FwmarkCommand::SELECT_FOR_USER, 0, uid};
+    FwmarkCommand command = {FwmarkCommand::SELECT_FOR_USER, 0, uid, 0};
     return FwmarkClient().send(&command, socketFd, nullptr);
 }
 
 extern "C" int queryUserAccess(uid_t uid, unsigned netId) {
-    FwmarkCommand command = {FwmarkCommand::QUERY_USER_ACCESS, netId, uid};
+    FwmarkCommand command = {FwmarkCommand::QUERY_USER_ACCESS, netId, uid, 0};
+    return FwmarkClient().send(&command, -1, nullptr);
+}
+
+extern "C" int tagSocket(int socketFd, uint32_t tag, uid_t uid) {
+    FwmarkCommand command = {FwmarkCommand::TAG_SOCKET, 0, uid, tag};
+    return FwmarkClient().send(&command, socketFd, nullptr);
+}
+
+extern "C" int untagSocket(int socketFd) {
+    FwmarkCommand command = {FwmarkCommand::UNTAG_SOCKET, 0, 0, 0};
+    return FwmarkClient().send(&command, socketFd, nullptr);
+}
+
+extern "C" int setCounterSet(uint32_t counterSet, uid_t uid) {
+    FwmarkCommand command = {FwmarkCommand::SET_COUNTERSET, 0, uid, counterSet};
+    return FwmarkClient().send(&command, -1, nullptr);
+}
+
+extern "C" int deleteTagData(uint32_t tag, uid_t uid) {
+    FwmarkCommand command = {FwmarkCommand::DELETE_TAGDATA, 0, uid, tag};
     return FwmarkClient().send(&command, -1, nullptr);
 }

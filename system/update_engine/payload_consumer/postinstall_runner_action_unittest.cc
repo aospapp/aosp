@@ -22,14 +22,12 @@
 
 #include <memory>
 #include <string>
-#include <vector>
 
 #include <base/bind.h>
 #include <base/files/file_util.h>
 #include <base/message_loop/message_loop.h>
 #include <base/strings/string_util.h>
 #include <base/strings/stringprintf.h>
-#include <brillo/bind_lambda.h>
 #include <brillo/message_loops/base_message_loop.h>
 #include <brillo/message_loops/message_loop_utils.h>
 #include <gmock/gmock.h>
@@ -44,7 +42,6 @@
 using brillo::MessageLoop;
 using chromeos_update_engine::test_utils::ScopedLoopbackDeviceBinder;
 using std::string;
-using std::vector;
 
 namespace chromeos_update_engine {
 

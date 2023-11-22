@@ -15,32 +15,18 @@
  */
 package com.android.bluetooth.pbapclient;
 
-import com.android.vcard.VCardEntry;
-
 import android.accounts.Account;
 import android.content.ContentProviderOperation;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.OperationApplicationException;
-import android.provider.ContactsContract;
-import android.database.Cursor;
-import android.net.Uri;
-import android.os.Bundle;
 import android.os.RemoteException;
-import android.provider.ContactsContract.Data;
-import android.provider.ContactsContract.RawContacts;
-import android.provider.ContactsContract.RawContactsEntity;
-import android.provider.ContactsContract.Contacts.Entity;
-import android.provider.ContactsContract.CommonDataKinds.Phone;
-import android.provider.ContactsContract.CommonDataKinds.StructuredName;
+import android.provider.ContactsContract;
 import android.util.Log;
 
 import com.android.vcard.VCardEntry;
 
-import java.lang.InterruptedException;
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
 
 public class PhonebookPullRequest extends PullRequest {
     private static final int MAX_OPS = 250;

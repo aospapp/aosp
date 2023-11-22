@@ -34,6 +34,8 @@
 #define LOG_TAG "CommandListener"
 
 #include <cutils/log.h>
+#include <netdutils/Status.h>
+#include <netdutils/StatusOr.h>
 #include <netutils/ifc.h>
 #include <sysutils/SocketClient.h>
 
@@ -106,9 +108,9 @@ void CommandListener::registerLockingCmd(FrameworkCommand *cmd, android::RWLock&
 
 CommandListener::CommandListener() : FrameworkListener(SOCKET_NAME, true) {
     registerLockingCmd(new InterfaceCmd());
-    registerLockingCmd(new IpFwdCmd());
-    registerLockingCmd(new TetherCmd());
-    registerLockingCmd(new NatCmd());
+    registerLockingCmd(new IpFwdCmd(), gCtls->tetherCtrl.lock);
+    registerLockingCmd(new TetherCmd(), gCtls->tetherCtrl.lock);
+    registerLockingCmd(new NatCmd(), gCtls->tetherCtrl.lock);
     registerLockingCmd(new ListTtysCmd());
     registerLockingCmd(new PppdCmd());
     registerLockingCmd(new BandwidthControlCmd(), gCtls->bandwidthCtrl.lock);
@@ -132,20 +134,16 @@ int CommandListener::InterfaceCmd::runCommand(SocketClient *cli,
     }
 
     if (!strcmp(argv[1], "list")) {
-        DIR *d;
-        struct dirent *de;
-
-        if (!(d = opendir("/sys/class/net"))) {
-            cli->sendMsg(ResponseCode::OperationFailed, "Failed to open sysfs dir", true);
+        const auto ifacePairs =
+            InterfaceController::getIfaceList();
+        if (ifacePairs.status() != netdutils::status::ok) {
+            cli->sendMsg(ResponseCode::OperationFailed, "Failed to get interface list", true);
             return 0;
         }
-
-        while((de = readdir(d))) {
-            if (de->d_name[0] == '.')
-                continue;
-            cli->sendMsg(ResponseCode::InterfaceListResult, de->d_name, false);
+        for (const auto& ifacePair : ifacePairs.value()) {
+            cli->sendMsg(ResponseCode::InterfaceListResult, ifacePair.first.c_str(), false);
         }
-        closedir(d);
+
         cli->sendMsg(ResponseCode::CommandOkay, "Interface list completed", false);
         return 0;
     } else {
@@ -310,21 +308,6 @@ int CommandListener::InterfaceCmd::runCommand(SocketClient *cli,
             } else {
                 cli->sendMsg(ResponseCode::OperationFailed,
                         "Failed to change IPv6 state", true);
-            }
-            return 0;
-        } else if (!strcmp(argv[1], "ipv6ndoffload")) {
-            if (argc != 4) {
-                cli->sendMsg(ResponseCode::CommandSyntaxError,
-                        "Usage: interface ipv6ndoffload <interface> <enable|disable>",
-                        false);
-                return 0;
-            }
-            int enable = !strncmp(argv[3], "enable", 7);
-            if (InterfaceController::setIPv6NdOffload(argv[2], enable) == 0) {
-                cli->sendMsg(ResponseCode::CommandOkay, "IPv6 ND offload changed", false);
-            } else {
-                cli->sendMsg(ResponseCode::OperationFailed,
-                        "Failed to change IPv6 ND offload state", true);
             }
             return 0;
         } else if (!strcmp(argv[1], "setmtu")) {
@@ -546,7 +529,7 @@ int CommandListener::NatCmd::runCommand(SocketClient *cli,
     // nat  enable intiface extiface
     // nat disable intiface extiface
     if (!strcmp(argv[1], "enable") && argc >= 4) {
-        rc = gCtls->natCtrl.enableNat(argv[2], argv[3]);
+        rc = gCtls->tetherCtrl.enableNat(argv[2], argv[3]);
         if(!rc) {
             /* Ignore ifaces for now. */
             rc = gCtls->bandwidthCtrl.setGlobalAlertInForwardChain();
@@ -554,7 +537,7 @@ int CommandListener::NatCmd::runCommand(SocketClient *cli,
     } else if (!strcmp(argv[1], "disable") && argc >= 4) {
         /* Ignore ifaces for now. */
         rc = gCtls->bandwidthCtrl.removeGlobalAlertInForwardChain();
-        rc |= gCtls->natCtrl.disableNat(argv[2], argv[3]);
+        rc |= gCtls->tetherCtrl.disableNat(argv[2], argv[3]);
     } else {
         cli->sendMsg(ResponseCode::CommandSyntaxError, "Unknown nat cmd", false);
         return 0;
@@ -968,29 +951,6 @@ int CommandListener::BandwidthControlCmd::runCommand(SocketClient *cli, int argc
         }
         int rc = gCtls->bandwidthCtrl.removeInterfaceAlert(argv[2]);
         sendGenericOkFail(cli, rc);
-        return 0;
-
-    }
-    if (!strcmp(argv[1], "gettetherstats") || !strcmp(argv[1], "gts")) {
-        BandwidthController::TetherStats tetherStats;
-        std::string extraProcessingInfo = "";
-        if (argc < 2 || argc > 4) {
-            sendGenericSyntaxError(cli, "gettetherstats [<intInterface> <extInterface>]");
-            return 0;
-        }
-        tetherStats.intIface = argc > 2 ? argv[2] : "";
-        tetherStats.extIface = argc > 3 ? argv[3] : "";
-        // No filtering requested and there are no interface pairs to lookup.
-        if (argc <= 2 && gCtls->natCtrl.ifacePairList.empty()) {
-            cli->sendMsg(ResponseCode::CommandOkay, "Tethering stats list completed", false);
-            return 0;
-        }
-        int rc = gCtls->bandwidthCtrl.getTetherStats(cli, tetherStats, extraProcessingInfo);
-        if (rc) {
-                extraProcessingInfo.insert(0, "Failed to get tethering stats.\n");
-                sendGenericOpFailed(cli, extraProcessingInfo.c_str());
-                return 0;
-        }
         return 0;
 
     }
@@ -1445,9 +1405,11 @@ int CommandListener::NetworkCommand::runCommand(SocketClient* client, int argc, 
             return syntaxError(client, "Incorrect number of arguments");
         }
         unsigned netId = stringToNetId(argv[2]);
+        // Both of these functions manage their own locking internally.
         if (int ret = gCtls->netCtrl.destroyNetwork(netId)) {
             return operationError(client, "destroyNetwork() failed", ret);
         }
+        gCtls->resolverCtrl.clearDnsServers(netId);
         return success(client);
     }
 

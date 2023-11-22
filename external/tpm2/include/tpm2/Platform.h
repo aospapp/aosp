@@ -384,6 +384,12 @@ _plat__GetFwVersion(
       uint32_t          *fw2
 );
 
+// A function to call after every successful SU_RESET TPM2_Startup.
+LIB_EXPORT void
+_plat__ResetCallback(
+    void
+);
+
 int uart_printf(const char *format, ...);
 #define ecprintf(format, args...) uart_printf(format, ## args);
 

@@ -25,10 +25,6 @@
  */
 package org.apache.harmony.jpda.tests.jdwp.Method;
 
-import org.apache.harmony.jpda.tests.framework.jdwp.CommandPacket;
-import org.apache.harmony.jpda.tests.framework.jdwp.JDWPCommands;
-import org.apache.harmony.jpda.tests.framework.jdwp.JDWPConstants;
-import org.apache.harmony.jpda.tests.framework.jdwp.ReplyPacket;
 import org.apache.harmony.jpda.tests.jdwp.share.JDWPSyncTestCase;
 
 
@@ -37,74 +33,5 @@ public class JDWPMethodTestCase extends JDWPSyncTestCase {
     @Override
     protected String getDebuggeeClassName() {
         return MethodDebuggee.class.getName();
-    }
-
-    static class MethodInfo {
-        private long methodID;
-        private String name;
-        private String signature;
-        private int modBits;
-
-        public MethodInfo(long methodID, String name, String signature,
-                int modBits) {
-            super();
-            this.methodID = methodID;
-            this.name = name;
-            this.signature = signature;
-            this.modBits = modBits;
-        }
-
-        /**
-         * @return Returns the methodID.
-         */
-        public long getMethodID() {
-            return methodID;
-        }
-        /**
-         * @return Returns the modBits.
-         */
-        public int getModBits() {
-            return modBits;
-        }
-        /**
-         * @return Returns the name.
-         */
-        public String getName() {
-            return name;
-        }
-        /**
-         * @return Returns the signature.
-         */
-        public String getSignature() {
-            return signature;
-        }
-        @Override
-        public String toString() {
-            return ""+methodID+" "+name+" "+signature+" "+modBits;
-        }
-        
-    }
-
-    protected MethodInfo[] jdwpGetMethodsInfo(long classID) {
-        
-        CommandPacket packet = new CommandPacket(
-                JDWPCommands.ReferenceTypeCommandSet.CommandSetID,
-                JDWPCommands.ReferenceTypeCommandSet.MethodsCommand);
-        packet.setNextValueAsClassID(classID);
-        ReplyPacket reply = debuggeeWrapper.vmMirror.performCommand(packet);
-
-        assertTrue(reply.getErrorCode() == JDWPConstants.Error.NONE);
-        int declared = reply.getNextValueAsInt();
-        
-        MethodInfo[] methodsInfo = new MethodInfo[declared];
-        for (int i = 0; i < declared; i++) {
-            methodsInfo[i] = new MethodInfo(
-                reply.getNextValueAsMethodID(),
-                reply.getNextValueAsString(),
-                reply.getNextValueAsString(),
-                reply.getNextValueAsInt()
-            );
-        }
-        return methodsInfo;
     }
 }

@@ -1,5 +1,5 @@
 #
-#  Copyright (C) 2015 Google, Inc.
+#  Copyright 2015 Google, Inc.
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -39,6 +39,7 @@ static_library("btif") {
     "src/btif_gatt_server.cc",
     "src/btif_gatt_test.cc",
     "src/btif_gatt_util.cc",
+    "src/btif_hearing_aid.cc",
     "src/btif_hf.cc",
     "src/btif_hf_client.cc",
     "src/btif_hh.cc",
@@ -50,7 +51,6 @@ static_library("btif") {
     "src/btif_rc.cc",
     "src/btif_sdp.cc",
     "src/btif_sdp_server.cc",
-    "src/btif_sm.cc",
     "src/btif_sock.cc",
     "src/btif_sock_l2cap.cc",
     "src/btif_sock_rfc.cc",
@@ -90,7 +90,7 @@ static_library("btif") {
     "//stack/btm",
     "//stack/include",
     "//third_party/tinyxml2",
-    "//include",
+    "//internal_include",
     "//udrv/include",
     "//utils/include",
     "//vnd/include",

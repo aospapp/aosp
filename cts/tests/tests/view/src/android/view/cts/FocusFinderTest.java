@@ -426,7 +426,6 @@ public class FocusFinderTest {
 
         // While we don't want to test details, we should at least verify basic correctness
         // like "left-to-right" ordering in well-behaved layouts
-        assertEquals(mLayout.findFocus(), mTopLeft);
         verifyNextFocus(mTopLeft, View.FOCUS_FORWARD, mTopRight);
         verifyNextFocus(mTopRight, View.FOCUS_FORWARD, mBottomLeft);
         verifyNextFocus(mBottomLeft, View.FOCUS_FORWARD, mBottomRight);

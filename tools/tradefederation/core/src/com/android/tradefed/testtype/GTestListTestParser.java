@@ -16,14 +16,14 @@
 package com.android.tradefed.testtype;
 
 import com.android.ddmlib.MultiLineReceiver;
-import com.android.ddmlib.testrunner.ITestRunListener;
-import com.android.ddmlib.testrunner.TestIdentifier;
 import com.android.tradefed.log.LogUtil.CLog;
+import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
+import com.android.tradefed.result.ITestInvocationListener;
+import com.android.tradefed.result.TestDescription;
 
 import java.util.ArrayList;
-import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 /**
@@ -34,7 +34,7 @@ public class GTestListTestParser extends MultiLineReceiver {
 
     private String mLastTestClassName = null;
     private String mTestRunName = null;
-    private ITestRunListener mTestRunListener = null;
+    private ITestInvocationListener mTestRunListener = null;
     /** Whether or not to prepend filename to classname. */
     private boolean mPrependFileName = false;
 
@@ -43,19 +43,19 @@ public class GTestListTestParser extends MultiLineReceiver {
     private static final Pattern TEST_CLASS = Pattern.compile("^([a-zA-Z]+.*)\\.$");
     // test method name should start with leading spaces, named as however valid as a C function
     // example: <line start>  emptyPlayback<line end>
-    private static final Pattern TEST_METHOD = Pattern.compile("\\s+(\\w+)$");
+    private static final Pattern TEST_METHOD = Pattern.compile("\\s+([a-zA-Z]+.*)$");
 
     // exposed for unit testing
-    protected List<TestIdentifier> mTests = new ArrayList<>();
+    protected List<TestDescription> mTests = new ArrayList<>();
 
     /**
      * Creates the GTestListTestParser for a single listener.
      *
-     * @param testRunName the test run name to provide to
-     *            {@link ITestRunListener#testRunStarted(String, int)}
+     * @param testRunName the test run name to provide to {@link
+     *     ITestInvocationListener#testRunStarted(String, int)}
      * @param listener informed of test results as the tests are executing
      */
-    public GTestListTestParser(String testRunName, ITestRunListener listener) {
+    public GTestListTestParser(String testRunName, ITestInvocationListener listener) {
         mTestRunName = testRunName;
         mTestRunListener = listener;
         // don't trim, since we need the leading whitespace
@@ -103,8 +103,8 @@ public class GTestListTestParser extends MultiLineReceiver {
                         "parsed new test case name %s but no test class name has been set", line));
             }
             // Test method name found
-            mTests.add(new TestIdentifier(
-                    getTestClass(mLastTestClassName), methodMatcher.group(1)));
+            mTests.add(
+                    new TestDescription(getTestClass(mLastTestClassName), methodMatcher.group(1)));
         } else {
             CLog.v("line ignored: %s", line);
         }
@@ -124,13 +124,12 @@ public class GTestListTestParser extends MultiLineReceiver {
     @Override
     public void done() {
         // now we send out all the test callbacks
-        final Map<String, String> empty = Collections.<String, String>emptyMap();
         mTestRunListener.testRunStarted(mTestRunName, mTests.size());
-        for (TestIdentifier id : mTests) {
+        for (TestDescription id : mTests) {
             mTestRunListener.testStarted(id);
-            mTestRunListener.testEnded(id, empty);
+            mTestRunListener.testEnded(id, new HashMap<String, Metric>());
         }
-        mTestRunListener.testRunEnded(0, empty);
+        mTestRunListener.testRunEnded(0, new HashMap<String, Metric>());
         super.done();
     }
 }

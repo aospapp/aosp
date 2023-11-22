@@ -66,7 +66,8 @@ bool HostProtocolChre::decodeMessageFromHost(const void *message,
         HostMessageHandlers::handleLoadNanoappRequest(
             hostClientId, request->transaction_id(), request->app_id(),
             request->app_version(), request->target_api_version(),
-            appBinary->data(), appBinary->size());
+            appBinary->data(), appBinary->size(), request->fragment_id(),
+            request->total_app_size());
         break;
       }
 
@@ -142,9 +143,9 @@ void HostProtocolChre::finishNanoappListResponse(
 
 void HostProtocolChre::encodeLoadNanoappResponse(
     flatbuffers::FlatBufferBuilder& builder, uint16_t hostClientId,
-    uint32_t transactionId, bool success) {
+    uint32_t transactionId, bool success, uint32_t fragmentId) {
   auto response = fbs::CreateLoadNanoappResponse(builder, transactionId,
-                                                 success);
+                                                 success, fragmentId);
   finalize(builder, fbs::ChreMessage::LoadNanoappResponse, response.Union(),
            hostClientId);
 }
@@ -189,6 +190,20 @@ void HostProtocolChre::encodeTimeSyncRequest(
     flatbuffers::FlatBufferBuilder& builder) {
   auto request = fbs::CreateTimeSyncRequest(builder);
   finalize(builder, fbs::ChreMessage::TimeSyncRequest, request.Union());
+}
+
+void HostProtocolChre::encodeLowPowerMicAccessRequest(
+    flatbuffers::FlatBufferBuilder& builder) {
+  auto request = fbs::CreateLowPowerMicAccessRequest(builder);
+  finalize(builder, fbs::ChreMessage::LowPowerMicAccessRequest,
+           request.Union());
+}
+
+void HostProtocolChre::encodeLowPowerMicAccessRelease(
+    flatbuffers::FlatBufferBuilder& builder) {
+  auto request = fbs::CreateLowPowerMicAccessRelease(builder);
+  finalize(builder, fbs::ChreMessage::LowPowerMicAccessRelease,
+           request.Union());
 }
 
 }  // namespace chre

@@ -25,6 +25,7 @@ import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
+import android.platform.test.annotations.AppModeFull;
 import android.util.Log;
 import android.util.Range;
 
@@ -51,6 +52,7 @@ import java.util.HashMap;
  * reference file associated with the test vector. Test vector md5 sums are
  * based on the YUV 420 plannar format.
  */
+@AppModeFull(reason = "There should be no instant apps specific behavior related to conformance")
 public class DecoderConformanceTest extends MediaPlayerTestBase {
     private static enum Status {
         FAIL,

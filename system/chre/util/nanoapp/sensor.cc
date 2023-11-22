@@ -26,4 +26,9 @@ const char *getSensorNameForEventType(uint16_t eventType) {
   return getSensorTypeName(sensorType);
 }
 
+const char *getSensorTypeName(uint8_t sensorType) {
+  SensorType type = getSensorTypeFromUnsignedInt(sensorType);
+  return getSensorTypeName(type);
+}
+
 }  // namespace chre

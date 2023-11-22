@@ -44,11 +44,11 @@ struct Shape;
 class LSHProjection {
  public:
   LSHProjection(
-      const android::hardware::neuralnetworks::V1_0::Operation &operation,
+      const android::hardware::neuralnetworks::V1_1::Operation &operation,
       std::vector<RunTimeOperandInfo> &operands);
 
   static bool Prepare(
-      const android::hardware::neuralnetworks::V1_0::Operation &operation,
+      const android::hardware::neuralnetworks::V1_1::Operation &operation,
       std::vector<RunTimeOperandInfo>& operands,
       Shape *outputShape);
   bool Eval();

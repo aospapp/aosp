@@ -18,32 +18,22 @@ package com.android.tv.dvr.data;
 
 import java.util.concurrent.atomic.AtomicLong;
 
-/**
- * A class which generate the ID which increases sequentially.
- */
+/** A class which generate the ID which increases sequentially. */
 public class IdGenerator {
-    /**
-     * ID generator for the scheduled recording.
-     */
+    /** ID generator for the scheduled recording. */
     public static final IdGenerator SCHEDULED_RECORDING = new IdGenerator();
 
-    /**
-     * ID generator for the series recording.
-     */
+    /** ID generator for the series recording. */
     public static final IdGenerator SERIES_RECORDING = new IdGenerator();
 
     private final AtomicLong mMaxId = new AtomicLong(0);
 
-    /**
-     * Sets the new maximum ID.
-     */
+    /** Sets the new maximum ID. */
     public void setMaxId(long maxId) {
         mMaxId.set(maxId);
     }
 
-    /**
-     * Returns the new ID which is greater than the existing maximum ID by 1.
-     */
+    /** Returns the new ID which is greater than the existing maximum ID by 1. */
     public long newId() {
         return mMaxId.incrementAndGet();
     }

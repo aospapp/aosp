@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 1999-2012 Broadcom Corporation
+ *  Copyright 1999-2012 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -62,71 +62,23 @@ tL2C_CB l2cb;
  ******************************************************************************/
 void l2c_rcv_acl_data(BT_HDR* p_msg) {
   uint8_t* p = (uint8_t*)(p_msg + 1) + p_msg->offset;
-  uint16_t handle, hci_len;
-  uint8_t pkt_type;
-  tL2C_LCB* p_lcb;
-  tL2C_CCB* p_ccb = NULL;
-  uint16_t l2cap_len, rcv_cid, psm;
-  uint16_t credit;
 
   /* Extract the handle */
+  uint16_t handle;
   STREAM_TO_UINT16(handle, p);
-  pkt_type = HCID_GET_EVENT(handle);
+  uint8_t pkt_type = HCID_GET_EVENT(handle);
   handle = HCID_GET_HANDLE(handle);
 
   /* Since the HCI Transport is putting segmented packets back together, we */
   /* should never get a valid packet with the type set to "continuation"    */
-  if (pkt_type != L2CAP_PKT_CONTINUE) {
-    /* Find the LCB based on the handle */
-    p_lcb = l2cu_find_lcb_by_handle(handle);
-    if (p_lcb == NULL) {
-      uint8_t cmd_code;
-
-      /* There is a slight possibility (specifically with USB) that we get an */
-      /* L2CAP connection request before we get the HCI connection complete.  */
-      /* So for these types of messages, hold them for up to 2 seconds.       */
-      STREAM_TO_UINT16(hci_len, p);
-      STREAM_TO_UINT16(l2cap_len, p);
-      STREAM_TO_UINT16(rcv_cid, p);
-      STREAM_TO_UINT8(cmd_code, p);
-
-      if ((p_msg->layer_specific == 0) && (rcv_cid == L2CAP_SIGNALLING_CID) &&
-          (cmd_code == L2CAP_CMD_INFO_REQ || cmd_code == L2CAP_CMD_CONN_REQ)) {
-        L2CAP_TRACE_WARNING(
-            "L2CAP - holding ACL for unknown handle:%d ls:%d"
-            "  cid:%d opcode:%d cur count:%d",
-            handle, p_msg->layer_specific, rcv_cid, cmd_code,
-            list_length(l2cb.rcv_pending_q));
-        p_msg->layer_specific = 2;
-        list_append(l2cb.rcv_pending_q, p_msg);
-
-        if (list_length(l2cb.rcv_pending_q) == 1) {
-          alarm_set_on_mloop(l2cb.receive_hold_timer, BT_1SEC_TIMEOUT_MS,
-                             l2c_receive_hold_timer_timeout, NULL);
-        }
-
-        return;
-      } else {
-        L2CAP_TRACE_ERROR(
-            "L2CAP - rcvd ACL for unknown handle:%d ls:%d cid:%d"
-            " opcode:%d cur count:%d",
-            handle, p_msg->layer_specific, rcv_cid, cmd_code,
-            list_length(l2cb.rcv_pending_q));
-      }
-      osi_free(p_msg);
-      return;
-    }
-  } else {
-    L2CAP_TRACE_WARNING("L2CAP - expected pkt start or complete, got: %d",
-                        pkt_type);
+  if (pkt_type == L2CAP_PKT_CONTINUE) {
+    L2CAP_TRACE_WARNING("L2CAP - received packet continuation");
     osi_free(p_msg);
     return;
   }
 
-  /* Extract the length and update the buffer header */
+  uint16_t hci_len;
   STREAM_TO_UINT16(hci_len, p);
-  p_msg->offset += 4;
-
   if (hci_len < L2CAP_PKT_OVERHEAD) {
     /* Must receive at least the L2CAP length and CID */
     L2CAP_TRACE_WARNING("L2CAP - got incorrect hci header");
@@ -134,22 +86,68 @@ void l2c_rcv_acl_data(BT_HDR* p_msg) {
     return;
   }
 
-  /* Extract the length and CID */
+  uint16_t l2cap_len, rcv_cid;
   STREAM_TO_UINT16(l2cap_len, p);
   STREAM_TO_UINT16(rcv_cid, p);
+
+  /* Find the LCB based on the handle */
+  tL2C_LCB* p_lcb = l2cu_find_lcb_by_handle(handle);
+  if (!p_lcb) {
+    /* There is a slight possibility (specifically with USB) that we get an */
+    /* L2CAP connection request before we get the HCI connection complete.  */
+    /* So for these types of messages, hold them for up to 2 seconds.       */
+    uint8_t cmd_code;
+    STREAM_TO_UINT8(cmd_code, p);
+
+    if ((p_msg->layer_specific != 0) || (rcv_cid != L2CAP_SIGNALLING_CID) ||
+        (cmd_code != L2CAP_CMD_INFO_REQ && cmd_code != L2CAP_CMD_CONN_REQ)) {
+      bool qcom_debug_log =
+          (handle == 3804 && cmd_code == 10 && p_msg->layer_specific == 0);
+
+      if (!qcom_debug_log) {
+        L2CAP_TRACE_ERROR(
+            "L2CAP - rcvd ACL for unknown handle:%d ls:%d cid:%d opcode:%d cur "
+            "count:%d",
+            handle, p_msg->layer_specific, rcv_cid, cmd_code,
+            list_length(l2cb.rcv_pending_q));
+      }
+
+      osi_free(p_msg);
+      return;
+    }
+
+    L2CAP_TRACE_WARNING(
+        "L2CAP - holding ACL for unknown handle:%d ls:%d cid:%d opcode:%d cur "
+        "count:%d",
+        handle, p_msg->layer_specific, rcv_cid, cmd_code,
+        list_length(l2cb.rcv_pending_q));
+    p_msg->layer_specific = 2;
+    list_append(l2cb.rcv_pending_q, p_msg);
+
+    if (list_length(l2cb.rcv_pending_q) == 1) {
+      alarm_set_on_mloop(l2cb.receive_hold_timer, BT_1SEC_TIMEOUT_MS,
+                         l2c_receive_hold_timer_timeout, NULL);
+    }
+    return;
+  }
+
+  /* Update the buffer header */
+  p_msg->offset += 4;
 
   /* for BLE channel, always notify connection when ACL data received on the
    * link */
   if (p_lcb && p_lcb->transport == BT_TRANSPORT_LE &&
-      p_lcb->link_state != LST_DISCONNECTING)
+      p_lcb->link_state != LST_DISCONNECTING) {
     /* only process fixed channel data as channel open indication when link is
      * not in disconnecting mode */
     l2cble_notify_le_connection(p_lcb->remote_bd_addr);
+  }
 
   /* Find the CCB for this CID */
+  tL2C_CCB* p_ccb = NULL;
   if (rcv_cid >= L2CAP_BASE_APPL_CID) {
     p_ccb = l2cu_find_ccb_by_cid(p_lcb, rcv_cid);
-    if (p_ccb == NULL) {
+    if (!p_ccb) {
       L2CAP_TRACE_WARNING("L2CAP - unknown CID: 0x%04x", rcv_cid);
       osi_free(p_msg);
       return;
@@ -162,7 +160,6 @@ void l2c_rcv_acl_data(BT_HDR* p_msg) {
   if (l2cap_len != p_msg->len) {
     L2CAP_TRACE_WARNING("L2CAP - bad length in pkt. Exp: %d  Act: %d",
                         l2cap_len, p_msg->len);
-
     osi_free(p_msg);
     return;
   }
@@ -171,69 +168,81 @@ void l2c_rcv_acl_data(BT_HDR* p_msg) {
   if (rcv_cid == L2CAP_SIGNALLING_CID) {
     process_l2cap_cmd(p_lcb, p, l2cap_len);
     osi_free(p_msg);
-  } else if (rcv_cid == L2CAP_CONNECTIONLESS_CID) {
+    return;
+  }
+
+  if (rcv_cid == L2CAP_CONNECTIONLESS_CID) {
     /* process_connectionless_data (p_lcb); */
+    uint16_t psm;
     STREAM_TO_UINT16(psm, p);
     L2CAP_TRACE_DEBUG("GOT CONNECTIONLESS DATA PSM:%d", psm);
+    osi_free(p_msg);
+    return;
+  }
 
-#if (L2CAP_UCD_INCLUDED == TRUE)
-    /* if it is not broadcast, check UCD registration */
-    if (l2c_ucd_check_rx_pkts(p_lcb, p_msg)) {
-      /* nothing to do */
-    } else
-#endif
-      osi_free(p_msg);
-  } else if (rcv_cid == L2CAP_BLE_SIGNALLING_CID) {
+  if (rcv_cid == L2CAP_BLE_SIGNALLING_CID) {
     l2cble_process_sig_cmd(p_lcb, p, l2cap_len);
     osi_free(p_msg);
+    return;
   }
-#if (L2CAP_NUM_FIXED_CHNLS > 0)
-  else if ((rcv_cid >= L2CAP_FIRST_FIXED_CHNL) &&
-           (rcv_cid <= L2CAP_LAST_FIXED_CHNL) &&
-           (l2cb.fixed_reg[rcv_cid - L2CAP_FIRST_FIXED_CHNL]
-                .pL2CA_FixedData_Cb != NULL)) {
-    /* If no CCB for this channel, allocate one */
-    if (p_lcb &&
-        /* only process fixed channel data when link is open or wait for data
-           indication */
-        (p_lcb->link_state != LST_DISCONNECTING) &&
-        l2cu_initialize_fixed_ccb(
-            p_lcb, rcv_cid, &l2cb.fixed_reg[rcv_cid - L2CAP_FIRST_FIXED_CHNL]
-                                 .fixed_chnl_opts)) {
-      p_ccb = p_lcb->p_fixed_ccbs[rcv_cid - L2CAP_FIRST_FIXED_CHNL];
 
-      if (p_ccb->peer_cfg.fcr.mode != L2CAP_FCR_BASIC_MODE)
-        l2c_fcr_proc_pdu(p_ccb, p_msg);
-      else
-        (*l2cb.fixed_reg[rcv_cid - L2CAP_FIRST_FIXED_CHNL].pL2CA_FixedData_Cb)(
-            rcv_cid, p_lcb->remote_bd_addr, p_msg);
-    } else
+#if (L2CAP_NUM_FIXED_CHNLS > 0)
+  if ((rcv_cid >= L2CAP_FIRST_FIXED_CHNL) &&
+      (rcv_cid <= L2CAP_LAST_FIXED_CHNL) &&
+      (l2cb.fixed_reg[rcv_cid - L2CAP_FIRST_FIXED_CHNL].pL2CA_FixedData_Cb !=
+       NULL)) {
+    /* only process fixed channel data when link is open or wait for data
+     * indication */
+    if (!p_lcb || p_lcb->link_state == LST_DISCONNECTING ||
+        !l2cu_initialize_fixed_ccb(
+            p_lcb, rcv_cid,
+            &l2cb.fixed_reg[rcv_cid - L2CAP_FIRST_FIXED_CHNL]
+                 .fixed_chnl_opts)) {
       osi_free(p_msg);
+      return;
+    }
+
+    /* If no CCB for this channel, allocate one */
+    p_ccb = p_lcb->p_fixed_ccbs[rcv_cid - L2CAP_FIRST_FIXED_CHNL];
+
+    if (p_ccb->peer_cfg.fcr.mode != L2CAP_FCR_BASIC_MODE)
+      l2c_fcr_proc_pdu(p_ccb, p_msg);
+    else
+      (*l2cb.fixed_reg[rcv_cid - L2CAP_FIRST_FIXED_CHNL].pL2CA_FixedData_Cb)(
+          rcv_cid, p_lcb->remote_bd_addr, p_msg);
+    return;
   }
 #endif
 
-  else {
-    if (p_ccb == NULL)
-      osi_free(p_msg);
+  if (!p_ccb) {
+    osi_free(p_msg);
+    return;
+  }
+
+  if (p_lcb->transport == BT_TRANSPORT_LE) {
+    l2c_lcc_proc_pdu(p_ccb, p_msg);
+
+    /* The remote device has one less credit left */
+    --p_ccb->remote_credit_count;
+
+    /* If the credits left on the remote device are getting low, send some */
+    if (p_ccb->remote_credit_count <= L2CAP_LE_CREDIT_THRESHOLD) {
+      uint16_t credits = L2CAP_LE_CREDIT_DEFAULT - p_ccb->remote_credit_count;
+      p_ccb->remote_credit_count = L2CAP_LE_CREDIT_DEFAULT;
+
+      /* Return back credits */
+      l2c_csm_execute(p_ccb, L2CEVT_L2CA_SEND_FLOW_CONTROL_CREDIT, &credits);
+    }
+  } else {
+    /* Basic mode packets go straight to the state machine */
+    if (p_ccb->peer_cfg.fcr.mode == L2CAP_FCR_BASIC_MODE)
+      l2c_csm_execute(p_ccb, L2CEVT_L2CAP_DATA, p_msg);
     else {
-      if (p_lcb->transport == BT_TRANSPORT_LE) {
-        l2c_lcc_proc_pdu(p_ccb, p_msg);
-        // Got a pkt, valid send out credits to the peer device
-        credit = L2CAP_LE_DEFAULT_CREDIT;
-        l2c_csm_execute(p_ccb, L2CEVT_L2CA_SEND_FLOW_CONTROL_CREDIT, &credit);
-      } else {
-        /* Basic mode packets go straight to the state machine */
-        if (p_ccb->peer_cfg.fcr.mode == L2CAP_FCR_BASIC_MODE)
-          l2c_csm_execute(p_ccb, L2CEVT_L2CAP_DATA, p_msg);
-        else {
-          /* eRTM or streaming mode, so we need to validate states first */
-          if ((p_ccb->chnl_state == CST_OPEN) ||
-              (p_ccb->chnl_state == CST_CONFIG))
-            l2c_fcr_proc_pdu(p_ccb, p_msg);
-          else
-            osi_free(p_msg);
-        }
-      }
+      /* eRTM or streaming mode, so we need to validate states first */
+      if ((p_ccb->chnl_state == CST_OPEN) || (p_ccb->chnl_state == CST_CONFIG))
+        l2c_fcr_proc_pdu(p_ccb, p_msg);
+      else
+        osi_free(p_msg);
     }
   }
 }
@@ -249,38 +258,27 @@ void l2c_rcv_acl_data(BT_HDR* p_msg) {
  *
  ******************************************************************************/
 static void process_l2cap_cmd(tL2C_LCB* p_lcb, uint8_t* p, uint16_t pkt_len) {
-  uint8_t *p_pkt_end, *p_next_cmd, *p_cfg_end, *p_cfg_start;
-  uint8_t cmd_code, cfg_code, cfg_len, id;
   tL2C_CONN_INFO con_info;
-  tL2CAP_CFG_INFO cfg_info;
-  uint16_t rej_reason, rej_mtu, lcid, rcid, info_type;
-  tL2C_CCB* p_ccb;
-  tL2C_RCB* p_rcb;
-  bool cfg_rej, pkt_size_rej = false;
-  uint16_t cfg_rej_len, cmd_len;
-  uint16_t result;
-  tL2C_CONN_INFO ci;
 
   /* if l2cap command received in CID 1 on top of an LE link, ignore this
    * command */
   if (p_lcb->transport == BT_TRANSPORT_LE) return;
 
   /* Reject the packet if it exceeds the default Signalling Channel MTU */
+  bool pkt_size_rej = false;
   if (pkt_len > L2CAP_DEFAULT_MTU) {
     /* Core Spec requires a single response to the first command found in a
-    *multi-command
-    ** L2cap packet.  If only responses in the packet, then it will be ignored.
-    ** Here we simply mark the bad packet and decide which cmd ID to reject
-    *later
-    */
+     * multi-command L2cap packet.  If only responses in the packet, then it
+     * will be ignored. Here we simply mark the bad packet and decide which cmd
+     * ID to reject later */
     pkt_size_rej = true;
-    L2CAP_TRACE_ERROR("L2CAP SIG MTU Pkt Len Exceeded (672) -> pkt_len: %d",
-                      pkt_len);
+    L2CAP_TRACE_ERROR("L2CAP SIG MTU pkt_len=%d Exceeded 672", pkt_len);
   }
 
-  p_next_cmd = p;
-  p_pkt_end = p + pkt_len;
+  uint8_t* p_next_cmd = p;
+  uint8_t* p_pkt_end = p + pkt_len;
 
+  tL2CAP_CFG_INFO cfg_info;
   memset(&cfg_info, 0, sizeof(cfg_info));
 
   /* An L2CAP packet may contain multiple commands */
@@ -289,6 +287,8 @@ static void process_l2cap_cmd(tL2C_LCB* p_lcb, uint8_t* p, uint16_t pkt_len) {
     p = p_next_cmd;
     if (p > (p_pkt_end - 4)) break;
 
+    uint8_t cmd_code, id;
+    uint16_t cmd_len;
     STREAM_TO_UINT8(cmd_code, p);
     STREAM_TO_UINT8(id, p);
     STREAM_TO_UINT16(cmd_len, p);
@@ -309,7 +309,7 @@ static void process_l2cap_cmd(tL2C_LCB* p_lcb, uint8_t* p, uint16_t pkt_len) {
 
     L2CAP_TRACE_DEBUG("cmd_code: %d, id:%d, cmd_len:%d", cmd_code, id, cmd_len);
 
-    /* Bad L2CAP packet length, look or cmd to reject */
+    /* Bad L2CAP packet length, look for cmd to reject */
     if (pkt_size_rej) {
       /* If command found rejected it and we're done, otherwise keep looking */
       if (l2c_is_cmd_rejected(cmd_code, id, p_lcb))
@@ -320,18 +320,22 @@ static void process_l2cap_cmd(tL2C_LCB* p_lcb, uint8_t* p, uint16_t pkt_len) {
 
     switch (cmd_code) {
       case L2CAP_CMD_REJECT:
+        uint16_t rej_reason;
+        if (p + 2 > p_next_cmd) return;
         STREAM_TO_UINT16(rej_reason, p);
         if (rej_reason == L2CAP_CMD_REJ_MTU_EXCEEDED) {
+          uint16_t rej_mtu;
+          if (p + 2 > p_next_cmd) return;
           STREAM_TO_UINT16(rej_mtu, p);
           /* What to do with the MTU reject ? We have negotiated an MTU. For now
+           * we will ignore it and let a higher protocol timeout take care of it
            */
-          /* we will ignore it and let a higher protocol timeout take care of it
-           */
-
           L2CAP_TRACE_WARNING("L2CAP - MTU rej Handle: %d MTU: %d",
                               p_lcb->handle, rej_mtu);
         }
         if (rej_reason == L2CAP_CMD_REJ_INVALID_CID) {
+          uint16_t lcid, rcid;
+          if (p + 4 > p_next_cmd) return;
           STREAM_TO_UINT16(rcid, p);
           STREAM_TO_UINT16(lcid, p);
 
@@ -340,7 +344,7 @@ static void process_l2cap_cmd(tL2C_LCB* p_lcb, uint8_t* p, uint16_t pkt_len) {
               rcid);
 
           /* Remote CID invalid. Treat as a disconnect */
-          p_ccb = l2cu_find_ccb_by_cid(p_lcb, lcid);
+          tL2C_CCB* p_ccb = l2cu_find_ccb_by_cid(p_lcb, lcid);
           if ((p_ccb != NULL) && (p_ccb->remote_cid == rcid)) {
             /* Fake link disconnect - no reply is generated */
             l2c_csm_execute(p_ccb, L2CEVT_LP_DISCONNECT_IND, NULL);
@@ -353,22 +357,25 @@ static void process_l2cap_cmd(tL2C_LCB* p_lcb, uint8_t* p, uint16_t pkt_len) {
           alarm_cancel(p_lcb->info_resp_timer);
 
           p_lcb->w4_info_rsp = false;
+          tL2C_CONN_INFO ci;
           ci.status = HCI_SUCCESS;
           ci.bd_addr = p_lcb->remote_bd_addr;
 
           /* For all channels, send the event through their FSMs */
-          for (p_ccb = p_lcb->ccb_queue.p_first_ccb; p_ccb;
+          for (tL2C_CCB* p_ccb = p_lcb->ccb_queue.p_first_ccb; p_ccb;
                p_ccb = p_ccb->p_next_ccb) {
             l2c_csm_execute(p_ccb, L2CEVT_L2CAP_INFO_RSP, &ci);
           }
         }
         break;
 
-      case L2CAP_CMD_CONN_REQ:
+      case L2CAP_CMD_CONN_REQ: {
+        uint16_t rcid;
+        if (p + 4 > p_next_cmd) return;
         STREAM_TO_UINT16(con_info.psm, p);
         STREAM_TO_UINT16(rcid, p);
-        p_rcb = l2cu_find_rcb_by_psm(con_info.psm);
-        if (p_rcb == NULL) {
+        tL2C_RCB* p_rcb = l2cu_find_rcb_by_psm(con_info.psm);
+        if (!p_rcb) {
           L2CAP_TRACE_WARNING("L2CAP - rcvd conn req for unknown PSM: %d",
                               con_info.psm);
           l2cu_reject_connection(p_lcb, rcid, id, L2CAP_CONN_NO_PSM);
@@ -382,8 +389,8 @@ static void process_l2cap_cmd(tL2C_LCB* p_lcb, uint8_t* p, uint16_t pkt_len) {
             break;
           }
         }
-        p_ccb = l2cu_allocate_ccb(p_lcb, 0);
-        if (p_ccb == NULL) {
+        tL2C_CCB* p_ccb = l2cu_allocate_ccb(p_lcb, 0);
+        if (!p_ccb) {
           L2CAP_TRACE_ERROR("L2CAP - unable to allocate CCB");
           l2cu_reject_connection(p_lcb, rcid, id, L2CAP_CONN_NO_RESOURCES);
           break;
@@ -394,15 +401,18 @@ static void process_l2cap_cmd(tL2C_LCB* p_lcb, uint8_t* p, uint16_t pkt_len) {
 
         l2c_csm_execute(p_ccb, L2CEVT_L2CAP_CONNECT_REQ, &con_info);
         break;
+      }
 
-      case L2CAP_CMD_CONN_RSP:
+      case L2CAP_CMD_CONN_RSP: {
+        uint16_t lcid;
+        if (p + 8 > p_next_cmd) return;
         STREAM_TO_UINT16(con_info.remote_cid, p);
         STREAM_TO_UINT16(lcid, p);
         STREAM_TO_UINT16(con_info.l2cap_result, p);
         STREAM_TO_UINT16(con_info.l2cap_status, p);
 
-        p_ccb = l2cu_find_ccb_by_cid(p_lcb, lcid);
-        if (p_ccb == NULL) {
+        tL2C_CCB* p_ccb = l2cu_find_ccb_by_cid(p_lcb, lcid);
+        if (!p_ccb) {
           L2CAP_TRACE_WARNING("L2CAP - no CCB for conn rsp, LCID: %d RCID: %d",
                               lcid, con_info.remote_cid);
           break;
@@ -421,38 +431,46 @@ static void process_l2cap_cmd(tL2C_LCB* p_lcb, uint8_t* p, uint16_t pkt_len) {
           l2c_csm_execute(p_ccb, L2CEVT_L2CAP_CONNECT_RSP_NEG, &con_info);
 
         break;
+      }
 
-      case L2CAP_CMD_CONFIG_REQ:
-        p_cfg_end = p + cmd_len;
-        cfg_rej = false;
-        cfg_rej_len = 0;
+      case L2CAP_CMD_CONFIG_REQ: {
+        uint8_t* p_cfg_end = p + cmd_len;
+        bool cfg_rej = false;
+        uint16_t cfg_rej_len = 0;
 
+        uint16_t lcid;
+        if (p + 4 > p_next_cmd) return;
         STREAM_TO_UINT16(lcid, p);
         STREAM_TO_UINT16(cfg_info.flags, p);
 
-        p_cfg_start = p;
+        uint8_t* p_cfg_start = p;
 
         cfg_info.flush_to_present = cfg_info.mtu_present =
             cfg_info.qos_present = cfg_info.fcr_present = cfg_info.fcs_present =
                 false;
 
         while (p < p_cfg_end) {
+          uint8_t cfg_code, cfg_len;
+          if (p + 2 > p_next_cmd) return;
           STREAM_TO_UINT8(cfg_code, p);
           STREAM_TO_UINT8(cfg_len, p);
 
           switch (cfg_code & 0x7F) {
             case L2CAP_CFG_TYPE_MTU:
               cfg_info.mtu_present = true;
+              if (p + 2 > p_next_cmd) return;
               STREAM_TO_UINT16(cfg_info.mtu, p);
               break;
 
             case L2CAP_CFG_TYPE_FLUSH_TOUT:
               cfg_info.flush_to_present = true;
+              if (p + 2 > p_next_cmd) return;
               STREAM_TO_UINT16(cfg_info.flush_to, p);
               break;
 
             case L2CAP_CFG_TYPE_QOS:
               cfg_info.qos_present = true;
+              if (p + 2 + 5 * 4 > p_next_cmd) return;
               STREAM_TO_UINT8(cfg_info.qos.qos_flags, p);
               STREAM_TO_UINT8(cfg_info.qos.service_type, p);
               STREAM_TO_UINT32(cfg_info.qos.token_rate, p);
@@ -464,6 +482,7 @@ static void process_l2cap_cmd(tL2C_LCB* p_lcb, uint8_t* p, uint16_t pkt_len) {
 
             case L2CAP_CFG_TYPE_FCR:
               cfg_info.fcr_present = true;
+              if (p + 3 + 3 * 2 > p_next_cmd) return;
               STREAM_TO_UINT8(cfg_info.fcr.mode, p);
               STREAM_TO_UINT8(cfg_info.fcr.tx_win_sz, p);
               STREAM_TO_UINT8(cfg_info.fcr.max_transmit, p);
@@ -474,11 +493,13 @@ static void process_l2cap_cmd(tL2C_LCB* p_lcb, uint8_t* p, uint16_t pkt_len) {
 
             case L2CAP_CFG_TYPE_FCS:
               cfg_info.fcs_present = true;
+              if (p + 1 > p_next_cmd) return;
               STREAM_TO_UINT8(cfg_info.fcs, p);
               break;
 
             case L2CAP_CFG_TYPE_EXT_FLOW:
               cfg_info.ext_flow_spec_present = true;
+              if (p + 2 + 2 + 3 * 4 > p_next_cmd) return;
               STREAM_TO_UINT8(cfg_info.ext_flow_spec.id, p);
               STREAM_TO_UINT8(cfg_info.ext_flow_spec.stype, p);
               STREAM_TO_UINT16(cfg_info.ext_flow_spec.max_sdu_size, p);
@@ -505,8 +526,8 @@ static void process_l2cap_cmd(tL2C_LCB* p_lcb, uint8_t* p, uint16_t pkt_len) {
           }
         }
 
-        p_ccb = l2cu_find_ccb_by_cid(p_lcb, lcid);
-        if (p_ccb != NULL) {
+        tL2C_CCB* p_ccb = l2cu_find_ccb_by_cid(p_lcb, lcid);
+        if (p_ccb) {
           p_ccb->remote_id = id;
           if (cfg_rej) {
             l2cu_send_peer_config_rej(
@@ -520,9 +541,12 @@ static void process_l2cap_cmd(tL2C_LCB* p_lcb, uint8_t* p, uint16_t pkt_len) {
           l2cu_send_peer_cmd_reject(p_lcb, L2CAP_CMD_REJ_INVALID_CID, id, 0, 0);
         }
         break;
+      }
 
-      case L2CAP_CMD_CONFIG_RSP:
-        p_cfg_end = p + cmd_len;
+      case L2CAP_CMD_CONFIG_RSP: {
+        uint8_t* p_cfg_end = p + cmd_len;
+        uint16_t lcid;
+        if (p + 6 > p_next_cmd) return;
         STREAM_TO_UINT16(lcid, p);
         STREAM_TO_UINT16(cfg_info.flags, p);
         STREAM_TO_UINT16(cfg_info.result, p);
@@ -532,22 +556,27 @@ static void process_l2cap_cmd(tL2C_LCB* p_lcb, uint8_t* p, uint16_t pkt_len) {
                 false;
 
         while (p < p_cfg_end) {
+          uint8_t cfg_code, cfg_len;
+          if (p + 2 > p_next_cmd) return;
           STREAM_TO_UINT8(cfg_code, p);
           STREAM_TO_UINT8(cfg_len, p);
 
           switch (cfg_code & 0x7F) {
             case L2CAP_CFG_TYPE_MTU:
               cfg_info.mtu_present = true;
+              if (p + 2 > p_next_cmd) return;
               STREAM_TO_UINT16(cfg_info.mtu, p);
               break;
 
             case L2CAP_CFG_TYPE_FLUSH_TOUT:
               cfg_info.flush_to_present = true;
+              if (p + 2 > p_next_cmd) return;
               STREAM_TO_UINT16(cfg_info.flush_to, p);
               break;
 
             case L2CAP_CFG_TYPE_QOS:
               cfg_info.qos_present = true;
+              if (p + 2 + 5 * 4 > p_next_cmd) return;
               STREAM_TO_UINT8(cfg_info.qos.qos_flags, p);
               STREAM_TO_UINT8(cfg_info.qos.service_type, p);
               STREAM_TO_UINT32(cfg_info.qos.token_rate, p);
@@ -559,6 +588,7 @@ static void process_l2cap_cmd(tL2C_LCB* p_lcb, uint8_t* p, uint16_t pkt_len) {
 
             case L2CAP_CFG_TYPE_FCR:
               cfg_info.fcr_present = true;
+              if (p + 3 + 3 * 2 > p_next_cmd) return;
               STREAM_TO_UINT8(cfg_info.fcr.mode, p);
               STREAM_TO_UINT8(cfg_info.fcr.tx_win_sz, p);
               STREAM_TO_UINT8(cfg_info.fcr.max_transmit, p);
@@ -569,11 +599,13 @@ static void process_l2cap_cmd(tL2C_LCB* p_lcb, uint8_t* p, uint16_t pkt_len) {
 
             case L2CAP_CFG_TYPE_FCS:
               cfg_info.fcs_present = true;
+              if (p + 1 > p_next_cmd) return;
               STREAM_TO_UINT8(cfg_info.fcs, p);
               break;
 
             case L2CAP_CFG_TYPE_EXT_FLOW:
               cfg_info.ext_flow_spec_present = true;
+              if (p + 2 + 2 + 3 * 4 > p_next_cmd) return;
               STREAM_TO_UINT8(cfg_info.ext_flow_spec.id, p);
               STREAM_TO_UINT8(cfg_info.ext_flow_spec.stype, p);
               STREAM_TO_UINT16(cfg_info.ext_flow_spec.max_sdu_size, p);
@@ -584,8 +616,8 @@ static void process_l2cap_cmd(tL2C_LCB* p_lcb, uint8_t* p, uint16_t pkt_len) {
           }
         }
 
-        p_ccb = l2cu_find_ccb_by_cid(p_lcb, lcid);
-        if (p_ccb != NULL) {
+        tL2C_CCB* p_ccb = l2cu_find_ccb_by_cid(p_lcb, lcid);
+        if (p_ccb) {
           if (p_ccb->local_id != id) {
             L2CAP_TRACE_WARNING("L2CAP - cfg rsp - bad ID. Exp: %d Got: %d",
                                 p_ccb->local_id, id);
@@ -601,13 +633,16 @@ static void process_l2cap_cmd(tL2C_LCB* p_lcb, uint8_t* p, uint16_t pkt_len) {
                               lcid);
         }
         break;
+      }
 
-      case L2CAP_CMD_DISC_REQ:
+      case L2CAP_CMD_DISC_REQ: {
+        uint16_t lcid, rcid;
+        if (p + 4 > p_next_cmd) return;
         STREAM_TO_UINT16(lcid, p);
         STREAM_TO_UINT16(rcid, p);
 
-        p_ccb = l2cu_find_ccb_by_cid(p_lcb, lcid);
-        if (p_ccb != NULL) {
+        tL2C_CCB* p_ccb = l2cu_find_ccb_by_cid(p_lcb, lcid);
+        if (p_ccb) {
           if (p_ccb->remote_cid == rcid) {
             p_ccb->remote_id = id;
             l2c_csm_execute(p_ccb, L2CEVT_L2CAP_DISCONNECT_REQ, &con_info);
@@ -616,18 +651,22 @@ static void process_l2cap_cmd(tL2C_LCB* p_lcb, uint8_t* p, uint16_t pkt_len) {
           l2cu_send_peer_disc_rsp(p_lcb, id, lcid, rcid);
 
         break;
+      }
 
-      case L2CAP_CMD_DISC_RSP:
+      case L2CAP_CMD_DISC_RSP: {
+        uint16_t lcid, rcid;
+        if (p + 4 > p_next_cmd) return;
         STREAM_TO_UINT16(rcid, p);
         STREAM_TO_UINT16(lcid, p);
 
-        p_ccb = l2cu_find_ccb_by_cid(p_lcb, lcid);
-        if (p_ccb != NULL) {
+        tL2C_CCB* p_ccb = l2cu_find_ccb_by_cid(p_lcb, lcid);
+        if (p_ccb) {
           if ((p_ccb->remote_cid == rcid) && (p_ccb->local_id == id)) {
             l2c_csm_execute(p_ccb, L2CEVT_L2CAP_DISCONNECT_RSP, &con_info);
           }
         }
         break;
+      }
 
       case L2CAP_CMD_ECHO_REQ:
         l2cu_send_peer_echo_rsp(p_lcb, id, p, cmd_len);
@@ -644,10 +683,13 @@ static void process_l2cap_cmd(tL2C_LCB* p_lcb, uint8_t* p, uint16_t pkt_len) {
         }
         break;
 
-      case L2CAP_CMD_INFO_REQ:
+      case L2CAP_CMD_INFO_REQ: {
+        uint16_t info_type;
+        if (p + 2 > p_next_cmd) return;
         STREAM_TO_UINT16(info_type, p);
         l2cu_send_peer_info_rsp(p_lcb, id, info_type);
         break;
+      }
 
       case L2CAP_CMD_INFO_RSP:
         /* Stop the link connect timer if sent before L2CAP connection is up */
@@ -656,6 +698,8 @@ static void process_l2cap_cmd(tL2C_LCB* p_lcb, uint8_t* p, uint16_t pkt_len) {
           p_lcb->w4_info_rsp = false;
         }
 
+        uint16_t info_type, result;
+        if (p + 4 > p_next_cmd) return;
         STREAM_TO_UINT16(info_type, p);
         STREAM_TO_UINT16(result, p);
 
@@ -663,6 +707,7 @@ static void process_l2cap_cmd(tL2C_LCB* p_lcb, uint8_t* p, uint16_t pkt_len) {
 
         if ((info_type == L2CAP_EXTENDED_FEATURES_INFO_TYPE) &&
             (result == L2CAP_INFO_RESP_RESULT_SUCCESS)) {
+          if (p + 4 > p_next_cmd) return;
           STREAM_TO_UINT32(p_lcb->peer_ext_fea, p);
 
 #if (L2CAP_NUM_FIXED_CHNLS > 0)
@@ -684,17 +729,10 @@ static void process_l2cap_cmd(tL2C_LCB* p_lcb, uint8_t* p, uint16_t pkt_len) {
           l2cu_process_fixed_chnl_resp(p_lcb);
         }
 #endif
-#if (L2CAP_UCD_INCLUDED == TRUE)
-        else if (info_type == L2CAP_CONNLESS_MTU_INFO_TYPE) {
-          if (result == L2CAP_INFO_RESP_RESULT_SUCCESS) {
-            STREAM_TO_UINT16(p_lcb->ucd_mtu, p);
-          }
-        }
-#endif
-
+        tL2C_CONN_INFO ci;
         ci.status = HCI_SUCCESS;
         ci.bd_addr = p_lcb->remote_bd_addr;
-        for (p_ccb = p_lcb->ccb_queue.p_first_ccb; p_ccb;
+        for (tL2C_CCB* p_ccb = p_lcb->ccb_queue.p_first_ccb; p_ccb;
              p_ccb = p_ccb->p_next_ccb) {
           l2c_csm_execute(p_ccb, L2CEVT_L2CAP_INFO_RSP, &ci);
         }
@@ -765,6 +803,9 @@ void l2c_init(void) {
   memset(&l2cb, 0, sizeof(tL2C_CB));
   /* the psm is increased by 2 before being used */
   l2cb.dyn_psm = 0xFFF;
+
+  /* the LE PSM is increased by 1 before being used */
+  l2cb.le_dyn_psm = LE_DYNAMIC_PSM_START - 1;
 
   /* Put all the channel control blocks on the free queue */
   for (xx = 0; xx < MAX_L2CAP_CHANNELS - 1; xx++) {
@@ -855,19 +896,18 @@ void l2c_lcb_timer_timeout(void* data) {
  *
  ******************************************************************************/
 uint8_t l2c_data_write(uint16_t cid, BT_HDR* p_data, uint16_t flags) {
-  tL2C_CCB* p_ccb;
 
   /* Find the channel control block. We don't know the link it is on. */
-  p_ccb = l2cu_find_ccb_by_cid(NULL, cid);
-  if (p_ccb == NULL) {
+  tL2C_CCB* p_ccb = l2cu_find_ccb_by_cid(NULL, cid);
+  if (!p_ccb) {
     L2CAP_TRACE_WARNING("L2CAP - no CCB for L2CA_DataWrite, CID: %d", cid);
     osi_free(p_data);
     return (L2CAP_DW_FAILED);
   }
 
-#ifndef TESTER /* Tester may send any amount of data. otherwise sending \
-                  message                                               \
-                  bigger than mtu size of peer is a violation of protocol */
+#ifndef TESTER
+  /* Tester may send any amount of data. otherwise sending message bigger than
+   * mtu size of peer is a violation of protocol */
   uint16_t mtu;
 
   if (p_ccb->p_lcb->transport == BT_TRANSPORT_LE)

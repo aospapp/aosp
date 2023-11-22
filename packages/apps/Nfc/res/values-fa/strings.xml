@@ -43,4 +43,8 @@
     <string name="beam_requires_nfc_enabled" msgid="2800366967218600534">"‏Android Beam برای فعال شدن به NFC نیاز دارد. می‌خواهید آن را فعال کنید؟"</string>
     <string name="android_beam" msgid="1666446406999492763">"Android Beam"</string>
     <string name="beam_requires_external_storage_permission" msgid="8798337545702206901">"برنامه،ِ مجوز فضای ذخیره‌سازی خارجی را ندارد. این مجوز برای «پرتوی» فایل لازم است"</string>
+    <string name="title_confirm_url_open" msgid="8069968913244794478">"پیوند باز شود؟"</string>
+    <string name="summary_confirm_url_open" product="tablet" msgid="3353502750736192055">"‏رایانه لوحی‌تان پیوندی ازطریق NFC دریافت کرد:"</string>
+    <string name="summary_confirm_url_open" product="default" msgid="1246398412196449226">"‏تلفنتان پیوندی ازطریق NFC دریافت کرد:"</string>
+    <string name="action_confirm_url_open" msgid="3458322738812921189">"باز کردن پیوند"</string>
 </resources>

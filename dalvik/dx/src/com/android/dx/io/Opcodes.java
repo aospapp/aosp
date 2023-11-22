@@ -17,8 +17,9 @@
 package com.android.dx.io;
 
 /**
- * All the Dalvik opcode value constants. See the related spec
- * document for the meaning and instruction format of each opcode.
+ * All the Dalvik opcode value constants.
+ *
+ * @see <a href="https://source.android.com/devices/tech/dalvik/dalvik-bytecode">Dalvik bytecode</a>
  */
 public final class Opcodes {
     /**
@@ -263,6 +264,8 @@ public final class Opcodes {
     public static final int INVOKE_POLYMORPHIC_RANGE = 0xfb;
     public static final int INVOKE_CUSTOM = 0xfc;
     public static final int INVOKE_CUSTOM_RANGE = 0xfd;
+    public static final int CONST_METHOD_HANDLE = 0xfe;
+    public static final int CONST_METHOD_TYPE = 0xff;
     // END(opcodes)
 
     // TODO: Generate these payload opcodes with opcode-gen.

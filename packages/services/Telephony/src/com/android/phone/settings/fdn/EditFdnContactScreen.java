@@ -33,9 +33,11 @@ import android.provider.Contacts.PeopleColumns;
 import android.provider.Contacts.PhonesColumns;
 import android.provider.ContactsContract.CommonDataKinds;
 import android.telephony.PhoneNumberUtils;
+import android.text.Editable;
 import android.text.Selection;
 import android.text.Spannable;
 import android.text.TextUtils;
+import android.text.TextWatcher;
 import android.text.method.DialerKeyListener;
 import android.util.Log;
 import android.view.Menu;
@@ -239,6 +241,7 @@ public class EditFdnContactScreen extends Activity {
         if (mNameField != null) {
             mNameField.setOnFocusChangeListener(mOnFocusChangeHandler);
             mNameField.setOnClickListener(mClicked);
+            mNameField.addTextChangedListener(mTextWatcher);
         }
 
         mNumberField = (EditText) findViewById(R.id.fdn_number);
@@ -247,6 +250,7 @@ public class EditFdnContactScreen extends Activity {
             mNumberField.setKeyListener(DialerKeyListener.getInstance());
             mNumberField.setOnFocusChangeListener(mOnFocusChangeHandler);
             mNumberField.setOnClickListener(mClicked);
+            mNumberField.addTextChangedListener(mTextWatcher);
         }
 
         if (!mAddContact) {
@@ -261,6 +265,7 @@ public class EditFdnContactScreen extends Activity {
         mButton = (Button) findViewById(R.id.button);
         if (mButton != null) {
             mButton.setOnClickListener(mClicked);
+            setButtonEnabled();
         }
 
         mPinFieldContainer = (LinearLayout) findViewById(R.id.pinc);
@@ -273,6 +278,15 @@ public class EditFdnContactScreen extends Activity {
 
     private String getNumberFromTextField() {
         return mNumberField.getText().toString();
+    }
+
+    /**
+     * Enable Save button if text has been added to both name and number
+     */
+    private void setButtonEnabled() {
+        if (mButton != null && mNameField != null && mNumberField != null) {
+            mButton.setEnabled(mNameField.length() > 0 && mNumberField.length() > 0);
+        }
     }
 
     /**
@@ -443,6 +457,19 @@ public class EditFdnContactScreen extends Activity {
                 TextView textView = (TextView) v;
                 Selection.selectAll((Spannable) textView.getText());
             }
+        }
+    };
+
+    private final TextWatcher mTextWatcher = new TextWatcher() {
+        @Override
+        public void afterTextChanged(Editable arg0) {}
+
+        @Override
+        public void beforeTextChanged(CharSequence arg0, int arg1, int arg2, int arg3) {}
+
+        @Override
+        public void onTextChanged(CharSequence arg0, int arg1, int arg2, int arg3) {
+            setButtonEnabled();
         }
     };
 

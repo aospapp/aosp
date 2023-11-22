@@ -17,12 +17,10 @@
 package com.android.tv.parental;
 
 import android.media.tv.TvContentRating;
-
 import com.android.tv.parental.ContentRatingSystem.Rating;
 import com.android.tv.parental.ContentRatingSystem.SubRating;
 import com.android.tv.util.TvSettings;
 import com.android.tv.util.TvSettings.ContentRatingLevel;
-
 import java.util.HashSet;
 import java.util.Set;
 
@@ -31,10 +29,11 @@ public class ContentRatingLevelPolicy {
     private static final int AGE_THRESHOLD_FOR_LEVEL_MEDIUM = 12;
     private static final int AGE_THRESHOLD_FOR_LEVEL_LOW = -1; // Highest age for each rating system
 
-    private ContentRatingLevelPolicy() { }
+    private ContentRatingLevelPolicy() {}
 
     public static Set<TvContentRating> getRatingsForLevel(
-            ParentalControlSettings settings, ContentRatingsManager manager, 
+            ParentalControlSettings settings,
+            ContentRatingsManager manager,
             @ContentRatingLevel int level) {
         if (level == TvSettings.CONTENT_RATING_LEVEL_NONE) {
             return new HashSet<>();
@@ -64,14 +63,17 @@ public class ContentRatingLevelPolicy {
                 if (rating.getAgeHint() < ageLimit) {
                     continue;
                 }
-                TvContentRating tvContentRating = TvContentRating.createRating(
-                        contentRatingSystem.getDomain(), contentRatingSystem.getName(),
-                        rating.getName());
+                TvContentRating tvContentRating =
+                        TvContentRating.createRating(
+                                contentRatingSystem.getDomain(),
+                                contentRatingSystem.getName(),
+                                rating.getName());
                 ratings.add(tvContentRating);
                 for (SubRating subRating : rating.getSubRatings()) {
-                    tvContentRating = TvContentRating.createRating(
-                            contentRatingSystem.getDomain(), contentRatingSystem.getName(),
-                            rating.getName(), subRating.getName());
+                    tvContentRating =
+                            TvContentRating.createRating(
+                                    contentRatingSystem.getDomain(), contentRatingSystem.getName(),
+                                    rating.getName(), subRating.getName());
                     ratings.add(tvContentRating);
                 }
             }

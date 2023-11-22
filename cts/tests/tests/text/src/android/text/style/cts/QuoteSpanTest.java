@@ -17,6 +17,7 @@
 package android.text.style.cts;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -33,15 +34,47 @@ import org.junit.runner.RunWith;
 @RunWith(AndroidJUnit4.class)
 public class QuoteSpanTest {
     @Test
-    public void testConstructor() {
-        new QuoteSpan();
-        QuoteSpan q = new QuoteSpan(Color.RED);
+    public void testDefaultConstructor() {
+        QuoteSpan span = new QuoteSpan();
+        assertEquals(calculateLeadingMargin(span.getStripeWidth(), span.getGapWidth()),
+                span.getLeadingMargin(true));
+        assertTrue(span.getColor() != 0);
+        assertTrue(span.getGapWidth() > 0);
+        assertTrue(span.getStripeWidth() > 0);
+    }
+
+    @Test
+    public void testConstructorFromColor() {
+        QuoteSpan span = new QuoteSpan(Color.RED);
+        assertEquals(calculateLeadingMargin(span.getStripeWidth(), span.getGapWidth()),
+                span.getLeadingMargin(true));
+        assertEquals(Color.RED, span.getColor());
+        assertTrue(span.getStripeWidth() > 0);
+        assertTrue(span.getGapWidth() > 0);
+    }
+
+    @Test
+    public void testConstructorFromColorStripeWidthGapWidth() {
+        QuoteSpan span = new QuoteSpan(Color.RED, 10, 5);
+        assertEquals(calculateLeadingMargin(10, 5), span.getLeadingMargin(true));
+        assertEquals(Color.RED, span.getColor());
+        assertEquals(10, span.getStripeWidth());
+        assertEquals(5, span.getGapWidth());
+    }
+
+    @Test
+    public void testConstructorFromParcel() {
+        QuoteSpan quoteSpan = new QuoteSpan(Color.RED, 10, 5);
 
         final Parcel p = Parcel.obtain();
         try {
-            q.writeToParcel(p, 0);
+            quoteSpan.writeToParcel(p, 0);
             p.setDataPosition(0);
-            new QuoteSpan(p);
+            QuoteSpan span = new QuoteSpan(p);
+            assertEquals(calculateLeadingMargin(10, 5), span.getLeadingMargin(true));
+            assertEquals(Color.RED, span.getColor());
+            assertEquals(10, span.getStripeWidth());
+            assertEquals(5, span.getGapWidth());
         } finally {
             p.recycle();
         }
@@ -101,6 +134,8 @@ public class QuoteSpanTest {
             p.setDataPosition(0);
             QuoteSpan q = new QuoteSpan(p);
             assertEquals(Color.RED, q.getColor());
+            assertTrue(q.getGapWidth() > 0);
+            assertTrue(q.getStripeWidth() > 0);
         } finally {
             p.recycle();
         }
@@ -111,8 +146,14 @@ public class QuoteSpanTest {
             p.setDataPosition(0);
             QuoteSpan q = new QuoteSpan(p);
             assertEquals(Color.MAGENTA, q.getColor());
+            assertTrue(q.getGapWidth() > 0);
+            assertTrue(q.getStripeWidth() > 0);
         } finally {
             p.recycle();
         }
+    }
+
+    private int calculateLeadingMargin(int stripeWidth, int gapWidth) {
+        return stripeWidth + gapWidth;
     }
 }

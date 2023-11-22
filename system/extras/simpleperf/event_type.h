@@ -54,8 +54,21 @@ struct EventType {
 
 bool SetTracepointEventsFilePath(const std::string& filepath);
 std::string GetTracepointEvents();
+
+// Used to temporarily change event types returned by GetAllEventTypes().
+class ScopedEventTypes {
+ public:
+  static std::string BuildString(const std::vector<const EventType*>& event_types);
+
+  ScopedEventTypes(const std::string& event_type_str);
+  ~ScopedEventTypes();
+
+ private:
+  std::vector<EventType> saved_event_types_;
+};
+
 const std::vector<EventType>& GetAllEventTypes();
-const EventType* FindEventTypeByName(const std::string& name);
+const EventType* FindEventTypeByName(const std::string& name, bool report_error = true);
 
 struct EventTypeAndModifier {
   std::string name;

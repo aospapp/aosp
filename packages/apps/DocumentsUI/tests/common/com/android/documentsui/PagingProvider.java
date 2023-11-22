@@ -63,7 +63,7 @@ public class PagingProvider extends TestRootProvider {
             String parentDocumentId, String[] projection, Bundle queryArgs)
             throws FileNotFoundException {
 
-        // TODO: Content notification.
+        queryArgs = queryArgs != null ? queryArgs : Bundle.EMPTY;
 
         MatrixCursor c = createDocCursor(projection);
         Bundle extras = c.getExtras();

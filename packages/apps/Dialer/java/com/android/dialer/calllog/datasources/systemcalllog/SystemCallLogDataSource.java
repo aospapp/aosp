@@ -20,33 +20,46 @@ import android.Manifest.permission;
 import android.annotation.TargetApi;
 import android.content.ContentValues;
 import android.content.Context;
-import android.database.ContentObserver;
 import android.database.Cursor;
-import android.net.Uri;
 import android.os.Build;
-import android.os.Handler;
-import android.preference.PreferenceManager;
+import android.os.Build.VERSION;
+import android.os.Build.VERSION_CODES;
 import android.provider.CallLog;
 import android.provider.CallLog.Calls;
+import android.provider.VoicemailContract;
+import android.provider.VoicemailContract.Voicemails;
+import android.support.annotation.ColorInt;
 import android.support.annotation.MainThread;
 import android.support.annotation.Nullable;
+import android.support.annotation.RequiresApi;
 import android.support.annotation.VisibleForTesting;
 import android.support.annotation.WorkerThread;
+import android.telecom.PhoneAccount;
+import android.telecom.PhoneAccountHandle;
+import android.telephony.PhoneNumberUtils;
 import android.text.TextUtils;
 import android.util.ArraySet;
 import com.android.dialer.DialerPhoneNumber;
 import com.android.dialer.calllog.database.contract.AnnotatedCallLogContract.AnnotatedCallLog;
-import com.android.dialer.calllog.database.contract.AnnotatedCallLogContract.CoalescedAnnotatedCallLog;
 import com.android.dialer.calllog.datasources.CallLogDataSource;
 import com.android.dialer.calllog.datasources.CallLogMutations;
 import com.android.dialer.calllog.datasources.util.RowCombiner;
+import com.android.dialer.calllog.observer.MarkDirtyObserver;
+import com.android.dialer.calllogutils.PhoneAccountUtils;
 import com.android.dialer.common.Assert;
 import com.android.dialer.common.LogUtil;
-import com.android.dialer.common.concurrent.ThreadUtil;
+import com.android.dialer.common.concurrent.Annotations.BackgroundExecutor;
+import com.android.dialer.compat.android.provider.VoicemailCompat;
 import com.android.dialer.phonenumberproto.DialerPhoneNumberUtil;
+import com.android.dialer.storage.StorageComponent;
+import com.android.dialer.telecom.TelecomUtil;
+import com.android.dialer.theme.R;
 import com.android.dialer.util.PermissionsUtil;
+import com.google.common.collect.Iterables;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
-import com.google.protobuf.InvalidProtocolBufferException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
@@ -62,15 +75,22 @@ public class SystemCallLogDataSource implements CallLogDataSource {
   @VisibleForTesting
   static final String PREF_LAST_TIMESTAMP_PROCESSED = "systemCallLogLastTimestampProcessed";
 
+  private final ListeningExecutorService backgroundExecutorService;
+  private final MarkDirtyObserver markDirtyObserver;
+
   @Nullable private Long lastTimestampProcessed;
 
   @Inject
-  public SystemCallLogDataSource() {}
+  SystemCallLogDataSource(
+      @BackgroundExecutor ListeningExecutorService backgroundExecutorService,
+      MarkDirtyObserver markDirtyObserver) {
+    this.backgroundExecutorService = backgroundExecutorService;
+    this.markDirtyObserver = markDirtyObserver;
+  }
 
   @MainThread
   @Override
-  public void registerContentObservers(
-      Context appContext, ContentObserverCallbacks contentObserverCallbacks) {
+  public void registerContentObservers(Context appContext) {
     Assert.isMainThread();
 
     LogUtil.enterBlock("SystemCallLogDataSource.registerContentObservers");
@@ -79,19 +99,43 @@ public class SystemCallLogDataSource implements CallLogDataSource {
       LogUtil.i("SystemCallLogDataSource.registerContentObservers", "no call log permissions");
       return;
     }
+    // TODO(zachh): Need to somehow register observers if user enables permission after launch?
 
+    // The system call log has a last updated timestamp, but deletes are physical (the "deleted"
+    // column is unused). This means that we can't detect deletes without scanning the entire table,
+    // which would be too slow. So, we just rely on content observers to trigger rebuilds when any
+    // change is made to the system call log.
     appContext
         .getContentResolver()
-        .registerContentObserver(
-            CallLog.Calls.CONTENT_URI,
-            true,
-            new CallLogObserver(
-                ThreadUtil.getUiThreadHandler(), appContext, contentObserverCallbacks));
+        .registerContentObserver(CallLog.Calls.CONTENT_URI_WITH_VOICEMAIL, true, markDirtyObserver);
+
+    if (!PermissionsUtil.hasAddVoicemailPermissions(appContext)) {
+      LogUtil.i("SystemCallLogDataSource.registerContentObservers", "no add voicemail permissions");
+      return;
+    }
+    // TODO(uabdullah): Need to somehow register observers if user enables permission after launch?
+    appContext
+        .getContentResolver()
+        .registerContentObserver(VoicemailContract.Status.CONTENT_URI, true, markDirtyObserver);
+  }
+
+  @Override
+  public ListenableFuture<Boolean> isDirty(Context appContext) {
+    return backgroundExecutorService.submit(() -> isDirtyInternal(appContext));
+  }
+
+  @Override
+  public ListenableFuture<Void> fill(Context appContext, CallLogMutations mutations) {
+    return backgroundExecutorService.submit(() -> fillInternal(appContext, mutations));
+  }
+
+  @Override
+  public ListenableFuture<Void> onSuccessfulFill(Context appContext) {
+    return backgroundExecutorService.submit(() -> onSuccessfulFillInternal(appContext));
   }
 
   @WorkerThread
-  @Override
-  public boolean isDirty(Context appContext) {
+  private boolean isDirtyInternal(Context appContext) {
     Assert.isWorkerThread();
 
     /*
@@ -99,20 +143,23 @@ public class SystemCallLogDataSource implements CallLogDataSource {
      * column is unused). This means that we can't detect deletes without scanning the entire table,
      * which would be too slow. So, we just rely on content observers to trigger rebuilds when any
      * change is made to the system call log.
+     *
+     * Just return false unless the table has never been written to.
      */
-    return false;
+    return !StorageComponent.get(appContext)
+        .unencryptedSharedPrefs()
+        .contains(PREF_LAST_TIMESTAMP_PROCESSED);
   }
 
   @WorkerThread
-  @Override
-  public void fill(Context appContext, CallLogMutations mutations) {
+  private Void fillInternal(Context appContext, CallLogMutations mutations) {
     Assert.isWorkerThread();
 
     lastTimestampProcessed = null;
 
     if (!PermissionsUtil.hasPermission(appContext, permission.READ_CALL_LOG)) {
       LogUtil.i("SystemCallLogDataSource.fill", "no call log permissions");
-      return;
+      return null;
     }
 
     // This data source should always run first so the mutations should always be empty.
@@ -127,71 +174,76 @@ public class SystemCallLogDataSource implements CallLogDataSource {
 
     handleInsertsAndUpdates(appContext, mutations, annotatedCallLogIds);
     handleDeletes(appContext, annotatedCallLogIds, mutations);
+    return null;
   }
 
   @WorkerThread
-  @Override
-  public void onSuccessfulFill(Context appContext) {
+  private Void onSuccessfulFillInternal(Context appContext) {
     // If a fill operation was a no-op, lastTimestampProcessed could still be null.
     if (lastTimestampProcessed != null) {
-      PreferenceManager.getDefaultSharedPreferences(appContext)
+      StorageComponent.get(appContext)
+          .unencryptedSharedPrefs()
           .edit()
           .putLong(PREF_LAST_TIMESTAMP_PROCESSED, lastTimestampProcessed)
           .apply();
     }
+    return null;
   }
 
   @Override
   public ContentValues coalesce(List<ContentValues> individualRowsSortedByTimestampDesc) {
-    // TODO: Complete implementation.
-    ContentValues coalescedValues =
-        new RowCombiner(individualRowsSortedByTimestampDesc)
-            .useMostRecentLong(AnnotatedCallLog.TIMESTAMP)
-            .combine();
+    assertNoVoicemailsInRows(individualRowsSortedByTimestampDesc);
 
-    // All phone numbers in the provided group should be equivalent (but could be formatted
-    // differently). Arbitrarily show the raw phone number of the most recent call.
-    DialerPhoneNumber mostRecentPhoneNumber =
-        getMostRecentPhoneNumber(individualRowsSortedByTimestampDesc);
-    coalescedValues.put(
-        CoalescedAnnotatedCallLog.FORMATTED_NUMBER,
-        mostRecentPhoneNumber.getRawInput().getNumber());
-    return coalescedValues;
+    return new RowCombiner(individualRowsSortedByTimestampDesc)
+        .useMostRecentLong(AnnotatedCallLog.TIMESTAMP)
+        .useMostRecentLong(AnnotatedCallLog.NEW)
+        // Two different DialerPhoneNumbers could be combined if they are different but considered
+        // to be an "exact match" by libphonenumber; in this case we arbitrarily select the most
+        // recent one.
+        .useMostRecentBlob(AnnotatedCallLog.NUMBER)
+        .useMostRecentString(AnnotatedCallLog.FORMATTED_NUMBER)
+        .useSingleValueInt(AnnotatedCallLog.NUMBER_PRESENTATION)
+        .useMostRecentString(AnnotatedCallLog.GEOCODED_LOCATION)
+        .useSingleValueString(AnnotatedCallLog.PHONE_ACCOUNT_COMPONENT_NAME)
+        .useSingleValueString(AnnotatedCallLog.PHONE_ACCOUNT_ID)
+        .useSingleValueString(AnnotatedCallLog.PHONE_ACCOUNT_LABEL)
+        .useSingleValueLong(AnnotatedCallLog.PHONE_ACCOUNT_COLOR)
+        .useMostRecentLong(AnnotatedCallLog.CALL_TYPE)
+        // If any call in a group includes a feature (like Wifi/HD), consider the group to have the
+        // feature.
+        .bitwiseOr(AnnotatedCallLog.FEATURES)
+        .combine();
   }
 
-  private static DialerPhoneNumber getMostRecentPhoneNumber(
-      List<ContentValues> individualRowsSortedByTimestampDesc) {
-    DialerPhoneNumber dialerPhoneNumber;
-    byte[] protoBytes =
-        individualRowsSortedByTimestampDesc.get(0).getAsByteArray(AnnotatedCallLog.NUMBER);
-    try {
-      dialerPhoneNumber = DialerPhoneNumber.parseFrom(protoBytes);
-    } catch (InvalidProtocolBufferException e) {
-      throw Assert.createAssertionFailException("couldn't parse DialerPhoneNumber", e);
+  private void assertNoVoicemailsInRows(List<ContentValues> individualRowsSortedByTimestampDesc) {
+    for (ContentValues contentValue : individualRowsSortedByTimestampDesc) {
+      if (contentValue.getAsLong(AnnotatedCallLog.CALL_TYPE) != null) {
+        Assert.checkArgument(
+            contentValue.getAsLong(AnnotatedCallLog.CALL_TYPE) != Calls.VOICEMAIL_TYPE);
+      }
     }
-    return dialerPhoneNumber;
   }
 
   @TargetApi(Build.VERSION_CODES.M) // Uses try-with-resources
   private void handleInsertsAndUpdates(
       Context appContext, CallLogMutations mutations, Set<Long> existingAnnotatedCallLogIds) {
     long previousTimestampProcessed =
-        PreferenceManager.getDefaultSharedPreferences(appContext)
+        StorageComponent.get(appContext)
+            .unencryptedSharedPrefs()
             .getLong(PREF_LAST_TIMESTAMP_PROCESSED, 0L);
 
     DialerPhoneNumberUtil dialerPhoneNumberUtil =
         new DialerPhoneNumberUtil(PhoneNumberUtil.getInstance());
 
-    // TODO: Really should be getting last 1000 by timestamp, not by last modified.
+    // TODO(zachh): Really should be getting last 1000 by timestamp, not by last modified.
     try (Cursor cursor =
         appContext
             .getContentResolver()
             .query(
-                Calls.CONTENT_URI, // Excludes voicemail
-                new String[] {
-                  Calls._ID, Calls.DATE, Calls.LAST_MODIFIED, Calls.NUMBER, Calls.COUNTRY_ISO
-                },
-                Calls.LAST_MODIFIED + " > ?",
+                Calls.CONTENT_URI_WITH_VOICEMAIL,
+                getProjection(),
+                // TODO(a bug): LAST_MODIFIED not available on M
+                Calls.LAST_MODIFIED + " > ? AND " + Voicemails.DELETED + " = 0",
                 new String[] {String.valueOf(previousTimestampProcessed)},
                 Calls.LAST_MODIFIED + " DESC LIMIT 1000")) {
 
@@ -210,7 +262,21 @@ public class SystemCallLogDataSource implements CallLogDataSource {
         int dateColumn = cursor.getColumnIndexOrThrow(Calls.DATE);
         int lastModifiedColumn = cursor.getColumnIndexOrThrow(Calls.LAST_MODIFIED);
         int numberColumn = cursor.getColumnIndexOrThrow(Calls.NUMBER);
+        int presentationColumn = cursor.getColumnIndexOrThrow(Calls.NUMBER_PRESENTATION);
+        int typeColumn = cursor.getColumnIndexOrThrow(Calls.TYPE);
         int countryIsoColumn = cursor.getColumnIndexOrThrow(Calls.COUNTRY_ISO);
+        int durationsColumn = cursor.getColumnIndexOrThrow(Calls.DURATION);
+        int dataUsageColumn = cursor.getColumnIndexOrThrow(Calls.DATA_USAGE);
+        int transcriptionColumn = cursor.getColumnIndexOrThrow(Calls.TRANSCRIPTION);
+        int voicemailUriColumn = cursor.getColumnIndexOrThrow(Calls.VOICEMAIL_URI);
+        int isReadColumn = cursor.getColumnIndexOrThrow(Calls.IS_READ);
+        int newColumn = cursor.getColumnIndexOrThrow(Calls.NEW);
+        int geocodedLocationColumn = cursor.getColumnIndexOrThrow(Calls.GEOCODED_LOCATION);
+        int phoneAccountComponentColumn =
+            cursor.getColumnIndexOrThrow(Calls.PHONE_ACCOUNT_COMPONENT_NAME);
+        int phoneAccountIdColumn = cursor.getColumnIndexOrThrow(Calls.PHONE_ACCOUNT_ID);
+        int featuresColumn = cursor.getColumnIndexOrThrow(Calls.FEATURES);
+        int postDialDigitsColumn = cursor.getColumnIndexOrThrow(Calls.POST_DIAL_DIGITS);
 
         // The cursor orders by LAST_MODIFIED DESC, so the first result is the most recent timestamp
         // processed.
@@ -219,14 +285,67 @@ public class SystemCallLogDataSource implements CallLogDataSource {
           long id = cursor.getLong(idColumn);
           long date = cursor.getLong(dateColumn);
           String numberAsStr = cursor.getString(numberColumn);
+          int type;
+          if (cursor.isNull(typeColumn) || (type = cursor.getInt(typeColumn)) == 0) {
+            // CallLog.Calls#TYPE lists the allowed values, which are non-null and non-zero.
+            throw new IllegalStateException("call type is missing");
+          }
+          int presentation;
+          if (cursor.isNull(presentationColumn)
+              || (presentation = cursor.getInt(presentationColumn)) == 0) {
+            // CallLog.Calls#NUMBER_PRESENTATION lists the allowed values, which are non-null and
+            // non-zero.
+            throw new IllegalStateException("presentation is missing");
+          }
           String countryIso = cursor.getString(countryIsoColumn);
-
-          byte[] numberAsProtoBytes =
-              dialerPhoneNumberUtil.parse(numberAsStr, countryIso).toByteArray();
+          int duration = cursor.getInt(durationsColumn);
+          int dataUsage = cursor.getInt(dataUsageColumn);
+          String transcription = cursor.getString(transcriptionColumn);
+          String voicemailUri = cursor.getString(voicemailUriColumn);
+          int isRead = cursor.getInt(isReadColumn);
+          int isNew = cursor.getInt(newColumn);
+          String geocodedLocation = cursor.getString(geocodedLocationColumn);
+          String phoneAccountComponentName = cursor.getString(phoneAccountComponentColumn);
+          String phoneAccountId = cursor.getString(phoneAccountIdColumn);
+          int features = cursor.getInt(featuresColumn);
+          String postDialDigits = cursor.getString(postDialDigitsColumn);
 
           ContentValues contentValues = new ContentValues();
           contentValues.put(AnnotatedCallLog.TIMESTAMP, date);
-          contentValues.put(AnnotatedCallLog.NUMBER, numberAsProtoBytes);
+
+          if (!TextUtils.isEmpty(numberAsStr)) {
+            String numberWithPostDialDigits =
+                postDialDigits == null ? numberAsStr : numberAsStr + postDialDigits;
+            DialerPhoneNumber dialerPhoneNumber =
+                dialerPhoneNumberUtil.parse(numberWithPostDialDigits, countryIso);
+
+            contentValues.put(AnnotatedCallLog.NUMBER, dialerPhoneNumber.toByteArray());
+            String formattedNumber =
+                PhoneNumberUtils.formatNumber(numberWithPostDialDigits, countryIso);
+            if (formattedNumber == null) {
+              formattedNumber = numberWithPostDialDigits;
+            }
+            contentValues.put(AnnotatedCallLog.FORMATTED_NUMBER, formattedNumber);
+          } else {
+            contentValues.put(
+                AnnotatedCallLog.NUMBER, DialerPhoneNumber.getDefaultInstance().toByteArray());
+          }
+          contentValues.put(AnnotatedCallLog.NUMBER_PRESENTATION, presentation);
+          contentValues.put(AnnotatedCallLog.CALL_TYPE, type);
+          contentValues.put(AnnotatedCallLog.IS_READ, isRead);
+          contentValues.put(AnnotatedCallLog.NEW, isNew);
+          contentValues.put(AnnotatedCallLog.GEOCODED_LOCATION, geocodedLocation);
+          contentValues.put(
+              AnnotatedCallLog.PHONE_ACCOUNT_COMPONENT_NAME, phoneAccountComponentName);
+          contentValues.put(AnnotatedCallLog.PHONE_ACCOUNT_ID, phoneAccountId);
+          populatePhoneAccountLabelAndColor(
+              appContext, contentValues, phoneAccountComponentName, phoneAccountId);
+          contentValues.put(AnnotatedCallLog.FEATURES, features);
+          contentValues.put(AnnotatedCallLog.DURATION, duration);
+          contentValues.put(AnnotatedCallLog.DATA_USAGE, dataUsage);
+          contentValues.put(AnnotatedCallLog.TRANSCRIPTION, transcription);
+          contentValues.put(AnnotatedCallLog.VOICEMAIL_URI, voicemailUri);
+          setTranscriptionState(cursor, contentValues);
 
           if (existingAnnotatedCallLogIds.contains(id)) {
             mutations.update(id, contentValues);
@@ -236,6 +355,79 @@ public class SystemCallLogDataSource implements CallLogDataSource {
         } while (cursor.moveToNext());
       } // else no new results, do nothing.
     }
+  }
+
+  private void setTranscriptionState(Cursor cursor, ContentValues contentValues) {
+    if (VERSION.SDK_INT >= VERSION_CODES.O) {
+      int transcriptionStateColumn =
+          cursor.getColumnIndexOrThrow(VoicemailCompat.TRANSCRIPTION_STATE);
+      int transcriptionState = cursor.getInt(transcriptionStateColumn);
+      contentValues.put(VoicemailCompat.TRANSCRIPTION_STATE, transcriptionState);
+    }
+  }
+
+  private static final String[] PROJECTION_PRE_O =
+      new String[] {
+        Calls._ID,
+        Calls.DATE,
+        Calls.LAST_MODIFIED, // TODO(a bug): Not available in M
+        Calls.NUMBER,
+        Calls.NUMBER_PRESENTATION,
+        Calls.TYPE,
+        Calls.COUNTRY_ISO,
+        Calls.DURATION,
+        Calls.DATA_USAGE,
+        Calls.TRANSCRIPTION,
+        Calls.VOICEMAIL_URI,
+        Calls.IS_READ,
+        Calls.NEW,
+        Calls.GEOCODED_LOCATION,
+        Calls.PHONE_ACCOUNT_COMPONENT_NAME,
+        Calls.PHONE_ACCOUNT_ID,
+        Calls.FEATURES,
+        Calls.POST_DIAL_DIGITS // TODO(a bug): Not available in M
+      };
+
+  @RequiresApi(VERSION_CODES.O)
+  private static final String[] PROJECTION_O_AND_LATER;
+
+  static {
+    List<String> projectionList = new ArrayList<>(Arrays.asList(PROJECTION_PRE_O));
+    projectionList.add(VoicemailCompat.TRANSCRIPTION_STATE);
+    PROJECTION_O_AND_LATER = projectionList.toArray(new String[projectionList.size()]);
+  }
+
+  private String[] getProjection() {
+    if (VERSION.SDK_INT >= VERSION_CODES.O) {
+      return PROJECTION_O_AND_LATER;
+    }
+    return PROJECTION_PRE_O;
+  }
+
+  private void populatePhoneAccountLabelAndColor(
+      Context appContext,
+      ContentValues contentValues,
+      String phoneAccountComponentName,
+      String phoneAccountId) {
+    PhoneAccountHandle phoneAccountHandle =
+        TelecomUtil.composePhoneAccountHandle(phoneAccountComponentName, phoneAccountId);
+    if (phoneAccountHandle == null) {
+      return;
+    }
+    String label = PhoneAccountUtils.getAccountLabel(appContext, phoneAccountHandle);
+    if (TextUtils.isEmpty(label)) {
+      return;
+    }
+    contentValues.put(AnnotatedCallLog.PHONE_ACCOUNT_LABEL, label);
+
+    @ColorInt int color = PhoneAccountUtils.getAccountColor(appContext, phoneAccountHandle);
+    if (color == PhoneAccount.NO_HIGHLIGHT_COLOR) {
+      color =
+          appContext
+              .getResources()
+              .getColor(R.color.dialer_secondary_text_color, appContext.getTheme());
+    }
+    contentValues.put(AnnotatedCallLog.PHONE_ACCOUNT_COLOR, color);
   }
 
   private static void handleDeletes(
@@ -294,60 +486,42 @@ public class SystemCallLogDataSource implements CallLogDataSource {
       Context appContext, Set<Long> matchingIds) {
     ArraySet<Long> ids = new ArraySet<>();
 
-    String[] questionMarks = new String[matchingIds.size()];
-    Arrays.fill(questionMarks, "?");
-    String whereClause = (Calls._ID + " in (") + TextUtils.join(",", questionMarks) + ")";
-    String[] whereArgs = new String[matchingIds.size()];
-    int i = 0;
-    for (long id : matchingIds) {
-      whereArgs[i++] = String.valueOf(id);
-    }
+    // Batch the select statements into chunks of 999, the maximum size for SQLite selection args.
+    Iterable<List<Long>> batches = Iterables.partition(matchingIds, 999);
+    for (List<Long> idsInBatch : batches) {
+      String[] questionMarks = new String[idsInBatch.size()];
+      Arrays.fill(questionMarks, "?");
 
-    try (Cursor cursor =
-        appContext
-            .getContentResolver()
-            .query(Calls.CONTENT_URI, new String[] {Calls._ID}, whereClause, whereArgs, null)) {
-
-      if (cursor == null) {
-        LogUtil.e("SystemCallLogDataSource.getIdsFromSystemCallLog", "null cursor");
-        return ids;
+      String whereClause = (Calls._ID + " in (") + TextUtils.join(",", questionMarks) + ")";
+      String[] whereArgs = new String[idsInBatch.size()];
+      int i = 0;
+      for (long id : idsInBatch) {
+        whereArgs[i++] = String.valueOf(id);
       }
 
-      if (cursor.moveToFirst()) {
-        int idColumn = cursor.getColumnIndexOrThrow(Calls._ID);
-        do {
-          ids.add(cursor.getLong(idColumn));
-        } while (cursor.moveToNext());
+      try (Cursor cursor =
+          appContext
+              .getContentResolver()
+              .query(
+                  Calls.CONTENT_URI_WITH_VOICEMAIL,
+                  new String[] {Calls._ID},
+                  whereClause,
+                  whereArgs,
+                  null)) {
+
+        if (cursor == null) {
+          LogUtil.e("SystemCallLogDataSource.getIdsFromSystemCallLog", "null cursor");
+          return ids;
+        }
+
+        if (cursor.moveToFirst()) {
+          int idColumn = cursor.getColumnIndexOrThrow(Calls._ID);
+          do {
+            ids.add(cursor.getLong(idColumn));
+          } while (cursor.moveToNext());
+        }
       }
-      return ids;
     }
-  }
-
-  private static class CallLogObserver extends ContentObserver {
-    private final Context appContext;
-    private final ContentObserverCallbacks contentObserverCallbacks;
-
-    CallLogObserver(
-        Handler handler, Context appContext, ContentObserverCallbacks contentObserverCallbacks) {
-      super(handler);
-      this.appContext = appContext;
-      this.contentObserverCallbacks = contentObserverCallbacks;
-    }
-
-    @MainThread
-    @Override
-    public void onChange(boolean selfChange, Uri uri) {
-      Assert.isMainThread();
-      LogUtil.enterBlock("SystemCallLogDataSource.CallLogObserver.onChange");
-      super.onChange(selfChange, uri);
-
-      /*
-       * The system call log has a last updated timestamp, but deletes are physical (the "deleted"
-       * column is unused). This means that we can't detect deletes without scanning the entire
-       * table, which would be too slow. So, we just rely on content observers to trigger rebuilds
-       * when any change is made to the system call log.
-       */
-      contentObserverCallbacks.markDirtyAndNotify(appContext);
-    }
+    return ids;
   }
 }

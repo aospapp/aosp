@@ -29,6 +29,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 
 import com.android.compatibility.common.deviceinfo.DeviceInfo;
+import com.android.compatibility.common.util.ApiLevelUtil;
 import com.android.compatibility.common.util.DeviceInfoStore;
 
 /**
@@ -73,7 +74,11 @@ public class GenericDeviceInfo extends DeviceInfo {
         store.addResult(BUILD_FINGERPRINT, Build.FINGERPRINT);
         store.addResult(BUILD_ABI, Build.CPU_ABI);
         store.addResult(BUILD_ABI2, Build.CPU_ABI2);
-        store.addResult(BUILD_SERIAL, Build.SERIAL);
+        if (ApiLevelUtil.isAtLeast(Build.VERSION_CODES.O)) {
+            store.addResult(BUILD_SERIAL, Build.getSerial()); // added in O
+        } else {
+            store.addResult(BUILD_SERIAL, Build.SERIAL); // deprecated in O
+        }
         store.addResult(BUILD_VERSION_RELEASE, Build.VERSION.RELEASE);
         store.addResult(BUILD_VERSION_SDK, Build.VERSION.SDK);
         store.addResult(BUILD_REFERENCE_FINGERPRINT,

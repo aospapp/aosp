@@ -4,7 +4,12 @@
 set -e
 
 # Build and run the CHRE simulator.
+CHRE_HOST_OS=`uname`
+if [[ $CHRE_HOST_OS == 'Darwin' ]]; then
+JOB_COUNT=`sysctl -n hw.ncpu`
+else
 JOB_COUNT=$((`grep -c ^processor /proc/cpuinfo`))
+fi
 
 # Export the variant Makefile.
 export CHRE_VARIANT_MK_INCLUDES=variant/simulator/variant.mk

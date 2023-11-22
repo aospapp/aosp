@@ -37,22 +37,9 @@
             android:id="@+id/animated_info"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:scaleType="fitCenter"
-            android:src="@drawable/topinfo_animation"/>
+            android:scaleType="fitCenter"/>
 
         <include layout="@layout/intro_animation_captions"/>
 
-        <LinearLayout
-            android:layout_width="fill_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/spacer_20"
-            android:gravity="center">
-            <ImageView
-                android:id="@+id/animated_dots"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:scaleType="fitCenter"
-                android:src="@drawable/dots_animation"/>
-        </LinearLayout>
     </LinearLayout>
 </FrameLayout>

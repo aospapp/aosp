@@ -17,22 +17,14 @@
 package com.android.tv.license;
 
 import android.content.res.AssetManager;
-
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 
-/**
- * Utilities for showing open source licenses.
- */
+/** Utilities for showing open source licenses. */
 public final class LicenseUtils {
-    public final static String RATING_SOURCE_FILE =
-            "file:///android_asset/rating_sources.html";
+    public static final String RATING_SOURCE_FILE = "file:///android_asset/rating_sources.html";
 
-
-    /**
-     * Checks if the rating_attribution.html asset is include in the apk.
-     */
+    /** Checks if the rating_attribution.html asset is include in the apk. */
     public static boolean hasRatingAttribution(AssetManager am) {
         try (InputStream is = am.open("rating_sources.html")) {
             return true;
@@ -41,6 +33,5 @@ public final class LicenseUtils {
         }
     }
 
-    private LicenseUtils() {
-    }
+    private LicenseUtils() {}
 }

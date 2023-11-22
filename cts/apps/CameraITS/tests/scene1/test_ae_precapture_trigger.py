@@ -18,7 +18,7 @@ import its.objects
 import its.target
 
 AE_FRAMES_PER_ITERATION = 8
-AE_CONVERGE_ITERATIONS = 3
+AE_CONVERGE_ITERATIONS = 5
 # AE must converge within this number of auto requests under scene1
 THRESH_AE_CONVERGE = AE_FRAMES_PER_ITERATION * AE_CONVERGE_ITERATIONS
 

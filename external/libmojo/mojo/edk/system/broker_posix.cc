@@ -38,7 +38,7 @@ bool WaitForBrokerMessage(PlatformHandle platform_handle,
     PLOG(ERROR) << "Recvmsg error";
     error = true;
   } else if (static_cast<size_t>(read_result) != message->data_num_bytes()) {
-    LOG(ERROR) << "Invalid node channel message. Expected " << message->data_num_bytes() << " got " << read_result;
+    LOG(ERROR) << "Invalid node channel message";
     error = true;
   } else if (incoming_platform_handles.size() != expected_num_handles) {
     LOG(ERROR) << "Received unexpected number of handles";
@@ -94,7 +94,7 @@ scoped_refptr<PlatformSharedBuffer> Broker::GetSharedBuffer(size_t num_bytes) {
 
   BufferRequestData* buffer_request;
   Channel::MessagePtr out_message = CreateBrokerMessage(
-      BrokerMessageType::BUFFER_REQUEST, 0, &buffer_request);
+      BrokerMessageType::BUFFER_REQUEST, 0, 0, &buffer_request);
   buffer_request->size = num_bytes;
   ssize_t write_result = PlatformChannelWrite(
       sync_channel_.get(), out_message->data(), out_message->data_num_bytes());

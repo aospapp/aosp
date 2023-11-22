@@ -15,6 +15,7 @@ gensrcs {
 
 cc_library_static {
     name: "libvpx",
+    vendor_available: true,
 
     arch: {
         arm: {
@@ -28,7 +29,7 @@ cc_library_static {
             local_include_dirs: ["config/arm"],
 
             neon: {
-                exclude_srcs: libvpx_arm_c_srcs,
+                exclude_srcs: libvpx_arm_neon_exclude_c_srcs,
                 srcs: libvpx_arm_neon_c_srcs,
                 generated_sources: ["libvpx_arm_neon_asm_srcs_converted"],
                 local_include_dirs: ["config/arm-neon"],
@@ -45,13 +46,13 @@ cc_library_static {
             local_include_dirs: ["config/mips32"],
 
             dspr2: {
-                exclude_srcs: libvpx_mips32_c_srcs,
+                exclude_srcs: libvpx_mips32_dspr2_exclude_c_srcs,
                 srcs: libvpx_mips32_dspr2_c_srcs,
                 local_include_dirs: ["config/mips32-dspr2"],
             },
 
             msa: {
-                exclude_srcs: libvpx_mips32_c_srcs,
+                exclude_srcs: libvpx_mips32_msa_exclude_c_srcs,
                 srcs: libvpx_mips32_msa_c_srcs,
                 local_include_dirs: ["config/mips32-msa"],
             },
@@ -62,7 +63,7 @@ cc_library_static {
             local_include_dirs: ["config/mips64"],
 
             msa: {
-                exclude_srcs: libvpx_mips64_c_srcs,
+                exclude_srcs: libvpx_mips64_msa_exclude_c_srcs,
                 srcs: libvpx_mips64_msa_c_srcs,
                 local_include_dirs: ["config/mips64-msa"],
             },

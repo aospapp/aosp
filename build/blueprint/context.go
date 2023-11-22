@@ -19,11 +19,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
+	"os"
 	"path/filepath"
 	"reflect"
 	"runtime"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -38,6 +39,7 @@ import (
 var ErrBuildActionsNotReady = errors.New("build actions are not ready")
 
 const maxErrors = 10
+const MockModuleListFile = "bplist"
 
 // A Context contains all the state needed to parse a set of Blueprints files
 // and generate a Ninja file.  The process of generating a Ninja file proceeds
@@ -66,15 +68,15 @@ const maxErrors = 10
 type Context struct {
 	// set at instantiation
 	moduleFactories     map[string]ModuleFactory
-	moduleNames         map[string]*moduleGroup
+	nameInterface       NameInterface
 	moduleGroups        []*moduleGroup
 	moduleInfo          map[Module]*moduleInfo
 	modulesSorted       []*moduleInfo
+	preSingletonInfo    []*singletonInfo
 	singletonInfo       []*singletonInfo
 	mutatorInfo         []*mutatorInfo
 	earlyMutatorInfo    []*mutatorInfo
 	variantMutatorNames []string
-	moduleNinjaNames    map[string]*moduleGroup
 
 	depsModified uint32 // positive if a mutator modified the dependencies
 
@@ -89,6 +91,7 @@ type Context struct {
 
 	// set during PrepareBuildActions
 	pkgNames        map[*packageContext]string
+	liveGlobals     *liveTracker
 	globalVariables map[Variable]*ninjaString
 	globalPools     map[Pool]*poolDef
 	globalRules     map[Rule]*ruleDef
@@ -99,13 +102,14 @@ type Context struct {
 	requiredNinjaMinor int          // For the ninja_required_version variable
 	requiredNinjaMicro int          // For the ninja_required_version variable
 
-	// set lazily by sortedModuleNames
-	cachedSortedModuleNames []string
+	// set lazily by sortedModuleGroups
+	cachedSortedModuleGroups []*moduleGroup
 
 	globs    map[string]GlobPath
 	globLock sync.Mutex
 
-	fs pathtools.FileSystem
+	fs             pathtools.FileSystem
+	moduleListFile string
 }
 
 // An Error describes a problem that was encountered that is related to a
@@ -152,11 +156,14 @@ type moduleGroup struct {
 	ninjaName string
 
 	modules []*moduleInfo
+
+	namespace Namespace
 }
 
 type moduleInfo struct {
 	// set during Parse
 	typeName          string
+	factory           ModuleFactory
 	relBlueprintsFile string
 	pos               scanner.Position
 	propertyPos       map[string]scanner.Position
@@ -165,9 +172,9 @@ type moduleInfo struct {
 	variant           variationMap
 	dependencyVariant variationMap
 
-	logicModule      Module
-	group            *moduleGroup
-	moduleProperties []interface{}
+	logicModule Module
+	group       *moduleGroup
+	properties  []interface{}
 
 	// set during ResolveDependencies
 	directDeps  []depInfo
@@ -202,6 +209,10 @@ func (module *moduleInfo) String() string {
 		s += fmt.Sprintf(" variant %q", module.variantName)
 	}
 	return s
+}
+
+func (module *moduleInfo) namespace() Namespace {
+	return module.group.namespace
 }
 
 // A Variation is a way that a variant of a module differs from other variants of the same module.
@@ -260,19 +271,26 @@ type mutatorInfo struct {
 	parallel        bool
 }
 
+func newContext() *Context {
+	return &Context{
+		moduleFactories:    make(map[string]ModuleFactory),
+		nameInterface:      NewSimpleNameInterface(),
+		moduleInfo:         make(map[Module]*moduleInfo),
+		globs:              make(map[string]GlobPath),
+		fs:                 pathtools.OsFs,
+		ninjaBuildDir:      nil,
+		requiredNinjaMajor: 1,
+		requiredNinjaMinor: 7,
+		requiredNinjaMicro: 0,
+	}
+}
+
 // NewContext creates a new Context object.  The created context initially has
 // no module or singleton factories registered, so the RegisterModuleFactory and
 // RegisterSingletonFactory methods must be called before it can do anything
 // useful.
 func NewContext() *Context {
-	ctx := &Context{
-		moduleFactories:  make(map[string]ModuleFactory),
-		moduleNames:      make(map[string]*moduleGroup),
-		moduleInfo:       make(map[Module]*moduleInfo),
-		moduleNinjaNames: make(map[string]*moduleGroup),
-		globs:            make(map[string]GlobPath),
-		fs:               pathtools.OsFs,
-	}
+	ctx := newContext()
 
 	ctx.RegisterBottomUpMutator("blueprint_deps", blueprintDepsMutator)
 
@@ -377,6 +395,32 @@ func (c *Context) RegisterSingletonType(name string, factory SingletonFactory) {
 		singleton: factory(),
 		name:      name,
 	})
+}
+
+// RegisterPreSingletonType registers a presingleton type that will be invoked to
+// generate build actions before any Blueprint files have been read.  Each registered
+// presingleton type is instantiated and invoked exactly once at the beginning of the
+// parse phase.  Each registered presingleton is invoked in registration order.
+//
+// The presingleton type names given here must be unique for the context.  The
+// factory function should be a named function so that its package and name can
+// be included in the generated Ninja file for debugging purposes.
+func (c *Context) RegisterPreSingletonType(name string, factory SingletonFactory) {
+	for _, s := range c.preSingletonInfo {
+		if s.name == name {
+			panic(errors.New("presingleton name is already registered"))
+		}
+	}
+
+	c.preSingletonInfo = append(c.preSingletonInfo, &singletonInfo{
+		factory:   factory,
+		singleton: factory(),
+		name:      name,
+	})
+}
+
+func (c *Context) SetNameInterface(i NameInterface) {
+	c.nameInterface = i
 }
 
 func singletonPkgPath(singleton Singleton) string {
@@ -514,97 +558,52 @@ func (c *Context) SetAllowMissingDependencies(allowMissingDependencies bool) {
 	c.allowMissingDependencies = allowMissingDependencies
 }
 
-// Parse parses a single Blueprints file from r, creating Module objects for
-// each of the module definitions encountered.  If the Blueprints file contains
-// an assignment to the "subdirs" variable, then the subdirectories listed are
-// searched for Blueprints files returned in the subBlueprints return value.
-// If the Blueprints file contains an assignment to the "build" variable, then
-// the file listed are returned in the subBlueprints return value.
-//
-// rootDir specifies the path to the root directory of the source tree, while
-// filename specifies the path to the Blueprints file.  These paths are used for
-// error reporting and for determining the module's directory.
-func (c *Context) parse(rootDir, filename string, r io.Reader,
-	scope *parser.Scope) (file *parser.File, subBlueprints []stringAndScope, errs []error) {
-
-	relBlueprintsFile, err := filepath.Rel(rootDir, filename)
-	if err != nil {
-		return nil, nil, []error{err}
-	}
-
-	scope = parser.NewScope(scope)
-	scope.Remove("subdirs")
-	scope.Remove("optional_subdirs")
-	scope.Remove("build")
-	file, errs = parser.ParseAndEval(filename, r, scope)
-	if len(errs) > 0 {
-		for i, err := range errs {
-			if parseErr, ok := err.(*parser.ParseError); ok {
-				err = &BlueprintError{
-					Err: parseErr.Err,
-					Pos: parseErr.Pos,
-				}
-				errs[i] = err
-			}
-		}
-
-		// If there were any parse errors don't bother trying to interpret the
-		// result.
-		return nil, nil, errs
-	}
-	file.Name = relBlueprintsFile
-
-	subdirs, subdirsPos, err := getLocalStringListFromScope(scope, "subdirs")
-	if err != nil {
-		errs = append(errs, err)
-	}
-
-	optionalSubdirs, optionalSubdirsPos, err := getLocalStringListFromScope(scope, "optional_subdirs")
-	if err != nil {
-		errs = append(errs, err)
-	}
-
-	build, buildPos, err := getLocalStringListFromScope(scope, "build")
-	if err != nil {
-		errs = append(errs, err)
-	}
-
-	subBlueprintsName, _, err := getStringFromScope(scope, "subname")
-	if err != nil {
-		errs = append(errs, err)
-	}
-
-	if subBlueprintsName == "" {
-		subBlueprintsName = "Blueprints"
-	}
-
-	var blueprints []string
-
-	newBlueprints, newErrs := c.findBuildBlueprints(filepath.Dir(filename), build, buildPos)
-	blueprints = append(blueprints, newBlueprints...)
-	errs = append(errs, newErrs...)
-
-	newBlueprints, newErrs = c.findSubdirBlueprints(filepath.Dir(filename), subdirs, subdirsPos,
-		subBlueprintsName, false)
-	blueprints = append(blueprints, newBlueprints...)
-	errs = append(errs, newErrs...)
-
-	newBlueprints, newErrs = c.findSubdirBlueprints(filepath.Dir(filename), optionalSubdirs,
-		optionalSubdirsPos, subBlueprintsName, true)
-	blueprints = append(blueprints, newBlueprints...)
-	errs = append(errs, newErrs...)
-
-	subBlueprintsAndScope := make([]stringAndScope, len(blueprints))
-	for i, b := range blueprints {
-		subBlueprintsAndScope[i] = stringAndScope{b, scope}
-	}
-
-	return file, subBlueprintsAndScope, errs
+func (c *Context) SetModuleListFile(listFile string) {
+	c.moduleListFile = listFile
 }
 
-type stringAndScope struct {
-	string
-	*parser.Scope
+func (c *Context) ListModulePaths(baseDir string) (paths []string, err error) {
+	reader, err := c.fs.Open(c.moduleListFile)
+	if err != nil {
+		return nil, err
+	}
+	bytes, err := ioutil.ReadAll(reader)
+	if err != nil {
+		return nil, err
+	}
+	text := string(bytes)
+
+	text = strings.Trim(text, "\n")
+	lines := strings.Split(text, "\n")
+	for i := range lines {
+		lines[i] = filepath.Join(baseDir, lines[i])
+	}
+
+	return lines, nil
+}
+
+// a fileParseContext tells the status of parsing a particular file
+type fileParseContext struct {
+	// name of file
+	fileName string
+
+	// scope to use when resolving variables
+	Scope *parser.Scope
+
+	// pointer to the one in the parent directory
+	parent *fileParseContext
+
+	// is closed once FileHandler has completed for this file
+	doneVisiting chan struct{}
+}
+
+func (c *Context) ParseBlueprintsFiles(rootFile string) (deps []string, errs []error) {
+	baseDir := filepath.Dir(rootFile)
+	pathsToParse, err := c.ListModulePaths(baseDir)
+	if err != nil {
+		return nil, []error{err}
+	}
+	return c.ParseFileList(baseDir, pathsToParse)
 }
 
 // ParseBlueprintsFiles parses a set of Blueprints files starting with the file
@@ -616,8 +615,12 @@ type stringAndScope struct {
 // which the future output will depend is returned.  This list will include both
 // Blueprints file paths as well as directory paths for cases where wildcard
 // subdirs are found.
-func (c *Context) ParseBlueprintsFiles(rootFile string) (deps []string,
+func (c *Context) ParseFileList(rootDir string, filePaths []string) (deps []string,
 	errs []error) {
+
+	if len(filePaths) < 1 {
+		return nil, []error{fmt.Errorf("no paths provided to parse")}
+	}
 
 	c.dependenciesReady = false
 
@@ -628,40 +631,36 @@ func (c *Context) ParseBlueprintsFiles(rootFile string) (deps []string,
 	var numGoroutines int32
 
 	// handler must be reentrant
-	handler := func(file *parser.File) {
+	handleOneFile := func(file *parser.File) {
 		if atomic.LoadUint32(&numErrs) > maxErrors {
 			return
 		}
 
-		atomic.AddInt32(&numGoroutines, 1)
-		go func() {
-			for _, def := range file.Defs {
-				var module *moduleInfo
-				var errs []error
-				switch def := def.(type) {
-				case *parser.Module:
-					module, errs = c.processModuleDef(def, file.Name)
-				case *parser.Assignment:
-					// Already handled via Scope object
-				default:
-					panic("unknown definition type")
-				}
-
-				if len(errs) > 0 {
-					atomic.AddUint32(&numErrs, uint32(len(errs)))
-					errsCh <- errs
-				} else if module != nil {
-					moduleCh <- module
-				}
+		for _, def := range file.Defs {
+			var module *moduleInfo
+			var errs []error
+			switch def := def.(type) {
+			case *parser.Module:
+				module, errs = c.processModuleDef(def, file.Name)
+			case *parser.Assignment:
+				// Already handled via Scope object
+			default:
+				panic("unknown definition type")
 			}
-			doneCh <- struct{}{}
-		}()
+
+			if len(errs) > 0 {
+				atomic.AddUint32(&numErrs, uint32(len(errs)))
+				errsCh <- errs
+			} else if module != nil {
+				moduleCh <- module
+			}
+		}
 	}
 
 	atomic.AddInt32(&numGoroutines, 1)
 	go func() {
 		var errs []error
-		deps, errs = c.WalkBlueprintsFiles(rootFile, handler)
+		deps, errs = c.WalkBlueprintsFiles(rootDir, filePaths, handleOneFile)
 		if len(errs) > 0 {
 			errsCh <- errs
 		}
@@ -691,52 +690,114 @@ loop:
 
 type FileHandler func(*parser.File)
 
-// Walk a set of Blueprints files starting with the file at rootFile, calling handler on each.
-// When it encounters a Blueprints file with a set of subdirs listed it recursively parses any
-// Blueprints files found in those subdirectories.  handler will be called from a goroutine, so
-// it must be reentrant.
+// WalkBlueprintsFiles walks a set of Blueprints files starting with the given filepaths,
+// calling the given file handler on each
+//
+// When WalkBlueprintsFiles encounters a Blueprints file with a set of subdirs listed,
+// it recursively parses any Blueprints files found in those subdirectories.
+//
+// If any of the file paths is an ancestor directory of any other of file path, the ancestor
+// will be parsed and visited first.
+//
+// the file handler will be called from a goroutine, so it must be reentrant.
 //
 // If no errors are encountered while parsing the files, the list of paths on
 // which the future output will depend is returned.  This list will include both
 // Blueprints file paths as well as directory paths for cases where wildcard
 // subdirs are found.
-func (c *Context) WalkBlueprintsFiles(rootFile string, handler FileHandler) (deps []string,
-	errs []error) {
+//
+// visitor will be called asynchronously, and will only be called once visitor for each
+// ancestor directory has completed.
+//
+// WalkBlueprintsFiles will not return until all calls to visitor have returned.
+func (c *Context) WalkBlueprintsFiles(rootDir string, filePaths []string,
+	visitor FileHandler) (deps []string, errs []error) {
 
-	rootDir := filepath.Dir(rootFile)
-
+	// make a mapping from ancestors to their descendants to facilitate parsing ancestors first
+	descendantsMap, err := findBlueprintDescendants(filePaths)
+	if err != nil {
+		panic(err.Error())
+		return nil, []error{err}
+	}
 	blueprintsSet := make(map[string]bool)
 
-	// Channels to receive data back from parseBlueprintsFile goroutines
-	blueprintsCh := make(chan stringAndScope)
+	// Channels to receive data back from openAndParse goroutines
+	blueprintsCh := make(chan fileParseContext)
 	errsCh := make(chan []error)
-	fileCh := make(chan *parser.File)
 	depsCh := make(chan string)
 
-	// Channel to notify main loop that a parseBlueprintsFile goroutine has finished
-	doneCh := make(chan struct{})
+	// Channel to notify main loop that a openAndParse goroutine has finished
+	doneParsingCh := make(chan fileParseContext)
 
 	// Number of outstanding goroutines to wait for
-	count := 0
+	activeCount := 0
+	var pending []fileParseContext
+	tooManyErrors := false
 
-	startParseBlueprintsFile := func(blueprint stringAndScope) {
-		if blueprintsSet[blueprint.string] {
+	// Limit concurrent calls to parseBlueprintFiles to 200
+	// Darwin has a default limit of 256 open files
+	maxActiveCount := 200
+
+	// count the number of pending calls to visitor()
+	visitorWaitGroup := sync.WaitGroup{}
+
+	startParseBlueprintsFile := func(blueprint fileParseContext) {
+		if blueprintsSet[blueprint.fileName] {
 			return
 		}
-		blueprintsSet[blueprint.string] = true
-		count++
+		blueprintsSet[blueprint.fileName] = true
+		activeCount++
+		deps = append(deps, blueprint.fileName)
+		visitorWaitGroup.Add(1)
 		go func() {
-			c.parseBlueprintsFile(blueprint.string, blueprint.Scope, rootDir,
-				errsCh, fileCh, blueprintsCh, depsCh)
-			doneCh <- struct{}{}
+			file, blueprints, deps, errs := c.openAndParse(blueprint.fileName, blueprint.Scope, rootDir,
+				&blueprint)
+			if len(errs) > 0 {
+				errsCh <- errs
+			}
+			for _, blueprint := range blueprints {
+				blueprintsCh <- blueprint
+			}
+			for _, dep := range deps {
+				depsCh <- dep
+			}
+			doneParsingCh <- blueprint
+
+			if blueprint.parent != nil && blueprint.parent.doneVisiting != nil {
+				// wait for visitor() of parent to complete
+				<-blueprint.parent.doneVisiting
+			}
+
+			if len(errs) == 0 {
+				// process this file
+				visitor(file)
+			}
+			if blueprint.doneVisiting != nil {
+				close(blueprint.doneVisiting)
+			}
+			visitorWaitGroup.Done()
 		}()
 	}
 
-	tooManyErrors := false
+	foundParseableBlueprint := func(blueprint fileParseContext) {
+		if activeCount >= maxActiveCount {
+			pending = append(pending, blueprint)
+		} else {
+			startParseBlueprintsFile(blueprint)
+		}
+	}
 
-	startParseBlueprintsFile(stringAndScope{rootFile, nil})
+	startParseDescendants := func(blueprint fileParseContext) {
+		descendants, hasDescendants := descendantsMap[blueprint.fileName]
+		if hasDescendants {
+			for _, descendant := range descendants {
+				foundParseableBlueprint(fileParseContext{descendant, parser.NewScope(blueprint.Scope), &blueprint, make(chan struct{})})
+			}
+		}
+	}
 
-	var pending []stringAndScope
+	// begin parsing any files that have no ancestors
+	startParseDescendants(fileParseContext{"", parser.NewScope(nil), nil, nil})
 
 loop:
 	for {
@@ -749,30 +810,32 @@ loop:
 			errs = append(errs, newErrs...)
 		case dep := <-depsCh:
 			deps = append(deps, dep)
-		case file := <-fileCh:
-			handler(file)
 		case blueprint := <-blueprintsCh:
 			if tooManyErrors {
 				continue
 			}
-			// Limit concurrent calls to parseBlueprintFiles to 200
-			// Darwin has a default limit of 256 open files
-			if count >= 200 {
-				pending = append(pending, blueprint)
-				continue
+			foundParseableBlueprint(blueprint)
+		case blueprint := <-doneParsingCh:
+			activeCount--
+			if !tooManyErrors {
+				startParseDescendants(blueprint)
 			}
-			startParseBlueprintsFile(blueprint)
-		case <-doneCh:
-			count--
-			if len(pending) > 0 {
-				startParseBlueprintsFile(pending[len(pending)-1])
+			if activeCount < maxActiveCount && len(pending) > 0 {
+				// start to process the next one from the queue
+				next := pending[len(pending)-1]
 				pending = pending[:len(pending)-1]
+				startParseBlueprintsFile(next)
 			}
-			if count == 0 {
+			if activeCount == 0 {
 				break loop
 			}
 		}
 	}
+
+	sort.Strings(deps)
+
+	// wait for every visitor() to complete
+	visitorWaitGroup.Wait()
 
 	return
 }
@@ -780,40 +843,149 @@ loop:
 // MockFileSystem causes the Context to replace all reads with accesses to the provided map of
 // filenames to contents stored as a byte slice.
 func (c *Context) MockFileSystem(files map[string][]byte) {
+	// look for a module list file
+	_, ok := files[MockModuleListFile]
+	if !ok {
+		// no module list file specified; find every file named Blueprints
+		pathsToParse := []string{}
+		for candidate := range files {
+			if filepath.Base(candidate) == "Blueprints" {
+				pathsToParse = append(pathsToParse, candidate)
+			}
+		}
+		if len(pathsToParse) < 1 {
+			panic(fmt.Sprintf("No Blueprints files found in mock filesystem: %v\n", files))
+		}
+		// put the list of Blueprints files into a list file
+		files[MockModuleListFile] = []byte(strings.Join(pathsToParse, "\n"))
+	}
+	c.SetModuleListFile(MockModuleListFile)
+
+	// mock the filesystem
 	c.fs = pathtools.MockFs(files)
 }
 
-// parseBlueprintFile parses a single Blueprints file, returning any errors through
-// errsCh, any defined modules through modulesCh, any sub-Blueprints files through
-// blueprintsCh, and any dependencies on Blueprints files or directories through
-// depsCh.
-func (c *Context) parseBlueprintsFile(filename string, scope *parser.Scope, rootDir string,
-	errsCh chan<- []error, fileCh chan<- *parser.File, blueprintsCh chan<- stringAndScope,
-	depsCh chan<- string) {
+// openAndParse opens and parses a single Blueprints file, and returns the results
+func (c *Context) openAndParse(filename string, scope *parser.Scope, rootDir string,
+	parent *fileParseContext) (file *parser.File,
+	subBlueprints []fileParseContext, deps []string, errs []error) {
 
 	f, err := c.fs.Open(filename)
 	if err != nil {
-		errsCh <- []error{err}
-		return
-	}
-	defer func() {
-		err = f.Close()
-		if err != nil {
-			errsCh <- []error{err}
+		// couldn't open the file; see if we can provide a clearer error than "could not open file"
+		stats, statErr := c.fs.Lstat(filename)
+		if statErr == nil {
+			isSymlink := stats.Mode()&os.ModeSymlink != 0
+			if isSymlink {
+				err = fmt.Errorf("could not open symlink %v : %v", filename, err)
+				target, readlinkErr := os.Readlink(filename)
+				if readlinkErr == nil {
+					_, targetStatsErr := c.fs.Lstat(target)
+					if targetStatsErr != nil {
+						err = fmt.Errorf("could not open symlink %v; its target (%v) cannot be opened", filename, target)
+					}
+				}
+			} else {
+				err = fmt.Errorf("%v exists but could not be opened: %v", filename, err)
+			}
 		}
+		return nil, nil, nil, []error{err}
+	}
+
+	func() {
+		defer func() {
+			err = f.Close()
+			if err != nil {
+				errs = append(errs, err)
+			}
+		}()
+		file, subBlueprints, errs = c.parseOne(rootDir, filename, f, scope, parent)
 	}()
 
-	file, subBlueprints, errs := c.parse(rootDir, filename, f, scope)
 	if len(errs) > 0 {
-		errsCh <- errs
-	} else {
-		fileCh <- file
+		return nil, nil, nil, errs
 	}
 
 	for _, b := range subBlueprints {
-		blueprintsCh <- b
-		depsCh <- b.string
+		deps = append(deps, b.fileName)
 	}
+
+	return file, subBlueprints, deps, nil
+}
+
+// parseOne parses a single Blueprints file from the given reader, creating Module
+// objects for each of the module definitions encountered.  If the Blueprints
+// file contains an assignment to the "subdirs" variable, then the
+// subdirectories listed are searched for Blueprints files returned in the
+// subBlueprints return value.  If the Blueprints file contains an assignment
+// to the "build" variable, then the file listed are returned in the
+// subBlueprints return value.
+//
+// rootDir specifies the path to the root directory of the source tree, while
+// filename specifies the path to the Blueprints file.  These paths are used for
+// error reporting and for determining the module's directory.
+func (c *Context) parseOne(rootDir, filename string, reader io.Reader,
+	scope *parser.Scope, parent *fileParseContext) (file *parser.File, subBlueprints []fileParseContext, errs []error) {
+
+	relBlueprintsFile, err := filepath.Rel(rootDir, filename)
+	if err != nil {
+		return nil, nil, []error{err}
+	}
+
+	scope.Remove("subdirs")
+	scope.Remove("optional_subdirs")
+	scope.Remove("build")
+	file, errs = parser.ParseAndEval(filename, reader, scope)
+	if len(errs) > 0 {
+		for i, err := range errs {
+			if parseErr, ok := err.(*parser.ParseError); ok {
+				err = &BlueprintError{
+					Err: parseErr.Err,
+					Pos: parseErr.Pos,
+				}
+				errs[i] = err
+			}
+		}
+
+		// If there were any parse errors don't bother trying to interpret the
+		// result.
+		return nil, nil, errs
+	}
+	file.Name = relBlueprintsFile
+
+	build, buildPos, err := getLocalStringListFromScope(scope, "build")
+	if err != nil {
+		errs = append(errs, err)
+	}
+	for _, buildEntry := range build {
+		if strings.Contains(buildEntry, "/") {
+			errs = append(errs, &BlueprintError{
+				Err: fmt.Errorf("illegal value %v. The '/' character is not permitted", buildEntry),
+				Pos: buildPos,
+			})
+		}
+	}
+
+	subBlueprintsName, _, err := getStringFromScope(scope, "subname")
+	if err != nil {
+		errs = append(errs, err)
+	}
+
+	if subBlueprintsName == "" {
+		subBlueprintsName = "Blueprints"
+	}
+
+	var blueprints []string
+
+	newBlueprints, newErrs := c.findBuildBlueprints(filepath.Dir(filename), build, buildPos)
+	blueprints = append(blueprints, newBlueprints...)
+	errs = append(errs, newErrs...)
+
+	subBlueprintsAndScope := make([]fileParseContext, len(blueprints))
+	for i, b := range blueprints {
+		subBlueprintsAndScope[i] = fileParseContext{b, parser.NewScope(scope), parent, make(chan struct{})}
+	}
+	return file, subBlueprintsAndScope, errs
 }
 
 func (c *Context) findBuildBlueprints(dir string, build []string,
@@ -845,6 +1017,12 @@ func (c *Context) findBuildBlueprints(dir string, build []string,
 		}
 
 		for _, foundBlueprints := range matches {
+			if strings.HasSuffix(foundBlueprints, "/") {
+				errs = append(errs, &BlueprintError{
+					Err: fmt.Errorf("%q: is a directory", foundBlueprints),
+					Pos: buildPos,
+				})
+			}
 			blueprints = append(blueprints, foundBlueprints)
 		}
 	}
@@ -881,6 +1059,12 @@ func (c *Context) findSubdirBlueprints(dir string, subdirs []string, subdirsPos 
 		}
 
 		for _, subBlueprints := range matches {
+			if strings.HasSuffix(subBlueprints, "/") {
+				errs = append(errs, &BlueprintError{
+					Err: fmt.Errorf("%q: is a directory", subBlueprints),
+					Pos: subdirsPos,
+				})
+			}
 			blueprints = append(blueprints, subBlueprints)
 		}
 	}
@@ -913,7 +1097,7 @@ func getLocalStringListFromScope(scope *parser.Scope, v string) ([]string, scann
 				Pos: assignment.EqualsPos,
 			}
 		default:
-			panic(fmt.Errorf("unknown value type: %d", assignment.Value.Type))
+			panic(fmt.Errorf("unknown value type: %d", assignment.Value.Type()))
 		}
 	}
 }
@@ -931,7 +1115,7 @@ func getStringFromScope(scope *parser.Scope, v string) (string, scanner.Position
 				Pos: assignment.EqualsPos,
 			}
 		default:
-			panic(fmt.Errorf("unknown value type: %d", assignment.Value.Type))
+			panic(fmt.Errorf("unknown value type: %d", assignment.Value.Type()))
 		}
 	}
 }
@@ -940,21 +1124,15 @@ func getStringFromScope(scope *parser.Scope, v string) (string, scanner.Position
 // property values.  Any values stored in the module object that are not stored in properties
 // structs will be lost.
 func (c *Context) cloneLogicModule(origModule *moduleInfo) (Module, []interface{}) {
-	typeName := origModule.typeName
-	factory, ok := c.moduleFactories[typeName]
-	if !ok {
-		panic(fmt.Sprintf("unrecognized module type %q during cloning", typeName))
-	}
+	newLogicModule, newProperties := origModule.factory()
 
-	newLogicModule, newProperties := factory()
-
-	if len(newProperties) != len(origModule.moduleProperties) {
+	if len(newProperties) != len(origModule.properties) {
 		panic("mismatched properties array length in " + origModule.Name())
 	}
 
 	for i := range newProperties {
 		dst := reflect.ValueOf(newProperties[i]).Elem()
-		src := reflect.ValueOf(origModule.moduleProperties[i]).Elem()
+		src := reflect.ValueOf(origModule.properties[i]).Elem()
 
 		proptools.CopyProperties(dst, src)
 	}
@@ -982,7 +1160,7 @@ func (c *Context) createVariations(origModule *moduleInfo, mutatorName string,
 			// Reuse the existing module for the first new variant
 			// This both saves creating a new module, and causes the insertion in c.moduleInfo below
 			// with logicModule as the key to replace the original entry in c.moduleInfo
-			newLogicModule, newProperties = origModule.logicModule, origModule.moduleProperties
+			newLogicModule, newProperties = origModule.logicModule, origModule.properties
 		} else {
 			newLogicModule, newProperties = c.cloneLogicModule(origModule)
 		}
@@ -996,7 +1174,7 @@ func (c *Context) createVariations(origModule *moduleInfo, mutatorName string,
 		newModule.logicModule = newLogicModule
 		newModule.variant = newVariant
 		newModule.dependencyVariant = origModule.dependencyVariant.clone()
-		newModule.moduleProperties = newProperties
+		newModule.properties = newProperties
 
 		if variationName != "" {
 			if newModule.variantName == "" {
@@ -1062,6 +1240,19 @@ func (c *Context) prettyPrintVariant(variant variationMap) string {
 	return strings.Join(names, ", ")
 }
 
+func (c *Context) newModule(factory ModuleFactory) *moduleInfo {
+	logicModule, properties := factory()
+
+	module := &moduleInfo{
+		logicModule: logicModule,
+		factory:     factory,
+	}
+
+	module.properties = properties
+
+	return module
+}
+
 func (c *Context) processModuleDef(moduleDef *parser.Module,
 	relBlueprintsFile string) (*moduleInfo, []error) {
 
@@ -1079,17 +1270,12 @@ func (c *Context) processModuleDef(moduleDef *parser.Module,
 		}
 	}
 
-	logicModule, properties := factory()
+	module := c.newModule(factory)
+	module.typeName = moduleDef.Type
 
-	module := &moduleInfo{
-		logicModule:       logicModule,
-		typeName:          moduleDef.Type,
-		relBlueprintsFile: relBlueprintsFile,
-	}
+	module.relBlueprintsFile = relBlueprintsFile
 
-	module.moduleProperties = properties
-
-	propertyMap, errs := unpackProperties(moduleDef.Properties, properties...)
+	propertyMap, errs := unpackProperties(moduleDef.Properties, module.properties...)
 	if len(errs) > 0 {
 		return nil, errs
 	}
@@ -1107,35 +1293,23 @@ func (c *Context) addModule(module *moduleInfo) []error {
 	name := module.logicModule.Name()
 	c.moduleInfo[module.logicModule] = module
 
-	if group, present := c.moduleNames[name]; present {
-		return []error{
-			&BlueprintError{
-				Err: fmt.Errorf("module %q already defined", name),
-				Pos: module.pos,
-			},
-			&BlueprintError{
-				Err: fmt.Errorf("<-- previous definition here"),
-				Pos: group.modules[0].pos,
-			},
-		}
-	}
-
-	ninjaName := toNinjaName(name)
-
-	// The sanitizing in toNinjaName can result in collisions, uniquify the name if it
-	// already exists
-	for i := 0; c.moduleNinjaNames[ninjaName] != nil; i++ {
-		ninjaName = toNinjaName(name) + strconv.Itoa(i)
-	}
-
 	group := &moduleGroup{
-		name:      name,
-		ninjaName: ninjaName,
-		modules:   []*moduleInfo{module},
+		name:    name,
+		modules: []*moduleInfo{module},
 	}
 	module.group = group
-	c.moduleNames[name] = group
-	c.moduleNinjaNames[ninjaName] = group
+	namespace, errs := c.nameInterface.NewModule(
+		newNamespaceContext(module),
+		ModuleGroup{moduleGroup: group},
+		module.logicModule)
+	if len(errs) > 0 {
+		for i := range errs {
+			errs[i] = &BlueprintError{Err: errs[i], Pos: module.pos}
+		}
+		return errs
+	}
+	group.namespace = namespace
+
 	c.moduleGroups = append(c.moduleGroups, group)
 
 	return nil
@@ -1145,21 +1319,29 @@ func (c *Context) addModule(module *moduleInfo) []error {
 // modules defined in the parsed Blueprints files are valid.  This means that
 // the modules depended upon are defined and that no circular dependencies
 // exist.
-func (c *Context) ResolveDependencies(config interface{}) []error {
-	errs := c.updateDependencies()
+func (c *Context) ResolveDependencies(config interface{}) (deps []string, errs []error) {
+	c.liveGlobals = newLiveTracker(config)
+
+	deps, errs = c.generateSingletonBuildActions(config, c.preSingletonInfo, c.liveGlobals)
 	if len(errs) > 0 {
-		return errs
+		return nil, errs
 	}
 
-	errs = c.runMutators(config)
+	errs = c.updateDependencies()
 	if len(errs) > 0 {
-		return errs
+		return nil, errs
 	}
+
+	mutatorDeps, errs := c.runMutators(config)
+	if len(errs) > 0 {
+		return nil, errs
+	}
+	deps = append(deps, mutatorDeps...)
 
 	c.cloneModules()
 
 	c.dependenciesReady = true
-	return nil
+	return deps, nil
 }
 
 // Default dependencies handling.  If the module implements the (deprecated)
@@ -1213,17 +1395,9 @@ func (c *Context) addDependency(module *moduleInfo, tag DependencyTag, depName s
 		}}
 	}
 
-	possibleDeps := c.modulesFromName(depName)
+	possibleDeps := c.modulesFromName(depName, module.namespace())
 	if possibleDeps == nil {
-		if c.allowMissingDependencies {
-			module.missingDeps = append(module.missingDeps, depName)
-			return nil
-		}
-		return []error{&BlueprintError{
-			Err: fmt.Errorf("%q depends on undefined module %q",
-				module.Name(), depName),
-			Pos: module.pos,
-		}}
+		return c.discoveredMissingDependencies(module, depName)
 	}
 
 	if m := c.findMatchingVariant(module, possibleDeps); m != nil {
@@ -1261,7 +1435,7 @@ func (c *Context) findReverseDependency(module *moduleInfo, destName string) (*m
 		}}
 	}
 
-	possibleDeps := c.modulesFromName(destName)
+	possibleDeps := c.modulesFromName(destName, module.namespace())
 	if possibleDeps == nil {
 		return nil, []error{&BlueprintError{
 			Err: fmt.Errorf("%q has a reverse dependency on undefined module %q",
@@ -1295,17 +1469,9 @@ func (c *Context) addVariationDependency(module *moduleInfo, variations []Variat
 		panic("BaseDependencyTag is not allowed to be used directly!")
 	}
 
-	possibleDeps := c.modulesFromName(depName)
+	possibleDeps := c.modulesFromName(depName, module.namespace())
 	if possibleDeps == nil {
-		if c.allowMissingDependencies {
-			module.missingDeps = append(module.missingDeps, depName)
-			return nil
-		}
-		return []error{&BlueprintError{
-			Err: fmt.Errorf("%q depends on undefined module %q",
-				module.Name(), depName),
-			Pos: module.pos,
-		}}
+		return c.discoveredMissingDependencies(module, depName)
 	}
 
 	// We can't just append variant.Variant to module.dependencyVariants.variantName and
@@ -1393,6 +1559,46 @@ func (c *Context) addInterVariantDependency(origModule *moduleInfo, tag Dependen
 	atomic.AddUint32(&c.depsModified, 1)
 }
 
+// findBlueprintDescendants returns a map linking parent Blueprints files to child Blueprints files
+// For example, if paths = []string{"a/b/c/Android.bp", "a/Blueprints"},
+// then descendants = {"":[]string{"a/Blueprints"}, "a/Blueprints":[]string{"a/b/c/Android.bp"}}
+func findBlueprintDescendants(paths []string) (descendants map[string][]string, err error) {
+	// make mapping from dir path to file path
+	filesByDir := make(map[string]string, len(paths))
+	for _, path := range paths {
+		dir := filepath.Dir(path)
+		_, alreadyFound := filesByDir[dir]
+		if alreadyFound {
+			return nil, fmt.Errorf("Found two Blueprint files in directory %v : %v and %v", dir, filesByDir[dir], path)
+		}
+		filesByDir[dir] = path
+	}
+
+	findAncestor := func(childFile string) (ancestor string) {
+		prevAncestorDir := filepath.Dir(childFile)
+		for {
+			ancestorDir := filepath.Dir(prevAncestorDir)
+			if ancestorDir == prevAncestorDir {
+				// reached the root dir without any matches; assign this as a descendant of ""
+				return ""
+			}
+
+			ancestorFile, ancestorExists := filesByDir[ancestorDir]
+			if ancestorExists {
+				return ancestorFile
+			}
+			prevAncestorDir = ancestorDir
+		}
+	}
+	// generate the descendants map
+	descendants = make(map[string][]string, len(filesByDir))
+	for _, childFile := range filesByDir {
+		ancestorFile := findAncestor(childFile)
+		descendants[ancestorFile] = append(descendants[ancestorFile], childFile)
+	}
+	return descendants, nil
+}
+
 type visitOrderer interface {
 	// returns the number of modules that this module needs to wait for
 	waitCount(module *moduleInfo) int
@@ -1400,6 +1606,24 @@ type visitOrderer interface {
 	propagate(module *moduleInfo) []*moduleInfo
 	// visit modules in order
 	visit(modules []*moduleInfo, visit func(*moduleInfo) bool)
+}
+
+type unorderedVisitorImpl struct{}
+
+func (unorderedVisitorImpl) waitCount(module *moduleInfo) int {
+	return 0
+}
+
+func (unorderedVisitorImpl) propagate(module *moduleInfo) []*moduleInfo {
+	return nil
+}
+
+func (unorderedVisitorImpl) visit(modules []*moduleInfo, visit func(*moduleInfo) bool) {
+	for _, module := range modules {
+		if visit(module) {
+			return
+		}
+	}
 }
 
 type bottomUpVisitorImpl struct{}
@@ -1451,20 +1675,26 @@ func (c *Context) parallelVisit(order visitOrderer, visit func(group *moduleInfo
 	cancelCh := make(chan bool)
 	count := 0
 	cancel := false
+	var backlog []*moduleInfo
+	const limit = 1000
 
 	for _, module := range c.modulesSorted {
 		module.waitingCount = order.waitCount(module)
 	}
 
 	visitOne := func(module *moduleInfo) {
-		count++
-		go func() {
-			ret := visit(module)
-			if ret {
-				cancelCh <- true
-			}
-			doneCh <- module
-		}()
+		if count < limit {
+			count++
+			go func() {
+				ret := visit(module)
+				if ret {
+					cancelCh <- true
+				}
+				doneCh <- module
+			}()
+		} else {
+			backlog = append(backlog, module)
+		}
 	}
 
 	for _, module := range c.modulesSorted {
@@ -1473,11 +1703,19 @@ func (c *Context) parallelVisit(order visitOrderer, visit func(group *moduleInfo
 		}
 	}
 
-	for count > 0 {
+	for count > 0 || len(backlog) > 0 {
 		select {
-		case cancel = <-cancelCh:
+		case <-cancelCh:
+			cancel = true
+			backlog = nil
 		case doneModule := <-doneCh:
+			count--
 			if !cancel {
+				for count < limit && len(backlog) > 0 {
+					toVisit := backlog[0]
+					backlog = backlog[1:]
+					visitOne(toVisit)
+				}
 				for _, module := range order.propagate(doneModule) {
 					module.waitingCount--
 					if module.waitingCount == 0 {
@@ -1485,7 +1723,6 @@ func (c *Context) parallelVisit(order visitOrderer, visit func(group *moduleInfo
 					}
 				}
 			}
-			count--
 		}
 	}
 }
@@ -1626,69 +1863,69 @@ func (c *Context) PrepareBuildActions(config interface{}) (deps []string, errs [
 	c.buildActionsReady = false
 
 	if !c.dependenciesReady {
-		errs := c.ResolveDependencies(config)
+		extraDeps, errs := c.ResolveDependencies(config)
 		if len(errs) > 0 {
 			return nil, errs
 		}
+		deps = append(deps, extraDeps...)
 	}
 
-	liveGlobals := newLiveTracker(config)
-
-	c.initSpecialVariables()
-
-	depsModules, errs := c.generateModuleBuildActions(config, liveGlobals)
+	depsModules, errs := c.generateModuleBuildActions(config, c.liveGlobals)
 	if len(errs) > 0 {
 		return nil, errs
 	}
 
-	depsSingletons, errs := c.generateSingletonBuildActions(config, liveGlobals)
+	depsSingletons, errs := c.generateSingletonBuildActions(config, c.singletonInfo, c.liveGlobals)
 	if len(errs) > 0 {
 		return nil, errs
 	}
 
-	deps = append(depsModules, depsSingletons...)
+	deps = append(deps, depsModules...)
+	deps = append(deps, depsSingletons...)
 
 	if c.ninjaBuildDir != nil {
-		liveGlobals.addNinjaStringDeps(c.ninjaBuildDir)
+		c.liveGlobals.addNinjaStringDeps(c.ninjaBuildDir)
 	}
 
-	pkgNames, depsPackages := c.makeUniquePackageNames(liveGlobals)
+	pkgNames, depsPackages := c.makeUniquePackageNames(c.liveGlobals)
 
 	deps = append(deps, depsPackages...)
 
 	// This will panic if it finds a problem since it's a programming error.
-	c.checkForVariableReferenceCycles(liveGlobals.variables, pkgNames)
+	c.checkForVariableReferenceCycles(c.liveGlobals.variables, pkgNames)
 
 	c.pkgNames = pkgNames
-	c.globalVariables = liveGlobals.variables
-	c.globalPools = liveGlobals.pools
-	c.globalRules = liveGlobals.rules
+	c.globalVariables = c.liveGlobals.variables
+	c.globalPools = c.liveGlobals.pools
+	c.globalRules = c.liveGlobals.rules
 
 	c.buildActionsReady = true
 
 	return deps, nil
 }
 
-func (c *Context) runMutators(config interface{}) (errs []error) {
+func (c *Context) runMutators(config interface{}) (deps []string, errs []error) {
 	var mutators []*mutatorInfo
 
 	mutators = append(mutators, c.earlyMutatorInfo...)
 	mutators = append(mutators, c.mutatorInfo...)
 
 	for _, mutator := range mutators {
+		var newDeps []string
 		if mutator.topDownMutator != nil {
-			errs = c.runMutator(config, mutator, topDownMutator)
+			newDeps, errs = c.runMutator(config, mutator, topDownMutator)
 		} else if mutator.bottomUpMutator != nil {
-			errs = c.runMutator(config, mutator, bottomUpMutator)
+			newDeps, errs = c.runMutator(config, mutator, bottomUpMutator)
 		} else {
 			panic("no mutator set on " + mutator.name)
 		}
 		if len(errs) > 0 {
-			return errs
+			return nil, errs
 		}
+		deps = append(deps, newDeps...)
 	}
 
-	return nil
+	return deps, nil
 }
 
 type mutatorDirection interface {
@@ -1736,7 +1973,7 @@ type reverseDep struct {
 }
 
 func (c *Context) runMutator(config interface{}, mutator *mutatorInfo,
-	direction mutatorDirection) (errs []error) {
+	direction mutatorDirection) (deps []string, errs []error) {
 
 	newModuleInfo := make(map[Module]*moduleInfo)
 	for k, v := range c.moduleInfo {
@@ -1744,18 +1981,21 @@ func (c *Context) runMutator(config interface{}, mutator *mutatorInfo,
 	}
 
 	type globalStateChange struct {
-		reverse []reverseDep
-		rename  []rename
-		replace []replace
+		reverse    []reverseDep
+		rename     []rename
+		replace    []replace
+		newModules []*moduleInfo
+		deps       []string
 	}
 
 	reverseDeps := make(map[*moduleInfo][]depInfo)
 	var rename []rename
 	var replace []replace
+	var newModules []*moduleInfo
 
 	errsCh := make(chan []error)
 	globalStateCh := make(chan globalStateChange)
-	newModulesCh := make(chan []*moduleInfo)
+	newVariationsCh := make(chan []*moduleInfo)
 	done := make(chan bool)
 
 	c.depsModified = 0
@@ -1794,15 +2034,17 @@ func (c *Context) runMutator(config interface{}, mutator *mutatorInfo,
 			return true
 		}
 
-		if len(mctx.newModules) > 0 {
-			newModulesCh <- mctx.newModules
+		if len(mctx.newVariations) > 0 {
+			newVariationsCh <- mctx.newVariations
 		}
 
-		if len(mctx.reverseDeps) > 0 || len(mctx.replace) > 0 || len(mctx.rename) > 0 {
+		if len(mctx.reverseDeps) > 0 || len(mctx.replace) > 0 || len(mctx.rename) > 0 || len(mctx.newModules) > 0 {
 			globalStateCh <- globalStateChange{
-				reverse: mctx.reverseDeps,
-				replace: mctx.replace,
-				rename:  mctx.rename,
+				reverse:    mctx.reverseDeps,
+				replace:    mctx.replace,
+				rename:     mctx.rename,
+				newModules: mctx.newModules,
+				deps:       mctx.ninjaFileDeps,
 			}
 		}
 
@@ -1821,8 +2063,10 @@ func (c *Context) runMutator(config interface{}, mutator *mutatorInfo,
 				}
 				replace = append(replace, globalStateChange.replace...)
 				rename = append(rename, globalStateChange.rename...)
-			case newModules := <-newModulesCh:
-				for _, m := range newModules {
+				newModules = append(newModules, globalStateChange.newModules...)
+				deps = append(deps, globalStateChange.deps...)
+			case newVariations := <-newVariationsCh:
+				for _, m := range newVariations {
 					newModuleInfo[m.logicModule] = m
 				}
 			case <-done:
@@ -1840,7 +2084,7 @@ func (c *Context) runMutator(config interface{}, mutator *mutatorInfo,
 	done <- true
 
 	if len(errs) > 0 {
-		return errs
+		return nil, errs
 	}
 
 	c.moduleInfo = newModuleInfo
@@ -1870,24 +2114,32 @@ func (c *Context) runMutator(config interface{}, mutator *mutatorInfo,
 		c.depsModified++
 	}
 
+	for _, module := range newModules {
+		errs = c.addModule(module)
+		if len(errs) > 0 {
+			return nil, errs
+		}
+		atomic.AddUint32(&c.depsModified, 1)
+	}
+
 	errs = c.handleRenames(rename)
 	if len(errs) > 0 {
-		return errs
+		return nil, errs
 	}
 
 	errs = c.handleReplacements(replace)
 	if len(errs) > 0 {
-		return errs
+		return nil, errs
 	}
 
 	if c.depsModified > 0 {
 		errs = c.updateDependencies()
 		if len(errs) > 0 {
-			return errs
+			return nil, errs
 		}
 	}
 
-	return errs
+	return deps, errs
 }
 
 // Replaces every build logic module with a clone of itself.  Prevents introducing problems where
@@ -1898,20 +2150,27 @@ func (c *Context) cloneModules() {
 		orig  Module
 		clone *moduleInfo
 	}
-	ch := make(chan update, 100)
-
-	for _, m := range c.modulesSorted {
-		go func(m *moduleInfo) {
+	ch := make(chan update)
+	doneCh := make(chan bool)
+	go func() {
+		c.parallelVisit(unorderedVisitorImpl{}, func(m *moduleInfo) bool {
 			origLogicModule := m.logicModule
-			m.logicModule, m.moduleProperties = c.cloneLogicModule(m)
+			m.logicModule, m.properties = c.cloneLogicModule(m)
 			ch <- update{origLogicModule, m}
-		}(m)
-	}
+			return false
+		})
+		doneCh <- true
+	}()
 
-	for i := 0; i < len(c.modulesSorted); i++ {
-		update := <-ch
-		delete(c.moduleInfo, update.orig)
-		c.moduleInfo[update.clone.logicModule] = update.clone
+	done := false
+	for !done {
+		select {
+		case <-doneCh:
+			done = true
+		case update := <-ch:
+			delete(c.moduleInfo, update.orig)
+			c.moduleInfo[update.clone.logicModule] = update.clone
+		}
 	}
 }
 
@@ -1936,13 +2195,6 @@ func spliceModules(modules []*moduleInfo, i int, newModules []*moduleInfo) ([]*m
 	copy(dest[i:], newModules)
 
 	return dest, i + spliceSize - 1
-}
-
-func (c *Context) initSpecialVariables() {
-	c.ninjaBuildDir = nil
-	c.requiredNinjaMajor = 1
-	c.requiredNinjaMinor = 7
-	c.requiredNinjaMicro = 0
 }
 
 func (c *Context) generateModuleBuildActions(config interface{},
@@ -1971,10 +2223,15 @@ func (c *Context) generateModuleBuildActions(config interface{},
 	}()
 
 	c.parallelVisit(bottomUpVisitor, func(module *moduleInfo) bool {
+
+		uniqueName := c.nameInterface.UniqueName(newNamespaceContext(module), module.group.name)
+		sanitizedName := toNinjaName(uniqueName)
+
+		prefix := moduleNamespacePrefix(sanitizedName + "_" + module.variantName)
+
 		// The parent scope of the moduleContext's local scope gets overridden to be that of the
 		// calling Go package on a per-call basis.  Since the initial parent scope doesn't matter we
 		// just set it to nil.
-		prefix := moduleNamespacePrefix(module.group.ninjaName + "_" + module.variantName)
 		scope := newLocalScope(nil, prefix)
 
 		mctx := &moduleContext{
@@ -2010,11 +2267,7 @@ func (c *Context) generateModuleBuildActions(config interface{},
 		if module.missingDeps != nil && !mctx.handledMissingDeps {
 			var errs []error
 			for _, depName := range module.missingDeps {
-				errs = append(errs, &BlueprintError{
-					Err: fmt.Errorf("%q depends on undefined module %q",
-						module.Name(), depName),
-					Pos: module.pos,
-				})
+				errs = append(errs, c.missingDependencyError(module, depName))
 			}
 			errsCh <- errs
 			return true
@@ -2038,12 +2291,12 @@ func (c *Context) generateModuleBuildActions(config interface{},
 }
 
 func (c *Context) generateSingletonBuildActions(config interface{},
-	liveGlobals *liveTracker) ([]string, []error) {
+	singletons []*singletonInfo, liveGlobals *liveTracker) ([]string, []error) {
 
 	var deps []string
 	var errs []error
 
-	for _, info := range c.singletonInfo {
+	for _, info := range singletons {
 		// The parent scope of the singletonContext's local scope gets overridden to be that of the
 		// calling Go package on a per-call basis.  Since the initial parent scope doesn't matter we
 		// just set it to nil.
@@ -2179,7 +2432,7 @@ type rename struct {
 }
 
 func (c *Context) moduleMatchingVariant(module *moduleInfo, name string) *moduleInfo {
-	targets := c.modulesFromName(name)
+	targets := c.modulesFromName(name, module.namespace())
 
 	if targets == nil {
 		return nil
@@ -2198,29 +2451,11 @@ func (c *Context) handleRenames(renames []rename) []error {
 	var errs []error
 	for _, rename := range renames {
 		group, name := rename.group, rename.name
-		if name == group.name {
+		if name == group.name || len(group.modules) < 1 {
 			continue
 		}
 
-		existing := c.moduleNames[name]
-		if existing != nil {
-			errs = append(errs,
-				&BlueprintError{
-					Err: fmt.Errorf("renaming module %q to %q conflicts with existing module",
-						group.name, name),
-					Pos: group.modules[0].pos,
-				},
-				&BlueprintError{
-					Err: fmt.Errorf("<-- existing module defined here"),
-					Pos: existing.modules[0].pos,
-				},
-			)
-			continue
-		}
-
-		c.moduleNames[name] = group
-		delete(c.moduleNames, group.name)
-		group.name = name
+		errs = append(errs, c.nameInterface.Rename(group.name, rename.name, group.namespace)...)
 	}
 
 	return errs
@@ -2243,24 +2478,45 @@ func (c *Context) handleReplacements(replacements []replace) []error {
 	return errs
 }
 
-func (c *Context) modulesFromName(name string) []*moduleInfo {
-	if group := c.moduleNames[name]; group != nil {
+func (c *Context) discoveredMissingDependencies(module *moduleInfo, depName string) (errs []error) {
+	if c.allowMissingDependencies {
+		module.missingDeps = append(module.missingDeps, depName)
+		return nil
+	}
+	return []error{c.missingDependencyError(module, depName)}
+}
+
+func (c *Context) missingDependencyError(module *moduleInfo, depName string) (errs error) {
+	err := c.nameInterface.MissingDependencyError(module.Name(), module.namespace(), depName)
+
+	return &BlueprintError{
+		Err: err,
+		Pos: module.pos,
+	}
+}
+
+func (c *Context) modulesFromName(name string, namespace Namespace) []*moduleInfo {
+	group, exists := c.nameInterface.ModuleFromName(name, namespace)
+	if exists {
 		return group.modules
 	}
 	return nil
 }
 
-func (c *Context) sortedModuleNames() []string {
-	if c.cachedSortedModuleNames == nil {
-		c.cachedSortedModuleNames = make([]string, 0, len(c.moduleNames))
-		for moduleName := range c.moduleNames {
-			c.cachedSortedModuleNames = append(c.cachedSortedModuleNames,
-				moduleName)
+func (c *Context) sortedModuleGroups() []*moduleGroup {
+	if c.cachedSortedModuleGroups == nil {
+		unwrap := func(wrappers []ModuleGroup) []*moduleGroup {
+			result := make([]*moduleGroup, 0, len(wrappers))
+			for _, group := range wrappers {
+				result = append(result, group.moduleGroup)
+			}
+			return result
 		}
-		sort.Strings(c.cachedSortedModuleNames)
+
+		c.cachedSortedModuleGroups = unwrap(c.nameInterface.AllModules())
 	}
 
-	return c.cachedSortedModuleNames
+	return c.cachedSortedModuleGroups
 }
 
 func (c *Context) visitAllModules(visit func(Module)) {
@@ -2273,9 +2529,8 @@ func (c *Context) visitAllModules(visit func(Module)) {
 		}
 	}()
 
-	for _, moduleName := range c.sortedModuleNames() {
-		modules := c.modulesFromName(moduleName)
-		for _, module = range modules {
+	for _, moduleGroup := range c.sortedModuleGroups() {
+		for _, module = range moduleGroup.modules {
 			visit(module.logicModule)
 		}
 	}
@@ -2293,9 +2548,8 @@ func (c *Context) visitAllModulesIf(pred func(Module) bool,
 		}
 	}()
 
-	for _, moduleName := range c.sortedModuleNames() {
-		modules := c.modulesFromName(moduleName)
-		for _, module := range modules {
+	for _, moduleGroup := range c.sortedModuleGroups() {
+		for _, module := range moduleGroup.modules {
 			if pred(module.logicModule) {
 				visit(module.logicModule)
 			}
@@ -2536,9 +2790,13 @@ func (c *Context) ModuleName(logicModule Module) string {
 	return module.Name()
 }
 
-func (c *Context) ModuleDir(logicModule Module) string {
+func (c *Context) ModulePath(logicModule Module) string {
 	module := c.moduleInfo[logicModule]
-	return filepath.Dir(module.relBlueprintsFile)
+	return module.relBlueprintsFile
+}
+
+func (c *Context) ModuleDir(logicModule Module) string {
+	return filepath.Dir(c.ModulePath(logicModule))
 }
 
 func (c *Context) ModuleSubDir(logicModule Module) string {
@@ -2957,24 +3215,33 @@ func (s depSorter) Swap(i, j int) {
 	s[i], s[j] = s[j], s[i]
 }
 
-type moduleSorter []*moduleInfo
+type moduleSorter struct {
+	modules       []*moduleInfo
+	nameInterface NameInterface
+}
 
 func (s moduleSorter) Len() int {
-	return len(s)
+	return len(s.modules)
 }
 
 func (s moduleSorter) Less(i, j int) bool {
-	iName := s[i].Name()
-	jName := s[j].Name()
+	iMod := s.modules[i]
+	jMod := s.modules[j]
+	iName := s.nameInterface.UniqueName(newNamespaceContext(iMod), iMod.group.name)
+	jName := s.nameInterface.UniqueName(newNamespaceContext(jMod), jMod.group.name)
 	if iName == jName {
-		iName = s[i].variantName
-		jName = s[j].variantName
+		iName = s.modules[i].variantName
+		jName = s.modules[j].variantName
+	}
+
+	if iName == jName {
+		panic(fmt.Sprintf("duplicate module name: %s: %#v and %#v\n", iName, iMod, jMod))
 	}
 	return iName < jName
 }
 
 func (s moduleSorter) Swap(i, j int) {
-	s[i], s[j] = s[j], s[i]
+	s.modules[i], s.modules[j] = s.modules[j], s.modules[i]
 }
 
 func (c *Context) writeAllModuleActions(nw *ninjaWriter) error {
@@ -2989,7 +3256,7 @@ func (c *Context) writeAllModuleActions(nw *ninjaWriter) error {
 	for _, module := range c.moduleInfo {
 		modules = append(modules, module)
 	}
-	sort.Sort(moduleSorter(modules))
+	sort.Sort(moduleSorter{modules, c.nameInterface})
 
 	buf := bytes.NewBuffer(nil)
 
@@ -3007,8 +3274,7 @@ func (c *Context) writeAllModuleActions(nw *ninjaWriter) error {
 		relPos.Filename = module.relBlueprintsFile
 
 		// Get the name and location of the factory function for the module.
-		factory := c.moduleFactories[module.typeName]
-		factoryFunc := runtime.FuncForPC(reflect.ValueOf(factory).Pointer())
+		factoryFunc := runtime.FuncForPC(reflect.ValueOf(module.factory).Pointer())
 		factoryName := factoryFunc.Name()
 
 		infoMap := map[string]interface{}{

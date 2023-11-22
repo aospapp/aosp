@@ -20,16 +20,14 @@ import com.android.ddmlib.EmulatorConsole;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.targetprep.BaseTargetPreparer;
 import com.android.tradefed.targetprep.BuildError;
-import com.android.tradefed.targetprep.ITargetPreparer;
 import com.android.tradefed.targetprep.TargetSetupError;
 
 import org.junit.Assert;
 
-/**
- * Sends and SMS message to the emulator
- */
-public class EmulatorSmsPreparer implements ITargetPreparer {
+/** Sends and SMS message to the emulator */
+public class EmulatorSmsPreparer extends BaseTargetPreparer {
 
 
     /**

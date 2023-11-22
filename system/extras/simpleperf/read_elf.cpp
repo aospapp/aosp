@@ -348,15 +348,41 @@ void AddSymbolForPltSection(const llvm::object::ELFObjectFile<ELFT>* elf,
 }
 
 template <class ELFT>
+void CheckSymbolSections(const llvm::object::ELFObjectFile<ELFT>* elf,
+                         bool* has_symtab, bool* has_dynsym) {
+  *has_symtab = false;
+  *has_dynsym = false;
+  for (auto it = elf->section_begin(); it != elf->section_end(); ++it) {
+    const llvm::object::ELFSectionRef& section_ref = *it;
+    llvm::StringRef section_name;
+    std::error_code err = section_ref.getName(section_name);
+    if (err) {
+      continue;
+    }
+    if (section_name == ".dynsym") {
+      *has_dynsym = true;
+    } else if (section_name == ".symtab") {
+      *has_symtab = true;
+    }
+  }
+}
+
+template <class ELFT>
 ElfStatus ParseSymbolsFromELFFile(const llvm::object::ELFObjectFile<ELFT>* elf,
                                   const std::function<void(const ElfFileSymbol&)>& callback) {
   auto machine = elf->getELFFile()->getHeader()->e_machine;
   bool is_arm = (machine == llvm::ELF::EM_ARM || machine == llvm::ELF::EM_AARCH64);
   AddSymbolForPltSection(elf, callback);
-  if (elf->symbol_begin() != elf->symbol_end()) {
+  // Some applications deliberately ship elf files with broken section tables.
+  // So check the existence of .symtab section and .dynsym section before reading symbols.
+  bool has_symtab;
+  bool has_dynsym;
+  CheckSymbolSections(elf, &has_symtab, &has_dynsym);
+  if (has_symtab && elf->symbol_begin() != elf->symbol_end()) {
     ReadSymbolTable(elf->symbol_begin(), elf->symbol_end(), callback, is_arm);
     return ElfStatus::NO_ERROR;
-  } else if (elf->dynamic_symbol_begin()->getRawDataRefImpl() != llvm::object::DataRefImpl()) {
+  } else if (has_dynsym &&
+      elf->dynamic_symbol_begin()->getRawDataRefImpl() != llvm::object::DataRefImpl()) {
     ReadSymbolTable(elf->dynamic_symbol_begin(), elf->dynamic_symbol_end(), callback, is_arm);
   }
   std::string debugdata;

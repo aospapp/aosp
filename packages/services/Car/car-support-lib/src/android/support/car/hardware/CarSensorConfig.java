@@ -16,11 +16,11 @@
 
 package android.support.car.hardware;
 
-import android.os.Bundle;
-import android.support.annotation.RestrictTo;
-import java.util.ArrayList;
+import static androidx.annotation.RestrictTo.Scope.GROUP_ID;
 
-import static android.support.annotation.RestrictTo.Scope.GROUP_ID;
+import android.os.Bundle;
+
+import androidx.annotation.RestrictTo;
 
 /**
  * A CarSensorConfig object corresponds to a single sensor type coming from the car.
@@ -30,7 +30,7 @@ public class CarSensorConfig {
     /** List of property specific mapped elements in bundle for WHEEL_TICK_DISTANCE sensor*/
     /** @hide */
     public final static String WHEEL_TICK_DISTANCE_SUPPORTED_WHEELS =
-        "android.car.wheelTickDistanceSupportedWhheels";
+        "android.car.wheelTickDistanceSupportedWheels";
     /** @hide */
     public final static String WHEEL_TICK_DISTANCE_FRONT_LEFT_UM_PER_TICK =
         "android.car.wheelTickDistanceFrontLeftUmPerTick";

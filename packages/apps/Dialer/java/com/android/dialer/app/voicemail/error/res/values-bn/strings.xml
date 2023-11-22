@@ -17,7 +17,6 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="voicemail_error_turn_off_airplane_mode_title" msgid="335011175933917603">"বিমান মোড বন্ধ করুন"</string>
     <string name="voicemail_error_activating_title" msgid="2428457130578359186">"ভিজ্যুয়াল ভয়েসমেল সক্রিয়করণ"</string>
     <string name="voicemail_error_activating_message" msgid="7157030596259443393">"ভিজ্যুয়াল ভয়েসমেল সম্পূর্ণরূপে সক্রিয় না করা পর্যন্ত আপনি ভয়েসমেল সংক্রান্ত কোনো বিজ্ঞপ্তি নাও পেতে পারেন৷ ভয়েসমেল সম্পূর্ণরূপে সক্রিয় না হওয়া পর্যন্ত নতুন বার্তাগুলিকে পুনরুদ্ধার করতে ভয়েসমেলে কল করুন৷"</string>
     <string name="voicemail_error_not_activate_no_signal_title" msgid="742273366199085615">"ভিজ্যুয়াল ভয়েসমেল সক্রিয় করবেন না"</string>
@@ -50,7 +49,6 @@
     <string name="voicemail_error_inbox_almost_full_turn_archive_on_message" msgid="9140680538578301853">"আপনার মেলবক্স প্রায় পূর্ণ। স্থান খালি করতে, অতিরিক্ত সঞ্চয়স্থান চালু করুন যাতে Google আপনার ভয়েসমেল বার্তাগুলি পরিচালনা করতে এবং ব্যাক আপ নিতে পারে।"</string>
     <string name="voicemail_error_pin_not_set_title" msgid="1287168514277948082">"আপনার ভয়েসমেল পিন সেট করুন"</string>
     <string name="voicemail_error_pin_not_set_message" msgid="3802375002103184625">"যে কোনো সময়ে আপনার ভয়েসমেল অ্যাক্সেস করার জন্য আপনার একটি ভয়েসমেল পিন প্রয়োজন৷"</string>
-    <string name="voicemail_error_unknown_title" msgid="7214482611706360680">"অজানা ত্রুটি"</string>
     <string name="voicemail_action_turn_off_airplane_mode" msgid="6905706401164671086">"বিমান মোড সেটিংস"</string>
     <string name="voicemail_action_set_pin" msgid="958510049866316228">"পিন সেট করুন"</string>
     <string name="voicemail_action_retry" msgid="4450307484541052511">"আবার চেষ্টা করুন"</string>
@@ -79,21 +77,21 @@
     <string name="vvm3_error_status_sms_timeout_message" msgid="9079367624352316780">"দুঃখিত, আপনার পরিষেবার সেট আপ করার সময়ে আমাদের সমস্যা হচ্ছে৷ অনুগ্রহ করে আবার পরে চেষ্টা করুন৷ যদি তখনো সমস্যাটি থেকে থাকে, তাহলে অনুগ্রহ করে <xliff:g id="NUMBER">%1$s</xliff:g> এ কল করে গ্রাহক পরিষেবার সাথে যোগাযোগ করুন এবং তাদের জানান যে ত্রুটি কোডটি হলো ৯০০৯৷"</string>
     <string name="vvm3_error_subscriber_blocked_title" msgid="3650932081111129710">"আপনার ভয়েস মেলবক্সের সাথে সংযুক্ত করা যাবে না"</string>
     <string name="vvm3_error_subscriber_blocked_message" msgid="5162479488602796264">"দুঃখিত, আমরা আপনার ভয়েস মেলবক্সের সাথে এই সময়ে সংযুক্ত করতে পারছি না৷ অনুগ্রহ করে আবার পরে চেষ্টা করুন৷ যদি তখনো সমস্যাটি থেকে থাকে, তাহলে অনুগ্রহ করে <xliff:g id="NUMBER">%1$s</xliff:g> এ কল করে গ্রাহক পরিষেবার সাথে যোগাযোগ করুন এবং তাদের জানান যে ত্রুটি কোডটি হলো ৯৯৯০৷"</string>
-    <string name="vvm3_error_unknown_user_title" msgid="3908082247867523916">"ভয়েসমেলের সেট আপ করুন"</string>
+    <string name="vvm3_error_unknown_user_title" msgid="2667768481941705796">"ভয়েসমেল সেট-আপ করুন"</string>
     <string name="vvm3_error_unknown_user_message" msgid="1509539640475335686">"আপনার অ্যাকাউন্টে ভয়েসমেলের সেট আপ করা নেই৷ অনুগ্রহ করে <xliff:g id="NUMBER">%1$s</xliff:g> এ কল করে গ্রাহক পরিষেবার সাথে যোগাযোগ করুন এবং তাদের জানান যে ত্রুটি কোডটি হলো ৯৯৯১৷"</string>
-    <string name="vvm3_error_unknown_device_title" msgid="1894628172321293169">"ভয়েসমেল"</string>
-    <string name="vvm3_error_unknown_device_message" msgid="5653639091623486217">"এই ডিভাইসটিতে ভিজ্যুয়াল ভয়েসমেলকে ব্যবহার করা যাবে না৷ অনুগ্রহ করে <xliff:g id="NUMBER">%1$s</xliff:g> এ কল করে গ্রাহক পরিষেবার সাথে যোগাযোগ করুন এবং তাদের জানান যে ত্রুটি কোডটি হলো ৯৯৯২৷"</string>
+    <string name="vvm3_error_unknown_device_title" msgid="1759276751912714581">"ভয়েসমেল"</string>
+    <string name="vvm3_error_unknown_device_message" msgid="3135004871983210946">"এই ডিভাইসটিতে ভিজুয়াল ভয়েসমেল ব্যবহার করা যাবে না। অনুগ্রহ করে <xliff:g id="NUMBER">%1$s</xliff:g> নম্বরে কল করে গ্রাহক পরিষেবার সাথে যোগাযোগ করুন এবং তাদের জানান যে ত্রুটি কোডটি হল ৯৯৯২৷"</string>
     <string name="vvm3_error_invalid_password_title" msgid="4552360498026788519">"কিছু ভুল হয়েছে"</string>
     <string name="vvm3_error_invalid_password_message" msgid="7203223289526274700">"অনুগ্রহ করে <xliff:g id="NUMBER">%1$s</xliff:g> এ কল করে গ্রাহক পরিষেবার সাথে যোগাযোগ করুন এবং তাদের জানান যে ত্রুটি কোডটি হলো ৯৯৯৩৷"</string>
-    <string name="vvm3_error_mailbox_not_initialized_title" msgid="7903951619707049472">"ভিজ্যুয়াল ভয়েসমেল"</string>
-    <string name="vvm3_error_mailbox_not_initialized_message" msgid="6411209982463628638">"ভিজ্যুয়াল ভয়েসমেলের সেট আপ সম্পূর্ণ করতে, অনুগ্রহ করে <xliff:g id="NUMBER">%1$s</xliff:g> এ কল করে গ্রাহক পরিষেবার সাথে যোগাযোগ করুন এবং তাদের জানান যে ত্রুটি কোডটি হলো ৯৯৯৪৷"</string>
-    <string name="vvm3_error_service_not_provisioned_title" msgid="6200721664168681357">"ভিজ্যুয়াল ভয়েসমেল"</string>
-    <string name="vvm3_error_service_not_provisioned_message" msgid="2652652017548677049">"ভিজ্যুয়াল ভয়েসমেলের সেট আপ সম্পূর্ণ করতে, অনুগ্রহ করে <xliff:g id="NUMBER">%1$s</xliff:g> এ কল করে গ্রাহক পরিষেবার সাথে যোগাযোগ করুন এবং তাদের জানান যে ত্রুটি কোডটি হলো ৯৯৯৫৷"</string>
-    <string name="vvm3_error_service_not_activated_title" msgid="8223482379756083354">"ভিজ্যুয়াল ভয়েসমেল"</string>
-    <string name="vvm3_error_service_not_activated_message" msgid="3877179443583231620">"ভিজ্যুয়াল ভয়েসমেলকে সক্রিয় করতে, অনুগ্রহ করে <xliff:g id="NUMBER">%1$s</xliff:g> এ কল করে গ্রাহক পরিষেবার সাথে যোগাযোগ করুন এবং তাদের জানান যে ত্রুটি কোডটি হলো ৯৯৯৬৷"</string>
+    <string name="vvm3_error_mailbox_not_initialized_title" msgid="7764342270506951131">"ভিজুয়াল ভয়েসমেল"</string>
+    <string name="vvm3_error_mailbox_not_initialized_message" msgid="362772845865359110">"ভিজুয়াল ভয়েসমেলের সেট-আপ সম্পূর্ণ করতে, অনুগ্রহ করে <xliff:g id="NUMBER">%1$s</xliff:g> নম্বরে কল করে গ্রাহক পরিষেবার সাথে যোগাযোগ করুন এবং তাদের জানান যে ত্রুটি কোডটি হল ৯৯৯৪৷"</string>
+    <string name="vvm3_error_service_not_provisioned_title" msgid="6061112314968583016">"ভিজুয়াল ভয়েসমেল"</string>
+    <string name="vvm3_error_service_not_provisioned_message" msgid="543364752584952428">"ভিজুয়াল ভয়েসমেলের সেট-আপ সম্পূর্ণ করতে, অনুগ্রহ করে <xliff:g id="NUMBER">%1$s</xliff:g> নম্বরে কল করে গ্রাহক পরিষেবার সাথে যোগাযোগ করুন এবং তাদের জানান যে ত্রুটি কোডটি হল ৯৯৯৫।"</string>
+    <string name="vvm3_error_service_not_activated_title" msgid="8083873030555985013">"ভিজুয়াল ভয়েসমেল"</string>
+    <string name="vvm3_error_service_not_activated_message" msgid="6537476630560465297">"ভিজুয়াল ভয়েসমেল সক্রিয় করতে, অনুগ্রহ করে <xliff:g id="NUMBER">%1$s</xliff:g> নম্বরে কল করে গ্রাহক পরিষেবার সাথে যোগাযোগ করুন এবং তাদের জানান যে ত্রুটি কোডটি হল ৯৯৯৬৷"</string>
     <string name="vvm3_error_user_blocked_title" msgid="3182280563102274326">"কিছু ভুল হয়েছে"</string>
-    <string name="vvm3_error_user_blocked_message" msgid="5006388183845631086">"ভিজ্যুয়াল ভয়েসমেলের সেট আপ সম্পূর্ণ করতে, অনুগ্রহ করে <xliff:g id="NUMBER">%1$s</xliff:g> এ কল করে গ্রাহক পরিষেবার সাথে যোগাযোগ করুন এবং তাদের জানান যে ত্রুটি কোডটি হলো ৯৯৯৮৷"</string>
-    <string name="vvm3_error_subscriber_unknown_title" msgid="2327013918755472131">"ভিজ্যুয়াল ভয়েসমেলটি অক্ষম রয়েছে"</string>
+    <string name="vvm3_error_user_blocked_message" msgid="562687121370364596">"ভিজুয়াল ভয়েসমেলের সেট-আপ সম্পূর্ণ করতে, অনুগ্রহ করে <xliff:g id="NUMBER">%1$s</xliff:g> নম্বরে কল করে গ্রাহক পরিষেবার সাথে যোগাযোগ করুন এবং তাদের জানান যে ত্রুটি কোডটি হল ৯৯৯৪৷"</string>
+    <string name="vvm3_error_subscriber_unknown_title" msgid="2776762297746819776">"ভিজুয়াল ভয়েসমেল অক্ষম রয়েছে"</string>
     <string name="vvm3_error_subscriber_unknown_message" msgid="7991526423950940698">"ভিজ্যুয়াল ভয়েসমেলকে সক্রিয় করতে, অনুগ্রহ করে <xliff:g id="NUMBER">%1$s</xliff:g> এ কল করে গ্রাহক পরিষেবার সাথে যোগাযোগ করুন৷"</string>
     <string name="vvm3_error_imap_getquota_error_title" msgid="2229474251543811881">"কিছু ভুল হয়েছে"</string>
     <string name="vvm3_error_imap_getquota_error_message" msgid="4266777005393484563">"অনুগ্রহ করে <xliff:g id="NUMBER">%1$s</xliff:g> এ কল করে গ্রাহক পরিষেবার সাথে যোগাযোগ করুন এবং তাদের জানান যে ত্রুটি কোডটি হলো ৯৯৯৭৷"</string>
@@ -101,10 +99,13 @@
     <string name="vvm3_error_imap_select_error_message" msgid="7535508175537847085">"অনুগ্রহ করে <xliff:g id="NUMBER">%1$s</xliff:g> এ কল করে গ্রাহক পরিষেবার সাথে যোগাযোগ করুন এবং তাদের জানান যে ত্রুটি কোডটি হলো ৯৯৮৯৷"</string>
     <string name="vvm3_error_imap_error_title" msgid="1952971680250515832">"কিছু ভুল হয়েছে"</string>
     <string name="vvm3_error_imap_error_message" msgid="6668651261796655388">"অনুগ্রহ করে <xliff:g id="NUMBER">%1$s</xliff:g> এ কল করে গ্রাহক পরিষেবার সাথে যোগাযোগ করুন এবং তাদের জানান যে ত্রুটি কোডটি হলো ৯৯৯৯৷"</string>
-    <string name="verizon_terms_and_conditions_title" msgid="9074967311276321500">"ভিজ্যুয়াল ভয়েসমেলের নিবন্ধন এবং শর্তাদি"</string>
-    <string name="verizon_terms_and_conditions_message" msgid="120258835788235077">"%1$s\n\nভিজ্যুয়াল ভয়েসমেল ব্যবহার করার জন্য আপনাকে অবশ্যই Verizon Wireless এর নিবন্ধন এবং শর্তাদি স্বীকার করতে হবে:\n\n%2$s"</string>
-    <string name="dialer_terms_and_conditions_title" msgid="311603424861921251">"ভিজ্যুয়াল ভয়েসমেল চালু করুন"</string>
+    <string name="verizon_terms_and_conditions_title" msgid="7885825788225936898">"ভিজুয়াল ভয়েসমেল চালু করুন"</string>
+    <string name="verizon_terms_and_conditions_message" msgid="115838469000232781">"%1$s\n\n ভিজুয়াল ভয়েসমেল চালু করার মাধ্যমে আপনি Verizon Wireless এর নিয়ম ও শর্তাবলীতে সম্মতি দেন:\n\n%2$s"</string>
+    <string name="dialer_terms_and_conditions_title" msgid="3861661058770826975">"ভিজুয়াল ভয়েসমেল চালু করুন"</string>
     <string name="dialer_terms_and_conditions_message" msgid="6207219973959897196">"%s"</string>
+    <string name="dialer_terms_and_conditions_1.0" msgid="9151400923645683073">"ভয়েসমেলে কল না করেই আপনার মেসেজ দেখুন এবং শুনুন। Google এর ফ্রি ট্রান্সক্রিপশন পরিষেবার মাধ্যমে আপনার ভয়েসমেলের ট্রান্সক্রিপ্ট দেওয়া হয়। %s"</string>
+    <string name="dialer_terms_and_conditions_for_verizon_1.0" msgid="4354228864875417888">"ভয়েসমেলে কল না করেই আপনার মেসেজ দেখুন এবং শুনুন। %s"</string>
+    <string name="dialer_terms_and_conditions_learn_more" msgid="658300158603798287">"আরও জানুন"</string>
     <string name="verizon_terms_and_conditions_decline_dialog_message" msgid="7852059293806766767">"নিবন্ধন এবং শর্তাদি অস্বীকার করা হলে ভিজ্যুয়াল ভয়েসমেল অক্ষম করা হবে৷"</string>
     <string name="verizon_terms_and_conditions_decline_dialog_downgrade" msgid="8347128304508008823">"ভিজ্যুয়াল ভয়েসমেল অক্ষম করুন"</string>
     <string name="dialer_terms_and_conditions_decline_dialog_message" msgid="1726573227032877573">"নিবন্ধন এবং শর্তাদি অস্বীকার করা হলে ভিজ্যুয়াল ভয়েসমেলের ট্রান্সক্রিপশান অক্ষম করা হবে৷"</string>

@@ -21,9 +21,6 @@
 
     <minSdk>15</minSdk>
 
-    <dependency>com.android.support:support-v4:24.0.0</dependency>
-    <dependency>com.android.support:design:24.0.0</dependency>
-
     <strings>
         <intro>
             <![CDATA[
@@ -33,7 +30,7 @@ Note: The "RuntimePermissions" sample provides a more complete overview over the
         </intro>
     </strings>
 
-    <template src="base"/>
+    <template src="base-build"/>
 
     <metadata>
         <status>PUBLISHED</status>

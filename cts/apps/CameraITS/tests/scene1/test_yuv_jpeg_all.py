@@ -77,7 +77,7 @@ def main():
                     sum([pow(rgb0[i] - rgb1[i], 2.0) for i in range(3)]) / 3.0)
             max_diff = max(max_diff, rms_diff)
         print "Max RMS difference:", max_diff
-        assert(rms_diff < THRESHOLD_MAX_RMS_DIFF)
+        assert(max_diff < THRESHOLD_MAX_RMS_DIFF)
 
 if __name__ == '__main__':
     main()

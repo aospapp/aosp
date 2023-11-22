@@ -67,6 +67,9 @@ public:
 
     void onDestroyContext(EGLContext ctx);
     void onDestroySurface(EGLSurface surface);
+
+    bool isContext(EGLContext ctx);
+    bool isSurface(EGLSurface ctx);
 private:
     EGLClient_glesInterface *loadGLESClientAPI(const char *libName,
                                                EGLClient_eglInterface *eglIface,

@@ -16,11 +16,13 @@
 
 #include "wifi_system/interface_tool.h"
 
+#include <net/if_arp.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
 /* We need linux/if.h for flags like IFF_UP.  Sadly, it forward declares
    struct sockaddr and must be included after sys/socket.h. */
 #include <linux/if.h>
+
 
 #include <android-base/logging.h>
 #include <android-base/unique_fd.h>
@@ -101,6 +103,35 @@ bool InterfaceTool::SetUpState(const char* if_name, bool request_up) {
 
 bool InterfaceTool::SetWifiUpState(bool request_up) {
   return SetUpState(kWlan0InterfaceName, request_up);
+}
+
+bool InterfaceTool::SetMacAddress(const char* if_name,
+    const std::array<uint8_t, ETH_ALEN>& new_address) {
+  struct ifreq ifr;
+  static_assert(ETH_ALEN <= sizeof(ifr.ifr_hwaddr.sa_data),
+    "new address is too long");
+
+  base::unique_fd sock(socket(PF_INET, SOCK_DGRAM | SOCK_CLOEXEC, 0));
+  if (sock.get() < 0) {
+    LOG(ERROR) << "Failed to open socket to set MAC address ("
+               << strerror(errno) << ")";
+    return false;
+  }
+
+  if (!GetIfState(if_name, sock.get(), &ifr)) {
+    return false;  // logging done internally
+  }
+
+  memset(&ifr.ifr_hwaddr, 0, sizeof(ifr.ifr_hwaddr));
+  ifr.ifr_hwaddr.sa_family = ARPHRD_ETHER;
+  memcpy(ifr.ifr_hwaddr.sa_data, new_address.data(), new_address.size());
+  if (TEMP_FAILURE_RETRY(ioctl(sock.get(), SIOCSIFHWADDR, &ifr)) != 0) {
+    LOG(ERROR) << "Could not set interface MAC address for " << if_name
+               << " (" << strerror(errno) << ")";
+    return false;
+  }
+
+  return true;
 }
 
 }  // namespace wifi_system

@@ -17,46 +17,116 @@
 #include "art_method-inl.h"
 #include "base/callee_save_type.h"
 #include "callee_save_frame.h"
-#include "entrypoints/entrypoint_utils-inl.h"
 #include "class_linker-inl.h"
 #include "class_table-inl.h"
-#include "dex_file-inl.h"
-#include "dex_file_types.h"
+#include "dex/dex_file-inl.h"
+#include "dex/dex_file_types.h"
+#include "entrypoints/entrypoint_utils-inl.h"
 #include "gc/heap.h"
 #include "mirror/class-inl.h"
 #include "mirror/class_loader.h"
-#include "mirror/object_array-inl.h"
 #include "mirror/object-inl.h"
+#include "mirror/object_array-inl.h"
 #include "oat_file.h"
 #include "runtime.h"
 
 namespace art {
 
-static inline void BssWriteBarrier(ArtMethod* outer_method) REQUIRES_SHARED(Locks::mutator_lock_) {
-  // For AOT code, we need a write barrier for the class loader that holds the
-  // GC roots in the .bss.
-  const DexFile* dex_file = outer_method->GetDexFile();
-  if (dex_file != nullptr &&
-      dex_file->GetOatDexFile() != nullptr &&
-      !dex_file->GetOatDexFile()->GetOatFile()->GetBssGcRoots().empty()) {
+static void StoreObjectInBss(ArtMethod* outer_method,
+                             const OatFile* oat_file,
+                             size_t bss_offset,
+                             ObjPtr<mirror::Object> object) REQUIRES_SHARED(Locks::mutator_lock_) {
+  // Used for storing Class or String in .bss GC roots.
+  static_assert(sizeof(GcRoot<mirror::Class>) == sizeof(GcRoot<mirror::Object>), "Size check.");
+  static_assert(sizeof(GcRoot<mirror::String>) == sizeof(GcRoot<mirror::Object>), "Size check.");
+  DCHECK_NE(bss_offset, IndexBssMappingLookup::npos);
+  DCHECK_ALIGNED(bss_offset, sizeof(GcRoot<mirror::Object>));
+  if (UNLIKELY(!oat_file->IsExecutable())) {
+    // There are situations where we execute bytecode tied to an oat file opened
+    // as non-executable (i.e. the AOT-compiled code cannot be executed) and we
+    // can JIT that bytecode and get here without the .bss being mmapped.
+    return;
+  }
+  GcRoot<mirror::Object>* slot = reinterpret_cast<GcRoot<mirror::Object>*>(
+      const_cast<uint8_t*>(oat_file->BssBegin() + bss_offset));
+  DCHECK_GE(slot, oat_file->GetBssGcRoots().data());
+  DCHECK_LT(slot, oat_file->GetBssGcRoots().data() + oat_file->GetBssGcRoots().size());
+  if (slot->IsNull()) {
+    // This may race with another thread trying to store the very same value but that's OK.
+    *slot = GcRoot<mirror::Object>(object);
+    // We need a write barrier for the class loader that holds the GC roots in the .bss.
     ObjPtr<mirror::ClassLoader> class_loader = outer_method->GetClassLoader();
+    Runtime* runtime = Runtime::Current();
     if (kIsDebugBuild) {
-      ClassTable* class_table =
-          Runtime::Current()->GetClassLinker()->ClassTableForClassLoader(class_loader);
-      CHECK(class_table != nullptr &&
-            !class_table->InsertOatFile(dex_file->GetOatDexFile()->GetOatFile()))
+      ClassTable* class_table = runtime->GetClassLinker()->ClassTableForClassLoader(class_loader);
+      CHECK(class_table != nullptr && !class_table->InsertOatFile(oat_file))
           << "Oat file with .bss GC roots was not registered in class table: "
-          << dex_file->GetOatDexFile()->GetOatFile()->GetLocation();
+          << oat_file->GetLocation();
     }
     if (class_loader != nullptr) {
-      // Note that we emit the barrier before the compiled code stores the String or Class
-      // as a GC root. This is OK as there is no suspend point point in between.
-      Runtime::Current()->GetHeap()->WriteBarrierEveryFieldOf(class_loader);
+      runtime->GetHeap()->WriteBarrierEveryFieldOf(class_loader);
     } else {
-      Runtime::Current()->GetClassLinker()->WriteBarrierForBootOatFileBssRoots(
-          dex_file->GetOatDexFile()->GetOatFile());
+      runtime->GetClassLinker()->WriteBarrierForBootOatFileBssRoots(oat_file);
+    }
+  } else {
+    // Each slot serves to store exactly one Class or String.
+    DCHECK_EQ(object, slot->Read());
+  }
+}
+
+static inline void StoreTypeInBss(ArtMethod* outer_method,
+                                  dex::TypeIndex type_idx,
+                                  ObjPtr<mirror::Class> resolved_type)
+    REQUIRES_SHARED(Locks::mutator_lock_) {
+  const DexFile* dex_file = outer_method->GetDexFile();
+  DCHECK(dex_file != nullptr);
+  const OatDexFile* oat_dex_file = dex_file->GetOatDexFile();
+  if (oat_dex_file != nullptr) {
+    size_t bss_offset = IndexBssMappingLookup::GetBssOffset(oat_dex_file->GetTypeBssMapping(),
+                                                            type_idx.index_,
+                                                            dex_file->NumTypeIds(),
+                                                            sizeof(GcRoot<mirror::Class>));
+    if (bss_offset != IndexBssMappingLookup::npos) {
+      StoreObjectInBss(outer_method, oat_dex_file->GetOatFile(), bss_offset, resolved_type);
     }
   }
+}
+
+static inline void StoreStringInBss(ArtMethod* outer_method,
+                                    dex::StringIndex string_idx,
+                                    ObjPtr<mirror::String> resolved_string)
+    REQUIRES_SHARED(Locks::mutator_lock_) __attribute__((optnone)) {
+  const DexFile* dex_file = outer_method->GetDexFile();
+  DCHECK(dex_file != nullptr);
+  const OatDexFile* oat_dex_file = dex_file->GetOatDexFile();
+  if (oat_dex_file != nullptr) {
+    size_t bss_offset = IndexBssMappingLookup::GetBssOffset(oat_dex_file->GetStringBssMapping(),
+                                                            string_idx.index_,
+                                                            dex_file->NumStringIds(),
+                                                            sizeof(GcRoot<mirror::Class>));
+    if (bss_offset != IndexBssMappingLookup::npos) {
+      StoreObjectInBss(outer_method, oat_dex_file->GetOatFile(), bss_offset, resolved_string);
+    }
+  }
+}
+
+static ALWAYS_INLINE bool CanReferenceBss(ArtMethod* outer_method, ArtMethod* caller)
+    REQUIRES_SHARED(Locks::mutator_lock_) {
+  // .bss references are used only for AOT-compiled code and only when the instruction
+  // originates from the outer method's dex file and the type or string index is tied to
+  // that dex file. As we do not want to check if the call is coming from AOT-compiled
+  // code (that could be expensive), simply check if the caller has the same dex file.
+  //
+  // If we've accepted running AOT-compiled code despite the runtime class loader
+  // resolving the caller to a different dex file, this check shall prevent us from
+  // filling the .bss slot and we shall keep going through the slow path. This is slow
+  // but correct; we do not really care that much about performance in this odd case.
+  //
+  // JIT can inline throwing instructions across dex files and this check prevents
+  // looking up the index in the wrong dex file in that case. If the caller and outer
+  // method have the same dex file, we may or may not find a .bss slot to update;
+  // if we do, this can still benefit AOT-compiled code executed later.
+  return outer_method->GetDexFile() == caller->GetDexFile();
 }
 
 extern "C" mirror::Class* artInitializeStaticStorageFromCode(uint32_t type_idx, Thread* self)
@@ -65,46 +135,52 @@ extern "C" mirror::Class* artInitializeStaticStorageFromCode(uint32_t type_idx, 
   // A class may be accessing another class' fields when it doesn't have access, as access has been
   // given by inheritance.
   ScopedQuickEntrypointChecks sqec(self);
-  auto caller_and_outer = GetCalleeSaveMethodCallerAndOuterMethod(self,
-                                                                  CalleeSaveType::kSaveEverything);
+  auto caller_and_outer = GetCalleeSaveMethodCallerAndOuterMethod(
+      self, CalleeSaveType::kSaveEverythingForClinit);
   ArtMethod* caller = caller_and_outer.caller;
-  mirror::Class* result =
-      ResolveVerifyAndClinit(dex::TypeIndex(type_idx), caller, self, true, false);
-  if (LIKELY(result != nullptr)) {
-    BssWriteBarrier(caller_and_outer.outer_method);
+  ObjPtr<mirror::Class> result = ResolveVerifyAndClinit(dex::TypeIndex(type_idx),
+                                                        caller,
+                                                        self,
+                                                        /* can_run_clinit */ true,
+                                                        /* verify_access */ false);
+  if (LIKELY(result != nullptr) && CanReferenceBss(caller_and_outer.outer_method, caller)) {
+    StoreTypeInBss(caller_and_outer.outer_method, dex::TypeIndex(type_idx), result);
   }
-  return result;
+  return result.Ptr();
 }
 
 extern "C" mirror::Class* artInitializeTypeFromCode(uint32_t type_idx, Thread* self)
     REQUIRES_SHARED(Locks::mutator_lock_) {
-  // Called when method->dex_cache_resolved_types_[] misses.
+  // Called when the .bss slot was empty or for main-path runtime call.
   ScopedQuickEntrypointChecks sqec(self);
-  auto caller_and_outer = GetCalleeSaveMethodCallerAndOuterMethod(self,
-                                                                  CalleeSaveType::kSaveEverything);
+  auto caller_and_outer = GetCalleeSaveMethodCallerAndOuterMethod(
+      self, CalleeSaveType::kSaveEverythingForClinit);
   ArtMethod* caller = caller_and_outer.caller;
-  mirror::Class* result =
-      ResolveVerifyAndClinit(dex::TypeIndex(type_idx), caller, self, false, false);
-  if (LIKELY(result != nullptr)) {
-    BssWriteBarrier(caller_and_outer.outer_method);
+  ObjPtr<mirror::Class> result = ResolveVerifyAndClinit(dex::TypeIndex(type_idx),
+                                                        caller,
+                                                        self,
+                                                        /* can_run_clinit */ false,
+                                                        /* verify_access */ false);
+  if (LIKELY(result != nullptr) && CanReferenceBss(caller_and_outer.outer_method, caller)) {
+    StoreTypeInBss(caller_and_outer.outer_method, dex::TypeIndex(type_idx), result);
   }
-  return result;
+  return result.Ptr();
 }
 
 extern "C" mirror::Class* artInitializeTypeAndVerifyAccessFromCode(uint32_t type_idx, Thread* self)
     REQUIRES_SHARED(Locks::mutator_lock_) {
-  // Called when caller isn't guaranteed to have access to a type and the dex cache may be
-  // unpopulated.
+  // Called when caller isn't guaranteed to have access to a type.
   ScopedQuickEntrypointChecks sqec(self);
   auto caller_and_outer = GetCalleeSaveMethodCallerAndOuterMethod(self,
                                                                   CalleeSaveType::kSaveEverything);
   ArtMethod* caller = caller_and_outer.caller;
-  mirror::Class* result =
-      ResolveVerifyAndClinit(dex::TypeIndex(type_idx), caller, self, false, true);
-  if (LIKELY(result != nullptr)) {
-    BssWriteBarrier(caller_and_outer.outer_method);
-  }
-  return result;
+  ObjPtr<mirror::Class> result = ResolveVerifyAndClinit(dex::TypeIndex(type_idx),
+                                                        caller,
+                                                        self,
+                                                        /* can_run_clinit */ false,
+                                                        /* verify_access */ true);
+  // Do not StoreTypeInBss(); access check entrypoint is never used together with .bss.
+  return result.Ptr();
 }
 
 extern "C" mirror::String* artResolveStringFromCode(int32_t string_idx, Thread* self)
@@ -113,11 +189,11 @@ extern "C" mirror::String* artResolveStringFromCode(int32_t string_idx, Thread* 
   auto caller_and_outer = GetCalleeSaveMethodCallerAndOuterMethod(self,
                                                                   CalleeSaveType::kSaveEverything);
   ArtMethod* caller = caller_and_outer.caller;
-  mirror::String* result = ResolveStringFromCode(caller, dex::StringIndex(string_idx));
-  if (LIKELY(result != nullptr)) {
-    BssWriteBarrier(caller_and_outer.outer_method);
+  ObjPtr<mirror::String> result = ResolveStringFromCode(caller, dex::StringIndex(string_idx));
+  if (LIKELY(result != nullptr) && CanReferenceBss(caller_and_outer.outer_method, caller)) {
+    StoreStringInBss(caller_and_outer.outer_method, dex::StringIndex(string_idx), result);
   }
-  return result;
+  return result.Ptr();
 }
 
 }  // namespace art

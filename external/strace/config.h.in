@@ -30,12 +30,6 @@
 /* Current copyright year. */
 #undef COPYRIGHT_YEAR
 
-/* Define for the CRISv10 architecture. */
-#undef CRISV10
-
-/* Define for the CRISv32 architecture. */
-#undef CRISV32
-
 /* Define to 1 if you want OABI support on ARM EABI. */
 #undef ENABLE_ARM_OABI
 
@@ -45,11 +39,17 @@
 /* Define to 1 if you have the <asm/cachectl.h> header file. */
 #undef HAVE_ASM_CACHECTL_H
 
+/* Define to 1 if you have the <asm/guarded_storage.h> header file. */
+#undef HAVE_ASM_GUARDED_STORAGE_H
+
 /* Define to 1 if you have the <asm/sigcontext.h> header file. */
 #undef HAVE_ASM_SIGCONTEXT_H
 
 /* Define to 1 if you have the <asm/sysmips.h> header file. */
 #undef HAVE_ASM_SYSMIPS_H
+
+/* Define to 1 if you have the `be64toh' function. */
+#undef HAVE_BE64TOH
 
 /* Define to 1 if you have BLKGETSIZE64. */
 #undef HAVE_BLKGETSIZE64
@@ -645,6 +645,9 @@
    0 if you don't. */
 #undef HAVE_DECL_VM_VFS_CACHE_PRESSURE
 
+/* Define to 1 if you have the <demangle.h> header file. */
+#undef HAVE_DEMANGLE_H
+
 /* Define to 1 if the system provides dladdr */
 #undef HAVE_DLADDR
 
@@ -684,11 +687,20 @@
 /* Define to 1 if you have the <gnu/stubs-x32.h> header file. */
 #undef HAVE_GNU_STUBS_X32_H
 
+/* Define to 1 if you have the <iconv.h> header file. */
+#undef HAVE_ICONV_H
+
+/* Define to 1 if you have the `iconv_open' function. */
+#undef HAVE_ICONV_OPEN
+
 /* Define to 1 if you have the `if_indextoname' function. */
 #undef HAVE_IF_INDEXTONAME
 
 /* Define to 1 if you have the <inttypes.h> header file. */
 #undef HAVE_INTTYPES_H
+
+/* Define to 1 if you have the <libiberty/demangle.h> header file. */
+#undef HAVE_LIBIBERTY_DEMANGLE_H
 
 /* Define to 1 if you have the <libunwind-ptrace.h> header file. */
 #undef HAVE_LIBUNWIND_PTRACE_H
@@ -702,6 +714,9 @@
 /* Define to 1 if you have the <linux/btrfs.h> header file. */
 #undef HAVE_LINUX_BTRFS_H
 
+/* Define to 1 if you have the <linux/cryptouser.h> header file. */
+#undef HAVE_LINUX_CRYPTOUSER_H
+
 /* Define to 1 if you have the <linux/dm-ioctl.h> header file. */
 #undef HAVE_LINUX_DM_IOCTL_H
 
@@ -711,17 +726,23 @@
 /* Define to 1 if you have the <linux/falloc.h> header file. */
 #undef HAVE_LINUX_FALLOC_H
 
+/* Define to 1 if you have the <linux/fib_rules.h> header file. */
+#undef HAVE_LINUX_FIB_RULES_H
+
 /* Define to 1 if you have the <linux/fiemap.h> header file. */
 #undef HAVE_LINUX_FIEMAP_H
-
-/* Define to 1 if you have the <linux/filter.h> header file. */
-#undef HAVE_LINUX_FILTER_H
 
 /* Define to 1 if you have the <linux/genetlink.h> header file. */
 #undef HAVE_LINUX_GENETLINK_H
 
 /* Define to 1 if you have the <linux/hiddev.h> header file. */
 #undef HAVE_LINUX_HIDDEV_H
+
+/* Define to 1 if you have the <linux/if_addr.h> header file. */
+#undef HAVE_LINUX_IF_ADDR_H
+
+/* Define to 1 if you have the <linux/if_link.h> header file. */
+#undef HAVE_LINUX_IF_LINK_H
 
 /* Define to 1 if you have the <linux/input.h> header file. */
 #undef HAVE_LINUX_INPUT_H
@@ -732,6 +753,15 @@
 /* Define to 1 if you have the <linux/ip_vs.h> header file. */
 #undef HAVE_LINUX_IP_VS_H
 
+/* Define to 1 if you have the <linux/kcmp.h> header file. */
+#undef HAVE_LINUX_KCMP_H
+
+/* Define to 1 if you have the <linux/kvm.h> header file. */
+#undef HAVE_LINUX_KVM_H
+
+/* Define to 1 if you have the <linux/memfd.h> header file. */
+#undef HAVE_LINUX_MEMFD_H
+
 /* Define to 1 if you have the <linux/mmtimer.h> header file. */
 #undef HAVE_LINUX_MMTIMER_H
 
@@ -741,6 +771,9 @@
 /* Define to 1 if you have the <linux/msg.h> header file. */
 #undef HAVE_LINUX_MSG_H
 
+/* Define to 1 if you have the <linux/neighbour.h> header file. */
+#undef HAVE_LINUX_NEIGHBOUR_H
+
 /* Define to 1 if you have the <linux/netfilter_arp/arp_tables.h> header file.
    */
 #undef HAVE_LINUX_NETFILTER_ARP_ARP_TABLES_H
@@ -748,6 +781,10 @@
 /* Define to 1 if you have the <linux/netfilter_bridge/ebtables.h> header
    file. */
 #undef HAVE_LINUX_NETFILTER_BRIDGE_EBTABLES_H
+
+/* Define to 1 if you have the <linux/netfilter/ipset/ip_set.h> header file.
+   */
+#undef HAVE_LINUX_NETFILTER_IPSET_IP_SET_H
 
 /* Define to 1 if you have the <linux/netfilter_ipv4/ip_tables.h> header file.
    */
@@ -757,8 +794,42 @@
    file. */
 #undef HAVE_LINUX_NETFILTER_IPV6_IP6_TABLES_H
 
+/* Define to 1 if you have the <linux/netfilter/nfnetlink_acct.h> header file.
+   */
+#undef HAVE_LINUX_NETFILTER_NFNETLINK_ACCT_H
+
+/* Define to 1 if you have the <linux/netfilter/nfnetlink_conntrack.h> header
+   file. */
+#undef HAVE_LINUX_NETFILTER_NFNETLINK_CONNTRACK_H
+
+/* Define to 1 if you have the <linux/netfilter/nfnetlink_cthelper.h> header
+   file. */
+#undef HAVE_LINUX_NETFILTER_NFNETLINK_CTHELPER_H
+
+/* Define to 1 if you have the <linux/netfilter/nfnetlink_cttimeout.h> header
+   file. */
+#undef HAVE_LINUX_NETFILTER_NFNETLINK_CTTIMEOUT_H
+
 /* Define to 1 if you have the <linux/netfilter/nfnetlink.h> header file. */
 #undef HAVE_LINUX_NETFILTER_NFNETLINK_H
+
+/* Define to 1 if you have the <linux/netfilter/nfnetlink_log.h> header file.
+   */
+#undef HAVE_LINUX_NETFILTER_NFNETLINK_LOG_H
+
+/* Define to 1 if you have the <linux/netfilter/nfnetlink_queue.h> header
+   file. */
+#undef HAVE_LINUX_NETFILTER_NFNETLINK_QUEUE_H
+
+/* Define to 1 if you have the <linux/netfilter/nf_tables_compat.h> header
+   file. */
+#undef HAVE_LINUX_NETFILTER_NF_TABLES_COMPAT_H
+
+/* Define to 1 if you have the <linux/netfilter/nf_tables.h> header file. */
+#undef HAVE_LINUX_NETFILTER_NF_TABLES_H
+
+/* Define to 1 if you have the <linux/netfilter/xt_osf.h> header file. */
+#undef HAVE_LINUX_NETFILTER_XT_OSF_H
 
 /* Define to 1 if you have the <linux/nsfs.h> header file. */
 #undef HAVE_LINUX_NSFS_H
@@ -787,7 +858,7 @@
 /* Define to 1 if you have the <linux/utsname.h> header file. */
 #undef HAVE_LINUX_UTSNAME_H
 
-/* Define to 1 if you have CFLAG mpers support */
+/* Define to 1 if you have mpers_name mpers support */
 #undef HAVE_M32_MPERS
 
 /* Define to 1 if MPERS_NAME has the type 'struct stat'. */
@@ -809,7 +880,7 @@
 /* Define to 1 if you have the <mqueue.h> header file. */
 #undef HAVE_MQUEUE_H
 
-/* Define to 1 if you have CFLAG mpers support */
+/* Define to 1 if you have mpers_name mpers support */
 #undef HAVE_MX32_MPERS
 
 /* Define to 1 if MPERS_NAME has the type 'struct stat'. */
@@ -839,6 +910,9 @@
 
 /* Define to 1 if you have the `open64' function. */
 #undef HAVE_OPEN64
+
+/* Define to 1 if you have the <paths.h> header file. */
+#undef HAVE_PATHS_H
 
 /* Define to 1 if you have the `prctl' function. */
 #undef HAVE_PRCTL
@@ -906,6 +980,18 @@
 /* Define to 1 if the system has the type `struct blk_user_trace_setup'. */
 #undef HAVE_STRUCT_BLK_USER_TRACE_SETUP
 
+/* Define to 1 if the system has the type `struct br_mdb_entry'. */
+#undef HAVE_STRUCT_BR_MDB_ENTRY
+
+/* Define to 1 if `flags' is a member of `struct br_mdb_entry'. */
+#undef HAVE_STRUCT_BR_MDB_ENTRY_FLAGS
+
+/* Define to 1 if `vid' is a member of `struct br_mdb_entry'. */
+#undef HAVE_STRUCT_BR_MDB_ENTRY_VID
+
+/* Define to 1 if the system has the type `struct br_port_msg'. */
+#undef HAVE_STRUCT_BR_PORT_MSG
+
 /* Define to 1 if `start' is a member of `struct
    btrfs_ioctl_defrag_range_args'. */
 #undef HAVE_STRUCT_BTRFS_IOCTL_DEFRAG_RANGE_ARGS_START
@@ -922,20 +1008,93 @@
    btrfs_ioctl_search_args_v2'. */
 #undef HAVE_STRUCT_BTRFS_IOCTL_SEARCH_ARGS_V2_BUF_SIZE
 
+/* Define to 1 if the system has the type `struct crypto_report_aead'. */
+#undef HAVE_STRUCT_CRYPTO_REPORT_AEAD
+
+/* Define to 1 if the system has the type `struct crypto_report_blkcipher'. */
+#undef HAVE_STRUCT_CRYPTO_REPORT_BLKCIPHER
+
+/* Define to 1 if the system has the type `struct crypto_report_cipher'. */
+#undef HAVE_STRUCT_CRYPTO_REPORT_CIPHER
+
+/* Define to 1 if the system has the type `struct crypto_report_hash'. */
+#undef HAVE_STRUCT_CRYPTO_REPORT_HASH
+
+/* Define to 1 if the system has the type `struct crypto_report_rng'. */
+#undef HAVE_STRUCT_CRYPTO_REPORT_RNG
+
+/* Define to 1 if the system has the type `struct dcbmsg'. */
+#undef HAVE_STRUCT_DCBMSG
+
+/* Define to 1 if the system has the type `struct fib_rule_uid_range'. */
+#undef HAVE_STRUCT_FIB_RULE_UID_RANGE
+
 /* Define to 1 if the system has the type `struct flock'. */
 #undef HAVE_STRUCT_FLOCK
 
 /* Define to 1 if the system has the type `struct flock64'. */
 #undef HAVE_STRUCT_FLOCK64
 
+/* Define to 1 if the system has the type `struct gnet_stats_basic'. */
+#undef HAVE_STRUCT_GNET_STATS_BASIC
+
+/* Define to 1 if the system has the type `struct gnet_stats_queue'. */
+#undef HAVE_STRUCT_GNET_STATS_QUEUE
+
+/* Define to 1 if the system has the type `struct gnet_stats_rate_est'. */
+#undef HAVE_STRUCT_GNET_STATS_RATE_EST
+
+/* Define to 1 if the system has the type `struct gnet_stats_rate_est64'. */
+#undef HAVE_STRUCT_GNET_STATS_RATE_EST64
+
 /* Define to 1 if the system has the type `struct ia64_fpreg'. */
 #undef HAVE_STRUCT_IA64_FPREG
+
+/* Define to 1 if the system has the type `struct ifaddrlblmsg'. */
+#undef HAVE_STRUCT_IFADDRLBLMSG
+
+/* Define to 1 if the system has the type `struct ifla_bridge_id'. */
+#undef HAVE_STRUCT_IFLA_BRIDGE_ID
+
+/* Define to 1 if the system has the type `struct ifla_port_vsi'. */
+#undef HAVE_STRUCT_IFLA_PORT_VSI
 
 /* Define to 1 if `resolution' is a member of `struct input_absinfo'. */
 #undef HAVE_STRUCT_INPUT_ABSINFO_RESOLUTION
 
+/* Define to 1 if the system has the type `struct kcmp_epoll_slot'. */
+#undef HAVE_STRUCT_KCMP_EPOLL_SLOT
+
+/* Define to 1 if the system has the type `struct keyctl_kdf_params'. */
+#undef HAVE_STRUCT_KEYCTL_KDF_PARAMS
+
+/* Define to 1 if the system has the type `struct kvm_regs'. */
+#undef HAVE_STRUCT_KVM_REGS
+
+/* Define to 1 if the system has the type `struct kvm_sregs'. */
+#undef HAVE_STRUCT_KVM_SREGS
+
+/* Define to 1 if the system has the type `struct
+   kvm_userspace_memory_region'. */
+#undef HAVE_STRUCT_KVM_USERSPACE_MEMORY_REGION
+
 /* Define to 1 if the system has the type `struct mmsghdr'. */
 #undef HAVE_STRUCT_MMSGHDR
+
+/* Define to 1 if the system has the type `struct mtd_write_req'. */
+#undef HAVE_STRUCT_MTD_WRITE_REQ
+
+/* Define to 1 if the system has the type `struct ndt_config'. */
+#undef HAVE_STRUCT_NDT_CONFIG
+
+/* Define to 1 if the system has the type `struct ndt_stats'. */
+#undef HAVE_STRUCT_NDT_STATS
+
+/* Define to 1 if `ndts_table_fulls' is a member of `struct ndt_stats'. */
+#undef HAVE_STRUCT_NDT_STATS_NDTS_TABLE_FULLS
+
+/* Define to 1 if the system has the type `struct netconfmsg'. */
+#undef HAVE_STRUCT_NETCONFMSG
 
 /* Define to 1 if `aux_watermark' is a member of `struct perf_event_attr'. */
 #undef HAVE_STRUCT_PERF_EVENT_ATTR_AUX_WATERMARK
@@ -979,6 +1138,9 @@
 /* Define to 1 if `mmap_data' is a member of `struct perf_event_attr'. */
 #undef HAVE_STRUCT_PERF_EVENT_ATTR_MMAP_DATA
 
+/* Define to 1 if `namespaces' is a member of `struct perf_event_attr'. */
+#undef HAVE_STRUCT_PERF_EVENT_ATTR_NAMESPACES
+
 /* Define to 1 if `precise_ip' is a member of `struct perf_event_attr'. */
 #undef HAVE_STRUCT_PERF_EVENT_ATTR_PRECISE_IP
 
@@ -1007,11 +1169,29 @@
 /* Define to 1 if `write_backward' is a member of `struct perf_event_attr'. */
 #undef HAVE_STRUCT_PERF_EVENT_ATTR_WRITE_BACKWARD
 
+/* Define to 1 if the system has the type `struct ptp_sys_offset'. */
+#undef HAVE_STRUCT_PTP_SYS_OFFSET
+
 /* Define to 1 if the system has the type `struct ptrace_peeksiginfo_args'. */
 #undef HAVE_STRUCT_PTRACE_PEEKSIGINFO_ARGS
 
 /* Define to 1 if the system has the type `struct pt_all_user_regs'. */
 #undef HAVE_STRUCT_PT_ALL_USER_REGS
+
+/* Define to 1 if the system has the type `struct rta_mfc_stats'. */
+#undef HAVE_STRUCT_RTA_MFC_STATS
+
+/* Define to 1 if the system has the type `struct rtnl_link_stats64'. */
+#undef HAVE_STRUCT_RTNL_LINK_STATS64
+
+/* Define to 1 if `rx_nohandler' is a member of `struct rtnl_link_stats64'. */
+#undef HAVE_STRUCT_RTNL_LINK_STATS64_RX_NOHANDLER
+
+/* Define to 1 if `rx_nohandler' is a member of `struct rtnl_link_stats'. */
+#undef HAVE_STRUCT_RTNL_LINK_STATS_RX_NOHANDLER
+
+/* Define to 1 if the system has the type `struct rtvia'. */
+#undef HAVE_STRUCT_RTVIA
 
 /* Define to 1 if the system has the type `struct sigcontext'. */
 #undef HAVE_STRUCT_SIGCONTEXT
@@ -1055,11 +1235,20 @@
 /* Define to 1 if `st_mtime_nsec' is a member of `struct stat'. */
 #undef HAVE_STRUCT_STAT_ST_MTIME_NSEC
 
+/* Define to 1 if the system has the type `struct tc_sizespec'. */
+#undef HAVE_STRUCT_TC_SIZESPEC
+
 /* Define to 1 if `tai' is a member of `struct timex'. */
 #undef HAVE_STRUCT_TIMEX_TAI
 
+/* Define to 1 if `max_beb_per1024' is a member of `struct ubi_attach_req'. */
+#undef HAVE_STRUCT_UBI_ATTACH_REQ_MAX_BEB_PER1024
+
 /* Define to 1 if the system has the type `struct user_desc'. */
 #undef HAVE_STRUCT_USER_DESC
+
+/* Define to 1 if `lm' is a member of `struct user_desc'. */
+#undef HAVE_STRUCT_USER_DESC_LM
 
 /* Define to 1 if `domainname' is a member of `struct utsname'. */
 #undef HAVE_STRUCT_UTSNAME_DOMAINNAME
@@ -1124,14 +1313,29 @@
 /* Define to 1 if typeof works with your compiler. */
 #undef HAVE_TYPEOF
 
-/* Define to 1 if union bpf_attr.attach_flags initialization works */
+/* Define to 1 if `attach_flags' is a member of `union bpf_attr'. */
 #undef HAVE_UNION_BPF_ATTR_ATTACH_FLAGS
 
-/* Define to 1 if union bpf_attr.bpf_fd initialization works */
+/* Define to 1 if `bpf_fd' is a member of `union bpf_attr'. */
 #undef HAVE_UNION_BPF_ATTR_BPF_FD
 
-/* Define to 1 if union bpf_attr.log_buf initialization works */
-#undef HAVE_UNION_BPF_ATTR_LOG_BUF
+/* Define to 1 if `flags' is a member of `union bpf_attr'. */
+#undef HAVE_UNION_BPF_ATTR_FLAGS
+
+/* Define to 1 if `info.info' is a member of `union bpf_attr'. */
+#undef HAVE_UNION_BPF_ATTR_INFO_INFO
+
+/* Define to 1 if `next_id' is a member of `union bpf_attr'. */
+#undef HAVE_UNION_BPF_ATTR_NEXT_ID
+
+/* Define to 1 if `numa_node' is a member of `union bpf_attr'. */
+#undef HAVE_UNION_BPF_ATTR_NUMA_NODE
+
+/* Define to 1 if `prog_flags' is a member of `union bpf_attr'. */
+#undef HAVE_UNION_BPF_ATTR_PROG_FLAGS
+
+/* Define to 1 if `test.duration' is a member of `union bpf_attr'. */
+#undef HAVE_UNION_BPF_ATTR_TEST_DURATION
 
 /* Define to 1 if you have the <unistd.h> header file. */
 #undef HAVE_UNISTD_H
@@ -1169,8 +1373,17 @@
 /* Define for _ABIO32. */
 #undef LINUX_MIPSO32
 
+/* The size of `kernel_long_t', as computed by sizeof. */
+#undef M32_SIZEOF_KERNEL_LONG_T
+
+/* The size of `long', as computed by sizeof. */
+#undef M32_SIZEOF_LONG
+
 /* Define for the m68k architecture. */
 #undef M68K
+
+/* Date */
+#undef MANPAGE_DATE
 
 /* Define for the Meta architecture. */
 #undef METAG
@@ -1180,6 +1393,12 @@
 
 /* Define for the MIPS architecture. */
 #undef MIPS
+
+/* The size of `kernel_long_t', as computed by sizeof. */
+#undef MX32_SIZEOF_KERNEL_LONG_T
+
+/* The size of `long', as computed by sizeof. */
+#undef MX32_SIZEOF_LONG
 
 /* Define for the Nios-II architecture. */
 #undef NIOS2
@@ -1255,6 +1474,9 @@
 
 /* Define for the Tile architecture */
 #undef TILE
+
+/* Do demangling symbols in stack trace */
+#undef USE_DEMANGLE
 
 /* Compile stack tracing functionality */
 #undef USE_LIBUNWIND

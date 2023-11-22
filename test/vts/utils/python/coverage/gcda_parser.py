@@ -29,7 +29,7 @@ import struct
 import sys
 
 from vts.utils.python.coverage import parser
-
+from vts.utils.python.coverage import gcno_parser
 
 class GCDAParser(parser.GcovStreamParserUtil):
     """Parser object class stores stateful information for parsing GCDA files.
@@ -182,3 +182,11 @@ def ParseGcdaFile(file_name, file_summary):
 
     with open(file_name, 'rb') as stream:
         return GCDAParser(stream).Parse(file_summary)
+
+
+if __name__ == '__main__':
+    if len(sys.argv) != 2:
+        print('usage: gcda_parser.py [gcda file name] [gcno file name]')
+    else:
+        file_summary = gcno_parser.ParseGcnoFile(sys.argv[2])
+        print(str(ParseGcdaFile(sys.argv[1], file_summary)))

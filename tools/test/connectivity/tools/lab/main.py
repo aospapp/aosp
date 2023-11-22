@@ -34,6 +34,7 @@ from metrics.process_time_metric import ProcessTimeMetric
 from metrics.ram_metric import RamMetric
 from metrics.read_metric import ReadMetric
 from metrics.system_load_metric import SystemLoadMetric
+from metrics.time_metric import TimeMetric
 from metrics.time_sync_metric import TimeSyncMetric
 from metrics.uptime_metric import UptimeMetric
 from metrics.usb_metric import UsbMetric
@@ -50,8 +51,8 @@ from runner import InstantRunner
 
 class RunnerFactory(object):
     _reporter_constructor = {
-        'logger': lambda param: [LoggerReporter(param)],
-        'json': lambda param: [JsonReporter(param)]
+        'logger': lambda param, output: [LoggerReporter(param)],
+        'json': lambda param, output: [JsonReporter(param, output)]
     }
 
     _metric_constructor = {
@@ -78,6 +79,7 @@ class RunnerFactory(object):
                               RamMetric(),
                               ReadMetric(),
                               SystemLoadMetric(),
+                              TimeMetric(),
                               TimeSyncMetric(),
                               UptimeMetric(),
                               UsbMetric(),
@@ -102,12 +104,13 @@ class RunnerFactory(object):
         reporters = []
 
         # Get health config file, if specified
-        config_file = arg_dict.pop('config', None)
         # If not specified, default to 'config.json'
-        if not config_file:
-            config_file = os.path.join(sys.path[0], 'config.json')
-        else:
-            config_file = config_file[0]
+        config_file = arg_dict.pop('config',
+                                   os.path.join(sys.path[0], 'config.json'))
+        # Get output file path, if specified
+        # If not specified, default to 'output.json'
+        output_file = arg_dict.pop('output', 'output.json')
+
         try:
             with open(config_file) as json_data:
                 health_config = json.load(json_data)
@@ -120,7 +123,8 @@ class RunnerFactory(object):
         rep_list = arg_dict.pop('reporter')
         if rep_list is not None:
             for rep_type in rep_list:
-                reporters += cls._reporter_constructor[rep_type](checker)
+                reporters += cls._reporter_constructor[rep_type](checker,
+                                                                 output_file)
         else:
             # If no reporter specified, default to logger.
             reporters += [LoggerReporter(checker)]
@@ -216,10 +220,18 @@ def _argparse():
     parser.add_argument(
         '-c',
         '--config',
-        nargs=1,
-        default=None,
+        nargs='?',
+        default='config.json',
         metavar="<PATH>",
         help='Path to health configuration file, defaults to `config.json`')
+    parser.add_argument(
+        '-o',
+        '--output',
+        nargs='?',
+        default='output.json',
+        metavar="<PATH>",
+        help='Path to where output file will be written, if applicable,'
+        ' defaults to `output.json`')
 
     return parser
 

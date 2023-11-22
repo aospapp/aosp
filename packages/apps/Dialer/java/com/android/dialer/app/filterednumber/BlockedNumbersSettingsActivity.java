@@ -24,6 +24,7 @@ import com.android.dialer.app.list.SearchFragment;
 import com.android.dialer.logging.Logger;
 import com.android.dialer.logging.ScreenEvent;
 
+/** TODO(calderwoodra): documentation */
 public class BlockedNumbersSettingsActivity extends AppCompatActivity
     implements SearchFragment.HostInterface {
 

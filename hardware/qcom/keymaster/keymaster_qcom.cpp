@@ -18,6 +18,8 @@
 #include <string.h>
 #include <stdint.h>
 
+#include <memory>
+
 #include <hardware/hardware.h>
 #include <hardware/keymaster0.h>
 
@@ -41,8 +43,6 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <dlfcn.h>
-
-#include <nativehelper/UniquePtr.h>
 
 #include "QSEEComAPI.h"
 #include "keymaster_qcom.h"
@@ -80,16 +80,16 @@ struct EVP_PKEY_Delete {
         EVP_PKEY_free(p);
     }
 };
-typedef UniquePtr<EVP_PKEY, EVP_PKEY_Delete> Unique_EVP_PKEY;
+typedef std::unique_ptr<EVP_PKEY, EVP_PKEY_Delete> Unique_EVP_PKEY;
 
 struct RSA_Delete {
     void operator()(RSA* p) const {
         RSA_free(p);
     }
 };
-typedef UniquePtr<RSA, RSA_Delete> Unique_RSA;
+typedef std::unique_ptr<RSA, RSA_Delete> Unique_RSA;
 
-typedef UniquePtr<keymaster0_device_t> Unique_keymaster_device_t;
+typedef std::unique_ptr<keymaster0_device_t> Unique_keymaster_device_t;
 
 /**
  * Many OpenSSL APIs take ownership of an argument on success but don't free the argument
@@ -172,13 +172,13 @@ static int qcom_km_get_keypair_public(const keymaster0_device_t* dev,
         return -1;
     }
 
-    UniquePtr<uint8_t> key(static_cast<uint8_t*>(malloc(len)));
+    std::unique_ptr<unsigned char[]> key(new unsigned char[len]);
     if (key.get() == NULL) {
         ALOGE("Could not allocate memory for public key data");
         return -1;
     }
 
-    unsigned char* tmp = reinterpret_cast<unsigned char*>(key.get());
+    unsigned char* tmp = key.get();
     if (i2d_PUBKEY(pkey.get(), &tmp) != len) {
         ALOGE("Len 2 returned is < 0 len = %d", len);
         return -1;
@@ -368,7 +368,7 @@ static int qcom_km_generate_keypair(const keymaster0_device_t* dev,
         ALOGE("Generate key command failed resp->status = %d ret =%d", resp->status, ret);
         return -1;
     } else {
-        UniquePtr<unsigned char[]> keydata(new unsigned char[resp->key_blob_len]);
+        std::unique_ptr<unsigned char[]> keydata(new unsigned char[resp->key_blob_len]);
         if (keydata.get() == NULL) {
             ALOGE("could not allocate memory for key blob");
             return -1;
@@ -451,7 +451,7 @@ static int qcom_km_import_keypair(const keymaster0_device_t* dev,
         qcom_km_ion_dealloc(&ihandle);
         return -1;
     } else {
-        UniquePtr<unsigned char[]> keydata(new unsigned char[resp->key_blob_len]);
+        std::unique_ptr<unsigned char[]> keydata(new unsigned char[resp->key_blob_len]);
         if (keydata.get() == NULL) {
             ALOGE("could not allocate memory for key blob");
             return -1;
@@ -551,7 +551,7 @@ static int qcom_km_sign_data(const keymaster0_device_t* dev,
         qcom_km_ion_dealloc(&ihandle);
         return -1;
     } else {
-        UniquePtr<uint8_t> signedDataPtr(reinterpret_cast<uint8_t*>(malloc(resp->sig_len)));
+        std::unique_ptr<uint8_t> signedDataPtr(reinterpret_cast<uint8_t*>(malloc(resp->sig_len)));
         if (signedDataPtr.get() == NULL) {
             ALOGE("Sign data memory allocation failed");
             qcom_km_ion_dealloc(&ihandle);

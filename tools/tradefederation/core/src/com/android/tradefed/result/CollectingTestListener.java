@@ -15,27 +15,27 @@
  */
 package com.android.tradefed.result;
 
-import com.android.ddmlib.testrunner.TestIdentifier;
 import com.android.ddmlib.testrunner.TestResult.TestStatus;
-import com.android.ddmlib.testrunner.TestRunResult;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.invoker.IInvocationContext;
+import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 
 import com.google.common.annotations.VisibleForTesting;
 
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
  * A {@link ITestInvocationListener} that will collect all test results.
- * <p/>
- * Although the data structures used in this object are thread-safe, the
- * {@link ITestInvocationListener} callbacks must be called in the correct order.
+ *
+ * <p>Although the data structures used in this object are thread-safe, the {@link
+ * ITestInvocationListener} callbacks must be called in the correct order.
  */
-public class CollectingTestListener implements ITestInvocationListener {
+public class CollectingTestListener implements ITestInvocationListener, ILogSaverListener {
 
     // Stores the test results
     // Uses a synchronized map to make thread safe.
@@ -152,61 +152,55 @@ public class CollectingTestListener implements ITestInvocationListener {
         mIsCountDirty = true;
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
-    public void testStarted(TestIdentifier test) {
+    public void testStarted(TestDescription test) {
         testStarted(test, System.currentTimeMillis());
     }
 
     /** {@inheritDoc} */
     @Override
-    public void testStarted(TestIdentifier test, long startTime) {
+    public void testStarted(TestDescription test, long startTime) {
         mIsCountDirty = true;
         mCurrentResults.testStarted(test, startTime);
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
-    public void testEnded(TestIdentifier test, Map<String, String> testMetrics) {
+    public void testEnded(TestDescription test, HashMap<String, Metric> testMetrics) {
         testEnded(test, System.currentTimeMillis(), testMetrics);
     }
 
     /** {@inheritDoc} */
     @Override
-    public void testEnded(TestIdentifier test, long endTime, Map<String, String> testMetrics) {
+    public void testEnded(TestDescription test, long endTime, HashMap<String, Metric> testMetrics) {
         mIsCountDirty = true;
         mCurrentResults.testEnded(test, endTime, testMetrics);
     }
 
     /** {@inheritDoc} */
     @Override
-    public void testFailed(TestIdentifier test, String trace) {
+    public void testFailed(TestDescription test, String trace) {
         mIsCountDirty = true;
         mCurrentResults.testFailed(test, trace);
     }
 
     @Override
-    public void testAssumptionFailure(TestIdentifier test, String trace) {
+    public void testAssumptionFailure(TestDescription test, String trace) {
         mIsCountDirty = true;
         mCurrentResults.testAssumptionFailure(test, trace);
 
     }
 
     @Override
-    public void testIgnored(TestIdentifier test) {
+    public void testIgnored(TestDescription test) {
         mIsCountDirty = true;
         mCurrentResults.testIgnored(test);
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
-    public void testRunEnded(long elapsedTime, Map<String, String> runMetrics) {
+    public void testRunEnded(long elapsedTime, HashMap<String, Metric> runMetrics) {
         mIsCountDirty = true;
         mCurrentResults.testRunEnded(elapsedTime, runMetrics);
     }
@@ -321,12 +315,29 @@ public class CollectingTestListener implements ITestInvocationListener {
         return null;
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public void testLog(String dataName, LogDataType dataType, InputStreamSource dataStream) {
-        // ignore
+        // ignore, logAssociation is implemented.
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void testLogSaved(
+            String dataName, LogDataType dataType, InputStreamSource dataStream, LogFile logFile) {
+        // ignore, logAssociation is used to save the files
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void setLogSaver(ILogSaver logSaver) {
+        // CollectingTestListener does not need the logSaver
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void logAssociation(String dataName, LogFile logFile) {
+        mCurrentResults.testLogSaved(dataName, logFile);
     }
 
     /**
@@ -335,5 +346,18 @@ public class CollectingTestListener implements ITestInvocationListener {
      */
     public int getNumAllFailedTests() {
         return getNumTestsInState(TestStatus.FAILURE);
+    }
+
+    /**
+     * Return total number of test runs in a failure state
+     */
+    public int getNumAllFailedTestRuns() {
+        int count = 0;
+        for (Map.Entry<String, TestRunResult> e : mRunResultsMap.entrySet()) {
+            if (e.getValue().isRunFailure()) {
+                count++;
+            }
+        }
+        return count;
     }
 }

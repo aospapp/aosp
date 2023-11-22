@@ -34,4 +34,10 @@
             android:id="@+id/dir_menu_delete"
             android:title="@string/menu_delete" />
     </group>
+    <group
+        android:id="@+id/menu_extras_group">
+        <item
+            android:id="@+id/dir_menu_inspect"
+            android:title="@string/menu_inspect" />
+    </group>
 </menu>

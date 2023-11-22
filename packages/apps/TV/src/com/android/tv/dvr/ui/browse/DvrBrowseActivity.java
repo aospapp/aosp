@@ -20,19 +20,16 @@ import android.app.Activity;
 import android.content.Intent;
 import android.media.tv.TvInputManager;
 import android.os.Bundle;
-
 import com.android.tv.R;
-import com.android.tv.TvApplication;
+import com.android.tv.Starter;
 
-/**
- * {@link android.app.Activity} for DVR UI.
- */
+/** {@link android.app.Activity} for DVR UI. */
 public class DvrBrowseActivity extends Activity {
     private DvrBrowseFragment mFragment;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
-        TvApplication.setCurrentRunningProcess(this, true);
+        Starter.start(this);
         super.onCreate(savedInstanceState);
         setContentView(R.layout.dvr_main);
         mFragment = (DvrBrowseFragment) getFragmentManager().findFragmentById(R.id.dvr_frame);

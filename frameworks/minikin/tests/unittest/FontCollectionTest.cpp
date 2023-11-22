@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
+#include "minikin/FontCollection.h"
+
 #include <gtest/gtest.h>
 
-#include <minikin/FontCollection.h>
 #include "FontTestUtils.h"
-#include "MinikinFontForTest.h"
 #include "MinikinInternal.h"
 
 namespace minikin {
@@ -38,7 +38,7 @@ namespace minikin {
 // U+717D U+FE02 (VS3)
 // U+717D U+E0102 (VS19)
 // U+717D U+E0103 (VS20)
-const char kVsTestFont[] = kTestFontDir "/VariationSelectorTest-Regular.ttf";
+const char kVsTestFont[] = "VariationSelectorTest-Regular.ttf";
 
 void expectVSGlyphs(const FontCollection* fc, uint32_t codepoint, const std::set<uint32_t>& vsSet) {
     for (uint32_t vs = 0xFE00; vs <= 0xE01EF; ++vs) {
@@ -48,38 +48,36 @@ void expectVSGlyphs(const FontCollection* fc, uint32_t codepoint, const std::set
         }
         if (vsSet.find(vs) == vsSet.end()) {
             EXPECT_FALSE(fc->hasVariationSelector(codepoint, vs))
-                << "Glyph for U+" << std::hex << codepoint << " U+" << vs;
+                    << "Glyph for U+" << std::hex << codepoint << " U+" << vs;
         } else {
             EXPECT_TRUE(fc->hasVariationSelector(codepoint, vs))
-                << "Glyph for U+" << std::hex << codepoint << " U+" << vs;
+                    << "Glyph for U+" << std::hex << codepoint << " U+" << vs;
         }
     }
 }
 
 TEST(FontCollectionTest, hasVariationSelectorTest) {
-  std::shared_ptr<MinikinFont> font(new MinikinFontForTest(kVsTestFont));
-  std::shared_ptr<FontFamily> family(new FontFamily(
-          std::vector<Font>({ Font(font, FontStyle()) })));
-  std::vector<std::shared_ptr<FontFamily>> families({ family });
-  std::shared_ptr<FontCollection> fc(new FontCollection(families));
+    auto fc = buildFontCollection(kVsTestFont);
 
-  EXPECT_FALSE(fc->hasVariationSelector(0x82A6, 0));
-  expectVSGlyphs(fc.get(), 0x82A6, std::set<uint32_t>({0xFE00, 0xFE0E, 0xE0100, 0xE0101, 0xE0102}));
+    EXPECT_FALSE(fc->hasVariationSelector(0x82A6, 0));
+    expectVSGlyphs(fc.get(), 0x82A6,
+                   std::set<uint32_t>({0xFE00, 0xFE0E, 0xE0100, 0xE0101, 0xE0102}));
 
-  EXPECT_FALSE(fc->hasVariationSelector(0x845B, 0));
-  expectVSGlyphs(fc.get(), 0x845B, std::set<uint32_t>({0xFE01, 0xFE0E, 0xE0101, 0xE0102, 0xE0103}));
+    EXPECT_FALSE(fc->hasVariationSelector(0x845B, 0));
+    expectVSGlyphs(fc.get(), 0x845B,
+                   std::set<uint32_t>({0xFE01, 0xFE0E, 0xE0101, 0xE0102, 0xE0103}));
 
-  EXPECT_FALSE(fc->hasVariationSelector(0x537F, 0));
-  expectVSGlyphs(fc.get(), 0x537F, std::set<uint32_t>({0xFE0E}));
+    EXPECT_FALSE(fc->hasVariationSelector(0x537F, 0));
+    expectVSGlyphs(fc.get(), 0x537F, std::set<uint32_t>({0xFE0E}));
 
-  EXPECT_FALSE(fc->hasVariationSelector(0x717D, 0));
-  expectVSGlyphs(fc.get(), 0x717D, std::set<uint32_t>({0xFE02, 0xE0102, 0xE0103}));
+    EXPECT_FALSE(fc->hasVariationSelector(0x717D, 0));
+    expectVSGlyphs(fc.get(), 0x717D, std::set<uint32_t>({0xFE02, 0xE0102, 0xE0103}));
 }
 
-const char kEmojiXmlFile[] = kTestFontDir "emoji.xml";
+const char kEmojiXmlFile[] = "emoji.xml";
 
 TEST(FontCollectionTest, hasVariationSelectorTest_emoji) {
-    std::shared_ptr<FontCollection> collection(getFontCollection(kTestFontDir, kEmojiXmlFile));
+    auto collection = buildFontCollectionFromXml(kEmojiXmlFile);
 
     // Both text/color font have cmap format 14 subtable entry for VS15/VS16 respectively.
     EXPECT_TRUE(collection->hasVariationSelector(0x2623, 0xFE0E));
@@ -108,11 +106,10 @@ TEST(FontCollectionTest, hasVariationSelectorTest_emoji) {
     // None of the fonts support U+2229.
     EXPECT_FALSE(collection->hasVariationSelector(0x2229, 0xFE0E));
     EXPECT_FALSE(collection->hasVariationSelector(0x2229, 0xFE0F));
-
 }
 
 TEST(FontCollectionTest, newEmojiTest) {
-    std::shared_ptr<FontCollection> collection(getFontCollection(kTestFontDir, kEmojiXmlFile));
+    auto collection = buildFontCollectionFromXml(kEmojiXmlFile);
 
     // U+2695, U+2640, U+2642 are not in emoji catrgory in Unicode 9 but they are now in emoji
     // category. Should return true even if U+FE0E was appended.
@@ -126,33 +123,21 @@ TEST(FontCollectionTest, newEmojiTest) {
 
 TEST(FontCollectionTest, createWithVariations) {
     // This font has 'wdth' and 'wght' axes.
-    const char kMultiAxisFont[] = kTestFontDir "/MultiAxis.ttf";
-    const char kNoAxisFont[] = kTestFontDir "/Regular.ttf";
+    const char kMultiAxisFont[] = "MultiAxis.ttf";
+    const char kNoAxisFont[] = "Regular.ttf";
 
-    std::shared_ptr<MinikinFont> multiAxisFont(new MinikinFontForTest(kMultiAxisFont));
-    std::shared_ptr<FontFamily> multiAxisFamily(new FontFamily(
-            std::vector<Font>({ Font(multiAxisFont, FontStyle()) })));
-    std::vector<std::shared_ptr<FontFamily>> multiAxisFamilies({multiAxisFamily});
-    std::shared_ptr<FontCollection> multiAxisFc(new FontCollection(multiAxisFamilies));
-
-    std::shared_ptr<MinikinFont> noAxisFont(new MinikinFontForTest(kNoAxisFont));
-    std::shared_ptr<FontFamily> noAxisFamily(new FontFamily(
-            std::vector<Font>({ Font(noAxisFont, FontStyle()) })));
-    std::vector<std::shared_ptr<FontFamily>> noAxisFamilies({noAxisFamily});
-    std::shared_ptr<FontCollection> noAxisFc(new FontCollection(noAxisFamilies));
+    std::shared_ptr<FontCollection> multiAxisFc = buildFontCollection(kMultiAxisFont);
+    std::shared_ptr<FontCollection> noAxisFc = buildFontCollection(kNoAxisFont);
 
     {
         // Do not ceate new instance if none of variations are specified.
         EXPECT_EQ(nullptr,
-                multiAxisFc->createCollectionWithVariation(std::vector<FontVariation>()));
-        EXPECT_EQ(nullptr,
-                noAxisFc->createCollectionWithVariation(std::vector<FontVariation>()));
+                  multiAxisFc->createCollectionWithVariation(std::vector<FontVariation>()));
+        EXPECT_EQ(nullptr, noAxisFc->createCollectionWithVariation(std::vector<FontVariation>()));
     }
     {
         // New instance should be used for supported variation.
-        std::vector<FontVariation> variations = {
-                { MinikinFont::MakeTag('w', 'd', 't', 'h'), 1.0f }
-        };
+        std::vector<FontVariation> variations = {{MinikinFont::MakeTag('w', 'd', 't', 'h'), 1.0f}};
         std::shared_ptr<FontCollection> newFc(
                 multiAxisFc->createCollectionWithVariation(variations));
         EXPECT_NE(nullptr, newFc.get());
@@ -162,10 +147,8 @@ TEST(FontCollectionTest, createWithVariations) {
     }
     {
         // New instance should be used for supported variation (multiple variations case).
-        std::vector<FontVariation> variations = {
-                { MinikinFont::MakeTag('w', 'd', 't', 'h'), 1.0f },
-                { MinikinFont::MakeTag('w', 'g', 'h', 't'), 1.0f }
-        };
+        std::vector<FontVariation> variations = {{MinikinFont::MakeTag('w', 'd', 't', 'h'), 1.0f},
+                                                 {MinikinFont::MakeTag('w', 'g', 'h', 't'), 1.0f}};
         std::shared_ptr<FontCollection> newFc(
                 multiAxisFc->createCollectionWithVariation(variations));
         EXPECT_NE(nullptr, newFc.get());
@@ -175,18 +158,14 @@ TEST(FontCollectionTest, createWithVariations) {
     }
     {
         // Do not ceate new instance if none of variations are supported.
-        std::vector<FontVariation> variations = {
-                { MinikinFont::MakeTag('Z', 'Z', 'Z', 'Z'), 1.0f }
-        };
+        std::vector<FontVariation> variations = {{MinikinFont::MakeTag('Z', 'Z', 'Z', 'Z'), 1.0f}};
         EXPECT_EQ(nullptr, multiAxisFc->createCollectionWithVariation(variations));
         EXPECT_EQ(nullptr, noAxisFc->createCollectionWithVariation(variations));
     }
     {
         // At least one axis is supported, should create new instance.
-        std::vector<FontVariation> variations = {
-                { MinikinFont::MakeTag('w', 'd', 't', 'h'), 1.0f },
-                { MinikinFont::MakeTag('Z', 'Z', 'Z', 'Z'), 1.0f }
-        };
+        std::vector<FontVariation> variations = {{MinikinFont::MakeTag('w', 'd', 't', 'h'), 1.0f},
+                                                 {MinikinFont::MakeTag('Z', 'Z', 'Z', 'Z'), 1.0f}};
         std::shared_ptr<FontCollection> newFc(
                 multiAxisFc->createCollectionWithVariation(variations));
         EXPECT_NE(nullptr, newFc.get());

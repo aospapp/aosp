@@ -20,9 +20,7 @@ import android.content.Context;
 import android.support.annotation.VisibleForTesting;
 import android.util.Log;
 import android.util.Pair;
-
-import com.android.tv.data.Channel;
-
+import com.android.tv.data.api.Channel;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -35,8 +33,7 @@ import java.util.concurrent.TimeUnit;
 public class Recommender implements RecommendationDataManager.Listener {
     private static final String TAG = "Recommender";
 
-    @VisibleForTesting
-    static final String INVALID_CHANNEL_SORT_KEY = "INVALID";
+    @VisibleForTesting static final String INVALID_CHANNEL_SORT_KEY = "INVALID";
     private static final long MINIMUM_RECOMMENDATION_UPDATE_PERIOD = TimeUnit.MINUTES.toMillis(5);
     private static final Comparator<Pair<Channel, Double>> mChannelScoreComparator =
             new Comparator<Pair<Channel, Double>>() {
@@ -69,7 +66,9 @@ public class Recommender implements RecommendationDataManager.Listener {
     }
 
     @VisibleForTesting
-    Recommender(Listener listener, boolean includeRecommendedOnly,
+    Recommender(
+            Listener listener,
+            boolean includeRecommendedOnly,
             RecommendationDataManager dataManager) {
         mListener = listener;
         mIncludeRecommendedOnly = includeRecommendedOnly;
@@ -85,16 +84,16 @@ public class Recommender implements RecommendationDataManager.Listener {
     }
 
     public void registerEvaluator(Evaluator evaluator) {
-        registerEvaluator(evaluator,
-                EvaluatorWrapper.DEFAULT_BASE_SCORE, EvaluatorWrapper.DEFAULT_WEIGHT);
+        registerEvaluator(
+                evaluator, EvaluatorWrapper.DEFAULT_BASE_SCORE, EvaluatorWrapper.DEFAULT_WEIGHT);
     }
 
     /**
      * Register the evaluator used in recommendation.
      *
-     * The range of evaluated scores by this evaluator will be between {@code baseScore} and
+     * <p>The range of evaluated scores by this evaluator will be between {@code baseScore} and
      * {@code baseScore} + {@code weight} (inclusive).
-
+     *
      * @param evaluator The evaluator to register inside this recommender.
      * @param baseScore Base(Minimum) score of the score evaluated by {@code evaluator}.
      * @param weight Weight value to rearrange the score evaluated by {@code evaluator}.
@@ -108,13 +107,13 @@ public class Recommender implements RecommendationDataManager.Listener {
     }
 
     /**
-     * Return the channel list of recommendation up to {@code n} or the number of channels.
-     * During the evaluation, this method updates the channel sort key of recommended channels.
+     * Return the channel list of recommendation up to {@code n} or the number of channels. During
+     * the evaluation, this method updates the channel sort key of recommended channels.
      *
      * @param size The number of channels that might be recommended.
-     * @return Top {@code size} channels recommended sorted by score in descending order. If
-     *         {@code size} is bigger than the number of channels, the number of results could
-     *         be less than {@code size}.
+     * @return Top {@code size} channels recommended sorted by score in descending order. If {@code
+     *     size} is bigger than the number of channels, the number of results could be less than
+     *     {@code size}.
      */
     public List<Channel> recommendChannels(int size) {
         List<Pair<Channel, Double>> records = new ArrayList<>();
@@ -154,7 +153,7 @@ public class Recommender implements RecommendationDataManager.Listener {
      *
      * @param channelId The channel ID to retrieve the {@link Channel} object for.
      * @return the {@link Channel} object for the given channel ID, {@code null} if such a channel
-     *         is not found.
+     *     is not found.
      */
     public Channel getChannel(long channelId) {
         ChannelRecord record = mDataManager.getChannelRecord(channelId);
@@ -172,10 +171,10 @@ public class Recommender implements RecommendationDataManager.Listener {
     }
 
     /**
-     * Returns the sort key of a given channel Id. Sort key is determined in
-     * {@link #recommendChannels()} and getChannelSortKey must be called after that.
+     * Returns the sort key of a given channel Id. Sort key is determined in {@link
+     * #recommendChannels()} and getChannelSortKey must be called after that.
      *
-     * If getChannelSortKey was called before evaluating the channels or trying to get sort key
+     * <p>If getChannelSortKey was called before evaluating the channels or trying to get sort key
      * of non-recommended channel, it returns {@link #INVALID_CHANNEL_SORT_KEY}.
      */
     public String getChannelSortKey(long channelId) {
@@ -231,27 +230,25 @@ public class Recommender implements RecommendationDataManager.Listener {
         mLastRecommendationUpdatedTimeUtcMillis = newUpdatedTimeMs;
     }
 
-    public static abstract class Evaluator {
+    public abstract static class Evaluator {
         public static final double NOT_RECOMMENDED = -1.0;
         private Recommender mRecommender;
 
         protected Evaluator() {}
 
-        protected void onChannelRecordListChanged(List<ChannelRecord> channelRecords) {
-        }
+        protected void onChannelRecordListChanged(List<ChannelRecord> channelRecords) {}
 
         /**
          * This will be called when a new watch log comes into WatchedPrograms table.
          *
          * @param channelRecord The channel record corresponds to the new watch log.
          */
-        protected void onNewWatchLog(ChannelRecord channelRecord) {
-        }
+        protected void onNewWatchLog(ChannelRecord channelRecord) {}
 
         /**
-         * The implementation should return the recommendation score for the given channel ID.
-         * The return value should be in the range of [0.0, 1.0] or NOT_RECOMMENDED for denoting
-         * that it gives up to calculate the score for the channel.
+         * The implementation should return the recommendation score for the given channel ID. The
+         * return value should be in the range of [0.0, 1.0] or NOT_RECOMMENDED for denoting that it
+         * gives up to calculate the score for the channel.
          *
          * @param channelId The channel ID which will be evaluated by this recommender.
          * @return The recommendation score
@@ -278,8 +275,8 @@ public class Recommender implements RecommendationDataManager.Listener {
         // this value.
         private final double mWeight;
 
-        public EvaluatorWrapper(Recommender recommender, Evaluator evaluator,
-                double baseScore, double weight) {
+        public EvaluatorWrapper(
+                Recommender recommender, Evaluator evaluator, double baseScore, double weight) {
             mEvaluator = evaluator;
             evaluator.setRecommender(recommender);
             mBaseScore = baseScore;
@@ -287,27 +284,27 @@ public class Recommender implements RecommendationDataManager.Listener {
         }
 
         /**
-         * This returns the scaled score for the given channel ID based on the returned value
-         * of evaluateChannel().
+         * This returns the scaled score for the given channel ID based on the returned value of
+         * evaluateChannel().
          *
          * @param channelId The channel ID which will be evaluated by the recommender.
          * @return Returns the scaled score (mBaseScore + score * mWeight) when evaluateChannel() is
-         *         in the range of [0.0, 1.0]. If evaluateChannel() returns NOT_RECOMMENDED or any
-         *         negative numbers, it returns NOT_RECOMMENDED. If calculateScore() returns more
-         *         than 1.0, it returns (mBaseScore + mWeight).
+         *     in the range of [0.0, 1.0]. If evaluateChannel() returns NOT_RECOMMENDED or any
+         *     negative numbers, it returns NOT_RECOMMENDED. If calculateScore() returns more than
+         *     1.0, it returns (mBaseScore + mWeight).
          */
         private double getScaledEvaluatorScore(long channelId) {
             double score = mEvaluator.evaluateChannel(channelId);
             if (score < 0.0) {
                 if (score != Evaluator.NOT_RECOMMENDED) {
-                    Log.w(TAG, "Unexpected score (" + score + ") from the recommender"
-                            + mEvaluator);
+                    Log.w(
+                            TAG,
+                            "Unexpected score (" + score + ") from the recommender" + mEvaluator);
                 }
                 // If the recommender gives up to calculate the score, return 0.0
                 return Evaluator.NOT_RECOMMENDED;
             } else if (score > 1.0) {
-                Log.w(TAG, "Unexpected score (" + score + ") from the recommender"
-                        + mEvaluator);
+                Log.w(TAG, "Unexpected score (" + score + ") from the recommender" + mEvaluator);
                 score = 1.0;
             }
             return mBaseScore + score * mWeight;
@@ -323,14 +320,10 @@ public class Recommender implements RecommendationDataManager.Listener {
     }
 
     public interface Listener {
-        /**
-         * Called after channel record map is loaded.
-         */
+        /** Called after channel record map is loaded. */
         void onRecommenderReady();
 
-        /**
-         * Called when the recommendation changes.
-         */
+        /** Called when the recommendation changes. */
         void onRecommendationChanged();
     }
 }

@@ -59,11 +59,9 @@
         <item name="android:layout">@layout/custom_preference_category_layout</item>
     </style>
 
-    <style name="PreferenceTheme" parent="@style/PreferenceThemeOverlay.v14.Material">
-        <!-- Parent path frameworks/support/v14/preference/res/values/themes.xml -->
-        <item name="android:scrollbars">vertical</item>
+    <style name="PreferenceTheme" parent="@style/PreferenceThemeOverlay.SettingsBase">
+        <!-- Parent path frameworks/support/SettingsLib/res/values/themes.xml -->
         <item name="footerPreferenceStyle">@style/FooterPreference</item>
-        <item name="preferenceCategoryStyle">@style/PreferenceCategory</item>
     </style>
 
     <style name="FooterPreference" parent="PreferenceTheme">
@@ -71,8 +69,8 @@
         <item name="allowDividerAbove">true</item>
     </style>
 
-    <style name="PreferenceCategory" parent="@style/Preference.Category.Material">
-        <item name="allowDividerAbove">true</item>
-        <item name="android:layout">@layout/preference_category_material_settings</item>
+    <style name="NameAutoCompletePreference" parent="PreferenceTheme">
+        <item name="android:positiveButtonText">@android:string/ok</item>
+        <item name="android:negativeButtonText">@android:string/cancel</item>
     </style>
 </resources>

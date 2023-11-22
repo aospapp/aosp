@@ -31,8 +31,6 @@ using std::string;
 using std::unique_ptr;
 using std::vector;
 
-using EncryptionType = android::wifi_system::HostapdManager::EncryptionType;
-
 using namespace std::placeholders;
 
 namespace android {
@@ -59,12 +57,17 @@ ApInterfaceImpl::ApInterfaceImpl(const string& interface_name,
       std::bind(&ApInterfaceImpl::OnStationEvent,
                 this,
                 _1, _2));
+  netlink_utils_->SubscribeChannelSwitchEvent(
+      interface_index_,
+      std::bind(&ApInterfaceImpl::OnChannelSwitchEvent, this, _1, _2));
+
 }
 
 ApInterfaceImpl::~ApInterfaceImpl() {
   binder_->NotifyImplDead();
   if_tool_->SetUpState(interface_name_.c_str(), false);
   netlink_utils_->UnsubscribeStationEvent(interface_index_);
+  netlink_utils_->UnsubscribeChannelSwitchEvent(interface_index_);
 }
 
 sp<IApInterface> ApInterfaceImpl::GetBinder() const {
@@ -110,21 +113,6 @@ bool ApInterfaceImpl::StopHostapd() {
   return true;
 }
 
-bool ApInterfaceImpl::WriteHostapdConfig(const vector<uint8_t>& ssid,
-                                         bool is_hidden,
-                                         int32_t channel,
-                                         EncryptionType encryption_type,
-                                         const vector<uint8_t>& passphrase) {
-  string config = hostapd_manager_->CreateHostapdConfig(
-      interface_name_, ssid, is_hidden, channel, encryption_type, passphrase);
-
-  if (config.empty()) {
-    return false;
-  }
-
-  return hostapd_manager_->WriteHostapdConfig(config);
-}
-
 void ApInterfaceImpl::OnStationEvent(StationEvent event,
                                      const vector<uint8_t>& mac_address) {
   if (event == NEW_STATION) {
@@ -139,10 +127,23 @@ void ApInterfaceImpl::OnStationEvent(StationEvent event,
     if (number_of_associated_stations_ <= 0) {
       LOG(ERROR) << "Received DEL_STATION event when station counter is: "
                  << number_of_associated_stations_;
+      return;
     } else {
       number_of_associated_stations_--;
     }
   }
+
+  if (event == NEW_STATION || event == DEL_STATION) {
+    binder_->NotifyNumAssociatedStationsChanged(number_of_associated_stations_);
+  }
+}
+
+
+void ApInterfaceImpl::OnChannelSwitchEvent(uint32_t frequency,
+                                           ChannelBandwidth bandwidth) {
+  LOG(INFO) << "New channel on frequency: " << frequency
+            << " with bandwidth: " << LoggingUtils::GetBandwidthString(bandwidth);
+  binder_->NotifySoftApChannelSwitched(frequency, bandwidth);
 }
 
 int ApInterfaceImpl::GetNumberOfAssociatedStations() const {

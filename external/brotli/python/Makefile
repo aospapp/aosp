@@ -4,12 +4,16 @@
 # See file LICENSE for detail or copy at https://opensource.org/licenses/MIT
 
 
-# Default
+# Default (Build)
 .PHONY: all
 # Build
 .PHONY: build
+# Develop
+.PHONY: develop
+# Install
+.PHONY: install
 # Test
-.PHONY: test tests
+.PHONY: test
 # Clean
 .PHONY: clean
 # Format
@@ -29,13 +33,17 @@ all: build
 build: $(EXTENSIONS)
 
 $(EXTENSIONS): $(EXT_SOURCES)
+	@cd .. && $(PYTHON) setup.py build_ext --inplace
+
+develop:
 	@cd .. && $(PYTHON) setup.py develop
 
-test: tests
+install:
+	@cd .. && $(PYTHON) setup.py install
 
-tests: build
+test: build
 	@echo 'running tests'
-	@$(PYTHON) -m unittest discover -p '*_test.py'
+	@$(PYTHON) -m unittest discover -v -p '*_test.py'
 
 clean:
 	@cd .. && $(PYTHON) setup.py clean

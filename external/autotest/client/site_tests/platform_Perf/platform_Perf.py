@@ -22,11 +22,16 @@ class platform_Perf(test.test):
       re.compile(r'bash'),
       re.compile(r'chrome'),
       re.compile(r'ld-.*\.so.*'),
-      re.compile(r'libbase.*\.so.*'),
-      re.compile(r'libc.*\.so.*'),
-      re.compile(r'libdbus.*\.so.*'),
-      re.compile(r'libpthread.*\.so.*'),
-      re.compile(r'libstdc\+\+.*\.so.*'),
+      # For simplicity since the libbase binaries are built together, we assume
+      # that if one of them (libbase-core) was properly built and passes this
+      # test, then the others will pass as well. It's easier than trying to
+      # include all libbase-* while filtering out libbase-XXXXXX.so, which is a
+      # text file that links to the other files.
+      re.compile(r'libbase-core-.*\.so.*'),
+      re.compile(r'libc-.*\.so.*'),
+      re.compile(r'libdbus-.*\.so.*'),
+      re.compile(r'libpthread-.*\.so.*'),
+      re.compile(r'libstdc\+\+.*\.so\..*'),
     ]
 
 

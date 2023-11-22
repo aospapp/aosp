@@ -21,13 +21,14 @@ import com.android.ddmlib.IShellOutputReceiver;
 import com.android.ddmlib.Log;
 import com.android.ddmlib.Log.LogLevel;
 import com.android.ddmlib.MultiLineReceiver;
-import com.android.ddmlib.testrunner.TestIdentifier;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.config.OptionCopier;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.result.ITestInvocationListener;
+import com.android.tradefed.result.TestDescription;
 import com.android.tradefed.testtype.IAbi;
 import com.android.tradefed.testtype.IAbiReceiver;
 import com.android.tradefed.testtype.IBuildReceiver;
@@ -41,26 +42,25 @@ import com.android.tradefed.testtype.ITestFilterReceiver;
 import com.android.tradefed.util.AbiUtils;
 import com.android.tradefed.util.ArrayUtil;
 import com.android.tradefed.util.FileUtil;
-import com.android.tradefed.util.TimeVal;
-import com.google.common.base.Splitter;
 
-import vogar.ExpectationStore;
-import vogar.ModeId;
+import com.google.common.base.Splitter;
 
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FilenameFilter;
 import java.io.FileReader;
+import java.io.FilenameFilter;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+
+import vogar.ExpectationStore;
+import vogar.ModeId;
 
 /**
  * A wrapper to run tests against Dalvik.
@@ -114,6 +114,9 @@ public class DalvikTest implements IAbiReceiver, IBuildReceiver, IDeviceTest, IR
     private static String END_TEST = "end-test";
     private static String FAILURE = "failure";
 
+    // If we are running with adbconnection jdwp provider (hence a libjdwp agent).
+    private boolean mIsAdbConnection = true;
+
     @Option(name = "run-name", description = "The name to use when reporting results")
     private String mRunName;
 
@@ -122,6 +125,16 @@ public class DalvikTest implements IAbiReceiver, IBuildReceiver, IDeviceTest, IR
 
     @Option(name = "dalvik-arg", description = "Holds arguments to pass to Dalvik")
     private List<String> mDalvikArgs = new ArrayList<>();
+
+    @Option(name = "dalvik-arg-adbconnection",
+            description = "Holds arguments to pass to Dalvik when " +
+                          "dalvik.vm.jdwp-provider == adbconnection or default or is empty")
+    private List<String> mDalvikArgsAdbconnection = new ArrayList<>();
+
+    @Option(name = "dalvik-arg-internal",
+            description = "Holds arguments to pass to Dalvik only when " +
+                          "dalvik.vm.jdwp-provider == internal")
+    private List<String> mDalvikArgsInternal = new ArrayList<>();
 
     @Option(name = "runner-arg",
             description = "Holds arguments to pass to the device-side test runner")
@@ -149,6 +162,13 @@ public class DalvikTest implements IAbiReceiver, IBuildReceiver, IDeviceTest, IR
             isTimeVal = true,
             description="The hint about the test's runtime.")
     private long mRuntimeHint = 60000;// 1 minute
+
+    @Option(name = "known-failures-adbconnection",
+            description = "Comma-separated list of files specifying known-failures to be skipped")
+    private String mKnownFailuresAdbconnection;
+    @Option(name = "known-failures-internal",
+            description = "Comma-separated list of files specifying known-failures to be skipped")
+    private String mKnownFailuresInternal;
 
     @Option(name = "known-failures",
             description = "Comma-separated list of files specifying known-failures to be skipped")
@@ -274,6 +294,17 @@ public class DalvikTest implements IAbiReceiver, IBuildReceiver, IDeviceTest, IR
         mCollectTestsOnly = shouldCollectTest;
     }
 
+    private static boolean isAdbconnection(ITestDevice device) throws DeviceNotAvailableException {
+        String provider = device.getProperty("dalvik.vm.jdwp-provider");
+        if (provider == null || provider.equals("default") || provider.equals("adbconnection")) {
+            return true;
+        } else if (provider.equals("internal")) {
+            return false;
+        } else {
+            throw new RuntimeException("Unknown dalvik.vm.jdwp-provider = " + provider);
+        }
+    }
+
     /**
      * {@inheritDoc}
      */
@@ -281,13 +312,19 @@ public class DalvikTest implements IAbiReceiver, IBuildReceiver, IDeviceTest, IR
     public void run(final ITestInvocationListener listener) throws DeviceNotAvailableException {
         String abiName = mAbi.getName();
         String bitness = AbiUtils.getBitness(abiName);
+        mIsAdbConnection = isAdbconnection(getDevice());
 
         File tmpExcludeFile = null;
+        String excludeFile = "";
         try {
             // push one file of exclude filters to the device
             tmpExcludeFile = getExcludeFile();
             if (!mDevice.pushFile(tmpExcludeFile, EXCLUDE_FILE)) {
                 Log.logAndDisplay(LogLevel.ERROR, TAG, "Couldn't push file: " + tmpExcludeFile);
+            } else {
+                CLog.d("exclude-filter-file: %s", safeReadContentFromFile(tmpExcludeFile));
+                // If sucessfully pushed then add it as a filter.
+                excludeFile = String.format("--exclude-filter-file=%s", EXCLUDE_FILE);
             }
         } catch (IOException e) {
             throw new RuntimeException("Failed to parse expectations", e);
@@ -296,6 +333,7 @@ public class DalvikTest implements IAbiReceiver, IBuildReceiver, IDeviceTest, IR
         }
 
         // push one file of include filters to the device, if file exists
+        String includeFile = "";
         if (mIncludeTestFile != null) {
             String path = mIncludeTestFile.getAbsolutePath();
             if (!mIncludeTestFile.isFile() || !mIncludeTestFile.canRead()) {
@@ -303,9 +341,20 @@ public class DalvikTest implements IAbiReceiver, IBuildReceiver, IDeviceTest, IR
             }
             if (!mDevice.pushFile(mIncludeTestFile, INCLUDE_FILE)) {
                 Log.logAndDisplay(LogLevel.ERROR, TAG, "Couldn't push file: " + path);
+            } else {
+                CLog.d("include-filter-file: %s", safeReadContentFromFile(mIncludeTestFile));
+                // If sucessfully pushed then add it as a filter.
+                includeFile = String.format("--include-filter-file=%s", INCLUDE_FILE);
             }
         }
 
+        if (mIsAdbConnection) {
+            Log.logAndDisplay(LogLevel.INFO, TAG, "Running with ADBConnection/libjdwp agent");
+            mDalvikArgs.addAll(mDalvikArgsAdbconnection);
+        } else {
+            Log.logAndDisplay(LogLevel.INFO, TAG, "Running with internal jdwp implementation");
+            mDalvikArgs.addAll(mDalvikArgsInternal);
+        }
 
         // Create command
         mDalvikArgs.add("-Duser.name=shell");
@@ -329,9 +378,7 @@ public class DalvikTest implements IAbiReceiver, IBuildReceiver, IDeviceTest, IR
             excludeFilters.append("--exclude-filter=");
             excludeFilters.append(ArrayUtil.join(",", mExcludeFilters));
         }
-        // Filter files
-        String includeFile = String.format("--include-filter-file=%s", INCLUDE_FILE);
-        String excludeFile = String.format("--exclude-filter-file=%s", EXCLUDE_FILE);
+
         // Communicate with DalvikTestRunner if tests should only be collected
         String collectTestsOnlyString = (mCollectTestsOnly) ? "--collect-tests-only" : "";
         final String command = String.format(COMMAND, bitness,
@@ -339,7 +386,7 @@ public class DalvikTest implements IAbiReceiver, IBuildReceiver, IDeviceTest, IR
                 dalvikArgs, abiName, runnerArgs,
                 includeFilters, excludeFilters, includeFile, excludeFile, collectTestsOnlyString);
         IShellOutputReceiver receiver = new MultiLineReceiver() {
-            private TestIdentifier test;
+            private TestDescription test;
 
             @Override
             public boolean isCancelled() {
@@ -354,33 +401,31 @@ public class DalvikTest implements IAbiReceiver, IBuildReceiver, IDeviceTest, IR
                     if (tag.equals(START_RUN)) {
                         listener.testRunStarted(mRunName, Integer.parseInt(parts[1]));
                         Log.logAndDisplay(LogLevel.INFO, TAG, command);
-                        Log.logAndDisplay(LogLevel.INFO, TAG, line);
                     } else if (tag.equals(END_RUN)) {
                         listener.testRunEnded(Integer.parseInt(parts[1]),
                                 Collections.<String, String>emptyMap());
-                        Log.logAndDisplay(LogLevel.INFO, TAG, line);
                     } else if (tag.equals(START_TEST)) {
-                        test = getTestIdentifier(parts[1]);
+                        test = getTestDescription(parts[1]);
                         listener.testStarted(test);
                     } else if (tag.equals(FAILURE)) {
                         listener.testFailed(test, parts[1]);
                     } else if (tag.equals(END_TEST)) {
-                        listener.testEnded(getTestIdentifier(parts[1]),
+                        listener.testEnded(getTestDescription(parts[1]),
                                 Collections.<String, String>emptyMap());
-                    } else {
-                        Log.logAndDisplay(LogLevel.INFO, TAG, line);
                     }
+                    // Always log the output for debugging
+                    CLog.d(line);
                 }
             }
 
-            private TestIdentifier getTestIdentifier(String name) {
+            private TestDescription getTestDescription(String name) {
                 String[] parts = name.split("#");
                 String className = parts[0];
                 String testName = "";
                 if (parts.length > 1) {
                     testName = parts[1];
                 }
-                return new TestIdentifier(className, testName);
+                return new TestDescription(className, testName);
             }
 
         };
@@ -409,10 +454,18 @@ public class DalvikTest implements IAbiReceiver, IBuildReceiver, IDeviceTest, IR
                     ExpectationStore.parse(expectationFiles, ModeId.DEVICE);
             // create expectation store from expectation files found in module resources dir
             ExpectationStore resourceStore = null;
+            Set<String> knownFailuresFiles = new HashSet<String>();
+            Splitter splitter = Splitter.on(',').trimResults();
             if (mKnownFailures != null) {
-                Splitter splitter = Splitter.on(',').trimResults();
-                Set<String> knownFailuresFiles =
-                        new HashSet<>(splitter.splitToList(mKnownFailures));
+                knownFailuresFiles.addAll(splitter.splitToList(mKnownFailures));
+            }
+            if (mIsAdbConnection && mKnownFailuresAdbconnection != null) {
+                knownFailuresFiles.addAll(splitter.splitToList(mKnownFailuresAdbconnection));
+            }
+            if (!mIsAdbConnection && mKnownFailuresInternal != null) {
+                knownFailuresFiles.addAll(splitter.splitToList(mKnownFailuresInternal));
+            }
+            if (knownFailuresFiles.size() != 0) {
                 resourceStore = ExpectationStore.parseResources(
                         getClass(), knownFailuresFiles, ModeId.DEVICE);
             }
@@ -507,6 +560,15 @@ public class DalvikTest implements IAbiReceiver, IBuildReceiver, IDeviceTest, IR
         @Override
         public boolean accept(File dir, String name) {
             return name.startsWith(mName) && name.endsWith(EXPECTATIONS_EXT);
+        }
+    }
+
+    private String safeReadContentFromFile(File file) {
+        try {
+            return FileUtil.readStringFromFile(file);
+        } catch (IOException e) {
+            CLog.e(e);
+            return null;
         }
     }
 }

@@ -17,7 +17,7 @@
 package com.android.cts.verifier.audio.peripheralprofile;
 
 import android.media.AudioDeviceInfo;
-import android.support.annotation.NonNull;
+import androidx.annotation.NonNull;
 
 import com.android.cts.verifier.audio.peripheralprofile.ListsHelper;
 
@@ -122,7 +122,12 @@ public class PeripheralProfile extends DefaultHandler {
         String[] strings = intList.split(",");
         int[] ints = new int[strings.length];
         for (int index = 0; index < strings.length; index++) {
-            ints[index] = Integer.parseInt(strings[index]);
+            try {
+                ints[index] = Integer.parseInt(strings[index]);
+            }
+            catch (NumberFormatException ex) {
+                ints[index] = 0;
+            }
         }
         return ints;
     }
@@ -148,7 +153,6 @@ public class PeripheralProfile extends DefaultHandler {
     private static final String kAttr_HasBtnA = "HasBtnA";
     private static final String kAttr_HasBtnB = "HasBtnB";
     private static final String kAttr_HasBtnC = "HasBtnC";
-    private static final String kAttr_HasBtnD = "HasBtnD";
 
     private void parseProfileAttributes(ProfileAttributes attribs, String elementName,
                                         Attributes xmlAtts) {
@@ -164,7 +168,6 @@ public class PeripheralProfile extends DefaultHandler {
         buttonAttributes.mHasBtnA = Integer.parseInt(xmlAtts.getValue(kAttr_HasBtnA)) == 1;
         buttonAttributes.mHasBtnB = Integer.parseInt(xmlAtts.getValue(kAttr_HasBtnB)) == 1;
         buttonAttributes.mHasBtnC = Integer.parseInt(xmlAtts.getValue(kAttr_HasBtnC)) == 1;
-        buttonAttributes.mHasBtnD = Integer.parseInt(xmlAtts.getValue(kAttr_HasBtnD)) == 1;
     }
 
     //

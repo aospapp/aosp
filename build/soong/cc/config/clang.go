@@ -1,3 +1,17 @@
+// Copyright 2017 Google Inc. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package config
 
 import (
@@ -63,10 +77,13 @@ var ClangUnknownCflags = sorted([]string{
 	"-fno-inline-functions-called-once",
 	"-mfpmath=sse",
 	"-mbionic",
+
+	// windows
+	"--enable-stdcall-fixup",
 })
 
 var ClangLibToolingUnknownCflags = []string{
-	"-flto",
+	"-flto*",
 	"-fsanitize*",
 }
 
@@ -97,6 +114,9 @@ func init() {
 		// http://b/29823425 Disable -Wexpansion-to-defined for Clang update to r271374
 		"-Wno-expansion-to-defined",
 
+		// http://b/68236239 Allow 0/NULL instead of using nullptr everywhere.
+		"-Wno-zero-as-null-pointer-constant",
+
 		// http://b/36463318 Clang executes with an absolute path, so clang-provided
 		// headers are now absolute.
 		"-fdebug-prefix-map=$$PWD/=",
@@ -115,6 +135,9 @@ func init() {
 		// Turn off -Wthread-safety-negative, to avoid breaking projects that use -Weverything.
 		"-D_LIBCPP_ENABLE_THREAD_SAFETY_ANNOTATIONS",
 		"-Wno-thread-safety-negative",
+
+		// libc++'s math.h has an #include_next outside of system_headers.
+		"-Wno-gnu-include-next",
 	}, " "))
 
 	pctx.StaticVariable("ClangExtraTargetCflags", strings.Join([]string{
@@ -128,6 +151,19 @@ func init() {
 		// fixed.
 		//"-Werror=null-dereference",
 		"-Werror=return-type",
+
+		// http://b/72331526 Disable -Wtautological-* until the instances detected by these
+		// new warnings are fixed.
+		"-Wno-tautological-constant-compare",
+
+		// http://b/72331524 Allow null pointer arithmetic until the instances detected by
+		// this new warning are fixed.
+		"-Wno-null-pointer-arithmetic",
+
+		// http://b/72330874 Disable -Wenum-compare until the instances detected by this new
+		// warning are fixed.
+		"-Wno-enum-compare",
+		"-Wno-enum-compare-switch",
 	}, " "))
 }
 

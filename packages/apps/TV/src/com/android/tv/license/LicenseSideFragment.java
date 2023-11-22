@@ -17,11 +17,9 @@
 package com.android.tv.license;
 
 import android.content.Context;
-
 import com.android.tv.R;
 import com.android.tv.ui.sidepanel.ActionItem;
 import com.android.tv.ui.sidepanel.SideFragment;
-
 import java.util.ArrayList;
 import java.util.List;
 

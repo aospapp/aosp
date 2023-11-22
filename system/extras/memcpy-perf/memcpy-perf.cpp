@@ -106,7 +106,7 @@ int main(int argc, char *argv[])
     for (double cur_pow = start_pow; cur_pow <= end_pow && samples > 0;
             cur_pow += pow_inc) {
         chrono::time_point<chrono::high_resolution_clock>
-            copy_start, copy_end, pre_wait;
+            copy_start, copy_end;
 
         size_t cur_size = (size_t)pow(10.0, cur_pow);
         size_t iter_per_size = size_per_test / cur_size;

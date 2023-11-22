@@ -21,15 +21,18 @@
     android:layout_height="match_parent"
     android:paddingTop="10dp"
     android:paddingBottom="10dp"
-    android:paddingLeft="16dp">
+    android:paddingStart="16dp"
+    android:paddingEnd="16dp">
 
     <TextView
         android:id="@+id/table_row_key"
         android:layout_height="wrap_content"
         android:layout_width="0dp"
         android:layout_weight="1"
+        android:paddingEnd="5dp"
         android:textColor="@android:color/black"
-        android:textSize="14dp">
+        android:textSize="14sp"
+        android:textAlignment="viewStart">
     </TextView>
 
     <TextView
@@ -38,7 +41,9 @@
         android:layout_width="0dp"
         android:layout_weight="1"
         android:textColor="@color/inspector_value"
-        android:textSize="14dp">
+        android:textSize="14sp"
+        android:textIsSelectable="true"
+        android:textAlignment="viewStart">
     </TextView>
 
 </com.android.documentsui.inspector.KeyValueRow>

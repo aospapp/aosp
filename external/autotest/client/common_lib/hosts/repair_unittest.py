@@ -4,6 +4,8 @@
 
 """Unit tests for the `repair` module."""
 
+# pylint: disable=missing-docstring
+
 import functools
 import logging
 import unittest
@@ -11,6 +13,8 @@ import unittest
 import common
 from autotest_lib.client.common_lib import hosts
 from autotest_lib.client.common_lib.hosts import repair
+from autotest_lib.server import constants
+from autotest_lib.server.hosts import host_info
 
 
 class _StubHost(object):
@@ -24,6 +28,8 @@ class _StubHost(object):
 
     def __init__(self):
         self._record_sequence = []
+        fake_board_name = constants.Labels.BOARD_PREFIX + 'fubar'
+        self.host_info_store = host_info.HostInfo(labels=[fake_board_name])
 
 
     def record(self, status_code, subdir, operation, status=''):
@@ -91,8 +97,8 @@ class _StubVerifier(hosts.Verifier):
         self._description = 'Testing verify() for "%s"' % tag
         self._log_record_map = {
             r[0]: r for r in [
-                ('GOOD', None, self._verify_tag, ''),
-                ('FAIL', None, self._verify_tag, self.message),
+                ('GOOD', None, self._record_tag, ''),
+                ('FAIL', None, self._record_tag, self.message),
             ]
         }
 
@@ -172,10 +178,10 @@ class _StubRepairAction(hosts.RepairAction):
         self._description = 'Testing repair for "%s"' % tag
         self._log_record_map = {
             r[0]: r for r in [
-                ('START', None, self._repair_tag, ''),
-                ('FAIL', None, self._repair_tag, self.message),
-                ('END FAIL', None, self._repair_tag, ''),
-                ('END GOOD', None, self._repair_tag, ''),
+                ('START', None, self._record_tag, ''),
+                ('FAIL', None, self._record_tag, self.message),
+                ('END FAIL', None, self._record_tag, ''),
+                ('END GOOD', None, self._record_tag, ''),
             ]
         }
 
@@ -679,6 +685,7 @@ class RepairActionTests(_DependencyNodeTestCase):
     `RepairAction` class:
       * Repair doesn't run unless all dependencies pass.
       * Repair doesn't run unless at least one trigger fails.
+      * Repair reports the expected value of `status` for metrics.
       * The `_repair_host()` method makes the expected calls to
         `Host.record()` for every call to the `repair()` method.
 
@@ -694,6 +701,7 @@ class RepairActionTests(_DependencyNodeTestCase):
         that passes.  Assert the following:
           * The `verify()` method for the trigger is called.
           * The `repair()` method is not called.
+          * The repair action's `status` field is 'untriggered'.
           * The verifier logs the expected 'GOOD' message with
             `Host.record()`.
           * The repair action logs no messages with `Host.record()`.
@@ -705,6 +713,7 @@ class RepairActionTests(_DependencyNodeTestCase):
             repair_action._repair_host(self._fake_host, silent)
             self.assertEqual(verifier.verify_count, 1)
             self.assertEqual(repair_action.repair_count, 0)
+            self.assertEqual(repair_action.status, 'untriggered')
             self._check_log_records(silent, ('check', 'GOOD'))
 
 
@@ -719,6 +728,7 @@ class RepairActionTests(_DependencyNodeTestCase):
             by `repair()`.
           * The `verify()` method for the trigger is called once.
           * The `repair()` method is called once.
+          * The repair action's `status` field is 'failed-action'.
           * The expected 'START', 'FAIL', and 'END FAIL' messages are
             logged with `Host.record()` for the failed verifier and the
             failed repair.
@@ -732,6 +742,7 @@ class RepairActionTests(_DependencyNodeTestCase):
             self.assertEqual(repair_action.message, str(e.exception))
             self.assertEqual(verifier.verify_count, 1)
             self.assertEqual(repair_action.repair_count, 1)
+            self.assertEqual(repair_action.status, 'failed-action')
             self._check_log_records(silent,
                                     ('fail', 'FAIL'),
                                     ('nofix', 'START'),
@@ -748,6 +759,7 @@ class RepairActionTests(_DependencyNodeTestCase):
         repair.  Assert the following:
           * The `repair()` method is called once.
           * The trigger's `verify()` method is called twice.
+          * The repair action's `status` field is 'repaired'.
           * The expected 'START', 'FAIL', 'GOOD', and 'END GOOD'
             messages are logged with `Host.record()` for the verifier
             and the repair.
@@ -759,6 +771,7 @@ class RepairActionTests(_DependencyNodeTestCase):
             repair_action._repair_host(self._fake_host, silent)
             self.assertEqual(repair_action.repair_count, 1)
             self.assertEqual(verifier.verify_count, 2)
+            self.assertEqual(repair_action.status, 'repaired')
             self._check_log_records(silent,
                                     ('fail', 'FAIL'),
                                     ('fix', 'START'),
@@ -776,6 +789,7 @@ class RepairActionTests(_DependencyNodeTestCase):
           * The `_repair_host()` call fails with `AutoservRepairError`.
           * The `repair()` method is called once.
           * The trigger's `verify()` method is called twice.
+          * The repair action's `status` field is 'failed-trigger'.
           * The expected 'START', 'FAIL', and 'END FAIL' messages are
             logged with `Host.record()` for the verifier and the repair.
         """
@@ -787,6 +801,7 @@ class RepairActionTests(_DependencyNodeTestCase):
                 repair_action._repair_host(self._fake_host, silent)
             self.assertEqual(repair_action.repair_count, 1)
             self.assertEqual(verifier.verify_count, 2)
+            self.assertEqual(repair_action.status, 'failed-trigger')
             self._check_log_records(silent,
                                     ('fail', 'FAIL'),
                                     ('nofix', 'START'),
@@ -805,6 +820,7 @@ class RepairActionTests(_DependencyNodeTestCase):
           * The `verify()` method for the dependency is called once.
           * The `verify()` method for the trigger is called twice.
           * The `repair()` method is called once.
+          * The repair action's `status` field is 'repaired'.
           * The expected records are logged via `Host.record()`
             for the successful dependency, the failed trigger, and
             the successful repair.
@@ -818,6 +834,7 @@ class RepairActionTests(_DependencyNodeTestCase):
             self.assertEqual(dep.verify_count, 1)
             self.assertEqual(trigger.verify_count, 2)
             self.assertEqual(repair.repair_count, 1)
+            self.assertEqual(repair.status, 'repaired')
             self._check_log_records(silent,
                                     ('dep', 'GOOD'),
                                     ('trig', 'FAIL'),
@@ -838,6 +855,7 @@ class RepairActionTests(_DependencyNodeTestCase):
           * The `verify()` method for the failing dependency is called
             once.
           * The trigger and the repair action aren't invoked at all.
+          * The repair action's `status` field is 'blocked'.
           * The expected 'FAIL' record is logged via `Host.record()`
             for the single failed dependency.
         """
@@ -854,6 +872,7 @@ class RepairActionTests(_DependencyNodeTestCase):
             self.assertEqual(dep.verify_count, 1)
             self.assertEqual(trigger.verify_count, 0)
             self.assertEqual(repair.repair_count, 0)
+            self.assertEqual(repair.status, 'blocked')
             self._check_log_records(silent, ('dep', 'FAIL'))
 
 

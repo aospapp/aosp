@@ -56,6 +56,7 @@ public class SensorStats {
             "event_time_wrong_clocksource_positions";
     public static final String EVENT_COUNT_KEY = "event_count";
     public static final String EVENT_COUNT_EXPECTED_KEY = "event_count_expected";
+    public static final String EVENT_NOT_SANITIZED_KEY = "event_not_sanitized";
     public static final String EVENT_LOG_FILENAME = "event_log_filename";
     public static final String WRONG_SENSOR_KEY = "wrong_sensor_observed";
     public static final String FREQUENCY_KEY = "frequency";

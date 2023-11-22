@@ -552,4 +552,85 @@ public abstract class AbstractZipFileTest extends TestCaseWithRules {
             assertTrue(entryNamesFromFile.contains(entryName));
         }
     }
+
+    // http://b/65491407
+    public void testReadMoreThan8kInOneRead() throws IOException {
+        // Create a zip file with 1mb entry
+        final File f = createTemporaryZipFile();
+        writeEntries(createZipOutputStream(f), 1, 1024 * 1024, true /* setEntrySize */);
+
+        // Create a ~64kb read buffer (-32 bytes for a slack, inflater wont fill it completly)
+        byte[] readBuffer = new byte[1024 * 64 - 32];
+
+        // Read the data to read buffer
+        ZipFile zipFile = new ZipFile(f);
+        InputStream is = zipFile.getInputStream(zipFile.entries().nextElement());
+        int read = is.read(readBuffer, 0, readBuffer.length);
+
+        // Assert that whole buffer been filled. Due to openJdk choice of buffer size, read
+        // never returned more than 8k of data.
+        assertEquals(readBuffer.length, read);
+        is.close();
+        zipFile.close();
+    }
+
+    // http://b/65491407
+    public void testReadWithOffset() throws IOException {
+        // Create a zip file with 1mb entry
+        final File f = createTemporaryZipFile();
+        writeEntries(createZipOutputStream(f), 1, 1024 * 1024, true /* setEntrySize */);
+
+        int bufferSize = 128;
+        byte[] readBuffer = new byte[bufferSize];
+
+        // Read the data to read buffer
+        ZipFile zipFile = new ZipFile(f);
+        InputStream is = zipFile.getInputStream(zipFile.entries().nextElement());
+
+        // Read data (Random bytes sting) to last 32 bit
+        int read = is.read(readBuffer, bufferSize - 32, 32);
+
+        // Check if buffer looks like expected
+        assertEquals(32, read);
+        for (int i = 0; i < bufferSize - 32; i++) {
+          assertEquals(0, readBuffer[i]);
+        }
+
+        is.close();
+        zipFile.close();
+    }
+
+    // http://b/65491407
+    public void testReadWithOffsetInvalid() throws IOException {
+        // Create a zip file with 1mb entry
+        final File f = createTemporaryZipFile();
+        writeEntries(createZipOutputStream(f), 1, 1024 * 1024, true /* setEntrySize */);
+
+        int bufferSize = 128;
+        byte[] readBuffer = new byte[bufferSize];
+
+        // Read the data to read buffer
+        ZipFile zipFile = new ZipFile(f);
+        InputStream is = zipFile.getInputStream(zipFile.entries().nextElement());
+
+        try {
+          is.read(readBuffer, bufferSize - 32, 33);
+          fail();
+        } catch(IndexOutOfBoundsException expect) {}
+        try {
+          is.read(readBuffer, -1, 32);
+          fail();
+        } catch(IndexOutOfBoundsException expect) {}
+        try {
+          is.read(readBuffer, 32, -1);
+          fail();
+        } catch(IndexOutOfBoundsException expect) {}
+        try {
+          is.read(readBuffer, bufferSize, 1);
+          fail();
+        } catch(IndexOutOfBoundsException expect) {}
+
+        is.close();
+        zipFile.close();
+    }
 }

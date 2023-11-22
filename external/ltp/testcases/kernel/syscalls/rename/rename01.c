@@ -72,6 +72,7 @@
 #include <errno.h>
 
 #include "test.h"
+#include "safe_macros.h"
 
 void setup();
 void cleanup();
@@ -132,11 +133,7 @@ int main(int ac, char **av)
 				continue;
 			}
 
-			if (stat(TC[i].name2, &buf1) == -1) {
-				tst_brkm(TBROK, cleanup, "stat of %s "
-					 "failed", TC[i].desc);
-
-			}
+			SAFE_STAT(cleanup, TC[i].name2, &buf1);
 
 			/*
 			 * verify the new file or directory is the
@@ -163,13 +160,9 @@ int main(int ac, char **av)
 				 "for renaming a %s", TC[i].desc);
 		}
 		/* reset things in case we are looping */
-		if (rename(mname, fname) == -1) {
-			tst_brkm(TBROK, cleanup, "file rename failed");
-		}
+		SAFE_RENAME(cleanup, mname, fname);
 
-		if (rename(mdir, fdir) == -1) {
-			tst_brkm(TBROK, cleanup, "directory rename failed");
-		}
+		SAFE_RENAME(cleanup, mdir, fdir);
 	}
 
 	cleanup();
@@ -197,25 +190,15 @@ void setup(void)
 
 	SAFE_TOUCH(cleanup, fname, 0700, NULL);
 
-	if (stat(fname, &buf1) == -1) {
-		tst_brkm(TBROK, cleanup, "failed to stat file %s"
-			 "in setup()", fname);
-
-	}
+	SAFE_STAT(cleanup, fname, &buf1);
 
 	f_olddev = buf1.st_dev;
 	f_oldino = buf1.st_ino;
 
 	/* create "old" directory */
-	if (mkdir(fdir, 00770) == -1) {
-		tst_brkm(TBROK, cleanup, "Could not create directory %s", fdir);
-	}
+	SAFE_MKDIR(cleanup, fdir, 00770);
 
-	if (stat(fdir, &buf1) == -1) {
-		tst_brkm(TBROK, cleanup, "failed to stat directory %s"
-			 "in setup()", fname);
-
-	}
+	SAFE_STAT(cleanup, fdir, &buf1);
 
 	d_olddev = buf1.st_dev;
 	d_oldino = buf1.st_ino;

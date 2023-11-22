@@ -177,6 +177,7 @@ void setInetAddress_hostName(JNIEnv *env, jobject iaObj, jobject host) {
     // Android-changed: initInetAddrs(env);
     holder = (*env)->GetObjectField(env, iaObj, ia_holderID);
     (*env)->SetObjectField(env, holder, iac_hostNameID, host);
+    (*env)->SetObjectField(env, holder, iac_origHostNameID, host);
 }
 
 int getInetAddress_addr(JNIEnv *env, jobject iaObj) {

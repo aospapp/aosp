@@ -89,7 +89,7 @@ public class LayoutManager extends ZLinkedList<Widget>
         for (Widget widget : elements()) {
             //int canvasState = canvas.save(Canvas.ALL_SAVE_FLAG); // preserve clipping etc
             try {
-                canvas.save(Canvas.ALL_SAVE_FLAG);
+                canvas.save();
                 PositionMetrics metrics = widget.getPositionMetrics();
                 float elementWidth = widget.getWidthPix(displayDims.paddedRect.width());
                 float elementHeight = widget.getHeightPix(displayDims.paddedRect.height());
@@ -148,8 +148,8 @@ public class LayoutManager extends ZLinkedList<Widget>
     private void drawSpacing(Canvas canvas, RectF outer, RectF inner, Paint paint) {
         //int saved = canvas.save(Canvas.ALL_SAVE_FLAG);
         try {
-            canvas.save(Canvas.ALL_SAVE_FLAG);
-            canvas.clipRect(inner, Region.Op.DIFFERENCE);
+            canvas.save();
+            canvas.clipOutRect(inner);
             canvas.drawRect(outer, paint);
             //canvas.restoreToCount(saved);
         } finally {

@@ -87,7 +87,7 @@ subprojects {
     apply plugin: 'maven'
 
     version = rootProject.multidexVersion
-    group = 'com.android.support'
+    group = 'androidx.multidex'
 
     dist.dependsOn project.tasks.uploadArchives
 

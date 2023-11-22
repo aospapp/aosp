@@ -19,46 +19,8 @@
 
 #include <jni.h>
 #include <android/bitmap.h>
-#include <cstdlib>
-#include <cstring>
 
-// Copied from tests/sensor/jni/nativeTestHelper.h
-// TODO: Move to a shared location
-#define ASSERT(condition, format, args...) \
-        if (!(condition)) { \
-            fail(env, format, ## args); \
-            return; \
-        }
-
-#define ASSERT_TRUE(a) ASSERT((a), "assert failed on (" #a ") at " __FILE__ ":%d", __LINE__)
-#define ASSERT_FALSE(a) ASSERT(!(a), "assert failed on (!" #a ") at " __FILE__ ":%d", __LINE__)
-#define ASSERT_EQ(a, b) \
-        ASSERT((a) == (b), "assert failed on (" #a " == " #b ") at " __FILE__ ":%d", __LINE__)
-#define ASSERT_NE(a, b) \
-        ASSERT((a) != (b), "assert failed on (" #a " != " #b ") at " __FILE__ ":%d", __LINE__)
-#define ASSERT_GT(a, b) \
-        ASSERT((a) > (b), "assert failed on (" #a " > " #b ") at " __FILE__ ":%d", __LINE__)
-#define ASSERT_GE(a, b) \
-        ASSERT((a) >= (b), "assert failed on (" #a " >= " #b ") at " __FILE__ ":%d", __LINE__)
-#define ASSERT_LT(a, b) \
-        ASSERT((a) < (b), "assert failed on (" #a " < " #b ") at " __FILE__ ":%d", __LINE__)
-#define ASSERT_LE(a, b) \
-        ASSERT((a) <= (b), "assert failed on (" #a " <= " #b ") at " __FILE__ ":%d", __LINE__)
-
-static void fail(JNIEnv* env, const char* format, ...) {
-    va_list args;
-
-    va_start(args, format);
-    char *msg;
-    vasprintf(&msg, format, args);
-    va_end(args);
-
-    jclass exClass;
-    const char *className = "java/lang/AssertionError";
-    exClass = env->FindClass(className);
-    env->ThrowNew(exClass, msg);
-    free(msg);
-}
+#include "NativeTestHelpers.h"
 
 static void validateBitmapInfo(JNIEnv* env, jclass, jobject jbitmap, jint width, jint height,
         jboolean is565) {

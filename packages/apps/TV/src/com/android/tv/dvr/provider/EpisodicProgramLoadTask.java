@@ -25,18 +25,16 @@ import android.net.Uri;
 import android.os.Build;
 import android.support.annotation.Nullable;
 import android.support.annotation.WorkerThread;
-
-import com.android.tv.TvApplication;
+import com.android.tv.TvSingletons;
 import com.android.tv.common.SoftPreconditions;
+import com.android.tv.common.util.PermissionUtils;
 import com.android.tv.data.Program;
 import com.android.tv.dvr.DvrDataManager;
-import com.android.tv.dvr.data.SeasonEpisodeNumber;
 import com.android.tv.dvr.data.ScheduledRecording;
+import com.android.tv.dvr.data.SeasonEpisodeNumber;
 import com.android.tv.dvr.data.SeriesRecording;
 import com.android.tv.util.AsyncDbTask.AsyncProgramQueryTask;
 import com.android.tv.util.AsyncDbTask.CursorFilter;
-import com.android.tv.util.PermissionUtils;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -44,11 +42,9 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-/**
- * A wrapper of AsyncProgramQueryTask to load the episodic programs for the series recordings.
- */
+/** A wrapper of AsyncProgramQueryTask to load the episodic programs for the series recordings. */
 @TargetApi(Build.VERSION_CODES.N)
-abstract public class EpisodicProgramLoadTask {
+public abstract class EpisodicProgramLoadTask {
     private static final String TAG = "EpisodicProgramLoadTask";
 
     private static final int PROGRAM_ID_INDEX = Program.getColumnIndex(Programs._ID);
@@ -61,11 +57,15 @@ abstract public class EpisodicProgramLoadTask {
     private static final String PARAM_END_TIME = "end_time";
 
     private static final String PROGRAM_PREDICATE =
-            Programs.COLUMN_START_TIME_UTC_MILLIS + ">? AND "
-                    + Programs.COLUMN_RECORDING_PROHIBITED + "=0";
+            Programs.COLUMN_START_TIME_UTC_MILLIS
+                    + ">? AND "
+                    + Programs.COLUMN_RECORDING_PROHIBITED
+                    + "=0";
     private static final String PROGRAM_PREDICATE_WITH_CURRENT_PROGRAM =
-            Programs.COLUMN_END_TIME_UTC_MILLIS + ">? AND "
-                    + Programs.COLUMN_RECORDING_PROHIBITED + "=0";
+            Programs.COLUMN_END_TIME_UTC_MILLIS
+                    + ">? AND "
+                    + Programs.COLUMN_RECORDING_PROHIBITED
+                    + "=0";
     private static final String CHANNEL_ID_PREDICATE = Programs.COLUMN_CHANNEL_ID + "=?";
     private static final String PROGRAM_TITLE_PREDICATE = Programs.COLUMN_TITLE + "=?";
 
@@ -80,10 +80,7 @@ abstract public class EpisodicProgramLoadTask {
     private final ArrayList<SeriesRecording> mSeriesRecordings = new ArrayList<>();
     private AsyncProgramQueryTask mProgramQueryTask;
 
-    /**
-     *
-     * Constructor used to load programs for one series recording with the given channel option.
-     */
+    /** Constructor used to load programs for one series recording with the given channel option. */
     public EpisodicProgramLoadTask(Context context, SeriesRecording seriesRecording) {
         this(context, Collections.singletonList(seriesRecording));
     }
@@ -94,64 +91,56 @@ abstract public class EpisodicProgramLoadTask {
      */
     public EpisodicProgramLoadTask(Context context, Collection<SeriesRecording> seriesRecordings) {
         mContext = context.getApplicationContext();
-        mDataManager = TvApplication.getSingletons(context).getDvrDataManager();
+        mDataManager = TvSingletons.getSingletons(context).getDvrDataManager();
         mSeriesRecordings.addAll(seriesRecordings);
     }
 
-    /**
-     * Returns the series recordings.
-     */
+    /** Returns the series recordings. */
     public List<SeriesRecording> getSeriesRecordings() {
         return mSeriesRecordings;
     }
 
-    /**
-     * Returns the program query task. It is {@code null} until it is executed.
-     */
+    /** Returns the program query task. It is {@code null} until it is executed. */
     @Nullable
     public AsyncProgramQueryTask getTask() {
         return mProgramQueryTask;
     }
 
-    /**
-     * Enables loading current programs. The default value is {@code false}.
-     */
+    /** Enables loading current programs. The default value is {@code false}. */
     public EpisodicProgramLoadTask setLoadCurrentProgram(boolean loadCurrentProgram) {
-        SoftPreconditions.checkState(mProgramQueryTask == null, TAG,
-                "Can't change setting after execution.");
+        SoftPreconditions.checkState(
+                mProgramQueryTask == null, TAG, "Can't change setting after execution.");
         mLoadCurrentProgram = loadCurrentProgram;
         return this;
     }
 
-    /**
-     * Enables already schedules episodes. The default value is {@code false}.
-     */
+    /** Enables already schedules episodes. The default value is {@code false}. */
     public EpisodicProgramLoadTask setLoadScheduledEpisode(boolean loadScheduledEpisode) {
-        SoftPreconditions.checkState(mProgramQueryTask == null, TAG,
-                "Can't change setting after execution.");
+        SoftPreconditions.checkState(
+                mProgramQueryTask == null, TAG, "Can't change setting after execution.");
         mLoadScheduledEpisode = loadScheduledEpisode;
         return this;
     }
 
     /**
-     * Enables loading disallowed programs whose schedules were removed manually by the user.
-     * The default value is {@code false}.
+     * Enables loading disallowed programs whose schedules were removed manually by the user. The
+     * default value is {@code false}.
      */
     public EpisodicProgramLoadTask setLoadDisallowedProgram(boolean loadDisallowedProgram) {
-        SoftPreconditions.checkState(mProgramQueryTask == null, TAG,
-                "Can't change setting after execution.");
+        SoftPreconditions.checkState(
+                mProgramQueryTask == null, TAG, "Can't change setting after execution.");
         mLoadDisallowedProgram = loadDisallowedProgram;
         return this;
     }
 
     /**
-     * Gives the option whether to ignore the channel option when matching programs.
-     * If {@code ignoreChannelOption} is {@code true}, the program will be matched with
-     * {@link SeriesRecording#OPTION_CHANNEL_ALL} option.
+     * Gives the option whether to ignore the channel option when matching programs. If {@code
+     * ignoreChannelOption} is {@code true}, the program will be matched with {@link
+     * SeriesRecording#OPTION_CHANNEL_ALL} option.
      */
     public EpisodicProgramLoadTask setIgnoreChannelOption(boolean ignoreChannelOption) {
-        SoftPreconditions.checkState(mProgramQueryTask == null, TAG,
-                "Can't change setting after execution.");
+        SoftPreconditions.checkState(
+                mProgramQueryTask == null, TAG, "Can't change setting after execution.");
         mIgnoreChannelOption = ignoreChannelOption;
         return this;
     }
@@ -162,12 +151,15 @@ abstract public class EpisodicProgramLoadTask {
      * @see com.android.tv.util.AsyncDbTask#executeOnDbThread
      */
     public void execute() {
-        if (SoftPreconditions.checkState(mProgramQueryTask == null, TAG,
+        if (SoftPreconditions.checkState(
+                mProgramQueryTask == null,
+                TAG,
                 "Can't execute task: the task is already running.")) {
-            mQueryAllChannels = mSeriesRecordings.size() > 1
-                    || mSeriesRecordings.get(0).getChannelOption()
-                            == SeriesRecording.OPTION_CHANNEL_ALL
-                    || mIgnoreChannelOption;
+            mQueryAllChannels =
+                    mSeriesRecordings.size() > 1
+                            || mSeriesRecordings.get(0).getChannelOption()
+                                    == SeriesRecording.OPTION_CHANNEL_ALL
+                            || mIgnoreChannelOption;
             mProgramQueryTask = createTask();
             mProgramQueryTask.executeOnDbThread();
         }
@@ -184,22 +176,22 @@ abstract public class EpisodicProgramLoadTask {
         }
     }
 
-    /**
-     * Runs on the UI thread after the program loading finishes successfully.
-     */
-    protected void onPostExecute(List<Program> programs) {
-    }
+    /** Runs on the UI thread after the program loading finishes successfully. */
+    protected void onPostExecute(List<Program> programs) {}
 
-    /**
-     * Runs on the UI thread after the program loading was canceled.
-     */
-    protected void onCancelled(List<Program> programs) {
-    }
+    /** Runs on the UI thread after the program loading was canceled. */
+    protected void onCancelled(List<Program> programs) {}
 
     private AsyncProgramQueryTask createTask() {
         SqlParams sqlParams = createSqlParams();
-        return new AsyncProgramQueryTask(mContext.getContentResolver(), sqlParams.uri,
-                sqlParams.selection, sqlParams.selectionArgs, null, sqlParams.filter) {
+        return new AsyncProgramQueryTask(
+                TvSingletons.getSingletons(mContext).getDbExecutor(),
+                mContext.getContentResolver(),
+                sqlParams.uri,
+                sqlParams.selection,
+                sqlParams.selectionArgs,
+                null,
+                sqlParams.filter) {
             @Override
             protected void onPostExecute(List<Program> programs) {
                 EpisodicProgramLoadTask.this.onPostExecute(programs);
@@ -217,8 +209,11 @@ abstract public class EpisodicProgramLoadTask {
         if (PermissionUtils.hasAccessAllEpg(mContext)) {
             sqlParams.uri = Programs.CONTENT_URI;
             // Base
-            StringBuilder selection = new StringBuilder(mLoadCurrentProgram
-                    ? PROGRAM_PREDICATE_WITH_CURRENT_PROGRAM : PROGRAM_PREDICATE);
+            StringBuilder selection =
+                    new StringBuilder(
+                            mLoadCurrentProgram
+                                    ? PROGRAM_PREDICATE_WITH_CURRENT_PROGRAM
+                                    : PROGRAM_PREDICATE);
             List<String> args = new ArrayList<>();
             args.add(Long.toString(System.currentTimeMillis()));
             // Channel option
@@ -237,15 +232,21 @@ abstract public class EpisodicProgramLoadTask {
         } else {
             // The query includes the current program. Will be filtered if needed.
             if (mQueryAllChannels) {
-                sqlParams.uri = Programs.CONTENT_URI.buildUpon()
-                        .appendQueryParameter(PARAM_START_TIME,
-                                String.valueOf(System.currentTimeMillis()))
-                        .appendQueryParameter(PARAM_END_TIME, String.valueOf(Long.MAX_VALUE))
-                        .build();
+                sqlParams.uri =
+                        Programs.CONTENT_URI
+                                .buildUpon()
+                                .appendQueryParameter(
+                                        PARAM_START_TIME,
+                                        String.valueOf(System.currentTimeMillis()))
+                                .appendQueryParameter(
+                                        PARAM_END_TIME, String.valueOf(Long.MAX_VALUE))
+                                .build();
             } else {
-                sqlParams.uri = TvContract.buildProgramsUriForChannel(
-                        mSeriesRecordings.get(0).getChannelId(),
-                        System.currentTimeMillis(), Long.MAX_VALUE);
+                sqlParams.uri =
+                        TvContract.buildProgramsUriForChannel(
+                                mSeriesRecordings.get(0).getChannelId(),
+                                System.currentTimeMillis(),
+                                Long.MAX_VALUE);
             }
             sqlParams.selection = null;
             sqlParams.selectionArgs = null;
@@ -292,16 +293,19 @@ abstract public class EpisodicProgramLoadTask {
             for (SeriesRecording seriesRecording : mSeriesRecordings) {
                 boolean programMatches;
                 if (mIgnoreChannelOption) {
-                    programMatches = seriesRecording.matchProgram(program,
-                            SeriesRecording.OPTION_CHANNEL_ALL);
+                    programMatches =
+                            seriesRecording.matchProgram(
+                                    program, SeriesRecording.OPTION_CHANNEL_ALL);
                 } else {
                     programMatches = seriesRecording.matchProgram(program);
                 }
                 if (programMatches) {
                     return mLoadScheduledEpisode
-                            || !mSeasonEpisodeNumbers.contains(new SeasonEpisodeNumber(
-                            seriesRecording.getId(), program.getSeasonNumber(),
-                            program.getEpisodeNumber()));
+                            || !mSeasonEpisodeNumbers.contains(
+                                    new SeasonEpisodeNumber(
+                                            seriesRecording.getId(),
+                                            program.getSeasonNumber(),
+                                            program.getEpisodeNumber()));
                 }
             }
             return false;
@@ -316,7 +320,8 @@ abstract public class EpisodicProgramLoadTask {
         @Override
         public boolean filter(Cursor c) {
             return (mLoadCurrentProgram || c.getLong(START_TIME_INDEX) > System.currentTimeMillis())
-                    && c.getInt(RECORDING_PROHIBITED_INDEX) != 0 && super.filter(c);
+                    && c.getInt(RECORDING_PROHIBITED_INDEX) != 0
+                    && super.filter(c);
         }
     }
 

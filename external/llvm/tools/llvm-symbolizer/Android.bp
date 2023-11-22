@@ -18,7 +18,7 @@ cc_binary {
             ],
         },
         android: {
-            shared_libs: ["libLLVM"],
+            shared_libs: ["libLLVM_android"],
         },
     },
 }

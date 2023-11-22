@@ -116,7 +116,7 @@ def main():
             # Split by comma and convert each dimension to int.
             [w, h] = map(int, s[9:].split(","))
         elif s[:12] == "test_length=" and len(s) > 12:
-            test_length = int(s[12:])
+            test_length = float(s[12:])
 
     # Collect or load the camera+gyro data. All gyro events as well as camera
     # timestamps are in the "events" dictionary, and "frames" is a list of
@@ -345,7 +345,7 @@ def get_cam_rotations(frames, facing, h):
         if num_features < MIN_FEATURE_PTS:
             print "Not enough feature points in frame", i
             print "Need at least %d features, got %d" % (
-                    MIN_FEATURE_PTS, num_features)
+                MIN_FEATURE_PTS, num_features)
             assert 0
         else:
             print "Number of features in frame %d is %d" % (i, num_features)
@@ -447,13 +447,16 @@ def collect_data(fps, w, h, test_length):
         fmt = {"format": "yuv", "width": w, "height": h}
         s, e, _, _, _ = cam.do_3a(get_results=True, do_af=False)
         req = its.objects.manual_capture_request(s, e)
-        fps = 30
         req["android.lens.focusDistance"] = 1 / (CHART_DISTANCE * CM_TO_M)
         req["android.control.aeTargetFpsRange"] = [fps, fps]
         req["android.sensor.frameDuration"] = int(1000.0/fps * MSEC_TO_NSEC)
-        print "Capturing %dx%d with sens. %d, exp. time %.1fms" % (
-            w, h, s, e*NSEC_TO_MSEC)
-        caps = cam.do_capture([req]*fps*test_length, fmt)
+        print "Capturing %dx%d with sens. %d, exp. time %.1fms at %dfps" % (
+            w, h, s, e*NSEC_TO_MSEC, fps)
+        caps = cam.do_capture([req]*int(fps*test_length), fmt)
+
+        # Capture a bit more gyro samples for use in
+        # get_best_alignment_offset
+        time.sleep(0.2)
 
         # Get the gyro events.
         print "Reading out sensor events"

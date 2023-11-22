@@ -472,7 +472,7 @@
     <string name="custom_list_filter" msgid="9048525797111024204">"စိတ်ကြိုက်ပြင်ဆင်ရန်"</string>
     <string name="menu_custom_filter_save" msgid="2679793632208086460">"သိမ်းရန်"</string>
     <string name="hint_findContacts" msgid="7128627979899070325">"အဆက်အသွယ်များရှာပါ"</string>
-    <string name="contactsFavoritesLabel" msgid="8417039765586853670">"အကြိုက်ဆုံးများ"</string>
+    <string name="contactsFavoritesLabel" msgid="8417039765586853670">"အသုံးအများဆုံး"</string>
     <string name="menu_import" msgid="6107961135813836467">"တင်သွင်းရန်"</string>
     <string name="menu_export" msgid="2658783911863503902">"တင်ပို့ရန်"</string>
     <string name="menu_blocked_numbers" msgid="5272951629083025995">"ပိတ်ထားသည့် နံပါတ်များ"</string>
@@ -529,4 +529,6 @@
     <string name="importing_sim_failed_message" msgid="3345258302998021066">"ဆင်းမ်ကဒ်မှ အဆက်အသွယ်များကို တင်သွင်း၍မရပါ"</string>
     <string name="importing_sim_in_progress_title" msgid="3638299581276676109">"ဆင်းမ်ကဒ်ကို တင်သွင်းနေသည်"</string>
     <string name="contacts_default_notification_channel" msgid="4754058700611188581">"အကြောင်းကြားချက်များ"</string>
+    <string name="yes_button" msgid="1268479086848288060">"Yes"</string>
+    <string name="no_button" msgid="5742815694687835125">"No"</string>
 </resources>

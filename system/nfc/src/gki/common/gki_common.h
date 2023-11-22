@@ -23,9 +23,6 @@
 /* Task States: (For OSRdyTbl) */
 #define TASK_DEAD 0    /* b0000 */
 #define TASK_READY 1   /* b0001 */
-#define TASK_WAIT 2    /* b0010 */
-#define TASK_DELAY 4   /* b0100 */
-#define TASK_SUSPEND 8 /* b1000 */
 
 /********************************************************************
 **  Internal Error codes
@@ -40,14 +37,12 @@
 #define GKI_ERROR_DELETE_POOL_BAD_QID 0xFFF8
 #define GKI_ERROR_BUF_SIZE_TOOBIG 0xFFF7
 #define GKI_ERROR_BUF_SIZE_ZERO 0xFFF6
-#define GKI_ERROR_ADDR_NOT_IN_BUF 0xFFF5
 
 /********************************************************************
 **  Misc constants
 *********************************************************************/
 
 #define GKI_MAX_INT32 (0x7fffffffL)
-#define GKI_MAX_TIMESTAMP (0xffffffffL)
 
 /********************************************************************
 **  Buffer Management Data Structures
@@ -275,10 +270,6 @@ typedef struct {
 
 } tGKI_COM_CB;
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 /* Internal GKI function prototypes
 */
 extern bool gki_chk_buf_damage(void*);
@@ -286,16 +277,5 @@ extern bool gki_chk_buf_owner(void*);
 extern void gki_buffer_init(void);
 extern void gki_timers_init(void);
 extern void gki_adjust_timer_count(int32_t);
-
-extern void OSStartRdy(void);
-extern void OSCtxSw(void);
-extern void OSIntCtxSw(void);
-extern void OSSched(void);
-extern void OSIntEnter(void);
-extern void OSIntExit(void);
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif

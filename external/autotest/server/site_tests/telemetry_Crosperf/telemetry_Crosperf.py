@@ -15,6 +15,16 @@ from autotest_lib.server.cros import telemetry_runner
 
 
 TELEMETRY_TIMEOUT_MINS = 60
+DUT_COMMON_SSH_OPTIONS = ['-o StrictHostKeyChecking=no',
+                          '-o UserKnownHostsFile=/dev/null',
+                          '-o BatchMode=yes',
+                          '-o ConnectTimeout=30',
+                          '-o ServerAliveInterval=900',
+                          '-o ServerAliveCountMax=3',
+                          '-o ConnectionAttempts=4',
+                          '-o Protocol=2']
+DUT_SCP_OPTIONS = ' '.join(DUT_COMMON_SSH_OPTIONS)
+
 CHROME_SRC_ROOT = '/var/cache/chromeos-cache/distfiles/target/'
 CLIENT_CHROME_ROOT = '/usr/local/telemetry/src'
 RUN_BENCHMARK  = 'tools/perf/run_benchmark'
@@ -113,7 +123,7 @@ class telemetry_Crosperf(test.test):
         cmd=[]
         src = ('root@%s:%s/results-chart.json' %
                (dut.hostname if dut else client_ip, DUT_CHROME_RESULTS_DIR))
-        cmd.extend(['scp', telemetry_runner.DUT_SCP_OPTIONS, RSA_KEY, '-v',
+        cmd.extend(['scp', DUT_SCP_OPTIONS, RSA_KEY, '-v',
                     src, self.resultsdir])
         command = ' '.join(cmd)
 
@@ -179,6 +189,10 @@ class telemetry_Crosperf(test.test):
             exit_code = e.result_obj.exit_status
             raise error.TestFail('An error occurred while executing '
                                  'telemetry test.')
+        except:
+            logging.debug('Telemetry aborted with unknown error.')
+            exit_code = -1
+            raise
         finally:
             stdout_str = stdout.getvalue()
             stderr_str = stderr.getvalue()

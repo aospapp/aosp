@@ -44,9 +44,10 @@
     .th_units { width: 10% }
     .th_tags { width: 5% }
     .th_details { width: 25% }
-    .th_type { width: 20% }
+    .th_type { width: 17% }
     .th_description { width: 20% }
-    .th_range { width: 10% }
+    .th_range { width: 8% }
+    .th_hal_version { width: 5% }
     td { font-size: 0.9em; }
 
     /* hide the first thead, we need it there only to enforce column sizes */
@@ -119,7 +120,7 @@
 
   # Convert target "xxx.yyy#zzz" to a HTML reference to Android public developer
   # docs with link name from shortname.
-  def html_link(target, shortname):
+  def html_link(target, target_ndk, shortname):
     if shortname == '':
       lastdot = target.rfind('.')
       if lastdot == -1:
@@ -203,6 +204,7 @@ ${          insert_toc_body(kind)}\
         <th class="th_description">Description</th>
         <th class="th_units">Units</th>
         <th class="th_range">Range</th>
+        <th class="th_hal_version">HIDL HAL version</th>
         <th class="th_tags">Tags</th>
       </tr>
     </thead> <!-- so that the first occurrence of thead is not
@@ -210,14 +212,14 @@ ${          insert_toc_body(kind)}\
 % for root in metadata.outer_namespaces:
 <!-- <namespace name="${root.name}"> -->
   % for section in root.sections:
-  <tr><td colspan="6" id="section_${section.name}" class="section">${section.name}</td></tr>
+  <tr><td colspan="7" id="section_${section.name}" class="section">${section.name}</td></tr>
 
     % if section.description is not None:
       <tr class="description"><td>${section.description}</td></tr>
     % endif
 
     % for kind in section.merged_kinds: # dynamic,static,controls
-      <tr><td colspan="6" class="kind">${kind.name}</td></tr>
+      <tr><td colspan="7" class="kind">${kind.name}</td></tr>
 
       <thead class="entries_header">
         <tr>
@@ -226,6 +228,7 @@ ${          insert_toc_body(kind)}\
           <th class="th_description">Description</th>
           <th class="th_units">Units</th>
           <th class="th_range">Range</th>
+          <th class="th_hal_version">Initial HIDL HAL version</th>
           <th class="th_tags">Tags</th>
         </tr>
       </thead>
@@ -298,7 +301,7 @@ ${          insert_toc_body(kind)}\
                 <ul class="entry_type_enum">
                   % for value in prop.enum.values:
                   <li>
-                    <span class="entry_type_enum_name">${value.name}</span>
+                    <span class="entry_type_enum_name">${value.name} (v${value.hal_major_version}.${value.hal_minor_version})</span>
                   % if value.deprecated:
                     <span class="entry_type_enum_deprecated">[deprecated]</span>
                   % endif:
@@ -342,6 +345,10 @@ ${          insert_toc_body(kind)}\
             % endif
             </td>
 
+            <td class="entry_hal_version">
+              ${"%d.%d" % (prop.hal_major_version, prop.hal_minor_version) | md_html, linkify_tags(metadata), wbr}
+            </td>
+
             <td class="entry_tags">
             % if next(prop.tags, None):
               <ul class="entry_tags">
@@ -355,10 +362,10 @@ ${          insert_toc_body(kind)}\
           </tr>
           % if prop.details is not None:
           <tr class="entries_header">
-            <th class="th_details" colspan="5">Details</th>
+            <th class="th_details" colspan="6">Details</th>
           </tr>
           <tr class="entry_cont">
-            <td class="entry_details" colspan="5">
+            <td class="entry_details" colspan="6">
               ${prop.details | md_html, linkify_tags(metadata), wbr}
             </td>
           </tr>
@@ -366,16 +373,16 @@ ${          insert_toc_body(kind)}\
 
           % if prop.hal_details is not None:
           <tr class="entries_header">
-            <th class="th_details" colspan="5">HAL Implementation Details</th>
+            <th class="th_details" colspan="6">HAL Implementation Details</th>
           </tr>
           <tr class="entry_cont">
-            <td class="entry_details" colspan="5">
+            <td class="entry_details" colspan="6">
               ${prop.hal_details | md_html, linkify_tags(metadata), wbr}
             </td>
           </tr>
           % endif
 
-          <tr class="entry_spacer"><td class="entry_spacer" colspan="6"></td></tr>
+          <tr class="entry_spacer"><td class="entry_spacer" colspan="7"></td></tr>
            <!-- end of entry -->
         </%def>
 

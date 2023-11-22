@@ -19,4 +19,8 @@
     <bool name="config_hardwareUsesCelsius">true</bool>
     <!-- This should really be configurable using settings but config will do for now. -->
     <bool name="config_userUsesCelsius">false</bool>
+    <!-- This is temporary flag instead of removing the functionality altogether as the system
+     ui is updated. It hides the semi-circle click targets/temp indicators that overlay
+     the system nav bar.-->
+    <bool name="config_showCollapsedBars">false</bool>
 </resources>

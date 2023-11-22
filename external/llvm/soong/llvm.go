@@ -57,10 +57,7 @@ func llvmDefaults(ctx android.LoadHookContext) {
 			Host struct {
 				Enabled *bool
 			}
-			Linux struct {
-				Cflags []string
-			}
-			Darwin struct {
+			Not_windows struct {
 				Cflags []string
 			}
 		}
@@ -70,9 +67,8 @@ func llvmDefaults(ctx android.LoadHookContext) {
 	p := &props{}
 	p.Cflags = globalFlags(ctx)
 	p.Target.Android.Cflags = deviceFlags(ctx)
-	h := hostFlags(ctx)
-	p.Target.Linux.Cflags = h
-	p.Target.Darwin.Cflags = h
+	// Mingw fails to link binaries with lots of debug information
+	p.Target.Not_windows.Cflags = hostFlags(ctx)
 
 	if ctx.AConfig().IsEnvTrue("DISABLE_LLVM_DEVICE_BUILDS") {
 		p.Target.Android.Enabled = proptools.BoolPtr(false)

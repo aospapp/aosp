@@ -17,6 +17,8 @@ package parser
 import (
 	"bytes"
 	"reflect"
+	"strconv"
+	"strings"
 	"testing"
 	"text/scanner"
 )
@@ -99,6 +101,37 @@ var validParseTestCases = []struct {
 							Value: &Bool{
 								LiteralPos: mkpos(20, 3, 12),
 								Value:      true,
+								Token:      "true",
+							},
+						},
+					},
+				},
+			},
+		},
+		nil,
+	},
+
+	{`
+		foo {
+			num: 4,
+		}
+		`,
+		[]Definition{
+			&Module{
+				Type:    "foo",
+				TypePos: mkpos(3, 2, 3),
+				Map: Map{
+					LBracePos: mkpos(7, 2, 7),
+					RBracePos: mkpos(22, 4, 3),
+					Properties: []*Property{
+						{
+							Name:     "num",
+							NamePos:  mkpos(12, 3, 4),
+							ColonPos: mkpos(15, 3, 7),
+							Value: &Int64{
+								LiteralPos: mkpos(17, 3, 9),
+								Value:      4,
+								Token:      "4",
 							},
 						},
 					},
@@ -164,7 +197,8 @@ var validParseTestCases = []struct {
 		foo {
 			stuff: {
 				isGood: true,
-				name: "bar"
+				name: "bar",
+				num: 36,
 			}
 		}
 		`,
@@ -174,7 +208,7 @@ var validParseTestCases = []struct {
 				TypePos: mkpos(3, 2, 3),
 				Map: Map{
 					LBracePos: mkpos(7, 2, 7),
-					RBracePos: mkpos(62, 7, 3),
+					RBracePos: mkpos(76, 8, 3),
 					Properties: []*Property{
 						{
 							Name:     "stuff",
@@ -182,7 +216,7 @@ var validParseTestCases = []struct {
 							ColonPos: mkpos(17, 3, 9),
 							Value: &Map{
 								LBracePos: mkpos(19, 3, 11),
-								RBracePos: mkpos(58, 6, 4),
+								RBracePos: mkpos(72, 7, 4),
 								Properties: []*Property{
 									{
 										Name:     "isGood",
@@ -191,6 +225,7 @@ var validParseTestCases = []struct {
 										Value: &Bool{
 											LiteralPos: mkpos(33, 4, 13),
 											Value:      true,
+											Token:      "true",
 										},
 									},
 									{
@@ -200,6 +235,16 @@ var validParseTestCases = []struct {
 										Value: &String{
 											LiteralPos: mkpos(49, 5, 11),
 											Value:      "bar",
+										},
+									},
+									{
+										Name:     "num",
+										NamePos:  mkpos(60, 6, 5),
+										ColonPos: mkpos(63, 6, 8),
+										Value: &Int64{
+											LiteralPos: mkpos(65, 6, 10),
+											Value:      36,
+											Token:      "36",
 										},
 									},
 								},
@@ -234,6 +279,7 @@ var validParseTestCases = []struct {
 							Value: &Bool{
 								LiteralPos: mkpos(60, 5, 12),
 								Value:      true,
+								Token:      "true",
 							},
 						},
 					},
@@ -279,10 +325,12 @@ var validParseTestCases = []struct {
 	{`
 		foo {
 			name: "abc",
+			num: 4,
 		}
 
 		bar {
 			name: "def",
+			num: -5,
 		}
 		`,
 		[]Definition{
@@ -291,7 +339,7 @@ var validParseTestCases = []struct {
 				TypePos: mkpos(3, 2, 3),
 				Map: Map{
 					LBracePos: mkpos(7, 2, 7),
-					RBracePos: mkpos(27, 4, 3),
+					RBracePos: mkpos(38, 5, 3),
 					Properties: []*Property{
 						{
 							Name:     "name",
@@ -302,23 +350,43 @@ var validParseTestCases = []struct {
 								Value:      "abc",
 							},
 						},
+						{
+							Name:     "num",
+							NamePos:  mkpos(28, 4, 4),
+							ColonPos: mkpos(31, 4, 7),
+							Value: &Int64{
+								LiteralPos: mkpos(33, 4, 9),
+								Value:      4,
+								Token:      "4",
+							},
+						},
 					},
 				},
 			},
 			&Module{
 				Type:    "bar",
-				TypePos: mkpos(32, 6, 3),
+				TypePos: mkpos(43, 7, 3),
 				Map: Map{
-					LBracePos: mkpos(36, 6, 7),
-					RBracePos: mkpos(56, 8, 3),
+					LBracePos: mkpos(47, 7, 7),
+					RBracePos: mkpos(79, 10, 3),
 					Properties: []*Property{
 						{
 							Name:     "name",
-							NamePos:  mkpos(41, 7, 4),
-							ColonPos: mkpos(45, 7, 8),
+							NamePos:  mkpos(52, 8, 4),
+							ColonPos: mkpos(56, 8, 8),
 							Value: &String{
-								LiteralPos: mkpos(47, 7, 10),
+								LiteralPos: mkpos(58, 8, 10),
 								Value:      "def",
+							},
+						},
+						{
+							Name:     "num",
+							NamePos:  mkpos(68, 9, 4),
+							ColonPos: mkpos(71, 9, 7),
+							Value: &Int64{
+								LiteralPos: mkpos(73, 9, 9),
+								Value:      -5,
+								Token:      "-5",
 							},
 						},
 					},
@@ -327,6 +395,7 @@ var validParseTestCases = []struct {
 		},
 		nil,
 	},
+
 	{`
 		foo = "stuff"
 		bar = foo
@@ -557,6 +626,338 @@ var validParseTestCases = []struct {
 		},
 		nil,
 	},
+
+	{`
+		baz = -4 + -5 + 6
+		`,
+		[]Definition{
+			&Assignment{
+				Name:      "baz",
+				NamePos:   mkpos(3, 2, 3),
+				EqualsPos: mkpos(7, 2, 7),
+				Value: &Operator{
+					OperatorPos: mkpos(12, 2, 12),
+					Operator:    '+',
+					Value: &Int64{
+						LiteralPos: mkpos(9, 2, 9),
+						Value:      -3,
+					},
+					Args: [2]Expression{
+						&Int64{
+							LiteralPos: mkpos(9, 2, 9),
+							Value:      -4,
+							Token:      "-4",
+						},
+						&Operator{
+							OperatorPos: mkpos(17, 2, 17),
+							Operator:    '+',
+							Value: &Int64{
+								LiteralPos: mkpos(14, 2, 14),
+								Value:      1,
+							},
+							Args: [2]Expression{
+								&Int64{
+									LiteralPos: mkpos(14, 2, 14),
+									Value:      -5,
+									Token:      "-5",
+								},
+								&Int64{
+									LiteralPos: mkpos(19, 2, 19),
+									Value:      6,
+									Token:      "6",
+								},
+							},
+						},
+					},
+				},
+				OrigValue: &Operator{
+					OperatorPos: mkpos(12, 2, 12),
+					Operator:    '+',
+					Value: &Int64{
+						LiteralPos: mkpos(9, 2, 9),
+						Value:      -3,
+					},
+					Args: [2]Expression{
+						&Int64{
+							LiteralPos: mkpos(9, 2, 9),
+							Value:      -4,
+							Token:      "-4",
+						},
+						&Operator{
+							OperatorPos: mkpos(17, 2, 17),
+							Operator:    '+',
+							Value: &Int64{
+								LiteralPos: mkpos(14, 2, 14),
+								Value:      1,
+							},
+							Args: [2]Expression{
+								&Int64{
+									LiteralPos: mkpos(14, 2, 14),
+									Value:      -5,
+									Token:      "-5",
+								},
+								&Int64{
+									LiteralPos: mkpos(19, 2, 19),
+									Value:      6,
+									Token:      "6",
+								},
+							},
+						},
+					},
+				},
+				Assigner:   "=",
+				Referenced: false,
+			},
+		},
+		nil,
+	},
+
+	{`
+		foo = 1000000
+		bar = foo
+		baz = foo + bar
+		boo = baz
+		boo += foo
+		`,
+		[]Definition{
+			&Assignment{
+				Name:      "foo",
+				NamePos:   mkpos(3, 2, 3),
+				EqualsPos: mkpos(7, 2, 7),
+				Value: &Int64{
+					LiteralPos: mkpos(9, 2, 9),
+					Value:      1000000,
+					Token:      "1000000",
+				},
+				OrigValue: &Int64{
+					LiteralPos: mkpos(9, 2, 9),
+					Value:      1000000,
+					Token:      "1000000",
+				},
+				Assigner:   "=",
+				Referenced: true,
+			},
+			&Assignment{
+				Name:      "bar",
+				NamePos:   mkpos(19, 3, 3),
+				EqualsPos: mkpos(23, 3, 7),
+				Value: &Variable{
+					Name:    "foo",
+					NamePos: mkpos(25, 3, 9),
+					Value: &Int64{
+						LiteralPos: mkpos(9, 2, 9),
+						Value:      1000000,
+						Token:      "1000000",
+					},
+				},
+				OrigValue: &Variable{
+					Name:    "foo",
+					NamePos: mkpos(25, 3, 9),
+					Value: &Int64{
+						LiteralPos: mkpos(9, 2, 9),
+						Value:      1000000,
+						Token:      "1000000",
+					},
+				},
+				Assigner:   "=",
+				Referenced: true,
+			},
+			&Assignment{
+				Name:      "baz",
+				NamePos:   mkpos(31, 4, 3),
+				EqualsPos: mkpos(35, 4, 7),
+				Value: &Operator{
+					OperatorPos: mkpos(41, 4, 13),
+					Operator:    '+',
+					Value: &Int64{
+						LiteralPos: mkpos(9, 2, 9),
+						Value:      2000000,
+					},
+					Args: [2]Expression{
+						&Variable{
+							Name:    "foo",
+							NamePos: mkpos(37, 4, 9),
+							Value: &Int64{
+								LiteralPos: mkpos(9, 2, 9),
+								Value:      1000000,
+								Token:      "1000000",
+							},
+						},
+						&Variable{
+							Name:    "bar",
+							NamePos: mkpos(43, 4, 15),
+							Value: &Variable{
+								Name:    "foo",
+								NamePos: mkpos(25, 3, 9),
+								Value: &Int64{
+									LiteralPos: mkpos(9, 2, 9),
+									Value:      1000000,
+									Token:      "1000000",
+								},
+							},
+						},
+					},
+				},
+				OrigValue: &Operator{
+					OperatorPos: mkpos(41, 4, 13),
+					Operator:    '+',
+					Value: &Int64{
+						LiteralPos: mkpos(9, 2, 9),
+						Value:      2000000,
+					},
+					Args: [2]Expression{
+						&Variable{
+							Name:    "foo",
+							NamePos: mkpos(37, 4, 9),
+							Value: &Int64{
+								LiteralPos: mkpos(9, 2, 9),
+								Value:      1000000,
+								Token:      "1000000",
+							},
+						},
+						&Variable{
+							Name:    "bar",
+							NamePos: mkpos(43, 4, 15),
+							Value: &Variable{
+								Name:    "foo",
+								NamePos: mkpos(25, 3, 9),
+								Value: &Int64{
+									LiteralPos: mkpos(9, 2, 9),
+									Value:      1000000,
+									Token:      "1000000",
+								},
+							},
+						},
+					},
+				},
+				Assigner:   "=",
+				Referenced: true,
+			},
+			&Assignment{
+				Name:      "boo",
+				NamePos:   mkpos(49, 5, 3),
+				EqualsPos: mkpos(53, 5, 7),
+				Value: &Operator{
+					Args: [2]Expression{
+						&Variable{
+							Name:    "baz",
+							NamePos: mkpos(55, 5, 9),
+							Value: &Operator{
+								OperatorPos: mkpos(41, 4, 13),
+								Operator:    '+',
+								Value: &Int64{
+									LiteralPos: mkpos(9, 2, 9),
+									Value:      2000000,
+								},
+								Args: [2]Expression{
+									&Variable{
+										Name:    "foo",
+										NamePos: mkpos(37, 4, 9),
+										Value: &Int64{
+											LiteralPos: mkpos(9, 2, 9),
+											Value:      1000000,
+											Token:      "1000000",
+										},
+									},
+									&Variable{
+										Name:    "bar",
+										NamePos: mkpos(43, 4, 15),
+										Value: &Variable{
+											Name:    "foo",
+											NamePos: mkpos(25, 3, 9),
+											Value: &Int64{
+												LiteralPos: mkpos(9, 2, 9),
+												Value:      1000000,
+												Token:      "1000000",
+											},
+										},
+									},
+								},
+							},
+						},
+						&Variable{
+							Name:    "foo",
+							NamePos: mkpos(68, 6, 10),
+							Value: &Int64{
+								LiteralPos: mkpos(9, 2, 9),
+								Value:      1000000,
+								Token:      "1000000",
+							},
+						},
+					},
+					OperatorPos: mkpos(66, 6, 8),
+					Operator:    '+',
+					Value: &Int64{
+						LiteralPos: mkpos(9, 2, 9),
+						Value:      3000000,
+					},
+				},
+				OrigValue: &Variable{
+					Name:    "baz",
+					NamePos: mkpos(55, 5, 9),
+					Value: &Operator{
+						OperatorPos: mkpos(41, 4, 13),
+						Operator:    '+',
+						Value: &Int64{
+							LiteralPos: mkpos(9, 2, 9),
+							Value:      2000000,
+						},
+						Args: [2]Expression{
+							&Variable{
+								Name:    "foo",
+								NamePos: mkpos(37, 4, 9),
+								Value: &Int64{
+									LiteralPos: mkpos(9, 2, 9),
+									Value:      1000000,
+									Token:      "1000000",
+								},
+							},
+							&Variable{
+								Name:    "bar",
+								NamePos: mkpos(43, 4, 15),
+								Value: &Variable{
+									Name:    "foo",
+									NamePos: mkpos(25, 3, 9),
+									Value: &Int64{
+										LiteralPos: mkpos(9, 2, 9),
+										Value:      1000000,
+										Token:      "1000000",
+									},
+								},
+							},
+						},
+					},
+				},
+				Assigner: "=",
+			},
+			&Assignment{
+				Name:      "boo",
+				NamePos:   mkpos(61, 6, 3),
+				EqualsPos: mkpos(66, 6, 8),
+				Value: &Variable{
+					Name:    "foo",
+					NamePos: mkpos(68, 6, 10),
+					Value: &Int64{
+						LiteralPos: mkpos(9, 2, 9),
+						Value:      1000000,
+						Token:      "1000000",
+					},
+				},
+				OrigValue: &Variable{
+					Name:    "foo",
+					NamePos: mkpos(68, 6, 10),
+					Value: &Int64{
+						LiteralPos: mkpos(9, 2, 9),
+						Value:      1000000,
+						Token:      "1000000",
+					},
+				},
+				Assigner: "+=",
+			},
+		},
+		nil,
+	},
+
 	{`
 		// comment1
 		// comment2
@@ -614,48 +1015,110 @@ var validParseTestCases = []struct {
 }
 
 func TestParseValidInput(t *testing.T) {
-	for _, testCase := range validParseTestCases {
-		r := bytes.NewBufferString(testCase.input)
-		file, errs := ParseAndEval("", r, NewScope(nil))
-		if len(errs) != 0 {
-			t.Errorf("test case: %s", testCase.input)
-			t.Errorf("unexpected errors:")
-			for _, err := range errs {
-				t.Errorf("  %s", err)
-			}
-			t.FailNow()
-		}
-
-		if len(file.Defs) == len(testCase.defs) {
-			for i := range file.Defs {
-				if !reflect.DeepEqual(file.Defs[i], testCase.defs[i]) {
-					t.Errorf("test case: %s", testCase.input)
-					t.Errorf("incorrect defintion %d:", i)
-					t.Errorf("  expected: %s", testCase.defs[i])
-					t.Errorf("       got: %s", file.Defs[i])
+	for i, testCase := range validParseTestCases {
+		t.Run(strconv.Itoa(i), func(t *testing.T) {
+			r := bytes.NewBufferString(testCase.input)
+			file, errs := ParseAndEval("", r, NewScope(nil))
+			if len(errs) != 0 {
+				t.Errorf("test case: %s", testCase.input)
+				t.Errorf("unexpected errors:")
+				for _, err := range errs {
+					t.Errorf("  %s", err)
 				}
+				t.FailNow()
 			}
-		} else {
-			t.Errorf("test case: %s", testCase.input)
-			t.Errorf("length mismatch, expected %d definitions, got %d",
-				len(testCase.defs), len(file.Defs))
-		}
 
-		if len(file.Comments) == len(testCase.comments) {
-			for i := range file.Comments {
-				if !reflect.DeepEqual(file.Comments[i], testCase.comments[i]) {
-					t.Errorf("test case: %s", testCase.input)
-					t.Errorf("incorrect comment %d:", i)
-					t.Errorf("  expected: %s", testCase.comments[i])
-					t.Errorf("       got: %s", file.Comments[i])
+			if len(file.Defs) == len(testCase.defs) {
+				for i := range file.Defs {
+					if !reflect.DeepEqual(file.Defs[i], testCase.defs[i]) {
+						t.Errorf("test case: %s", testCase.input)
+						t.Errorf("incorrect defintion %d:", i)
+						t.Errorf("  expected: %s", testCase.defs[i])
+						t.Errorf("       got: %s", file.Defs[i])
+					}
 				}
+			} else {
+				t.Errorf("test case: %s", testCase.input)
+				t.Errorf("length mismatch, expected %d definitions, got %d",
+					len(testCase.defs), len(file.Defs))
 			}
-		} else {
-			t.Errorf("test case: %s", testCase.input)
-			t.Errorf("length mismatch, expected %d comments, got %d",
-				len(testCase.comments), len(file.Comments))
-		}
+
+			if len(file.Comments) == len(testCase.comments) {
+				for i := range file.Comments {
+					if !reflect.DeepEqual(file.Comments[i], testCase.comments[i]) {
+						t.Errorf("test case: %s", testCase.input)
+						t.Errorf("incorrect comment %d:", i)
+						t.Errorf("  expected: %s", testCase.comments[i])
+						t.Errorf("       got: %s", file.Comments[i])
+					}
+				}
+			} else {
+				t.Errorf("test case: %s", testCase.input)
+				t.Errorf("length mismatch, expected %d comments, got %d",
+					len(testCase.comments), len(file.Comments))
+			}
+		})
 	}
 }
 
 // TODO: Test error strings
+
+func TestParserEndPos(t *testing.T) {
+	in := `
+		module {
+			string: "string",
+			stringexp: "string1" + "string2",
+			int: -1,
+			intexp: -1 + 2,
+			list: ["a", "b"],
+			listexp: ["c"] + ["d"],
+			multilinelist: [
+				"e",
+				"f",
+			],
+			map: {
+				prop: "abc",
+			},
+		}
+	`
+
+	// Strip each line to make it easier to compute the previous "," from each property
+	lines := strings.Split(in, "\n")
+	for i := range lines {
+		lines[i] = strings.TrimSpace(lines[i])
+	}
+	in = strings.Join(lines, "\n")
+
+	r := bytes.NewBufferString(in)
+
+	file, errs := ParseAndEval("", r, NewScope(nil))
+	if len(errs) != 0 {
+		t.Errorf("unexpected errors:")
+		for _, err := range errs {
+			t.Errorf("  %s", err)
+		}
+		t.FailNow()
+	}
+
+	mod := file.Defs[0].(*Module)
+	modEnd := mkpos(len(in)-1, len(lines)-1, 2)
+	if mod.End() != modEnd {
+		t.Errorf("expected mod.End() %s, got %s", modEnd, mod.End())
+	}
+
+	nextPos := make([]scanner.Position, len(mod.Properties))
+	for i := 0; i < len(mod.Properties)-1; i++ {
+		nextPos[i] = mod.Properties[i+1].Pos()
+	}
+	nextPos[len(mod.Properties)-1] = mod.RBracePos
+
+	for i, cur := range mod.Properties {
+		endOffset := nextPos[i].Offset - len(",\n")
+		endLine := nextPos[i].Line - 1
+		endColumn := len(lines[endLine-1]) // scanner.Position.Line is starts at 1
+		endPos := mkpos(endOffset, endLine, endColumn)
+		if cur.End() != endPos {
+			t.Errorf("expected property %s End() %s@%d, got %s@%d", cur.Name, endPos, endPos.Offset, cur.End(), cur.End().Offset)
+		}
+	}
+}

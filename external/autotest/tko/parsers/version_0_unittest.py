@@ -33,7 +33,7 @@ class test_job_load_from_dir(unittest.TestCase):
         if platform:
             return_dict['platform'] = platform
             return_dict['labels'] = (platform + ',other_label,' +
-                                     'board%%3A%s' % platform)
+                                     'model%%3A%s' % platform)
         (models.test.parse_host_keyval.expect_call('.', hostname)
                 .and_return(return_dict))
 

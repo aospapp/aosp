@@ -67,6 +67,7 @@
     <string name="setup_work_device" msgid="6003988351437862369">"ਕਾਰਜ ਡੀਵਾਈਸ ਸੈੱਟ ਅੱਪ ਕੀਤਾ ਜਾ ਰਿਹਾ ਹੈ…"</string>
     <string name="progress_data_process" msgid="1707745321954672971">"ਸੈਟਅਪ  ਡਾਟਾ  ਦੀ ਪ੍ਰਕਿਰਿਆ ਕਰ ਰਿਹਾ ਹੈ..."</string>
     <string name="progress_connect_to_wifi" msgid="472251154628863539">"ਵਾਈ-ਫਾਈ ਨਾਲ ਕਨੈਕਟ ਹੋ ਰਿਹਾ ਹੈ…"</string>
+    <string name="progress_connect_to_mobile_network" msgid="3852054186860657088">"ਮੋਬਾਈਲ ਨੈੱਟਵਰਕ ਨਾਲ ਕਨੈਕਟ ਕੀਤਾ ਜਾ ਰਿਹਾ ਹੈ…"</string>
     <string name="progress_download" msgid="3522436271691064624">"ਐਡਮਿਨ ਐਪ ਡਾਊਨਲੋਡ ਕਰ ਰਿਹਾ ਹੈ..."</string>
     <string name="progress_install" msgid="2258045670385866183">"ਐਡਮਿਨ ਐਪ ਇੰਸਟੌਲ ਕਰ ਰਿਹਾ ਹੈ..."</string>
     <string name="progress_delete_non_required_apps" msgid="7633458399262691256">"ਗੈਰ-ਲੋੜੀਂਦੀਆਂ ਸਿਸਟਮ ਐਪਾਂ ਹਟਾਈਆਂ ਜਾ ਰਹੀਆਂ ਹਨ…"</string>
@@ -106,8 +107,8 @@
     <string name="profile_owner_info_with_terms_headers" msgid="7373591910245655373">"ਤੁਸੀਂ ਇੱਕ ਕਾਰਜ ਪ੍ਰੋਫਾਈਲ ਬਣਾਉਣ ਲੱਗੇ ਹੋ ਜਿਸਦਾ ਪ੍ਰਬੰਧਨ ਅਤੇ ਨਿਗਰਾਨੀ ਤੁਹਾਡੀ ਸੰਸਥਾ ਵੱਲੋਂ ਕੀਤੀ ਜਾਵੇਗੀ। <xliff:g id="TERMS_HEADERS">%1$s</xliff:g> ਦੀਆਂ ਮਦਾਂ ਲਾਗੂ ਹੋਣਗੀਆਂ।"</string>
     <string name="profile_owner_info_comp" msgid="9190421701126119142">"ਤੁਹਾਡੀਆਂ ਕਾਰਜ ਸਬੰਧੀ ਐਪਾਂ ਦੇ ਲਈ ਇੱਕ ਪ੍ਰੋਫਾਈਲ ਬਣਾਇਆ ਜਾਵੇਗਾ। ਇਸ ਪ੍ਰੋਫਾਈਲ ਅਤੇ ਤੁਹਾਡੇ ਡੀਵਾਈਸ ਦੀਆਂ ਬਾਕੀ ਚੀਜ਼ਾਂ ਦਾ ਪ੍ਰਬੰਧਨ ਅਤੇ ਨਿਗਰਾਨੀ ਤੁਹਾਡੀ ਸੰਸਥਾ ਵੱਲੋਂ ਕੀਤੀ ਜਾਵੇਗੀ। ਨਿਯਮ ਲਾਗੂ ਹੋਣਗੇ।"</string>
     <string name="profile_owner_info_with_terms_headers_comp" msgid="2012766614492554556">"ਤੁਹਾਡੀਆਂ ਕਾਰਜ ਸਬੰਧੀ ਐਪਾਂ ਦੇ ਲਈ ਇੱਕ ਪ੍ਰੋਫਾਈਲ ਬਣਾਇਆ ਜਾਵੇਗਾ। ਇਸ ਪ੍ਰੋਫਾਈਲ ਅਤੇ ਤੁਹਾਡੇ ਡੀਵਾਈਸ ਦੀਆਂ ਬਾਕੀ ਚੀਜ਼ਾਂ ਦਾ ਪ੍ਰਬੰਧਨ ਅਤੇ ਨਿਗਰਾਨੀ ਤੁਹਾਡੀ ਸੰਸਥਾ ਵੱਲੋਂ ਕੀਤੀ ਜਾਵੇਗੀ। <xliff:g id="TERMS_HEADERS">%1$s</xliff:g> ਦੇ ਨਿਯਮ ਲਾਗੂ ਹੋਣਗੇ।"</string>
-    <string name="device_owner_info" msgid="2883639372446424007">"<xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> ਵੱਲੋਂ ਇਸ ਡੀਵਾਈਸ ਦਾ ਪ੍ਰਬੰਧਨ ਕੀਤਾ ਜਾਵੇਗਾ ਅਤੇ ਇਸਨੂੰ ਸੁਰੱਖਿਅਤ ਰੱਖਿਆ ਜਾਵੇਗਾ। ਨਿਯਮ ਲਾਗੂ ਹੋਣਗੇ। <xliff:g id="VIEW_TERMS">%2$s</xliff:g>"</string>
-    <string name="device_owner_info_with_terms_headers" msgid="7333703548160002079">"<xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> ਵੱਲੋਂ ਇਸ ਡੀਵਾਈਸ ਦਾ ਪ੍ਰਬੰਧਨ ਕੀਤਾ ਜਾਵੇਗਾ ਅਤੇ ਇਸਨੂੰ ਸੁਰੱਖਿਅਤ ਰੱਖਿਆ ਜਾਵੇਗਾ। <xliff:g id="TERMS_HEADERS">%2$s</xliff:g> ਦੇ ਨਿਯਮ ਲਾਗੂ ਹੋਣਗੇ। <xliff:g id="VIEW_TERMS">%3$s</xliff:g>"</string>
+    <string name="device_owner_info" msgid="3716661456037934467">"<xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> ਵੱਲੋਂ ਇਸ ਡੀਵਾਈਸ ਦਾ ਪ੍ਰਬੰਧਨ ਕੀਤਾ ਜਾਵੇਗਾ, ਇਸਦੀ ਨਿਗਰਾਨੀ ਕੀਤੀ ਜਾਵੇਗੀ ਅਤੇ ਇਸਨੂੰ ਸੁਰੱਖਿਅਤ ਰੱਖਿਆ ਜਾਵੇਗਾ। ਨਿਯਮ ਲਾਗੂ ਹੋਣਗੇ। <xliff:g id="VIEW_TERMS">%2$s</xliff:g>"</string>
+    <string name="device_owner_info_with_terms_headers" msgid="1254243288669282977">"<xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> ਵੱਲੋਂ ਇਸ ਡੀਵਾਈਸ ਦਾ ਪ੍ਰਬੰਧਨ ਕੀਤਾ ਜਾਵੇਗਾ, ਇਸਦੀ ਨਿਗਰਾਨੀ ਕੀਤੀ ਜਾਵੇਗੀ ਅਤੇ ਇਸਨੂੰ ਸੁਰੱਖਿਅਤ ਰੱਖਿਆ ਜਾਵੇਗਾ। <xliff:g id="TERMS_HEADERS">%2$s</xliff:g> ਦੇ ਨਿਯਮ ਲਾਗੂ ਹੋਣਗੇ। <xliff:g id="VIEW_TERMS">%3$s</xliff:g>"</string>
     <string name="link_isnt_secure_and_cant_be_opened_until_device_setup_finished" msgid="1604497932637832657">"ਇਹ ਲਿੰਕ ਸੁਰੱਖਿਅਤ ਨਹੀਂ ਹੈ ਅਤੇ ਇਸਨੂੰ ਡੀਵਾਈਸ ਦੀ ਸਥਾਪਨਾ ਪੂਰੀ ਹੋਣ ਤੱਕ ਖੋਲ੍ਹਿਆ ਨਹੀਂ ਜਾ ਸਕਦਾ: <xliff:g id="LINK_RAW_TEST">%1$s</xliff:g>"</string>
     <string name="contact_device_provider" msgid="9100405424740726066">"ਜੇਕਰ ਤੁਹਾਡੇ ਕੋਈ ਸਵਾਲ ਹਨ, ਤਾਂ ਆਪਣੇ <xliff:g id="ORGANIZATIONS_ADMIN">%1$s</xliff:g> ਨਾਲ ਸੰਪਰਕ ਕਰੋ।"</string>
     <string name="if_questions_contact_admin" msgid="6147462485780267795">"ਜੇਕਰ ਤੁਹਾਡੇ ਕੋਈ ਸਵਾਲ ਹਨ, ਤਾਂ ਆਪਣੀ ਸੰਸਥਾ ਦੇ ਪ੍ਰਸ਼ਾਸਕ ਨਾਲ ਸੰਪਰਕ ਕਰੋ"</string>
@@ -122,7 +123,7 @@
     <string name="close" msgid="7208600934846389439">"ਬੰਦ ਕਰੋ"</string>
     <string name="set_up_your_device" msgid="1896651520959894681">"ਆਪਣਾ ਡੀਵਾਈਸ ਸੈੱਟ ਅੱਪ ਕਰੋ"</string>
     <string name="info_anim_title_0" msgid="3285414600215959704">"ਆਪਣੇ ਕੰਮ ਕਰਨ ਦੇ ਤਰੀਕੇ ਨੂੰ ਬਦਲੋ"</string>
-    <string name="info_anim_title_1" msgid="2657512519467714760">"ਕਾਰਜ ਡੈਟੇ ਨੂੰ ਨਿੱਜੀ ਨਾਲੋਂ ਵੱਖ ਕਰੋ"</string>
+    <string name="info_anim_title_1" msgid="2657512519467714760">"ਕਾਰਜ  ਡਾਟੇ  ਨੂੰ ਨਿੱਜੀ ਨਾਲੋਂ ਵੱਖ ਕਰੋ"</string>
     <string name="one_place_for_work_apps" msgid="2595597562302953960">"ਕਾਰਜ ਸਬੰਧੀ ਐਪਾਂ ਦੇ ਲਈ ਇੱਕ ਥਾਂ"</string>
     <string name="info_anim_title_2" msgid="4629781398620470204">"ਕੰਮ ਪੂਰਾ ਹੋਣ \'ਤੇ ਕਾਰਜ ਪ੍ਰੋਫਾਈਲ ਨੂੰ ਬੰਦ ਕਰੋ"</string>
     <string name="provisioning" msgid="4512493827019163451">"ਪ੍ਰੋਵਿਜ਼ਨਿੰਗ"</string>
@@ -154,4 +155,7 @@
     <string name="join_many_items_last" msgid="7469666990442158802">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g> ਅਤੇ <xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
     <string name="join_many_items_first" msgid="8365482726853276608">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g>, <xliff:g id="ALL_BUT_FIRST_AND_LAST_ITEM">%2$s</xliff:g>"</string>
     <string name="join_many_items_middle" msgid="8569294838319639963">"<xliff:g id="ADDED_ITEM">%1$s</xliff:g>, <xliff:g id="REST_OF_ITEMS">%2$s</xliff:g>"</string>
+    <string name="take_a_few_minutes" msgid="6282806501305322838">"ਇਸ ਵਿੱਚ ਕੁਝ ਮਿੰਟ ਲੱਗ ਸਕਦੇ ਹਨ"</string>
+    <string name="work_profile_description" msgid="8524116010729569213">"ਤੁਹਾਡੀਆਂ ਕਾਰਜ-ਸਥਾਨ ਐਪਾਂ ਨੂੰ ਇਸ ਪ੍ਰੋਫਾਈਲ ਵਿੱਚ ਰੱਖਿਆ ਜਾਵੇਗਾ ਅਤੇ ਇਹਨਾਂ ਦਾ ਪ੍ਰਬੰਧਨ ਤੁਹਾਡੀ ਸੰਸਥਾ ਵੱਲੋਂ ਕੀਤਾ ਜਾਵੇਗਾ"</string>
+    <string name="device_owner_description" msgid="168013145812679664">"ਤੁਹਾਡੀ ਸੰਸਥਾ ਵੱਲੋਂ ਤੁਹਾਡੇ ਡੀਵਾਈਸ ਨੂੰ ਸੁਰੱਖਿਅਤ ਰੱਖਿਆ ਜਾਵੇਗਾ ਅਤੇ ਇਸਦਾ ਪ੍ਰਬੰਧਨ ਕੀਤਾ ਜਾਵੇਗਾ"</string>
 </resources>

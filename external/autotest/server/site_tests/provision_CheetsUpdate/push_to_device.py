@@ -14,18 +14,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This script is located in internal ARC repo.
-# Search for android_libs/arc/push_to_device.py
-
 from __future__ import print_function
 
 import argparse
 import atexit
+import getpass
 import hashlib
 import itertools
 import logging
 import os
-import pipes
 import re
 import shutil
 import string
@@ -36,20 +33,21 @@ import time
 import xml.etree.cElementTree as ElementTree
 import zipfile
 
+import lib.build_artifact_fetcher
 import lib.util
 
 
 _SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 
 _EXPECTED_TARGET_PRODUCTS = {
-    '^x86': ('cheets_x86', 'cheets_x86_64'),
-    '^arm': ('cheets_arm',),
-    '^aarch64$': ('cheets_arm',),
+    '^x86': ('cheets_x86', 'cheets_x86_64', 'bertha_x86', 'bertha_x86_64'),
+    '^arm': ('cheets_arm', 'bertha_arm',),
+    '^aarch64$': ('cheets_arm', 'bertha_arm',),
 }
 _ANDROID_ROOT = '/opt/google/containers/android'
 _ANDROID_ROOT_STATEFUL = os.path.join('/usr/local',
                                       os.path.relpath(_ANDROID_ROOT, '/'))
-_CONTAINER_INSTANCE_ROOT_WILDCARD = '/run/containers/android_*'
+_CONTAINER_INSTANCE_ROOT_WILDCARD = '/run/containers/android*'
 _CONTAINER_ROOT = os.path.join(_ANDROID_ROOT, 'rootfs', 'root')
 _RSYNC_COMMAND = ['rsync', '--inplace', '-v', '--progress']
 _SCP_COMMAND = ['scp']
@@ -59,7 +57,7 @@ _BUILD_TARGET = string.Template('${product}-${build_variant}')
 
 _CHROMEOS_ARC_ANDROID_SDK_VERSION = 'CHROMEOS_ARC_ANDROID_SDK_VERSION='
 
-_GENERIC_DEVICE = 'generic_%(arch)s_cheets'
+_GENERIC_DEVICE = 'generic_%(arch)s_%(product)s'
 _RO_BUILD_TYPE = 'ro.build.type='
 _RO_BUILD_VERSION_SDK = 'ro.build.version.sdk='
 _RO_PRODUCT_DEVICE = 'ro.product.device='
@@ -72,11 +70,15 @@ _APK_KEY_UNKNOWN = 'unknown'
 _GMS_CORE_PACKAGE_NAME = 'com.google.android.gms'
 
 _ANDROID_SDK_MAPPING = {
-    23: "M (API 23)",
-    24: "N (API 24)",
-    25: "N_MR1 (API 25)",
-    26: "O (API 26)",
+    23: "MNC (API 23)",
+    24: "NYC (API 24)",
+    25: "NYC_MR1 (API 25)",
+    26: "OC (API 26)",
 }
+
+# Bytes per Megabyte.
+_MB = 1024**2
+
 
 class RemoteProxy(object):
   """Proxy class to run command line on the remote test device."""
@@ -103,6 +105,16 @@ class RemoteProxy(object):
     target = 'root@%s:%s' % (self._remote, dest_dir)
     command = self._sync_command + file_list + [target]
     lib.util.check_call(dryrun=self._dryrun, *command)
+
+  def read(self, src_path):
+    """Gets the contents of |src_path| from the remote test device."""
+    return self.check_output('/bin/cat %s' % src_path)
+
+  def write(self, contents, dest_path):
+    """Writes |contents| into |dest_path| on the remote test device."""
+    with tempfile.NamedTemporaryFile(mode='w') as f:
+      f.write(contents)
+      self.push(f.name, dest_path)
 
   def push(self, source_path, dest_path):
     """Pushes |source_path| on the host, to |dest_path| on the remote test
@@ -149,7 +161,7 @@ class TemporaryDirectory(object):
     return self
 
   def __exit__(self, exception_type, exception_value, traceback):
-    shutil.rmtree(self.name)
+    lib.util.check_call('rm', '-rf', self.name, sudo=True)
 
 
 class MountWrapper(object):
@@ -160,13 +172,13 @@ class MountWrapper(object):
     self._mountpoint = mountpoint
 
   def __enter__(self):
-    lib.util.check_call('/usr/bin/sudo', '/bin/mount', '-o', 'loop',
-                        self._image_path, self._mountpoint)
+    lib.util.check_call('/bin/mount', '-o', 'loop', self._image_path,
+                        self._mountpoint, sudo=True)
     return self
 
   def __exit__(self, exception_type, exception_value, traceback):
     try:
-      lib.util.check_call('/usr/bin/sudo', '/bin/umount', self._mountpoint)
+      lib.util.check_call('/bin/umount', self._mountpoint, sudo=True)
     except Exception:
       if not exception_type:
         raise
@@ -209,8 +221,8 @@ def _verify_machine_arch(remote_proxy, target_product, dryrun):
   for arch_pattern, expected_set in _EXPECTED_TARGET_PRODUCTS.items():
     if re.search(arch_pattern, remote_arch):
       expected = itertools.chain.from_iterable(
-          (expected, 'aosp_' + expected, expected + '_gmscore_next') for
-          expected in expected_set)
+          (expected, 'aosp_' + expected, 'sdk_google_' + expected)
+          for expected in expected_set)
       assert target_product in expected, (
           ('Architecture mismatch: Deploying \'%s\' to \'%s\' seems incorrect.'
            % (target_product, remote_arch)))
@@ -219,7 +231,9 @@ def _verify_machine_arch(remote_proxy, target_product, dryrun):
                   'architecture sanity check.', remote_arch)
 
 
-def _convert_images(simg2img, out, push_vendor_image):
+def _convert_images(simg2img, out, product, push_vendor_image,
+                    shift_ugids, mksquashfs_path, unsquashfs_path,
+                    shift_uid_py_path, dryrun):
   """Converts the images being pushed to the raw images.
 
   Returns:
@@ -231,11 +245,44 @@ def _convert_images(simg2img, out, push_vendor_image):
 
   system_raw_img = os.path.join(out, 'system.raw.img')
   simg2img.convert(os.path.join(out, 'system.img'), system_raw_img)
+  file_contexts_path = None
+  if not dryrun:
+    with ContainerImageEditor(mksquashfs_path, unsquashfs_path, system_raw_img,
+                              '/', out) as e:
+      file_contexts_path = e.file_contexts_path
+      if 'x86' in product:
+        logging.debug('Creating \'system/lib/arm\' dir and houdini symlinks in '
+                      'the system image')
+        # Create system/lib/arm dir
+        dir_name = os.path.join(e.tmp_dir_name, 'system/lib/arm')
+        logging.debug('Creating directory: %s', dir_name)
+        lib.util.check_call('mkdir', '-p', dir_name, sudo=True)
+        # Create a symlink: system/bin/houdini --> /vendor/bin/houdini
+        lib.util.check_call('ln', '-sf', '/vendor/bin/houdini',
+                            os.path.join(e.tmp_dir_name, 'system/bin/houdini'),
+                            sudo=True)
+        # Create a symlink: system/lib/libhoudini.so --> /vendor/lib/libhoudini.so
+        lib.util.check_call('ln', '-sf', '/vendor/lib/libhoudini.so',
+                            os.path.join(e.tmp_dir_name,
+                                         'system/lib/libhoudini.so'), sudo=True)
+      # TODO(b/65117245): This needs to be part of the build.
+      if shift_ugids:
+        # Shift the UIDs/GIDs.
+        lib.util.check_call(shift_uid_py_path, e.tmp_dir_name, sudo=True)
+
   result_large.append(system_raw_img)
 
   if push_vendor_image:
     vendor_raw_img = os.path.join(out, 'vendor.raw.img')
     simg2img.convert(os.path.join(out, 'vendor.img'), vendor_raw_img)
+    # TODO(b/65117245): This needs to be part of the build.
+    if shift_ugids and not dryrun:
+      with ContainerImageEditor(mksquashfs_path, unsquashfs_path,
+                                vendor_raw_img, 'vendor', out,
+                                file_contexts_path=file_contexts_path) as e:
+        # Shift the UIDs/GIDs.
+        lib.util.check_call(shift_uid_py_path, e.tmp_dir_name,
+                            sudo=True)
     result.append(vendor_raw_img)
 
   return (result_large, result)
@@ -317,8 +364,8 @@ def _verify_android_sdk_version(remote_proxy, provider, dryrun):
       remote_proxy, dryrun)
 
   if device_android_sdk_version is None:
-    if not boolean_prompt(('Unable to determine the target device\'s Android '
-                           'SDK version. Continue?'), False):
+    if not boolean_prompt('Unable to determine the target device\'s Android '
+                          'SDK version. Continue?', default=False):
       sys.exit(1)
   else:
     assert device_android_sdk_version == provider.get_build_version_sdk(), (
@@ -337,6 +384,66 @@ def _android_sdk_version_to_string(android_sdk_version):
   return _ANDROID_SDK_MAPPING.get(
       android_sdk_version,
       'Unknown SDK Version (API {})'.format(android_sdk_version))
+
+
+def _get_selinux_file_contexts_contents(out):
+  """Returns the final contents of the SELinux file_contexts file."""
+  contents = []
+  for filename in ('file_contexts', 'plat_file_contexts',
+                   'nonplat_file_contexts'):
+    path = os.path.join(out, 'root', filename)
+    # Some files are always expected to be missing due to not being present in
+    # the branch.
+    if not os.path.exists(path):
+      logging.debug('Skipping %s since it is missing', path)
+      continue
+    with open(path, 'r') as f:
+      contents.append(f.read())
+  return '\n'.join(contents)
+
+
+def _is_selinux_file_contexts_updated(remote_proxy, out, dryrun):
+  """Returns True if SELinux file_contexts is updated."""
+  if dryrun:
+    logging.debug('Pretending file_contexts is not updated in dryrun mode')
+    return False
+  remote_file_contexts_sha1, _ = remote_proxy.check_output(
+      'sha1sum /etc/selinux/arc/contexts/files/android_file_contexts').split()
+  file_contexts_contents = _get_selinux_file_contexts_contents(out)
+  # hashlib expects bytes, not str.
+  host_file_contexts_sha1 = hashlib.sha1(
+      file_contexts_contents.encode('utf-8')).hexdigest()
+  return remote_file_contexts_sha1 != host_file_contexts_sha1
+
+
+def _update_selinux_file_contexts(remote_proxy, out):
+  """Updates the selinux file_contexts file."""
+  android_file_contexts_contents = _get_selinux_file_contexts_contents(out)
+  remote_proxy.write(android_file_contexts_contents,
+                     '/etc/selinux/arc/contexts/files/android_file_contexts')
+  file_contexts_contents = []
+  for line in android_file_contexts_contents.split('\n'):
+    line = line.strip()
+    if not line or line.startswith('#'):
+      continue
+    file_contexts_contents.append(
+        '%s/rootfs/root%s' % (_ANDROID_ROOT, line))
+  remote_file_contexts_path = '/etc/selinux/arc/contexts/files/file_contexts'
+  remote_file_contexts_contents = remote_proxy.read(remote_file_contexts_path)
+  try:
+    # This string comes from
+    # private-overlays/project-cheets-private/chromeos-base/\
+    #    android-container-<VERSION>/files/chromeos_file_contexts
+    header_idx = remote_file_contexts_contents.index(
+        '# Chrome OS file contexts')
+  except ValueError:
+    # The header was missing. Will concat the whole file.
+    logging.warning('Could not find Chrome OS header in %s. '
+                    'Will use the whole file', remote_file_contexts_path)
+    header_idx = 0
+  file_contexts_contents.append(remote_file_contexts_contents[header_idx:])
+  remote_proxy.write('\n'.join(file_contexts_contents),
+                     remote_file_contexts_path)
 
 
 def _is_selinux_policy_updated(remote_proxy, out, dryrun):
@@ -360,6 +467,16 @@ def _update_selinux_policy(remote_proxy, out):
 def _remount_rootfs_as_writable(remote_proxy):
   """Remounts root file system to make it writable."""
   remote_proxy.check_call('mount -o remount,rw /')
+
+
+def _get_free_space(remote_proxy):
+  """Gets the number of free bytes in the root partition."""
+  return int(remote_proxy.check_output(
+      'echo $(( '
+      '    $(df --output=avail --local --block-size 1 / | tail -n1) + '
+      '    $(du --bytes /opt/google/containers/android/system.raw.img | '
+      '      awk \'{print $1}\') '
+      '))'))
 
 
 def boolean_prompt(prompt, default=True, true_value='yes', false_value='no',
@@ -419,14 +536,14 @@ def _disable_rootfs_verification(force, remote_proxy):
   make_dev_ssd_path = \
       '/usr/libexec/debugd/helpers/dev_features_rootfs_verification'
   make_dev_ssd_command = remote_proxy.get_ssh_commandline(make_dev_ssd_path)
+  logging.info('Detected that the device has rootfs verification enabled.')
+  logging.info('This script can remove the rootfs verification using `%s`, '
+               'which requires that the device is rebooted afterwards.',
+               lib.util.get_command_str(make_dev_ssd_command))
   if not force:
-    logging.error('Detected that the device has rootfs verification enabled.')
-    logging.info('This script can automatically remove the rootfs '
-                 'verification using `%s`, which requires that the device is '
-                 'rebooted afterwards.',
-                 lib.util.get_command_str(make_dev_ssd_command))
-    logging.info('Skip this prompt by specifying --force.')
-    if not boolean_prompt('Remove rootfs verification?', False):
+    logging.info('Automatically remove rootfs verification and skip this '
+                 'prompt by specifying --force.')
+    if not boolean_prompt('Remove rootfs verification?', default=False):
       return False
   remote_proxy.check_call(make_dev_ssd_path)
   reboot_time = time.time()
@@ -444,28 +561,18 @@ def _disable_rootfs_verification(force, remote_proxy):
   logging.error('Failed to detect whether the device had successfully rebooted')
   return False
 
+
 def _stop_ui(remote_proxy):
   remote_proxy.check_call('\n'.join([
-      # Stop UI if necessary.
-      'if ! (status ui | grep -q stop); then',
-      '  stop ui',
-      'fi',
-
-      # Unmount the container root/vendor and root if necessary.
-      'stop arc-system-mount',
-      # TODO(yusukes): Remove the manual umount below once everyone starts using
-      #                arc-system-mount.conf with the post-stop script.
-      'if mountpoint -q %(_CONTAINER_ROOT)s/vendor; then',
-      '  umount %(_CONTAINER_ROOT)s/vendor',
-      'fi',
-      'if mountpoint -q %(_CONTAINER_ROOT)s; then',
-      '  umount %(_CONTAINER_ROOT)s',
-      'fi',
-  ]) % {'_CONTAINER_ROOT': _CONTAINER_ROOT})
+      # Unmount the container root/vendor and root if necessary. This also stops
+      # UI.
+      'stop arc-system-mount || true',
+  ]))
 
 
 class ImageUpdateMode(object):
   """Context object to manage remote host writable status."""
+
   def __init__(self, remote_proxy, is_selinux_policy_updated, push_to_stateful,
                clobber_data, force):
     self._remote_proxy = remote_proxy
@@ -494,15 +601,12 @@ class ImageUpdateMode(object):
       _stop_ui(self._remote_proxy)
       # Try to remount rootfs as writable. Bail out if it fails this time.
       _remount_rootfs_as_writable(self._remote_proxy)
-    try:
-      self._remote_proxy.check_call('\n'.join([
-          # Delete the image file if it is a symlink.
-          'test -L %(_ANDROID_ROOT)s/system.raw.img && '
-          '  rm %(_ANDROID_ROOT)s/system.raw.img',
-      ]) % {'_ANDROID_ROOT': _ANDROID_ROOT})
-    except Exception:
-      # Not a symlink.
-      pass
+    self._remote_proxy.check_call('\n'.join([
+        # Delete the image file if it is a symlink.
+        'if [ -L %(_ANDROID_ROOT)s/system.raw.img ]; then'
+        '  rm %(_ANDROID_ROOT)s/system.raw.img;'
+        'fi',
+    ]) % {'_ANDROID_ROOT': _ANDROID_ROOT})
     if self._push_to_stateful:
       self._remote_proxy.check_call('\n'.join([
           # Create the destination directory in the stateful partition.
@@ -559,6 +663,7 @@ class ImageUpdateMode(object):
 
 class PreserveTimestamps(object):
   """Context object to modify a file but preserve the original timestamp."""
+
   def __init__(self, path):
     self.path = path
     self._original_timestamp = None
@@ -574,7 +679,46 @@ class PreserveTimestamps(object):
                          self._original_timestamp.st_mtime))
 
 
-def _extract_artifact(simg2img, out_dir, filename):
+def _download_artifact(out_dir, build_id, product, build_variant):
+  mapping = dict(build_id=build_id, product=product)
+  uploaded_filename = _BUILD_FILENAME.substitute(mapping)
+  filename = os.path.join(out_dir, uploaded_filename)
+  fetcher = lib.build_artifact_fetcher.BuildArtifactFetcher(
+      lib.util.get_product_arch(product), build_variant, build_id)
+  fetcher.fetch(uploaded_filename, filename)
+  return filename
+
+
+def _extract_files(unsquashfs_path, out_dir, system_raw_img, paths):
+  with TemporaryDirectory() as tmp_dir:
+    if lib.util.get_image_type(system_raw_img) is 'squashfs':
+      lib.util.check_call(
+          unsquashfs_path, '-d', tmp_dir.name, '-no-progress', '-f',
+          system_raw_img, '-no-xattrs', *[path[0] for path in paths], sudo=True)
+      _extract_files_helper(tmp_dir.name, out_dir, paths)
+    else:
+      with MountWrapper(system_raw_img, tmp_dir.name):
+        _extract_files_helper(tmp_dir.name, out_dir, paths)
+
+
+def _extract_files_helper(source_root, destination_root, paths):
+  for source, destination in paths:
+    source = os.path.join(source_root, source)
+    # Some files are always expected to be missing due to not being
+    # present in the branch.
+    if not os.path.exists(source):
+      logging.debug('Skipping %s since it is missing', source)
+      continue
+    destination = os.path.join(destination_root, destination)
+    if not os.path.exists(os.path.dirname(destination)):
+      os.makedirs(os.path.dirname(destination))
+    # 'sudo' is needed due to b/65117245. Android P shifts ugids of extracted
+    # files.
+    lib.util.check_call('cp', source, destination, sudo=True)
+    lib.util.check_call('chown', getpass.getuser(), destination, sudo=True)
+
+
+def _extract_artifact(simg2img, unsquashfs_path, out_dir, filename):
   with zipfile.ZipFile(filename, 'r') as z:
     z.extract('system.img', out_dir)
     z.extract('vendor.img', out_dir)
@@ -583,15 +727,13 @@ def _extract_artifact(simg2img, out_dir, filename):
   # could try to change the program flow.
   simg2img.convert(os.path.join(out_dir, 'system.img'),
                    os.path.join(out_dir, 'system.raw.img'))
-  # Extract the SELinux policy.
-  with TemporaryDirectory() as mnt_dir:
-    with MountWrapper(os.path.join(out_dir, 'system.raw.img'),
-                      mnt_dir.name):
-      os.makedirs(os.path.join(out_dir, 'root'))
-      shutil.copyfile(os.path.join(mnt_dir.name, 'sepolicy'),
-                      os.path.join(out_dir, 'root', 'sepolicy'))
-      shutil.copyfile(os.path.join(mnt_dir.name, 'system', 'build.prop'),
-                      os.path.join(out_dir, 'build.prop'))
+  _extract_files(unsquashfs_path, out_dir,
+                 os.path.join(out_dir, 'system.raw.img'),
+                 [('sepolicy', 'root/sepolicy'),
+                  ('file_contexts', 'root/file_contexts'),
+                  ('plat_file_contexts', 'root/plat_file_contexts'),
+                  ('nonplat_file_contexts', 'root/nonplat_file_contexts'),
+                  ('system/build.prop', 'build.prop')])
 
 
 def _make_tempdir_deleted_on_exit():
@@ -600,7 +742,7 @@ def _make_tempdir_deleted_on_exit():
   return d
 
 
-def _detect_cert_inconsistency(remote_proxy, new_variant, dryrun):
+def _detect_cert_inconsistency(force, remote_proxy, new_variant, dryrun):
   """Prompt to ask for deleting data based on detected situation (best effort).
 
   Detection is only accurate for active session, so it won't fix other profiles.
@@ -640,10 +782,14 @@ def _detect_cert_inconsistency(remote_proxy, new_variant, dryrun):
 
   if is_inconsistent:
     new_apk_key = _APK_KEY_RELEASE if new_variant == 'user' else _APK_KEY_DEBUG
-    return boolean_prompt(
-        'Detected apk signature change (%s -> %s[%s]) on current user.  Delete '
-        '/data and /cache?' % (device_apk_key, new_apk_key, new_variant),
-        default=True)
+    logging.info('Detected apk signature change (%s -> %s[%s]) on current user.'
+                 % (device_apk_key, new_apk_key, new_variant))
+    if force:
+        logging.info('Deleting /data and /cache.')
+        return True
+    logging.info('Automatically delete and skip this prompt by specifying '
+                 '--force.')
+    return boolean_prompt('Delete /data and /cache?', default=True)
 
   # Switching from/to user build.
   if (device_variant == 'user') != (new_variant == 'user'):
@@ -693,7 +839,7 @@ def _get_apk_key_from_xml(xml_file):
                                      'Actual: %d' % sigs_count_attribute)
   cert_element = sigs_element.find('cert')
   gms_core_cert_index = int(cert_element.get('index', -1))
-  logging.debug("GmsCore cert index: %d" % gms_core_cert_index)
+  logging.debug('GmsCore cert index: %d' % gms_core_cert_index)
   if gms_core_cert_index == -1:
     logging.warning('Invalid cert index (%d)' % gms_core_cert_index)
     return _APK_KEY_UNKNOWN
@@ -709,7 +855,7 @@ def _get_apk_key_from_xml(xml_file):
     cert_key = cert_element.get('key')
     if cert_key and cert_index == gms_core_cert_index:
       return _get_android_key_type_from_cert_key(cert_key)
-  logging.warning ('Unable to find a cert key matching index %d' % cert_index)
+  logging.warning('Unable to find a cert key matching index %d' % cert_index)
   return _APK_KEY_UNKNOWN
 
 
@@ -727,6 +873,99 @@ def _find_build_property(line, build_property_name):
   if line.startswith(build_property_name):
     return line[len(build_property_name):].strip()
   return None
+
+
+class ContainerImageEditor(object):
+  """A context object that allows edits to the Android container image"""
+
+  def __init__(self, mksquashfs_path, unsquashfs_path, image_path, mount_point,
+               out_dir, file_contexts_path=None):
+    self._mksquashfs_path = mksquashfs_path
+    self._unsquashfs_path = unsquashfs_path
+    self._image_path = image_path
+    self._mount_point = mount_point
+    self._out_dir = out_dir
+    self.file_contexts_path = file_contexts_path
+    # Since we shift UIDs/GIDs of all extracted files there, we are going to
+    # need sudo permission to remove the temporary directory. shutil doesn't
+    # have the ability to run as sudo, so not using TemporaryDirectory() here.
+    self.tmp_dir_name = tempfile.mkdtemp()
+
+  def __enter__(self):
+    self._is_squashfs = lib.util.get_image_type(self._image_path) is 'squashfs'
+    logging.debug('Is the file system squashfs? %s', self._is_squashfs)
+
+    if self._is_squashfs:
+      # Extract the files.
+      lib.util.check_call(self._unsquashfs_path, '-force', '-d',
+                          self.tmp_dir_name, self._image_path, sudo=True)
+
+      self._update_file_context_path()
+      if not os.path.exists(self.file_contexts_path):
+        raise EnvironmentError('"%s" not found.' % self.file_contexts_path)
+    else:
+      self._mount_wrapper = MountWrapper(self._image_path, self.tmp_dir_name)
+      self._mount_wrapper.__enter__()
+      self._update_file_context_path()
+
+    return self
+
+  def __exit__(self, exception_type, exception_value, traceback):
+    try:
+      if self._is_squashfs:
+        # Re-compress the files back to raw.img.
+        lib.util.check_call(
+            self._mksquashfs_path, self.tmp_dir_name, self._image_path,
+            '-no-progress', '-comp', 'gzip', '-no-exports', '-noappend',
+            '-mount-point', self._mount_point, '-product-out', self._out_dir,
+            '-context-file', self.file_contexts_path, '-no-recovery',
+            '-no-fragments', '-no-duplicates', '-b', '131072', '-t', '0',
+            sudo=True)
+      else:
+        self._mount_wrapper.__exit__(exception_type, exception_value, traceback)
+    finally:
+        lib.util.check_call('rm', '-rf', self.tmp_dir_name, sudo=True)
+
+  def _update_file_context_path(self):
+    if self.file_contexts_path:
+      logging.debug('file_contexts_path is already set')
+      return
+    self.file_contexts_path = os.path.join(_make_tempdir_deleted_on_exit(),
+                                           'file_contexts')
+    file_contexts_path = os.path.join(self.tmp_dir_name, 'file_contexts')
+    if os.path.exists(file_contexts_path):
+      logging.debug('Found file_contexts in image')
+      lib.util.check_call('cp', file_contexts_path, self.file_contexts_path)
+      return
+    plat_file_contexts_path = os.path.join(self.tmp_dir_name,
+                                           'plat_file_contexts')
+    nonplat_file_contexts_path = os.path.join(self.tmp_dir_name,
+                                              'nonplat_file_contexts')
+    if (os.path.exists(plat_file_contexts_path) and
+       os.path.exists(nonplat_file_contexts_path)):
+      logging.debug('Combining \'plat_file_contexts\' and '
+                    '\'nonplat_file_contexts\' files')
+      with TemporaryDirectory() as tmp_dir:
+        file_contexts_path = os.path.join(tmp_dir.name, 'file_contexts')
+        with open(file_contexts_path, 'w') as outfile:
+          if os.path.exists(plat_file_contexts_path):
+            logging.debug('Writing plat_file_contexts to %s',
+                          file_contexts_path)
+          with open(plat_file_contexts_path) as infile:
+            for line in infile:
+              outfile.write(line)
+          if os.path.exists(nonplat_file_contexts_path):
+            logging.debug('Writing nonplat_file_contexts to %s',
+                          file_contexts_path)
+            with open(nonplat_file_contexts_path) as infile:
+              for line in infile:
+                outfile.write(line)
+        if not os.path.exists(file_contexts_path):
+          raise EnvironmentError('%s not found.' % file_contexts_path)
+        lib.util.check_call('cp', file_contexts_path, self.file_contexts_path)
+      return
+    raise EnvironmentError('Unable to find file_contexts or '
+                           '[non]plat_file_contexts in the image')
 
 
 class BaseProvider(object):
@@ -783,24 +1022,52 @@ class BaseProvider(object):
       os.remove(build_prop_file)
 
 
+class PrebuiltProvider(BaseProvider):
+  """A provider to provides prebuilt image from Android builder."""
+
+  def __init__(self, product, build_variant, build_id, simg2img,
+               unsquashfs_path):
+    super(PrebuiltProvider, self).__init__()
+    self._product = product
+    self._build_variant = build_variant
+    self._build_id = build_id
+    self._simg2img = simg2img
+    self._unsquashfs_path = unsquashfs_path
+
+  def prepare(self):
+    fingerprint = '_'.join([self._product, self._build_variant, self._build_id])
+
+    out_dir = _make_tempdir_deleted_on_exit()
+    filename = _download_artifact(out_dir, self._build_id, self._product,
+                                  self._build_variant)
+    _extract_artifact(self._simg2img, self._unsquashfs_path, out_dir, filename)
+
+    build_prop_file = os.path.join(out_dir, 'build.prop')
+    self.read_build_prop_file(build_prop_file)
+    return out_dir, self._product, fingerprint
+
+
 class LocalPrebuiltProvider(BaseProvider):
   """A provider that provides prebuilt image from a local file."""
 
-  def __init__(self, prebuilt_file, simg2img):
+  def __init__(self, prebuilt_file, simg2img, unsquashfs_path):
     super(LocalPrebuiltProvider, self).__init__()
     self._prebuilt_file = prebuilt_file
     self._simg2img = simg2img
+    self._unsquashfs_path = unsquashfs_path
 
   def prepare(self):
     out_dir = _make_tempdir_deleted_on_exit()
-    _extract_artifact(self._simg2img, out_dir, self._prebuilt_file)
+    logging.debug('Extracting artifacts')
+    _extract_artifact(self._simg2img, self._unsquashfs_path, out_dir,
+                      self._prebuilt_file)
 
     build_prop_file = os.path.join(out_dir, 'build.prop')
     self.read_build_prop_file(build_prop_file)
     if self._build_variant is None:
       self._build_variant = 'user'  # default to non-eng
 
-    m = re.match(r'(cheets_\w+)-img-P?\d+\.zip',
+    m = re.match(r'((?:bertha|cheets)_\w+)-img-P?\d+\.zip',
                  os.path.basename(self._prebuilt_file))
     if not m:
       sys.exit('Unrecognized file name of prebuilt image archive.')
@@ -813,16 +1080,28 @@ class LocalPrebuiltProvider(BaseProvider):
 class LocalBuildProvider(BaseProvider):
   """A provider that provides local built image."""
 
-  def __init__(self, build_fingerprint, skip_build_prop_update):
+  def __init__(self, build_fingerprint, skip_build_prop_update,
+               added_build_properties, dryrun):
     super(LocalBuildProvider, self).__init__()
     self._build_fingerprint = build_fingerprint
     self._skip_build_prop_update = skip_build_prop_update
+    self._added_build_properties = added_build_properties
+    self._dryrun = dryrun
     expected_env = ('TARGET_BUILD_VARIANT', 'TARGET_PRODUCT', 'OUT')
     if not all(var in os.environ for var in expected_env):
       sys.exit('Did you run lunch?')
     self._build_variant = os.environ.get('TARGET_BUILD_VARIANT')
     self._target_product = os.environ.get('TARGET_PRODUCT')
     self._out_dir = os.environ.get('OUT')
+
+    # Create the generic device name by extracting the architecture type
+    # from the target product.
+    generic_device = _GENERIC_DEVICE % dict(
+        arch=lib.util.get_product_arch(self._target_product),
+        product=lib.util.get_product_name(self._target_product))
+    new_prop_value = '%s%s' % (_RO_PRODUCT_DEVICE, generic_device)
+    if new_prop_value not in self._added_build_properties:
+      self._added_build_properties.append(new_prop_value)
 
   def prepare(self):
     # Use build fingerprint if set. Otherwise, read it from the text file.
@@ -847,28 +1126,43 @@ class LocalBuildProvider(BaseProvider):
     if not build_prop_file:
       logging.warning('Skipping. build_prop_file was not specified.')
       return
-    # Create the generic device name by extracting the architecture type
-    # from the target product.
-    generic_device = _GENERIC_DEVICE % dict(
-        arch=lib.util.get_product_arch(self._target_product))
-    # Get the current value of ro.product.device in build.prop.
-    current_prop_value = lib.util.check_output('grep', _RO_PRODUCT_DEVICE,
-                                               build_prop_file).strip()
-    new_prop_value = '%s%s' % (_RO_PRODUCT_DEVICE, generic_device)
-    # If build.prop contains the new value, return.
-    if current_prop_value == new_prop_value:
+
+    file_updated = False
+    for prop in self._added_build_properties:
+      key_and_value = prop.split('=')
+      # Check whether the property is already in build.prop.
+      try:
+        current_prop_value = lib.util.check_output('grep',
+                                                   '%s=' % (key_and_value[0]),
+                                                   build_prop_file).strip()
+      except subprocess.CalledProcessError:
+        # grep did not find a match
+        current_prop_value = None
+
+      if not current_prop_value:
+        file_updated = True
+        logging.info('Appending "%s" to build.prop...', prop)
+
+        with PreserveTimestamps(build_prop_file) as f:
+          lib.util.check_call(
+              '/bin/sed', '-i',
+              r'$a%s' % prop,
+              f.path)
+      elif prop != current_prop_value:
+        file_updated = True
+        logging.info('Setting "%s" to "%s" in build.prop...',
+                     key_and_value[0], key_and_value[1])
+        with PreserveTimestamps(build_prop_file) as f:
+          # Make the changes to build.prop
+          lib.util.check_call(
+              '/bin/sed', '-i',
+              r's/^\(%(_KEY)s=\).*/\1%(_VALUE)s/'
+              % {'_KEY': key_and_value[0], '_VALUE': key_and_value[1]},
+              f.path)
+
+    if not file_updated:
       logging.info('build.prop does not need to be updated.')
       return
-
-    logging.info('Setting "%s" to "%s" in build.prop...',
-                 _RO_PRODUCT_DEVICE, generic_device)
-    with PreserveTimestamps(build_prop_file) as f:
-      # Make the changes to build.prop
-      lib.util.check_call(
-          '/bin/sed', '-i',
-          r's/^\(%(_KEY)s\).*/\1%(_VALUE)s/'
-          % {'_KEY': _RO_PRODUCT_DEVICE, '_VALUE': generic_device},
-          f.path)
 
     logging.info('Recreating the system image with the updated build.prop ' +
                  'file...')
@@ -877,6 +1171,8 @@ class LocalBuildProvider(BaseProvider):
         self._out_dir,
         'obj/PACKAGING/systemimage_intermediates/system_image_info.txt')
     system_image_file = os.path.join(self._out_dir, 'system.img')
+    if self._dryrun:
+      return
     with PreserveTimestamps(system_image_file) as f:
       # Recreate system.img
       lib.util.check_call(
@@ -900,25 +1196,72 @@ class NullProvider(BaseProvider):
 
 
 def _parse_prebuilt(param):
-  m = re.search(r'^(cheets_(?:arm|x86))/(user|userdebug|eng)/(P?\d+)$', param)
+  m = re.search(
+      r'^((?:bertha|cheets)_(?:arm|x86|x86_64))/(user|userdebug|eng)/(P?\d+)$',
+      param)
   if not m:
     sys.exit('Invalid format of --use-prebuilt')
   return m.group(1), m.group(2), m.group(3)
 
 
-def _default_simg2img_path():
-  # Automatically resolve simg2img path if possible.
-  if 'ANDROID_HOST_OUT' in os.environ:
-    return os.path.join(os.environ.get('ANDROID_HOST_OUT'), 'bin', 'simg2img')
-  path = os.path.join(_SCRIPT_DIR, 'simg2img')
+def _default_mksquashfs_path():
+  # Automatically resolve mksquashfs path if possible.
+  android_host_out_path = os.environ.get('ANDROID_HOST_OUT')
+  if android_host_out_path:
+    path = os.path.join(android_host_out_path, 'bin', 'mksquashfs')
+    if os.path.isfile(path):
+      return path
+  path = os.path.join(_SCRIPT_DIR, 'mksquashfs')
   if os.path.isfile(path):
     return path
+  return None
+
+
+def _default_unsquashfs_path():
+  # Automatically resolve unsquashfs path if possible.
+  _UNSQUASHFS_PATH = '/usr/bin/unsquashfs'
+  if os.path.exists(_UNSQUASHFS_PATH):
+    return _UNSQUASHFS_PATH
+  return None
+
+
+def _default_shift_uid_py_path():
+  # Automatically resolve shift_uid.py path if possible.
+  path = os.path.join(_SCRIPT_DIR, 'shift_uid.py')
+  if os.path.isfile(path):
+    return path
+  _SHIFT_UID_PATH = os.path.join(
+      lib.util.find_repo_root(),
+      'vendor/google_devices/bertha/scripts/shift_uid.py')
+  if os.path.exists(_SHIFT_UID_PATH):
+    return _SHIFT_UID_PATH
+  return None
+
+
+def _default_simg2img_path():
+  # Automatically resolve simg2img path if possible.
+  dirs_to_find = []
+  if 'ANDROID_HOST_OUT' in os.environ:
+    dirs_to_find.append(os.path.join(os.environ.get('ANDROID_HOST_OUT'), 'bin'))
+  dirs_to_find.append(_SCRIPT_DIR)
+  if 'PATH' in os.environ:
+    dirs_to_find += os.environ['PATH'].split(os.pathsep)
+
+  for dir in dirs_to_find:
+    path = os.path.join(dir, 'simg2img')
+    if os.path.isfile(path) and os.access(path, os.X_OK):
+      return path
   return None
 
 
 def _resolve_args(args):
   if not args.simg2img_path:
     sys.exit('Cannot determine the path of simg2img')
+  if not args.mksquashfs_path:
+    sys.exit('Cannot determine the path of mksquashfs')
+  if not args.unsquashfs_path:
+    sys.exit('Cannot determine the path of unsquashfs. You may need to '
+             'install it with sudo apt install squashfs-tools.')
 
 
 def _parse_args():
@@ -961,6 +1304,17 @@ $ %(prog)s --use-prebuilt-file path/to/cheets_arm-img-123456.zip <remote>
       '--simg2img-path', default=_default_simg2img_path(),
       help='Executable path of simg2img')
   parser.add_argument(
+      '--mksquashfs-path', default=_default_mksquashfs_path(),
+      help='Executable path of mksquashfs')
+  parser.add_argument(
+      '--unsquashfs-path', default=_default_unsquashfs_path(),
+      help='Executable path of unsquashfs')
+  parser.add_argument(
+      '--shift-uid-py-path', default=_default_shift_uid_py_path(),
+      help='Executable path of shift_uid.py')
+  parser.add_argument(
+      '--shift-ugids', action='store_true', help='Shift UIDs/GIDs recursively')
+  parser.add_argument(
       '--force', action='store_true',
       help=('Skip all prompts (i.e., for disabling of rootfs verification).  '
             'This may result in the target machine being rebooted'))
@@ -974,7 +1328,17 @@ $ %(prog)s --use-prebuilt-file path/to/cheets_arm-img-123456.zip <remote>
   parser.add_argument(
       '--push-to-stateful-partition', action='store_true',
       help=('Place the system.raw.img on the stateful partition instead of /. '
-            'This is always used for -eng builds since they do not fit on /.'))
+            'This is always used for builds that do not fit on /.'))
+  parser.add_argument(
+      '--add-build-property', action='append', default=[],
+      dest='added_build_properties',
+      help=('Update build.prop with the given property e.g. some.property=true,'
+            'If the given property exists, it would update the property.'
+            'Otherwise it would append the given property to the end.'))
+  parser.add_argument(
+      '--enable-assistant-prop', action='store_true',
+      help=('Update build.prop with ro.opa.eligible_device=true, '
+            'this is required to run assistant on ChromeOS.'))
   parser.add_argument(
       'remote',
       help=('The target test device. This is passed to ssh command etc., '
@@ -991,6 +1355,9 @@ def main():
   args = _parse_args()
   logging.basicConfig(level=getattr(logging, args.loglevel))
 
+  if args.enable_assistant_prop:
+    args.added_build_properties.append('ro.opa.eligible_device=true')
+
   simg2img = Simg2img(args.simg2img_path, args.dryrun)
 
   # Prepare local source.  A preparer is responsible to return an directory that
@@ -998,11 +1365,18 @@ def main():
   # product (e.g. cheets_arm) and a build fingerprint.
   if args.dryrun:
     provider = NullProvider()
+  elif args.use_prebuilt:
+    product, build_variant, build_id = args.use_prebuilt
+    provider = PrebuiltProvider(product, build_variant, build_id, simg2img,
+                                args.unsquashfs_path)
   elif args.prebuilt_file:
-    provider = LocalPrebuiltProvider(args.prebuilt_file, simg2img)
+    provider = LocalPrebuiltProvider(args.prebuilt_file, simg2img,
+                                     args.unsquashfs_path)
   else:
     provider = LocalBuildProvider(args.build_fingerprint,
-                                  args.skip_build_prop_update)
+                                  args.skip_build_prop_update,
+                                  args.added_build_properties,
+                                  args.dryrun)
 
   # Actually prepare the files to push.
   out, product, fingerprint = provider.prepare()
@@ -1016,25 +1390,58 @@ def main():
     clobber_data = True
   else:
     clobber_data = _detect_cert_inconsistency(
-        remote_proxy, provider.get_build_variant(), args.dryrun)
+        args.force, remote_proxy, provider.get_build_variant(), args.dryrun)
 
   logging.info('Converting images to raw images...')
   (large_image_list, image_list) = _convert_images(
-      simg2img, out, args.push_vendor_image)
+      simg2img, out, product, args.push_vendor_image, args.shift_ugids,
+      args.mksquashfs_path, args.unsquashfs_path, args.shift_uid_py_path, args.dryrun)
 
   is_selinux_policy_updated = _is_selinux_policy_updated(remote_proxy, out,
                                                          args.dryrun)
+  is_selinux_file_contexts_updated = _is_selinux_file_contexts_updated(
+      remote_proxy, out, args.dryrun)
+  total_bytes = sum(os.stat(filename).st_size for filename in large_image_list)
+  free_bytes = _get_free_space(remote_proxy)
   push_to_stateful = (args.push_to_stateful_partition or
-                      'eng' == provider.get_build_variant())
+                      total_bytes >= free_bytes)
+
+  if not args.push_to_stateful_partition and push_to_stateful:
+    logging.info('Pushing image to stateful partition '
+                 'since it does not fit on / (%.2f MiB, %.2f free MiB).',
+                 float(total_bytes) / _MB, float(free_bytes) / _MB)
 
   with ImageUpdateMode(remote_proxy, is_selinux_policy_updated,
                        push_to_stateful, clobber_data, args.force):
     is_debuggable = 'user' != provider.get_build_variant()
-    remote_proxy.check_call(' '.join([
-        '/bin/sed', '-i',
-        r'"s/^\(env ANDROID_DEBUGGABLE=\).*/\1%(_IS_DEBUGGABLE)d/"',
-        '/etc/init/arc-setup.conf'
-    ]) % {'_IS_DEBUGGABLE': is_debuggable})
+    try:
+      remote_proxy.check_call(' '.join([
+          '/bin/sed', '-i',
+          r'"s/^\(export ANDROID_DEBUGGABLE=\).*/\1%(_IS_DEBUGGABLE)d/"',
+          '/etc/init/arc-setup-env'
+      ]) % {'_IS_DEBUGGABLE': is_debuggable})
+      # Unconditionally disable font sharing so that 'adb sync' will always
+      # work. Disabling the feature is safe because locally built system
+      # image always has all fonts. Images from ab/ also have all fonts.
+      remote_proxy.check_call(' '.join([
+          '/bin/sed', '-i',
+          r'"s/^\(export SHARE_FONTS=\).*/\1%(_SHARE_FONTS)d/"',
+          '/etc/init/arc-setup-env'
+      ]) % {'_SHARE_FONTS': False})
+    except Exception:
+      # The device is old and doesn't have arc-setup-env. Fall back to the
+      # older method.
+      # TODO(yusukes): Remove the fallback code.
+      remote_proxy.check_call(' '.join([
+          '/bin/sed', '-i',
+          r'"s/^\(env ANDROID_DEBUGGABLE=\).*/\1%(_IS_DEBUGGABLE)d/"',
+          '/etc/init/arc-setup.conf'
+      ]) % {'_IS_DEBUGGABLE': is_debuggable})
+      remote_proxy.check_call(' '.join([
+          '/bin/sed', '-i',
+          r'"s/^\(env SHARE_FONTS=\).*/\1%(_SHARE_FONTS)d/"',
+          '/etc/init/arc-system-mount.conf'
+      ]) % {'_SHARE_FONTS': False})
 
     logging.info('Syncing image files to ChromeOS...')
     if large_image_list:
@@ -1044,6 +1451,8 @@ def main():
     if image_list:
       remote_proxy.sync(image_list, _ANDROID_ROOT)
     _update_build_fingerprint(remote_proxy, fingerprint)
+    if is_selinux_file_contexts_updated:
+      _update_selinux_file_contexts(remote_proxy, out)
     if is_selinux_policy_updated:
       _update_selinux_policy(remote_proxy, out)
 

@@ -16,8 +16,8 @@
 package com.android.tradefed.testtype;
 
 import com.android.ddmlib.Log;
-import com.android.ddmlib.testrunner.ITestRunListener;
-import com.android.ddmlib.testrunner.TestIdentifier;
+import com.android.tradefed.result.ITestLifeCycleReceiver;
+import com.android.tradefed.result.TestDescription;
 
 import junit.framework.TestCase;
 
@@ -73,14 +73,14 @@ public class VtsFuzzTestResultParserTest extends TestCase {
      */
     @SuppressWarnings("unchecked")
     public void testParsePassedFile() throws Exception {
-        String[] contents =  readInFile(VTS_FUZZ_OUTPUT_FILE_1);
-        ITestRunListener mockRunListener = EasyMock.createMock(ITestRunListener.class);
+        String[] contents = readInFile(VTS_FUZZ_OUTPUT_FILE_1);
+        ITestLifeCycleReceiver mockRunListener = EasyMock.createMock(ITestLifeCycleReceiver.class);
         mockRunListener.testRunStarted(TEST_MODULE_NAME, 1);
-        mockRunListener.testEnded((TestIdentifier)EasyMock.anyObject(),
-                (Map<String, String>)EasyMock.anyObject());
+        mockRunListener.testEnded(
+                (TestDescription) EasyMock.anyObject(), (Map<String, String>) EasyMock.anyObject());
         EasyMock.replay(mockRunListener);
-        VtsFuzzTestResultParser resultParser = new VtsFuzzTestResultParser(
-            TEST_MODULE_NAME, mockRunListener);
+        VtsFuzzTestResultParser resultParser =
+                new VtsFuzzTestResultParser(TEST_MODULE_NAME, mockRunListener);
         resultParser.processNewLines(contents);
         resultParser.done();
     }
@@ -90,11 +90,12 @@ public class VtsFuzzTestResultParserTest extends TestCase {
      */
     public void testParseFailedFile() throws Exception {
         String[] contents =  readInFile(VTS_FUZZ_OUTPUT_FILE_2);
-        ITestRunListener mockRunListener = EasyMock.createMock(ITestRunListener.class);
+        ITestLifeCycleReceiver mockRunListener = EasyMock.createMock(ITestLifeCycleReceiver.class);
         mockRunListener.testRunStarted(TEST_MODULE_NAME, 1);
-        mockRunListener.testFailed((TestIdentifier)EasyMock.anyObject(), (String)EasyMock.anyObject());
-        mockRunListener.testEnded((TestIdentifier)EasyMock.anyObject(),
-                (Map<String, String>)EasyMock.anyObject());
+        mockRunListener.testFailed(
+                (TestDescription) EasyMock.anyObject(), (String) EasyMock.anyObject());
+        mockRunListener.testEnded(
+                (TestDescription) EasyMock.anyObject(), (Map<String, String>) EasyMock.anyObject());
         mockRunListener.testRunFailed((String)EasyMock.anyObject());
         EasyMock.replay(mockRunListener);
         VtsFuzzTestResultParser resultParser = new VtsFuzzTestResultParser(

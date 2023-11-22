@@ -18,7 +18,6 @@ package com.android.framework.tests;
 
 import com.android.ddmlib.testrunner.IRemoteAndroidTestRunner;
 import com.android.ddmlib.testrunner.RemoteAndroidTestRunner;
-import com.android.ddmlib.testrunner.TestResult;
 import com.android.framework.tests.BandwidthStats.CompareResult;
 import com.android.framework.tests.BandwidthStats.ComparisonRecord;
 import com.android.tradefed.config.Option;
@@ -30,6 +29,7 @@ import com.android.tradefed.result.FileInputStreamSource;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.result.InputStreamSource;
 import com.android.tradefed.result.LogDataType;
+import com.android.tradefed.result.TestResult;
 import com.android.tradefed.testtype.IDeviceTest;
 import com.android.tradefed.testtype.IRemoteTest;
 import com.android.tradefed.util.FileUtil;
@@ -40,6 +40,7 @@ import com.android.tradefed.util.StreamUtil;
 import com.android.tradefed.util.net.HttpHelper;
 import com.android.tradefed.util.net.IHttpHelper;
 import com.android.tradefed.util.net.IHttpHelper.DataSizeException;
+import com.android.tradefed.util.proto.TfMetricProtoUtil;
 
 import org.junit.Assert;
 
@@ -441,7 +442,7 @@ public class BandwidthMicroBenchMarkTest implements IDeviceTest, IRemoteTest {
         postMetrics.put("Fail", String.valueOf(failCount));
 
         listener.testRunStarted(compactRuKey, 0);
-        listener.testRunEnded(0, postMetrics);
+        listener.testRunEnded(0, TfMetricProtoUtil.upgradeConvert(postMetrics));
     }
 
     private void printFailures(CompareResult result) {

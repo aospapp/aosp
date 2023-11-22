@@ -56,9 +56,10 @@ public class ResourcesProvider extends DocumentsProvider {
     private static final Map<String, Integer> RESOURCES = new HashMap<>();
     static {
         RESOURCES.put("archive.zip", R.raw.archive);
-        RESOURCES.put("empty_dirs.zip", R.raw.empty_dirs);
-        RESOURCES.put("no_dirs.zip", R.raw.no_dirs);
         RESOURCES.put("broken.zip", R.raw.broken);
+        RESOURCES.put("empty_dirs.zip", R.raw.empty_dirs);
+        RESOURCES.put("images.zip", R.raw.images);
+        RESOURCES.put("no_dirs.zip", R.raw.no_dirs);
     }
 
     private ExecutorService mExecutor = null;

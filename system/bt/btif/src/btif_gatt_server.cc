@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2009-2013 Broadcom Corporation
+ *  Copyright 2009-2013 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -51,6 +51,7 @@
 
 using base::Bind;
 using base::Owned;
+using bluetooth::Uuid;
 using std::vector;
 
 /*******************************************************************************
@@ -96,9 +97,9 @@ static void btapp_gatts_copy_req_data(uint16_t event, char* p_dest,
     case BTA_GATTS_EXEC_WRITE_EVT:
     case BTA_GATTS_MTU_EVT:
       p_dest_data->req_data.p_data =
-          (tBTA_GATTS_REQ_DATA*)osi_malloc(sizeof(tBTA_GATTS_REQ_DATA));
+          (tGATTS_DATA*)osi_malloc(sizeof(tGATTS_DATA));
       memcpy(p_dest_data->req_data.p_data, p_src_data->req_data.p_data,
-             sizeof(tBTA_GATTS_REQ_DATA));
+             sizeof(tGATTS_DATA));
       break;
 
     default:
@@ -128,10 +129,9 @@ static void btapp_gatts_handle_cback(uint16_t event, char* p_param) {
   tBTA_GATTS* p_data = (tBTA_GATTS*)p_param;
   switch (event) {
     case BTA_GATTS_REG_EVT: {
-      bt_uuid_t app_uuid;
-      bta_to_btif_uuid(&app_uuid, &p_data->reg_oper.uuid);
       HAL_CBACK(bt_gatt_callbacks, server->register_server_cb,
-                p_data->reg_oper.status, p_data->reg_oper.server_if, app_uuid);
+                p_data->reg_oper.status, p_data->reg_oper.server_if,
+                p_data->reg_oper.uuid);
       break;
     }
 
@@ -266,13 +266,11 @@ static void btapp_gatts_cback(tBTA_GATTS_EVT event, tBTA_GATTS* p_data) {
 /*******************************************************************************
  *  Server API Functions
  ******************************************************************************/
-static bt_status_t btif_gatts_register_app(const bt_uuid_t& bt_uuid) {
+static bt_status_t btif_gatts_register_app(const Uuid& bt_uuid) {
   CHECK_BTGATT_INIT();
-  tBT_UUID* uuid = new tBT_UUID;
-  btif_to_bta_uuid(uuid, &bt_uuid);
 
   return do_in_jni_thread(
-      Bind(&BTA_GATTS_AppRegister, base::Owned(uuid), &btapp_gatts_cback));
+      Bind(&BTA_GATTS_AppRegister, bt_uuid, &btapp_gatts_cback));
 }
 
 static bt_status_t btif_gatts_unregister_app(int server_if) {
@@ -285,7 +283,7 @@ static void btif_gatts_open_impl(int server_if, const RawAddress& address,
   // Ensure device is in inquiry database
   int addr_type = 0;
   int device_type = 0;
-  tBTA_GATT_TRANSPORT transport = BTA_GATT_TRANSPORT_LE;
+  tGATT_TRANSPORT transport = GATT_TRANSPORT_LE;
 
   if (btif_get_address_type(address, &addr_type) &&
       btif_get_device_type(address, &device_type) &&
@@ -302,18 +300,18 @@ static void btif_gatts_open_impl(int server_if, const RawAddress& address,
   } else {
     switch (device_type) {
       case BT_DEVICE_TYPE_BREDR:
-        transport = BTA_GATT_TRANSPORT_BR_EDR;
+        transport = GATT_TRANSPORT_BR_EDR;
         break;
 
       case BT_DEVICE_TYPE_BLE:
-        transport = BTA_GATT_TRANSPORT_LE;
+        transport = GATT_TRANSPORT_LE;
         break;
 
       case BT_DEVICE_TYPE_DUMO:
         if (transport_param == GATT_TRANSPORT_LE)
-          transport = BTA_GATT_TRANSPORT_LE;
+          transport = GATT_TRANSPORT_LE;
         else
-          transport = BTA_GATT_TRANSPORT_BR_EDR;
+          transport = GATT_TRANSPORT_BR_EDR;
         break;
     }
   }
@@ -348,33 +346,35 @@ static bt_status_t btif_gatts_close(int server_if, const RawAddress& bd_addr,
       Bind(&btif_gatts_close_impl, server_if, bd_addr, conn_id));
 }
 
+static void on_service_added_cb(uint8_t status, int server_if,
+                                vector<btgatt_db_element_t> service) {
+  HAL_CBACK(bt_gatt_callbacks, server->service_added_cb, status, server_if,
+            std::move(service));
+}
+
 static void add_service_impl(int server_if,
                              vector<btgatt_db_element_t> service) {
-  bt_uuid_t restricted_uuid1, restricted_uuid2;
-  uuid_128_from_16(&restricted_uuid1, UUID_SERVCLASS_GATT_SERVER);
-  uuid_128_from_16(&restricted_uuid2, UUID_SERVCLASS_GAP_SERVER);
-
   // TODO(jpawlowski): btif should be a pass through layer, and no checks should
   // be made here. This exception is added only until GATT server code is
   // refactored, and one can distinguish stack-internal aps from external apps
-  if (memcmp(&service[0].uuid, &restricted_uuid1, sizeof(bt_uuid_t)) == 0 ||
-      memcmp(&service[0].uuid, &restricted_uuid2, sizeof(bt_uuid_t)) == 0) {
+  if (service[0].uuid == Uuid::From16Bit(UUID_SERVCLASS_GATT_SERVER) ||
+      service[0].uuid == Uuid::From16Bit(UUID_SERVCLASS_GAP_SERVER)) {
     LOG_ERROR(LOG_TAG, "%s: Attept to register restricted service", __func__);
     HAL_CBACK(bt_gatt_callbacks, server->service_added_cb, BT_STATUS_FAIL,
               server_if, std::move(service));
     return;
   }
 
-  int status = BTA_GATTS_AddService(server_if, service);
-  HAL_CBACK(bt_gatt_callbacks, server->service_added_cb, status, server_if,
-            std::move(service));
+  BTA_GATTS_AddService(
+      server_if, service,
+      jni_thread_wrapper(FROM_HERE, base::Bind(&on_service_added_cb)));
 }
 
 static bt_status_t btif_gatts_add_service(int server_if,
                                           vector<btgatt_db_element_t> service) {
   CHECK_BTGATT_INIT();
   return do_in_jni_thread(
-      Bind(&add_service_impl, server_if, std::move(service)));
+      FROM_HERE, Bind(&add_service_impl, server_if, std::move(service)));
 }
 
 static bt_status_t btif_gatts_stop_service(int server_if, int service_handle) {
@@ -404,7 +404,7 @@ static bt_status_t btif_gatts_send_indication(int server_if,
 
 static void btif_gatts_send_response_impl(int conn_id, int trans_id, int status,
                                           btgatt_response_t response) {
-  tBTA_GATTS_RSP rsp_struct;
+  tGATTS_RSP rsp_struct;
   btif_to_bta_response(&rsp_struct, &response);
 
   BTA_GATTS_SendRsp(conn_id, trans_id, status, &rsp_struct);

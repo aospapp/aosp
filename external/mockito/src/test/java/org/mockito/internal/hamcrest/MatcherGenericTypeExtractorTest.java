@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2017 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
 package org.mockito.internal.hamcrest;
 
 import org.hamcrest.BaseMatcher;
@@ -9,7 +13,7 @@ import org.mockitoutil.TestBase;
 import java.io.Serializable;
 import java.util.HashMap;
 
-import static junit.framework.TestCase.assertEquals;
+import static org.junit.Assert.assertEquals;
 import static org.mockito.internal.hamcrest.MatcherGenericTypeExtractor.genericTypeOfMatcher;
 
 public class MatcherGenericTypeExtractorTest extends TestBase {

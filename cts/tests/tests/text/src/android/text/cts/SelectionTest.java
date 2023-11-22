@@ -23,13 +23,18 @@ import static org.junit.Assert.fail;
 
 import android.support.test.filters.SmallTest;
 import android.support.test.runner.AndroidJUnit4;
+import android.text.Layout;
 import android.text.Selection;
+import android.text.SpanWatcher;
+import android.text.Spannable;
 import android.text.SpannableStringBuilder;
 import android.text.StaticLayout;
 import android.text.TextPaint;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
+
+import java.util.concurrent.CountDownLatch;
 
 @SmallTest
 @RunWith(AndroidJUnit4.class)
@@ -275,6 +280,56 @@ public class SelectionTest {
     }
 
     @Test
+    public void testMoveUpAfterTyping() {
+        CharSequence text = "aaa\nmm";
+        SpannableStringBuilder builder = new SpannableStringBuilder(text);
+        StaticLayout layout = new StaticLayout(builder, new TextPaint(), 200,
+                Layout.Alignment.ALIGN_NORMAL, 0, 0, false);
+        assertEquals(-1, Selection.getSelectionStart(builder));
+        assertEquals(-1, Selection.getSelectionEnd(builder));
+
+        Selection.setSelection(builder, 1, 1);
+        assertTrue(Selection.moveDown(builder, layout));
+        assertEquals(5, Selection.getSelectionStart(builder));
+        assertEquals(5, Selection.getSelectionEnd(builder));
+
+        builder.insert(5, "mm");
+        layout = new StaticLayout(builder, new TextPaint(), 200, Layout.Alignment.ALIGN_NORMAL,
+                0, 0, false);
+        assertEquals(7, Selection.getSelectionStart(builder));
+        assertEquals(7, Selection.getSelectionEnd(builder));
+
+        assertTrue(Selection.moveUp(builder, layout));
+        assertEquals(3, Selection.getSelectionStart(builder));
+        assertEquals(3, Selection.getSelectionEnd(builder));
+    }
+
+    @Test
+    public void testMoveUpKeepsOriginalMemoryPosition() {
+        CharSequence text = "aa\nm";
+        SpannableStringBuilder builder = new SpannableStringBuilder(text);
+        StaticLayout layout = new StaticLayout(builder, new TextPaint(), 200,
+                Layout.Alignment.ALIGN_NORMAL, 0, 0, false);
+        assertEquals(-1, Selection.getSelectionStart(builder));
+        assertEquals(-1, Selection.getSelectionEnd(builder));
+        assertEquals(0,
+                builder.getSpans(0, builder.length(), Selection.MemoryTextWatcher.class).length);
+
+        Selection.setSelection(builder, 1, 1);
+        assertTrue(Selection.moveDown(builder, layout));
+        assertEquals(4, Selection.getSelectionStart(builder));
+        assertEquals(4, Selection.getSelectionEnd(builder));
+        assertEquals(1,
+                builder.getSpans(0, builder.length(), Selection.MemoryTextWatcher.class).length);
+
+        assertTrue(Selection.moveUp(builder, layout));
+        assertEquals(1, Selection.getSelectionStart(builder));
+        assertEquals(1, Selection.getSelectionEnd(builder));
+        assertEquals(1,
+                builder.getSpans(0, builder.length(), Selection.MemoryTextWatcher.class).length);
+    }
+
+    @Test
     public void testMoveDown() {
         CharSequence text = "hello,world\nGoogle";
         SpannableStringBuilder builder = new SpannableStringBuilder(text);
@@ -310,6 +365,340 @@ public class SelectionTest {
         Selection.moveDown(builder, layout);
         assertEquals(18, Selection.getSelectionStart(builder));
         assertEquals(18, Selection.getSelectionEnd(builder));
+    }
+
+    @Test
+    public void testMoveDownAfterTyping() {
+        CharSequence text = "mm\naaa";
+        SpannableStringBuilder builder = new SpannableStringBuilder(text);
+        StaticLayout layout = new StaticLayout(builder, new TextPaint(), 200,
+                Layout.Alignment.ALIGN_NORMAL, 0, 0, false);
+        assertEquals(-1, Selection.getSelectionStart(builder));
+        assertEquals(-1, Selection.getSelectionEnd(builder));
+
+        Selection.setSelection(builder, 4, 4);
+        assertTrue(Selection.moveUp(builder, layout));
+        assertEquals(1, Selection.getSelectionStart(builder));
+        assertEquals(1, Selection.getSelectionEnd(builder));
+
+        builder.insert(1, "mm");
+        layout = new StaticLayout(builder, new TextPaint(), 200, Layout.Alignment.ALIGN_NORMAL,
+                0, 0, false);
+        assertEquals(3, Selection.getSelectionStart(builder));
+        assertEquals(3, Selection.getSelectionEnd(builder));
+
+        assertTrue(Selection.moveDown(builder, layout));
+        assertEquals(8, Selection.getSelectionStart(builder));
+        assertEquals(8, Selection.getSelectionEnd(builder));
+    }
+
+    @Test
+    public void testMoveDownKeepsOriginalMemoryPosition() {
+        CharSequence text = "m\naa";
+        SpannableStringBuilder builder = new SpannableStringBuilder(text);
+        StaticLayout layout = new StaticLayout(builder, new TextPaint(), 200,
+                Layout.Alignment.ALIGN_NORMAL, 0, 0, false);
+        assertEquals(-1, Selection.getSelectionStart(builder));
+        assertEquals(-1, Selection.getSelectionEnd(builder));
+        assertEquals(0,
+                builder.getSpans(0, builder.length(), Selection.MemoryTextWatcher.class).length);
+
+        Selection.setSelection(builder, 3, 3);
+        assertTrue(Selection.moveUp(builder, layout));
+        assertEquals(1, Selection.getSelectionStart(builder));
+        assertEquals(1, Selection.getSelectionEnd(builder));
+        assertEquals(1,
+                builder.getSpans(0, builder.length(), Selection.MemoryTextWatcher.class).length);
+
+        assertTrue(Selection.moveDown(builder, layout));
+        assertEquals(3, Selection.getSelectionStart(builder));
+        assertEquals(3, Selection.getSelectionEnd(builder));
+        assertEquals(1,
+                builder.getSpans(0, builder.length(), Selection.MemoryTextWatcher.class).length);
+    }
+
+    @Test
+    public void testMemoryPositionResetByHorizontalMovement() {
+        CharSequence text = "m\naa";
+        SpannableStringBuilder builder = new SpannableStringBuilder(text);
+        StaticLayout layout = new StaticLayout(builder, new TextPaint(), 200,
+                Layout.Alignment.ALIGN_NORMAL, 0, 0, false);
+        assertEquals(-1, Selection.getSelectionStart(builder));
+        assertEquals(-1, Selection.getSelectionEnd(builder));
+        assertEquals(0,
+                builder.getSpans(0, builder.length(), Selection.MemoryTextWatcher.class).length);
+
+        Selection.setSelection(builder, 3, 3);
+        assertTrue(Selection.moveUp(builder, layout));
+        assertEquals(1, Selection.getSelectionStart(builder));
+        assertEquals(1, Selection.getSelectionEnd(builder));
+        assertEquals(1,
+                builder.getSpans(0, builder.length(), Selection.MemoryTextWatcher.class).length);
+
+        assertTrue(Selection.moveDown(builder, layout));
+        assertEquals(3, Selection.getSelectionStart(builder));
+        assertEquals(3, Selection.getSelectionEnd(builder));
+        assertEquals(1,
+                builder.getSpans(0, builder.length(), Selection.MemoryTextWatcher.class).length);
+
+        assertTrue(Selection.moveRight(builder, layout));
+        assertEquals(4, Selection.getSelectionStart(builder));
+        assertEquals(4, Selection.getSelectionEnd(builder));
+        assertEquals(0,
+                builder.getSpans(0, builder.length(), Selection.MemoryTextWatcher.class).length);
+
+        assertTrue(Selection.moveUp(builder, layout));
+        assertEquals(1, Selection.getSelectionStart(builder));
+        assertEquals(1, Selection.getSelectionEnd(builder));
+        assertEquals(1,
+                builder.getSpans(0, builder.length(), Selection.MemoryTextWatcher.class).length);
+
+        assertTrue(Selection.moveDown(builder, layout));
+        assertEquals(4, Selection.getSelectionStart(builder));
+        assertEquals(4, Selection.getSelectionEnd(builder));
+        assertEquals(1,
+                builder.getSpans(0, builder.length(), Selection.MemoryTextWatcher.class).length);
+
+        assertTrue(Selection.moveLeft(builder, layout));
+        assertEquals(3, Selection.getSelectionStart(builder));
+        assertEquals(3, Selection.getSelectionEnd(builder));
+        assertEquals(0,
+                builder.getSpans(0, builder.length(), Selection.MemoryTextWatcher.class).length);
+
+        assertTrue(Selection.moveUp(builder, layout));
+        assertEquals(1, Selection.getSelectionStart(builder));
+        assertEquals(1, Selection.getSelectionEnd(builder));
+        assertEquals(1,
+                builder.getSpans(0, builder.length(), Selection.MemoryTextWatcher.class).length);
+
+        Selection.setSelection(builder, 3, 3);
+        assertEquals(0,
+                builder.getSpans(0, builder.length(), Selection.MemoryTextWatcher.class).length);
+    }
+
+    @Test
+    public void testMemoryPositionResetByRemoveSelection() {
+        CharSequence text = "m\naa";
+        SpannableStringBuilder builder = new SpannableStringBuilder(text);
+        StaticLayout layout = new StaticLayout(builder, new TextPaint(), 200,
+                Layout.Alignment.ALIGN_NORMAL, 0, 0, false);
+        assertEquals(-1, Selection.getSelectionStart(builder));
+        assertEquals(-1, Selection.getSelectionEnd(builder));
+        assertEquals(0,
+                builder.getSpans(0, builder.length(), Selection.MemoryTextWatcher.class).length);
+
+        Selection.setSelection(builder, 3, 3);
+        assertTrue(Selection.moveUp(builder, layout));
+        assertEquals(1, Selection.getSelectionStart(builder));
+        assertEquals(1, Selection.getSelectionEnd(builder));
+        assertEquals(1,
+                builder.getSpans(0, builder.length(), Selection.MemoryTextWatcher.class).length);
+
+        Selection.removeSelection(builder);
+        assertEquals(-1, Selection.getSelectionStart(builder));
+        assertEquals(-1, Selection.getSelectionEnd(builder));
+        assertEquals(0,
+                builder.getSpans(0, builder.length(), Selection.MemoryTextWatcher.class).length);
+    }
+
+    @Test
+    public void testMultilineLengthMoveDown() {
+        CharSequence text = "a\n\na";
+        SpannableStringBuilder builder = new SpannableStringBuilder(text);
+        StaticLayout layout = new StaticLayout(text, new TextPaint(), 200, null, 0, 0, false);
+        assertEquals(-1, Selection.getSelectionStart(builder));
+        assertEquals(-1, Selection.getSelectionEnd(builder));
+
+        Selection.setSelection(builder, 1);
+        // Move down to empty line
+        assertTrue(Selection.moveDown(builder, layout));
+        assertEquals(2, Selection.getSelectionStart(builder));
+        assertEquals(2, Selection.getSelectionEnd(builder));
+
+        // Move down to third line
+        assertTrue(Selection.moveDown(builder, layout));
+        assertEquals(4, Selection.getSelectionStart(builder));
+        assertEquals(4, Selection.getSelectionEnd(builder));
+    }
+
+    @Test
+    public void testMultilineLengthExtendDown() {
+        CharSequence text = "Google\n\nhello, world";
+        SpannableStringBuilder builder = new SpannableStringBuilder(text);
+        StaticLayout layout = new StaticLayout(text, new TextPaint(), 200, null, 0, 0, false);
+        assertEquals(-1, Selection.getSelectionStart(builder));
+        assertEquals(-1, Selection.getSelectionEnd(builder));
+
+        Selection.setSelection(builder, 1, 3);
+        assertTrue(Selection.extendDown(builder, layout));
+        assertEquals(1, Selection.getSelectionStart(builder));
+        assertEquals(7, Selection.getSelectionEnd(builder));
+
+        assertTrue(Selection.extendDown(builder, layout));
+        assertEquals(1, Selection.getSelectionStart(builder));
+        assertEquals(15, Selection.getSelectionEnd(builder));
+
+        assertTrue(Selection.extendDown(builder, layout));
+        assertEquals(1, Selection.getSelectionStart(builder));
+        assertEquals(text.length(), Selection.getSelectionEnd(builder));
+    }
+
+    @Test
+    public void testExtendDownKeepsOriginalMemoryPosition() {
+        CharSequence text = "m\naa";
+        SpannableStringBuilder builder = new SpannableStringBuilder(text);
+        StaticLayout layout = new StaticLayout(builder, new TextPaint(), 200,
+                Layout.Alignment.ALIGN_NORMAL, 0, 0, false);
+        assertEquals(-1, Selection.getSelectionStart(builder));
+        assertEquals(-1, Selection.getSelectionEnd(builder));
+        assertEquals(0,
+                builder.getSpans(0, builder.length(), Selection.MemoryTextWatcher.class).length);
+
+        Selection.setSelection(builder, 3, 3);
+        assertTrue(Selection.extendUp(builder, layout));
+        assertEquals(3, Selection.getSelectionStart(builder));
+        assertEquals(1, Selection.getSelectionEnd(builder));
+        assertEquals(1,
+                builder.getSpans(0, builder.length(), Selection.MemoryTextWatcher.class).length);
+
+        assertTrue(Selection.extendDown(builder, layout));
+        assertEquals(3, Selection.getSelectionStart(builder));
+        assertEquals(3, Selection.getSelectionEnd(builder));
+        assertEquals(1,
+                builder.getSpans(0, builder.length(), Selection.MemoryTextWatcher.class).length);
+    }
+
+    @Test
+    public void testMultilineLengthMoveUp() {
+        CharSequence text = "a\n\na";
+        SpannableStringBuilder builder = new SpannableStringBuilder(text);
+        StaticLayout layout = new StaticLayout(text, new TextPaint(), 200, null, 0, 0, false);
+        assertEquals(-1, Selection.getSelectionStart(builder));
+        assertEquals(-1, Selection.getSelectionEnd(builder));
+
+        Selection.setSelection(builder, 4);
+        // Move up to empty line
+        assertTrue(Selection.moveUp(builder, layout));
+        assertEquals(2, Selection.getSelectionStart(builder));
+        assertEquals(2, Selection.getSelectionEnd(builder));
+
+        // Move up to first line
+        assertTrue(Selection.moveUp(builder, layout));
+        assertEquals(1, Selection.getSelectionStart(builder));
+        assertEquals(1, Selection.getSelectionEnd(builder));
+    }
+
+    @Test
+    public void testMultilineLengthExtendUp() {
+        CharSequence text = "Google\n\nhello, world";
+        SpannableStringBuilder builder = new SpannableStringBuilder(text);
+        StaticLayout layout = new StaticLayout(text, new TextPaint(), 200, null, 0, 0, false);
+        assertEquals(-1, Selection.getSelectionStart(builder));
+        assertEquals(-1, Selection.getSelectionEnd(builder));
+
+        assertTrue(Selection.extendUp(builder, layout));
+        assertEquals(-1, Selection.getSelectionStart(builder));
+        assertEquals(0, Selection.getSelectionEnd(builder));
+
+        Selection.setSelection(builder, 9, 16);
+        assertTrue(Selection.extendUp(builder, layout));
+        assertEquals(9, Selection.getSelectionStart(builder));
+        assertEquals(7, Selection.getSelectionEnd(builder));
+
+        assertTrue(Selection.extendUp(builder, layout));
+        assertEquals(9, Selection.getSelectionStart(builder));
+        assertEquals(4, Selection.getSelectionEnd(builder));
+
+        assertTrue(Selection.extendUp(builder, layout));
+        assertEquals(9, Selection.getSelectionStart(builder));
+        assertEquals(0, Selection.getSelectionEnd(builder));
+    }
+
+    @Test
+    public void testExtendUpKeepsOriginalMemoryPosition() {
+        CharSequence text = "aa\nm";
+        SpannableStringBuilder builder = new SpannableStringBuilder(text);
+        StaticLayout layout = new StaticLayout(builder, new TextPaint(), 200,
+                Layout.Alignment.ALIGN_NORMAL, 0, 0, false);
+        assertEquals(-1, Selection.getSelectionStart(builder));
+        assertEquals(-1, Selection.getSelectionEnd(builder));
+        assertEquals(0,
+                builder.getSpans(0, builder.length(), Selection.MemoryTextWatcher.class).length);
+
+        Selection.setSelection(builder, 1, 1);
+        assertTrue(Selection.extendDown(builder, layout));
+        assertEquals(1, Selection.getSelectionStart(builder));
+        assertEquals(4, Selection.getSelectionEnd(builder));
+        assertEquals(1,
+                builder.getSpans(0, builder.length(), Selection.MemoryTextWatcher.class).length);
+
+        assertTrue(Selection.extendUp(builder, layout));
+        assertEquals(1, Selection.getSelectionStart(builder));
+        assertEquals(1, Selection.getSelectionEnd(builder));
+        assertEquals(1,
+                builder.getSpans(0, builder.length(), Selection.MemoryTextWatcher.class).length);
+    }
+
+    @Test
+    public void testMultilineLengthMoveDownAfterSelection() {
+        CharSequence text = "aaaaa\n\naaaaa";
+        SpannableStringBuilder builder = new SpannableStringBuilder(text);
+        StaticLayout layout = new StaticLayout(text, new TextPaint(), 200, null, 0, 0, false);
+        assertEquals(-1, Selection.getSelectionStart(builder));
+        assertEquals(-1, Selection.getSelectionEnd(builder));
+
+        Selection.setSelection(builder, 3);
+        // Move down to empty line
+        assertTrue(Selection.moveDown(builder, layout));
+        assertEquals(6, Selection.getSelectionStart(builder));
+        assertEquals(6, Selection.getSelectionEnd(builder));
+
+        // Move down to third line
+        assertTrue(Selection.moveUp(builder, layout));
+        assertEquals(3, Selection.getSelectionStart(builder));
+        assertEquals(3, Selection.getSelectionEnd(builder));
+
+        Selection.setSelection(builder, 5);
+        // Move down to empty line
+        assertTrue(Selection.moveDown(builder, layout));
+        assertEquals(6, Selection.getSelectionStart(builder));
+        assertEquals(6, Selection.getSelectionEnd(builder));
+
+        // Move down to third line
+        assertTrue(Selection.moveUp(builder, layout));
+        assertEquals(5, Selection.getSelectionStart(builder));
+        assertEquals(5, Selection.getSelectionEnd(builder));
+    }
+
+    @Test
+    public void testMultilineLengthMoveUpAfterSelection() {
+        CharSequence text = "aaaaa\n\naaaaa";
+        SpannableStringBuilder builder = new SpannableStringBuilder(text);
+        StaticLayout layout = new StaticLayout(text, new TextPaint(), 200, null, 0, 0, false);
+        assertEquals(-1, Selection.getSelectionStart(builder));
+        assertEquals(-1, Selection.getSelectionEnd(builder));
+
+        Selection.setSelection(builder, 10);
+        // Move up to empty line
+        assertTrue(Selection.moveUp(builder, layout));
+        assertEquals(6, Selection.getSelectionStart(builder));
+        assertEquals(6, Selection.getSelectionEnd(builder));
+
+        // Move down to third line
+        assertTrue(Selection.moveDown(builder, layout));
+        assertEquals(10, Selection.getSelectionStart(builder));
+        assertEquals(10, Selection.getSelectionEnd(builder));
+
+        Selection.setSelection(builder, 12);
+        // Move up to empty line
+        assertTrue(Selection.moveUp(builder, layout));
+        assertEquals(6, Selection.getSelectionStart(builder));
+        assertEquals(6, Selection.getSelectionEnd(builder));
+
+        // Move down to third line
+        assertTrue(Selection.moveDown(builder, layout));
+        assertEquals(12, Selection.getSelectionStart(builder));
+        assertEquals(12, Selection.getSelectionEnd(builder));
     }
 
     @Test
@@ -582,5 +971,30 @@ public class SelectionTest {
         assertTrue(Selection.moveToRightEdge(builder, layout));
         assertEquals(text.length(), Selection.getSelectionStart(builder));
         assertEquals(text.length(), Selection.getSelectionEnd(builder));
+    }
+
+    @Test
+    public void testRemoveSelectionOnlyTriggersOneSpanRemoved() {
+        Spannable spannable = new SpannableStringBuilder("abcdef");
+        Selection.setSelection(spannable, 0, 2);
+
+        final CountDownLatch latch = new CountDownLatch(1);
+        SpanWatcher watcher = new SpanWatcher() {
+            @Override
+            public void onSpanAdded(Spannable text, Object what, int start, int end) {}
+
+            @Override
+            public void onSpanRemoved(Spannable text, Object what, int start, int end) {
+                latch.countDown();
+            }
+
+            @Override
+            public void onSpanChanged(Spannable text, Object what, int ostart, int oend, int nstart,
+                    int nend) {}
+        };
+        spannable.setSpan(watcher, 0, 2, 0);
+
+        Selection.removeSelection(spannable);
+        assertEquals(0, latch.getCount());
     }
 }

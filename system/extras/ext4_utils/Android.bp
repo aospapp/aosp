@@ -2,18 +2,11 @@
 
 cc_library {
     name: "libext4_utils",
+    defaults: ["system-extras-cflags-defaults"],
     host_supported: true,
     srcs: [
-        "make_ext4fs.c",
-        "ext4fixup.c",
         "ext4_utils.c",
-        "allocate.c",
-        "contents.c",
-        "extent.c",
-        "indirect.c",
-        "sha1.c",
         "wipe.c",
-        "crc16.c",
         "ext4_sb.c",
     ],
     // Various instances of dereferencing a type-punned pointer in extent.c
@@ -21,17 +14,14 @@ cc_library {
     export_include_dirs: ["include"],
     shared_libs: [
         "libsparse",
+        "libz",
     ],
 
     target: {
         host: {
             static_libs: ["libsparse"],
-            shared_libs: ["libz-host"],
         },
-        linux: {
-            static_libs: ["libselinux"],
-        },
-        darwin: {
+        not_windows: {
             static_libs: ["libselinux"],
         },
         windows: {
@@ -46,6 +36,7 @@ cc_library {
             shared_libs: [
                 "libbase",
                 "libkeyutils",
+                "liblogwrap",
                 "libselinux",
             ],
 
@@ -62,7 +53,6 @@ cc_library {
                 shared_libs: [
                     "libcutils",
                     "libext2_uuid",
-                    "libz",
                 ]
             },
         },

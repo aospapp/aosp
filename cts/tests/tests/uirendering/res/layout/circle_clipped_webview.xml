@@ -14,6 +14,7 @@
        limitations under the License.
   -->
 <android.uirendering.cts.testclasses.view.CircleClipFrameLayout
+    android:id="@+id/circle_clip_frame_layout"
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="@dimen/test_width"
     android:layout_height="@dimen/test_height">

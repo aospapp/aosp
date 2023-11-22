@@ -1,7 +1,7 @@
 /** @file
 Update the _PRT and _PRW method for pci devices
 
-Copyright (c) 2013-2015 Intel Corporation.
+Copyright (c) 2013-2016 Intel Corporation.
 
 This program and the accompanying materials
 are licensed and made available under the terms and conditions of the BSD License
@@ -87,7 +87,7 @@ SdtGetInteger (
   @param OpCode     Expected OpCode
   @param SubOpCode  Expected SubOpCode
 
-  @retval TURE  This handle has expected opcode
+  @retval TRUE  This handle has expected opcode
   @retval FALSE This handle does not have expected opcode
 **/
 BOOLEAN
@@ -127,7 +127,7 @@ SdtIsThisTypeObject (
   @param Name       Expected name
   @param Value      Expected name value
 
-  @retval TURE  This handle has expected name and name value.
+  @retval TRUE  This handle has expected name and name value.
   @retval FALSE This handle does not have expected name and name value.
 **/
 BOOLEAN
@@ -176,7 +176,7 @@ SdtIsNameIntegerValueEqual (
   @param Name             Expected name
   @param Value            Expected name value
 
-  @retval TURE  This handle's children has expected name and name value.
+  @retval TRUE  This handle's children has expected name and name value.
   @retval FALSE This handle's children does not have expected name and name value.
 **/
 BOOLEAN
@@ -261,9 +261,7 @@ SdtGetNameStringSize (
 {
   UINTN                 SegCount;
   UINTN                 Length;
-  UINT8                 *Name;
 
-  Name = Buffer;
   Length = 0;
 
   //

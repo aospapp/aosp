@@ -21,7 +21,7 @@ from acts.test_utils.tel.tel_data_utils import wait_for_cell_data_connection
 from acts.test_utils.tel.tel_test_utils import verify_http_connection
 from acts.test_utils.wifi import wifi_test_utils as wutils
 
-dum_class = "com.android.tests.connectivity.uid.DummyActivity"
+dum_class = "com.android.tests.connectivity.uid.ConnectivityTestActivity"
 
 
 class CoreNetworkingTest(base_test.BaseTestClass):

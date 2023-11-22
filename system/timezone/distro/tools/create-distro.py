@@ -33,9 +33,10 @@ i18nutil.CheckDirExists(timezone_dir, 'system/timezone')
 
 def RunCreateTimeZoneDistro(properties_file, distro_output_dir):
   # Build the libraries needed.
-  subprocess.check_call(['make', '-C', android_build_top, 'time_zone_distro_tools-host'])
+  subprocess.check_call(['make', '-C', android_build_top, 'time_zone_distro_tools',
+      'time_zone_distro'])
 
-  libs = [ 'time_zone_distro_tools-host', 'time_zone_distro-host' ]
+  libs = [ 'time_zone_distro_tools', 'time_zone_distro' ]
   host_java_libs_dir = '%s/../common/obj/JAVA_LIBRARIES' % android_host_out_dir
   classpath_components = []
   for lib in libs:

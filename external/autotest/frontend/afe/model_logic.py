@@ -9,6 +9,8 @@ from django.db import models as dbmodels
 from django.db import transaction
 from django.db.models.sql import query
 import django.db.models.sql.where
+
+from autotest_lib.client.common_lib import error
 from autotest_lib.frontend.afe import rdb_model_extensions
 
 
@@ -1307,7 +1309,21 @@ class ModelWithAttributes(object):
         raise NotImplementedError
 
 
+    def _is_replaced_by_static_attribute(self, attribute):
+        """
+        Subclasses could override this to indicate whether it has static
+        attributes.
+        """
+        return False
+
+
     def set_attribute(self, attribute, value):
+        if self._is_replaced_by_static_attribute(attribute):
+            raise error.UnmodifiableAttributeException(
+                    'Failed to set attribute "%s" for host "%s" since it '
+                    'is static. Use go/chromeos-skylab-inventory-tools to '
+                    'modify this attribute.' % (attribute, self.hostname))
+
         attribute_model, get_args = self._get_attribute_model_and_args(
             attribute)
         attribute_object, _ = attribute_model.objects.get_or_create(**get_args)
@@ -1316,6 +1332,12 @@ class ModelWithAttributes(object):
 
 
     def delete_attribute(self, attribute):
+        if self._is_replaced_by_static_attribute(attribute):
+            raise error.UnmodifiableAttributeException(
+                    'Failed to delete attribute "%s" for host "%s" since it '
+                    'is static. Use go/chromeos-skylab-inventory-tools to '
+                    'modify this attribute.' % (attribute, self.hostname))
+
         attribute_model, get_args = self._get_attribute_model_and_args(
             attribute)
         try:

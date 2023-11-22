@@ -20,6 +20,7 @@
 #include <keymaster/UniquePtr.h>
 
 #include <hardware/keymaster_defs.h>
+#include <keymaster/android_keymaster_utils.h>
 #include <keymaster/keymaster_tags.h>
 #include <keymaster/serializable.h>
 
@@ -212,7 +213,7 @@ class AuthorizationSet : public Serializable, public keymaster_key_param_set_t {
     /**
      * Returns the nth element of the set.
      */
-    keymaster_key_param_t operator[](int n) const;
+    const keymaster_key_param_t& operator[](int n) const;
 
     /**
      * Returns true if the set contains at least one instance of \p tag
@@ -514,12 +515,14 @@ class AuthorizationSetBuilder {
     AuthorizationSetBuilder& RsaKey(uint32_t key_size, uint64_t public_exponent);
     AuthorizationSetBuilder& EcdsaKey(uint32_t key_size);
     AuthorizationSetBuilder& AesKey(uint32_t key_size);
+    AuthorizationSetBuilder& TripleDesKey(uint32_t key_size);
     AuthorizationSetBuilder& HmacKey(uint32_t key_size);
 
     AuthorizationSetBuilder& RsaSigningKey(uint32_t key_size, uint64_t public_exponent);
     AuthorizationSetBuilder& RsaEncryptionKey(uint32_t key_size, uint64_t public_exponent);
     AuthorizationSetBuilder& EcdsaSigningKey(uint32_t key_size);
     AuthorizationSetBuilder& AesEncryptionKey(uint32_t key_size);
+    AuthorizationSetBuilder& TripleDesEncryptionKey(uint32_t key_size);
 
     AuthorizationSetBuilder& SigningKey();
     AuthorizationSetBuilder& EncryptionKey();
@@ -528,6 +531,10 @@ class AuthorizationSetBuilder {
 
     AuthorizationSetBuilder& Digest(keymaster_digest_t digest) {
         return Authorization(TAG_DIGEST, digest);
+    }
+
+    AuthorizationSetBuilder& BlockMode(keymaster_block_mode_t mode) {
+        return Authorization(TAG_BLOCK_MODE, mode);
     }
 
     AuthorizationSetBuilder& Padding(keymaster_padding_t padding) {
@@ -565,6 +572,11 @@ inline AuthorizationSetBuilder& AuthorizationSetBuilder::AesKey(uint32_t key_siz
     return Authorization(TAG_KEY_SIZE, key_size);
 }
 
+inline AuthorizationSetBuilder& AuthorizationSetBuilder::TripleDesKey(uint32_t key_size) {
+    Authorization(TAG_ALGORITHM, KM_ALGORITHM_TRIPLE_DES);
+    return Authorization(TAG_KEY_SIZE, key_size);
+}
+
 inline AuthorizationSetBuilder& AuthorizationSetBuilder::HmacKey(uint32_t key_size) {
     Authorization(TAG_ALGORITHM, KM_ALGORITHM_HMAC);
     Authorization(TAG_KEY_SIZE, key_size);
@@ -593,6 +605,11 @@ inline AuthorizationSetBuilder& AuthorizationSetBuilder::AesEncryptionKey(uint32
     return EncryptionKey();
 }
 
+inline AuthorizationSetBuilder& AuthorizationSetBuilder::TripleDesEncryptionKey(uint32_t key_size) {
+    TripleDesKey(key_size);
+    return EncryptionKey();
+}
+
 inline AuthorizationSetBuilder& AuthorizationSetBuilder::SigningKey() {
     Authorization(TAG_PURPOSE, KM_PURPOSE_SIGN);
     return Authorization(TAG_PURPOSE, KM_PURPOSE_VERIFY);
@@ -611,6 +628,97 @@ inline AuthorizationSetBuilder& AuthorizationSetBuilder::NoDigestOrPadding() {
 inline AuthorizationSetBuilder& AuthorizationSetBuilder::EcbMode() {
     return Authorization(TAG_BLOCK_MODE, KM_MODE_ECB);
 }
+
+class AuthProxyIterator {
+    constexpr static size_t invalid = ~size_t(0);
+public:
+    AuthProxyIterator()
+        : pos_(invalid), auth_set1_(nullptr), auth_set2_(nullptr) {}
+    AuthProxyIterator(const AuthorizationSet& auth_set1, const AuthorizationSet& auth_set2)
+        : pos_(0), auth_set1_(&auth_set1), auth_set2_(&auth_set2) {}
+    AuthProxyIterator(const AuthProxyIterator& rhs)
+        : pos_(rhs.pos_), auth_set1_(rhs.auth_set1_), auth_set2_(rhs.auth_set2_) {}
+    ~AuthProxyIterator() {};
+    AuthProxyIterator& operator=(const AuthProxyIterator& rhs) {
+        if (this != &rhs) {
+            pos_ = rhs.pos_;
+            auth_set1_ = rhs.auth_set1_;
+            auth_set2_ = rhs.auth_set2_;
+        }
+        return *this;
+    }
+    AuthProxyIterator& operator++() {
+        if (pos_ == invalid) return *this;
+        ++pos_;
+        if (pos_ == (auth_set1_->size() + auth_set2_->size())) {
+            pos_ = invalid;
+        }
+        return *this;
+    }
+    const keymaster_key_param_t& operator*() const {
+        if (pos_ < auth_set1_->size()) {
+            return (*auth_set1_)[pos_];
+        } else {
+            return (*auth_set2_)[pos_ - auth_set1_->size()];
+        }
+    }
+    AuthProxyIterator operator++(int) {
+        AuthProxyIterator dummy(*this);
+        ++(*this);
+        return dummy;
+    }
+    const keymaster_key_param_t* operator->() const {
+        return &(*(*this));
+    }
+
+    bool operator==(const AuthProxyIterator& rhs) {
+        if (pos_ == rhs.pos_) {
+            return pos_ == invalid ||
+                    (auth_set1_ == rhs.auth_set1_ && auth_set2_ == rhs.auth_set2_);
+        } else return false;
+    }
+    bool operator!=(const AuthProxyIterator& rhs) {
+        return !operator==(rhs);
+    }
+private:
+    size_t pos_;
+    const AuthorizationSet* auth_set1_;
+    const AuthorizationSet* auth_set2_;
+};
+
+class AuthProxy {
+  public:
+    AuthProxy(const AuthorizationSet& hw_enforced, const AuthorizationSet& sw_enforced)
+        : hw_enforced_(hw_enforced), sw_enforced_(sw_enforced) {}
+
+    template <typename... ARGS> bool Contains(ARGS&&... args) const {
+        return hw_enforced_.Contains(forward<ARGS>(args)...) ||
+               sw_enforced_.Contains(forward<ARGS>(args)...);
+    }
+
+    template <typename... ARGS> bool GetTagValue(ARGS&&... args) const {
+        return hw_enforced_.GetTagValue(forward<ARGS>(args)...) ||
+               sw_enforced_.GetTagValue(forward<ARGS>(args)...);
+    }
+
+    AuthProxyIterator begin() const {
+        return AuthProxyIterator(hw_enforced_, sw_enforced_);
+    }
+
+    AuthProxyIterator end() const { return AuthProxyIterator(); }
+
+    size_t size() const { return hw_enforced_.size() + sw_enforced_.size(); }
+
+    keymaster_key_param_t operator[](size_t pos) const {
+        if (pos < hw_enforced_.size()) return hw_enforced_[pos];
+        if (pos < sw_enforced_.size()) return sw_enforced_[pos - hw_enforced_.size()];
+        return {};
+    }
+
+  private:
+    const AuthorizationSet& hw_enforced_;
+    const AuthorizationSet& sw_enforced_;
+};
 
 }  // namespace keymaster
 

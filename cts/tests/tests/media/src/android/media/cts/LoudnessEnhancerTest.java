@@ -24,6 +24,7 @@ import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.media.audiofx.LoudnessEnhancer;
+import android.platform.test.annotations.AppModeFull;
 import java.util.UUID;
 import android.media.audiofx.Visualizer;
 import android.media.audiofx.Visualizer.MeasurementPeakRms;
@@ -31,6 +32,7 @@ import android.os.Looper;
 import android.test.AndroidTestCase;
 import android.util.Log;
 
+@AppModeFull(reason = "Dynamic config disabled.")
 public class LoudnessEnhancerTest extends PostProcTestBase {
 
     private String TAG = "LoudnessEnhancerTest";

@@ -25,6 +25,7 @@ import android.media.MediaFormat;
 import android.media.MediaMetadataRetriever;
 import android.media.MediaMuxer;
 import android.os.ParcelFileDescriptor;
+import android.platform.test.annotations.AppModeFull;
 import android.test.AndroidTestCase;
 import android.util.Log;
 
@@ -36,6 +37,7 @@ import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.util.HashMap;
 
+@AppModeFull(reason = "No interaction with system server")
 public class MediaMuxerTest extends AndroidTestCase {
     private static final String TAG = "MediaMuxerTest";
     private static final boolean VERBOSE = false;

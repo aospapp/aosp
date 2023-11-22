@@ -7,9 +7,10 @@
 #include <unistd.h>
 
 #include <cerrno>
+#include <cstdint>
 #include <cstdlib>
 #include <cstring>
-#include <iostream>
+#include <cstdio>
 
 int recbomb(int n);
 void PrepareBelow(int argc, char *argv[]);
@@ -25,21 +26,19 @@ int main(int argc, char *argv[]) {
 
 bool SendPid(const char *socket_path);
 
-using std::cerr;
-
 // Prepare for doing the crash, but do it below main so that main's
 // line numbers remain stable.
 void PrepareBelow(int argc, char *argv[]) {
-  cerr << "pid=" << getpid() << '\n';
+  fprintf(stderr, "pid=%jd\n", (intmax_t) getpid());
   if (argc == 2 && strcmp(argv[1], "--nocrash") == 0) {
-    cerr << "Doing normal exit\n";
+    fprintf(stderr, "Doing normal exit\n");
     exit(0);
   }
   if (argc == 3 && strcmp(argv[1], "--sendpid") == 0) {
     if (!SendPid(argv[2]))
       exit(0);
   }
-  cerr << "Crashing as requested.\n";
+  fprintf(stderr, "Crashing as requested.\n");
 }
 
 // Used when the crasher runs in a different PID namespace than the test. A PID
@@ -53,7 +52,7 @@ bool SendPid(const char *socket_path) {
   } sock;
 
   if (sock.fd == -1) {
-    cerr << "socket() failed: " << strerror(errno) << '\n';
+    fprintf(stderr,"socket() failed: %s\n", strerror(errno));
     return false;
   }
 
@@ -61,7 +60,7 @@ bool SendPid(const char *socket_path) {
   strncpy(address.sun_path, socket_path, sizeof(address.sun_path) - 1);
   sockaddr *address_ptr = reinterpret_cast<sockaddr *>(&address);
   if (connect(sock.fd, address_ptr, sizeof(address)) == -1) {
-    cerr << "connect() failed: " << strerror(errno) << '\n';
+    fprintf(stderr, "connect() failed: %s\n", strerror(errno));
     return false;
   }
 
@@ -70,7 +69,7 @@ bool SendPid(const char *socket_path) {
   msghdr msg = { NULL, 0, &data, 1 };
 
   if (sendmsg(sock.fd, &msg, 0) == -1) {
-    cerr << "sendmsg() failed: " << strerror(errno) << '\n';
+    fprintf(stderr, "sendmsg() failed: %s\n", strerror(errno));
     return false;
   }
 

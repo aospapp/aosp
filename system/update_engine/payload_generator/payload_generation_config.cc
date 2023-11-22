@@ -128,7 +128,8 @@ bool PayloadVersion::Validate() const {
                         minor == kInPlaceMinorPayloadVersion ||
                         minor == kSourceMinorPayloadVersion ||
                         minor == kOpSrcHashMinorPayloadVersion ||
-                        minor == kImgdiffMinorPayloadVersion);
+                        minor == kBrotliBsdiffMinorPayloadVersion ||
+                        minor == kPuffdiffMinorPayloadVersion);
   return true;
 }
 
@@ -151,7 +152,7 @@ bool PayloadVersion::OperationAllowed(InstallOperation_Type operation) const {
       // The implementation of these operations had a bug in earlier versions
       // that prevents them from being used in any payload. We will enable
       // them for delta payloads for now.
-      return minor >= kImgdiffMinorPayloadVersion;
+      return minor >= kBrotliBsdiffMinorPayloadVersion;
 
     // Delta operations:
     case InstallOperation::MOVE:
@@ -165,8 +166,11 @@ bool PayloadVersion::OperationAllowed(InstallOperation_Type operation) const {
     case InstallOperation::SOURCE_BSDIFF:
       return minor >= kSourceMinorPayloadVersion;
 
-    case InstallOperation::IMGDIFF:
-      return minor >= kImgdiffMinorPayloadVersion && imgdiff_allowed;
+    case InstallOperation::BROTLI_BSDIFF:
+      return minor >= kBrotliBsdiffMinorPayloadVersion;
+
+    case InstallOperation::PUFFDIFF:
+      return minor >= kPuffdiffMinorPayloadVersion;
   }
   return false;
 }

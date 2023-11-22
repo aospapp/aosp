@@ -1,5 +1,5 @@
 //
-//  Copyright (C) 2015 Google, Inc.
+//  Copyright 2015 Google, Inc.
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -110,11 +110,6 @@ class BluetoothInterface {
 
   // Returns the HAL callbacks that have been initialized previously.
   virtual bt_callbacks_t* GetHALCallbacks() const = 0;
-
-  // The HAL module pointer that represents the underlying Bluetooth adapter.
-  // This is implemented in and provided by the shared Bluetooth library, so
-  // this isn't owned by us.
-  virtual const bluetooth_device_t* GetHALAdapter() const = 0;
 
  protected:
   BluetoothInterface() = default;

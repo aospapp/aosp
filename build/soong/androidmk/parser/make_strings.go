@@ -1,3 +1,17 @@
+// Copyright 2017 Google Inc. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package parser
 
 import (
@@ -27,6 +41,11 @@ func SimpleMakeString(s string, pos Pos) *MakeString {
 		StringPos: pos,
 		Strings:   []string{s},
 	}
+}
+
+func (ms *MakeString) Clone() (result *MakeString) {
+	clone := *ms
+	return &clone
 }
 
 func (ms *MakeString) Pos() Pos {
@@ -162,6 +181,12 @@ func (ms *MakeString) TrimRightOne() {
 func (ms *MakeString) EndsWith(ch rune) bool {
 	s := ms.Strings[len(ms.Strings)-1]
 	return s[len(s)-1] == uint8(ch)
+}
+
+func (ms *MakeString) ReplaceLiteral(input string, output string) {
+	for i := range ms.Strings {
+		ms.Strings[i] = strings.Replace(ms.Strings[i], input, output, -1)
+	}
 }
 
 func splitAnyN(s, sep string, n int) []string {

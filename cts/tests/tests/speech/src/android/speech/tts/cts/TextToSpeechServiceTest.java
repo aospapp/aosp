@@ -117,6 +117,27 @@ public class TextToSpeechServiceTest extends AndroidTestCase {
         }
     }
 
+    public void testSpeakStopBehindOtherAudioPlayback() throws Exception {
+        final ConditionVariable synthesizeTextWait = new ConditionVariable();
+        final ConditionVariable synthesizeTextStartEvent = new ConditionVariable();
+        StubTextToSpeechService.sSynthesizeTextWait = synthesizeTextWait;
+        StubTextToSpeechService.sSynthesizeTextStartEvent = synthesizeTextStartEvent;
+
+        // Make the audio playback queue busy by putting a 30s of silence.
+        getTts().stop();
+        getTts().playSilentUtterance(30000, TextToSpeech.QUEUE_ADD, "silence");
+
+        // speak(), wait it to starting in the service, and stop().
+        int result = getTts().speak(UTTERANCE, TextToSpeech.QUEUE_ADD, null, "stop");
+        assertEquals("speak() failed", TextToSpeech.SUCCESS, result);
+        assertTrue("synthesis not started", synthesizeTextStartEvent.block(10000));
+        getTts().stop();
+
+        // Wake up the Stubs #onSynthesizeSpeech (one that will be stopped in-progress)
+        synthesizeTextWait.open();
+
+        assertTrue("speak() stop callback timeout", mTts.waitForStop("stop"));
+    }
 
     public void testMediaPlayerFails() throws Exception {
         File sampleFile = new File(Environment.getExternalStorageDirectory(), "notsound.wav");

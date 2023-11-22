@@ -30,6 +30,7 @@ LIBNEURALNETWORKS {
     ANeuralNetworksModel_setOperandValueFromMemory;
     ANeuralNetworksModel_addOperation;
     ANeuralNetworksModel_identifyInputsAndOutputs;
+    ANeuralNetworksModel_relaxComputationFloat32toFloat16;
     ANeuralNetworksCompilation_create;
     ANeuralNetworksCompilation_free;
     ANeuralNetworksCompilation_setPreference;

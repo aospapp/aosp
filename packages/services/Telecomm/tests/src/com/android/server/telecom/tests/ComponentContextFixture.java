@@ -436,6 +436,8 @@ public class ComponentContextFixture implements TestFixture<Context> {
     public ComponentContextFixture() {
         MockitoAnnotations.initMocks(this);
         when(mResources.getConfiguration()).thenReturn(mResourceConfiguration);
+        when(mResources.getString(anyInt())).thenReturn("");
+        when(mResources.getStringArray(anyInt())).thenReturn(new String[0]);
         mResourceConfiguration.setLocale(Locale.TAIWAN);
 
         // TODO: Move into actual tests
@@ -462,7 +464,9 @@ public class ComponentContextFixture implements TestFixture<Context> {
         when(mTelephonyManager.getSubIdForPhoneAccount((PhoneAccount) any())).thenReturn(1);
 
         when(mTelephonyManager.getNetworkOperatorName()).thenReturn("label1");
-
+        when(mTelephonyManager.getMultiSimConfiguration()).thenReturn(
+                TelephonyManager.MultiSimVariants.UNKNOWN);
+        when(mResources.getBoolean(eq(R.bool.grant_location_permission_enabled))).thenReturn(false);
         doAnswer(new Answer<Void>(){
             @Override
             public Void answer(InvocationOnMock invocation) throws Throwable {
@@ -525,6 +529,10 @@ public class ComponentContextFixture implements TestFixture<Context> {
 
     public void setTelecomManager(TelecomManager telecomManager) {
         mTelecomManager = telecomManager;
+    }
+
+    public TelephonyManager getTelephonyManager() {
+        return mTelephonyManager;
     }
 
     private void addService(String action, ComponentName name, IInterface service) {

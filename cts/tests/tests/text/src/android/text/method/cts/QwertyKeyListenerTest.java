@@ -32,12 +32,28 @@ import android.text.method.TextKeyListener.Capitalize;
 import android.view.KeyEvent;
 import android.widget.TextView.BufferType;
 
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+
+import java.io.IOException;
 
 @MediumTest
 @RunWith(AndroidJUnit4.class)
 public class QwertyKeyListenerTest extends KeyListenerTestCase {
+
+    @Before
+    public void setup() throws IOException {
+        super.setup();
+        enableAutoCapSettings();
+    }
+
+    @After
+    public void tearDown() throws IOException {
+        resetAutoCapSettings();
+    }
+
     @Test
     public void testConstructor() {
         new QwertyKeyListener(Capitalize.NONE, false);

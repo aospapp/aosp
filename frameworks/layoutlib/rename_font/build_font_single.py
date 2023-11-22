@@ -17,8 +17,8 @@
 """
 Rename the PS name of the input font.
 
-OpenType fonts (*.otf) are not currently supported. They are copied to the destination without renaming.
-XML files are also copied in case they are passed there by mistake.
+OpenType fonts (*.otf) and TrueType Collections (*.ttc) are not currently supported. They are copied to the destination
+without renaming. XML files are also copied in case they are passed there by mistake.
 
 Usage: build_font_single.py /path/to/input_font.ttf /path/to/output_font.ttf
 
@@ -63,7 +63,7 @@ NAMEID_FULLNAME = 4
 NAMEID_VERSION = 5
 
 # A list of extensions to process.
-EXTENSIONS = ['.ttf', '.otf', '.xml']
+EXTENSIONS = ['.ttf', '.ttc', '.otf', '.xml']
 
 def main(argv):
   if len(argv) < 2:

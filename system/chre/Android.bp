@@ -23,8 +23,9 @@ cc_library_static {
         "util/include",
     ],
     srcs: [
-        "host/common/socket_client.cc",
+        "host/common/fragmented_load_transaction.cc",
         "host/common/host_protocol_host.cc",
+        "host/common/socket_client.cc",
         "platform/shared/host_protocol_common.cc",
     ],
     header_libs: ["chre_flatbuffers"],
@@ -34,6 +35,7 @@ cc_library_static {
         "liblog",
         "libutils",
     ],
+    cflags: ["-Wall", "-Werror"],
 }
 
 cc_test {
@@ -46,6 +48,7 @@ cc_test {
     srcs: [
         "host/common/test/chre_test_client.cc",
     ],
+    cflags: ["-Wall", "-Werror"],
     shared_libs: [
         "libcutils",
         "liblog",
@@ -63,6 +66,8 @@ cc_library_shared {
     srcs: [
         "host/hal_generic/generic_context_hub.cc",
     ],
+    cflags: ["-Wall", "-Werror"],
+    cpp_std: "c++17",
     shared_libs: [
         "libcutils",
         "liblog",

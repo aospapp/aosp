@@ -19,6 +19,7 @@ package com.google.doclava;
 import com.google.clearsilver.jsilver.data.Data;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.SortedMap;
 import java.util.TreeMap;
@@ -59,11 +60,45 @@ public class NavTree {
 
   /**
    * Write the YAML formatted navigation tree.
+   * This is intended to replace writeYamlTree(), but for now requires an explicit opt-in via
+   * the yamlV2 flag in the doclava command. This version creates a yaml file with all classes,
+   * interface, exceptions, etc. separated into collapsible groups.
+   */
+  public static void writeYamlTree2(String dir, String fileName){
+    List<Node> children = new ArrayList<Node>();
+    for (PackageInfo pkg : Doclava.choosePackages()) {
+      children.add(makePackageNode(pkg));
+    }
+    Node node = new Node("Reference", Doclava.ensureSlash(dir) + "packages.html", children, null);
+    StringBuilder buf = new StringBuilder();
+
+    node.renderChildrenYaml(buf, 0);
+
+    Data data = Doclava.makeHDF();
+    data.setValue("reference_tree", buf.toString());
+
+    if (Doclava.USE_DEVSITE_LOCALE_OUTPUT_PATHS && (Doclava.libraryRoot != null)) {
+      dir = Doclava.ensureSlash(dir) + Doclava.libraryRoot;
+    }
+
+    data.setValue("docs.classes.link", Doclava.ensureSlash(dir) + "classes.html");
+    data.setValue("docs.packages.link", Doclava.ensureSlash(dir) + "packages.html");
+
+    ClearPage.write(data, "yaml_navtree2.cs", Doclava.ensureSlash(dir) + fileName);
+
+  }
+
+
+  /**
+   * Write the YAML formatted navigation tree (legacy version).
+   * This creates a yaml file with package names followed by all
+   * classes, interfaces, exceptions, etc. But they are not separated by classes, interfaces, etc.
+   * It also nests any nested classes under the parent class, instead of listing them as siblings.
    * @see "http://yaml.org/"
    */
   public static void writeYamlTree(String dir, String fileName){
     Data data = Doclava.makeHDF();
-    ClassInfo[] classes = Converter.rootClasses();
+    Collection<ClassInfo> classes = Converter.rootClasses();
 
     SortedMap<String, Object> sorted = new TreeMap<String, Object>();
     for (ClassInfo cl : classes) {
@@ -252,6 +287,77 @@ public class NavTree {
       buf.append(", ");
       renderString(buf, mArtifact);
       buf.append(" ]");
+    }
+
+
+    // YAML VERSION
+
+
+    static void renderStringYaml(StringBuilder buf, String s) {
+      if (s != null) {
+        final int N = s.length();
+        for (int i = 0; i < N; i++) {
+          char c = s.charAt(i);
+          if (c >= ' ' && c <= '~' && c != '"' && c != '\\') {
+            buf.append(c);
+          } else {
+            buf.append("\\u");
+            for (int j = 0; i < 4; i++) {
+              char x = (char) (c & 0x000f);
+              if (x >= 10) {
+                x = (char) (x - 10 + 'a');
+              } else {
+                x = (char) (x + '0');
+              }
+              buf.append(x);
+              c >>= 4;
+            }
+          }
+        }
+      }
+    }
+    void renderChildrenYaml(StringBuilder buf, int depth) {
+      List<Node> list = mChildren;
+      if (list != null && list.size() > 0) {
+        if (depth > 0) {
+          buf.append("\n\n" + getIndent(depth));
+          buf.append("section:");
+        }
+        final int N = list.size();
+        for (int i = 0; i < N; i++) {
+          // get each child Node and render it
+          list.get(i).renderYaml(buf, depth);
+        }
+        // Extra line break after each "section"
+        buf.append("\n");
+      }
+    }
+    void renderYaml(StringBuilder buf, int depth) {
+      buf.append("\n" + getIndent(depth));
+      buf.append("- title: \"");
+      renderStringYaml(buf, mLabel);
+      buf.append("\"");
+      // Add link path, if it exists (the class/interface toggles don't have links)
+      if (mLink != null) {
+        buf.append("\n" + getIndent(depth));
+        buf.append("  path: ");
+        renderStringYaml(buf, "/" + mLink);
+        // add the API level info only if we have it
+        if (mSince != null) {
+          buf.append("\n" + getIndent(depth));
+          buf.append("  version_added: ");
+          renderStringYaml(buf, "'" + mSince + "'");
+        }
+      }
+      // try rendering child Nodes
+      renderChildrenYaml(buf, depth + 1);
+    }
+    String getIndent(int depth) {
+      String spaces = "";
+      for (int i = 0; i < depth; i++) {
+        spaces += "  ";
+      }
+      return spaces;
     }
   }
 }

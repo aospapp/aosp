@@ -6,19 +6,20 @@
 
 #include "xfa/fxfa/parser/cxfa_document_parser.h"
 
+#include "core/fxcrt/xml/cfx_xmldoc.h"
 #include "third_party/base/ptr_util.h"
 #include "xfa/fxfa/fxfa.h"
 #include "xfa/fxfa/parser/cxfa_document.h"
 
 CXFA_DocumentParser::CXFA_DocumentParser(CXFA_FFNotify* pNotify)
-    : m_nodeParser(nullptr, true), m_pNotify(pNotify) {}
+    : m_pNotify(pNotify) {}
 
 CXFA_DocumentParser::~CXFA_DocumentParser() {
 }
 
 int32_t CXFA_DocumentParser::StartParse(
-    const CFX_RetainPtr<IFX_SeekableReadStream>& pStream,
-    XFA_XDPPACKET ePacketID) {
+    const RetainPtr<IFX_SeekableStream>& pStream,
+    XFA_PacketType ePacketID) {
   m_pDocument.reset();
   m_nodeParser.CloseParser();
 
@@ -30,8 +31,8 @@ int32_t CXFA_DocumentParser::StartParse(
   return nRetStatus;
 }
 
-int32_t CXFA_DocumentParser::DoParse(IFX_Pause* pPause) {
-  int32_t nRetStatus = m_nodeParser.DoParse(pPause);
+int32_t CXFA_DocumentParser::DoParse() {
+  int32_t nRetStatus = m_nodeParser.DoParse();
   if (nRetStatus >= XFA_PARSESTATUS_Done) {
     ASSERT(m_pDocument);
     m_pDocument->SetRoot(m_nodeParser.GetRootNode());
@@ -39,12 +40,12 @@ int32_t CXFA_DocumentParser::DoParse(IFX_Pause* pPause) {
   return nRetStatus;
 }
 
-CFDE_XMLDoc* CXFA_DocumentParser::GetXMLDoc() const {
+CFX_XMLDoc* CXFA_DocumentParser::GetXMLDoc() const {
   return m_nodeParser.GetXMLDoc();
 }
 
 CXFA_FFNotify* CXFA_DocumentParser::GetNotify() const {
-  return m_pNotify;
+  return m_pNotify.Get();
 }
 
 CXFA_Document* CXFA_DocumentParser::GetDocument() const {

@@ -66,9 +66,10 @@ LOCAL_STATIC_JAVA_LIBRARIES := \
 
 LOCAL_JAVA_LIBRARIES := \
 	android.test.runner \
-	wifi-service \
-	services \
-	android.hidl.manager-V1.0-java
+	android.hidl.manager-V1.0-java \
+	android.test.base \
+	android.test.mock \
+	conscrypt
 
 # These must be explicitly included because they are not normally accessible
 # from apps.
@@ -105,6 +106,7 @@ LOCAL_JNI_SHARED_LIBRARIES := \
 	libwifi-system \
 	libui \
 	libunwind \
+	libunwindstack \
 	libutils \
 	libvndksupport \
 
@@ -113,6 +115,7 @@ LOCAL_JNI_SHARED_LIBRARIES += libwpa_client
 endif
 
 LOCAL_PACKAGE_NAME := FrameworksWifiTests
+LOCAL_PRIVATE_PLATFORM_APIS := true
 
 LOCAL_COMPATIBILITY_SUITE := device-tests
 

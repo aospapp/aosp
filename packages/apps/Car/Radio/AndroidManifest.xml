@@ -22,10 +22,10 @@
         android:targetSdkVersion="25" />
 
     <!-- This permission is required to allow the radio to be muted. -->
+    <uses-permission android:name="android.car.permission.CAR_CONTROL_AUDIO_SETTINGS" />
     <uses-permission android:name="android.car.permission.CAR_CONTROL_AUDIO_VOLUME" />
     <uses-permission android:name="android.car.permission.CAR_RADIO" />
     <uses-permission android:name="android.permission.ACCESS_BROADCAST_RADIO" />
-    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <application android:label="@string/app_name"
         android:icon="@drawable/logo_fm_radio"
@@ -34,7 +34,6 @@
         <activity android:name=".CarRadioActivity"
             android:theme="@style/CarRadioAppTheme"
             android:launchMode="singleTask"
-            android:label="@string/app_name"
             android:resizeableActivity="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -45,14 +44,11 @@
 
         <service
             android:name=".RadioService"
-            android:label="@string/service_name"
             android:exported="true">
-        </service>
-
-        <receiver android:name=".BootupReceiver">
             <intent-filter>
-                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.media.browse.MediaBrowserService" />
+                <action android:name="android.car.intent.action.PLAY_BROADCASTRADIO" />
             </intent-filter>
-        </receiver>
+        </service>
     </application>
 </manifest>

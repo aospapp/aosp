@@ -39,7 +39,7 @@ import android.icu.impl.PatternProps;
 import android.icu.impl.Utility;
 import android.icu.text.MessagePattern.ArgType;
 import android.icu.text.MessagePattern.Part;
-import android.icu.text.PluralRules.FixedDecimal;
+import android.icu.text.PluralRules.IFixedDecimal;
 import android.icu.text.PluralRules.PluralType;
 import android.icu.util.ICUUncheckedIOException;
 import android.icu.util.ULocale;
@@ -140,8 +140,8 @@ import android.icu.util.ULocale.Category;
  *       and unquoted {curly braces} must occur in matched pairs.
  * </ul>
  *
- * <p>Recommendation: Use the real apostrophe (single quote) character \u2019 for
- * human-readable text, and use the ASCII apostrophe (\u0027 ' )
+ * <p>Recommendation: Use the real apostrophe (single quote) character \\u2019 for
+ * human-readable text, and use the ASCII apostrophe (\\u0027 ' )
  * only in program syntax, like quoting in MessageFormat.
  * See the annotations for U+0027 Apostrophe in The Unicode Standard.
  *
@@ -2064,7 +2064,7 @@ public class MessageFormat extends UFormat {
             assert context.number.doubleValue() == number;  // argument number minus the offset
             context.numberString = context.formatter.format(context.number);
             if(context.formatter instanceof DecimalFormat) {
-                FixedDecimal dec = ((DecimalFormat)context.formatter).getFixedDecimal(number);
+                IFixedDecimal dec = ((DecimalFormat)context.formatter).getFixedDecimal(number);
                 return rules.select(dec);
             } else {
                 return rules.select(number);

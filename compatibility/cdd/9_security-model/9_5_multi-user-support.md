@@ -9,11 +9,6 @@ and provides support for full user isolation.
 http://developer.android.com/reference/android/os/Environment.html)
 for primary external storage.
 
-If Automotive device implementations include multiple users, they:
-
-*   [A-1-1] MUST include a guest account that allows all functions provided
-by the vehicle system without requiring a user to log in.
-
 If device implementations include multiple users, they:
 
 *   [C-1-1] MUST meet the following requirements related to

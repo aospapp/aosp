@@ -20,11 +20,33 @@
     <string name="launcher_settings_app_name" msgid="5782771766725939392">"Inställningar"</string>
     <string name="launcher_network_app_name" msgid="5107150533945388559">"Nätverk"</string>
     <string name="launcher_restricted_profile_app_name" msgid="671448012575234643">"Begränsad profil"</string>
+    <string name="header_category_suggestions" msgid="6732367439328586933">"Förslag"</string>
+    <string name="header_category_quick_settings" msgid="6626141045575946920">"Snabbinställningar"</string>
+    <string name="header_category_general_settings" msgid="1208946854116876918">"Allmänna inställningar"</string>
+    <string name="dismiss_suggestion" msgid="8288127823132069828">"Ignorera det här förslaget"</string>
+    <string name="hotwording_title" msgid="1984130766527626626">"Identifiering av ”Ok Google”"</string>
+    <string name="hotwording_summary" msgid="2863751845299261441">"Prata med Google-assistenten när som helst"</string>
     <string name="header_category_device" msgid="4855983928659541345">"Enhet"</string>
     <string name="header_category_preferences" msgid="175105555164713972">"Inställningar"</string>
     <string name="header_category_accessories" msgid="823295909353025991">"Fjärrkontroll och tillbehör"</string>
     <string name="header_category_personal" msgid="8893959635328775096">"Personligt"</string>
-    <string name="accounts_category_title" msgid="7591072907146317425">"Konton"</string>
+    <string name="connect_to_network" msgid="2209125715907353369">"Anslut till ett nätverk"</string>
+    <string name="add_an_account" msgid="1123478843971990449">"Lägg till ett konto"</string>
+    <string name="accounts_category_title" msgid="7839427428921349418">"Konton och inloggning"</string>
+    <string name="accounts_category_summary_no_account" msgid="5739678666463033824">"Inga konton"</string>
+    <plurals name="accounts_category_summary" formatted="false" msgid="3864659911073569648">
+      <item quantity="other"><xliff:g id="ACCOUNTS_NUMBER_1">%1$d</xliff:g> konton</item>
+      <item quantity="one"><xliff:g id="ACCOUNTS_NUMBER_0">%1$d</xliff:g> konto</item>
+    </plurals>
+    <string name="connectivity_network_category_title" msgid="6005656364481347542">"Nätverk och internet"</string>
+    <string name="applications_category_title" msgid="3552921143969612110">"Appar"</string>
+    <string name="device_pref_category_title" msgid="5264163316572335776">"Enhetsinställningar"</string>
+    <string name="remotes_and_accessories_category_title" msgid="2729050422677319645">"Fjärrkontroller och tillbehör"</string>
+    <string name="remotes_and_accessories_category_summary_no_bluetooth_device" msgid="3967545806275801632">"Inga anslutna Bluetooth-enheter"</string>
+    <plurals name="remotes_and_accessories_category_summary" formatted="false" msgid="2004733390509722820">
+      <item quantity="other"><xliff:g id="ACCESSORIES_NUMBER_1">%1$d</xliff:g> tillbehör</item>
+      <item quantity="one"><xliff:g id="ACCESSORIES_NUMBER_0">%1$d</xliff:g> tillbehör</item>
+    </plurals>
     <string name="add_account" msgid="4098060223200619258">"Lägg till konto"</string>
     <string name="account_header_remove_account" msgid="3288957118207682685">"Ta bort konto"</string>
     <string name="account_sync" msgid="773808124331714965">"Välj synkroniserade appar"</string>
@@ -40,27 +62,47 @@
 %1$s</xliff:g>"</string>
     <string name="sync_failed" msgid="5514824149810480551">"Det gick inte att synkronisera"</string>
     <string name="sync_active" msgid="6891115263481154378">"Synkronisering är aktiverad"</string>
-    <string name="connectivity_network" msgid="8321537111272398501">"Nätverk"</string>
     <string name="connectivity_wifi" msgid="489974791299647708">"Wi-Fi"</string>
     <string name="connectivity_ethernet" msgid="2182407318634700320">"Ethernet"</string>
+    <string name="connectivity_summary_ethernet_connected" msgid="2015335020646410586">"Ethernet har anslutits"</string>
+    <string name="connectivity_summary_no_network_connected" msgid="5187378791046457432">"Inget nätverk har anslutits"</string>
+    <string name="connectivity_summary_wifi_disabled" msgid="6904637079319724455">"Wi-Fi är inaktiverat"</string>
     <string name="wifi_setting_always_scan" msgid="8883713018717323351">"Nätverkssökning alltid tillgänglig"</string>
     <string name="wifi_setting_always_scan_context" msgid="398651204440349752">"Tillåt att Googles platstjänst och andra appar söker efter nätverk, även när Wi-Fi inte har aktiverats"</string>
     <string name="wifi_setting_enable_wifi" msgid="9214100840401870408">"Wi-Fi"</string>
+    <string name="connectivity_hint_message" msgid="1314202316675864203">"Anslut till ett nätverk"</string>
+    <string name="apps_recently_used_category_title" msgid="5254492409677346900">"Senast öppnade apparna"</string>
+    <string name="apps_see_all_apps" msgid="5546179088197139203">"Visa alla appar"</string>
+    <string name="apps_permissions_category_title" msgid="4476837368840442313">"Behörigheter"</string>
+    <string name="all_apps_title" msgid="5330174847732759402">"Alla appar"</string>
+    <string name="all_apps_show_system_apps" msgid="4648447904721171884">"Visa systemappar"</string>
+    <string name="all_apps_installed" msgid="54800379871111518">"Installerade appar"</string>
+    <string name="all_apps_other" msgid="8297097642727891911">"Systemappar"</string>
+    <string name="all_apps_disabled" msgid="2016067533586741345">"Inaktiverade appar"</string>
     <string name="device_daydream" msgid="3354366974209179614">"Skärmsläckare"</string>
     <string name="device_display" msgid="101455384386372747">"Visning"</string>
     <string name="device_sound" msgid="9214182566287657481">"Ljud"</string>
     <string name="device_surround_sound" msgid="6272196310566546860">"Surroundljud"</string>
     <string name="device_sound_effects" msgid="7793281745920228622">"Systemljud"</string>
-    <string name="device_apps" msgid="9180435229638772838">"Appar"</string>
-    <string name="device_storage_reset" msgid="1425978936501134425">"Lagring och återställning"</string>
+    <string name="device_apps" msgid="1971794537385509294">"Appar"</string>
+    <string name="device_storage" msgid="5536683600091277826">"Lagring"</string>
+    <string name="device_reset" msgid="1885840356489458285">"Återställ"</string>
     <string name="device_backup_restore" msgid="5627523987587511884">"Säkerhetskopiera och återställ"</string>
-    <string name="device_reset" msgid="2827002349560023125">"Återställ standardinställningar"</string>
+    <string name="device_factory_reset" msgid="6537106927211842545">"Återställ standardinställningarna"</string>
     <string name="device_calibration" msgid="8632962533376605191">"Kalibrering"</string>
+    <string name="surround_sound_select_formats" msgid="6329868407147678259">"Välj format"</string>
+    <string name="surround_sound_category_title" msgid="1331285587464316534">"Surroundljud"</string>
+    <string name="surround_sound_format_ac3" msgid="1482464022424295698">"AC3 (Dolby Digital)"</string>
+    <string name="surround_sound_format_e_ac3" msgid="4406523828595644068">"E-AC3 (Dolby Digital Plus/DD+)"</string>
+    <string name="surround_sound_format_dts" msgid="1730946367570023539">"DTS"</string>
+    <string name="surround_sound_format_dts_hd" msgid="3324695734675414927">"DTS-HD"</string>
+    <string name="surround_sound_format_iec61937" msgid="1610948713240264858">"IEC61937"</string>
+    <string name="surround_sound_auto_info" msgid="4957977219847012992">"Obs! Alternativet Automatiskt kanske inte fungerar om enheten inte korrekt rapporterar vilka format som den har stöd för."</string>
+    <string name="surround_sound_auto_summary" msgid="175387511376834034">"Automatiskt – använd formaten som enheten rapporterar att den har stöd för (rekommenderas)"</string>
+    <string name="surround_sound_none_summary" msgid="4295042972785042496">"Inget – använd aldrig surroundljud"</string>
+    <string name="surround_sound_manual_summary" msgid="9208540024024014501">"Manuell – välj vilket format du vill använda"</string>
     <string name="device_storage_clear_cache_title" msgid="3365635664766067643">"Vill du ta bort cachelagrad data?"</string>
     <string name="device_storage_clear_cache_message" msgid="6495570470005696210">"Cachelagrad data tas bort i alla appar."</string>
-    <string name="apps_downloaded" msgid="4222190849854323480">"Nedladdade appar"</string>
-    <string name="apps_system" msgid="2499191125802829425">"Systemappar"</string>
-    <string name="apps_running" msgid="6430310491739956228">"Aktiva appar"</string>
     <string name="accessories_add" msgid="1347802656349218830">"Lägg till tillbehör"</string>
     <string name="accessory_state_pairing" msgid="7501989679637780963">"Kopplas …"</string>
     <string name="accessory_state_connecting" msgid="8777884957977608529">"Ansluter …"</string>
@@ -91,12 +133,16 @@
     <string name="system_date_time" msgid="8898457978560618950">"Datum och tid"</string>
     <string name="system_language" msgid="2337138146114609247">"Språk"</string>
     <string name="system_keyboard" msgid="7680159735294672514">"Tangentbord"</string>
+    <string name="system_keyboard_autofill" msgid="5787948036400896834">"Tangentbord och Autofyll"</string>
+    <string name="system_autofill" msgid="8647914463541617409">"Autofyll"</string>
     <string name="system_home" msgid="2858989138172296012">"Startskärm"</string>
     <string name="system_search" msgid="2837264654143247611">"Sök"</string>
     <string name="system_google" msgid="8560404305602209622">"Google"</string>
     <string name="system_security" msgid="8230080273993484407">"Säkerhet och begränsningar"</string>
     <string name="system_speech" msgid="8128688499687306982">"Tal"</string>
     <string name="system_inputs" msgid="2413907183796651102">"Ingångar"</string>
+    <string name="system_inputs_devices" msgid="8700905419497948327">"Ingångar och enheter"</string>
+    <string name="system_home_theater_control" msgid="2053198603790384368">"Hemmabio-kontroll"</string>
     <string name="system_accessibility" msgid="6215431399759498005">"Tillgänglighet"</string>
     <string name="system_developer_options" msgid="3237985523474863638">"Utvecklaralternativ"</string>
     <string name="accessibility_none" msgid="3441648940134070004">"Inga"</string>
@@ -143,14 +189,11 @@
     <string name="imei_information_title" msgid="5208860549282877136">"Information om IMEI-kod"</string>
     <string name="status_bt_address" msgid="1571721865060122393">"Bluetooth-adress"</string>
     <string name="status_up_time" msgid="1674116490191446110">"Tid sedan systemstart"</string>
-    <string name="status_wimax_mac_address" msgid="1102907383444152052">"4G Mac-adress"</string>
     <string name="legal_information" msgid="2346024659831852038">"Juridisk information"</string>
     <string name="copyright_title" msgid="5564228453228549353">"Upphovsrätt"</string>
     <string name="license_title" msgid="4482927105870812604">"Licens"</string>
     <string name="terms_title" msgid="8480859222932736291">"Användarvillkor"</string>
     <string name="webview_license_title" msgid="8843666223583780825">"Systemet WebView-licens"</string>
-    <string name="wallpaper_attributions" msgid="8622098625739634898">"Bakgrundsbilder"</string>
-    <string name="wallpaper_attributions_values" msgid="1565931506291182879">"Satellitbildsleverantörer:\n©2014 CNES / Astrium, DigitalGlobe, Bluesky"</string>
   <string-array name="wifi_signal_strength">
     <item msgid="6926038943588801452">"Dålig"</item>
     <item msgid="5986166866411161790">"Medel"</item>
@@ -168,10 +211,8 @@
     <string name="wifi_setting_see_all" msgid="3217814666041974878">"Visa alla"</string>
     <string name="wifi_setting_see_fewer" msgid="5958876323942699235">"Visa färre"</string>
     <string name="wifi_setting_available_networks" msgid="6713791371350513043">"Tillgängliga nätverk"</string>
-    <string name="wifi_setting_other_options_wps" msgid="2320322351779996152">"Anslut via WPS"</string>
     <string name="wifi_setting_other_options_add_network" msgid="2791106243851894788">"Lägg till nytt nätverk"</string>
     <string name="security_type" msgid="524443802004143058">"Typ av säkerhet"</string>
-    <string name="wps_network" msgid="1052148085426051873">"Anslut via WPS"</string>
     <string name="other_network" msgid="3539704463099544488">"Annat nätverk …"</string>
     <string name="skip_network" msgid="6380260543776712357">"Hoppa över"</string>
     <string name="wifi_security_type_none" msgid="6622722325237471927">"Ingen"</string>
@@ -206,6 +247,8 @@
     <string name="wifi_forget_network" msgid="7302755141573045803">"Glöm nätverk"</string>
     <string name="wifi_forget_network_description" msgid="3328285160018330334">"Uppgifterna som används för att ansluta till det här nätverket tas bort, inklusive sparade lösenord"</string>
     <string name="wifi_action_ok" msgid="5932500664228395779">"OK"</string>
+    <string name="wifi_setup_action_dont_change_network" msgid="5136210803832000656">"Fortsätt"</string>
+    <string name="wifi_setup_action_change_network" msgid="4320731433166354508">"Byt nätverk"</string>
     <string name="wifi_action_change_network" msgid="5196215981075986148">"Ändra"</string>
     <string name="wifi_action_dont_change_network" msgid="1449920958930251977">"Ändra inte"</string>
     <string name="wifi_action_advanced_yes" msgid="8586473568311558982">"OK"</string>
@@ -234,6 +277,11 @@
     <string name="proxy_port_description" msgid="6791098212244367568">"Ange en giltig port.\nExempel: <xliff:g id="ID_1">8080</xliff:g>"</string>
     <string name="proxy_exclusionlist_description" msgid="6020640103462473072">"Ange en lista över exkluderade domäner (avgränsade med kommatecken) eller lämna fältet tomt.\nExempel: <xliff:g id="ID_1">example.com,mycomp.test.com,localhost</xliff:g>"</string>
     <string name="proxy_hostname_description" msgid="5824391500254472447">"Ange ett giltigt värdnamn.\nExempel: <xliff:g id="ID_1">proxy.example.com</xliff:g>"</string>
+    <string name="title_wifi_eap_method" msgid="3723583936041145157">"Välj EAP-metod för <xliff:g id="SSID">%1$s</xliff:g>"</string>
+    <string name="title_wifi_phase2_authentication" msgid="8292177518924013886">"Välj autentisering av fas 2 för <xliff:g id="SSID">%1$s</xliff:g>"</string>
+    <string name="title_wifi_identity" msgid="6154397685951091638">"Ange identiteten för <xliff:g id="SSID">%1$s</xliff:g>"</string>
+    <string name="title_wifi_anonymous_identity" msgid="4530402657655491360">"Ange anonym identitet för <xliff:g id="SSID">%1$s</xliff:g>"</string>
+    <string name="wifi_setup_summary_title_connected" msgid="3349953509191969645">"Du är ansluten till <xliff:g id="SSID">%1$s</xliff:g>"</string>
     <string name="wifi_summary_title_connected" msgid="8329216588732277139">"Nätverket är anslutet"</string>
     <string name="wifi_summary_title_not_connected" msgid="3799548944869386251">"Nätverket är inte anslutet"</string>
     <string name="wifi_summary_description_connected_to_wifi_network" msgid="7583498018733069053">"Du är redan ansluten till <xliff:g id="SSID">%1$s</xliff:g>. Vill du ansluta till ett annat nätverk?"</string>
@@ -317,15 +365,6 @@
     <string name="system_package" msgid="9200255718634512790">"Det går inte att installera systemuppdateringar på externa media."</string>
     <string name="move_error_device_admin" msgid="2060627704270836951">"Det går inte att installera enhetsadministratören på externa lagringsmedier."</string>
     <string name="learn_more_action" msgid="7015991954404958779">"Läs mer"</string>
-    <string name="wifi_wps_retry_scan" msgid="6171190323753080808">"Försök igen"</string>
-    <string name="wifi_wps_title" msgid="1872305810119408482">"Söker efter WPS-router ..."</string>
-    <string name="wifi_wps_instructions" msgid="3618110962669110034">"Tryck på knappen för skyddad Wi-Fi-konfiguration på routern.\nDen kan kallas WPS (Wi-Fi Protected Setup) eller vara märkt med symbolen till höger."</string>
-    <string name="wifi_wps_onstart_pin" msgid="594985182235834825">"Ange pinkod <xliff:g id="NUMBER">%1$s</xliff:g> på Wi-Fi-routern."</string>
-    <string name="wifi_wps_onstart_pin_description" msgid="4206001352944024353">"Det kan ta upp till två minuter att slutföra konfigureringen när du har angett pinkoden"</string>
-    <string name="wifi_wps_failed_generic" msgid="8934636373182298397">"Det gick inte att hitta Wi-Fi-routern"</string>
-    <string name="wifi_wps_failed_wep" msgid="9158670824165143348">"Säkerhetsinställningen för Wi-Fi-routern (WEP) stöds inte"</string>
-    <string name="wifi_wps_failed_tkip" msgid="1712545345594227319">"Säkerhetsinställningen för Wi-Fi-routern (TKIP) stöds inte"</string>
-    <string name="wifi_wps_failed_overlap" msgid="3091222818050940041">"En annan WPS-session pågår. Försök igen om några minuter."</string>
     <string name="system_date" msgid="2767108116769558081">"Datum"</string>
     <string name="system_time" msgid="6726022312605226285">"Tid"</string>
     <string name="system_set_date" msgid="2437586307768561116">"Ange datum"</string>
@@ -451,7 +490,7 @@
     <string name="system_show_layout_bounds" msgid="645732439882291943">"Visa layoutgränser"</string>
     <string name="system_show_gpu_view_updates" msgid="7936280271091152459">"Visa GPU-visningsuppdateringar"</string>
     <string name="system_show_hardware_layer" msgid="7301942527058509453">"Visa maskinvaruskikt"</string>
-    <string name="system_show_gpu_overdraw" msgid="707861254106800199">"Visa GPU-flerlagerritning"</string>
+    <string name="system_show_gpu_overdraw" msgid="707861254106800199">"Visa GPU-överritning"</string>
     <string name="system_show_surface_updates" msgid="8878834675712192327">"Visa ytuppdateringar"</string>
     <string name="system_window_animation_scale" msgid="3213952676672537856">"Skala för fönsteranimering"</string>
     <string name="system_transition_animation_scale" msgid="2964817709721784757">"Skala för övergångsanimering"</string>
@@ -493,8 +532,8 @@
     <string name="system_hdmi_optimization_best_resolution" msgid="2612694859060466938">"Bästa upplösning"</string>
     <string name="system_hdmi_optimization_best_framerate" msgid="67514549356802383">"Bästa bildfrekvens"</string>
     <string name="system_hw_overdraw_off" msgid="8790815645038325739">"Av"</string>
-    <string name="system_hw_overdraw_areas" msgid="5227122594087360124">"Visa överskridande områden"</string>
-    <string name="system_hw_overdraw_counter" msgid="3042271307724657436">"Visa antal som överskrider gränsen"</string>
+    <string name="system_hw_overdraw_areas" msgid="5227122594087360124">"Visa överritningsområden"</string>
+    <string name="system_hw_overdraw_counter" msgid="3042271307724657436">"Visa överritningsantal"</string>
     <string name="no_application" msgid="1746564297589309465">"Ingen"</string>
     <string name="enable_opengl_traces_none" msgid="6074804146602749420">"Inga"</string>
   <string-array name="animation_scale_entries">
@@ -519,9 +558,14 @@
     <string name="tts_rate_normal" msgid="362011908545519639">"Medelsnabbt"</string>
     <string name="tts_rate_fast" msgid="3792863158623953072">"Snabbt"</string>
     <string name="tts_rate_very_fast" msgid="5876670536911919074">"Mycket snabbt"</string>
+    <string name="title_settings" msgid="5433841477518010243">"Inställningar för <xliff:g id="NAME">%1$s</xliff:g>"</string>
     <string name="title_current_keyboard" msgid="4259032357469819835">"Aktuellt tangentbord"</string>
     <string name="title_configure" msgid="6929522003149212388">"Konfigurera"</string>
     <string name="desc_configure_keyboard" msgid="7187242843867404657">"Tangentbordsalternativ"</string>
+    <string name="title_current_autofill_service" msgid="6055852915343152350">"Aktuell tjänst för autofyll"</string>
+    <string name="title_select_autofill_service" msgid="2515782066694197988">"Välj tjänst för autofyll"</string>
+    <string name="autofill_none" msgid="2426888642367790651">"Inga"</string>
+    <string name="autofill_confirmation_message" msgid="9068009043054751287">"&lt;b&gt;Kontrollera att du litar på den här appen.&lt;/b&gt; &lt;br/&gt; &lt;br/&gt; &lt;xliff:g id=app_name example=Password service&gt;%1$s&lt;/xliff:g&gt; identifierar vad som kan fyllas i automatiskt utifrån vad som visas på skärmen."</string>
     <string name="computing_size" msgid="2955133568424704042">"Beräknar …"</string>
     <string name="title_select_wifi_network" msgid="1038871400014761952">"Välj ditt Wi-Fi-nätverk"</string>
     <string name="accessories_wifi_display_rename_device" msgid="7416728299196887186">"Byt namn"</string>
@@ -645,7 +689,7 @@
     <string name="confirm_factory_reset_description" msgid="1049842658625287303">"Vill du radera alla personliga uppgifter och alla hämtade appar? Åtgärden kan inte ångras."</string>
     <string name="confirm_factory_reset_device" msgid="8923287482399582268">"Radera allt"</string>
     <string name="select_device_name_title" msgid="5165800500130943604">"Välj ett namn på din <xliff:g id="DEVICEMODEL">%1$s</xliff:g>"</string>
-    <string name="select_device_name_description" msgid="6890879006777364213">"Ge din <xliff:g id="DEVICEMODEL">%1$s</xliff:g> ett namn så att det blir lättare att identifiera den när du castar eller ansluter till den från andra enheter."</string>
+    <string name="select_device_name_description" msgid="4939767901420114190">"Ge enheten ett namn så att det blir lättare att identifiera den när du castar eller ansluter till den från andra enheter."</string>
   <string-array name="rooms">
     <item msgid="9056203990862307284">"Android-TV"</item>
     <item msgid="7449352861592960712">"TV:n i vardagsrummet"</item>
@@ -655,11 +699,13 @@
     <string name="custom_room" msgid="8655516733933892458">"Ange eget namn …"</string>
     <string name="device_rename_title" msgid="2629557295786267185">"Byt namn på <xliff:g id="DEVICEMODEL">%1$s</xliff:g>"</string>
     <string name="device_rename_description" msgid="2461752788563877107">"Din <xliff:g id="DEVICEMODEL">%1$s</xliff:g> har för närvarande namnet <xliff:g id="DEVICENAME">%2$s</xliff:g>"</string>
+    <string name="device_name_suggestion_title" msgid="2312205155408810120">"Ange enhetsnamn"</string>
+    <string name="device_name_suggestion_summary" msgid="5657494684788779371">"Använd det här namnet när du castar foton, videor och annat från mobilen"</string>
     <string name="change_setting" msgid="2047402388786162246">"Ändra"</string>
     <string name="keep_settings" msgid="6798327196645732517">"Ändra inte"</string>
     <string name="apps_permissions" msgid="1283592091618660965">"Behörigheter"</string>
     <string name="device_apps_permissions" msgid="2966387603529725982">"Appbehörigheter"</string>
-    <string name="app_permissions_group_summary" msgid="7906834786705287901">"<xliff:g id="COUNT_0">%d</xliff:g> av <xliff:g id="COUNT_1">%d</xliff:g> appar tillåts"</string>
+    <string name="app_permissions_group_summary" msgid="7906834786705287901">"<xliff:g id="COUNT_0">%1$d</xliff:g> av <xliff:g id="COUNT_1">%2$d</xliff:g> appar tillåts"</string>
     <string name="bluetooth_permission_request" msgid="6649813878683015301">"Begäran om Bluetooth-behörighet"</string>
     <string name="security_patch" msgid="2131617390189164481">"Nivå av säkerhetskorrigering för Android"</string>
     <string name="choose_application" msgid="5662960665577780353">"Välj app"</string>
@@ -674,4 +720,27 @@
     <string name="app_permission_summary_not_allowed" msgid="3667663331476577913">"Tillåts inte"</string>
     <string name="usage_access" msgid="1914242907684452328">"Åtkomst till användningsdata"</string>
     <string name="usage_access_description" msgid="6290001769893747651">"Med åtkomst till användningsdata kan en app spåra vilka andra appar du använder och hur ofta samt vilken operatör du har, språkinställningar och andra uppgifter."</string>
+    <string name="high_power_apps" msgid="7796096221999495077">"Energioptimering"</string>
+    <string name="high_power_apps_description" msgid="1990016812115792282">"Optimera appars energianvändning"</string>
+    <string name="high_power_apps_empty" msgid="1355906551507153470">"Inga appar behöver optimeras"</string>
+    <string name="high_power_on" msgid="7725180078784796673">"Inte optimerad"</string>
+    <string name="high_power_off" msgid="308272752152871252">"Optimera energianvändningen"</string>
+    <string name="high_power_system" msgid="7815843517656137656">"Energioptimering är inte tillgänglig"</string>
+    <string name="manage_notification_access_title" msgid="2051765294087620434">"Åtkomst till aviseringar"</string>
+    <string name="no_notification_listeners" msgid="4583789599075326886">"Inga installerade appar har begärt åtkomst till aviseringar."</string>
+    <string name="notification_listener_security_warning_summary" msgid="3647205635922300578">"Dessa appar kan läsa alla aviseringar, inklusive personliga uppgifter som namn på kontaktpersoner och text i mottagna meddelanden. De kan även stänga aviseringar och aktivera åtgärdsknappar i dem."</string>
+    <string name="system_alert_window_settings" msgid="2069031369694448339">"Visa över andra appar"</string>
+    <string name="permit_draw_overlay" msgid="2400084757761408906">"Tillåt visning över andra appar"</string>
+    <string name="allow_overlay_description" msgid="1946279120428813474">"Tillåt att en app visas ovanpå andra appar. Detta kan inverka på ett störande sätt på användningen av de andra apparna eller göra så att de verkar se ut eller fungera annorlunda."</string>
+    <string name="write_system_settings" msgid="2730923656857824907">"Ändra systeminställningar"</string>
+    <string name="write_settings_title" msgid="8750406725746598710">"Kan ändra systeminställningar"</string>
+    <string name="write_settings_description" msgid="2765037074460395437">"Med den här behörigheten kan appen ändra systeminställningar."</string>
+    <string name="write_settings_on" msgid="3312616037931341656">"Ja"</string>
+    <string name="write_settings_off" msgid="6219072254626503312">"Nej"</string>
+    <string name="picture_in_picture_title" msgid="7738692876349058">"Bild i bild"</string>
+    <string name="picture_in_picture_app_detail_switch" msgid="8063965798321494391">"Tillåt bild-i-bild"</string>
+    <string name="picture_in_picture_empty_text" msgid="5592688180792300051">"Inga installerade appar stöder bild-i-bild"</string>
+    <string name="picture_in_picture_app_detail_summary" msgid="3478182415601436326">"Tillåt att ett bild-i-bild-fönster skapas av appen medan den är öppen eller när du har slutat att använda den (till exempel när du fortsätter att titta på en video). Detta fönster visas ovanpå andra appar du använder."</string>
+    <string name="special_access" msgid="3513811566600299998">"Särskild åtkomst för app"</string>
+    <string name="string_concat" msgid="5897947064488902904">"<xliff:g id="PART1">%1s</xliff:g>, <xliff:g id="PART2">%2s</xliff:g>"</string>
 </resources>

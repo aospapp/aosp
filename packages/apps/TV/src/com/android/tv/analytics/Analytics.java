@@ -16,21 +16,17 @@
 
 package com.android.tv.analytics;
 
-/**
- *  Provides Trackers used for user activity analysis.
- */
+/** Provides Trackers used for user activity analysis. */
 public interface Analytics {
     Tracker getDefaultTracker();
 
-    /**
-     * Returns whether the state of the application-level opt is on.
-     */
+    /** Returns whether the state of the application-level opt is on. */
     boolean isAppOptOut();
 
     /**
-     * Sets or resets the application-level opt out flag. If set, no hits will be sent.
-     * The value of this flag will <i>not</i> persist across application starts. The
-     * correct value should thus be set in application initialization code.
+     * Sets or resets the application-level opt out flag. If set, no hits will be sent. The value of
+     * this flag will <i>not</i> persist across application starts. The correct value should thus be
+     * set in application initialization code.
      *
      * @param optOut {@code true} if application-level opt out should be enforced.
      */

@@ -28,8 +28,11 @@ import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.provider.Settings;
 import android.telephony.TelephonyManager;
+import android.text.Layout;
 import android.text.TextUtils;
 import android.util.AttributeSet;
+import android.util.TypedValue;
+import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewAnimationUtils;
@@ -80,8 +83,10 @@ public class EmergencyActionGroup extends FrameLayout implements View.OnClickLis
         mSelectedContainer = (ViewGroup) findViewById(R.id.selected_container);
         mSelectedContainer.setOnClickListener(this);
         mSelectedLabel = (TextView) findViewById(R.id.selected_label);
+        mSelectedLabel.addOnLayoutChangeListener(mLayoutChangeListener);
         mRippleView = findViewById(R.id.ripple_view);
         mLaunchHint = findViewById(R.id.launch_hint);
+        mLaunchHint.addOnLayoutChangeListener(mLayoutChangeListener);
     }
 
     @Override
@@ -243,6 +248,11 @@ public class EmergencyActionGroup extends FrameLayout implements View.OnClickLis
         CharSequence buttonText = ((Button) v).getText();
         mSelectedLabel.setText(buttonText);
         mSelectedLabel.setAutoSizeTextTypeWithDefaults(TextView.AUTO_SIZE_TEXT_TYPE_UNIFORM);
+
+        // In order to trigger OnLayoutChangeListener for reset default minimum font size.
+        mSelectedLabel.requestLayout();
+        mLaunchHint.requestLayout();
+
         mSelectedContainer.setVisibility(VISIBLE);
         int centerX = v.getLeft() + v.getWidth() / 2;
         int centerY = v.getTop() + v.getHeight() / 2;
@@ -265,6 +275,43 @@ public class EmergencyActionGroup extends FrameLayout implements View.OnClickLis
 
         // Transfer focus from the originally clicked button to the expanded button.
         mSelectedContainer.requestFocus();
+    }
+
+
+    private final OnLayoutChangeListener mLayoutChangeListener = new OnLayoutChangeListener() {
+        @Override
+        public void onLayoutChange(View v, int left, int top, int right, int bottom,
+                int oldLeft,
+                int oldTop, int oldRight, int oldBottom) {
+            decreaseAutoSizeMinTextSize(v);
+        }
+    };
+
+    /**
+     * Prevent some localization string will be truncated if there is low resolution screen
+     * or font size and display size of setting is largest.
+     */
+    private void decreaseAutoSizeMinTextSize(View selectedView) {
+        if (selectedView != null) {
+            if (selectedView instanceof TextView) {
+                TextView textView = (TextView) selectedView;
+                textView.setEllipsize(TextUtils.TruncateAt.END);
+
+                // The textView layout will be null due to it's property is hiding when
+                // initialization.
+                Layout layout = textView.getLayout();
+                if (layout != null) {
+                    if (layout.getEllipsisCount(textView.getMaxLines() - 1) > 0) {
+                        textView.setAutoSizeTextTypeUniformWithConfiguration(
+                                8,
+                                textView.getAutoSizeMaxTextSize(),
+                                textView.getAutoSizeStepGranularity(),
+                                TypedValue.COMPLEX_UNIT_SP);
+                        textView.setGravity(Gravity.CENTER);
+                    }
+                }
+            }
+        }
     }
 
     private void animateHintText(View selectedView, View v, Animator reveal) {

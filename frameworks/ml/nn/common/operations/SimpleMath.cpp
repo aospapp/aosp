@@ -19,38 +19,60 @@
 #define LOG_TAG "Operations"
 
 #include "Operations.h"
-#include "OperationsUtils.h"
+#include "CpuOperationUtils.h"
 
-#include "internal/optimized/optimized_ops.h"
+#include "tensorflow/contrib/lite/kernels/internal/optimized/optimized_ops.h"
+#include "tensorflow/contrib/lite/kernels/internal/reference/reference_ops.h"
 
 namespace android {
 namespace nn {
+
+#define ANDROID_NN_MACRO_DISPATCH(macro)                                    \
+    switch (activation) {                                                   \
+        case (int32_t) FusedActivationFunc::NONE:                           \
+            macro(kNone);                                                   \
+            break;                                                          \
+        case (int32_t) FusedActivationFunc::RELU:                           \
+            macro(kRelu);                                                   \
+            break;                                                          \
+        case (int32_t) FusedActivationFunc::RELU1:                          \
+            macro(kRelu1);                                                  \
+            break;                                                          \
+        case (int32_t) FusedActivationFunc::RELU6:                          \
+            macro(kRelu6);                                                  \
+            break;                                                          \
+        default:                                                            \
+            LOG(ERROR) << "Unsupported fused activation function type";     \
+            return false;                                                   \
+    }
+
 bool addFloat32(const float* in1, const Shape& shape1,
                 const float* in2, const Shape& shape2,
                 int32_t activation,
                 float* out, const Shape& shapeOut) {
     bool needBroadcast = !SameShape(shape1, shape2);
 
-    #define ANDROID_NN_NORMAL_ADD(activation)                        \
-        optimized_ops::Add<FusedActivationFunctionType::activation>( \
-                in1, convertShapeToDims(shape1),                     \
-                in2, convertShapeToDims(shape2),                     \
-                out, convertShapeToDims(shapeOut))
-
-    #define ANDROID_NN_BROADCAST_ADD(activation)                              \
-        optimized_ops::BroadcastAdd<FusedActivationFunctionType::activation>( \
-                in1, convertShapeToDims(shape1),                              \
-                in2, convertShapeToDims(shape2),                              \
-                out, convertShapeToDims(shapeOut))
-
     if (needBroadcast) {
+        #define ANDROID_NN_BROADCAST_ADD(activation)                                              \
+            tflite::optimized_ops::BroadcastAdd<tflite::FusedActivationFunctionType::activation>( \
+                    in1, convertShapeToDims(shape1),                                              \
+                    in2, convertShapeToDims(shape2),                                              \
+                    out, convertShapeToDims(shapeOut))
+
         ANDROID_NN_MACRO_DISPATCH(ANDROID_NN_BROADCAST_ADD)
+        #undef ANDROID_NN_BROADCAST_ADD
     } else {
-        ANDROID_NN_MACRO_DISPATCH(ANDROID_NN_NORMAL_ADD)
+        float output_activation_min, output_activation_max;
+        CalculateActivationRangeFloat(activation, &output_activation_min,
+                                      &output_activation_max);
+
+        tflite::optimized_ops::Add(
+                in1, convertShapeToDims(shape1),
+                in2, convertShapeToDims(shape2),
+                output_activation_min, output_activation_max,
+                out, convertShapeToDims(shapeOut));
     }
 
-    #undef ANDROID_NN_NORMAL_ADD
-    #undef ANDROID_NN_BROADCAST_ADD
     return true;
 }
 
@@ -95,36 +117,32 @@ bool addQuant8(const uint8_t* in1, const Shape& shape1,
                                   &output_activation_min,
                                   &output_activation_max);
 
-    #define ANDROID_NN_NORMAL_ADD(activation)                           \
-        optimized_ops::Add<FusedActivationFunctionType::activation>(    \
-                left_shift,                                             \
-                in1, convertShapeToDims(shape1),                        \
-                input1_offset, input1_multiplier, input1_shift,         \
-                in2, convertShapeToDims(shape2),                        \
-                input2_offset, input2_multiplier, input2_shift,         \
-                output_offset, output_multiplier, output_shift,         \
-                output_activation_min, output_activation_max,           \
-                out, convertShapeToDims(shapeOut))
-
-    #define ANDROID_NN_BROADCAST_ADD(activation)                                 \
-        optimized_ops::BroadcastAdd<FusedActivationFunctionType::activation>(    \
-                left_shift,                                                      \
-                in1, convertShapeToDims(shape1),                                 \
-                input1_offset, input1_multiplier, input1_shift,                  \
-                in2, convertShapeToDims(shape2),                                 \
-                input2_offset, input2_multiplier, input2_shift,                  \
-                output_offset, output_multiplier, output_shift,                  \
-                output_activation_min, output_activation_max,                    \
-                out, convertShapeToDims(shapeOut))
-
     if (needBroadcast) {
-        ANDROID_NN_MACRO_DISPATCH(ANDROID_NN_BROADCAST_ADD)
+        tflite::optimized_ops::BroadcastAdd(
+                left_shift,
+                in1, convertShapeToDims(shape1),
+                input1_offset, input1_multiplier, input1_shift,
+                in2, convertShapeToDims(shape2),
+                input2_offset, input2_multiplier, input2_shift,
+                output_offset, output_multiplier, output_shift,
+                output_activation_min, output_activation_max,
+                out, convertShapeToDims(shapeOut));
     } else {
+        #define ANDROID_NN_NORMAL_ADD(activation)                                        \
+            tflite::optimized_ops::Add<tflite::FusedActivationFunctionType::activation>( \
+                    left_shift,                                                          \
+                    in1, convertShapeToDims(shape1),                                     \
+                    input1_offset, input1_multiplier, input1_shift,                      \
+                    in2, convertShapeToDims(shape2),                                     \
+                    input2_offset, input2_multiplier, input2_shift,                      \
+                    output_offset, output_multiplier, output_shift,                      \
+                    output_activation_min, output_activation_max,                        \
+                    out, convertShapeToDims(shapeOut))
+
         ANDROID_NN_MACRO_DISPATCH(ANDROID_NN_NORMAL_ADD)
+        #undef ANDROID_NN_NORMAL_ADD
     }
 
-    #undef ANDROID_NN_NORMAL_ADD
-    #undef ANDROID_NN_BROADCAST_ADD
     return true;
 }
 
@@ -134,26 +152,27 @@ bool mulFloat32(const float* in1, const Shape& shape1,
                 float* out, const Shape& shapeOut) {
     bool needBroadcast = !SameShape(shape1, shape2);
 
-    #define ANDROID_NN_NORMAL_MUL(activation)                        \
-        optimized_ops::Mul<FusedActivationFunctionType::activation>( \
-                in1, convertShapeToDims(shape1),                     \
-                in2, convertShapeToDims(shape2),                     \
-                out, convertShapeToDims(shapeOut))
-
-    #define ANDROID_NN_BROADCAST_MUL(activation)                              \
-        optimized_ops::BroadcastMul<FusedActivationFunctionType::activation>( \
-                in1, convertShapeToDims(shape1),                              \
-                in2, convertShapeToDims(shape2),                              \
-                out, convertShapeToDims(shapeOut))
-
     if (needBroadcast) {
+    #define ANDROID_NN_BROADCAST_MUL(activation)                                              \
+        tflite::optimized_ops::BroadcastMul<tflite::FusedActivationFunctionType::activation>( \
+                in1, convertShapeToDims(shape1),                                              \
+                in2, convertShapeToDims(shape2),                                              \
+                out, convertShapeToDims(shapeOut))
+
         ANDROID_NN_MACRO_DISPATCH(ANDROID_NN_BROADCAST_MUL)
+        #undef ANDROID_NN_BROADCAST_MUL
     } else {
-        ANDROID_NN_MACRO_DISPATCH(ANDROID_NN_NORMAL_MUL)
+        float output_activation_min, output_activation_max;
+        CalculateActivationRangeFloat(activation, &output_activation_min,
+                                      &output_activation_max);
+
+        tflite::optimized_ops::Mul(
+                in1, convertShapeToDims(shape1),
+                in2, convertShapeToDims(shape2),
+                output_activation_min, output_activation_max,
+                out, convertShapeToDims(shapeOut));
     }
 
-    #undef ANDROID_NN_NORMAL_MUL
-    #undef ANDROID_NN_BROADCAST_MUL
     return true;
 }
 
@@ -178,39 +197,121 @@ bool mulQuant8(const uint8_t* in1, const Shape& shape1,
                                   &output_activation_min,
                                   &output_activation_max);
 
-    // Use BROADCAST version to handle the normal case until we have a optimized Mul.
-    #define ANDROID_NN_BROADCAST_MUL(activation)                                 \
-        optimized_ops::BroadcastMul<FusedActivationFunctionType::activation>(    \
-                in1, convertShapeToDims(shape1), input1_offset,                  \
-                in2, convertShapeToDims(shape2), input2_offset,                  \
-                output_offset, output_multiplier, output_shift,                  \
-                output_activation_min, output_activation_max,                    \
-                out, convertShapeToDims(shapeOut))
+    // Use BROADCAST version to handle the normal case.
+    tflite::optimized_ops::BroadcastMul(
+                in1, convertShapeToDims(shape1), input1_offset,
+                in2, convertShapeToDims(shape2), input2_offset,
+                output_offset, output_multiplier, output_shift,
+                output_activation_min, output_activation_max,
+                out, convertShapeToDims(shapeOut));
 
-    ANDROID_NN_MACRO_DISPATCH(ANDROID_NN_BROADCAST_MUL)
-
-    #undef ANDROID_NN_NORMAL_MUL
-    #undef ANDROID_NN_BROADCAST_MUL
     return true;
 }
 
 bool floorFloat32(const float* inputData,
                   float* outputData,
                   const Shape& shape) {
-    Dims<4> dim = convertShapeToDims(shape);
-    optimized_ops::Floor(inputData, dim, outputData, dim);
+    tflite::Dims<4> dim = convertShapeToDims(shape);
+    tflite::optimized_ops::Floor(inputData, dim, outputData, dim);
     return true;
 }
 
 bool dequantizeQuant8ToFloat32(const uint8_t* inputData,
                                float* outputData,
                                const Shape& shape) {
-    Dims<4> dim = convertShapeToDims(shape);
-    optimized_ops::Dequantize(inputData, dim,
-                              shape.offset, shape.scale,
-                              outputData, dim);
+    tflite::Dims<4> dim = convertShapeToDims(shape);
+    tflite::optimized_ops::Dequantize(inputData, dim,
+                                      shape.offset, shape.scale,
+                                      outputData, dim);
     return true;
 }
 
+bool subFloat32(const float* in1, const Shape& shape1,
+                const float* in2, const Shape& shape2,
+                int32_t activation,
+                float* out, const Shape& shapeOut) {
+    float output_activation_min, output_activation_max;
+    CalculateActivationRangeFloat(activation, &output_activation_min,
+                                  &output_activation_max);
+
+    bool needBroadcast = !SameShape(shape1, shape2);
+    if (needBroadcast) {
+        tflite::optimized_ops::BroadcastSub(
+                in1, convertShapeToDims(shape1),
+                in2, convertShapeToDims(shape2),
+                output_activation_min, output_activation_max,
+                out, convertShapeToDims(shapeOut));
+    } else {
+        tflite::optimized_ops::Sub(
+                in1, convertShapeToDims(shape1),
+                in2, convertShapeToDims(shape2),
+                output_activation_min, output_activation_max,
+                out, convertShapeToDims(shapeOut));
+    }
+    return true;
+}
+
+bool divFloat32(const float* in1, const Shape& shape1,
+                const float* in2, const Shape& shape2,
+                int32_t activation,
+                float* out, const Shape& shapeOut) {
+    float output_activation_min, output_activation_max;
+    CalculateActivationRangeFloat(activation, &output_activation_min,
+                                  &output_activation_max);
+
+    bool needBroadcast = !SameShape(shape1, shape2);
+    if (needBroadcast) {
+        tflite::optimized_ops::BroadcastDiv(
+                in1, convertShapeToDims(shape1),
+                in2, convertShapeToDims(shape2),
+                output_activation_min, output_activation_max,
+                out, convertShapeToDims(shapeOut));
+    } else {
+        tflite::optimized_ops::Div(
+                in1, convertShapeToDims(shape1),
+                in2, convertShapeToDims(shape2),
+                output_activation_min, output_activation_max,
+                out, convertShapeToDims(shapeOut));
+    }
+    return true;
+}
+
+bool meanGeneric(const uint8_t* inputData, const Shape& inputShape,
+                 const int32_t* axis, const Shape& axisShape, bool keepDims,
+                 uint8_t* outputData, const Shape& outputShape) {
+    // Creates a temp index to iterate through input data.
+    int32_t* scratchBuffer = new int32_t[getNumberOfDimensions(inputShape)];
+
+    // Creates a temp tensor to store resolved axis given input data.
+    int32_t axisSize = static_cast<int32_t>(getSizeOfDimension(axisShape, 0));
+    int32_t* resolvedAxis = new int32_t[axisSize];
+
+    bool result = true;
+    if (inputShape.type == OperandType::TENSOR_FLOAT32) {
+        tflite::reference_ops::Mean<float>(
+                const_cast<float*>(reinterpret_cast<const float*>(inputData)),
+                reinterpret_cast<const int*>(inputShape.dimensions.data()),
+                getNumberOfDimensions(inputShape),
+                reinterpret_cast<float*>(outputData),
+                reinterpret_cast<const int*>(outputShape.dimensions.data()),
+                getNumberOfDimensions(outputShape),
+                axis, axisSize, keepDims, scratchBuffer, resolvedAxis);
+    } else if (inputShape.type == OperandType::TENSOR_QUANT8_ASYMM) {
+        tflite::reference_ops::Mean<uint8_t>(
+                const_cast<uint8_t*>(inputData),
+                reinterpret_cast<const int*>(inputShape.dimensions.data()),
+                getNumberOfDimensions(inputShape),
+                outputData,
+                reinterpret_cast<const int*>(outputShape.dimensions.data()),
+                getNumberOfDimensions(outputShape),
+                axis, axisSize, keepDims, scratchBuffer, resolvedAxis);
+    } else {
+        LOG(ERROR) << "Unsupported data type";
+        result = false;
+    }
+    delete[] scratchBuffer;
+    delete[] resolvedAxis;
+    return result;
+}
 } // namespace nn
 } // namespace android

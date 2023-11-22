@@ -44,64 +44,67 @@ extern "C" {
  * Method:    nativeFinalize
  * Signature: (J)V
  */
-JNIEXPORT void JNICALL Java_com_android_tv_tuner_TunerHal_nativeFinalize
-  (JNIEnv *, jobject, jlong);
+JNIEXPORT void JNICALL
+Java_com_android_tv_tuner_TunerHal_nativeFinalize(JNIEnv *, jobject, jlong);
 
 /*
  * Class:     com_android_tv_tuner_TunerHal
  * Method:    nativeTune
  * Signature: (JILjava/lang/String;I)Z
  */
-JNIEXPORT jboolean JNICALL Java_com_android_tv_tuner_TunerHal_nativeTune
-  (JNIEnv *, jobject, jlong, jint, jstring, jint);
+JNIEXPORT jboolean JNICALL Java_com_android_tv_tuner_TunerHal_nativeTune(
+    JNIEnv *, jobject, jlong, jint, jstring, jint);
 
 /*
  * Class:     com_android_tv_tuner_TunerHal
  * Method:    nativeAddPidFilter
  * Signature: (JII)V
  */
-JNIEXPORT void JNICALL Java_com_android_tv_tuner_TunerHal_nativeAddPidFilter
-  (JNIEnv *, jobject, jlong, jint, jint);
+JNIEXPORT void JNICALL Java_com_android_tv_tuner_TunerHal_nativeAddPidFilter(
+    JNIEnv *, jobject, jlong, jint, jint);
 
 /*
  * Class:     com_android_tv_tuner_TunerHal
  * Method:    nativeCloseAllPidFilters
  * Signature: (J)V
  */
-JNIEXPORT void JNICALL Java_com_android_tv_tuner_TunerHal_nativeCloseAllPidFilters
-  (JNIEnv *, jobject, jlong);
+JNIEXPORT void JNICALL
+Java_com_android_tv_tuner_TunerHal_nativeCloseAllPidFilters(JNIEnv *, jobject,
+                                                            jlong);
 
 /*
  * Class:     com_android_tv_tuner_TunerHal
  * Method:    nativeStopTune
  * Signature: (J)V
  */
-JNIEXPORT void JNICALL Java_com_android_tv_tuner_TunerHal_nativeStopTune
-  (JNIEnv *, jobject, jlong);
+JNIEXPORT void JNICALL
+Java_com_android_tv_tuner_TunerHal_nativeStopTune(JNIEnv *, jobject, jlong);
 
 /*
  * Class:     com_android_tv_tuner_TunerHal
  * Method:    nativeWriteInBuffer
  * Signature: (J[BI)I
  */
-JNIEXPORT jint JNICALL Java_com_android_tv_tuner_TunerHal_nativeWriteInBuffer
-  (JNIEnv *, jobject, jlong, jbyteArray, jint);
+JNIEXPORT jint JNICALL Java_com_android_tv_tuner_TunerHal_nativeWriteInBuffer(
+    JNIEnv *, jobject, jlong, jbyteArray, jint);
 
 /*
  * Class:     com_android_tv_tuner_TunerHal
  * Method:    nativeSetHasPendingTune
  * Signature: (JZ)V
  */
-JNIEXPORT void JNICALL Java_com_android_tv_tuner_TunerHal_nativeSetHasPendingTune
-  (JNIEnv *, jobject, jlong, jboolean);
+JNIEXPORT void JNICALL
+Java_com_android_tv_tuner_TunerHal_nativeSetHasPendingTune(JNIEnv *, jobject,
+                                                           jlong, jboolean);
 
 /*
  * Class:     com_android_tv_tuner_TunerHal
  * Method:    nativeGetDeliverySystemType
  * Signature: (J)I
  */
-JNIEXPORT int JNICALL Java_com_android_tv_tuner_TunerHal_nativeGetDeliverySystemType
-  (JNIEnv *, jobject, jlong);
+JNIEXPORT int JNICALL
+Java_com_android_tv_tuner_TunerHal_nativeGetDeliverySystemType(JNIEnv *,
+                                                               jobject, jlong);
 
 #ifdef __cplusplus
 }

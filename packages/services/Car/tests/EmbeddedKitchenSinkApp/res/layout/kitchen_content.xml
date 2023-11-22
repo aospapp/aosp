@@ -21,5 +21,5 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:paddingStart="56dp"
-    android:paddingTop="@dimen/lens_header_height">
+    android:paddingTop="@dimen/car_app_bar_height">
 </FrameLayout>

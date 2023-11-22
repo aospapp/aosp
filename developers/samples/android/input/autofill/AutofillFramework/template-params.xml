@@ -19,7 +19,7 @@
     <name>AutofillFramework</name>
     <group>Input</group>  <!-- This field will be deprecated in the future
                             and replaced with the "categories" tags below. -->
-    <package>com.example.android.autofillframework</package>
+    <package>com.example.android.autofill.app</package>
 
     <!-- change minSdk if needed-->
     <minSdk>26</minSdk>

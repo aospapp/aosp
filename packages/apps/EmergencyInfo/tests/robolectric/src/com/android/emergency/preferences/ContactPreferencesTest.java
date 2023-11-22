@@ -32,7 +32,6 @@ import android.content.pm.ResolveInfo;
 import android.net.Uri;
 import android.os.Looper;
 import android.provider.ContactsContract;
-import android.test.suitebuilder.annotation.SmallTest;
 
 import com.android.emergency.ContactTestUtils;
 import com.android.emergency.EmergencyContactManager;
@@ -53,7 +52,6 @@ import org.robolectric.Shadows;
 import org.robolectric.annotation.Config;
 
 /** Unit tests for {@link ContactPreferences}. */
-@SmallTest
 @RunWith(RobolectricTestRunner.class)
 @Config(manifest = TestConfig.MANIFEST_PATH, sdk = TestConfig.SDK_VERSION)
 public class ContactPreferencesTest {

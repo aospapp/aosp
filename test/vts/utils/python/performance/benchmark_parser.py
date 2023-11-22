@@ -78,7 +78,7 @@ class GoogleBenchmarkJsonParser(object):
         Returns:
             A list of integers.
         """
-        return [x[self._REAL_TIME] for x in self._benchmarks]
+        return [int(float(x[self._REAL_TIME])) for x in self._benchmarks]
 
     def ToTable(self):
         """Returns the benchmarks in a table.

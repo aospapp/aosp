@@ -43,10 +43,12 @@ public class FileUtils {
     /** Copy files from source to target, closing each stream when done */
     public static void copy(InputStream source, OutputStream target) throws IOException {
         try (InputStream in = source; OutputStream out = target) {
-            final byte buffer[] = new byte[BUFFER_SIZE];
+            final byte[] buffer = new byte[BUFFER_SIZE];
             int count;
             while ((count = in.read(buffer)) > 0) {
-                if (count > 0) out.write(buffer, 0, count);
+                if (count > 0) {
+                    out.write(buffer, 0, count);
+                }
             }
         }
     }
@@ -54,10 +56,12 @@ public class FileUtils {
     /** Return true if a directory exists or was made at the specified location */
     public static boolean makeDirectory(File dir) {
         if (DEBUG) {
-            Log.d(TAG, "Testing file " + dir + " exists=" + dir.exists() +
-                    " isDirectory=" + dir.isDirectory());
+            Log.d(TAG, "Testing file " + dir + " exists=" + dir.exists()
+                    + " isDirectory=" + dir.isDirectory());
         }
-        if (dir.exists()) return dir.isDirectory();
+        if (dir.exists()) {
+            return dir.isDirectory();
+        }
         return dir.mkdir();
     }
 }

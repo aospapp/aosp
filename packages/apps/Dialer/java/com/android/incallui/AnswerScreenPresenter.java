@@ -34,6 +34,7 @@ import com.android.incallui.answerproximitysensor.PseudoScreenState;
 import com.android.incallui.call.CallList;
 import com.android.incallui.call.DialerCall;
 import com.android.incallui.call.DialerCallListener;
+import com.android.incallui.incalluilock.InCallUiLock;
 
 /** Manages changes for an incoming call screen. */
 public class AnswerScreenPresenter
@@ -72,19 +73,18 @@ public class AnswerScreenPresenter
   }
 
   @Override
+  public InCallUiLock acquireInCallUiLock(String tag) {
+    return InCallPresenter.getInstance().acquireInCallUiLock(tag);
+  }
+
+  @Override
   public void onAnswerScreenUnready() {
     call.removeCannedTextResponsesLoadedListener(this);
   }
 
   @Override
-  public void onDismissDialog() {
-    InCallPresenter.getInstance().onDismissDialog();
-  }
-
-  @Override
   public void onRejectCallWithMessage(String message) {
     call.reject(true /* rejectWithMessage */, message);
-    onDismissDialog();
     addTimeoutCheck();
   }
 
@@ -104,7 +104,7 @@ public class AnswerScreenPresenter
                 DialerImpression.Type.VIDEO_CALL_REQUEST_ACCEPTED,
                 call.getUniqueCallId(),
                 call.getTimeAddedMs());
-        call.getVideoTech().acceptVideoRequest();
+        call.getVideoTech().acceptVideoRequest(context);
       }
     } else {
       if (answerVideoAsAudio) {

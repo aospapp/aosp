@@ -77,21 +77,24 @@ void checkAllSupported (const Extensions& supportedExtensions, const vector<stri
 }
 
 vk::Move<vk::VkInstance> createInstanceWithWsi (const vk::PlatformInterface&		vkp,
+												deUint32							version,
 												const Extensions&					supportedExtensions,
 												vk::wsi::Type						wsiType)
 {
 	vector<string>	extensions;
 
+	if (!vk::isCoreInstanceExtension(version, "VK_KHR_get_physical_device_properties2"))
+		extensions.push_back("VK_KHR_get_physical_device_properties2");
+
 	extensions.push_back("VK_KHR_surface");
 	extensions.push_back("VK_KHR_get_surface_capabilities2");
 	// Required for device extension to expose new physical device bits (in this
 	// case, presentation mode enums)
-	extensions.push_back("VK_KHR_get_physical_device_properties2");
 	extensions.push_back(getExtensionName(wsiType));
 
 	checkAllSupported(supportedExtensions, extensions);
 
-	return vk::createDefaultInstance(vkp, vector<string>(), extensions);
+	return vk::createDefaultInstance(vkp, version, vector<string>(), extensions);
 }
 
 vk::VkPhysicalDeviceFeatures getDeviceNullFeatures (void)
@@ -924,7 +927,7 @@ SharedPresentableImageTestInstance::SharedPresentableImageTestInstance (Context&
 	, m_quadCount				(16u)
 	, m_vkp						(context.getPlatformInterface())
 	, m_instanceExtensions		(vk::enumerateInstanceExtensionProperties(m_vkp, DE_NULL))
-	, m_instance				(createInstanceWithWsi(m_vkp, m_instanceExtensions, testConfig.wsiType))
+	, m_instance				(createInstanceWithWsi(m_vkp, context.getUsedApiVersion(), m_instanceExtensions, testConfig.wsiType))
 	, m_vki						(m_vkp, *m_instance)
 	, m_physicalDevice			(vk::chooseDevice(m_vki, *m_instance, context.getTestContext().getCommandLine()))
 	, m_nativeDisplay			(createDisplay(context.getTestContext().getPlatform().getVulkanPlatform(), m_instanceExtensions, testConfig.wsiType))
@@ -1055,11 +1058,12 @@ void SharedPresentableImageTestInstance::initSwapchainResources (void)
 
 	VK_CHECK(m_vkd.endCommandBuffer(*commandBuffer));
 
+	const vk::VkPipelineStageFlags waitDstStages[] = { vk::VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
 	const vk::VkSubmitInfo submitInfo =
 	{
 		vk::VK_STRUCTURE_TYPE_SUBMIT_INFO,
 		DE_NULL,
-		1, &*semaphore, DE_NULL,
+		1, &*semaphore, waitDstStages,
 		1, &*commandBuffer,
 		0, DE_NULL,
 	};

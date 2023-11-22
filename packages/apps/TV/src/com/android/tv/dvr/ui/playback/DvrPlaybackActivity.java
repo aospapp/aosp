@@ -23,16 +23,13 @@ import android.content.res.Configuration;
 import android.net.Uri;
 import android.os.Bundle;
 import android.util.Log;
-
 import com.android.tv.R;
-import com.android.tv.TvApplication;
+import com.android.tv.Starter;
 import com.android.tv.dialog.PinDialogFragment.OnPinCheckedListener;
 import com.android.tv.dvr.data.RecordedProgram;
 import com.android.tv.util.Utils;
 
-/**
- * Activity to play a {@link RecordedProgram}.
- */
+/** Activity to play a {@link RecordedProgram}. */
 public class DvrPlaybackActivity extends Activity implements OnPinCheckedListener {
     private static final String TAG = "DvrPlaybackActivity";
     private static final boolean DEBUG = false;
@@ -42,13 +39,14 @@ public class DvrPlaybackActivity extends Activity implements OnPinCheckedListene
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
-        TvApplication.setCurrentRunningProcess(this, true);
+        Starter.start(this);
         if (DEBUG) Log.d(TAG, "onCreate");
         super.onCreate(savedInstanceState);
         setIntent(createProgramIntent(getIntent()));
         setContentView(R.layout.activity_dvr_playback);
-        mOverlayFragment = (DvrPlaybackOverlayFragment) getFragmentManager()
-                .findFragmentById(R.id.dvr_playback_controls_fragment);
+        mOverlayFragment =
+                (DvrPlaybackOverlayFragment)
+                        getFragmentManager().findFragmentById(R.id.dvr_playback_controls_fragment);
     }
 
     @Override
@@ -68,7 +66,8 @@ public class DvrPlaybackActivity extends Activity implements OnPinCheckedListene
     public void onConfigurationChanged(Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
         float density = getResources().getDisplayMetrics().density;
-        mOverlayFragment.onWindowSizeChanged((int) (newConfig.screenWidthDp * density),
+        mOverlayFragment.onWindowSizeChanged(
+                (int) (newConfig.screenWidthDp * density),
                 (int) (newConfig.screenHeightDp * density));
     }
 

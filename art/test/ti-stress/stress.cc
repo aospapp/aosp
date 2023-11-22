@@ -14,19 +14,35 @@
  * limitations under the License.
  */
 
-#include <jni.h>
-#include <stdio.h>
-#include <iostream>
-#include <iomanip>
+#include <cstdio>
 #include <fstream>
+#include <iomanip>
+#include <iostream>
 #include <memory>
-#include <stdio.h>
 #include <sstream>
 #include <strstream>
 
-#include "jvmti.h"
+#include <jni.h>
+
+#include "base/utils.h"
 #include "exec_utils.h"
-#include "utils.h"
+#include "jvmti.h"
+
+#pragma clang diagnostic push
+
+// Slicer's headers have code that triggers these warnings. b/65298177
+#pragma clang diagnostic ignored "-Wunused-parameter"
+#pragma clang diagnostic ignored "-Wsign-compare"
+
+#include "slicer/code_ir.h"
+#include "slicer/control_flow_graph.h"
+#include "slicer/dex_ir.h"
+#include "slicer/dex_ir_builder.h"
+#include "slicer/instrumentation.h"
+#include "slicer/reader.h"
+#include "slicer/writer.h"
+
+#pragma clang diagnostic pop
 
 namespace art {
 
@@ -34,9 +50,6 @@ namespace art {
 static constexpr bool kDoFullRewrite = true;
 
 struct StressData {
-  std::string dexter_cmd;
-  std::string out_temp_dex;
-  std::string in_temp_dex;
   bool vm_class_loader_initialized;
   bool trace_stress;
   bool redefine_stress;
@@ -44,51 +57,60 @@ struct StressData {
   bool step_stress;
 };
 
-static void WriteToFile(const std::string& fname, jint data_len, const unsigned char* data) {
-  std::ofstream file(fname, std::ios::binary | std::ios::out | std::ios::trunc);
-  file.write(reinterpret_cast<const char*>(data), data_len);
-  file.flush();
-}
-
-static bool ReadIntoBuffer(const std::string& fname, /*out*/std::vector<unsigned char>* data) {
-  std::ifstream file(fname, std::ios::binary | std::ios::in);
-  file.seekg(0, std::ios::end);
-  size_t len = file.tellg();
-  data->resize(len);
-  file.seekg(0);
-  file.read(reinterpret_cast<char*>(data->data()), len);
-  return len != 0;
-}
-
-// TODO rewrite later.
-static bool DoExtractClassFromData(StressData* data,
-                                   const std::string& class_name,
+static bool DoExtractClassFromData(jvmtiEnv* env,
+                                   const std::string& descriptor,
                                    jint in_len,
                                    const unsigned char* in_data,
-                                   /*out*/std::vector<unsigned char>* dex) {
-  // Write the dex file into a temporary file.
-  WriteToFile(data->in_temp_dex, in_len, in_data);
-  // Clear out file so even if something suppresses the exit value we will still detect dexter
-  // failure.
-  WriteToFile(data->out_temp_dex, 0, nullptr);
-  // Have dexter do the extraction.
-  std::vector<std::string> args;
-  args.push_back(data->dexter_cmd);
-  if (kDoFullRewrite) {
-    args.push_back("-x");
-    args.push_back("full_rewrite");
-  }
-  args.push_back("-e");
-  args.push_back(class_name);
-  args.push_back("-o");
-  args.push_back(data->out_temp_dex);
-  args.push_back(data->in_temp_dex);
-  std::string error;
-  if (ExecAndReturnCode(args, &error) != 0) {
-    LOG(ERROR) << "unable to execute dexter: " << error;
+                                   /*out*/jint* out_len,
+                                   /*out*/unsigned char** out_data) {
+  dex::Reader reader(in_data, in_len);
+  dex::u4 class_idx = reader.FindClassIndex(descriptor.c_str());
+  if (class_idx != dex::kNoIndex) {
+    reader.CreateClassIr(class_idx);
+  } else {
+    LOG(ERROR) << "ERROR: Can't find class " << descriptor;
     return false;
   }
-  return ReadIntoBuffer(data->out_temp_dex, dex);
+  auto dex_ir = reader.GetIr();
+
+  if (kDoFullRewrite) {
+    for (auto& ir_method : dex_ir->encoded_methods) {
+      if (ir_method->code != nullptr) {
+        lir::CodeIr code_ir(ir_method.get(), dex_ir);
+        lir::ControlFlowGraph cfg_compact(&code_ir, false);
+        lir::ControlFlowGraph cfg_verbose(&code_ir, true);
+        code_ir.Assemble();
+      }
+    }
+  }
+  dex::Writer writer(dex_ir);
+
+  struct Allocator : public dex::Writer::Allocator {
+    explicit Allocator(jvmtiEnv* jvmti_env) : jvmti_env_(jvmti_env) {}
+    virtual void* Allocate(size_t size) {
+      unsigned char* out = nullptr;
+      if (JVMTI_ERROR_NONE != jvmti_env_->Allocate(size, &out)) {
+        return nullptr;
+      } else {
+        return out;
+      }
+    }
+    virtual void Free(void* ptr) {
+      jvmti_env_->Deallocate(reinterpret_cast<unsigned char*>(ptr));
+    }
+   private:
+    jvmtiEnv* jvmti_env_;
+  };
+  Allocator alloc(env);
+  size_t res_len;
+  unsigned char* res = writer.CreateImage(&alloc, &res_len);
+  if (res != nullptr) {
+    *out_data = res;
+    *out_len = res_len;
+    return true;
+  } else {
+    return false;
+  }
 }
 
 class ScopedThreadInfo {
@@ -533,7 +555,7 @@ void JNICALL MethodExitHook(jvmtiEnv* jvmtienv,
     return;
   }
   std::string type(method_info.GetSignature());
-  type = type.substr(type.find(")") + 1);
+  type = type.substr(type.find(')') + 1);
   std::string out_val(was_popped_by_exception ? "" : GetValOf(jvmtienv, env, type, val));
   LOG(INFO) << "Leaving method \"" << method_info << "\". Thread is \"" << info.GetName() << "\"."
             << std::endl
@@ -615,10 +637,10 @@ void JNICALL ClassFileLoadHookSecretNoOp(jvmtiEnv* jvmti,
                                          jint* new_class_data_len,
                                          unsigned char** new_class_data) {
   std::vector<unsigned char> out;
-  std::string name_str(name);
-  // Make the jvmti semi-descriptor into the java style descriptor (though with $ for inner
-  // classes).
-  std::replace(name_str.begin(), name_str.end(), '/', '.');
+  // Make the jvmti semi-descriptor into the full descriptor.
+  std::string name_str("L");
+  name_str += name;
+  name_str += ";";
   StressData* data = nullptr;
   CHECK_EQ(jvmti->GetEnvironmentLocalStorage(reinterpret_cast<void**>(&data)),
            JVMTI_ERROR_NONE);
@@ -626,15 +648,11 @@ void JNICALL ClassFileLoadHookSecretNoOp(jvmtiEnv* jvmti,
     LOG(WARNING) << "Ignoring load of class " << name << " because VMClassLoader is not yet "
                  << "initialized. Transforming this class could cause spurious test failures.";
     return;
-  } else if (DoExtractClassFromData(data, name_str, class_data_len, class_data, /*out*/ &out)) {
+  } else if (DoExtractClassFromData(jvmti, name_str, class_data_len, class_data,
+                                    /*out*/ new_class_data_len, /*out*/ new_class_data)) {
     LOG(INFO) << "Extracted class: " << name;
-    unsigned char* new_data;
-    CHECK_EQ(JVMTI_ERROR_NONE, jvmti->Allocate(out.size(), &new_data));
-    memcpy(new_data, out.data(), out.size());
-    *new_class_data_len = static_cast<jint>(out.size());
-    *new_class_data = new_data;
   } else {
-    std::cerr << "Unable to extract class " << name_str << std::endl;
+    std::cerr << "Unable to extract class " << name << std::endl;
     *new_class_data_len = 0;
     *new_class_data = nullptr;
   }
@@ -653,7 +671,7 @@ static std::string GetOption(const std::string& in) {
 }
 
 // Options are
-// jvmti-stress,[redefine,${DEXTER_BINARY},${TEMP_FILE_1},${TEMP_FILE_2},][trace,][field]
+// jvmti-stress,[redefine,][trace,][field]
 static void ReadOptions(StressData* data, char* options) {
   std::string ops(options);
   CHECK_EQ(GetOption(ops), "jvmti-stress") << "Options should start with jvmti-stress";
@@ -668,12 +686,6 @@ static void ReadOptions(StressData* data, char* options) {
       data->field_stress = true;
     } else if (cur == "redefine") {
       data->redefine_stress = true;
-      ops = AdvanceOption(ops);
-      data->dexter_cmd = GetOption(ops);
-      ops = AdvanceOption(ops);
-      data->in_temp_dex = GetOption(ops);
-      ops = AdvanceOption(ops);
-      data->out_temp_dex = GetOption(ops);
     } else {
       LOG(FATAL) << "Unknown option: " << GetOption(ops);
     }
@@ -780,8 +792,49 @@ extern "C" JNIEXPORT jint JNICALL Agent_OnLoad(JavaVM* vm,
   }
 
   // Just get all capabilities.
-  jvmtiCapabilities caps;
-  jvmti->GetPotentialCapabilities(&caps);
+  jvmtiCapabilities caps = {
+    .can_tag_objects                                 = 0,
+    .can_generate_field_modification_events          = 1,
+    .can_generate_field_access_events                = 1,
+    .can_get_bytecodes                               = 0,
+    .can_get_synthetic_attribute                     = 0,
+    .can_get_owned_monitor_info                      = 0,
+    .can_get_current_contended_monitor               = 0,
+    .can_get_monitor_info                            = 0,
+    .can_pop_frame                                   = 0,
+    .can_redefine_classes                            = 1,
+    .can_signal_thread                               = 0,
+    .can_get_source_file_name                        = 1,
+    .can_get_line_numbers                            = 1,
+    .can_get_source_debug_extension                  = 1,
+    .can_access_local_variables                      = 0,
+    .can_maintain_original_method_order              = 0,
+    .can_generate_single_step_events                 = 1,
+    .can_generate_exception_events                   = 0,
+    .can_generate_frame_pop_events                   = 0,
+    .can_generate_breakpoint_events                  = 0,
+    .can_suspend                                     = 0,
+    .can_redefine_any_class                          = 0,
+    .can_get_current_thread_cpu_time                 = 0,
+    .can_get_thread_cpu_time                         = 0,
+    .can_generate_method_entry_events                = 1,
+    .can_generate_method_exit_events                 = 1,
+    .can_generate_all_class_hook_events              = 0,
+    .can_generate_compiled_method_load_events        = 0,
+    .can_generate_monitor_events                     = 0,
+    .can_generate_vm_object_alloc_events             = 0,
+    .can_generate_native_method_bind_events          = 1,
+    .can_generate_garbage_collection_events          = 0,
+    .can_generate_object_free_events                 = 0,
+    .can_force_early_return                          = 0,
+    .can_get_owned_monitor_stack_depth_info          = 0,
+    .can_get_constant_pool                           = 0,
+    .can_set_native_method_prefix                    = 0,
+    .can_retransform_classes                         = 1,
+    .can_retransform_any_class                       = 0,
+    .can_generate_resource_exhaustion_heap_events    = 0,
+    .can_generate_resource_exhaustion_threads_events = 0,
+  };
   jvmti->AddCapabilities(&caps);
 
   // Set callbacks.

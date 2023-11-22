@@ -17,6 +17,7 @@
 package com.android.server.telecom.tests;
 
 import static android.Manifest.permission.CALL_PHONE;
+import static android.Manifest.permission.CALL_PRIVILEGED;
 import static android.Manifest.permission.MODIFY_PHONE_STATE;
 import static android.Manifest.permission.READ_PHONE_STATE;
 import static android.Manifest.permission.READ_PRIVILEGED_PHONE_STATE;
@@ -53,10 +54,13 @@ import com.android.server.telecom.TelecomSystem;
 import com.android.server.telecom.components.UserCallIntentProcessor;
 import com.android.server.telecom.components.UserCallIntentProcessorFactory;
 
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 import org.mockito.ArgumentCaptor;
+import org.mockito.ArgumentMatcher;
 import org.mockito.Mock;
-import org.mockito.compat.ArgumentMatcher;
-import org.mockito.internal.matchers.VarargMatcher;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -64,6 +68,11 @@ import java.util.List;
 
 import static android.Manifest.permission.REGISTER_SIM_SUBSCRIPTION;
 import static android.Manifest.permission.WRITE_SECURE_SETTINGS;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyBoolean;
@@ -81,7 +90,11 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+@RunWith(JUnit4.class)
 public class TelecomServiceImplTest extends TelecomTestCase {
+
+    public static final String TEST_PACKAGE = "com.test";
+
     public static class CallIntentProcessAdapterFake implements CallIntentProcessor.Adapter {
         @Override
         public void processOutgoingCallIntent(Context context, CallsManager callsManager,
@@ -108,22 +121,15 @@ public class TelecomServiceImplTest extends TelecomTestCase {
         }
     }
 
-    private static class AnyStringIn extends ArgumentMatcher<String> {
+    private static class AnyStringIn implements ArgumentMatcher<String> {
         private Collection<String> mStrings;
         public AnyStringIn(Collection<String> strings) {
             this.mStrings = strings;
         }
 
         @Override
-        public boolean matchesObject(Object string) {
+        public boolean matches(String string) {
             return mStrings.contains(string);
-        }
-    }
-
-    private static class IntVarArgMatcher extends ArgumentMatcher<int[]> implements VarargMatcher {
-        @Override
-        public boolean matchesObject(Object argument) {
-            return true;
         }
     }
 
@@ -156,6 +162,7 @@ public class TelecomServiceImplTest extends TelecomTestCase {
             new ComponentName("test", "sipComponentName"), "3", Binder.getCallingUserHandle());
 
     @Override
+    @Before
     public void setUp() throws Exception {
         super.setUp();
         mContext = mComponentContextFixture.getTestDouble().getApplicationContext();
@@ -194,6 +201,7 @@ public class TelecomServiceImplTest extends TelecomTestCase {
     }
 
     @SmallTest
+    @Test
     public void testGetDefaultOutgoingPhoneAccount() throws RemoteException {
         when(mFakePhoneAccountRegistrar
                 .getOutgoingPhoneAccountForScheme(eq("tel"), any(UserHandle.class)))
@@ -213,6 +221,7 @@ public class TelecomServiceImplTest extends TelecomTestCase {
     }
 
     @SmallTest
+    @Test
     public void testGetDefaultOutgoingPhoneAccountFailure() throws RemoteException {
         // make sure that the list of user profiles doesn't include anything the PhoneAccountHandles
         // are associated with
@@ -233,6 +242,7 @@ public class TelecomServiceImplTest extends TelecomTestCase {
     }
 
     @SmallTest
+    @Test
     public void testGetUserSelectedOutgoingPhoneAccount() throws RemoteException {
         when(mFakePhoneAccountRegistrar.getUserSelectedOutgoingPhoneAccount(any(UserHandle.class)))
                 .thenReturn(TEL_PA_HANDLE_16);
@@ -245,6 +255,7 @@ public class TelecomServiceImplTest extends TelecomTestCase {
     }
 
     @SmallTest
+    @Test
     public void testSetUserSelectedOutgoingPhoneAccount() throws RemoteException {
         mTSIBinder.setUserSelectedOutgoingPhoneAccount(TEL_PA_HANDLE_16);
         verify(mFakePhoneAccountRegistrar)
@@ -252,6 +263,7 @@ public class TelecomServiceImplTest extends TelecomTestCase {
     }
 
     @SmallTest
+    @Test
     public void testSetUserSelectedOutgoingPhoneAccountFailure() throws RemoteException {
         doThrow(new SecurityException()).when(mContext).enforceCallingOrSelfPermission(
                 anyString(), nullable(String.class));
@@ -266,6 +278,7 @@ public class TelecomServiceImplTest extends TelecomTestCase {
     }
 
     @SmallTest
+    @Test
     public void testGetCallCapablePhoneAccounts() throws RemoteException {
         List<PhoneAccountHandle> fullPHList = new ArrayList<PhoneAccountHandle>() {{
             add(TEL_PA_HANDLE_16);
@@ -292,6 +305,7 @@ public class TelecomServiceImplTest extends TelecomTestCase {
     }
 
     @SmallTest
+    @Test
     public void testGetCallCapablePhoneAccountsFailure() throws RemoteException {
         List<String> enforcedPermissions = new ArrayList<String>() {{
             add(READ_PHONE_STATE);
@@ -312,6 +326,7 @@ public class TelecomServiceImplTest extends TelecomTestCase {
     }
 
     @SmallTest
+    @Test
     public void testGetPhoneAccountsSupportingScheme() throws RemoteException {
         List<PhoneAccountHandle> sipPHList = new ArrayList<PhoneAccountHandle>() {{
             add(SIP_PA_HANDLE_17);
@@ -335,6 +350,7 @@ public class TelecomServiceImplTest extends TelecomTestCase {
     }
 
     @SmallTest
+    @Test
     public void testGetPhoneAccountsForPackage() throws RemoteException {
         List<PhoneAccountHandle> phoneAccountHandleList = new ArrayList<PhoneAccountHandle>() {{
             add(TEL_PA_HANDLE_16);
@@ -350,6 +366,7 @@ public class TelecomServiceImplTest extends TelecomTestCase {
     }
 
     @SmallTest
+    @Test
     public void testGetPhoneAccount() throws RemoteException {
         makeAccountsVisibleToAllUsers(TEL_PA_HANDLE_16, SIP_PA_HANDLE_17);
         assertEquals(TEL_PA_HANDLE_16, mTSIBinder.getPhoneAccount(TEL_PA_HANDLE_16)
@@ -359,6 +376,7 @@ public class TelecomServiceImplTest extends TelecomTestCase {
     }
 
     @SmallTest
+    @Test
     public void testGetAllPhoneAccounts() throws RemoteException {
         List<PhoneAccount> phoneAccountList = new ArrayList<PhoneAccount>() {{
             add(makePhoneAccount(TEL_PA_HANDLE_16).build());
@@ -371,6 +389,7 @@ public class TelecomServiceImplTest extends TelecomTestCase {
     }
 
     @SmallTest
+    @Test
     public void testRegisterPhoneAccount() throws RemoteException {
         String packageNameToUse = "com.android.officialpackage";
         PhoneAccountHandle phHandle = new PhoneAccountHandle(new ComponentName(
@@ -383,6 +402,7 @@ public class TelecomServiceImplTest extends TelecomTestCase {
     }
 
     @SmallTest
+    @Test
     public void testRegisterPhoneAccountWithoutModifyPermission() throws RemoteException {
         // tests the case where the package does not have MODIFY_PHONE_STATE but is
         // registering its own phone account as a third-party connection service
@@ -400,6 +420,7 @@ public class TelecomServiceImplTest extends TelecomTestCase {
     }
 
     @SmallTest
+    @Test
     public void testRegisterPhoneAccountWithoutModifyPermissionFailure() throws RemoteException {
         // tests the case where the third party package should not be allowed to register a phone
         // account due to the lack of modify permission.
@@ -417,6 +438,7 @@ public class TelecomServiceImplTest extends TelecomTestCase {
     }
 
     @SmallTest
+    @Test
     public void testRegisterPhoneAccountWithoutSimSubscriptionPermissionFailure()
             throws RemoteException {
         String packageNameToUse = "com.thirdparty.connectionservice";
@@ -436,6 +458,7 @@ public class TelecomServiceImplTest extends TelecomTestCase {
     }
 
     @SmallTest
+    @Test
     public void testRegisterPhoneAccountWithoutMultiUserPermissionFailure()
             throws Exception {
         String packageNameToUse = "com.thirdparty.connectionservice";
@@ -474,6 +497,7 @@ public class TelecomServiceImplTest extends TelecomTestCase {
     }
 
     @SmallTest
+    @Test
     public void testUnregisterPhoneAccount() throws RemoteException {
         String packageNameToUse = "com.android.officialpackage";
         PhoneAccountHandle phHandle = new PhoneAccountHandle(new ComponentName(
@@ -488,6 +512,7 @@ public class TelecomServiceImplTest extends TelecomTestCase {
     }
 
     @SmallTest
+    @Test
     public void testUnregisterPhoneAccountFailure() throws RemoteException {
         String packageNameToUse = "com.thirdparty.connectionservice";
         PhoneAccountHandle phHandle = new PhoneAccountHandle(new ComponentName(
@@ -510,6 +535,7 @@ public class TelecomServiceImplTest extends TelecomTestCase {
     }
 
     @SmallTest
+    @Test
     public void testAddNewIncomingCall() throws Exception {
         PhoneAccount phoneAccount = makePhoneAccount(TEL_PA_HANDLE_CURRENT).build();
         phoneAccount.setIsEnabled(true);
@@ -525,6 +551,7 @@ public class TelecomServiceImplTest extends TelecomTestCase {
     }
 
     @SmallTest
+    @Test
     public void testAddNewIncomingCallFailure() throws Exception {
         try {
             mTSIBinder.addNewIncomingCall(TEL_PA_HANDLE_16, null);
@@ -546,6 +573,7 @@ public class TelecomServiceImplTest extends TelecomTestCase {
     }
 
     @SmallTest
+    @Test
     public void testAddNewUnknownCall() throws Exception {
         PhoneAccount phoneAccount = makePhoneAccount(TEL_PA_HANDLE_CURRENT).build();
         phoneAccount.setIsEnabled(true);
@@ -561,6 +589,7 @@ public class TelecomServiceImplTest extends TelecomTestCase {
     }
 
     @SmallTest
+    @Test
     public void testAddNewUnknownCallFailure() throws Exception {
         try {
             mTSIBinder.addNewUnknownCall(TEL_PA_HANDLE_16, null);
@@ -611,6 +640,7 @@ public class TelecomServiceImplTest extends TelecomTestCase {
     }
 
     @SmallTest
+    @Test
     public void testPlaceCallWithNonEmergencyPermission() throws Exception {
         Uri handle = Uri.parse("tel:6505551234");
         Bundle extras = createSampleExtras();
@@ -619,12 +649,15 @@ public class TelecomServiceImplTest extends TelecomTestCase {
                 .thenReturn(AppOpsManager.MODE_ALLOWED);
         doReturn(PackageManager.PERMISSION_GRANTED)
                 .when(mContext).checkCallingPermission(CALL_PHONE);
+        doReturn(PackageManager.PERMISSION_DENIED)
+                .when(mContext).checkCallingPermission(CALL_PRIVILEGED);
 
         mTSIBinder.placeCall(handle, extras, DEFAULT_DIALER_PACKAGE);
         placeCallTestHelper(handle, extras, true);
     }
 
     @SmallTest
+    @Test
     public void testPlaceCallWithAppOpsOff() throws Exception {
         Uri handle = Uri.parse("tel:6505551234");
         Bundle extras = createSampleExtras();
@@ -633,12 +666,15 @@ public class TelecomServiceImplTest extends TelecomTestCase {
                 .thenReturn(AppOpsManager.MODE_IGNORED);
         doReturn(PackageManager.PERMISSION_GRANTED)
                 .when(mContext).checkCallingPermission(CALL_PHONE);
+        doReturn(PackageManager.PERMISSION_DENIED)
+                .when(mContext).checkCallingPermission(CALL_PRIVILEGED);
 
         mTSIBinder.placeCall(handle, extras, DEFAULT_DIALER_PACKAGE);
         placeCallTestHelper(handle, extras, false);
     }
 
     @SmallTest
+    @Test
     public void testPlaceCallWithNoCallingPermission() throws Exception {
         Uri handle = Uri.parse("tel:6505551234");
         Bundle extras = createSampleExtras();
@@ -647,6 +683,8 @@ public class TelecomServiceImplTest extends TelecomTestCase {
                 .thenReturn(AppOpsManager.MODE_ALLOWED);
         doReturn(PackageManager.PERMISSION_DENIED)
                 .when(mContext).checkCallingPermission(CALL_PHONE);
+        doReturn(PackageManager.PERMISSION_DENIED)
+                .when(mContext).checkCallingPermission(CALL_PRIVILEGED);
 
         mTSIBinder.placeCall(handle, extras, DEFAULT_DIALER_PACKAGE);
         placeCallTestHelper(handle, extras, false);
@@ -656,7 +694,7 @@ public class TelecomServiceImplTest extends TelecomTestCase {
             boolean shouldNonEmergencyBeAllowed) {
         ArgumentCaptor<Intent> intentCaptor = ArgumentCaptor.forClass(Intent.class);
         verify(mUserCallIntentProcessor).processIntent(intentCaptor.capture(), anyString(),
-                eq(shouldNonEmergencyBeAllowed));
+                eq(shouldNonEmergencyBeAllowed), eq(true));
         Intent capturedIntent = intentCaptor.getValue();
         assertEquals(Intent.ACTION_CALL, capturedIntent.getAction());
         assertEquals(expectedHandle, capturedIntent.getData());
@@ -664,6 +702,7 @@ public class TelecomServiceImplTest extends TelecomTestCase {
     }
 
     @SmallTest
+    @Test
     public void testPlaceCallFailure() throws Exception {
         Uri handle = Uri.parse("tel:6505551234");
         Bundle extras = createSampleExtras();
@@ -678,10 +717,11 @@ public class TelecomServiceImplTest extends TelecomTestCase {
         }
 
         verify(mUserCallIntentProcessor, never())
-                .processIntent(any(Intent.class), anyString(), anyBoolean());
+                .processIntent(any(Intent.class), anyString(), anyBoolean(), eq(true));
     }
 
     @SmallTest
+    @Test
     public void testSetDefaultDialer() throws Exception {
         String packageName = "sample.package";
         int currentUser = ActivityManager.getCurrentUser();
@@ -702,6 +742,7 @@ public class TelecomServiceImplTest extends TelecomTestCase {
     }
 
     @SmallTest
+    @Test
     public void testSetDefaultDialerNoModifyPhoneStatePermission() throws Exception {
         doThrow(new SecurityException()).when(mContext).enforceCallingOrSelfPermission(
                 eq(MODIFY_PHONE_STATE), nullable(String.class));
@@ -709,6 +750,7 @@ public class TelecomServiceImplTest extends TelecomTestCase {
     }
 
     @SmallTest
+    @Test
     public void testSetDefaultDialerNoWriteSecureSettingsPermission() throws Exception {
         doThrow(new SecurityException()).when(mContext).enforceCallingOrSelfPermission(
                 eq(WRITE_SECURE_SETTINGS), nullable(String.class));
@@ -728,6 +770,7 @@ public class TelecomServiceImplTest extends TelecomTestCase {
     }
 
     @SmallTest
+    @Test
     public void testIsVoicemailNumber() throws Exception {
         String vmNumber = "010";
         makeAccountsVisibleToAllUsers(TEL_PA_HANDLE_CURRENT);
@@ -739,6 +782,7 @@ public class TelecomServiceImplTest extends TelecomTestCase {
     }
 
     @SmallTest
+    @Test
     public void testIsVoicemailNumberAccountNotVisibleFailure() throws Exception {
         String vmNumber = "010";
 
@@ -752,6 +796,7 @@ public class TelecomServiceImplTest extends TelecomTestCase {
     }
 
     @SmallTest
+    @Test
     public void testGetVoicemailNumberWithNullAccountHandle() throws Exception {
         when(mFakePhoneAccountRegistrar.getPhoneAccount(isNull(PhoneAccountHandle.class),
                 eq(Binder.getCallingUserHandle())))
@@ -768,6 +813,7 @@ public class TelecomServiceImplTest extends TelecomTestCase {
     }
 
     @SmallTest
+    @Test
     public void testGetVoicemailNumberWithNonNullAccountHandle() throws Exception {
         when(mFakePhoneAccountRegistrar.getPhoneAccount(eq(TEL_PA_HANDLE_CURRENT),
                 eq(Binder.getCallingUserHandle())))
@@ -786,6 +832,7 @@ public class TelecomServiceImplTest extends TelecomTestCase {
     }
 
     @SmallTest
+    @Test
     public void testGetLine1Number() throws Exception {
         int subId = 58374;
         String line1Number = "9482752023479";
@@ -801,39 +848,44 @@ public class TelecomServiceImplTest extends TelecomTestCase {
     }
 
     @SmallTest
+    @Test
     public void testEndCallWithRingingForegroundCall() throws Exception {
         Call call = mock(Call.class);
         when(call.getState()).thenReturn(CallState.RINGING);
         when(mFakeCallsManager.getForegroundCall()).thenReturn(call);
-        assertTrue(mTSIBinder.endCall());
-        verify(call).reject(false, null);
+        assertTrue(mTSIBinder.endCall(TEST_PACKAGE));
+        verify(call).reject(eq(false), isNull(), eq(TEST_PACKAGE));
     }
 
     @SmallTest
+    @Test
     public void testEndCallWithNonRingingForegroundCall() throws Exception {
         Call call = mock(Call.class);
         when(call.getState()).thenReturn(CallState.ACTIVE);
         when(mFakeCallsManager.getForegroundCall()).thenReturn(call);
-        assertTrue(mTSIBinder.endCall());
-        verify(call).disconnect();
+        assertTrue(mTSIBinder.endCall(TEST_PACKAGE));
+        verify(call).disconnect(eq(0L), eq(TEST_PACKAGE));
     }
 
     @SmallTest
+    @Test
     public void testEndCallWithNoForegroundCall() throws Exception {
         Call call = mock(Call.class);
         when(call.getState()).thenReturn(CallState.ACTIVE);
-        when(mFakeCallsManager.getFirstCallWithState(argThat(new IntVarArgMatcher())))
+        when(mFakeCallsManager.getFirstCallWithState(any()))
                 .thenReturn(call);
-        assertTrue(mTSIBinder.endCall());
-        verify(call).disconnect();
+        assertTrue(mTSIBinder.endCall(TEST_PACKAGE));
+        verify(call).disconnect(eq(0L), eq(TEST_PACKAGE));
     }
 
     @SmallTest
+    @Test
     public void testEndCallWithNoCalls() throws Exception {
-        assertFalse(mTSIBinder.endCall());
+        assertFalse(mTSIBinder.endCall(null));
     }
 
     @SmallTest
+    @Test
     public void testAcceptRingingCall() throws Exception {
         Call call = mock(Call.class);
         when(mFakeCallsManager.getFirstCallWithState(anyInt())).thenReturn(call);
@@ -846,6 +898,7 @@ public class TelecomServiceImplTest extends TelecomTestCase {
     }
 
     @SmallTest
+    @Test
     public void testAcceptRingingCallWithValidVideoState() throws Exception {
         Call call = mock(Call.class);
         when(mFakeCallsManager.getFirstCallWithState(anyInt())).thenReturn(call);
@@ -859,18 +912,21 @@ public class TelecomServiceImplTest extends TelecomTestCase {
     }
 
     @SmallTest
+    @Test
     public void testIsInCall() throws Exception {
         when(mFakeCallsManager.hasOngoingCalls()).thenReturn(true);
         assertTrue(mTSIBinder.isInCall(DEFAULT_DIALER_PACKAGE));
     }
 
     @SmallTest
+    @Test
     public void testNotIsInCall() throws Exception {
         when(mFakeCallsManager.hasOngoingCalls()).thenReturn(false);
         assertFalse(mTSIBinder.isInCall(DEFAULT_DIALER_PACKAGE));
     }
 
     @SmallTest
+    @Test
     public void testIsInCallFail() throws Exception {
         doThrow(new SecurityException()).when(mContext).enforceCallingOrSelfPermission(
                 anyString(), any());
@@ -884,18 +940,21 @@ public class TelecomServiceImplTest extends TelecomTestCase {
     }
 
     @SmallTest
+    @Test
     public void testIsInManagedCall() throws Exception {
         when(mFakeCallsManager.hasOngoingManagedCalls()).thenReturn(true);
         assertTrue(mTSIBinder.isInManagedCall(DEFAULT_DIALER_PACKAGE));
     }
 
     @SmallTest
+    @Test
     public void testNotIsInManagedCall() throws Exception {
         when(mFakeCallsManager.hasOngoingManagedCalls()).thenReturn(false);
         assertFalse(mTSIBinder.isInManagedCall(DEFAULT_DIALER_PACKAGE));
     }
 
     @SmallTest
+    @Test
     public void testIsInManagedCallFail() throws Exception {
         doThrow(new SecurityException()).when(mContext).enforceCallingOrSelfPermission(
                 anyString(), any());

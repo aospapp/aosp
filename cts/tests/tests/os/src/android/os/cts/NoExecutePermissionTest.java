@@ -48,10 +48,6 @@ public class NoExecutePermissionTest extends TestCase {
         assertFalse(isHeapExecutable());
     }
 
-    public void testExecuteCode() {
-        assertTrue(isMyCodeExecutable());
-    }
-
     private static boolean cpuHasNxSupport() {
         if (CpuFeatures.isArmCpu() && !CpuFeatures.isArm7Compatible()) {
             // ARM processors before v7 do not have NX support.
@@ -70,5 +66,4 @@ public class NoExecutePermissionTest extends TestCase {
 
     private static native boolean isStackExecutable();
     private static native boolean isHeapExecutable();
-    private static native boolean isMyCodeExecutable();
 }

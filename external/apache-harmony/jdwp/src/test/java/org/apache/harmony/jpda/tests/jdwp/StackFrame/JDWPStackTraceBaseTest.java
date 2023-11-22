@@ -19,6 +19,7 @@
 package org.apache.harmony.jpda.tests.jdwp.StackFrame;
 
 import org.apache.harmony.jpda.tests.framework.LogWriter;
+import org.apache.harmony.jpda.tests.framework.jdwp.Frame;
 import org.apache.harmony.jpda.tests.framework.jdwp.JDWPConstants;
 import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
 
@@ -32,7 +33,7 @@ public class JDWPStackTraceBaseTest extends JDWPStackFrameTestCase {
     String testedMethodName = "nestledMethod3";
     String testedThreadName = "";
 
-    VarInfo[] varInfos;
+    Frame.Variable[] varInfos;
 
     String varSignatures[] = {
             "Lorg/apache/harmony/jpda/tests/jdwp/StackFrame/StackTraceDebuggee;",
@@ -133,7 +134,7 @@ public class JDWPStackTraceBaseTest extends JDWPStackFrameTestCase {
     }
 
     // prints variables info, checks signatures
-    protected static boolean checkVarTable(LogWriter logWriter, VarInfo[] varInfos,
+    protected static boolean checkVarTable(LogWriter logWriter, Frame.Variable[] varInfos,
             byte[] varTags, String[] varSignatures, String[] varNames) {
         logWriter.println("==> Number of variables = " + varInfos.length);
         if (varInfos.length != varTags.length) {

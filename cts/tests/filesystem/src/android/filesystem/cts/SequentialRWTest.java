@@ -16,7 +16,10 @@
 
 package android.filesystem.cts;
 
-import com.android.compatibility.common.util.CtsAndroidTestCase;
+import static android.support.test.InstrumentationRegistry.getContext;
+import static android.support.test.InstrumentationRegistry.getInstrumentation;
+
+import android.support.test.runner.AndroidJUnit4;
 
 import com.android.compatibility.common.util.DeviceReportLog;
 import com.android.compatibility.common.util.MeasureRun;
@@ -26,27 +29,31 @@ import com.android.compatibility.common.util.ResultUnit;
 import com.android.compatibility.common.util.Stat;
 
 import com.android.compatibility.common.util.CddTest;
+import org.junit.After;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 
-public class SequentialRWTest extends CtsAndroidTestCase {
+@RunWith(AndroidJUnit4.class)
+public class SequentialRWTest {
     private static final String DIR_SEQ_WR = "SEQ_WR";
     private static final String DIR_SEQ_UPDATE = "SEQ_UPDATE";
     private static final String DIR_SEQ_RD = "SEQ_RD";
     private static final String REPORT_LOG_NAME = "CtsFileSystemTestCases";
     private static final int BUFFER_SIZE = 10 * 1024 * 1024;
 
-    @Override
-    protected void tearDown() throws Exception {
+    @After
+    public void tearDown() throws Exception {
         FileUtil.removeFileOrDir(getContext(), DIR_SEQ_WR);
         FileUtil.removeFileOrDir(getContext(), DIR_SEQ_UPDATE);
         FileUtil.removeFileOrDir(getContext(), DIR_SEQ_RD);
-        super.tearDown();
     }
 
     @CddTest(requirement="8.2")
+    @Test
     public void testSingleSequentialWrite() throws Exception {
         final long fileSize = FileUtil.getFileSizeExceedingMemory(getContext(), BUFFER_SIZE);
         if (fileSize == 0) { // not enough space, give up
@@ -77,6 +84,7 @@ public class SequentialRWTest extends CtsAndroidTestCase {
         report.submit(getInstrumentation());
     }
 
+    @Test
     public void testSingleSequentialUpdate() throws Exception {
         final long fileSize = FileUtil.getFileSizeExceedingMemory(getContext(), BUFFER_SIZE);
         if (fileSize == 0) { // not enough space, give up
@@ -89,6 +97,7 @@ public class SequentialRWTest extends CtsAndroidTestCase {
     }
 
     @CddTest(requirement="8.2")
+    @Test
     public void testSingleSequentialRead() throws Exception {
         final long fileSize = FileUtil.getFileSizeExceedingMemory(getContext(), BUFFER_SIZE);
         if (fileSize == 0) { // not enough space, give up

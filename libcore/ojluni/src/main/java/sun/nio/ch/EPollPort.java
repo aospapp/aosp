@@ -316,4 +316,11 @@ final class EPollPort
     private static native void drain1(int fd) throws IOException;
 
     private static native void close0(int fd);
+
+    // Android-removed: Code to load native libraries, doesn't make sense on Android.
+    /*
+    static {
+        IOUtil.load();
+    }
+    */
 }

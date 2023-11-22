@@ -25,6 +25,7 @@ Shield box one: Android Device, headset and Monsoon tool box
 import json
 import os
 import time
+import sys
 
 from acts import logger
 from acts.controllers import monsoon
@@ -35,6 +36,7 @@ from acts.test_utils.bt.BluetoothBaseTest import BluetoothBaseTest
 from acts.test_utils.bt.PowerBaseTest import PowerBaseTest
 from acts.test_utils.bt.bt_test_utils import bluetooth_enabled_check
 from acts.test_utils.bt.bt_test_utils import disable_bluetooth
+from acts.test_utils.bt.bt_test_utils import reset_bluetooth
 from acts.controllers.relay_lib.sony_xb2_speaker import SonyXB2Speaker
 
 
@@ -62,7 +64,7 @@ def push_file_to_device(ad, file_path, device_path, config_path):
 
 class A2dpPowerTest(PowerBaseTest):
     # Time for measuring the power when playing music in seconds
-    MEASURE_TIME = 3600
+    MEASURE_TIME = 400
     # Delay time in seconds between starting playing and measuring power
     DELAY_MEASURE_TIME = 300
     # Extra time to stop Music in PMC after power measurement is stopped
@@ -187,6 +189,8 @@ class A2dpPowerTest(PowerBaseTest):
         # Give a breathing time of short delay to take effect
         time.sleep(3)
 
+        reset_bluetooth([self.ad])
+
         # Determine if we have a relay-based device
         self.a2dp_speaker = None
         if self.relay_devices[0]:
@@ -246,6 +250,7 @@ class A2dpPowerTest(PowerBaseTest):
                                             sample_rate,
                                             bits_per_sample,
                                             music_file,
+                                            test_case,
                                             ldac_playback_quality=LDACBT_NONE,
                                             bt_on_not_play=False,
                                             bt_off_mute=False):
@@ -273,7 +278,7 @@ class A2dpPowerTest(PowerBaseTest):
                             on board speakers muted
 
         Returns:
-            None
+            True or False value per check_test_pass result
         """
         if bt_on_not_play == True:
             msg = "%s --es BT_ON_NotPlay %d" % (self.PMC_BASE_CMD, 1)
@@ -313,12 +318,21 @@ class A2dpPowerTest(PowerBaseTest):
         result = self.mon.measure_power(
             self.POWER_SAMPLING_RATE, self.MEASURE_TIME,
             self.current_test_name, self.DELAY_MEASURE_TIME)
+
         # Sleep to wait for PMC to finish
         time.sleep(self.DELAY_STOP_TIME)
         # Check if PMC was successful
         self.check_pmc_status(self.LOG_FILE, "SUCCEED",
                               "PMC was not successful")
-        self.save_logs_for_power_test(result, self.MEASURE_TIME, 0)
+
+        (current_avg, stdev) = self.save_logs_for_power_test(
+            result, self.MEASURE_TIME, 0)
+
+        # perform watermark comparison numbers
+        self.log.info("==> CURRENT AVG from PMC Monsoon app: %s" % current_avg)
+        self.log.info(
+            "==> WATERMARK from config file: %s" % self.user_params[test_case])
+        return self.check_test_pass(current_avg, self.user_params[test_case])
 
     @BluetoothBaseTest.bt_test_wrap
     @test_tracker_info(uuid='6dc78cf4-7cae-4b03-8a31-0d23f41d1baa')
@@ -338,10 +352,15 @@ class A2dpPowerTest(PowerBaseTest):
         Priority: 3
 
         """
-
-        self._main_power_test_function_for_codec(
-            self.CODEC_SBC, self.SAMPLE_RATE_44100, self.BITS_PER_SAMPLE_16,
-            self.cd_quality_music_file, self.LDACBT_NONE, True)
+        current_test_case = func_name = sys._getframe().f_code.co_name
+        return self._main_power_test_function_for_codec(
+            self.CODEC_SBC,
+            self.SAMPLE_RATE_44100,
+            self.BITS_PER_SAMPLE_16,
+            self.cd_quality_music_file,
+            current_test_case,
+            ldac_playback_quality=self.LDACBT_NONE,
+            bt_on_not_play=True)
 
     @BluetoothBaseTest.bt_test_wrap
     @test_tracker_info(uuid='d96080e3-1944-48b8-9655-4a77664a463b')
@@ -368,9 +387,16 @@ class A2dpPowerTest(PowerBaseTest):
             self.log.error("Failed to disable Bluetooth on DUT")
             return False
 
-        self._main_power_test_function_for_codec(
-            self.CODEC_SBC, self.SAMPLE_RATE_44100, self.BITS_PER_SAMPLE_16,
-            self.cd_quality_music_file, self.LDACBT_NONE, False, True)
+        current_test_case = func_name = sys._getframe().f_code.co_name
+        return self._main_power_test_function_for_codec(
+            self.CODEC_SBC,
+            self.SAMPLE_RATE_44100,
+            self.BITS_PER_SAMPLE_16,
+            self.cd_quality_music_file,
+            current_test_case,
+            ldac_playback_quality=self.LDACBT_NONE,
+            bt_on_not_play=False,
+            bt_off_mute=True)
 
         self.ad.log.info("Enable BT")
         if not bluetooth_enabled_check(self.ad):
@@ -400,10 +426,10 @@ class A2dpPowerTest(PowerBaseTest):
         Priority: 3
 
         """
-
-        self._main_power_test_function_for_codec(
+        current_test_case = func_name = sys._getframe().f_code.co_name
+        return self._main_power_test_function_for_codec(
             self.CODEC_SBC, self.SAMPLE_RATE_44100, self.BITS_PER_SAMPLE_16,
-            self.cd_quality_music_file)
+            self.cd_quality_music_file, current_test_case)
 
     @BluetoothBaseTest.bt_test_wrap
     @test_tracker_info(uuid='d9421c37-c2db-4dc5-841b-f837c0b2ea48')
@@ -423,10 +449,10 @@ class A2dpPowerTest(PowerBaseTest):
         Priority: 3
 
         """
-
-        self._main_power_test_function_for_codec(
+        current_test_case = func_name = sys._getframe().f_code.co_name
+        return self._main_power_test_function_for_codec(
             self.CODEC_SBC, self.SAMPLE_RATE_44100, self.BITS_PER_SAMPLE_16,
-            self.hi_res_music_file)
+            self.hi_res_music_file, current_test_case)
 
     @BluetoothBaseTest.bt_test_wrap
     @test_tracker_info(uuid='f746c038-9a00-43d0-b6b1-b9a36fae5a5a')
@@ -446,10 +472,10 @@ class A2dpPowerTest(PowerBaseTest):
         Priority: 3
 
         """
-
-        self._main_power_test_function_for_codec(
+        current_test_case = func_name = sys._getframe().f_code.co_name
+        return self._main_power_test_function_for_codec(
             self.CODEC_AAC, self.SAMPLE_RATE_44100, self.BITS_PER_SAMPLE_16,
-            self.cd_quality_music_file)
+            self.cd_quality_music_file, current_test_case)
 
     @BluetoothBaseTest.bt_test_wrap
     @test_tracker_info(uuid='510448e1-f4fb-4048-adad-67f8f16f96c4')
@@ -469,10 +495,10 @@ class A2dpPowerTest(PowerBaseTest):
         Priority: 3
 
         """
-
-        self._main_power_test_function_for_codec(
+        current_test_case = func_name = sys._getframe().f_code.co_name
+        return self._main_power_test_function_for_codec(
             self.CODEC_AAC, self.SAMPLE_RATE_44100, self.BITS_PER_SAMPLE_16,
-            self.hi_res_music_file)
+            self.hi_res_music_file, current_test_case)
 
     @BluetoothBaseTest.bt_test_wrap
     @test_tracker_info(uuid='9df971d1-91b6-4fad-86ff-aa91d14aa895')
@@ -492,10 +518,10 @@ class A2dpPowerTest(PowerBaseTest):
         Priority: 3
 
         """
-
-        self._main_power_test_function_for_codec(
+        current_test_case = func_name = sys._getframe().f_code.co_name
+        return self._main_power_test_function_for_codec(
             self.CODEC_AAC, self.SAMPLE_RATE_48000, self.BITS_PER_SAMPLE_16,
-            self.cd_quality_music_file)
+            self.cd_quality_music_file, current_test_case)
 
     @BluetoothBaseTest.bt_test_wrap
     @test_tracker_info(uuid='b020518e-027b-4716-8abb-cd6d83551869')
@@ -515,10 +541,10 @@ class A2dpPowerTest(PowerBaseTest):
         Priority: 3
 
         """
-
-        self._main_power_test_function_for_codec(
+        current_test_case = func_name = sys._getframe().f_code.co_name
+        return self._main_power_test_function_for_codec(
             self.CODEC_AAC, self.SAMPLE_RATE_48000, self.BITS_PER_SAMPLE_16,
-            self.hi_res_music_file)
+            self.hi_res_music_file, current_test_case)
 
     @BluetoothBaseTest.bt_test_wrap
     @test_tracker_info(uuid='2006dffb-b47b-4986-b11d-de151d5f4794')
@@ -538,10 +564,10 @@ class A2dpPowerTest(PowerBaseTest):
         Priority: 3
 
         """
-
-        self._main_power_test_function_for_codec(
+        current_test_case = func_name = sys._getframe().f_code.co_name
+        return self._main_power_test_function_for_codec(
             self.CODEC_APTX, self.SAMPLE_RATE_44100, self.BITS_PER_SAMPLE_16,
-            self.cd_quality_music_file)
+            self.cd_quality_music_file, current_test_case)
 
     @BluetoothBaseTest.bt_test_wrap
     @test_tracker_info(uuid='8844356b-7756-4da6-89fe-96161e715cab')
@@ -561,10 +587,10 @@ class A2dpPowerTest(PowerBaseTest):
         Priority: 3
 
         """
-
-        self._main_power_test_function_for_codec(
+        current_test_case = func_name = sys._getframe().f_code.co_name
+        return self._main_power_test_function_for_codec(
             self.CODEC_APTX, self.SAMPLE_RATE_44100, self.BITS_PER_SAMPLE_16,
-            self.hi_res_music_file)
+            self.hi_res_music_file, current_test_case)
 
     @BluetoothBaseTest.bt_test_wrap
     @test_tracker_info(uuid='d037ae2e-c5e8-4f84-9908-88335803a3d9')
@@ -584,10 +610,10 @@ class A2dpPowerTest(PowerBaseTest):
         Priority: 3
 
         """
-
-        self._main_power_test_function_for_codec(
+        current_test_case = func_name = sys._getframe().f_code.co_name
+        return self._main_power_test_function_for_codec(
             self.CODEC_APTX, self.SAMPLE_RATE_48000, self.BITS_PER_SAMPLE_16,
-            self.cd_quality_music_file)
+            self.cd_quality_music_file, current_test_case)
 
     @BluetoothBaseTest.bt_test_wrap
     @test_tracker_info(uuid='4741b8cc-b038-4b38-8326-6a98de3f5ac6')
@@ -607,10 +633,10 @@ class A2dpPowerTest(PowerBaseTest):
         Priority: 3
 
         """
-
-        self._main_power_test_function_for_codec(
+        current_test_case = func_name = sys._getframe().f_code.co_name
+        return self._main_power_test_function_for_codec(
             self.CODEC_APTX, self.SAMPLE_RATE_48000, self.BITS_PER_SAMPLE_16,
-            self.hi_res_music_file)
+            self.hi_res_music_file, current_test_case)
 
     @BluetoothBaseTest.bt_test_wrap
     @test_tracker_info(uuid='8dff8f63-bbdb-4a2d-afca-ff1aabf7b5f2')
@@ -630,10 +656,11 @@ class A2dpPowerTest(PowerBaseTest):
         Priority: 3
 
         """
-
-        self._main_power_test_function_for_codec(
+        current_test_case = func_name = sys._getframe().f_code.co_name
+        return self._main_power_test_function_for_codec(
             self.CODEC_APTX_HD, self.SAMPLE_RATE_44100,
-            self.BITS_PER_SAMPLE_24, self.cd_quality_music_file)
+            self.BITS_PER_SAMPLE_24, self.cd_quality_music_file,
+            current_test_case)
 
     @BluetoothBaseTest.bt_test_wrap
     @test_tracker_info(uuid='ab364fdd-04dd-42b7-af0d-fe1d7d7b809b')
@@ -653,10 +680,10 @@ class A2dpPowerTest(PowerBaseTest):
         Priority: 3
 
         """
-
-        self._main_power_test_function_for_codec(
+        current_test_case = func_name = sys._getframe().f_code.co_name
+        return self._main_power_test_function_for_codec(
             self.CODEC_APTX_HD, self.SAMPLE_RATE_44100,
-            self.BITS_PER_SAMPLE_24, self.hi_res_music_file)
+            self.BITS_PER_SAMPLE_24, self.hi_res_music_file, current_test_case)
 
     @BluetoothBaseTest.bt_test_wrap
     @test_tracker_info(uuid='dd838989-9440-4833-91f6-6fca6e219796')
@@ -676,10 +703,11 @@ class A2dpPowerTest(PowerBaseTest):
         Priority: 3
 
         """
-
-        self._main_power_test_function_for_codec(
+        current_test_case = func_name = sys._getframe().f_code.co_name
+        return self._main_power_test_function_for_codec(
             self.CODEC_APTX_HD, self.SAMPLE_RATE_48000,
-            self.BITS_PER_SAMPLE_24, self.cd_quality_music_file)
+            self.BITS_PER_SAMPLE_24, self.cd_quality_music_file,
+            current_test_case)
 
     @BluetoothBaseTest.bt_test_wrap
     @test_tracker_info(uuid='814122eb-7068-470b-b04c-d64883258b0c')
@@ -699,10 +727,10 @@ class A2dpPowerTest(PowerBaseTest):
         Priority: 3
 
         """
-
-        self._main_power_test_function_for_codec(
+        current_test_case = func_name = sys._getframe().f_code.co_name
+        return self._main_power_test_function_for_codec(
             self.CODEC_APTX_HD, self.SAMPLE_RATE_48000,
-            self.BITS_PER_SAMPLE_24, self.hi_res_music_file)
+            self.BITS_PER_SAMPLE_24, self.hi_res_music_file, current_test_case)
 
     @BluetoothBaseTest.bt_test_wrap
     @test_tracker_info(uuid='682c055f-4883-4559-828a-67956e110475')
@@ -722,10 +750,14 @@ class A2dpPowerTest(PowerBaseTest):
         Priority: 3
 
         """
-
-        self._main_power_test_function_for_codec(
-            self.CODEC_LDAC, self.SAMPLE_RATE_44100, self.BITS_PER_SAMPLE_16,
-            self.cd_quality_music_file, self.LDACBT_EQMID_HQ)
+        current_test_case = func_name = sys._getframe().f_code.co_name
+        return self._main_power_test_function_for_codec(
+            self.CODEC_LDAC,
+            self.SAMPLE_RATE_44100,
+            self.BITS_PER_SAMPLE_16,
+            self.cd_quality_music_file,
+            current_test_case,
+            ldac_playback_quality=self.LDACBT_EQMID_HQ)
 
     @BluetoothBaseTest.bt_test_wrap
     @test_tracker_info(uuid='21a2478c-9b66-49ae-a8ec-d2393142ed6c')
@@ -745,10 +777,14 @@ class A2dpPowerTest(PowerBaseTest):
         Priority: 3
 
         """
-
-        self._main_power_test_function_for_codec(
-            self.CODEC_LDAC, self.SAMPLE_RATE_44100, self.BITS_PER_SAMPLE_16,
-            self.hi_res_music_file, self.LDACBT_EQMID_HQ)
+        current_test_case = func_name = sys._getframe().f_code.co_name
+        return self._main_power_test_function_for_codec(
+            self.CODEC_LDAC,
+            self.SAMPLE_RATE_44100,
+            self.BITS_PER_SAMPLE_16,
+            self.hi_res_music_file,
+            current_test_case,
+            ldac_playback_quality=self.LDACBT_EQMID_HQ)
 
     @BluetoothBaseTest.bt_test_wrap
     @test_tracker_info(uuid='f081cb13-ec02-4814-ba00-3ed33630e7c0')
@@ -768,10 +804,14 @@ class A2dpPowerTest(PowerBaseTest):
         Priority: 3
 
         """
-
-        self._main_power_test_function_for_codec(
-            self.CODEC_LDAC, self.SAMPLE_RATE_48000, self.BITS_PER_SAMPLE_16,
-            self.cd_quality_music_file, self.LDACBT_EQMID_HQ)
+        current_test_case = func_name = sys._getframe().f_code.co_name
+        return self._main_power_test_function_for_codec(
+            self.CODEC_LDAC,
+            self.SAMPLE_RATE_48000,
+            self.BITS_PER_SAMPLE_16,
+            self.cd_quality_music_file,
+            current_test_case,
+            ldac_playback_quality=self.LDACBT_EQMID_HQ)
 
     @BluetoothBaseTest.bt_test_wrap
     @test_tracker_info(uuid='1c6b3a1b-59b8-479f-8247-e8cbbef6d82f')
@@ -791,10 +831,14 @@ class A2dpPowerTest(PowerBaseTest):
         Priority: 3
 
         """
-
-        self._main_power_test_function_for_codec(
-            self.CODEC_LDAC, self.SAMPLE_RATE_48000, self.BITS_PER_SAMPLE_16,
-            self.hi_res_music_file, self.LDACBT_EQMID_HQ)
+        current_test_case = func_name = sys._getframe().f_code.co_name
+        return self._main_power_test_function_for_codec(
+            self.CODEC_LDAC,
+            self.SAMPLE_RATE_48000,
+            self.BITS_PER_SAMPLE_16,
+            self.hi_res_music_file,
+            current_test_case,
+            ldac_playback_quality=self.LDACBT_EQMID_HQ)
 
     @BluetoothBaseTest.bt_test_wrap
     @test_tracker_info(uuid='e6806e10-0f1e-4c44-8f70-66e0267ebf95')
@@ -814,10 +858,14 @@ class A2dpPowerTest(PowerBaseTest):
         Priority: 3
 
         """
-
-        self._main_power_test_function_for_codec(
-            self.CODEC_LDAC, self.SAMPLE_RATE_88200, self.BITS_PER_SAMPLE_16,
-            self.cd_quality_music_file, self.LDACBT_EQMID_HQ)
+        current_test_case = func_name = sys._getframe().f_code.co_name
+        return self._main_power_test_function_for_codec(
+            self.CODEC_LDAC,
+            self.SAMPLE_RATE_88200,
+            self.BITS_PER_SAMPLE_16,
+            self.cd_quality_music_file,
+            current_test_case,
+            ldac_playback_quality=self.LDACBT_EQMID_HQ)
 
     @BluetoothBaseTest.bt_test_wrap
     @test_tracker_info(uuid='2458880d-c662-4313-9c3a-b14ad04dddfa')
@@ -837,10 +885,14 @@ class A2dpPowerTest(PowerBaseTest):
         Priority: 3
 
         """
-
-        self._main_power_test_function_for_codec(
-            self.CODEC_LDAC, self.SAMPLE_RATE_88200, self.BITS_PER_SAMPLE_16,
-            self.hi_res_music_file, self.LDACBT_EQMID_HQ)
+        current_test_case = func_name = sys._getframe().f_code.co_name
+        return self._main_power_test_function_for_codec(
+            self.CODEC_LDAC,
+            self.SAMPLE_RATE_88200,
+            self.BITS_PER_SAMPLE_16,
+            self.hi_res_music_file,
+            current_test_case,
+            ldac_playback_quality=self.LDACBT_EQMID_HQ)
 
     @BluetoothBaseTest.bt_test_wrap
     @test_tracker_info(uuid='e492f173-8a5b-4a92-b3de-c792e8db32fb')
@@ -860,10 +912,14 @@ class A2dpPowerTest(PowerBaseTest):
         Priority: 3
 
         """
-
-        self._main_power_test_function_for_codec(
-            self.CODEC_LDAC, self.SAMPLE_RATE_96000, self.BITS_PER_SAMPLE_16,
-            self.cd_quality_music_file, self.LDACBT_EQMID_HQ)
+        current_test_case = func_name = sys._getframe().f_code.co_name
+        return self._main_power_test_function_for_codec(
+            self.CODEC_LDAC,
+            self.SAMPLE_RATE_96000,
+            self.BITS_PER_SAMPLE_16,
+            self.cd_quality_music_file,
+            current_test_case,
+            ldac_playback_quality=self.LDACBT_EQMID_HQ)
 
     @BluetoothBaseTest.bt_test_wrap
     @test_tracker_info(uuid='65f78a14-5a1f-443e-9a23-8ae8a206bd6f')
@@ -883,10 +939,14 @@ class A2dpPowerTest(PowerBaseTest):
         Priority: 3
 
         """
-
-        self._main_power_test_function_for_codec(
-            self.CODEC_LDAC, self.SAMPLE_RATE_96000, self.BITS_PER_SAMPLE_16,
-            self.hi_res_music_file, self.LDACBT_EQMID_HQ)
+        current_test_case = func_name = sys._getframe().f_code.co_name
+        return self._main_power_test_function_for_codec(
+            self.CODEC_LDAC,
+            self.SAMPLE_RATE_96000,
+            self.BITS_PER_SAMPLE_16,
+            self.hi_res_music_file,
+            current_test_case,
+            ldac_playback_quality=self.LDACBT_EQMID_HQ)
 
     @BluetoothBaseTest.bt_test_wrap
     @test_tracker_info(uuid='3f026ae2-e34e-4a0f-aac2-1684d22a3796')
@@ -906,10 +966,14 @@ class A2dpPowerTest(PowerBaseTest):
         Priority: 3
 
         """
-
-        self._main_power_test_function_for_codec(
-            self.CODEC_LDAC, self.SAMPLE_RATE_44100, self.BITS_PER_SAMPLE_24,
-            self.cd_quality_music_file, self.LDACBT_EQMID_HQ)
+        current_test_case = func_name = sys._getframe().f_code.co_name
+        return self._main_power_test_function_for_codec(
+            self.CODEC_LDAC,
+            self.SAMPLE_RATE_44100,
+            self.BITS_PER_SAMPLE_24,
+            self.cd_quality_music_file,
+            current_test_case,
+            ldac_playback_quality=self.LDACBT_EQMID_HQ)
 
     @BluetoothBaseTest.bt_test_wrap
     @test_tracker_info(uuid='6d94bd0c-039e-47a7-8fc1-b87abcf9b27d')
@@ -929,10 +993,14 @@ class A2dpPowerTest(PowerBaseTest):
         Priority: 3
 
         """
-
-        self._main_power_test_function_for_codec(
-            self.CODEC_LDAC, self.SAMPLE_RATE_44100, self.BITS_PER_SAMPLE_24,
-            self.hi_res_music_file, self.LDACBT_EQMID_HQ)
+        current_test_case = func_name = sys._getframe().f_code.co_name
+        return self._main_power_test_function_for_codec(
+            self.CODEC_LDAC,
+            self.SAMPLE_RATE_44100,
+            self.BITS_PER_SAMPLE_24,
+            self.hi_res_music_file,
+            current_test_case,
+            ldac_playback_quality=self.LDACBT_EQMID_HQ)
 
     @BluetoothBaseTest.bt_test_wrap
     @test_tracker_info(uuid='2d5cbad5-5293-434d-b996-850ef32792a0')
@@ -952,10 +1020,14 @@ class A2dpPowerTest(PowerBaseTest):
         Priority: 3
 
         """
-
-        self._main_power_test_function_for_codec(
-            self.CODEC_LDAC, self.SAMPLE_RATE_48000, self.BITS_PER_SAMPLE_24,
-            self.cd_quality_music_file, self.LDACBT_EQMID_HQ)
+        current_test_case = func_name = sys._getframe().f_code.co_name
+        return self._main_power_test_function_for_codec(
+            self.CODEC_LDAC,
+            self.SAMPLE_RATE_48000,
+            self.BITS_PER_SAMPLE_24,
+            self.cd_quality_music_file,
+            current_test_case,
+            ldac_playback_quality=self.LDACBT_EQMID_HQ)
 
     @BluetoothBaseTest.bt_test_wrap
     @test_tracker_info(uuid='fab004d1-c67e-4b9b-af33-e4469ce9f44a')
@@ -975,10 +1047,14 @@ class A2dpPowerTest(PowerBaseTest):
         Priority: 3
 
         """
-
-        self._main_power_test_function_for_codec(
-            self.CODEC_LDAC, self.SAMPLE_RATE_48000, self.BITS_PER_SAMPLE_24,
-            self.hi_res_music_file, self.LDACBT_EQMID_HQ)
+        current_test_case = func_name = sys._getframe().f_code.co_name
+        return self._main_power_test_function_for_codec(
+            self.CODEC_LDAC,
+            self.SAMPLE_RATE_48000,
+            self.BITS_PER_SAMPLE_24,
+            self.hi_res_music_file,
+            current_test_case,
+            ldac_playback_quality=self.LDACBT_EQMID_HQ)
 
     @BluetoothBaseTest.bt_test_wrap
     @test_tracker_info(uuid='9527f997-61c6-4e88-90f9-6791cbe00883')
@@ -998,10 +1074,14 @@ class A2dpPowerTest(PowerBaseTest):
         Priority: 3
 
         """
-
-        self._main_power_test_function_for_codec(
-            self.CODEC_LDAC, self.SAMPLE_RATE_88200, self.BITS_PER_SAMPLE_24,
-            self.cd_quality_music_file, self.LDACBT_EQMID_HQ)
+        current_test_case = func_name = sys._getframe().f_code.co_name
+        return self._main_power_test_function_for_codec(
+            self.CODEC_LDAC,
+            self.SAMPLE_RATE_88200,
+            self.BITS_PER_SAMPLE_24,
+            self.cd_quality_music_file,
+            current_test_case,
+            ldac_playback_quality=self.LDACBT_EQMID_HQ)
 
     @BluetoothBaseTest.bt_test_wrap
     @test_tracker_info(uuid='4a14a499-8b62-43d9-923e-f0c46e15121e')
@@ -1021,10 +1101,14 @@ class A2dpPowerTest(PowerBaseTest):
         Priority: 3
 
         """
-
-        self._main_power_test_function_for_codec(
-            self.CODEC_LDAC, self.SAMPLE_RATE_88200, self.BITS_PER_SAMPLE_24,
-            self.hi_res_music_file, self.LDACBT_EQMID_HQ)
+        current_test_case = func_name = sys._getframe().f_code.co_name
+        return self._main_power_test_function_for_codec(
+            self.CODEC_LDAC,
+            self.SAMPLE_RATE_88200,
+            self.BITS_PER_SAMPLE_24,
+            self.hi_res_music_file,
+            current_test_case,
+            ldac_playback_quality=self.LDACBT_EQMID_HQ)
 
     @BluetoothBaseTest.bt_test_wrap
     @test_tracker_info(uuid='d6254318-7a9a-4c19-800b-03686642e846')
@@ -1044,10 +1128,14 @@ class A2dpPowerTest(PowerBaseTest):
         Priority: 3
 
         """
-
-        self._main_power_test_function_for_codec(
-            self.CODEC_LDAC, self.SAMPLE_RATE_96000, self.BITS_PER_SAMPLE_24,
-            self.cd_quality_music_file, self.LDACBT_EQMID_HQ)
+        current_test_case = func_name = sys._getframe().f_code.co_name
+        return self._main_power_test_function_for_codec(
+            self.CODEC_LDAC,
+            self.SAMPLE_RATE_96000,
+            self.BITS_PER_SAMPLE_24,
+            self.cd_quality_music_file,
+            current_test_case,
+            ldac_playback_quality=self.LDACBT_EQMID_HQ)
 
     @BluetoothBaseTest.bt_test_wrap
     @test_tracker_info(uuid='1eb26676-19ec-43af-ab20-bfb7b055114f')
@@ -1067,10 +1155,14 @@ class A2dpPowerTest(PowerBaseTest):
         Priority: 3
 
         """
-
-        self._main_power_test_function_for_codec(
-            self.CODEC_LDAC, self.SAMPLE_RATE_96000, self.BITS_PER_SAMPLE_24,
-            self.hi_res_music_file, self.LDACBT_EQMID_HQ)
+        current_test_case = func_name = sys._getframe().f_code.co_name
+        return self._main_power_test_function_for_codec(
+            self.CODEC_LDAC,
+            self.SAMPLE_RATE_96000,
+            self.BITS_PER_SAMPLE_24,
+            self.hi_res_music_file,
+            current_test_case,
+            ldac_playback_quality=self.LDACBT_EQMID_HQ)
 
     @BluetoothBaseTest.bt_test_wrap
     @test_tracker_info(uuid='efb75158-ff90-4a95-8bd0-0189d719e647')
@@ -1090,10 +1182,14 @@ class A2dpPowerTest(PowerBaseTest):
         Priority: 3
 
         """
-
-        self._main_power_test_function_for_codec(
-            self.CODEC_LDAC, self.SAMPLE_RATE_44100, self.BITS_PER_SAMPLE_32,
-            self.cd_quality_music_file, self.LDACBT_EQMID_HQ)
+        current_test_case = func_name = sys._getframe().f_code.co_name
+        return self._main_power_test_function_for_codec(
+            self.CODEC_LDAC,
+            self.SAMPLE_RATE_44100,
+            self.BITS_PER_SAMPLE_32,
+            self.cd_quality_music_file,
+            current_test_case,
+            ldac_playback_quality=self.LDACBT_EQMID_HQ)
 
     @BluetoothBaseTest.bt_test_wrap
     @test_tracker_info(uuid='7d5ee1a0-b903-4cf4-8bcc-8db653f04e3b')
@@ -1113,10 +1209,14 @@ class A2dpPowerTest(PowerBaseTest):
         Priority: 3
 
         """
-
-        self._main_power_test_function_for_codec(
-            self.CODEC_LDAC, self.SAMPLE_RATE_44100, self.BITS_PER_SAMPLE_32,
-            self.hi_res_music_file, self.LDACBT_EQMID_HQ)
+        current_test_case = func_name = sys._getframe().f_code.co_name
+        return self._main_power_test_function_for_codec(
+            self.CODEC_LDAC,
+            self.SAMPLE_RATE_44100,
+            self.BITS_PER_SAMPLE_32,
+            self.hi_res_music_file,
+            current_test_case,
+            ldac_playback_quality=self.LDACBT_EQMID_HQ)
 
     @BluetoothBaseTest.bt_test_wrap
     @test_tracker_info(uuid='2981e30a-9f5a-4d35-9387-96dd2ab3421a')
@@ -1136,10 +1236,14 @@ class A2dpPowerTest(PowerBaseTest):
         Priority: 3
 
         """
-
-        self._main_power_test_function_for_codec(
-            self.CODEC_LDAC, self.SAMPLE_RATE_48000, self.BITS_PER_SAMPLE_32,
-            self.cd_quality_music_file, self.LDACBT_EQMID_HQ)
+        current_test_case = func_name = sys._getframe().f_code.co_name
+        return self._main_power_test_function_for_codec(
+            self.CODEC_LDAC,
+            self.SAMPLE_RATE_48000,
+            self.BITS_PER_SAMPLE_32,
+            self.cd_quality_music_file,
+            current_test_case,
+            ldac_playback_quality=self.LDACBT_EQMID_HQ)
 
     @BluetoothBaseTest.bt_test_wrap
     @test_tracker_info(uuid='297f0ab3-be6b-4367-9750-48f3ba12bb4b')
@@ -1159,10 +1263,14 @@ class A2dpPowerTest(PowerBaseTest):
         Priority: 3
 
         """
-
-        self._main_power_test_function_for_codec(
-            self.CODEC_LDAC, self.SAMPLE_RATE_48000, self.BITS_PER_SAMPLE_32,
-            self.hi_res_music_file, self.LDACBT_EQMID_HQ)
+        current_test_case = func_name = sys._getframe().f_code.co_name
+        return self._main_power_test_function_for_codec(
+            self.CODEC_LDAC,
+            self.SAMPLE_RATE_48000,
+            self.BITS_PER_SAMPLE_32,
+            self.hi_res_music_file,
+            current_test_case,
+            ldac_playback_quality=self.LDACBT_EQMID_HQ)
 
     @BluetoothBaseTest.bt_test_wrap
     @test_tracker_info(uuid='71a23350-03bf-4690-a692-eb944f7d4782')
@@ -1182,10 +1290,14 @@ class A2dpPowerTest(PowerBaseTest):
         Priority: 3
 
         """
-
-        self._main_power_test_function_for_codec(
-            self.CODEC_LDAC, self.SAMPLE_RATE_88200, self.BITS_PER_SAMPLE_32,
-            self.cd_quality_music_file, self.LDACBT_EQMID_HQ)
+        current_test_case = func_name = sys._getframe().f_code.co_name
+        return self._main_power_test_function_for_codec(
+            self.CODEC_LDAC,
+            self.SAMPLE_RATE_88200,
+            self.BITS_PER_SAMPLE_32,
+            self.cd_quality_music_file,
+            current_test_case,
+            ldac_playback_quality=self.LDACBT_EQMID_HQ)
 
     @BluetoothBaseTest.bt_test_wrap
     @test_tracker_info(uuid='7452e2dd-cbdd-4f50-a482-99d038ba0ee0')
@@ -1205,10 +1317,14 @@ class A2dpPowerTest(PowerBaseTest):
         Priority: 3
 
         """
-
-        self._main_power_test_function_for_codec(
-            self.CODEC_LDAC, self.SAMPLE_RATE_88200, self.BITS_PER_SAMPLE_32,
-            self.hi_res_music_file, self.LDACBT_EQMID_HQ)
+        current_test_case = func_name = sys._getframe().f_code.co_name
+        return self._main_power_test_function_for_codec(
+            self.CODEC_LDAC,
+            self.SAMPLE_RATE_88200,
+            self.BITS_PER_SAMPLE_32,
+            self.hi_res_music_file,
+            current_test_case,
+            ldac_playback_quality=self.LDACBT_EQMID_HQ)
 
     @BluetoothBaseTest.bt_test_wrap
     @test_tracker_info(uuid='042493c1-00d9-46d8-b2e9-844c9ac849f8')
@@ -1228,10 +1344,14 @@ class A2dpPowerTest(PowerBaseTest):
         Priority: 3
 
         """
-
-        self._main_power_test_function_for_codec(
-            self.CODEC_LDAC, self.SAMPLE_RATE_96000, self.BITS_PER_SAMPLE_32,
-            self.cd_quality_music_file, self.LDACBT_EQMID_HQ)
+        current_test_case = func_name = sys._getframe().f_code.co_name
+        return self._main_power_test_function_for_codec(
+            self.CODEC_LDAC,
+            self.SAMPLE_RATE_96000,
+            self.BITS_PER_SAMPLE_32,
+            self.cd_quality_music_file,
+            current_test_case,
+            ldac_playback_quality=self.LDACBT_EQMID_HQ)
 
     @BluetoothBaseTest.bt_test_wrap
     @test_tracker_info(uuid='7d90b5ee-c32b-4ef8-b27f-587f3550aed9')
@@ -1251,10 +1371,14 @@ class A2dpPowerTest(PowerBaseTest):
         Priority: 3
 
         """
-
-        self._main_power_test_function_for_codec(
-            self.CODEC_LDAC, self.SAMPLE_RATE_96000, self.BITS_PER_SAMPLE_32,
-            self.hi_res_music_file, self.LDACBT_EQMID_HQ)
+        current_test_case = func_name = sys._getframe().f_code.co_name
+        return self._main_power_test_function_for_codec(
+            self.CODEC_LDAC,
+            self.SAMPLE_RATE_96000,
+            self.BITS_PER_SAMPLE_32,
+            self.hi_res_music_file,
+            current_test_case,
+            ldac_playback_quality=self.LDACBT_EQMID_HQ)
 
     @BluetoothBaseTest.bt_test_wrap
     @test_tracker_info(uuid='d3da605f-acd4-49a6-ae0f-d1ef216ac5b4')
@@ -1275,10 +1399,14 @@ class A2dpPowerTest(PowerBaseTest):
         Priority: 3
 
         """
-
-        self._main_power_test_function_for_codec(
-            self.CODEC_LDAC, self.SAMPLE_RATE_96000, self.BITS_PER_SAMPLE_24,
-            self.hi_res_music_file, self.LDACBT_EQMID_SQ)
+        current_test_case = func_name = sys._getframe().f_code.co_name
+        return self._main_power_test_function_for_codec(
+            self.CODEC_LDAC,
+            self.SAMPLE_RATE_96000,
+            self.BITS_PER_SAMPLE_24,
+            self.hi_res_music_file,
+            current_test_case,
+            ldac_playback_quality=self.LDACBT_EQMID_SQ)
 
     @BluetoothBaseTest.bt_test_wrap
     @test_tracker_info(uuid='5d6494a3-ab00-48f3-9e68-50600708c176')
@@ -1299,7 +1427,11 @@ class A2dpPowerTest(PowerBaseTest):
         Priority: 3
 
         """
-
-        self._main_power_test_function_for_codec(
-            self.CODEC_LDAC, self.SAMPLE_RATE_96000, self.BITS_PER_SAMPLE_24,
-            self.hi_res_music_file, self.LDACBT_EQMID_MQ)
+        current_test_case = func_name = sys._getframe().f_code.co_name
+        return self._main_power_test_function_for_codec(
+            self.CODEC_LDAC,
+            self.SAMPLE_RATE_96000,
+            self.BITS_PER_SAMPLE_24,
+            self.hi_res_music_file,
+            current_test_case,
+            ldac_playback_quality=self.LDACBT_EQMID_MQ)

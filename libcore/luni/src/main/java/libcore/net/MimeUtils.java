@@ -114,6 +114,7 @@ public final class MimeUtils {
         add("application/vnd.sun.xml.writer.global", "sxg");
         add("application/vnd.sun.xml.writer.template", "stw");
         add("application/vnd.visio", "vsd");
+        add("application/vnd.youtube.yt", "yt");
         add("application/x-abiword", "abw");
         add("application/x-apple-diskimage", "dmg");
         add("application/x-bcpio", "bcpio");

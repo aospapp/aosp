@@ -18,10 +18,6 @@
 
 #include "hubconnection.h"
 
-// TODO: remove the includes that introduce LIKELY and UNLIKELY (firmware/os/inc/toolchain.h)
-#undef LIKELY
-#undef UNLIKELY
-
 #include "file.h"
 #include "JSONObject.h"
 
@@ -35,13 +31,10 @@
 #include <linux/input.h>
 #include <linux/uinput.h>
 
-#include <android/frameworks/schedulerservice/1.0/ISchedulingPolicyService.h>
 #include <cutils/ashmem.h>
 #include <cutils/properties.h>
 #include <hardware_legacy/power.h>
 #include <media/stagefright/foundation/ADebug.h>
-#include <utils/Log.h>
-#include <utils/SystemClock.h>
 
 #include <algorithm>
 #include <cmath>
@@ -83,14 +76,10 @@ const char LID_STATE_OPEN[]     = "open";
 const char LID_STATE_CLOSED[]   = "closed";
 #endif  // LID_STATE_REPORTING_ENABLED
 
+constexpr int HUBCONNECTION_SCHED_FIFO_PRIORITY = 3;
+
 static const uint32_t delta_time_encoded = 1;
 static const uint32_t delta_time_shift_table[2] = {9, 0};
-
-#ifdef USE_SENSORSERVICE_TO_GET_FIFO
-// TODO(b/35219747): retain sched_fifo before eval is done to avoid
-// performance regression.
-const char SCHED_FIFO_PRIOIRTY[] = "sensor.hubconnection.sched_fifo";
-#endif
 
 namespace android {
 
@@ -143,6 +132,8 @@ HubConnection::HubConnection()
     mMagAccuracyRestore = SENSOR_STATUS_UNRELIABLE;
     mGyroBias[0] = mGyroBias[1] = mGyroBias[2] = 0.0f;
     mAccelBias[0] = mAccelBias[1] = mAccelBias[2] = 0.0f;
+    mAccelEnabledBias[0] = mAccelEnabledBias[1] = mAccelEnabledBias[2] = 0.0f;
+    mAccelEnabledBiasStored = true;
     memset(&mGyroOtcData, 0, sizeof(mGyroOtcData));
 
     mLefty.accel = false;
@@ -222,6 +213,7 @@ HubConnection::HubConnection()
     mSensorState[COMMS_SENSOR_PROXIMITY].sensorType = SENS_TYPE_PROX;
     mSensorState[COMMS_SENSOR_PRESSURE].sensorType = SENS_TYPE_BARO;
     mSensorState[COMMS_SENSOR_TEMPERATURE].sensorType = SENS_TYPE_TEMP;
+    mSensorState[COMMS_SENSOR_AMBIENT_TEMPERATURE].sensorType = SENS_TYPE_AMBIENT_TEMP;
     mSensorState[COMMS_SENSOR_ORIENTATION].sensorType = SENS_TYPE_ORIENTATION;
     mSensorState[COMMS_SENSOR_WINDOW_ORIENTATION].sensorType = SENS_TYPE_WIN_ORIENTATION;
     mSensorState[COMMS_SENSOR_WINDOW_ORIENTATION].rate = SENSOR_RATE_ONCHANGE;
@@ -248,7 +240,6 @@ HubConnection::HubConnection()
     mSensorState[COMMS_SENSOR_DOUBLE_TAP].sensorType = SENS_TYPE_DOUBLE_TAP;
     mSensorState[COMMS_SENSOR_DOUBLE_TAP].rate = SENSOR_RATE_ONCHANGE;
     mSensorState[COMMS_SENSOR_WRIST_TILT].sensorType = SENS_TYPE_WRIST_TILT;
-    mSensorState[COMMS_SENSOR_WRIST_TILT].rate = SENSOR_RATE_ONCHANGE;
     mSensorState[COMMS_SENSOR_DOUBLE_TOUCH].sensorType = SENS_TYPE_DOUBLE_TOUCH;
     mSensorState[COMMS_SENSOR_DOUBLE_TOUCH].rate = SENSOR_RATE_ONESHOT;
     mSensorState[COMMS_SENSOR_ACTIVITY_IN_VEHICLE_START].sensorType = SENS_TYPE_ACTIVITY_IN_VEHICLE_START;
@@ -318,49 +309,16 @@ HubConnection::~HubConnection()
 void HubConnection::onFirstRef()
 {
     run("HubConnection", PRIORITY_URGENT_DISPLAY);
-#ifdef USE_SENSORSERVICE_TO_GET_FIFO
-    if (property_get_bool(SCHED_FIFO_PRIOIRTY, true)) {
-        ALOGV("Try activate sched-fifo priority for HubConnection thread");
-        mEnableSchedFifoThread = std::thread(enableSchedFifoMode, this);
-    }
-#else
-    enableSchedFifoMode(this);
-#endif
+    enableSchedFifoMode();
 }
 
 // Set main thread to SCHED_FIFO to lower sensor event latency when system is under load
-void HubConnection::enableSchedFifoMode(sp<HubConnection> hub) {
-#ifdef USE_SENSORSERVICE_TO_GET_FIFO
-    using ::android::frameworks::schedulerservice::V1_0::ISchedulingPolicyService;
-    using ::android::hardware::Return;
-
-    // SchedulingPolicyService will not start until system server start.
-    // Thus, cannot block on this.
-    sp<ISchedulingPolicyService> scheduler = ISchedulingPolicyService::getService();
-
-    if (scheduler == nullptr) {
-        ALOGW("Couldn't get scheduler scheduler to set SCHED_FIFO.");
-    } else {
-        Return<int32_t> max = scheduler->getMaxAllowedPriority();
-        if (!max.isOk()) {
-            ALOGW("Failed to retrieve maximum allowed priority for HubConnection.");
-            return;
-        }
-        Return<bool> ret = scheduler->requestPriority(::getpid(), hub->getTid(), max);
-        if (!ret.isOk() || !ret) {
-            ALOGW("Failed to set SCHED_FIFO for HubConnection.");
-        } else {
-            ALOGV("Enabled sched fifo thread mode (prio %d)", static_cast<int32_t>(max));
-        }
-    }
-#else
-#define HUBCONNECTION_SCHED_FIFO_PRIORITY 10
+void HubConnection::enableSchedFifoMode() {
     struct sched_param param = {0};
     param.sched_priority = HUBCONNECTION_SCHED_FIFO_PRIORITY;
-    if (sched_setscheduler(hub->getTid(), SCHED_FIFO | SCHED_RESET_ON_FORK, &param) != 0) {
+    if (sched_setscheduler(getTid(), SCHED_FIFO | SCHED_RESET_ON_FORK, &param) != 0) {
         ALOGW("Couldn't set SCHED_FIFO for HubConnection thread");
     }
-#endif
 }
 
 status_t HubConnection::initCheck() const
@@ -697,6 +655,9 @@ void HubConnection::processSample(uint64_t timestamp, uint32_t type, uint32_t se
     case COMMS_SENSOR_TEMPERATURE:
         initEv(&nev[cnt++], timestamp, type, sensor)->temperature = sample->fdata;
         break;
+    case COMMS_SENSOR_AMBIENT_TEMPERATURE:
+        initEv(&nev[cnt++], timestamp, type, sensor)->temperature = sample->fdata;
+        break;
     case COMMS_SENSOR_PROXIMITY:
         initEv(&nev[cnt++], timestamp, type, sensor)->distance = sample->fdata;
         break;
@@ -773,6 +734,22 @@ void HubConnection::processSample(uint64_t timestamp, uint32_t type, uint32_t se
 
         sendDirectReportEvent(&nev[cnt], 1);
         if (mSensorState[sensor].enable && isSampleIntervalSatisfied(sensor, timestamp)) {
+            if (!mAccelEnabledBiasStored) {
+                // accel is enabled, but no enabled bias. Store latest bias and use
+                // for accel and uncalibrated accel due to:
+                // https://source.android.com/devices/sensors/sensor-types.html
+                // "The bias and scale calibration must only be updated while the sensor is deactivated,
+                // so as to avoid causing jumps in values during streaming."
+                mAccelEnabledBiasStored = true;
+                mAccelEnabledBias[0] = mAccelBias[0];
+                mAccelEnabledBias[1] = mAccelBias[1];
+                mAccelEnabledBias[2] = mAccelBias[2];
+            }
+            // samples arrive using latest bias
+            // adjust for enabled bias being different from lastest bias
+            sv->x += mAccelBias[0] - mAccelEnabledBias[0];
+            sv->y += mAccelBias[1] - mAccelEnabledBias[1];
+            sv->z += mAccelBias[2] - mAccelEnabledBias[2];
             ++cnt;
         }
 
@@ -782,9 +759,17 @@ void HubConnection::processSample(uint64_t timestamp, uint32_t type, uint32_t se
         ue->x_uncalib = sample->ix * mScaleAccel + mAccelBias[0];
         ue->y_uncalib = sample->iy * mScaleAccel + mAccelBias[1];
         ue->z_uncalib = sample->iz * mScaleAccel + mAccelBias[2];
-        ue->x_bias = mAccelBias[0];
-        ue->y_bias = mAccelBias[1];
-        ue->z_bias = mAccelBias[2];
+        if (!mAccelEnabledBiasStored) {
+            // No enabled bias (which means accel is disabled). Use latest bias.
+            ue->x_bias = mAccelBias[0];
+            ue->y_bias = mAccelBias[1];
+            ue->z_bias = mAccelBias[2];
+        } else {
+            // enabled bias is valid, so use it
+            ue->x_bias = mAccelEnabledBias[0];
+            ue->y_bias = mAccelEnabledBias[1];
+            ue->z_bias = mAccelEnabledBias[2];
+        }
 
         sendDirectReportEvent(&nev[cnt], 1);
         if (mSensorState[COMMS_SENSOR_ACCEL_UNCALIBRATED].enable
@@ -1222,6 +1207,11 @@ ssize_t HubConnection::processBuf(uint8_t *buf, size_t len)
             // internal temp because we currently don't have ambient temp
             type = SENSOR_TYPE_INTERNAL_TEMPERATURE;
             sensor = COMMS_SENSOR_TEMPERATURE;
+            one = true;
+            break;
+        case SENS_TYPE_TO_EVENT(SENS_TYPE_AMBIENT_TEMP):
+            type = SENSOR_TYPE_AMBIENT_TEMPERATURE;
+            sensor = COMMS_SENSOR_AMBIENT_TEMPERATURE;
             one = true;
             break;
         case SENS_TYPE_TO_EVENT(SENS_TYPE_ORIENTATION):
@@ -1701,6 +1691,11 @@ void HubConnection::queueActivate(int handle, bool enable)
     Mutex::Autolock autoLock(mLock);
 
     if (isValidHandle(handle)) {
+        // disabling accel, so no longer need to use the bias from when
+        // accel was first enabled
+        if (handle == COMMS_SENSOR_ACCEL && !enable)
+            mAccelEnabledBiasStored = false;
+
         mSensorState[handle].enable = enable;
 
         initConfigCmd(&cmd, handle);

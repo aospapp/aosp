@@ -24,7 +24,9 @@
 #include "core/fpdfapi/parser/cpdf_string.h"
 #include "core/fpdfapi/render/cpdf_dibsource.h"
 #include "core/fpdfapi/render/cpdf_pagerendercache.h"
-#include "core/fxcodec/fx_codec.h"
+#include "core/fxcodec/codec/ccodec_jpegmodule.h"
+#include "core/fxcrt/fx_stream.h"
+#include "core/fxge/dib/cfx_dibitmap.h"
 #include "core/fxge/fx_dib.h"
 #include "third_party/base/numerics/safe_conversions.h"
 #include "third_party/base/ptr_util.h"
@@ -70,6 +72,10 @@ void CPDF_Image::ConvertStreamToIndirectObject() {
   m_pDocument->AddIndirectObject(m_pStream.Release());
 }
 
+CPDF_Dictionary* CPDF_Image::GetDict() const {
+  return m_pStream ? m_pStream->GetDict() : nullptr;
+}
+
 std::unique_ptr<CPDF_Dictionary> CPDF_Image::InitJPEG(uint8_t* pData,
                                                       uint32_t size) {
   int32_t width;
@@ -88,7 +94,7 @@ std::unique_ptr<CPDF_Dictionary> CPDF_Image::InitJPEG(uint8_t* pData,
   pDict->SetNewFor<CPDF_Name>("Subtype", "Image");
   pDict->SetNewFor<CPDF_Number>("Width", width);
   pDict->SetNewFor<CPDF_Number>("Height", height);
-  const FX_CHAR* csname = nullptr;
+  const char* csname = nullptr;
   if (num_comps == 1) {
     csname = "DeviceGray";
   } else if (num_comps == 3) {
@@ -116,8 +122,7 @@ std::unique_ptr<CPDF_Dictionary> CPDF_Image::InitJPEG(uint8_t* pData,
   return pDict;
 }
 
-void CPDF_Image::SetJpegImage(
-    const CFX_RetainPtr<IFX_SeekableReadStream>& pFile) {
+void CPDF_Image::SetJpegImage(const RetainPtr<IFX_SeekableReadStream>& pFile) {
   uint32_t size = pdfium::base::checked_cast<uint32_t>(pFile->GetSize());
   if (!size)
     return;
@@ -141,7 +146,7 @@ void CPDF_Image::SetJpegImage(
 }
 
 void CPDF_Image::SetJpegImageInline(
-    const CFX_RetainPtr<IFX_SeekableReadStream>& pFile) {
+    const RetainPtr<IFX_SeekableReadStream>& pFile) {
   uint32_t size = pdfium::base::checked_cast<uint32_t>(pFile->GetSize());
   if (!size)
     return;
@@ -157,7 +162,7 @@ void CPDF_Image::SetJpegImageInline(
   m_pStream->InitStream(&(data[0]), size, std::move(pDict));
 }
 
-void CPDF_Image::SetImage(const CFX_DIBitmap* pBitmap) {
+void CPDF_Image::SetImage(const RetainPtr<CFX_DIBitmap>& pBitmap) {
   int32_t BitmapWidth = pBitmap->GetWidth();
   int32_t BitmapHeight = pBitmap->GetHeight();
   if (BitmapWidth < 1 || BitmapHeight < 1)
@@ -171,7 +176,7 @@ void CPDF_Image::SetImage(const CFX_DIBitmap* pBitmap) {
   pDict->SetNewFor<CPDF_Number>("Height", BitmapHeight);
 
   const int32_t bpp = pBitmap->GetBPP();
-  FX_STRSIZE dest_pitch = 0;
+  size_t dest_pitch = 0;
   bool bCopyWithoutAlpha = true;
   if (bpp == 1) {
     int32_t reset_a = 0;
@@ -183,9 +188,10 @@ void CPDF_Image::SetImage(const CFX_DIBitmap* pBitmap) {
     int32_t set_g = 0;
     int32_t set_b = 0;
     if (!pBitmap->IsAlphaMask()) {
-      ArgbDecode(pBitmap->GetPaletteArgb(0), reset_a, reset_r, reset_g,
-                 reset_b);
-      ArgbDecode(pBitmap->GetPaletteArgb(1), set_a, set_r, set_g, set_b);
+      std::tie(reset_a, reset_r, reset_g, reset_b) =
+          ArgbDecode(pBitmap->GetPaletteArgb(0));
+      std::tie(set_a, set_r, set_g, set_b) =
+          ArgbDecode(pBitmap->GetPaletteArgb(1));
     }
     if (set_a == 0 || reset_a == 0) {
       pDict->SetNewFor<CPDF_Boolean>("ImageMask", true);
@@ -199,14 +205,14 @@ void CPDF_Image::SetImage(const CFX_DIBitmap* pBitmap) {
       pCS->AddNew<CPDF_Name>("Indexed");
       pCS->AddNew<CPDF_Name>("DeviceRGB");
       pCS->AddNew<CPDF_Number>(1);
-      CFX_ByteString ct;
-      FX_CHAR* pBuf = ct.GetBuffer(6);
-      pBuf[0] = (FX_CHAR)reset_r;
-      pBuf[1] = (FX_CHAR)reset_g;
-      pBuf[2] = (FX_CHAR)reset_b;
-      pBuf[3] = (FX_CHAR)set_r;
-      pBuf[4] = (FX_CHAR)set_g;
-      pBuf[5] = (FX_CHAR)set_b;
+      ByteString ct;
+      char* pBuf = ct.GetBuffer(6);
+      pBuf[0] = (char)reset_r;
+      pBuf[1] = (char)reset_g;
+      pBuf[2] = (char)reset_b;
+      pBuf[3] = (char)set_r;
+      pBuf[4] = (char)set_g;
+      pBuf[5] = (char)set_b;
       ct.ReleaseBuffer(6);
       pCS->AddNew<CPDF_String>(ct, true);
     }
@@ -233,8 +239,8 @@ void CPDF_Image::SetImage(const CFX_DIBitmap* pBitmap) {
           pdfium::MakeUnique<CPDF_Dictionary>(m_pDocument->GetByteStringPool());
       CPDF_Stream* pCTS = m_pDocument->NewIndirect<CPDF_Stream>(
           std::move(pColorTable), iPalette * 3, std::move(pNewDict));
-      pCS->AddNew<CPDF_Reference>(m_pDocument, pCTS->GetObjNum());
-      pDict->SetNewFor<CPDF_Reference>("ColorSpace", m_pDocument,
+      pCS->AddNew<CPDF_Reference>(m_pDocument.Get(), pCTS->GetObjNum());
+      pDict->SetNewFor<CPDF_Reference>("ColorSpace", m_pDocument.Get(),
                                        pCS->GetObjNum());
     } else {
       pDict->SetNewFor<CPDF_Name>("ColorSpace", "DeviceGray");
@@ -248,7 +254,7 @@ void CPDF_Image::SetImage(const CFX_DIBitmap* pBitmap) {
     bCopyWithoutAlpha = false;
   }
 
-  std::unique_ptr<CFX_DIBitmap> pMaskBitmap;
+  RetainPtr<CFX_DIBitmap> pMaskBitmap;
   if (pBitmap->HasAlpha())
     pMaskBitmap = pBitmap->CloneAlphaMask();
 
@@ -256,7 +262,7 @@ void CPDF_Image::SetImage(const CFX_DIBitmap* pBitmap) {
     int32_t maskWidth = pMaskBitmap->GetWidth();
     int32_t maskHeight = pMaskBitmap->GetHeight();
     std::unique_ptr<uint8_t, FxFreeDeleter> mask_buf;
-    FX_STRSIZE mask_size = 0;
+    int32_t mask_size = 0;
     auto pMaskDict =
         pdfium::MakeUnique<CPDF_Dictionary>(m_pDocument->GetByteStringPool());
     pMaskDict->SetNewFor<CPDF_Name>("Type", "XObject");
@@ -269,14 +275,14 @@ void CPDF_Image::SetImage(const CFX_DIBitmap* pBitmap) {
       mask_buf.reset(FX_Alloc2D(uint8_t, maskHeight, maskWidth));
       mask_size = maskHeight * maskWidth;  // Safe since checked alloc returned.
       for (int32_t a = 0; a < maskHeight; a++) {
-        FXSYS_memcpy(mask_buf.get() + a * maskWidth,
-                     pMaskBitmap->GetScanline(a), maskWidth);
+        memcpy(mask_buf.get() + a * maskWidth, pMaskBitmap->GetScanline(a),
+               maskWidth);
       }
     }
     pMaskDict->SetNewFor<CPDF_Number>("Length", mask_size);
     CPDF_Stream* pNewStream = m_pDocument->NewIndirect<CPDF_Stream>(
         std::move(mask_buf), mask_size, std::move(pMaskDict));
-    pDict->SetNewFor<CPDF_Reference>("SMask", m_pDocument,
+    pDict->SetNewFor<CPDF_Reference>("SMask", m_pDocument.Get(),
                                      pNewStream->GetObjNum());
   }
 
@@ -284,11 +290,11 @@ void CPDF_Image::SetImage(const CFX_DIBitmap* pBitmap) {
   int32_t src_pitch = pBitmap->GetPitch();
   uint8_t* dest_buf = FX_Alloc2D(uint8_t, dest_pitch, BitmapHeight);
   // Safe as checked alloc returned.
-  FX_STRSIZE dest_size = dest_pitch * BitmapHeight;
+  size_t dest_size = dest_pitch * BitmapHeight;
   uint8_t* pDest = dest_buf;
   if (bCopyWithoutAlpha) {
     for (int32_t i = 0; i < BitmapHeight; i++) {
-      FXSYS_memcpy(pDest, src_buf, dest_pitch);
+      memcpy(pDest, src_buf, dest_pitch);
       pDest += dest_pitch;
       src_buf += src_pitch;
     }
@@ -298,7 +304,7 @@ void CPDF_Image::SetImage(const CFX_DIBitmap* pBitmap) {
     for (int32_t row = 0; row < BitmapHeight; row++) {
       src_offset = row * src_pitch;
       for (int32_t column = 0; column < BitmapWidth; column++) {
-        FX_FLOAT alpha = 1;
+        float alpha = 1;
         pDest[dest_offset] = (uint8_t)(src_buf[src_offset + 2] * alpha);
         pDest[dest_offset + 1] = (uint8_t)(src_buf[src_offset + 1] * alpha);
         pDest[dest_offset + 2] = (uint8_t)(src_buf[src_offset] * alpha);
@@ -320,28 +326,26 @@ void CPDF_Image::SetImage(const CFX_DIBitmap* pBitmap) {
   FX_Free(dest_buf);
 }
 
-void CPDF_Image::ResetCache(CPDF_Page* pPage, const CFX_DIBitmap* pBitmap) {
-  pPage->GetRenderCache()->ResetBitmap(m_pStream.Get(), pBitmap);
+void CPDF_Image::ResetCache(CPDF_Page* pPage,
+                            const RetainPtr<CFX_DIBitmap>& pBitmap) {
+  RetainPtr<CPDF_Image> pHolder(this);
+  pPage->GetRenderCache()->ResetBitmap(pHolder, pBitmap);
 }
 
-std::unique_ptr<CFX_DIBSource> CPDF_Image::LoadDIBSource() const {
-  auto source = pdfium::MakeUnique<CPDF_DIBSource>();
-  if (!source->Load(m_pDocument, m_pStream.Get()))
+RetainPtr<CFX_DIBSource> CPDF_Image::LoadDIBSource() const {
+  auto source = pdfium::MakeRetain<CPDF_DIBSource>();
+  if (!source->Load(m_pDocument.Get(), m_pStream.Get()))
     return nullptr;
 
-  return std::move(source);
+  return source;
 }
 
-CFX_DIBSource* CPDF_Image::DetachBitmap() {
-  CFX_DIBSource* pBitmap = m_pDIBSource;
-  m_pDIBSource = nullptr;
-  return pBitmap;
+RetainPtr<CFX_DIBSource> CPDF_Image::DetachBitmap() {
+  return std::move(m_pDIBSource);
 }
 
-CFX_DIBSource* CPDF_Image::DetachMask() {
-  CFX_DIBSource* pBitmap = m_pMask;
-  m_pMask = nullptr;
-  return pBitmap;
+RetainPtr<CFX_DIBSource> CPDF_Image::DetachMask() {
+  return std::move(m_pMask);
 }
 
 bool CPDF_Image::StartLoadDIBSource(CPDF_Dictionary* pFormResource,
@@ -349,35 +353,33 @@ bool CPDF_Image::StartLoadDIBSource(CPDF_Dictionary* pFormResource,
                                     bool bStdCS,
                                     uint32_t GroupFamily,
                                     bool bLoadMask) {
-  auto source = pdfium::MakeUnique<CPDF_DIBSource>();
-  int ret = source->StartLoadDIBSource(m_pDocument, m_pStream.Get(), true,
+  auto source = pdfium::MakeRetain<CPDF_DIBSource>();
+  int ret = source->StartLoadDIBSource(m_pDocument.Get(), m_pStream.Get(), true,
                                        pFormResource, pPageResource, bStdCS,
                                        GroupFamily, bLoadMask);
-  if (ret == 2) {
-    m_pDIBSource = source.release();
-    return true;
-  }
   if (!ret) {
-    m_pDIBSource = nullptr;
+    m_pDIBSource.Reset();
     return false;
   }
+  m_pDIBSource = source;
+  if (ret == 2)
+    return true;
+
   m_pMask = source->DetachMask();
   m_MatteColor = source->GetMatteColor();
-  m_pDIBSource = source.release();
   return false;
 }
 
-bool CPDF_Image::Continue(IFX_Pause* pPause) {
-  CPDF_DIBSource* pSource = static_cast<CPDF_DIBSource*>(m_pDIBSource);
+bool CPDF_Image::Continue(IFX_PauseIndicator* pPause) {
+  RetainPtr<CPDF_DIBSource> pSource = m_pDIBSource.As<CPDF_DIBSource>();
   int ret = pSource->ContinueLoadDIBSource(pPause);
-  if (ret == 2) {
-    return true;
-  }
   if (!ret) {
-    delete m_pDIBSource;
-    m_pDIBSource = nullptr;
+    m_pDIBSource.Reset();
     return false;
   }
+  if (ret == 2)
+    return true;
+
   m_pMask = pSource->DetachMask();
   m_MatteColor = pSource->GetMatteColor();
   return false;

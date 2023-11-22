@@ -1,0 +1,65 @@
+##  <at> file
+# Component description file for Marvell Yukon II SNP module.
+#
+# Copyright (c) 2011-2016, ARM Ltd. All rights reserved.<BR>
+#
+# This program and the accompanying materials are licensed
+# and made available under the terms and conditions of the BSD License which
+# accompanies this distribution. The full text of the license may be found at
+# http://opensource.org/licenses/bsd-license.php
+#
+# THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+# WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+#
+##
+
+[Defines]
+  INF_VERSION                    = 0x00010005
+  BASE_NAME                      = MarvellYukonDxe
+  FILE_GUID                      = d7de5d0c-99f8-4970-b85c-c19df8997d7d
+  MODULE_TYPE                    = UEFI_DRIVER
+  VERSION_STRING                 = 1.0
+  ENTRY_POINT                    = InitializeMarvellYukonDriver
+
+#
+# The following information is for reference only and not required by the build tools.
+#
+#  DRIVER_BINDING                =  gMarvellYukonDriverBinding
+#  COMPONENT_NAME                =  gSimpleNetworkComponentName
+#  COMPONENT_NAME2               =  gSimpleNetworkComponentName2
+#
+
+[Sources]
+  Snp.c
+  DriverBinding.c
+  ComponentName.c
+  e1000phy.c
+  if_msk.c
+
+[Packages]
+  MdeModulePkg/MdeModulePkg.dec
+  MdePkg/MdePkg.dec
+  NetworkPkg/NetworkPkg.dec
+
+[LibraryClasses]
+  BaseLib
+  BaseMemoryLib
+  DebugLib
+  DevicePathLib
+  IoLib
+  MemoryAllocationLib
+  NetLib
+  TimerLib
+  UefiBootServicesTableLib
+  UefiDriverEntryPoint
+  UefiLib
+
+[Protocols]
+  gEfiDevicePathProtocolGuid
+  gEfiMetronomeArchProtocolGuid
+  gEfiPciIoProtocolGuid
+  gEfiPxeBaseCodeProtocolGuid
+  gEfiSimpleNetworkProtocolGuid
+
+[Depex]
+  TRUE

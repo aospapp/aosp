@@ -118,6 +118,7 @@ struct gralloc_device_t {
 
 struct gralloc_memregions_t {
     MemRegionSet ashmemRegions;
+    pthread_mutex_t lock;
 };
 
 #define INITIAL_DMA_REGION_SIZE 4096
@@ -126,15 +127,17 @@ struct gralloc_dmaregion_t {
     uint32_t sz;
     uint32_t refcount;
     pthread_mutex_t lock;
+    uint32_t bigbufCount;
 };
 
 // global device instance
-static gralloc_memregions_t* s_grdev = NULL;
+static gralloc_memregions_t* s_memregions = NULL;
 static gralloc_dmaregion_t* s_grdma = NULL;
 
 void init_gralloc_memregions() {
-    if (s_grdev) return;
-    s_grdev = new gralloc_memregions_t;
+    if (s_memregions) return;
+    s_memregions = new gralloc_memregions_t;
+    pthread_mutex_init(&s_memregions->lock, NULL);
 }
 
 void init_gralloc_dmaregion() {
@@ -144,6 +147,7 @@ void init_gralloc_dmaregion() {
     s_grdma = new gralloc_dmaregion_t;
     s_grdma->sz = INITIAL_DMA_REGION_SIZE;
     s_grdma->refcount = 0;
+    s_grdma->bigbufCount = 0;
 
     pthread_mutex_init(&s_grdma->lock, NULL);
     pthread_mutex_lock(&s_grdma->lock);
@@ -169,11 +173,18 @@ static void resize_gralloc_dmaregion_locked(uint32_t new_sz) {
     s_grdma->sz = new_sz;
 }
 
-bool put_gralloc_dmaregion() {
+// max dma size: 2x 4K rgba8888
+#define MAX_DMA_SIZE 66355200
+
+bool put_gralloc_dmaregion(uint32_t sz) {
     if (!s_grdma) return false;
     pthread_mutex_lock(&s_grdma->lock);
     D("%s: call. refcount before: %u\n", __FUNCTION__, s_grdma->refcount);
     s_grdma->refcount--;
+    if (sz > MAX_DMA_SIZE &&
+        s_grdma->bigbufCount) {
+        s_grdma->bigbufCount--;
+    }
     bool shouldDelete = !s_grdma->refcount;
     if (shouldDelete) {
         D("%s: should delete!\n", __FUNCTION__);
@@ -191,8 +202,14 @@ void gralloc_dmaregion_register_ashmem(uint32_t sz) {
     D("%s: for sz %u, refcount %u", __FUNCTION__, sz, s_grdma->refcount);
     uint32_t new_sz = std::max(s_grdma->sz, sz);
     if (new_sz != s_grdma->sz) {
-        D("%s: change sz from %u to %u", __FUNCTION__, s_grdma->sz, sz);
-        resize_gralloc_dmaregion_locked(new_sz);
+        if (new_sz > MAX_DMA_SIZE)  {
+            D("%s: requested sz %u too large (limit %u), set to fallback.",
+              __FUNCTION__, sz, MAX_DMA_SIZE);
+            s_grdma->bigbufCount++;
+        } else {
+            D("%s: change sz from %u to %u", __FUNCTION__, s_grdma->sz, sz);
+            resize_gralloc_dmaregion_locked(new_sz);
+        }
     }
     if (!s_grdma->goldfish_dma.mapped) {
         goldfish_dma_map(&s_grdma->goldfish_dma);
@@ -205,15 +222,17 @@ void get_mem_region(void* ashmemBase) {
     D("%s: call for %p", __FUNCTION__, ashmemBase);
     MemRegionInfo lookup;
     lookup.ashmemBase = ashmemBase;
-    mem_region_handle_t handle = s_grdev->ashmemRegions.find(lookup);
-    if (handle == s_grdev->ashmemRegions.end()) {
+    pthread_mutex_lock(&s_memregions->lock);
+    mem_region_handle_t handle = s_memregions->ashmemRegions.find(lookup);
+    if (handle == s_memregions->ashmemRegions.end()) {
         MemRegionInfo newRegion;
         newRegion.ashmemBase = ashmemBase;
         newRegion.refCount = 1;
-        s_grdev->ashmemRegions.insert(newRegion);
+        s_memregions->ashmemRegions.insert(newRegion);
     } else {
         handle->refCount++;
     }
+    pthread_mutex_unlock(&s_memregions->lock);
 }
 
 bool put_mem_region(void* ashmemBase) {
@@ -221,25 +240,28 @@ bool put_mem_region(void* ashmemBase) {
     D("%s: call for %p", __FUNCTION__, ashmemBase);
     MemRegionInfo lookup;
     lookup.ashmemBase = ashmemBase;
-    mem_region_handle_t handle = s_grdev->ashmemRegions.find(lookup);
-    if (handle == s_grdev->ashmemRegions.end()) {
+    pthread_mutex_lock(&s_memregions->lock);
+    mem_region_handle_t handle = s_memregions->ashmemRegions.find(lookup);
+    if (handle == s_memregions->ashmemRegions.end()) {
         ALOGE("%s: error: tried to put nonexistent mem region!", __FUNCTION__);
+        pthread_mutex_unlock(&s_memregions->lock);
         return true;
     } else {
         handle->refCount--;
         bool shouldRemove = !handle->refCount;
         if (shouldRemove) {
-            s_grdev->ashmemRegions.erase(lookup);
+            s_memregions->ashmemRegions.erase(lookup);
         }
+        pthread_mutex_unlock(&s_memregions->lock);
         return shouldRemove;
     }
 }
 
 void dump_regions() {
     init_gralloc_memregions();
-    mem_region_handle_t curr = s_grdev->ashmemRegions.begin();
+    mem_region_handle_t curr = s_memregions->ashmemRegions.begin();
     std::stringstream res;
-    for (; curr != s_grdev->ashmemRegions.end(); curr++) {
+    for (; curr != s_memregions->ashmemRegions.end(); curr++) {
         res << "\tashmem base " << curr->ashmemBase << " refcount " << curr->refCount << "\n";
     }
     ALOGD("ashmem region dump [\n%s]", res.str().c_str());
@@ -354,7 +376,12 @@ static void updateHostColorBuffer(cb_handle_t* cb,
                 width, height, top, left, bpp);
     }
 
-    if (s_grdma) {
+    if (s_grdma->bigbufCount) {
+        D("%s: there are big buffers alive, use fallback (count %u)", __FUNCTION__,
+          s_grdma->bigbufCount);
+    }
+
+    if (s_grdma && !s_grdma->bigbufCount) {
         if (cb->frameworkFormat == HAL_PIXEL_FORMAT_YV12) {
             get_yv12_offsets(width, height, NULL, NULL,
                              &send_buffer_size);
@@ -394,12 +421,15 @@ static void updateHostColorBuffer(cb_handle_t* cb,
 #ifndef GL_RGBA16F
 #define GL_RGBA16F                        0x881A
 #endif // GL_RGBA16F
-#ifndef GL_UNSIGNED_INT_10_10_10_2
-#define GL_UNSIGNED_INT_10_10_10_2        0x8DF6
-#endif // GL_UNSIGNED_INT_10_10_10_2
 #ifndef GL_HALF_FLOAT
 #define GL_HALF_FLOAT                     0x140B
 #endif // GL_HALF_FLOAT
+#ifndef GL_RGB10_A2
+#define GL_RGB10_A2                       0x8059
+#endif // GL_RGB10_A2
+#ifndef GL_UNSIGNED_INT_2_10_10_10_REV
+#define GL_UNSIGNED_INT_2_10_10_10_REV    0x8368
+#endif // GL_UNSIGNED_INT_2_10_10_10_REV
 //
 // gralloc device functions (alloc interface)
 //
@@ -496,7 +526,10 @@ static int gralloc_alloc(alloc_device_t* dev,
             break;
         case HAL_PIXEL_FORMAT_RGB_565:
             bpp = 2;
-            glFormat = GL_RGB;
+            // Workaround: distinguish vs the RGB8/RGBA8
+            // by changing |glFormat| to GL_RGB565
+            // (previously, it was still GL_RGB)
+            glFormat = GL_RGB565;
             glType = GL_UNSIGNED_SHORT_5_6_5;
             break;
 #if PLATFORM_SDK_VERSION >= 26
@@ -507,8 +540,8 @@ static int gralloc_alloc(alloc_device_t* dev,
             break;
         case HAL_PIXEL_FORMAT_RGBA_1010102:
             bpp = 4;
-            glFormat = GL_RGBA;
-            glType = GL_UNSIGNED_INT_10_10_10_2;
+            glFormat = GL_RGB10_A2;
+            glType = GL_UNSIGNED_INT_2_10_10_10_REV;
             break;
 #endif // PLATFORM_SDK_VERSION >= 26
 #if PLATFORM_SDK_VERSION >= 21
@@ -577,7 +610,11 @@ static int gralloc_alloc(alloc_device_t* dev,
     // rendering will still happen on the host but we also need to be able to
     // read back from the color buffer, which requires that there is a buffer
     //
+#if PLATFORM_SDK_VERSION >= 17
+    bool needHostCb = ((!yuv_format && frameworkFormat != HAL_PIXEL_FORMAT_BLOB) ||
+#else
     bool needHostCb = (!yuv_format ||
+#endif
                        frameworkFormat == HAL_PIXEL_FORMAT_YV12 ||
                        frameworkFormat == HAL_PIXEL_FORMAT_YCbCr_420_888) &&
 #if PLATFORM_SDK_VERSION >= 15
@@ -636,7 +673,7 @@ static int gralloc_alloc(alloc_device_t* dev,
         // round to page size;
         ashmem_size = (ashmem_size + (PAGE_SIZE-1)) & ~(PAGE_SIZE-1);
 
-        ALOGD("%s: Creating ashmem region of size %lu\n", __FUNCTION__, ashmem_size);
+        ALOGD("%s: Creating ashmem region of size %d\n", __FUNCTION__, ashmem_size);
         fd = ashmem_create_region("gralloc-buffer", ashmem_size);
         if (fd < 0) {
             ALOGE("gralloc_alloc failed to create ashmem region: %s\n",
@@ -678,10 +715,19 @@ static int gralloc_alloc(alloc_device_t* dev,
 
     if (needHostCb) {
         if (hostCon && rcEnc) {
+            GLenum allocFormat = glFormat;
+            // The handling of RGBX_8888 is very subtle. Most of the time
+            // we want it to be treated as RGBA_8888, with the exception
+            // that alpha is always ignored and treated as 1. The solution
+            // is to create 3 channel RGB texture instead and host GL will
+            // handle the Alpha channel.
+            if (HAL_PIXEL_FORMAT_RGBX_8888 == format) {
+                allocFormat = GL_RGB;
+            }
             if (s_grdma) {
-                cb->hostHandle = rcEnc->rcCreateColorBufferDMA(rcEnc, w, h, glFormat, cb->emuFrameworkFormat);
+                cb->hostHandle = rcEnc->rcCreateColorBufferDMA(rcEnc, w, h, allocFormat, cb->emuFrameworkFormat);
             } else {
-                cb->hostHandle = rcEnc->rcCreateColorBuffer(rcEnc, w, h, glFormat);
+                cb->hostHandle = rcEnc->rcCreateColorBuffer(rcEnc, w, h, allocFormat);
             }
             D("Created host ColorBuffer 0x%x\n", cb->hostHandle);
         }
@@ -760,7 +806,7 @@ static int gralloc_free(alloc_device_t* dev,
         if (cb->ashmemSize > 0 && cb->ashmemBase) {
             D("%s: unmapped %p", __FUNCTION__, cb->ashmemBase);
             munmap((void *)cb->ashmemBase, cb->ashmemSize);
-            put_gralloc_dmaregion();
+            put_gralloc_dmaregion(cb->ashmemSize);
         }
         close(cb->fd);
     }
@@ -914,8 +960,6 @@ static int gralloc_register_buffer(gralloc_module_t const* module,
         return sFallback->registerBuffer(sFallback, handle);
     }
 
-    D("gralloc_register_buffer(%p) called", handle);
-
     private_module_t *gr = (private_module_t *)module;
     cb_handle_t *cb = (cb_handle_t *)handle;
 
@@ -923,6 +967,9 @@ static int gralloc_register_buffer(gralloc_module_t const* module,
         ERR("gralloc_register_buffer(%p): invalid buffer", cb);
         return -EINVAL;
     }
+
+    D("gralloc_register_buffer(%p) w %d h %d format 0x%x framworkFormat 0x%x",
+        handle, cb->width, cb->height, cb->format, cb->frameworkFormat);
 
     if (cb->hostHandle != 0) {
         DEFINE_AND_VALIDATE_HOST_CONNECTION;
@@ -1006,7 +1053,7 @@ static int gralloc_unregister_buffer(gralloc_module_t const* module,
     if (cb->ashmemSize > 0 && cb->mappedPid == getpid()) {
 
         PUT_ASHMEM_REGION(cb);
-        put_gralloc_dmaregion();
+        put_gralloc_dmaregion(cb->ashmemSize);
 
         if (!SHOULD_UNMAP) goto done;
 
@@ -1169,8 +1216,8 @@ static int gralloc_lock(gralloc_module_t const* module,
         cb->lockedHeight = h;
     }
 
-    DD("gralloc_lock success. vaddr: %p, *vaddr: %p, usage: %x, cpu_addr: %p",
-            vaddr, vaddr ? *vaddr : 0, usage, cpu_addr);
+    DD("gralloc_lock success. vaddr: %p, *vaddr: %p, usage: %x, cpu_addr: %p, base: %p",
+            vaddr, vaddr ? *vaddr : 0, usage, cpu_addr, cb->ashmemBase);
 
     return 0;
 }
@@ -1288,14 +1335,12 @@ static int gralloc_lock_ycbcr(gralloc_module_t const* module,
             cStep = 1;
             break;
         case HAL_PIXEL_FORMAT_YCbCr_420_888:
-            align = 1;
             yStride = cb->width;
-            cStride = yStride / 2;
+            cStride = cb->width;
             yOffset = 0;
-            cSize = cStride * cb->height/2;
-            uOffset = yStride * cb->height;
-            vOffset = uOffset + cSize;
-            cStep = 1;
+            vOffset = yStride * cb->height;
+            uOffset = vOffset + 1;
+            cStep = 2;
             break;
         default:
             ALOGE("gralloc_lock_ycbcr unexpected internal format %x",
@@ -1322,9 +1367,9 @@ static int gralloc_lock_ycbcr(gralloc_module_t const* module,
     cb->lockedHeight = h;
 
     DD("gralloc_lock_ycbcr success. usage: %x, ycbcr.y: %p, .cb: %p, .cr: %p, "
-            ".ystride: %d , .cstride: %d, .chroma_step: %d", usage,
+            ".ystride: %d , .cstride: %d, .chroma_step: %d, base: %p", usage,
             ycbcr->y, ycbcr->cb, ycbcr->cr, ycbcr->ystride, ycbcr->cstride,
-            ycbcr->chroma_step);
+            ycbcr->chroma_step, cb->ashmemBase);
 
     return 0;
 }
@@ -1488,11 +1533,15 @@ struct private_module_t HAL_MODULE_INFO_SYM = {
  */
 
 #if __LP64__
-static const char kGrallocDefaultSystemPath[] = "/system/lib64/hw/gralloc.default.so";
-static const char kGrallocDefaultVendorPath[] = "/vendor/lib64/hw/gralloc.default.so";
+static const char kGrallocDefaultSystemPath[] = "/system/lib64/hw/gralloc.goldfish.default.so";
+static const char kGrallocDefaultVendorPath[] = "/vendor/lib64/hw/gralloc.goldfish.default.so";
+static const char kGrallocDefaultSystemPathPreP[] = "/system/lib64/hw/gralloc.default.so";
+static const char kGrallocDefaultVendorPathPreP[] = "/vendor/lib64/hw/gralloc.default.so";
 #else
-static const char kGrallocDefaultSystemPath[] = "/system/lib/hw/gralloc.default.so";
-static const char kGrallocDefaultVendorPath[] = "/vendor/lib/hw/gralloc.default.so";
+static const char kGrallocDefaultSystemPath[] = "/system/lib/hw/gralloc.goldfish.default.so";
+static const char kGrallocDefaultVendorPath[] = "/vendor/lib/hw/gralloc.goldfish.default.so";
+static const char kGrallocDefaultSystemPathPreP[] = "/system/lib/hw/gralloc.default.so";
+static const char kGrallocDefaultVendorPathPreP[] = "/vendor/lib/hw/gralloc.default.so";
 #endif
 
 static void
@@ -1513,10 +1562,16 @@ fallback_init(void)
           kGrallocDefaultVendorPath);
     module = dlopen(kGrallocDefaultVendorPath, RTLD_LAZY | RTLD_LOCAL);
     if (!module) {
+      module = dlopen(kGrallocDefaultVendorPathPreP, RTLD_LAZY | RTLD_LOCAL);
+    }
+    if (!module) {
         // vendor folder didn't work. try system
         ALOGD("gralloc.default.so not found in /vendor. Trying %s...",
               kGrallocDefaultSystemPath);
         module = dlopen(kGrallocDefaultSystemPath, RTLD_LAZY | RTLD_LOCAL);
+        if (!module) {
+          module = dlopen(kGrallocDefaultSystemPathPreP, RTLD_LAZY | RTLD_LOCAL);
+        }
     }
 
     if (module != NULL) {

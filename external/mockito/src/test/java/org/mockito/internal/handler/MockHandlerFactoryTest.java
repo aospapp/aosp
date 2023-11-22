@@ -6,16 +6,16 @@ package org.mockito.internal.handler;
 
 import org.junit.Test;
 import org.mockito.Mockito;
-import org.mockito.internal.InternalMockHandler;
 import org.mockito.internal.creation.MockSettingsImpl;
 import org.mockito.internal.stubbing.answers.Returns;
 import org.mockito.invocation.Invocation;
+import org.mockito.invocation.MockHandler;
 import org.mockito.mock.MockCreationSettings;
 import org.mockitousage.IMethods;
 import org.mockitoutil.TestBase;
 
-import static junit.framework.TestCase.assertEquals;
-import static junit.framework.TestCase.assertNotNull;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.mockito.internal.handler.MockHandlerFactory.createMockHandler;
 
 /**
@@ -30,7 +30,7 @@ public class MockHandlerFactoryTest extends TestBase {
     public void handle_result_must_not_be_null_for_primitives() throws Throwable {
         //given:
         MockCreationSettings<?> settings = (MockCreationSettings<?>) new MockSettingsImpl().defaultAnswer(new Returns(null));
-		InternalMockHandler<?> handler = createMockHandler(settings);
+		MockHandler<?> handler = createMockHandler(settings);
 
         mock.intReturningMethod();
         Invocation invocation = super.getLastInvocation();
@@ -48,7 +48,7 @@ public class MockHandlerFactoryTest extends TestBase {
     public void valid_handle_result_is_permitted() throws Throwable {
         //given:
         MockCreationSettings<?> settings = (MockCreationSettings<?>) new MockSettingsImpl().defaultAnswer(new Returns(123));
-        InternalMockHandler<?> handler =  createMockHandler(settings);
+        MockHandler<?> handler =  createMockHandler(settings);
 
         mock.intReturningMethod();
         Invocation invocation = super.getLastInvocation();

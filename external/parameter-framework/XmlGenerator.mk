@@ -77,7 +77,7 @@ LOCAL_MODULE := domainGeneratorConnector
 LOCAL_MODULE_OWNER := intel
 LOCAL_STATIC_LIBRARIES := libpfw_utility_host
 LOCAL_SHARED_LIBRARIES := libparameter_host
-LOCAL_CFLAGS := -fexceptions
+LOCAL_CFLAGS := -fexceptions -Wall -Werror
 LOCAL_SRC_FILES := ./upstream/tools/xmlGenerator/domainGeneratorConnector.cpp
 include $(BUILD_HOST_EXECUTABLE)
 

@@ -16,17 +16,17 @@
 
 #include "util/strings/split.h"
 
-namespace libtextclassifier {
+namespace libtextclassifier2 {
 namespace strings {
 
-std::vector<std::string> Split(const std::string &text, char delim) {
-  std::vector<std::string> result;
+std::vector<StringPiece> Split(const StringPiece &text, char delim) {
+  std::vector<StringPiece> result;
   int token_start = 0;
   if (!text.empty()) {
     for (size_t i = 0; i < text.size() + 1; i++) {
       if ((i == text.size()) || (text[i] == delim)) {
         result.push_back(
-            std::string(text.data() + token_start, i - token_start));
+            StringPiece(text.data() + token_start, i - token_start));
         token_start = i + 1;
       }
     }
@@ -35,4 +35,4 @@ std::vector<std::string> Split(const std::string &text, char delim) {
 }
 
 }  // namespace strings
-}  // namespace libtextclassifier
+}  // namespace libtextclassifier2

@@ -15,6 +15,7 @@ import org.junit.Test;
 import android.icu.impl.Utility;
 import android.icu.lang.UCharacter;
 import android.icu.lang.UCharacterDirection;
+import android.icu.testsharding.MainTestShard;
 
 /**
  * Regression test for Bidi charFromDirProp
@@ -22,6 +23,7 @@ import android.icu.lang.UCharacterDirection;
  * @author Lina Kemmel, Matitiahu Allouche
  */
 
+@MainTestShard
 public class TestCharFromDirProp extends BidiFmwk {
 
     /* verify that the exemplar characters have the expected bidi classes */

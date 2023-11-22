@@ -52,6 +52,7 @@
     <item msgid="375085478373011304">"VPN 및 앱"</item>
     <item msgid="692322974985472861">"Wi-Fi"</item>
   </string-array>
+    <string name="certificate_capabilities_warning" msgid="4158609401937799110">"참고: 이 인증서 발급기관이 기기에서 보내고 받는 전체 트래픽을 검사할 수 있습니다."</string>
     <string name="wifi_title" msgid="8475811746333426489">"Wi-Fi 프로필"</string>
     <string name="wifi_detail_title" msgid="3627332137252994395">"%s 관련 세부정보"</string>
     <string name="wifi_detail_label" msgid="3032151019356747583">"세부정보"</string>

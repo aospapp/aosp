@@ -26,9 +26,9 @@
 package org.apache.harmony.jpda.tests.framework;
 
 import java.io.InputStreamReader;
-import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.IOException;
+import java.io.Reader;
 
 /**
  * <p>This class provides redirection of debuggee output and error streams to logWriter.
@@ -37,7 +37,7 @@ public class StreamRedirector extends Thread {
 
     String name;
     LogWriter logWriter;
-    BufferedReader br;
+    Reader br;
     boolean doExit;
 
     /**
@@ -51,8 +51,7 @@ public class StreamRedirector extends Thread {
         super("Redirector for " + name);
         this.name = name;
         this.logWriter = logWriter;
-        InputStreamReader isr = new InputStreamReader(is);
-        br = new BufferedReader(isr, 1024);
+        br = new InputStreamReader(is);
         doExit = false;
     }
 
@@ -63,19 +62,30 @@ public class StreamRedirector extends Thread {
     public void run() {
         logWriter.println("Redirector started: " + name);
         try {
-            String line = "";
-            while (!doExit) {
+            StringBuilder cur = new StringBuilder();
+            while (!doExit || br.ready()) {
                 try {
-                    line = br.readLine();
-                    if (line == null)
+                    int nc = br.read();
+                    if (nc == -1) {
+                        if (cur.length() != 0) {
+                            logWriter.println(name + "> " + cur.toString());
+                            cur.setLength(0);
+                        }
                         break;
-                    
-                    logWriter.println(name + "> " + line);
+                    } else if (nc == (int)'\n') {
+                        logWriter.println(name + "> " + cur.toString());
+                        cur.setLength(0);
+                    } else {
+                        cur.appendCodePoint(nc);
+                    }
                 } catch (IllegalStateException e) {
                      //logWriter.printError("Illegal state exception! " + e);
                     //ignore
                 }
-                
+            }
+            if (cur.length() != 0) {
+                logWriter.println(name + "> " + cur.toString());
+                cur.setLength(0);
             }
             logWriter.println("Redirector completed: " + name);
         } catch (IOException e) {

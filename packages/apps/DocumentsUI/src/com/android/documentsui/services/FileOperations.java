@@ -17,7 +17,7 @@
 package com.android.documentsui.services;
 
 import static android.os.SystemClock.elapsedRealtime;
-import static com.android.documentsui.base.Shared.DEBUG;
+import static com.android.documentsui.base.SharedMinimal.DEBUG;
 import static com.android.documentsui.services.FileOperationService.EXTRA_CANCEL;
 import static com.android.documentsui.services.FileOperationService.EXTRA_JOB_ID;
 import static com.android.documentsui.services.FileOperationService.EXTRA_OPERATION;

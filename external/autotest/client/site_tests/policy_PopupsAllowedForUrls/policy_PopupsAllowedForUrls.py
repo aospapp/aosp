@@ -31,6 +31,7 @@ class policy_PopupsAllowedForUrls(enterprise_policy_base.EnterprisePolicyTest):
     version = 1
 
     def initialize(self, **kwargs):
+        """Initialize this test."""
         self._initialize_test_constants()
         super(policy_PopupsAllowedForUrls, self).initialize(**kwargs)
         self.start_webserver()
@@ -92,11 +93,12 @@ class policy_PopupsAllowedForUrls(enterprise_policy_base.EnterprisePolicyTest):
         tab.Close()
 
 
-    def run_test_case(self, case):
+    def run_once(self, case):
         """Setup and run the test configured for the specified test case.
 
         @param case: Name of the test case to run.
         """
         case_value = self.TEST_CASES[case]
-        self.setup_case(self.POLICY_NAME, case_value, self.SUPPORTING_POLICIES)
+        self.SUPPORTING_POLICIES[self.POLICY_NAME] = case_value
+        self.setup_case(user_policies=self.SUPPORTING_POLICIES)
         self._test_popups_allowed_for_urls(case_value)

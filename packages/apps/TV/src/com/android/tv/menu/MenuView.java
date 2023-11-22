@@ -26,15 +26,11 @@ import android.view.ViewParent;
 import android.view.ViewTreeObserver.OnGlobalFocusChangeListener;
 import android.view.ViewTreeObserver.OnGlobalLayoutListener;
 import android.widget.FrameLayout;
-
 import com.android.tv.menu.Menu.MenuShowReason;
-
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * A view that represents TV main menu.
- */
+/** A view that represents TV main menu. */
 public class MenuView extends FrameLayout implements IMenuView {
     static final String TAG = MenuView.class.getSimpleName();
     static final boolean DEBUG = false;
@@ -60,20 +56,25 @@ public class MenuView extends FrameLayout implements IMenuView {
         mLayoutInflater = LayoutInflater.from(context);
         // Set hardware layer type for smooth animation of lots of views.
         setLayerType(LAYER_TYPE_HARDWARE, null);
-        getViewTreeObserver().addOnGlobalFocusChangeListener(new OnGlobalFocusChangeListener() {
-            @Override
-            public void onGlobalFocusChanged(View oldFocus, View newFocus) {
-                MenuRowView newParent = getParentMenuRowView(newFocus);
-                if (newParent != null) {
-                    if (DEBUG) Log.d(TAG, "Focus changed to " + newParent);
-                    // When the row is selected, the row view itself has the focus because the row
-                    // is collapsed. To make the child of the row have the focus, requestFocus()
-                    // should be called again after the row is expanded. It's done in
-                    // setSelectedPosition().
-                    setSelectedPositionSmooth(mMenuRowViews.indexOf(newParent));
-                }
-            }
-        });
+        getViewTreeObserver()
+                .addOnGlobalFocusChangeListener(
+                        new OnGlobalFocusChangeListener() {
+                            @Override
+                            public void onGlobalFocusChanged(View oldFocus, View newFocus) {
+                                MenuRowView newParent = getParentMenuRowView(newFocus);
+                                if (newParent != null) {
+                                    if (DEBUG) Log.d(TAG, "Focus changed to " + newParent);
+                                    // When the row is selected, the row view itself has the focus
+                                    // because the row
+                                    // is collapsed. To make the child of the row have the focus,
+                                    // requestFocus()
+                                    // should be called again after the row is expanded. It's done
+                                    // in
+                                    // setSelectedPosition().
+                                    setSelectedPositionSmooth(mMenuRowViews.indexOf(newParent));
+                                }
+                            }
+                        });
         mLayoutManager = new MenuLayoutManager(context, this);
     }
 
@@ -102,8 +103,8 @@ public class MenuView extends FrameLayout implements IMenuView {
     }
 
     @Override
-    public void onShow(@MenuShowReason int reason, String rowIdToSelect,
-            final Runnable runnableAfterShow) {
+    public void onShow(
+            @MenuShowReason int reason, String rowIdToSelect, final Runnable runnableAfterShow) {
         if (DEBUG) {
             Log.d(TAG, "onShow(reason=" + reason + ", rowIdToSelect=" + rowIdToSelect + ")");
         }
@@ -132,15 +133,18 @@ public class MenuView extends FrameLayout implements IMenuView {
         // Make the selected row have the focus.
         requestFocus();
         if (runnableAfterShow != null) {
-            getViewTreeObserver().addOnGlobalLayoutListener(new OnGlobalLayoutListener() {
-                @Override
-                public void onGlobalLayout() {
-                    getViewTreeObserver().removeOnGlobalLayoutListener(this);
-                    // Start show animation after layout finishes for smooth animation because the
-                    // layout can take long time.
-                    runnableAfterShow.run();
-                }
-            });
+            getViewTreeObserver()
+                    .addOnGlobalLayoutListener(
+                            new OnGlobalLayoutListener() {
+                                @Override
+                                public void onGlobalLayout() {
+                                    getViewTreeObserver().removeOnGlobalLayoutListener(this);
+                                    // Start show animation after layout finishes for smooth
+                                    // animation because the
+                                    // layout can take long time.
+                                    runnableAfterShow.run();
+                                }
+                            });
         }
         mLayoutManager.onMenuShow();
     }

@@ -24,6 +24,7 @@ import android.os.AsyncResult;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
+import android.os.PersistableBundle;
 import android.os.UserManager;
 import android.preference.Preference;
 import android.preference.PreferenceActivity;
@@ -31,6 +32,8 @@ import android.preference.PreferenceScreen;
 import android.preference.SwitchPreference;
 import android.provider.ContactsContract.CommonDataKinds;
 import android.provider.Settings;
+import android.telecom.PhoneAccountHandle;
+import android.telephony.CarrierConfigManager;
 import android.telephony.TelephonyManager;
 import android.text.BidiFormatter;
 import android.text.TextDirectionHeuristics;
@@ -46,6 +49,7 @@ import com.android.internal.telephony.PhoneConstants;
 import com.android.internal.telephony.util.NotificationChannelController;
 import com.android.phone.EditPhoneNumberPreference;
 import com.android.phone.PhoneGlobals;
+import com.android.phone.PhoneUtils;
 import com.android.phone.R;
 import com.android.phone.SubscriptionInfoHelper;
 
@@ -220,6 +224,12 @@ public class VoicemailSettingsActivity extends PreferenceActivity
         mShowVoicemailPreference = (icicle == null) &&
                 TextUtils.equals(getIntent().getAction(), ACTION_ADD_VOICEMAIL);
 
+        PhoneAccountHandle phoneAccountHandle = (PhoneAccountHandle)
+                getIntent().getParcelableExtra(TelephonyManager.EXTRA_PHONE_ACCOUNT_HANDLE);
+        if (phoneAccountHandle != null) {
+            getIntent().putExtra(SubscriptionInfoHelper.SUB_ID_EXTRA,
+                    PhoneUtils.getSubIdForPhoneAccountHandle(phoneAccountHandle));
+        }
         mSubscriptionInfoHelper = new SubscriptionInfoHelper(this, getIntent());
         mSubscriptionInfoHelper.setActionBarTitle(
                 getActionBar(), getResources(), R.string.voicemail_settings_with_label);
@@ -250,6 +260,10 @@ public class VoicemailSettingsActivity extends PreferenceActivity
             mSubMenuVoicemailSettings.setParentActivity(this, VOICEMAIL_PREF_ID, this);
             mSubMenuVoicemailSettings.setDialogOnClosedListener(this);
             mSubMenuVoicemailSettings.setDialogTitle(R.string.voicemail_settings_number_label);
+            if (!getBooleanCarrierConfig(
+                    CarrierConfigManager.KEY_EDITABLE_VOICEMAIL_NUMBER_SETTING_BOOL)) {
+                mSubMenuVoicemailSettings.setEnabled(false);
+            }
         }
 
         mVoicemailProviders = (VoicemailProviderListPreference) findPreference(
@@ -542,6 +556,23 @@ public class VoicemailSettingsActivity extends PreferenceActivity
                         null, idx, adapter.getItemId(idx));
                 break;
             }
+        }
+    }
+
+    /**
+     * Get the boolean config from carrier config manager.
+     *
+     * @param key config key defined in CarrierConfigManager
+     * @return boolean value of corresponding key.
+     */
+    private boolean getBooleanCarrierConfig(String key) {
+        PersistableBundle b = PhoneGlobals.getInstance()
+                .getCarrierConfigForSubId(mPhone.getSubId());
+        if (b != null) {
+            return b.getBoolean(key);
+        } else {
+            // Return static default defined in CarrierConfigManager.
+            return CarrierConfigManager.getDefaultConfig().getBoolean(key);
         }
     }
 

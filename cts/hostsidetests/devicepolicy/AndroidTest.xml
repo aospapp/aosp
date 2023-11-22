@@ -14,6 +14,7 @@
      limitations under the License.
 -->
 <configuration description="Config for the CTS Device Policy host tests">
+    <option name="test-suite-tag" value="cts" />
     <option name="config-descriptor:metadata" key="component" value="framework" />
 
     <!-- Push the list of public APIs to device -->

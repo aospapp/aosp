@@ -49,6 +49,7 @@ endif
 LOCAL_SHARED_LIBRARIES := \
     liblog \
     libcutils \
+    libion \
     libutils \
     libva \
     libva-android \

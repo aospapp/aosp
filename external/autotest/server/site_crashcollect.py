@@ -202,6 +202,12 @@ def fetch_orphaned_crashdumps(host, infodir):
     if not os.path.exists(infodir):
         os.mkdir(infodir)
     orphans = []
+
+    if not host.check_cached_up_status():
+        logging.warning('Host %s did not answer to ping, skip fetching '
+                        'orphaned crashdumps.', host.hostname)
+        return orphans
+
     try:
         for file in _find_orphaned_crashdumps(host):
             logging.info('Collecting %s...', file)

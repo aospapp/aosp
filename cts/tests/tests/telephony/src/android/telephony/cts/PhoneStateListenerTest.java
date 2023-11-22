@@ -17,18 +17,19 @@ package android.telephony.cts;
 
 import android.content.Context;
 import android.os.Looper;
+import android.telephony.CellInfo;
 import android.telephony.CellLocation;
 import android.telephony.PhoneStateListener;
 import android.telephony.ServiceState;
 import android.telephony.SignalStrength;
 import android.telephony.TelephonyManager;
 import android.net.ConnectivityManager;
-import android.test.InstrumentationTestCase;
 import android.test.AndroidTestCase;
 import android.util.Log;
 
-import com.android.compatibility.common.util.ReadElf;
 import com.android.compatibility.common.util.TestThread;
+
+import java.util.List;
 
 public class PhoneStateListenerTest extends  AndroidTestCase{
 
@@ -37,9 +38,12 @@ public class PhoneStateListenerTest extends  AndroidTestCase{
     private boolean mOnCallForwardingIndicatorChangedCalled;
     private boolean mOnCallStateChangedCalled;
     private boolean mOnCellLocationChangedCalled;
+    private boolean mOnUserMobileDataStateChanged;
     private boolean mOnDataActivityCalled;
     private boolean mOnDataConnectionStateChangedCalled;
+    private boolean mOnDataConnectionStateChangedWithNetworkTypeCalled;
     private boolean mOnMessageWaitingIndicatorChangedCalled;
+    private boolean mOnCellInfoChangedCalled;
     private boolean mOnServiceStateChangedCalled;
     private boolean mOnSignalStrengthChangedCalled;
     private SignalStrength mSignalStrength;
@@ -372,6 +376,13 @@ public class PhoneStateListenerTest extends  AndroidTestCase{
                             mLock.notify();
                         }
                     }
+                    @Override
+                    public void onDataConnectionStateChanged(int state, int networkType) {
+                        synchronized(mLock) {
+                            mOnDataConnectionStateChangedWithNetworkTypeCalled = true;
+                            mLock.notify();
+                        }
+                    }
                 };
                 mTelephonyManager.listen(
                         mListener, PhoneStateListener.LISTEN_DATA_CONNECTION_STATE);
@@ -381,15 +392,18 @@ public class PhoneStateListenerTest extends  AndroidTestCase{
         });
 
         assertFalse(mOnDataConnectionStateChangedCalled);
+        assertFalse(mOnDataConnectionStateChangedWithNetworkTypeCalled);
         t.start();
 
         synchronized (mLock) {
-            while(!mOnDataConnectionStateChangedCalled){
+            while(!mOnDataConnectionStateChangedCalled ||
+                    !mOnDataConnectionStateChangedWithNetworkTypeCalled){
                 mLock.wait();
             }
         }
         t.checkException();
         assertTrue(mOnDataConnectionStateChangedCalled);
+        assertTrue(mOnDataConnectionStateChangedWithNetworkTypeCalled);
     }
 
     public void testOnDataActivity() throws Throwable {
@@ -427,5 +441,80 @@ public class PhoneStateListenerTest extends  AndroidTestCase{
         }
         t.checkException();
         assertTrue(mOnDataActivityCalled);
+    }
+
+    public void testOnCellInfoChanged() throws Throwable {
+        if (mCm.getNetworkInfo(ConnectivityManager.TYPE_MOBILE) == null) {
+            Log.d(TAG, "Skipping test that requires ConnectivityManager.TYPE_MOBILE");
+            return;
+        }
+
+        TestThread t = new TestThread(new Runnable() {
+            public void run() {
+                Looper.prepare();
+
+                mListener = new PhoneStateListener() {
+                    @Override
+                    public void onCellInfoChanged(List<CellInfo> cellInfo) {
+                        synchronized(mLock) {
+                            mOnCellInfoChangedCalled = true;
+                            mLock.notify();
+                        }
+                    }
+                };
+                mTelephonyManager.listen(mListener, PhoneStateListener.LISTEN_CELL_INFO);
+
+                Looper.loop();
+            }
+        });
+
+        assertFalse(mOnDataActivityCalled);
+        t.start();
+
+        synchronized (mLock) {
+            while(!mOnCellInfoChangedCalled){
+                mLock.wait();
+            }
+        }
+        t.checkException();
+        assertTrue(mOnCellInfoChangedCalled);
+    }
+
+    public void testOnUserMobileDataStateChanged() throws Throwable {
+        if (mCm.getNetworkInfo(ConnectivityManager.TYPE_MOBILE) == null) {
+            Log.d(TAG, "Skipping test that requires ConnectivityManager.TYPE_MOBILE");
+            return;
+        }
+
+        TestThread t = new TestThread(new Runnable() {
+            public void run() {
+                Looper.prepare();
+
+                mListener = new PhoneStateListener() {
+                    @Override
+                    public void onUserMobileDataStateChanged(boolean state) {
+                        synchronized(mLock) {
+                            mOnUserMobileDataStateChanged = true;
+                            mLock.notify();
+                        }
+                    }
+                };
+                mTelephonyManager.listen(
+                        mListener, PhoneStateListener.LISTEN_USER_MOBILE_DATA_STATE);
+
+                Looper.loop();
+            }
+        });
+
+        assertFalse(mOnUserMobileDataStateChanged);
+        t.start();
+
+        synchronized (mLock) {
+            while(!mOnUserMobileDataStateChanged){
+                mLock.wait();
+            }
+        }
+        t.checkException();
+        assertTrue(mOnUserMobileDataStateChanged);
     }
 }

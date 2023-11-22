@@ -41,6 +41,7 @@ public class CommandOptions implements ICommandOptions {
     private boolean mJsonHelpMode = false;
 
     public static final String DRY_RUN_OPTION = "dry-run";
+    public static final String NOISY_DRY_RUN_OPTION = "noisy-dry-run";
 
     @Option(
         name = DRY_RUN_OPTION,
@@ -51,10 +52,13 @@ public class CommandOptions implements ICommandOptions {
     )
     private boolean mDryRunMode = false;
 
-    @Option(name = "noisy-dry-run",
-            description = "build but don't actually run the command.  This version prints the " +
-                    "command to the console.  Intended for cmdfile debugging.",
-            importance = Importance.ALWAYS)
+    @Option(
+        name = NOISY_DRY_RUN_OPTION,
+        description =
+                "build but don't actually run the command.  This version prints the "
+                        + "command to the console.  Intended for cmdfile debugging.",
+        importance = Importance.ALWAYS
+    )
     private boolean mNoisyDryRunMode = false;
 
     @Option(name = "min-loop-time", description =
@@ -293,12 +297,24 @@ public class CommandOptions implements ICommandOptions {
         return mTakeBugreportOnInvocationEnded;
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public void setBugreportOnInvocationEnded(boolean takeBugreport) {
+        mTakeBugreportOnInvocationEnded = takeBugreport;
+    }
+
     /**
      * {@inheritDoc}
      */
     @Override
     public boolean takeBugreportzOnInvocationEnded() {
         return mTakeBugreportzOnInvocationEnded;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void setBugreportzOnInvocationEnded(boolean takeBugreportz) {
+        mTakeBugreportzOnInvocationEnded = takeBugreportz;
     }
 
     /**

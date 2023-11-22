@@ -99,11 +99,11 @@
     <string name="ok" msgid="163967937451981024">"Sawa"</string>
     <string name="phone_type_and_phone_number" msgid="5034188169563878371">"<xliff:g id="PHONE_TYPE">%1$s</xliff:g> • <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
     <string name="no_info_provided" msgid="716200382010821001">"Hatuna maelezo kuhusu mwenye simu hii"</string>
-    <string name="tap_pencil" msgid="2723698054265296934">"Ikiwa hii ni simu yako, gonga aikoni ya penseli ili uongeze maelezo ambayo yataonekana hapa wakati wa dharura."</string>
+    <string name="tap_pencil" msgid="2723698054265296934">"Ikiwa hii ni simu yako, gusa aikoni ya penseli ili uongeze maelezo ambayo yataonekana hapa wakati wa dharura."</string>
     <string name="clear_all" msgid="8899013032870561633">"Futa yote"</string>
     <string name="clear" msgid="3648880442502887163">"Futa"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"Je, ungependa kufuta maelezo na anwani zote?"</string>
-    <string name="emergency_info_footer" msgid="8751758742506410146">"Hatua ya kuongeza maelezo ya matibabu ya anwani za dharura inaweza kuwasaidia wahudumu wa hali za dharura.\n\nMtu yeyote anaweza kusoma maelezo haya kwenye skrini ya simu yako iliyofungwa na kuwapigia simu watu unaowasiliana nao kwa kugonga majina yao bila kufungua simu yako."</string>
+    <string name="emergency_info_footer" msgid="8751758742506410146">"Hatua ya kuongeza maelezo ya matibabu na anwani za dharura inaweza kuwasaidia watakaofika kwanza katika hali za dharura.\n\nMtu yeyote anaweza kusoma maelezo haya kwenye skrini ya simu yako iliyofungwa na kuwapigia simu watu unaowasiliana nao kwa kugusa majina yao bila kufungua simu yako."</string>
     <string name="settings_suggestion_title" msgid="2503369576806243476">"Ongeza maelezo ya dharura"</string>
-    <string name="settings_suggestion_body" msgid="6623265155762787567">"Wasaidie wahudumu wa kwanza wapate maelezo muhimu"</string>
+    <string name="settings_suggestion_body" msgid="5559349261345837716">"Ruhusu wanaohudumia dharura waone maelezo yako"</string>
 </resources>

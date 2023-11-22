@@ -25,6 +25,8 @@ LOCAL_SRC_FILES := shaders.cpp \
                    hooks_android.cpp \
                    utils.cpp
 
+LOCAL_CFLAGS := -Wall -Werror -Wno-unused-variable
+
 LOCAL_SDK_VERSION := 21
 LOCAL_NDK_STL_VARIANT := c++_static
 

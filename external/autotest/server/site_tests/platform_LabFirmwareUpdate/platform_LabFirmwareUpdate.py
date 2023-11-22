@@ -26,6 +26,8 @@ class platform_LabFirmwareUpdate(test.test):
     """
     version = 1
 
+    # TODO(kmshelton): Move most of the logic in this test to a unit tested
+    # library.
     def initialize(self, host):
         self.host = host
         # Make sure the client library is on the device so that the proxy
@@ -112,11 +114,15 @@ class platform_LabFirmwareUpdate(test.test):
 
         @return shellball firmware version tuple (bios, ec)
         """
-        ec = None
         bios = None
+        ec = None
         bios_ro = None
         bios_rw = None
+        ec_ro = None
+        ec_rw = None
         shellball = self._run_cmd('/usr/sbin/chromeos-firmwareupdate -V')
+        # TODO(kmshelton): Add a structured output option (likely a protobuf)
+        # to chromeos-firmwareupdate so the below can become less fragile.
         for line in shellball.splitlines():
             if line.startswith('BIOS version:'):
                 parts = line.split(':')
@@ -126,15 +132,23 @@ class platform_LabFirmwareUpdate(test.test):
                 parts = line.split(':')
                 bios_rw = parts[1].strip()
                 logging.info('shellball rw bios %s', bios_rw)
-            elif line.startswith('EC version:'):
+            if line.startswith('EC version:'):
                 parts = line.split(':')
-                ec = parts[1].strip()
-                logging.info('shellball ec %s', ec)
+                ec_ro = parts[1].strip()
+                logging.info('shellball ro ec %s', ec_ro)
+            elif line.startswith('EC (RW) version:'):
+                parts = line.split(':')
+                ec_rw = parts[1].strip()
+                logging.info('shellball rw ec %s', ec_rw)
         # Shellballs do not always contain a RW version.
         if bios_rw is not None:
           bios = self._construct_fw_version(bios_ro, bios_rw)
         else:
           bios = bios_ro
+        if ec_rw is not None:
+          ec = self._construct_fw_version(ec_ro, ec_rw)
+        else:
+          ec = ec_ro
         return (bios, ec)
 
     def run_once(self, replace=True):

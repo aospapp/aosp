@@ -100,7 +100,7 @@
     <string name="status_connection_error" msgid="947681831523219891">"Միացումը անհաջող էր:"</string>
     <string name="status_protocol_error" msgid="3245444473429269539">"Հարցումը հնարավոր չէ ճշգրտորեն մշակել:"</string>
     <string name="status_unknown_error" msgid="8156660554237824912">"Անհայտ սխալ:"</string>
-    <string name="btopp_live_folder" msgid="7967791481444474554">"Bluetooth-ը ստացված է"</string>
+    <string name="btopp_live_folder" msgid="7967791481444474554">"Ստացված է Bluetooth-ով"</string>
     <string name="opp_notification_group" msgid="3486303082135789982">"Bluetooth համօգտագործում"</string>
     <string name="download_success" msgid="7036160438766730871">"<xliff:g id="FILE_SIZE">%1$s</xliff:g> ստացումն ավարտված է:"</string>
     <string name="upload_success" msgid="4014469387779648949">"<xliff:g id="FILE_SIZE">%1$s</xliff:g> ուղարկումն ավարտված է:"</string>
@@ -132,4 +132,5 @@
     <string name="bluetooth_connected" msgid="6718623220072656906">"Bluetooth աուդիոն կապակցված է"</string>
     <string name="bluetooth_disconnected" msgid="3318303728981478873">"Bluetooth աուդիոն անջատված է"</string>
     <string name="a2dp_sink_mbs_label" msgid="7566075853395412558">"Bluetooth աուդիո"</string>
+    <string name="bluetooth_opp_file_limit_exceeded" msgid="8894450394309084519">"4 ԳԲ-ից մեծ ֆայլերը հնարավոր չէ փոխանցել"</string>
 </resources>

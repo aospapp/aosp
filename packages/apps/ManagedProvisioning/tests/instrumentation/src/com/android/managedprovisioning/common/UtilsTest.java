@@ -16,7 +16,6 @@
 
 package com.android.managedprovisioning.common;
 
-import static org.mockito.Matchers.contains;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyInt;
 import static org.mockito.Mockito.eq;
@@ -43,15 +42,13 @@ import android.os.Build;
 import android.test.AndroidTestCase;
 import android.test.suitebuilder.annotation.SmallTest;
 
-import java.io.File;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+
 import java.io.FileOutputStream;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
-
-import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
 
 /**
  * Unit-tests for {@link Utils}.
@@ -63,10 +60,10 @@ public class UtilsTest extends AndroidTestCase {
     private static final String TEST_DEVICE_ADMIN_NAME = TEST_PACKAGE_NAME_1 + ".DeviceAdmin";
     // Another DeviceAdmin in package 1
     private static final String TEST_DEVICE_ADMIN_NAME_2 = TEST_PACKAGE_NAME_1 + ".DeviceAdmin2";
-    private static final ComponentName TEST_COMPONENT_NAME = new ComponentName(TEST_PACKAGE_NAME_1,
-            TEST_DEVICE_ADMIN_NAME);
-    private static final ComponentName TEST_COMPONENT_NAME_2 = new ComponentName(TEST_PACKAGE_NAME_1,
-            TEST_DEVICE_ADMIN_NAME_2);
+    private static final ComponentName TEST_COMPONENT_NAME =
+            new ComponentName(TEST_PACKAGE_NAME_1, TEST_DEVICE_ADMIN_NAME);
+    private static final ComponentName TEST_COMPONENT_NAME_2 =
+            new ComponentName(TEST_PACKAGE_NAME_1, TEST_DEVICE_ADMIN_NAME_2);
     private static final int TEST_USER_ID = 10;
     private static final String TEST_FILE_NAME = "testfile";
 
@@ -227,7 +224,7 @@ public class UtilsTest extends AndroidTestCase {
 
         // THEN calling findDeviceAdmin returns the correct admin
         assertEquals(TEST_COMPONENT_NAME_2,
-                mUtils.findDeviceAdmin(null, TEST_COMPONENT_NAME_2, mockContext));
+                mUtils.findDeviceAdmin(null, TEST_COMPONENT_NAME_2, mockContext, TEST_USER_ID));
     }
 
     public void testFindDeviceAdmin_PackageName() throws Exception {
@@ -236,18 +233,21 @@ public class UtilsTest extends AndroidTestCase {
 
         // THEN calling findDeviceAdmin returns the correct admin
         assertEquals(TEST_COMPONENT_NAME,
-                mUtils.findDeviceAdmin(TEST_PACKAGE_NAME_1, null, mockContext));
+                mUtils.findDeviceAdmin(
+                        TEST_PACKAGE_NAME_1, null, mockContext, TEST_USER_ID));
     }
 
     public void testFindDeviceAdmin_NoPackageName() throws Exception {
         // GIVEN no package info file
-        when(mockPackageManager.getPackageInfo(TEST_PACKAGE_NAME_1,
-                PackageManager.GET_RECEIVERS | PackageManager.MATCH_DISABLED_COMPONENTS))
+        when(mockPackageManager.getPackageInfoAsUser(TEST_PACKAGE_NAME_1,
+                PackageManager.GET_RECEIVERS | PackageManager.MATCH_DISABLED_COMPONENTS,
+                TEST_USER_ID))
                 .thenReturn(null);
 
         // THEN throw IllegalProvisioningArgumentException
         try {
-            mUtils.findDeviceAdmin(TEST_PACKAGE_NAME_1, null, mockContext);
+            mUtils.findDeviceAdmin(
+                    TEST_PACKAGE_NAME_1, null, mockContext, TEST_USER_ID);
             fail();
         } catch (IllegalProvisioningArgumentException e) {
             // expected
@@ -260,7 +260,8 @@ public class UtilsTest extends AndroidTestCase {
 
         // THEN looking another device admin throws IllegalProvisioningArgumentException
         try {
-            mUtils.findDeviceAdmin(null, TEST_COMPONENT_NAME_2, mockContext);
+            mUtils.findDeviceAdmin(
+                    null, TEST_COMPONENT_NAME_2, mockContext, TEST_USER_ID);
             fail();
         } catch (IllegalProvisioningArgumentException e) {
             // expected
@@ -438,8 +439,9 @@ public class UtilsTest extends AndroidTestCase {
             receiver.name = adminNames[i];
             packageInfo.receivers[i] = receiver;
         }
-        when(mockPackageManager.getPackageInfo(packageName,
-                PackageManager.GET_RECEIVERS | PackageManager.MATCH_DISABLED_COMPONENTS))
+        when(mockPackageManager.getPackageInfoAsUser(packageName,
+                PackageManager.GET_RECEIVERS | PackageManager.MATCH_DISABLED_COMPONENTS,
+                TEST_USER_ID))
                 .thenReturn(packageInfo);
 
         return packageInfo;

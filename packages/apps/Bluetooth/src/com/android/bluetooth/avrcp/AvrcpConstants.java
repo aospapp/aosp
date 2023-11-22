@@ -29,74 +29,90 @@ final class AvrcpConstants {
 
     /* Do not modify without upating the HAL bt_rc.h file */
     /** Response Error codes **/
-    static final byte RSP_BAD_CMD        = 0x00; /* Invalid command */
-    static final byte RSP_BAD_PARAM      = 0x01; /* Invalid parameter */
-    static final byte RSP_NOT_FOUND      = 0x02; /* Specified parameter is
+    static final byte RSP_BAD_CMD = 0x00; /* Invalid command */
+    static final byte RSP_BAD_PARAM = 0x01; /* Invalid parameter */
+    static final byte RSP_NOT_FOUND = 0x02; /* Specified parameter is
                                                               * wrong or not found */
-    static final byte RSP_INTERNAL_ERR   = 0x03; /* Internal Error */
-    static final byte RSP_NO_ERROR       = 0x04; /* Operation Success */
-    static final byte RSP_UID_CHANGED    = 0x05; /* UIDs changed */
-    static final byte RSP_RESERVED       = 0x06; /* Reserved */
-    static final byte RSP_INV_DIRN       = 0x07; /* Invalid direction */
-    static final byte RSP_INV_DIRECTORY  = 0x08; /* Invalid directory */
-    static final byte RSP_INV_ITEM       = 0x09; /* Invalid Item */
-    static final byte RSP_INV_SCOPE      = 0x0a; /* Invalid scope */
-    static final byte RSP_INV_RANGE      = 0x0b; /* Invalid range */
-    static final byte RSP_DIRECTORY      = 0x0c; /* UID is a directory */
-    static final byte RSP_MEDIA_IN_USE   = 0x0d; /* Media in use */
+    static final byte RSP_INTERNAL_ERR = 0x03; /* Internal Error */
+    static final byte RSP_NO_ERROR = 0x04; /* Operation Success */
+    static final byte RSP_UID_CHANGED = 0x05; /* UIDs changed */
+    static final byte RSP_RESERVED = 0x06; /* Reserved */
+    static final byte RSP_INV_DIRN = 0x07; /* Invalid direction */
+    static final byte RSP_INV_DIRECTORY = 0x08; /* Invalid directory */
+    static final byte RSP_INV_ITEM = 0x09; /* Invalid Item */
+    static final byte RSP_INV_SCOPE = 0x0a; /* Invalid scope */
+    static final byte RSP_INV_RANGE = 0x0b; /* Invalid range */
+    static final byte RSP_DIRECTORY = 0x0c; /* UID is a directory */
+    static final byte RSP_MEDIA_IN_USE = 0x0d; /* Media in use */
     static final byte RSP_PLAY_LIST_FULL = 0x0e; /* Playing list full */
     static final byte RSP_SRCH_NOT_SPRTD = 0x0f; /* Search not supported */
-    static final byte RSP_SRCH_IN_PROG   = 0x10; /* Search in progress */
-    static final byte RSP_INV_PLAYER     = 0x11; /* Invalid player */
-    static final byte RSP_PLAY_NOT_BROW  = 0x12; /* Player not browsable */
-    static final byte RSP_PLAY_NOT_ADDR  = 0x13; /* Player not addressed */
-    static final byte RSP_INV_RESULTS    = 0x14; /* Invalid results */
-    static final byte RSP_NO_AVBL_PLAY   = 0x15; /* No available players */
+    static final byte RSP_SRCH_IN_PROG = 0x10; /* Search in progress */
+    static final byte RSP_INV_PLAYER = 0x11; /* Invalid player */
+    static final byte RSP_PLAY_NOT_BROW = 0x12; /* Player not browsable */
+    static final byte RSP_PLAY_NOT_ADDR = 0x13; /* Player not addressed */
+    static final byte RSP_INV_RESULTS = 0x14; /* Invalid results */
+    static final byte RSP_NO_AVBL_PLAY = 0x15; /* No available players */
     static final byte RSP_ADDR_PLAY_CHGD = 0x16; /* Addressed player changed */
 
     /* valid scopes for get_folder_items */
-    static final byte BTRC_SCOPE_PLAYER_LIST  = 0x00; /* Media Player List */
-    static final byte BTRC_SCOPE_FILE_SYSTEM  = 0x01; /* Virtual File System */
-    static final byte BTRC_SCOPE_SEARCH       = 0x02; /* Search */
-    static final byte BTRC_SCOPE_NOW_PLAYING  = 0x03; /* Now Playing */
+    static final byte BTRC_SCOPE_PLAYER_LIST = 0x00; /* Media Player List */
+    static final byte BTRC_SCOPE_FILE_SYSTEM = 0x01; /* Virtual File System */
+    static final byte BTRC_SCOPE_SEARCH = 0x02; /* Search */
+    static final byte BTRC_SCOPE_NOW_PLAYING = 0x03; /* Now Playing */
 
     /* valid directions for change path */
-    static final byte DIR_UP   = 0x00;
+    static final byte DIR_UP = 0x00;
     static final byte DIR_DOWN = 0x01;
 
     /* item type to browse */
-    static final byte BTRC_ITEM_PLAYER  = 0x01;
-    static final byte BTRC_ITEM_FOLDER  = 0x02;
-    static final byte BTRC_ITEM_MEDIA   = 0x03;
+    static final byte BTRC_ITEM_PLAYER = 0x01;
+    static final byte BTRC_ITEM_FOLDER = 0x02;
+    static final byte BTRC_ITEM_MEDIA = 0x03;
 
     /* valid folder types */
-    static final byte FOLDER_TYPE_MIXED      = 0x00;
-    static final byte FOLDER_TYPE_TITLES     = 0x01;
-    static final byte FOLDER_TYPE_ALBUMS     = 0x02;
-    static final byte FOLDER_TYPE_ARTISTS    = 0x03;
-    static final byte FOLDER_TYPE_GENRES     = 0x04;
-    static final byte FOLDER_TYPE_PLAYLISTS  = 0x05;
-    static final byte FOLDER_TYPE_YEARS      = 0x06;
+    static final byte FOLDER_TYPE_MIXED = 0x00;
+    static final byte FOLDER_TYPE_TITLES = 0x01;
+    static final byte FOLDER_TYPE_ALBUMS = 0x02;
+    static final byte FOLDER_TYPE_ARTISTS = 0x03;
+    static final byte FOLDER_TYPE_GENRES = 0x04;
+    static final byte FOLDER_TYPE_PLAYLISTS = 0x05;
+    static final byte FOLDER_TYPE_YEARS = 0x06;
 
     /* valid playable flags */
-    static final byte ITEM_NOT_PLAYABLE  = 0x00;
-    static final byte ITEM_PLAYABLE      = 0x01;
+    static final byte ITEM_NOT_PLAYABLE = 0x00;
+    static final byte ITEM_PLAYABLE = 0x01;
 
     /* valid Attribute ids for media elements */
-    static final int ATTRID_TITLE      = 0x01;
-    static final int ATTRID_ARTIST     = 0x02;
-    static final int ATTRID_ALBUM      = 0x03;
-    static final int ATTRID_TRACK_NUM  = 0x04;
+    static final int ATTRID_TITLE = 0x01;
+    static final int ATTRID_ARTIST = 0x02;
+    static final int ATTRID_ALBUM = 0x03;
+    static final int ATTRID_TRACK_NUM = 0x04;
     static final int ATTRID_NUM_TRACKS = 0x05;
-    static final int ATTRID_GENRE      = 0x06;
-    static final int ATTRID_PLAY_TIME  = 0x07;
-    static final int ATTRID_COVER_ART  = 0x08;
+    static final int ATTRID_GENRE = 0x06;
+    static final int ATTRID_PLAY_TIME = 0x07;
+    static final int ATTRID_COVER_ART = 0x08;
 
     /* constants to send in Track change response */
-    static final byte[] NO_TRACK_SELECTED = {(byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF,
-            (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF};
-    static final byte[] TRACK_IS_SELECTED = {(byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00,
-            (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00};
+    static final byte[] NO_TRACK_SELECTED = {
+            (byte) 0xFF,
+            (byte) 0xFF,
+            (byte) 0xFF,
+            (byte) 0xFF,
+            (byte) 0xFF,
+            (byte) 0xFF,
+            (byte) 0xFF,
+            (byte) 0xFF
+    };
+    static final byte[] TRACK_IS_SELECTED = {
+            (byte) 0x00,
+            (byte) 0x00,
+            (byte) 0x00,
+            (byte) 0x00,
+            (byte) 0x00,
+            (byte) 0x00,
+            (byte) 0x00,
+            (byte) 0x00
+    };
 
     /* UID size */
     static final int UID_SIZE = 8;
@@ -141,8 +157,8 @@ final class AvrcpConstants {
     static final int PLAYSTATUS_REV_SEEK = 4;
     static final int PLAYSTATUS_ERROR = 255;
 
-    static final byte NUM_ATTR_ALL = (byte)0x00;
-    static final byte NUM_ATTR_NONE = (byte)0xFF;
+    static final byte NUM_ATTR_ALL = (byte) 0x00;
+    static final byte NUM_ATTR_NONE = (byte) 0xFF;
 
     static final int KEY_STATE_PRESS = 1;
     static final int KEY_STATE_RELEASE = 0;

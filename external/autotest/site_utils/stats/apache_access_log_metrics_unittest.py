@@ -26,7 +26,7 @@ SCRIPT_PATH = os.path.abspath(
 EXAMPLE_REQUEST_LINE = (
     r'chromeos-server2.mtv.corp.google.com:80 100.108.96.5 - - '
     r'[19/May/2017:11:47:03 -0700] '
-    r'"POST /afe/server/noauth/rpc/ HTTP/1.1\"" '
+    r'"POST /afe/server/noauth/rpc/?method=foo HTTP/1.1\"" '
     r'200 354 "-" "Python-urllib/2.7" 5'
 )
 

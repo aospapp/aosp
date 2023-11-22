@@ -40,19 +40,16 @@ public class TimelineRow extends TimelineGridView {
         getLayoutManager().scrollToPosition(0);
     }
 
-    /**
-     * Returns the current scroll position
-     */
+    /** Returns the current scroll position */
     public int getScrollOffset() {
         return Math.abs(mScrollPosition);
     }
 
-    /**
-     * Scrolls horizontally to the given position.
-     */
+    /** Scrolls horizontally to the given position. */
     public void scrollTo(int scrollOffset, boolean smoothScroll) {
-        int dx = (scrollOffset - getScrollOffset())
-                * (getLayoutDirection() == LAYOUT_DIRECTION_LTR ? 1 : -1);
+        int dx =
+                (scrollOffset - getScrollOffset())
+                        * (getLayoutDirection() == LAYOUT_DIRECTION_LTR ? 1 : -1);
         if (smoothScroll) {
             smoothScrollBy(dx, 0);
         } else {

@@ -17,14 +17,16 @@
 #include <math.h>
 #include <string.h>
 
-#include "atomic.h"
+#include "arch/mips64/asm_support_mips64.h"
+#include "base/atomic.h"
+#include "base/quasi_atomic.h"
+#include "entrypoints/entrypoint_utils.h"
 #include "entrypoints/jni/jni_entrypoints.h"
+#include "entrypoints/math_entrypoints.h"
 #include "entrypoints/quick/quick_alloc_entrypoints.h"
 #include "entrypoints/quick/quick_default_externs.h"
 #include "entrypoints/quick/quick_default_init_entrypoints.h"
 #include "entrypoints/quick/quick_entrypoints.h"
-#include "entrypoints/entrypoint_utils.h"
-#include "entrypoints/math_entrypoints.h"
 #include "entrypoints/runtime_asm_entrypoints.h"
 #include "interpreter/interpreter.h"
 
@@ -59,6 +61,10 @@ extern "C" mirror::Object* art_quick_read_barrier_mark_reg21(mirror::Object*);
 extern "C" mirror::Object* art_quick_read_barrier_mark_reg22(mirror::Object*);
 extern "C" mirror::Object* art_quick_read_barrier_mark_reg29(mirror::Object*);
 
+extern "C" mirror::Object* art_quick_read_barrier_mark_introspection(mirror::Object*);
+extern "C" mirror::Object* art_quick_read_barrier_mark_introspection_gc_roots(mirror::Object*);
+extern "C" void art_quick_read_barrier_mark_introspection_end_of_entries(void);
+
 // Math entrypoints.
 extern int32_t CmpgDouble(double a, double b);
 extern int32_t CmplDouble(double a, double b);
@@ -88,6 +94,21 @@ extern "C" int64_t __moddi3(int64_t, int64_t);
 
 // No read barrier entrypoints for marking registers.
 void UpdateReadBarrierEntrypoints(QuickEntryPoints* qpoints, bool is_active) {
+  intptr_t introspection_field_array_entries_size =
+      reinterpret_cast<intptr_t>(&art_quick_read_barrier_mark_introspection_gc_roots) -
+      reinterpret_cast<intptr_t>(&art_quick_read_barrier_mark_introspection);
+  static_assert(
+      BAKER_MARK_INTROSPECTION_GC_ROOT_ENTRIES_OFFSET == 2 *
+          BAKER_MARK_INTROSPECTION_REGISTER_COUNT * BAKER_MARK_INTROSPECTION_FIELD_ARRAY_ENTRY_SIZE,
+      "Expecting equal");
+  DCHECK_EQ(introspection_field_array_entries_size,
+            BAKER_MARK_INTROSPECTION_GC_ROOT_ENTRIES_OFFSET);
+  intptr_t introspection_gc_root_entries_size =
+      reinterpret_cast<intptr_t>(&art_quick_read_barrier_mark_introspection_end_of_entries) -
+      reinterpret_cast<intptr_t>(&art_quick_read_barrier_mark_introspection_gc_roots);
+  DCHECK_EQ(introspection_gc_root_entries_size,
+            BAKER_MARK_INTROSPECTION_REGISTER_COUNT * BAKER_MARK_INTROSPECTION_GC_ROOT_ENTRY_SIZE);
+  qpoints->pReadBarrierMarkReg00 = is_active ? art_quick_read_barrier_mark_introspection : nullptr;
   qpoints->pReadBarrierMarkReg01 = is_active ? art_quick_read_barrier_mark_reg01 : nullptr;
   qpoints->pReadBarrierMarkReg02 = is_active ? art_quick_read_barrier_mark_reg02 : nullptr;
   qpoints->pReadBarrierMarkReg03 = is_active ? art_quick_read_barrier_mark_reg03 : nullptr;
@@ -145,6 +166,7 @@ void InitEntryPoints(JniEntryPoints* jpoints, QuickEntryPoints* qpoints) {
   qpoints->pAsin = asin;
   qpoints->pAtan = atan;
   qpoints->pAtan2 = atan2;
+  qpoints->pPow = pow;
   qpoints->pCbrt = cbrt;
   qpoints->pCosh = cosh;
   qpoints->pExp = exp;
@@ -173,7 +195,6 @@ void InitEntryPoints(JniEntryPoints* jpoints, QuickEntryPoints* qpoints) {
   // Cannot use the following registers to pass arguments:
   // 0(ZERO), 1(AT), 15(T3), 16(S0), 17(S1), 24(T8), 25(T9), 26(K0), 27(K1), 28(GP), 29(SP), 31(RA).
   // Note that there are 30 entry points only: 00 for register 1(AT), ..., 29 for register 30(S8).
-  qpoints->pReadBarrierMarkReg00 = nullptr;
   qpoints->pReadBarrierMarkReg14 = nullptr;
   qpoints->pReadBarrierMarkReg15 = nullptr;
   qpoints->pReadBarrierMarkReg16 = nullptr;
@@ -185,6 +206,6 @@ void InitEntryPoints(JniEntryPoints* jpoints, QuickEntryPoints* qpoints) {
   qpoints->pReadBarrierMarkReg28 = nullptr;
   qpoints->pReadBarrierSlow = artReadBarrierSlow;
   qpoints->pReadBarrierForRootSlow = artReadBarrierForRootSlow;
-};
+}
 
 }  // namespace art

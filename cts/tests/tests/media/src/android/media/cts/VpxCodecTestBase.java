@@ -32,6 +32,8 @@ import android.test.AndroidTestCase;
 import android.util.Log;
 import android.media.cts.R;
 
+import com.android.compatibility.common.util.MediaUtils;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -55,7 +57,6 @@ public class VpxCodecTestBase extends AndroidTestCase {
     protected static final String TAG = "VPxCodecTestBase";
     protected static final String VP8_MIME = MediaFormat.MIMETYPE_VIDEO_VP8;
     protected static final String VP9_MIME = MediaFormat.MIMETYPE_VIDEO_VP9;
-    private static final String GOOGLE_CODEC_PREFIX = "omx.google.";
     protected static final String SDCARD_DIR =
             Environment.getExternalStorageDirectory().getAbsolutePath();
 
@@ -100,7 +101,7 @@ public class VpxCodecTestBase extends AndroidTestCase {
             this.colorFormat = colorFormat;
         }
         public boolean  isGoogleCodec() {
-            return codecName.toLowerCase().startsWith(GOOGLE_CODEC_PREFIX);
+            return MediaUtils.isGoogle(codecName);
         }
 
         public final String codecName; // OpenMax component name for VPx codec.
@@ -138,8 +139,7 @@ public class VpxCodecTestBase extends AndroidTestCase {
             Log.v(TAG, codecInfo.getName());
             // TODO: remove dependence of Google from the test
             // Check if this is Google codec - we should ignore it.
-            boolean isGoogleCodec =
-                codecInfo.getName().toLowerCase().startsWith(GOOGLE_CODEC_PREFIX);
+            boolean isGoogleCodec = MediaUtils.isGoogle(codecInfo.getName());
             if (!isGoogleCodec && forceGoogleCodec) {
                 continue;
             }
@@ -2018,4 +2018,3 @@ public class VpxCodecTestBase extends AndroidTestCase {
         return statistics;
     }
 }
-

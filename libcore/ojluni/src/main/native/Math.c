@@ -26,119 +26,117 @@
 #include <math.h>
 
 JNIEXPORT jdouble JNICALL
-Math_cos(JNIEnv *env, jclass unused, jdouble d) {
+Math_cos(jdouble d) {
     return cos(d);
 }
 
 JNIEXPORT jdouble JNICALL
-Math_sin(JNIEnv *env, jclass unused, jdouble d) {
+Math_sin(jdouble d) {
     return sin(d);
 }
 
 JNIEXPORT jdouble JNICALL
-Math_tan(JNIEnv *env, jclass unused, jdouble d) {
+Math_tan(jdouble d) {
     return tan(d);
 }
 
 JNIEXPORT jdouble JNICALL
-Math_asin(JNIEnv *env, jclass unused, jdouble d) {
+Math_asin(jdouble d) {
     return asin(d);
 }
 
 JNIEXPORT jdouble JNICALL
-Math_acos(JNIEnv *env, jclass unused, jdouble d) {
+Math_acos(jdouble d) {
     return acos(d);
 }
 
 JNIEXPORT jdouble JNICALL
-Math_atan(JNIEnv *env, jclass unused, jdouble d) {
+Math_atan(jdouble d) {
     return atan(d);
 }
 
 JNIEXPORT jdouble JNICALL
-Math_exp(JNIEnv *env, jclass unused, jdouble d) {
+Math_exp(jdouble d) {
     return exp(d);
 }
 
 JNIEXPORT jdouble JNICALL
-Math_log(JNIEnv *env, jclass unused, jdouble d) {
+Math_log(jdouble d) {
     return log(d);
 }
 
 JNIEXPORT jdouble JNICALL
-Math_log10(JNIEnv *env, jclass unused, jdouble d) {
+Math_log10(jdouble d) {
     return log10(d);
 }
 
 JNIEXPORT jdouble JNICALL
-Math_sqrt(JNIEnv *env, jclass unused, jdouble d) {
+Math_sqrt(jdouble d) {
     return sqrt(d);
 }
 
 JNIEXPORT jdouble JNICALL
-Math_cbrt(JNIEnv *env, jclass unused, jdouble d) {
+Math_cbrt(jdouble d) {
     return cbrt(d);
 }
 
 JNIEXPORT jdouble JNICALL
-Math_atan2(JNIEnv *env, jclass unused, jdouble d1, jdouble d2) {
+Math_atan2(jdouble d1, jdouble d2) {
     return atan2(d1, d2);
 }
 
 JNIEXPORT jdouble JNICALL
-Math_pow(JNIEnv *env, jclass unused, jdouble d1, jdouble d2) {
+Math_pow(jdouble d1, jdouble d2) {
     return pow(d1, d2);
 }
 
 JNIEXPORT jdouble JNICALL
-Math_IEEEremainder(JNIEnv *env, jclass unused,
-                                  jdouble dividend,
-                                  jdouble divisor) {
+Math_IEEEremainder(jdouble dividend, jdouble divisor) {
     return remainder(dividend, divisor);
 }
 
 JNIEXPORT jdouble JNICALL
-Math_cosh(JNIEnv *env, jclass unused, jdouble d) {
+Math_cosh(jdouble d) {
     return cosh(d);
 }
 
 JNIEXPORT jdouble JNICALL
-Math_sinh(JNIEnv *env, jclass unused, jdouble d) {
+Math_sinh(jdouble d) {
     return sinh(d);
 }
 
 JNIEXPORT jdouble JNICALL
-Math_tanh(JNIEnv *env, jclass unused, jdouble d) {
+Math_tanh(jdouble d) {
     return tanh(d);
 }
 
 JNIEXPORT jdouble JNICALL
-Math_hypot(JNIEnv *env, jclass unused, jdouble x, jdouble y) {
+Math_hypot(jdouble x, jdouble y) {
     return hypot(x, y);
 }
 
 JNIEXPORT jdouble JNICALL
-Math_log1p(JNIEnv *env, jclass unused, jdouble d) {
+Math_log1p(jdouble d) {
     return log1p(d);
 }
 
 JNIEXPORT jdouble JNICALL
-Math_expm1(JNIEnv *env, jclass unused, jdouble d) {
+Math_expm1(jdouble d) {
     return expm1(d);
 }
 
 JNIEXPORT jdouble JNICALL
-Math_floor(JNIEnv *env, jclass unused, jdouble d) {
+Math_floor(jdouble d) {
     return floor(d);
 }
 
 JNIEXPORT jdouble JNICALL
-Math_ceil(JNIEnv *env, jclass unused, jdouble d) {
+Math_ceil(jdouble d) {
     return ceil(d);
 }
 
 JNIEXPORT jdouble JNICALL
-Math_rint(JNIEnv *env, jclass unused, jdouble d) {
+Math_rint(jdouble d) {
     return rint(d);
 }
 

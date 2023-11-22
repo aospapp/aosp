@@ -17,6 +17,8 @@
 #ifndef CHRE_UTIL_UNIQUE_PTR_H_
 #define CHRE_UTIL_UNIQUE_PTR_H_
 
+#include <cstddef>
+
 #include "chre/util/non_copyable.h"
 
 namespace chre {
@@ -88,6 +90,16 @@ class UniquePtr : public NonCopyable {
    *         prior to this function call)
    */
   ObjectType *release();
+
+  /**
+   * Replaces the object owned by the UniquePtr by an object pointed by a given
+   * pointer. Also calls the destructor and releases the associated memory of
+   * the previously owned object. Invoking this method on the object managed by
+   * the UniquePtr, obtained via get(), is illegal.
+   *
+   * @param object the object to replace the ownership of the UniquePtr
+   */
+  void reset(ObjectType *object);
 
   /**
    * @return A pointer to the underlying object.

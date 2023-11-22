@@ -8,6 +8,7 @@ from __future__ import print_function
 import base64
 import json
 import os
+import re
 import time
 import urllib2
 
@@ -91,8 +92,14 @@ def FindBuildRecordFromLog(description, build_info):
   point.)
   """
   for build_log in build_info:
-    if description in build_log['reason']:
-      return build_log
+    property_list = build_log['properties']
+    for prop in property_list:
+      if len(prop) < 2:
+        continue
+      pname = prop[0]
+      pvalue = prop[1]
+      if pname == 'name' and pvalue == description:
+        return build_log
   return {}
 
 
@@ -237,10 +244,9 @@ def GetTrybotImage(chromeos_root,
   if not patch_arg:
     command_prefix = 'yes | '
   command = ('%s ./cbuildbot --remote --nochromesdk %s'
-             ' --remote-description=%s %s %s %s' % (command_prefix,
-                                                    optional_flags, description,
-                                                    toolchain_flags, patch_arg,
-                                                    build))
+             ' --remote-description=%s %s %s %s' %
+             (command_prefix, optional_flags, description, toolchain_flags,
+              patch_arg, build))
   _, out, _ = ce.RunCommandWOutput(command)
   if 'Tryjob submitted!' not in out:
     logger.GetLogger().LogFatal('Error occurred while launching trybot job: '
@@ -269,8 +275,8 @@ def GetTrybotImage(chromeos_root,
     build_info = GetBuildInfo(base_dir, build)
     if not build_info:
       if pending_time > TIME_OUT:
-        logger.GetLogger().LogFatal('Unable to get build logs for target %s.' %
-                                    build)
+        logger.GetLogger().LogFatal(
+            'Unable to get build logs for target %s.' % build)
       else:
         pending_message = 'Unable to find build log; job may be pending.'
         done = False
@@ -317,8 +323,8 @@ def GetTrybotImage(chromeos_root,
                                      (pending_time / 60))
         pending_time += SLEEP_TIME
       else:
-        logger.GetLogger().LogOutput('{0} minutes passed.'.format(running_time /
-                                                                  60))
+        logger.GetLogger().LogOutput(
+            '{0} minutes passed.'.format(running_time / 60))
         logger.GetLogger().LogOutput('Sleeping {0} seconds.'.format(SLEEP_TIME))
         running_time += SLEEP_TIME
 
@@ -340,8 +346,8 @@ def GetTrybotImage(chromeos_root,
       trybot_image = FindArchiveImage(chromeos_root, build, build_id)
   if not trybot_image:
     logger.GetLogger().LogError('Trybot job %s failed with status %d;'
-                                ' no trybot image generated.' %
-                                (description, build_status))
+                                ' no trybot image generated.' % (description,
+                                                                 build_status))
 
   logger.GetLogger().LogOutput("trybot_image is '%s'" % trybot_image)
   logger.GetLogger().LogOutput('build_status is %d' % build_status)
@@ -375,11 +381,30 @@ def WaitForImage(chromeos_root, build):
   while elapsed_time < TIME_OUT:
     if DoesImageExist(chromeos_root, build):
       return
-    logger.GetLogger().LogOutput('Image %s not ready, waiting for 10 minutes' %
-                                 build)
+    logger.GetLogger().LogOutput(
+        'Image %s not ready, waiting for 10 minutes' % build)
     time.sleep(SLEEP_TIME)
     elapsed_time += SLEEP_TIME
 
   logger.GetLogger().LogOutput('Image %s not found, waited for %d hours' %
                                (build, (TIME_OUT / 3600)))
   raise BuildbotTimeout('Timeout while waiting for image %s' % build)
+
+
+def GetLatestImage(chromeos_root, path):
+  """Get latest image"""
+
+  fmt = re.compile(r'R([0-9]+)-([0-9]+).([0-9]+).([0-9]+)')
+
+  ce = command_executer.GetCommandExecuter()
+  command = ('gsutil ls gs://chromeos-image-archive/%s' % path)
+  _, out, _ = ce.ChrootRunCommandWOutput(
+      chromeos_root, command, print_to_console=False)
+  candidates = [l.split('/')[-2] for l in out.split()]
+  candidates = map(fmt.match, candidates)
+  candidates = [[int(r) for r in m.group(1, 2, 3, 4)] for m in candidates if m]
+  candidates.sort(reverse=True)
+  for c in candidates:
+      build = '%s/R%d-%d.%d.%d' % (path, c[0], c[1], c[2], c[3])
+      if DoesImageExist(chromeos_root, build):
+          return build

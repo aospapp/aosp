@@ -21,13 +21,13 @@ cc_library_shared {
         enabled: true,
     },
     srcs: [
-        "android_keymaster_messages.cpp",
-        "android_keymaster_utils.cpp",
-        "authorization_set.cpp",
-        "keymaster_tags.cpp",
-        "logger.cpp",
-        "serializable.cpp",
-        "keymaster_stl.cpp",
+        "android_keymaster/android_keymaster_messages.cpp",
+        "android_keymaster/android_keymaster_utils.cpp",
+        "android_keymaster/authorization_set.cpp",
+        "android_keymaster/keymaster_tags.cpp",
+        "android_keymaster/logger.cpp",
+        "android_keymaster/serializable.cpp",
+        "android_keymaster/keymaster_stl.cpp",
     ],
     header_libs: ["libhardware_headers"],
     cflags: [
@@ -43,56 +43,70 @@ cc_library_shared {
     clang_cflags: ["-fno-sanitize-coverage=edge,indirect-calls,8bit-counters,trace-cmp"],
 
     export_include_dirs: ["include"],
-
+    sanitize: {
+        integer_overflow: false,
+    },
 }
 
 // libkeymaster_portable contains almost everything needed for a keymaster
 // implementation, lacking only a subclass of the (abstract) KeymasterContext
 // class to provide environment-specific services and a wrapper to translate from
 // the function-based keymaster HAL API to the message-based AndroidKeymaster API.
-cc_library_shared {
+cc_library {
     name: "libkeymaster_portable",
     vendor_available: true,
     vndk: {
         enabled: true,
     },
     srcs: [
-        "aes_key.cpp",
-        "aes_operation.cpp",
-        "android_keymaster.cpp",
-        "android_keymaster_messages.cpp",
-        "android_keymaster_utils.cpp",
-        "asymmetric_key.cpp",
-        "asymmetric_key_factory.cpp",
-        "attestation_record.cpp",
-        "auth_encrypted_key_blob.cpp",
-        "authorization_set.cpp",
-        "ecdsa_operation.cpp",
-        "ec_key.cpp",
-        "ec_key_factory.cpp",
-        "hmac_key.cpp",
-        "hmac_operation.cpp",
-        "key.cpp",
-        "keymaster_enforcement.cpp",
-        "keymaster_tags.cpp",
-        "logger.cpp",
-        "ocb.c",
-        "ocb_utils.cpp",
-        "openssl_err.cpp",
-        "openssl_utils.cpp",
-        "operation.cpp",
-        "operation_table.cpp",
-        "rsa_key.cpp",
-        "rsa_key_factory.cpp",
-        "rsa_operation.cpp",
-        "serializable.cpp",
-        "symmetric_key.cpp",
-        "keymaster_stl.cpp",
+        "android_keymaster/android_keymaster.cpp",
+        "android_keymaster/android_keymaster_messages.cpp",
+        "android_keymaster/android_keymaster_utils.cpp",
+        "android_keymaster/authorization_set.cpp",
+        "android_keymaster/keymaster_enforcement.cpp",
+        "android_keymaster/keymaster_stl.cpp",
+        "android_keymaster/keymaster_tags.cpp",
+        "android_keymaster/logger.cpp",
+        "android_keymaster/operation.cpp",
+        "android_keymaster/operation_table.cpp",
+        "android_keymaster/serializable.cpp",
+        "key_blob_utils/auth_encrypted_key_blob.cpp",
+        "key_blob_utils/integrity_assured_key_blob.cpp",
+        "key_blob_utils/ocb.c",
+        "key_blob_utils/ocb_utils.cpp",
+        "key_blob_utils/software_keyblobs.cpp",
+        "km_openssl/aes_key.cpp",
+        "km_openssl/aes_operation.cpp",
+        "km_openssl/asymmetric_key.cpp",
+        "km_openssl/asymmetric_key_factory.cpp",
+        "km_openssl/attestation_record.cpp",
+        "km_openssl/block_cipher_operation.cpp",
+        "km_openssl/ckdf.cpp",
+        "km_openssl/ec_key.cpp",
+        "km_openssl/ec_key_factory.cpp",
+        "km_openssl/ecdsa_operation.cpp",
+        "km_openssl/ecies_kem.cpp",
+        "km_openssl/hkdf.cpp",
+        "km_openssl/hmac.cpp",
+        "km_openssl/hmac_key.cpp",
+        "km_openssl/hmac_operation.cpp",
+        "km_openssl/iso18033kdf.cpp",
+        "km_openssl/kdf.cpp",
+        "km_openssl/nist_curve_key_exchange.cpp",
+        "km_openssl/openssl_err.cpp",
+        "km_openssl/openssl_utils.cpp",
+        "km_openssl/rsa_key.cpp",
+        "km_openssl/rsa_key_factory.cpp",
+        "km_openssl/rsa_operation.cpp",
+        "km_openssl/software_random_source.cpp",
+        "km_openssl/symmetric_key.cpp",
+        "km_openssl/triple_des_key.cpp",
+        "km_openssl/triple_des_operation.cpp",
+        "km_openssl/wrapped_key.cpp",
     ],
 
     shared_libs: [
         "libcrypto",
-        "libkeymaster_messages",
     ],
     header_libs: ["libhardware_headers"],
     export_header_lib_headers: ["libhardware_headers"],
@@ -117,50 +131,9 @@ cc_library_shared {
     ],
 
     export_include_dirs: ["include"],
-
-}
-
-// libkeymaster_staging adds to libkeymaster_portable code that is needed by the softkeymaster device
-// to implement keymaster. This is sort of a staging area for functionality that may move
-// to libkeymaster_portalbe eventually. Unlike libkeymaster_portable, this library can use c++ stl
-// headers, but modules should avoid it if they are to be moved to libkeymaster_portable.
-cc_library_shared {
-    name: "libkeymaster_staging",
-    vendor_available: true,
-    vndk: {
-        enabled: true,
+    sanitize: {
+        integer_overflow: false,
     },
-    srcs: [
-        "ecies_kem.cpp",
-        "hkdf.cpp",
-        "hmac.cpp",
-        "integrity_assured_key_blob.cpp",
-        "iso18033kdf.cpp",
-        "kdf.cpp",
-        "nist_curve_key_exchange.cpp",
-    ],
-
-    shared_libs: [
-        "libcrypto",
-        "libkeymaster_portable",
-        "libkeymaster_messages",
-    ],
-    cflags: [
-        "-Wall",
-        "-Werror",
-        "-Wunused",
-    ],
-    clang: true,
-    clang_cflags: [
-        "-Wno-error=unused-const-variable",
-        "-Wno-error=unused-private-field",
-        // TODO(krasin): reenable coverage flags, when the new Clang toolchain is released.
-        // Currently, if enabled, these flags will cause an internal error in Clang.
-        "-fno-sanitize-coverage=edge,indirect-calls,8bit-counters,trace-cmp"
-    ],
-
-    export_include_dirs: ["include"],
-
 }
 
 // libsoftkeymaster provides a software-based keymaster HAL implementation.
@@ -173,20 +146,24 @@ cc_library {
         enabled: true,
     },
     srcs: [
-        "ec_keymaster0_key.cpp",
-        "ec_keymaster1_key.cpp",
-        "ecdsa_keymaster1_operation.cpp",
-        "keymaster0_engine.cpp",
-        "keymaster1_engine.cpp",
-        "keymaster_configuration.cpp",
-        "rsa_keymaster0_key.cpp",
-        "rsa_keymaster1_key.cpp",
-        "rsa_keymaster1_operation.cpp",
-        "soft_keymaster_context.cpp",
-        "soft_keymaster_device.cpp",
-        "soft_keymaster_logger.cpp",
+        "android_keymaster/keymaster_configuration.cpp",
+        "km_openssl/attestation_utils.cpp",
+        "legacy_support/ec_keymaster0_key.cpp",
+        "legacy_support/ec_keymaster1_key.cpp",
+        "legacy_support/ecdsa_keymaster1_operation.cpp",
+        "legacy_support/keymaster0_engine.cpp",
+        "legacy_support/keymaster1_engine.cpp",
+        "legacy_support/rsa_keymaster0_key.cpp",
+        "legacy_support/rsa_keymaster1_key.cpp",
+        "legacy_support/rsa_keymaster1_operation.cpp",
+        "legacy_support/keymaster1_legacy_support.cpp",
+        "contexts/soft_attestation_cert.cpp",
+        "contexts/soft_keymaster_context.cpp",
+        "contexts/pure_soft_keymaster_context.cpp",
+        "contexts/soft_keymaster_device.cpp",
+        "km_openssl/soft_keymaster_enforcement.cpp",
+        "contexts/soft_keymaster_logger.cpp",
     ],
-    include_dirs: ["system/security/keystore"],
     cflags: [
         "-Wall",
         "-Werror",
@@ -204,13 +181,148 @@ cc_library {
     shared_libs: [
         "libkeymaster_messages",
         "libkeymaster_portable",
-        "libkeymaster_staging",
+        "liblog",
+        "libbase",
+        "libcrypto",
+        "libcutils",
+    ],
+
+    export_include_dirs: ["include"],
+}
+
+cc_library {
+    name: "libpuresoftkeymasterdevice",
+    vendor_available: true,
+    vndk: {
+        enabled: true,
+    },
+    srcs: [
+        "km_openssl/attestation_utils.cpp",
+        "android_keymaster/keymaster_configuration.cpp",
+        "contexts/soft_attestation_cert.cpp",
+        "contexts/pure_soft_keymaster_context.cpp",
+        "contexts/soft_keymaster_logger.cpp",
+        "km_openssl/soft_keymaster_enforcement.cpp",
+    ],
+    cflags: [
+        "-Wall",
+        "-Werror",
+        "-Wunused",
+    ],
+    clang: true,
+    clang_cflags: [
+        "-Wno-error=unused-const-variable",
+        "-Wno-error=unused-private-field",
+        // TODO(krasin): reenable coverage flags, when the new Clang toolchain is released.
+        // Currently, if enabled, these flags will cause an internal error in Clang.
+        "-fno-sanitize-coverage=edge,indirect-calls,8bit-counters,trace-cmp"
+    ],
+
+    shared_libs: [
+        "libkeymaster_messages",
+        "libkeymaster_portable",
         "liblog",
         "libcrypto",
         "libcutils",
     ],
 
     export_include_dirs: ["include"],
+}
+
+cc_library_shared {
+    name: "libkeymaster3device",
+    vendor: true,
+    srcs: [
+        "legacy_support/keymaster_passthrough_key.cpp",
+        "legacy_support/keymaster_passthrough_engine.cpp",
+        "legacy_support/keymaster_passthrough_operation.cpp",
+        "contexts/keymaster1_passthrough_context.cpp",
+        "contexts/keymaster2_passthrough_context.cpp",
+        "ng/AndroidKeymaster3Device.cpp",
+        "android_keymaster/keymaster_configuration.cpp",
+        "km_openssl/attestation_utils.cpp",
+        "legacy_support/ec_keymaster0_key.cpp",
+        "legacy_support/ec_keymaster1_key.cpp",
+        "legacy_support/ecdsa_keymaster1_operation.cpp",
+        "legacy_support/keymaster0_engine.cpp",
+        "legacy_support/keymaster1_engine.cpp",
+        "legacy_support/keymaster1_legacy_support.cpp",
+        "legacy_support/rsa_keymaster0_key.cpp",
+        "legacy_support/rsa_keymaster1_key.cpp",
+        "legacy_support/rsa_keymaster1_operation.cpp",
+    ],
+    cflags: [
+        "-Wall",
+        "-Werror",
+        "-Wunused",
+    ],
+    clang: true,
+    clang_cflags: [
+        "-Wno-error=unused-const-variable",
+        "-Wno-error=unused-private-field",
+        // TODO(krasin): reenable coverage flags, when the new Clang toolchain is released.
+        // Currently, if enabled, these flags will cause an internal error in Clang.
+        "-fno-sanitize-coverage=edge,indirect-calls,8bit-counters,trace-cmp"
+    ],
+
+    shared_libs: [
+        "libkeymaster_messages",
+        "android.hardware.keymaster@3.0",
+        "libcrypto",
+        "libcutils",
+        "libbase",
+        "libhidlbase",
+        "libhidltransport",
+        "libkeymaster_portable",
+        "libpuresoftkeymasterdevice",
+        "liblog",
+        "libutils",
+    ],
+
+    export_include_dirs: ["include", "ng/include"],
+}
+
+cc_library_shared {
+    name: "libkeymaster4",
+    vendor_available: true,
+    srcs: [
+        "legacy_support/keymaster_passthrough_key.cpp",
+        "legacy_support/keymaster_passthrough_engine.cpp",
+        "legacy_support/keymaster_passthrough_operation.cpp",
+        "ng/AndroidKeymaster4Device.cpp",
+        "android_keymaster/keymaster_configuration.cpp",
+        "km_openssl/attestation_utils.cpp",
+    ],
+    cflags: [
+        "-Wall",
+        "-Werror",
+        "-Wunused",
+    ],
+    clang: true,
+    clang_cflags: [
+        "-Wno-error=unused-const-variable",
+        "-Wno-error=unused-private-field",
+        // TODO(krasin): reenable coverage flags, when the new Clang toolchain is released.
+        // Currently, if enabled, these flags will cause an internal error in Clang.
+        "-fno-sanitize-coverage=edge,indirect-calls,8bit-counters,trace-cmp"
+    ],
+
+    shared_libs: [
+        "libkeymaster_messages",
+        "android.hardware.keymaster@4.0",
+        "libcrypto",
+        "libcutils",
+        "libbase",
+        "libhidlbase",
+        "libhidltransport",
+        "libkeymaster_portable",
+        "libpuresoftkeymasterdevice",
+        "liblog",
+        "libutils",
+        "libkeymaster4support",
+    ],
+
+    export_include_dirs: ["ng/include"],
 }
 
 // libkeymasterfiles is an empty library that exports all of the files in keymaster as includes.

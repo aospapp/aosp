@@ -37,6 +37,11 @@ class PowerControlManager : public PowerControlManagerBase,
    * @param numPendingEvents The current size of the event queue.
    */
   void postEventLoopProcess(size_t numPendingEvents);
+
+  /**
+   * @return true if the host is awake, false otherwise.
+   */
+  bool hostIsAwake();
 };
 
 } // namespace chre

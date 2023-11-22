@@ -1,6 +1,7 @@
 // Copyright (c) 2011 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+// Note: ported from Chromium commit head: 2de6929
 
 #include "picture.h"
 
@@ -18,7 +19,7 @@ PictureBuffer::PictureBuffer(int32_t id,
 
 PictureBuffer::PictureBuffer(const PictureBuffer& other) = default;
 
-PictureBuffer::~PictureBuffer() {}
+PictureBuffer::~PictureBuffer() = default;
 
 Picture::Picture(int32_t picture_buffer_id,
                  int32_t bitstream_buffer_id,

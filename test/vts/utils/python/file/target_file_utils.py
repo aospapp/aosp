@@ -23,32 +23,55 @@ _WRITE_PERMISSION = 2
 _EXECUTE_PERMISSION = 1
 
 
-def Exists(filepath, shell):
-    """Determines if a file exists.
+def _Test(shell, *args):
+    """Executes test command on device.
 
     Args:
-        filepath: string, path to file
-        shell: an instance of the VTS shell
+        shell: an instance of the VTS shell.
+        *args: strings, the command line arguments.
 
     Returns:
-        True if the file exists, False otherwise
+        boolean, whether the condition is true.
     """
-    cmd = "ls %s" % filepath
+    cmd = "test %s" % " ".join(args)
     results = shell.Execute(cmd)
-    if results[const.EXIT_CODE][0] != 0:
-        return False
-
-    out_str = str(results[const.STDOUT][0]).strip()
-    return out_str.find(filepath) == 0
+    return results[const.EXIT_CODE][0] == 0
 
 
-def FindFiles(shell, path, name_pattern):
+def Exists(filepath, shell):
+    """Determines if a file or directory exists.
+
+    Args:
+        filepath: string, the path to a file or a directory.
+        shell: an instance of the VTS shell.
+
+    Returns:
+        True if exists, False otherwise.
+    """
+    return _Test(shell, "-e", filepath)
+
+
+def IsDirectory(path, shell):
+    """Determines if a path is a directory.
+
+    Args:
+        path: string, a path on device.
+        shell: an instance of the VTS shell.
+
+    Returns:
+        True if the path is a directory, False otherwise.
+    """
+    return _Test(shell, "-d", path)
+
+
+def FindFiles(shell, path, name_pattern, options=None):
     """Searches a path for files on device.
 
     Args:
         shell: the ShellMirrorObject.
         path: string, the path to search on device.
         name_pattern: string, the file name pattern.
+        options: string, other options passed to find command.
 
     Returns:
         list of strings, the paths to the found files.
@@ -59,6 +82,8 @@ def FindFiles(shell, path, name_pattern):
     if '"' in name_pattern or "'" in name_pattern:
         raise IOError("File name pattern contains quotes")
     cmd = "find %s -name \"%s\"" % (path, name_pattern)
+    if options is not None:
+        cmd += " " + options
     results = shell.Execute(cmd)
     logging.info("%s: Shell command '%s' results: %s", path, cmd, results)
 
@@ -66,7 +91,8 @@ def FindFiles(shell, path, name_pattern):
         raise IOError(results[const.STDERR][0])
 
     stdout = str(results[const.STDOUT][0])
-    return stdout.strip().split("\n")
+    # Filter out empty strings before return.
+    return filter(None, stdout.strip().split("\n"))
 
 
 def ReadFileContent(filepath, shell):

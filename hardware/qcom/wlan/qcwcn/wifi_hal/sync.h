@@ -15,6 +15,8 @@
  */
 
 #include <pthread.h>
+#include "wifi_hal.h"
+#include "common.h"
 
 #ifndef __WIFI_HAL_SYNC_H__
 #define __WIFI_HAL_SYNC_H__
@@ -57,13 +59,15 @@ public:
         pthread_mutex_destroy(&mMutex);
     }
 
-    int wait() {
-        return pthread_cond_wait(&mCondition, &mMutex);
+    wifi_error wait() {
+        int status = pthread_cond_wait(&mCondition, &mMutex);
+        return mapKernelErrortoWifiHalError(status);
     }
 
-    int wait(struct timespec abstime)
+    wifi_error wait(struct timespec abstime)
     {
         struct timeval now;
+        int status;
 
         gettimeofday(&now,NULL);
 
@@ -78,7 +82,8 @@ public:
         {
             abstime.tv_nsec += now.tv_usec * 1000;
         }
-        return pthread_cond_timedwait(&mCondition, &mMutex, &abstime);
+        status = pthread_cond_timedwait(&mCondition, &mMutex, &abstime);
+        return mapKernelErrortoWifiHalError(status);
     }
 
     void signal() {

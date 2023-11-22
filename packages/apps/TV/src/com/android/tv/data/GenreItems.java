@@ -18,13 +18,10 @@ package com.android.tv.data;
 
 import android.content.Context;
 import android.media.tv.TvContract.Programs.Genres;
-
 import com.android.tv.R;
 
 public class GenreItems {
-    /**
-     * Genre ID indicating all channels.
-     */
+    /** Genre ID indicating all channels. */
     public static final int ID_ALL_CHANNELS = 0;
 
     private static final String[] CANONICAL_GENRES = {
@@ -48,11 +45,9 @@ public class GenreItems {
         Genres.TECH_SCIENCE
     };
 
-    private GenreItems() { }
+    private GenreItems() {}
 
-    /**
-     * Returns array of all genre labels.
-     */
+    /** Returns array of all genre labels. */
     public static String[] getLabels(Context context) {
         String[] items = context.getResources().getStringArray(R.array.genre_labels);
         if (items.length != CANONICAL_GENRES.length) {
@@ -61,16 +56,14 @@ public class GenreItems {
         return items;
     }
 
-    /**
-     * Returns the number of genres including all channels.
-     */
+    /** Returns the number of genres including all channels. */
     public static int getGenreCount() {
         return CANONICAL_GENRES.length;
     }
 
     /**
-     * Returns the canonical genre for the given id.
-     * If the id is invalid, {@code null} will be returned instead.
+     * Returns the canonical genre for the given id. If the id is invalid, {@code null} will be
+     * returned instead.
      */
     public static String getCanonicalGenre(int id) {
         if (id < 0 || id >= CANONICAL_GENRES.length) {
@@ -80,8 +73,8 @@ public class GenreItems {
     }
 
     /**
-     * Returns id for the given canonical genre.
-     * If the genre is invalid, {@link #ID_ALL_CHANNELS} will be returned instead.
+     * Returns id for the given canonical genre. If the genre is invalid, {@link #ID_ALL_CHANNELS}
+     * will be returned instead.
      */
     public static int getId(String canonicalGenre) {
         if (canonicalGenre == null) {

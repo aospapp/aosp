@@ -28,7 +28,7 @@ in the camera driver (transparent to application software).
 *   MAY have fixed-focus or EDOF (extended depth of field) hardware.
 *   MAY include a flash.
 
-If the Camera includes a flash:
+If the camera includes a flash:
 
 *    [C-2-1] the flash lamp MUST NOT be lit while an
 `android.hardware.Camera.PreviewCallback` instance has been registered
@@ -46,7 +46,7 @@ as for video conferencing and similar applications.
 
 Device implementations:
 
-*   MAY include a front-facing camera
+*   MAY include a front-facing camera.
 
 If device implementations include at least one front-facing camera, they:
 
@@ -56,21 +56,21 @@ If device implementations include at least one front-facing camera, they:
 *   [C-1-3] MUST NOT use a front-facing camera as the default for the
 Camera API and MUST NOT configure the API to treat a front-facing camera as
 the default rear-facing camera, even if it is the only camera on the device.
-*   [C-1-5] The camera preview MUST be mirrored horizontally relative to the
+*   [C-1-4] The camera preview MUST be mirrored horizontally relative to the
 orientation specified by the application when the current application has
 explicitly requested that the Camera
 display be rotated via a call to the
 [`android.hardware.Camera.setDisplayOrientation()`](
 http://developer.android.com/reference/android/hardware/Camera.html#setDisplayOrientation(int))
 method. Conversely, the preview MUST be mirrored along the device’s default
-horizontal axis when the the current application does not explicitly request
+horizontal axis when the current application does not explicitly request
 that the Camera display be rotated via a call to the
 [`android.hardware.Camera.setDisplayOrientation()`](
 http://developer.android.com/reference/android/hardware/Camera.html#setDisplayOrientation(int))
 method.
-*   [C-1-6] MUST NOT mirror the final captured still image or video streams
+*   [C-1-5] MUST NOT mirror the final captured still image or video streams
 returned to application callbacks or committed to media storage.
-*   [C-1-7] MUST mirror the image displayed by the postview in the same manner
+*   [C-1-6] MUST mirror the image displayed by the postview in the same manner
 as the camera preview image stream.
 *   MAY include features (such as auto-focus, flash, etc.) available to
 rear-facing cameras as described in [section 7.5.1](#7_5_1_rear-facing_camera).
@@ -80,7 +80,6 @@ automatically via an accelerometer or manually via user input):
 
 *    [C-2-1] The camera preview MUST be mirrored horizontally relative to
 the device’s current orientation.
-
 
 ### 7.5.3\. External Camera
 
@@ -99,7 +98,11 @@ camera connects through the USB port.
     high-quality unencoded streams (i.e. raw or independently compressed picture
     streams).
 *   MAY support multiple cameras.
-*   MAY support camera-based video encoding. If supported, a simultaneous
+*   MAY support camera-based video encoding.
+
+If camera-based video encoding is supported:
+
+*    [C-2-1] A simultaneous
     unencoded / MJPEG stream (QVGA or greater resolution) MUST be accessible to
     the device implementation.
 
@@ -111,10 +114,18 @@ including efficient zero-copy burst/streaming flows and per-frame controls of
 exposure, gain, white balance gains, color conversion, denoising, sharpening,
 and more.
 
-The older API package, `android.hardware.Camera`, is marked as deprecated in
+The older API package,`android.hardware.Camera`, is marked as deprecated in
 Android 5.0 but as it should still be available for apps to use. Android device
 implementations MUST ensure the continued support of the API as described in
 this section and in the Android SDK.
+
+All features that are common between the deprecated android.hardware.Camera class
+and the newer android.hardware.camera2 package MUST have equivalent performance
+and quality in both APIs. For example, with equivalent settings,
+autofocus speed and accuracy must be identical, and the quality of captured images
+must be the same. Features that depend on the different semantics of the two APIs
+are not required to have matching speed or quality, but SHOULD match as closely
+as possible.
 
 Device implementations MUST implement the following behaviors for the
 camera-related APIs, for all available cameras. Device implementations:

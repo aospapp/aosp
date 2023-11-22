@@ -15,6 +15,7 @@
  */
 
 #include "calibration/gyroscope/gyro_stillness_detect.h"
+
 #include <string.h>
 
 /////// FORWARD DECLARATIONS /////////////////////////////////////////
@@ -25,8 +26,8 @@ static float gyroStillDetLimit(float value);
 /////// FUNCTION DEFINITIONS /////////////////////////////////////////
 
 // Initialize the GyroStillDet structure.
-void gyroStillDetInit(struct GyroStillDet* gyro_still_det,
-                      float var_threshold, float confidence_delta) {
+void gyroStillDetInit(struct GyroStillDet* gyro_still_det, float var_threshold,
+                      float confidence_delta) {
   // Clear all data structure variables to 0.
   memset(gyro_still_det, 0, sizeof(struct GyroStillDet));
 
@@ -192,12 +193,12 @@ float gyroStillDetCompute(struct GyroStillDet* gyro_still_det) {
       // Each axis score is limited [0,1].
       tmp_denom = 1.f / (upper_var_thresh - lower_var_thresh);
       gyro_still_det->stillness_confidence =
-          gyroStillDetLimit(
-              0.5f - (gyro_still_det->win_var_x - var_thresh) * tmp_denom) *
-          gyroStillDetLimit(
-              0.5f - (gyro_still_det->win_var_y - var_thresh) * tmp_denom) *
-          gyroStillDetLimit(
-              0.5f - (gyro_still_det->win_var_z - var_thresh) * tmp_denom);
+          gyroStillDetLimit(0.5f - (gyro_still_det->win_var_x - var_thresh) *
+                                       tmp_denom) *
+          gyroStillDetLimit(0.5f - (gyro_still_det->win_var_y - var_thresh) *
+                                       tmp_denom) *
+          gyroStillDetLimit(0.5f - (gyro_still_det->win_var_z - var_thresh) *
+                                       tmp_denom);
     }
   }
 
@@ -207,8 +208,7 @@ float gyroStillDetCompute(struct GyroStillDet* gyro_still_det) {
 
 // Resets the stillness detector and initiates a new detection window.
 // 'reset_stats' determines whether the stillness statistics are reset.
-void gyroStillDetReset(struct GyroStillDet* gyro_still_det,
-                       bool reset_stats) {
+void gyroStillDetReset(struct GyroStillDet* gyro_still_det, bool reset_stats) {
   float tmp_denom = 1.f;
 
   // Reset the stillness data ready flag.

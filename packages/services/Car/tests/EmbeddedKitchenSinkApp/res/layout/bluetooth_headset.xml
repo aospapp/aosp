@@ -62,4 +62,14 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="@string/bluetooth_hold_call"/>
+    <Button
+        android:id="@+id/bluetooth_voice_recognition_enable"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/bluetooth_voice_recognition_enable"/>
+    <Button
+        android:id="@+id/bluetooth_voice_recognition_disable"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/bluetooth_voice_recognition_disable"/>
 </LinearLayout>

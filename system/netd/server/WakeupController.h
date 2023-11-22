@@ -29,10 +29,29 @@ namespace net {
 
 class WakeupController {
   public:
-    using ReportFn = std::function<void(const std::string&, uid_t, gid_t, uint64_t)>;
+
+    // Simple data struct for passing back packet wakeup event information to the ReportFn callback.
+    struct ReportArgs {
+        std::string prefix;
+        uint64_t timestampNs;
+        int uid;
+        int gid;
+        int ethertype;
+        int ipNextHeader;
+        std::vector<uint8_t> dstHw;
+        std::string srcIp;
+        std::string dstIp;
+        int srcPort;
+        int dstPort;
+    };
+
+    // Callback that is triggered for every wakeup event.
+    using ReportFn = std::function<void(const struct ReportArgs&)>;
 
     // iptables chain where wakeup packets are matched
     static const char LOCAL_MANGLE_INPUT[];
+
+    static const uint32_t kDefaultPacketCopyRange;
 
     WakeupController(ReportFn report, IptablesRestoreInterface* iptables)
         : mReport(report), mIptables(iptables) {}

@@ -10,11 +10,13 @@
 package android.icu.dev.test.util;
 
 import android.icu.util.Calendar;
+import android.icu.testsharding.MainTestShard;
 
 /**
  * @author srl
  *
  */
+@MainTestShard
 public class CalendarFieldsSet extends FieldsSet {
 
     /**

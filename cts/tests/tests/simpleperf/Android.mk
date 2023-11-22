@@ -16,9 +16,9 @@ LOCAL_WHOLE_STATIC_LIBRARIES = \
   libsimpleperf_cts_test \
 
 LOCAL_STATIC_LIBRARIES += \
-  libbacktrace_offline \
   libbacktrace \
-  libunwind \
+  libunwindstack \
+  libdexfile \
   libziparchive \
   libz \
   libgtest \

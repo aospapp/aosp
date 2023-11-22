@@ -27,7 +27,9 @@ another ARM TrustZone-based solution or a third-party reviewed secure
 implementation of a proper hypervisor-based isolation are alternative options.
 *    [C-1-3] MUST perform the lock screen authentication in the isolated
 execution environment and only when successful, allow the authentication-bound
-keys to be used. The upstream Android Open Source Project provides the
+keys to be used. Lock screen credentials MUST be stored in a
+way that allows only the isolated execution environment to perform lock screen
+authentication. The upstream Android Open Source Project provides the
 [Gatekeeper Hardware Abstraction Layer (HAL)](http://source.android.com/devices/tech/security/authentication/gatekeeper.html)
 and Trusty, which can be used to satisfy this requirement.
 *    [C-1-4] MUST support key attestation where the attestation signing key is
@@ -40,8 +42,9 @@ a different key MAY be used for each 100,000 units.
 
 Note that if a device implementation is already launched on an earlier Android
 version, such a device is exempted from the requirement to have a
-hardware-backed keystore, unless it declares the `android.hardware.fingerprint`
-feature which requires a hardware-backed keystore.
+hardware-backed keystore and support the key attestation, unless it declares
+the `android.hardware.fingerprint` feature which requires a hardware-backed
+keystore.
 
 ### 9.11.1\. Secure Lock Screen
 
@@ -129,21 +132,35 @@ the screen when the Device Policy Controller (DPC) application has set the
 password quality policy via the [`DevicePolicyManager.setPasswordQuality()`](https://developer.android.com/reference/android/app/admin/DevicePolicyManager.html\#setPasswordQuality%28android.content.ComponentName,%20int%29)
 method with a more restrictive quality constant than
 `PASSWORD_QUALITY_BIOMETRIC_WEAK`.
-*    [C-5-4] The user MUST be challenged for the primary authentication
+*    [SR] Are STRONGLY RECOMMENDED to have spoof and imposter acceptance rates
+that are equal to or stronger than what is required for a fingerprint sensor as
+described in section 7.3.10.
+
+If the spoof and imposter acceptance rates are not equal to or stronger than
+what is required for a fingerprint sensor as described in
+[section 7.3.10](#7_3_10_fingerprint_sensor) and the Device Policy
+Controller (DPC) application has set the password quality policy via the
+[`DevicePolicyManager.setPasswordQuality()`](https://developer.android.com/reference/android/app/admin/DevicePolicyManager.html\#setPasswordQuality%28android.content.ComponentName,%20int%29)
+method with a more restrictive quality constant than
+`PASSWORD_QUALITY_BIOMETRIC_WEAK`, then:
+
+*    [C-6-1] MUST disable these biometric methods and allow only the primary
+authentication to unlock the screen.
+*    [C-6-2] MUST challenge the user for the primary authentication
 (e.g.PIN, pattern, password) at least once every 72 hours or less.
 
 If device implementations add or modify the authentication methods to unlock
 the lock screen and if such an authentication method will be used to unlock
 the keyguard, but will not be treated as a secure lock screen, then they:
 
-*    [C-6-1] MUST return `false` for both the [`KeyguardManager.isKeyguardSecure()`](http://developer.android.com/reference/android/app/KeyguardManager.html#isKeyguardSecure%28%29)
+*    [C-7-1] MUST return `false` for both the [`KeyguardManager.isKeyguardSecure()`](http://developer.android.com/reference/android/app/KeyguardManager.html#isKeyguardSecure%28%29)
 and the [`KeyguardManager.isDeviceSecure()`](https://developer.android.com/reference/android/app/KeyguardManager.html#isDeviceSecure%28%29)
 methods.
-*    [C-6-2] MUST be disabled when the Device Policy Controller (DPC)
+*    [C-7-2] MUST be disabled when the Device Policy Controller (DPC)
 application has set the password quality policy via the [`DevicePolicyManager.setPasswordQuality()`](https://developer.android.com/reference/android/app/admin/DevicePolicyManager.html#setPasswordQuality%28android.content.ComponentName,%20int%29)
 method with a more restrictive quality constant than
 `PASSWORD_QUALITY_UNSPECIFIED`.
-*    [C-6-3] MUST NOT reset the password expiration timers set by
+*    [C-7-3] MUST NOT reset the password expiration timers set by
 [`DevicePolicyManager.setPasswordExpirationTimeout()`](http://developer.android.com/reference/android/app/admin/DevicePolicyManager.html#setPasswordExpirationTimeout%28android.content.ComponentName,%20long%29).
-*    [C-6-4] MUST NOT authenticate access to keystores if the application has
+*    [C-7-4] MUST NOT authenticate access to keystores if the application has
 called [`KeyGenParameterSpec.Builder.setUserAuthenticationRequired(true)`](https://developer.android.com/reference/android/security/keystore/KeyGenParameterSpec.Builder.html#setUserAuthenticationRequired%28boolean%29)).

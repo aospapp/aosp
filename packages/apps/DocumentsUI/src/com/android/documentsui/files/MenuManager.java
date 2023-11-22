@@ -29,23 +29,23 @@ import android.view.MenuItem;
 import android.view.View;
 
 import com.android.documentsui.R;
+import com.android.documentsui.MenuManager.SelectionDetails;
 import com.android.documentsui.base.DocumentInfo;
 import com.android.documentsui.base.Features;
 import com.android.documentsui.base.Lookup;
 import com.android.documentsui.base.RootInfo;
 import com.android.documentsui.base.State;
 import com.android.documentsui.queries.SearchViewManager;
-import com.android.documentsui.selection.SelectionManager;
+import com.android.documentsui.selection.SelectionHelper;
 
 import java.util.List;
-import java.util.function.Function;
 import java.util.function.IntFunction;
 
 public final class MenuManager extends com.android.documentsui.MenuManager {
 
     private final Features mFeatures;
     private final Context mContext;
-    private final SelectionManager mSelectionManager;
+    private final SelectionHelper mSelectionManager;
     private final Lookup<String, Uri> mUriLookup;
     private final Lookup<String, String> mAppNameLookup;
 
@@ -55,10 +55,12 @@ public final class MenuManager extends com.android.documentsui.MenuManager {
             State displayState,
             DirectoryDetails dirDetails,
             Context context,
-            SelectionManager selectionManager,
+            SelectionHelper selectionManager,
             Lookup<String, String> appNameLookup,
             Lookup<String, Uri> uriLookup) {
+
         super(searchManager, displayState, dirDetails);
+
         mFeatures = features;
         mContext = context;
         mSelectionManager = selectionManager;
@@ -265,10 +267,19 @@ public final class MenuManager extends com.android.documentsui.MenuManager {
     }
 
     @Override
-    protected void updateInspector(MenuItem properties, SelectionDetails selectionDetails) {
+    protected void updateInspect(MenuItem inspect) {
         boolean visible = mFeatures.isInspectorEnabled();
-        properties.setVisible(visible);
-        properties.setEnabled(visible && selectionDetails.size() == 1);
+        inspect.setVisible(visible);
+        // use a null check w/ peek instead of isEmpty since
+        // DocumentStack accepts null values (not sure why).
+        inspect.setEnabled(visible && mState.stack.peek() != null);
+    }
+
+    @Override
+    protected void updateInspect(MenuItem inspect, SelectionDetails selectionDetails) {
+        boolean visible = mFeatures.isInspectorEnabled();
+        inspect.setVisible(visible);
+        inspect.setEnabled(visible && selectionDetails.size() <= 1);
     }
 
     @Override

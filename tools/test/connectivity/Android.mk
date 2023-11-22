@@ -23,11 +23,11 @@ ifeq ($(HOST_OS),linux)
 # general Android Conntectivity Test Suite
 ACTS_DISTRO := $(HOST_OUT)/acts-dist/acts.zip
 
-$(ACTS_DISTRO): $(sort $(shell find $(LOCAL_PATH)/acts/framework))
+$(ACTS_DISTRO): $(sort $(shell find $(LOCAL_PATH)/acts))
 	@echo "Packaging ACTS into $(ACTS_DISTRO)"
 	@mkdir -p $(HOST_OUT)/acts-dist/
 	@rm -f $(HOST_OUT)/acts-dist/acts.zip
-	$(hide) zip -r $(HOST_OUT)/acts-dist/acts.zip tools/test/connectivity/acts/*
+	$(hide) zip $(HOST_OUT)/acts-dist/acts.zip $(shell find tools/test/connectivity/acts/* ! -wholename "*__pycache__*")
 acts: $(ACTS_DISTRO)
 
 $(call dist-for-goals,tests,$(ACTS_DISTRO))

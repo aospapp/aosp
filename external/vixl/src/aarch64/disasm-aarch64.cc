@@ -1740,32 +1740,12 @@ void Disassembler::VisitSystem(const Instruction *instr) {
     switch (instr->Mask(SystemSysRegMask)) {
       case MRS: {
         mnemonic = "mrs";
-        switch (instr->GetImmSystemRegister()) {
-          case NZCV:
-            form = "'Xt, nzcv";
-            break;
-          case FPCR:
-            form = "'Xt, fpcr";
-            break;
-          default:
-            form = "'Xt, (unknown)";
-            break;
-        }
+        form = "'Xt, 'IY";
         break;
       }
       case MSR: {
         mnemonic = "msr";
-        switch (instr->GetImmSystemRegister()) {
-          case NZCV:
-            form = "nzcv, 'Xt";
-            break;
-          case FPCR:
-            form = "fpcr, 'Xt";
-            break;
-          default:
-            form = "(unknown), 'Xt";
-            break;
-        }
+        form = "'IY, 'Xt";
         break;
       }
     }
@@ -2197,40 +2177,135 @@ void Disassembler::VisitNEON3Same(const Instruction *instr) {
     }
     nfd.SetFormatMaps(nfd.LogicalFormatMap());
   } else {
-    static const char *mnemonics[] =
-        {"shadd",       "uhadd",       "shadd",       "uhadd",
-         "sqadd",       "uqadd",       "sqadd",       "uqadd",
-         "srhadd",      "urhadd",      "srhadd",      "urhadd",
-         // Handled by logical cases above.
-         NULL,          NULL,          NULL,          NULL,
-         "shsub",       "uhsub",       "shsub",       "uhsub",
-         "sqsub",       "uqsub",       "sqsub",       "uqsub",
-         "cmgt",        "cmhi",        "cmgt",        "cmhi",
-         "cmge",        "cmhs",        "cmge",        "cmhs",
-         "sshl",        "ushl",        "sshl",        "ushl",
-         "sqshl",       "uqshl",       "sqshl",       "uqshl",
-         "srshl",       "urshl",       "srshl",       "urshl",
-         "sqrshl",      "uqrshl",      "sqrshl",      "uqrshl",
-         "smax",        "umax",        "smax",        "umax",
-         "smin",        "umin",        "smin",        "umin",
-         "sabd",        "uabd",        "sabd",        "uabd",
-         "saba",        "uaba",        "saba",        "uaba",
-         "add",         "sub",         "add",         "sub",
-         "cmtst",       "cmeq",        "cmtst",       "cmeq",
-         "mla",         "mls",         "mla",         "mls",
-         "mul",         "pmul",        "mul",         "pmul",
-         "smaxp",       "umaxp",       "smaxp",       "umaxp",
-         "sminp",       "uminp",       "sminp",       "uminp",
-         "sqdmulh",     "sqrdmulh",    "sqdmulh",     "sqrdmulh",
-         "addp",        "unallocated", "addp",        "unallocated",
-         "fmaxnm",      "fmaxnmp",     "fminnm",      "fminnmp",
-         "fmla",        "unallocated", "fmls",        "unallocated",
-         "fadd",        "faddp",       "fsub",        "fabd",
-         "fmulx",       "fmul",        "unallocated", "unallocated",
-         "fcmeq",       "fcmge",       "unallocated", "fcmgt",
-         "unallocated", "facge",       "unallocated", "facgt",
-         "fmax",        "fmaxp",       "fmin",        "fminp",
-         "frecps",      "fdiv",        "frsqrts",     "unallocated"};
+    static const char *mnemonics[] = {"shadd",
+                                      "uhadd",
+                                      "shadd",
+                                      "uhadd",
+                                      "sqadd",
+                                      "uqadd",
+                                      "sqadd",
+                                      "uqadd",
+                                      "srhadd",
+                                      "urhadd",
+                                      "srhadd",
+                                      "urhadd",
+                                      // Handled by logical cases above.
+                                      NULL,
+                                      NULL,
+                                      NULL,
+                                      NULL,
+                                      "shsub",
+                                      "uhsub",
+                                      "shsub",
+                                      "uhsub",
+                                      "sqsub",
+                                      "uqsub",
+                                      "sqsub",
+                                      "uqsub",
+                                      "cmgt",
+                                      "cmhi",
+                                      "cmgt",
+                                      "cmhi",
+                                      "cmge",
+                                      "cmhs",
+                                      "cmge",
+                                      "cmhs",
+                                      "sshl",
+                                      "ushl",
+                                      "sshl",
+                                      "ushl",
+                                      "sqshl",
+                                      "uqshl",
+                                      "sqshl",
+                                      "uqshl",
+                                      "srshl",
+                                      "urshl",
+                                      "srshl",
+                                      "urshl",
+                                      "sqrshl",
+                                      "uqrshl",
+                                      "sqrshl",
+                                      "uqrshl",
+                                      "smax",
+                                      "umax",
+                                      "smax",
+                                      "umax",
+                                      "smin",
+                                      "umin",
+                                      "smin",
+                                      "umin",
+                                      "sabd",
+                                      "uabd",
+                                      "sabd",
+                                      "uabd",
+                                      "saba",
+                                      "uaba",
+                                      "saba",
+                                      "uaba",
+                                      "add",
+                                      "sub",
+                                      "add",
+                                      "sub",
+                                      "cmtst",
+                                      "cmeq",
+                                      "cmtst",
+                                      "cmeq",
+                                      "mla",
+                                      "mls",
+                                      "mla",
+                                      "mls",
+                                      "mul",
+                                      "pmul",
+                                      "mul",
+                                      "pmul",
+                                      "smaxp",
+                                      "umaxp",
+                                      "smaxp",
+                                      "umaxp",
+                                      "sminp",
+                                      "uminp",
+                                      "sminp",
+                                      "uminp",
+                                      "sqdmulh",
+                                      "sqrdmulh",
+                                      "sqdmulh",
+                                      "sqrdmulh",
+                                      "addp",
+                                      "unallocated",
+                                      "addp",
+                                      "unallocated",
+                                      "fmaxnm",
+                                      "fmaxnmp",
+                                      "fminnm",
+                                      "fminnmp",
+                                      "fmla",
+                                      "unallocated",
+                                      "fmls",
+                                      "unallocated",
+                                      "fadd",
+                                      "faddp",
+                                      "fsub",
+                                      "fabd",
+                                      "fmulx",
+                                      "fmul",
+                                      "unallocated",
+                                      "unallocated",
+                                      "fcmeq",
+                                      "fcmge",
+                                      "unallocated",
+                                      "fcmgt",
+                                      "unallocated",
+                                      "facge",
+                                      "unallocated",
+                                      "facgt",
+                                      "fmax",
+                                      "fmaxp",
+                                      "fmin",
+                                      "fminp",
+                                      "frecps",
+                                      "fdiv",
+                                      "frsqrts",
+                                      "unallocated"};
 
     // Operation is determined by the opcode bits (15-11), the top bit of
     // size (23) and the U bit (29).
@@ -3698,39 +3773,13 @@ void Disassembler::VisitNEONShiftImmediate(const Instruction *instr) {
 
   // 00010->8B, 00011->16B, 001x0->4H, 001x1->8H,
   // 01xx0->2S, 01xx1->4S, 1xxx1->2D, all others undefined.
-  static const NEONFormatMap map_shift_tb = {{22, 21, 20, 19, 30},
-                                             {NF_UNDEF,
-                                              NF_UNDEF,
-                                              NF_8B,
-                                              NF_16B,
-                                              NF_4H,
-                                              NF_8H,
-                                              NF_4H,
-                                              NF_8H,
-                                              NF_2S,
-                                              NF_4S,
-                                              NF_2S,
-                                              NF_4S,
-                                              NF_2S,
-                                              NF_4S,
-                                              NF_2S,
-                                              NF_4S,
-                                              NF_UNDEF,
-                                              NF_2D,
-                                              NF_UNDEF,
-                                              NF_2D,
-                                              NF_UNDEF,
-                                              NF_2D,
-                                              NF_UNDEF,
-                                              NF_2D,
-                                              NF_UNDEF,
-                                              NF_2D,
-                                              NF_UNDEF,
-                                              NF_2D,
-                                              NF_UNDEF,
-                                              NF_2D,
-                                              NF_UNDEF,
-                                              NF_2D}};
+  static const NEONFormatMap map_shift_tb =
+      {{22, 21, 20, 19, 30},
+       {NF_UNDEF, NF_UNDEF, NF_8B,    NF_16B,   NF_4H,    NF_8H,    NF_4H,
+        NF_8H,    NF_2S,    NF_4S,    NF_2S,    NF_4S,    NF_2S,    NF_4S,
+        NF_2S,    NF_4S,    NF_UNDEF, NF_2D,    NF_UNDEF, NF_2D,    NF_UNDEF,
+        NF_2D,    NF_UNDEF, NF_2D,    NF_UNDEF, NF_2D,    NF_UNDEF, NF_2D,
+        NF_UNDEF, NF_2D,    NF_UNDEF, NF_2D}};
 
   NEONFormatDecoder nfd(instr, &map_shift_tb);
 
@@ -4518,6 +4567,25 @@ int Disassembler::SubstituteImmediateField(const Instruction *instr,
     }
     case 'X': {  // IX - CLREX instruction.
       AppendToOutput("#0x%" PRIx32, instr->GetCRm());
+      return 2;
+    }
+    case 'Y': {  // IY - system register immediate.
+      switch (instr->GetImmSystemRegister()) {
+        case NZCV:
+          AppendToOutput("nzcv");
+          break;
+        case FPCR:
+          AppendToOutput("fpcr");
+          break;
+        default:
+          AppendToOutput("S%d_%d_c%d_c%d_%d",
+                         instr->GetSysOp0(),
+                         instr->GetSysOp1(),
+                         instr->GetCRn(),
+                         instr->GetCRm(),
+                         instr->GetSysOp2());
+          break;
+      }
       return 2;
     }
     default: {

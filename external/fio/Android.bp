@@ -31,6 +31,7 @@ cc_defaults {
         "-D_FILE_OFFSET_BITS=64",
         "-O3",
         "-Wall",
+        "-Werror",
         "-Wdeclaration-after-statement",
         "-Wwrite-strings",
         "-ffast-math",

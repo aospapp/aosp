@@ -31,19 +31,11 @@ class firmware_DevBootUSB(FirmwareTest):
                      str(self.original_dev_boot_usb))
 
     def cleanup(self):
-        self.ensure_internal_device_boot()
+        try:
+            self.ensure_dev_internal_boot(self.original_dev_boot_usb)
+        except Exception as e:
+            logging.error("Caught exception: %s", str(e))
         super(firmware_DevBootUSB, self).cleanup()
-
-    def ensure_internal_device_boot(self):
-        """Ensure internal device boot; if not, reboot into it.
-
-        If not, it may be a test failure during step 2 or 3, try to reboot
-        and press Ctrl-D to internal device boot.
-        """
-        if self.faft_client.system.is_removable_device_boot():
-            logging.info('Reboot into internal disk...')
-            self.faft_client.system.set_dev_boot_usb(self.original_dev_boot_usb)
-            self.switcher.mode_aware_reboot()
 
     def run_once(self):
         if (self.faft_config.has_keyboard and
@@ -66,13 +58,10 @@ class firmware_DevBootUSB(FirmwareTest):
         self.switcher.wait_for_client()
 
         logging.info("Expected USB boot, set dev_boot_usb to the original.")
-        self.check_state((self.checkers.dev_boot_usb_checker,
-                          True,
-                          "Not USB boot, Ctrl-U not work"))
+        self.check_state((self.checkers.dev_boot_usb_checker, (True, True),
+                          'Device not booted from USB image properly.'))
         self.faft_client.system.set_dev_boot_usb(self.original_dev_boot_usb)
-        self.switcher.mode_aware_reboot(wait_for_dut_up=False)
-        self.switcher.bypass_dev_mode()
-        self.switcher.wait_for_client()
+        self.switcher.mode_aware_reboot()
 
         logging.info("Check and done.")
         self.check_state((self.checkers.dev_boot_usb_checker, False))

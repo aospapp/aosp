@@ -36,6 +36,7 @@ import android.os.UserHandle;
 import android.os.UserManager;
 import android.preference.PreferenceManager;
 import android.provider.ContactsContract.PhoneLookup;
+import android.provider.Settings;
 import android.telecom.DefaultDialerManager;
 import android.telecom.PhoneAccount;
 import android.telecom.PhoneAccountHandle;
@@ -45,7 +46,6 @@ import android.telephony.PhoneNumberUtils;
 import android.telephony.ServiceState;
 import android.telephony.SubscriptionInfo;
 import android.telephony.SubscriptionManager;
-import android.telephony.SubscriptionManager.OnSubscriptionsChangedListener;
 import android.telephony.TelephonyManager;
 import android.text.TextUtils;
 import android.util.ArrayMap;
@@ -124,27 +124,6 @@ public class NotificationMgr {
         mSubscriptionManager = SubscriptionManager.from(mContext);
         mTelecomManager = TelecomManager.from(mContext);
         mTelephonyManager = (TelephonyManager) app.getSystemService(Context.TELEPHONY_SERVICE);
-
-        mSubscriptionManager.addOnSubscriptionsChangedListener(
-                new OnSubscriptionsChangedListener() {
-                    @Override
-                    public void onSubscriptionsChanged() {
-                        updateActivePhonesMwi();
-                    }
-                });
-    }
-
-    public void updateActivePhonesMwi() {
-        List<SubscriptionInfo> subInfos = mSubscriptionManager.getActiveSubscriptionInfoList();
-
-        if (subInfos == null) {
-            return;
-        }
-
-        for (int i = 0; i < subInfos.size(); i++) {
-            int subId = subInfos.get(i).getSubscriptionId();
-            refreshMwi(subId);
-        }
     }
 
     /**
@@ -183,7 +162,7 @@ public class NotificationMgr {
     /* package */ void refreshMwi(int subId) {
         // In a single-sim device, subId can be -1 which means "no sub id".  In this case we will
         // reference the single subid stored in the mMwiVisible map.
-        if (subId == SubscriptionInfoHelper.NO_SUB_ID) {
+        if (subId == SubscriptionManager.INVALID_SUBSCRIPTION_ID) {
             if (mMwiVisible.keySet().size() == 1) {
                 Set<Integer> keySet = mMwiVisible.keySet();
                 Iterator<Integer> keyIt = keySet.iterator();
@@ -196,7 +175,7 @@ public class NotificationMgr {
         if (mMwiVisible.containsKey(subId)) {
             boolean mwiVisible = mMwiVisible.get(subId);
             if (mwiVisible) {
-                updateMwi(subId, mwiVisible, true /* isRefresh */);
+                mApp.notifier.updatePhoneStateListeners(true);
             }
         }
     }
@@ -264,6 +243,10 @@ public class NotificationMgr {
             }
 
             int resId = android.R.drawable.stat_notify_voicemail;
+            if (mTelephonyManager.getPhoneCount() > 1) {
+                resId = (phone.getPhoneId() == 0) ? R.drawable.stat_notify_voicemail_sub1
+                        : R.drawable.stat_notify_voicemail_sub2;
+            }
 
             // This Notification can get a lot fancier once we have more
             // information about the current voicemail messages.
@@ -461,9 +444,19 @@ public class NotificationMgr {
     /**
      * Updates the message call forwarding indicator notification.
      *
-     * @param visible true if there are messages waiting
+     * @param visible true if call forwarding enabled
      */
-    /* package */ void updateCfi(int subId, boolean visible) {
+
+     /* package */ void updateCfi(int subId, boolean visible) {
+        updateCfi(subId, visible, false /* isRefresh */);
+    }
+
+    /**
+     * Updates the message call forwarding indicator notification.
+     *
+     * @param visible true if call forwarding enabled
+     */
+    /* package */ void updateCfi(int subId, boolean visible, boolean isRefresh) {
         logi("updateCfi: subId= " + subId + ", visible=" + (visible ? "Y" : "N"));
         if (visible) {
             // If Unconditional Call Forwarding (forward all calls) for VOICE
@@ -484,20 +477,25 @@ public class NotificationMgr {
             }
 
             String notificationTitle;
+            int resId = R.drawable.stat_sys_phone_call_forward;
             if (mTelephonyManager.getPhoneCount() > 1) {
+                int slotId = SubscriptionManager.getSlotIndex(subId);
+                resId = (slotId == 0) ? R.drawable.stat_sys_phone_call_forward_sub1
+                        : R.drawable.stat_sys_phone_call_forward_sub2;
                 notificationTitle = subInfo.getDisplayName().toString();
             } else {
                 notificationTitle = mContext.getString(R.string.labelCF);
             }
 
             Notification.Builder builder = new Notification.Builder(mContext)
-                    .setSmallIcon(R.drawable.stat_sys_phone_call_forward)
+                    .setSmallIcon(resId)
                     .setColor(subInfo.getIconTint())
                     .setContentTitle(notificationTitle)
                     .setContentText(mContext.getString(R.string.sum_cfu_enabled_indicator))
                     .setShowWhen(false)
                     .setOngoing(true)
-                    .setChannel(NotificationChannelController.CHANNEL_ID_CALL_FORWARD);
+                    .setChannel(NotificationChannelController.CHANNEL_ID_CALL_FORWARD)
+                    .setOnlyAlertOnce(isRefresh);
 
             Intent intent = new Intent(Intent.ACTION_MAIN);
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
@@ -512,30 +510,39 @@ public class NotificationMgr {
                     builder.build(),
                     UserHandle.ALL);
         } else {
-            mNotificationManager.cancelAsUser(
-                    Integer.toString(subId) /* tag */,
-                    CALL_FORWARD_NOTIFICATION,
-                    UserHandle.ALL);
+            List<UserInfo> users = mUserManager.getUsers(true);
+            for (UserInfo user : users) {
+                if (user.isManagedProfile()) {
+                    continue;
+                }
+                UserHandle userHandle = user.getUserHandle();
+                mNotificationManager.cancelAsUser(
+                        Integer.toString(subId) /* tag */,
+                        CALL_FORWARD_NOTIFICATION,
+                        userHandle);
+            }
         }
     }
 
     /**
      * Shows the "data disconnected due to roaming" notification, which
      * appears when you lose data connectivity because you're roaming and
-     * you have the "data roaming" feature turned off.
+     * you have the "data roaming" feature turned off for the given {@code subId}.
      */
-    void showDataDisconnectedRoaming() {
+    /* package */ void showDataDisconnectedRoaming(int subId) {
         if (DBG) log("showDataDisconnectedRoaming()...");
 
         // "Mobile network settings" screen / dialog
         Intent intent = new Intent(mContext, com.android.phone.MobileNetworkSettings.class);
-        PendingIntent contentIntent = PendingIntent.getActivity(mContext, 0, intent, 0);
+        intent.putExtra(Settings.EXTRA_SUB_ID, subId);
+        intent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        PendingIntent contentIntent = PendingIntent.getActivity(mContext, subId, intent, 0);
 
         final CharSequence contentText = mContext.getText(R.string.roaming_reenable_message);
 
         final Notification.Builder builder = new Notification.Builder(mContext)
                 .setSmallIcon(android.R.drawable.stat_sys_warning)
-                .setContentTitle(mContext.getText(R.string.roaming))
+                .setContentTitle(mContext.getText(R.string.roaming_notification_title))
                 .setColor(mContext.getResources().getColor(R.color.dialer_theme_color))
                 .setContentText(contentText)
                 .setChannel(NotificationChannelController.CHANNEL_ID_MOBILE_DATA_STATUS)
@@ -609,24 +616,34 @@ public class NotificationMgr {
                 PhoneFactory.getPhone(phoneId) : PhoneFactory.getDefaultPhone();
         if (TelephonyCapabilities.supportsNetworkSelection(phone)) {
             if (SubscriptionManager.isValidSubscriptionId(subId)) {
+                SharedPreferences sp = PreferenceManager.getDefaultSharedPreferences(mContext);
+                String selectedNetworkOperatorName =
+                        sp.getString(Phone.NETWORK_SELECTION_NAME_KEY + subId, "");
                 // get the shared preference of network_selection.
                 // empty is auto mode, otherwise it is the operator alpha name
                 // in case there is no operator name, check the operator numeric
-                SharedPreferences sp =
-                        PreferenceManager.getDefaultSharedPreferences(mContext);
-                String networkSelection =
-                        sp.getString(Phone.NETWORK_SELECTION_NAME_KEY + subId, "");
-                if (TextUtils.isEmpty(networkSelection)) {
-                    networkSelection =
+                if (TextUtils.isEmpty(selectedNetworkOperatorName)) {
+                    selectedNetworkOperatorName =
                             sp.getString(Phone.NETWORK_SELECTION_KEY + subId, "");
                 }
+                boolean isManualSelection;
+                // if restoring manual selection is controlled by framework, then get network
+                // selection from shared preference, otherwise get from real network indicators.
+                boolean restoreSelection = !mContext.getResources().getBoolean(
+                        com.android.internal.R.bool.skip_restoring_network_selection);
+                if (restoreSelection) {
+                    isManualSelection = !TextUtils.isEmpty(selectedNetworkOperatorName);
+                } else {
+                    isManualSelection = phone.getServiceStateTracker().mSS.getIsManualSelection();
+                }
 
-                if (DBG) log("updateNetworkSelection()..." + "state = " +
-                        serviceState + " new network " + networkSelection);
+                if (DBG) {
+                    log("updateNetworkSelection()..." + "state = " + serviceState + " new network "
+                            + (isManualSelection ? selectedNetworkOperatorName : ""));
+                }
 
-                if (serviceState == ServiceState.STATE_OUT_OF_SERVICE
-                        && !TextUtils.isEmpty(networkSelection)) {
-                    showNetworkSelection(networkSelection, subId);
+                if (serviceState == ServiceState.STATE_OUT_OF_SERVICE && isManualSelection) {
+                    showNetworkSelection(selectedNetworkOperatorName, subId);
                     mSelectedUnavailableNotify = true;
                 } else {
                     if (mSelectedUnavailableNotify) {

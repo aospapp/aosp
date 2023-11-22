@@ -528,15 +528,19 @@ public class ListPopupWindowTest {
         assertTrue(promptView.isShown());
         assertEquals(ListPopupWindow.POSITION_PROMPT_ABOVE, mPopupWindow.getPromptPosition());
 
-        final int[] promptViewOnScreenXY = new int[2];
-        promptView.getLocationOnScreen(promptViewOnScreenXY);
-
         final ListView listView = mPopupWindow.getListView();
         WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, listView, null);
 
-        final View firstListChild = listView.getChildAt(0);
+        final int[] promptViewOnScreenXY = new int[2];
         final int[] firstChildOnScreenXY = new int[2];
-        firstListChild.getLocationOnScreen(firstChildOnScreenXY);
+
+        mActivityRule.runOnUiThread(()-> {
+            promptView.getLocationOnScreen(promptViewOnScreenXY);
+
+            final View firstListChild = listView.getChildAt(0);
+            firstListChild.getLocationOnScreen(firstChildOnScreenXY);
+        });
+        mInstrumentation.waitForIdleSync();
 
         assertTrue(promptViewOnScreenXY[1] + promptView.getHeight() <= firstChildOnScreenXY[1]);
     }
@@ -560,11 +564,15 @@ public class ListPopupWindowTest {
         WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, listView, null);
 
         final int[] promptViewOnScreenXY = new int[2];
-        promptView.getLocationOnScreen(promptViewOnScreenXY);
-
-        final View lastListChild = listView.getChildAt(listView.getChildCount() - 1);
         final int[] lastChildOnScreenXY = new int[2];
-        lastListChild.getLocationOnScreen(lastChildOnScreenXY);
+
+        mActivityRule.runOnUiThread(()-> {
+            promptView.getLocationOnScreen(promptViewOnScreenXY);
+
+            final View lastListChild = listView.getChildAt(listView.getChildCount() - 1);
+            lastListChild.getLocationOnScreen(lastChildOnScreenXY);
+        });
+        mInstrumentation.waitForIdleSync();
 
         // The child is above the prompt. They may overlap, as in the case
         // when the list items do not all fit on screen, but this is still

@@ -21,6 +21,8 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
+import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
 import android.os.IBinder;
 import android.security.Credentials;
 import android.security.IKeyChainService;
@@ -75,16 +77,36 @@ public class KeyChainServiceTest extends Service {
         }
     };
 
+    private static void addComponentToIntent(PackageManager pm, Intent intent) {
+        ResolveInfo service = pm.resolveService(intent, 0);
+        if (service == null) {
+            Log.w(TAG, String.format("No service found for intent: %s", intent.getAction()));
+        } else {
+            Log.d(TAG, String.format("Found service: %s %s for action %s",
+                        service.serviceInfo.packageName, service.serviceInfo.name,
+                        intent.getAction()));
+            ComponentName comp = new ComponentName(
+                    service.serviceInfo.packageName, service.serviceInfo.name);
+            intent.setComponent(comp);
+        }
+    }
+
     private void bindSupport() {
-        mIsBoundSupport = bindService(new Intent(IKeyChainServiceTestSupport.class.getName()),
+        Intent serviceIntent = new Intent(IKeyChainServiceTestSupport.class.getName());
+        addComponentToIntent(getPackageManager(), serviceIntent);
+        mIsBoundSupport = bindService(serviceIntent,
                                       mSupportConnection,
                                       Context.BIND_AUTO_CREATE);
+        Log.d(TAG, String.format("Finished bindSupport with result: %b", mIsBoundSupport));
     }
 
     private void bindService() {
-        mIsBoundService = bindService(new Intent(IKeyChainService.class.getName()),
+        Intent serviceIntent = new Intent(IKeyChainService.class.getName());
+        addComponentToIntent(getPackageManager(), serviceIntent);
+        mIsBoundService = bindService(serviceIntent,
                                       mServiceConnection,
                                       Context.BIND_AUTO_CREATE);
+        Log.d(TAG, String.format("Finished bindService with result: %b", mIsBoundService));
     }
 
     private void unbindServices() {

@@ -571,18 +571,18 @@ int main(int argc, char **argv)
 		get_tracetype(s, trace_type);
 		if (strcmp(trace_type, "strace") == 0) {
 			get_syscall(s, syscall);
-			disk_file_op->file_op = map_syscall(syscall);
+			disk_file_op->ioshark_io_op = map_syscall(syscall);
 		} else
-			disk_file_op->file_op = map_syscall("ftrace");
-		get_pathname(s, path, disk_file_op->file_op);
+			disk_file_op->ioshark_io_op = map_syscall("ftrace");
+		get_pathname(s, path, disk_file_op->ioshark_io_op);
 		db_node = files_db_add(path);
 		disk_file_op->fileno = files_db_get_fileno(db_node);
-		switch (disk_file_op->file_op) {
+		switch (disk_file_op->ioshark_io_op) {
 		case IOSHARK_LLSEEK:
 		case IOSHARK_LSEEK:
 			get_lseek_offset_action(s,
-					disk_file_op->file_op,
-					&disk_file_op->lseek_offset,
+					disk_file_op->ioshark_io_op,
+					(off_t *)&disk_file_op->lseek_offset,
 					lseek_action_str);
 			disk_file_op->lseek_action =
 				map_lseek_action(lseek_action_str);
@@ -593,7 +593,7 @@ int main(int argc, char **argv)
 		case IOSHARK_PREAD64:
 		case IOSHARK_PWRITE64:
 			get_prw64_offset_len(s,
-					     &disk_file_op->prw_offset,
+					     (off_t *)&disk_file_op->prw_offset,
 					     (u_int64_t *)&disk_file_op->prw_len);
 			files_db_update_size(db_node,
 					     disk_file_op->prw_offset +
@@ -608,8 +608,8 @@ int main(int argc, char **argv)
 		case IOSHARK_MMAP:
 		case IOSHARK_MMAP2:
 			get_mmap_offset_len_prot(s,
-				    &disk_file_op->mmap_prot,
-				    &disk_file_op->mmap_offset,
+			            (int *)&disk_file_op->mmap_prot,
+				    (off_t *)&disk_file_op->mmap_offset,
 				    (u_int64_t *)&disk_file_op->mmap_len);
 			files_db_update_size(db_node,
 				     disk_file_op->mmap_offset +
@@ -629,9 +629,9 @@ int main(int argc, char **argv)
 			break;
 		case IOSHARK_MAPPED_PREAD:
 			/* Convert a mmap'ed read into a PREAD64 */
-			disk_file_op->file_op = IOSHARK_PREAD64;
+			disk_file_op->ioshark_io_op = IOSHARK_PREAD64;
 			get_ftrace_offset_len(s,
-					      &disk_file_op->prw_offset,
+					      (off_t *)&disk_file_op->prw_offset,
 					      (u_int64_t *)&disk_file_op->prw_len);
 			files_db_update_size(db_node,
 					     disk_file_op->prw_offset +
@@ -663,7 +663,7 @@ int main(int argc, char **argv)
 	}
 	header.num_io_operations = num_io_operations;
 	header.num_files = files_db_get_total_obj();
-	if (fwrite(&header, sizeof(struct ioshark_header), 1, fp) != 1) {
+	if (ioshark_write_header(fp, &header) != 1) {
 		fprintf(stderr, "%s Write error trace.outfile\n",
 			progname);
 		exit(EXIT_FAILURE);
@@ -673,8 +673,7 @@ int main(int argc, char **argv)
 		struct in_mem_file_op *temp;
 
 		disk_file_op = &in_mem_file_op_head->disk_file_op;
-		if (fwrite(disk_file_op,
-			   sizeof(struct ioshark_file_operation), 1, fp) != 1) {
+		if (ioshark_write_file_op(fp, disk_file_op) != 1) {
 			fprintf(stderr, "%s Write error trace.outfile\n",
 				progname);
 			exit(EXIT_FAILURE);

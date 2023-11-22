@@ -95,10 +95,14 @@
 #endif
 
 /* Define to 1 if the system has the type `Elf32_Chdr'. */
-//#define HAVE_ELF32_CHDR 1
+#ifdef __ANDROID__
+#define HAVE_ELF32_CHDR 1
+#endif
 
 /* Define to 1 if the system has the type `Elf64_Chdr'. */
-//#define HAVE_ELF64_CHDR 1
+#ifdef __ANDROID__
+#define HAVE_ELF64_CHDR 1
+#endif
 
 /* Define to 1 if you have the <endian.h> header file. */
 #define HAVE_ENDIAN_H 1

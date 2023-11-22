@@ -34,6 +34,9 @@
     % if value.notes:
 ${value.notes | javadoc(metadata)}\
     % endif
+    % if value.sdk_notes:
+${value.sdk_notes | javadoc(metadata)}\
+    % endif
      * @see ${target_class}#${entry.name | jkey_identifier}
     % if entry.applied_visibility in ('hidden', 'ndk_public') or value.hidden:
      * @hide
@@ -42,6 +45,9 @@ ${value.notes | javadoc(metadata)}\
      * @deprecated Please refer to this API documentation to find the alternatives
     % endif
      */
+    % if value.deprecated:
+    @Deprecated
+    % endif
     public static final int ${jenum_value(entry, value)} = ${enum_calculate_value_string(value)};
 
   % endfor

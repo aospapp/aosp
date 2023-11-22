@@ -17,7 +17,6 @@ back to the rdb.
 """
 
 import logging
-import time
 
 from django.core import exceptions as django_exceptions
 
@@ -27,9 +26,8 @@ from autotest_lib.frontend.afe import rdb_model_extensions as rdb_models
 from autotest_lib.frontend.afe import models as afe_models
 from autotest_lib.scheduler import rdb_requests
 from autotest_lib.scheduler import rdb_utils
-from autotest_lib.site_utils import lab_inventory
-from autotest_lib.site_utils import metadata_reporter
-from autotest_lib.site_utils.suite_scheduler import constants
+from autotest_lib.server import constants
+from autotest_lib.utils import labellib
 
 try:
     from chromite.lib import metrics
@@ -206,6 +204,11 @@ class RDBClientHostWrapper(RDBHost):
                 rdb_requests.UpdateHostRequest, rdb.update_hosts)
         self.dbg_str = ''
         self.metadata = {}
+        # We access labels for metrics generation below and it's awkward not
+        # knowing if labels were populated or not.
+        if not hasattr(self, 'labels'):
+            self.labels = ()
+
 
 
     def _update(self, payload):
@@ -227,27 +230,6 @@ class RDBClientHostWrapper(RDBHost):
         super(RDBClientHostWrapper, self)._update_attributes(payload)
 
 
-    def record_state(self, type_str, state, value):
-        """Record metadata in elasticsearch.
-
-        @param type_str: sets the _type field in elasticsearch db.
-        @param state: string representing what state we are recording,
-                      e.g. 'status'
-        @param value: value of the state, e.g. 'running'
-        """
-        metadata = {
-            state: value,
-            'hostname': self.hostname,
-            'board': self.board,
-            'pools': self.pools,
-            'dbg_str': self.dbg_str,
-            '_type': type_str,
-            'time_recorded': time.time(),
-        }
-        metadata.update(self.metadata)
-        metadata_reporter.queue(metadata)
-
-
     def get_metric_fields(self):
         """Generate default set of fields to include for Monarch.
 
@@ -255,7 +237,8 @@ class RDBClientHostWrapper(RDBHost):
         """
         fields = {
             'dut_host_name': self.hostname,
-            'board': self.board or '',
+            'board': self.board,
+            'model': self._model,
         }
 
         return fields
@@ -269,7 +252,7 @@ class RDBClientHostWrapper(RDBHost):
         pool = ''
         if len(self.pools) == 1:
             pool = self.pools[0]
-        if pool in lab_inventory.MANAGED_POOLS:
+        if pool in constants.Pools.MANAGED_POOLS:
             pool = 'managed:' + pool
 
         metrics.String(self._HOST_POOL_METRIC,
@@ -283,7 +266,6 @@ class RDBClientHostWrapper(RDBHost):
         """
         # Update elasticsearch db.
         self._update({'status': status})
-        self.record_state('host_history', 'status', status)
 
         # Update Monarch.
         fields = self.get_metric_fields()
@@ -311,9 +293,13 @@ class RDBClientHostWrapper(RDBHost):
         metrics.Boolean(
                 self._HOST_WORKING_METRIC, reset_after=True).set(
                         working, fields=fields)
-        metrics.Boolean(
-                self._BOARD_SHARD_METRIC, reset_after=True).set(
-            True, fields={'board': self.board or ''})
+        metrics.Boolean(self._BOARD_SHARD_METRIC, reset_after=True).set(
+                True,
+                fields={
+                        'board': self.board,
+                        'model': self._model,
+                },
+        )
         self.record_pool(fields)
 
 
@@ -344,27 +330,26 @@ class RDBClientHostWrapper(RDBHost):
         return self.platform_name
 
 
-    def find_labels_start_with(self, search_string):
-        """Find all labels started with given string.
-
-        @param search_string: A string to match the beginning of the label.
-        @return: A list of all matched labels.
-        """
-        try:
-            return [l for l in self.labels if l.startswith(search_string)]
-        except AttributeError:
-            return []
-
-
     @property
     def board(self):
         """Get the names of the board of this host.
 
-        @return: A string of the name of the board, e.g., lumpy.
+        @return: A string of the name of the board, e.g., lumpy. Returns '' if
+                no board label is found.
         """
-        boards = self.find_labels_start_with(constants.Labels.BOARD_PREFIX)
-        return (boards[0][len(constants.Labels.BOARD_PREFIX):] if boards
-                else None)
+        labels = labellib.LabelsMapping(self.labels)
+        return labels.get('board', '')
+
+
+    @property
+    def _model(self):
+        """Get the model this host.
+
+        @return: A string of the name of the model, e.g., robo360. Returns '' if
+                no model label is found.
+        """
+        labels = labellib.LabelsMapping(self.labels)
+        return labels.get('model', '')
 
 
     @property
@@ -373,8 +358,8 @@ class RDBClientHostWrapper(RDBHost):
 
         @return: A list of pool names that the host is assigned to.
         """
-        return [label[len(constants.Labels.POOL_PREFIX):] for label in
-                self.find_labels_start_with(constants.Labels.POOL_PREFIX)]
+        return [l[len(constants.Labels.POOL_PREFIX):] for l in self.labels
+                if l.startswith(constants.Labels.POOL_PREFIX)]
 
 
     def get_object_dict(self, **kwargs):

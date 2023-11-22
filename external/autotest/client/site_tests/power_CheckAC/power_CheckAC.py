@@ -4,7 +4,7 @@
 
 from autotest_lib.client.bin import test
 from autotest_lib.client.common_lib import error, utils
-from autotest_lib.client.cros import power_status
+from autotest_lib.client.cros.power import power_status
 
 class power_CheckAC(test.test):
     """Check the line status for AC power

@@ -2,7 +2,7 @@
 PEIM to produce gPeiUsb2HostControllerPpiGuid based on gPeiUsbControllerPpiGuid
 which is used to enable recovery function from USB Drivers.
 
-Copyright (c) 2014 - 2015, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2014 - 2016, Intel Corporation. All rights reserved.<BR>
 
 This program and the accompanying materials
 are licensed and made available under the terms and conditions
@@ -407,6 +407,12 @@ XhcPeiResetHC (
   }
 
   XhcPeiSetOpRegBit (Xhc, XHC_USBCMD_OFFSET, XHC_USBCMD_RESET);
+  //
+  // Some XHCI host controllers require to have extra 1ms delay before accessing any MMIO register during reset.
+  // Otherwise there may have the timeout case happened.
+  // The below is a workaround to solve such problem.
+  //
+  MicroSecondDelay (1000);
   Status = XhcPeiWaitOpRegBit (Xhc, XHC_USBCMD_OFFSET, XHC_USBCMD_RESET, FALSE, Timeout);
 ON_EXIT:
   DEBUG ((EFI_D_INFO, "XhcPeiResetHC: %r\n", Status));
@@ -687,7 +693,7 @@ XhcPeiControlTransfer (
       // Store a copy of device scriptor as hub device need this info to configure endpoint.
       //
       CopyMem (&Xhc->UsbDevContext[SlotId].DevDesc, Data, *DataLength);
-      if (Xhc->UsbDevContext[SlotId].DevDesc.BcdUSB == 0x0300) {
+      if (Xhc->UsbDevContext[SlotId].DevDesc.BcdUSB >= 0x0300) {
         //
         // If it's a usb3.0 device, then its max packet size is a 2^n.
         //

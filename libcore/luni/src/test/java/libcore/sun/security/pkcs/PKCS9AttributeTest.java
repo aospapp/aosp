@@ -25,7 +25,7 @@ public class PKCS9AttributeTest extends TestCase {
     // Before rev/f9224fb49890, the unstructuredName attributes supported only IA5 strings. They
     // support printable strings as well.
     // See https://bugs.openjdk.java.net/browse/JDK-8016916
-    void testUnstructuredNameWithPrintableString() throws Exception {
+    public void testUnstructuredNameWithPrintableString() throws Exception {
         // SEQUENCE
         //   OBJECT IDENTIFIER1.2.840.113549.1.9.2 (unstructuredName)
         //   SET(1 elem)

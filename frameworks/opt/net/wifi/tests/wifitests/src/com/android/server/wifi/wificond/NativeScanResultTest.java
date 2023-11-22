@@ -21,10 +21,12 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import android.os.Parcel;
-import android.test.suitebuilder.annotation.SmallTest;
+import android.support.test.filters.SmallTest;
 
 import org.junit.Test;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.BitSet;
 
 /**
@@ -45,6 +47,8 @@ public class NativeScanResultTest {
     private static final long TEST_TSF = 34455441;
     private static final BitSet TEST_CAPABILITY = new BitSet(16) {{ set(2); set(5); }};
     private static final boolean TEST_ASSOCIATED = true;
+    private static final int[] RADIO_CHAIN_IDS = { 0, 1 };
+    private static final int[] RADIO_CHAIN_LEVELS = { -56, -65 };
 
     /**
      *  NativeScanResult object can be serialized and deserialized, while keeping the
@@ -61,6 +65,9 @@ public class NativeScanResultTest {
         scanResult.tsf = TEST_TSF;
         scanResult.capability = TEST_CAPABILITY;
         scanResult.associated = TEST_ASSOCIATED;
+        scanResult.radioChainInfos = new ArrayList(
+                Arrays.asList(new RadioChainInfo(RADIO_CHAIN_IDS[0], RADIO_CHAIN_LEVELS[0]),
+                        new RadioChainInfo(RADIO_CHAIN_IDS[1], RADIO_CHAIN_LEVELS[1])));
         Parcel parcel = Parcel.obtain();
         scanResult.writeToParcel(parcel, 0);
         // Rewind the pointer to the head of the parcel.
@@ -75,5 +82,6 @@ public class NativeScanResultTest {
         assertEquals(scanResult.tsf, scanResultDeserialized.tsf);
         assertTrue(scanResult.capability.equals(scanResultDeserialized.capability));
         assertEquals(scanResult.associated, scanResultDeserialized.associated);
+        assertTrue(scanResult.radioChainInfos.containsAll(scanResultDeserialized.radioChainInfos));
     }
 }

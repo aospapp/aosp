@@ -25,9 +25,9 @@
 #include <grp.h>
 #include <pwd.h>
 #include <string.h>
-#include <ScopedLocalRef.h>
-#include <ScopedPrimitiveArray.h>
-#include <ScopedUtfChars.h>
+#include <nativehelper/ScopedLocalRef.h>
+#include <nativehelper/ScopedPrimitiveArray.h>
+#include <nativehelper/ScopedUtfChars.h>
 
 static jfieldID gFileStatusDevFieldID;
 static jfieldID gFileStatusInoFieldID;
@@ -106,7 +106,7 @@ static jboolean isPermittedCapBitSet(JNIEnv* env, jstring path, size_t capId)
     {
           __android_log_print(ANDROID_LOG_DEBUG, NULL,
                   "isPermittedCapBitSet(): getxattr(\"%s\") call failed: "
-                  "return %d (error: %s (%d))\n",
+                  "return %zd (error: %s (%d))\n",
                   cPath.c_str(), result, strerror(errno), errno);
           return false;
     }
@@ -173,7 +173,7 @@ jboolean android_permission_cts_FileUtils_CapabilitySet_fileHasOnly(JNIEnv* env,
     struct vfs_cap_data expectedCapData;
     memset(&expectedCapData, 0, sizeof(expectedCapData));
 
-    expectedCapData.magic_etc = VFS_CAP_REVISION | VFS_CAP_FLAGS_EFFECTIVE;
+    expectedCapData.magic_etc = VFS_CAP_REVISION_2 | VFS_CAP_FLAGS_EFFECTIVE;
     if (!fillPermittedCaps(&expectedCapData, env, capIds))
     {
         // exception thrown
@@ -190,7 +190,7 @@ jboolean android_permission_cts_FileUtils_CapabilitySet_fileHasOnly(JNIEnv* env,
     {
         __android_log_print(ANDROID_LOG_DEBUG, NULL,
                 "fileHasOnly(): getxattr(\"%s\") call failed: "
-                "return %d (error: %s (%d))\n",
+                "return %zd (error: %s (%d))\n",
                 cPath.c_str(), result, strerror(errno), errno);
         return false;
     }

@@ -19,7 +19,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.support.annotation.Nullable;
+import androidx.annotation.Nullable;
 import android.util.Log;
 
 import java.util.concurrent.ArrayBlockingQueue;
@@ -73,6 +73,19 @@ public class BlockingBroadcastReceiver extends BroadcastReceiver {
     public @Nullable Intent awaitForBroadcast() {
         try {
             return mBlockingQueue.poll(DEFAULT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Log.e(TAG, "waitForBroadcast get interrupted: ", e);
+        }
+        return null;
+    }
+
+    /**
+     * Wait until the broadcast and return the received broadcast intent. {@code null} is returned
+     * if no broadcast with expected action is received within the given timeout.
+     */
+    public @Nullable Intent awaitForBroadcast(long timeoutMillis) {
+        try {
+            return mBlockingQueue.poll(timeoutMillis, TimeUnit.MILLISECONDS);
         } catch (InterruptedException e) {
             Log.e(TAG, "waitForBroadcast get interrupted: ", e);
         }

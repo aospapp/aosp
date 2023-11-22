@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Copyright (C) 2016 The Android Open Source Project
+<!-- Copyright (C) 2017 The Android Open Source Project
 
      Licensed under the Apache License, Version 2.0 (the "License");
      you may not use this file except in compliance with the License.
@@ -74,5 +74,49 @@
         <item name="paddingStart">0dp</item>
         <item name="paddingBottom">@dimen/media_notification_actions_padding_bottom</item>
         <item name="gravity">center</item>
+    </style>
+    
+    <!-- Car text -->
+    <style name="CarBody2">
+        <item name="android:textStyle">normal</item>
+        <item name="android:textSize">@dimen/car_body2_size</item>
+        <item name="android:textColor">@color/car_body2</item>
+    </style>
+    
+    <style name="CarBody2.Dark">
+        <item name="android:textColor">@color/car_body2_dark</item>
+    </style>
+    <style name="CarBody2.Light">
+        <item name="android:textColor">@color/car_body2_light</item>
+    </style>
+    
+    <style name="CarAction1">
+        <item name="android:textStyle">bold</item>
+        <item name="android:textSize">@dimen/car_action1_size</item>
+        <item name="android:textColor">@color/car_highlight</item>
+    </style>
+    
+    <style name="CarAction1.Dark">
+        <item name="android:textColor">@color/car_highlight_dark</item>
+    </style>
+    <style name="CarAction1.Light">
+        <item name="android:textColor">@color/car_highlight_light</item>
+    </style>
+    
+    <!-- The styling for title text. The color of this text changes based on day/night mode. -->
+    <style name="CarTitle" >
+        <item name="android:textStyle">bold</item>
+        <item name="android:textSize">@dimen/car_title2_size</item>
+        <item name="android:textColor">@color/car_title</item>
+    </style>
+
+    <!-- Title text that is permanently a dark color. -->
+    <style name="CarTitle.Dark" >
+        <item name="android:textColor">@color/car_title_dark</item>
+    </style>
+
+    <!-- Title text that is permanently a light color. -->
+    <style name="CarTitle.Light" >
+        <item name="android:textColor">@color/car_title_light</item>
     </style>
 </resources>

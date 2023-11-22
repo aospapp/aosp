@@ -35,6 +35,7 @@ import android.telecom.TelecomManager;
 import android.text.TextUtils;
 import com.android.dialer.common.Assert;
 import com.android.dialer.common.concurrent.ThreadUtil;
+import com.android.dialer.strictmode.StrictModeUtils;
 import com.android.voicemail.VoicemailComponent;
 
 /**
@@ -48,7 +49,8 @@ public class ConfigOverrideFragment extends PreferenceFragment
    * Any preference with key that starts with this prefix will be written to the dialer carrier
    * config.
    */
-  @VisibleForTesting static final String CONFIG_OVERRIDE_KEY_PREFIX = "vvm_config_override_key_";
+  @VisibleForTesting
+  public static final String CONFIG_OVERRIDE_KEY_PREFIX = "vvm_config_override_key_";
 
   @Override
   public void onCreate(@Nullable Bundle savedInstanceState) {
@@ -126,8 +128,10 @@ public class ConfigOverrideFragment extends PreferenceFragment
   }
 
   public static boolean isOverridden(Context context) {
-    return PreferenceManager.getDefaultSharedPreferences(context)
-        .getBoolean(context.getString(R.string.vvm_config_override_enabled_key), false);
+    return StrictModeUtils.bypass(
+        () ->
+            PreferenceManager.getDefaultSharedPreferences(context)
+                .getBoolean(context.getString(R.string.vvm_config_override_enabled_key), false));
   }
 
   public static PersistableBundle getConfig(Context context) {

@@ -18,7 +18,7 @@ package com.android.server.wifi.util;
 
 import static org.junit.Assert.assertEquals;
 
-import android.test.suitebuilder.annotation.SmallTest;
+import android.support.test.filters.SmallTest;
 
 import com.android.server.wifi.WifiLoggerHal;
 

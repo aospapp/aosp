@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-class AllFields {
+public class AllFields {
     static boolean sZ;
     static byte sB;
     static char sC;

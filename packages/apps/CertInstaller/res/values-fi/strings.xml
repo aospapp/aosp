@@ -52,6 +52,7 @@
     <item msgid="375085478373011304">"VPN ja sovellukset"</item>
     <item msgid="692322974985472861">"Wi-Fi"</item>
   </string-array>
+    <string name="certificate_capabilities_warning" msgid="4158609401937799110">"Huom. Tämän varmenteen myöntäjä saattaa tarkastaa kaiken laitteelle saapuvan ja siltä lähtevän liikenteen."</string>
     <string name="wifi_title" msgid="8475811746333426489">"Wi-Fi-profiili"</string>
     <string name="wifi_detail_title" msgid="3627332137252994395">"Tietoja kohteesta %s"</string>
     <string name="wifi_detail_label" msgid="3032151019356747583">"Tietoja"</string>

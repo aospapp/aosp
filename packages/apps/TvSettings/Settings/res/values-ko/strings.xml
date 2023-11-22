@@ -20,11 +20,33 @@
     <string name="launcher_settings_app_name" msgid="5782771766725939392">"설정"</string>
     <string name="launcher_network_app_name" msgid="5107150533945388559">"네트워크"</string>
     <string name="launcher_restricted_profile_app_name" msgid="671448012575234643">"제한된 프로필"</string>
+    <string name="header_category_suggestions" msgid="6732367439328586933">"추천 검색어"</string>
+    <string name="header_category_quick_settings" msgid="6626141045575946920">"빠른 설정"</string>
+    <string name="header_category_general_settings" msgid="1208946854116876918">"일반 설정"</string>
+    <string name="dismiss_suggestion" msgid="8288127823132069828">"추천 닫기"</string>
+    <string name="hotwording_title" msgid="1984130766527626626">"\'Ok Google\' 감지"</string>
+    <string name="hotwording_summary" msgid="2863751845299261441">"언제든지 Google 어시스턴트에게 문의하세요"</string>
     <string name="header_category_device" msgid="4855983928659541345">"기기"</string>
     <string name="header_category_preferences" msgid="175105555164713972">"환경설정"</string>
     <string name="header_category_accessories" msgid="823295909353025991">"리모컨 및 액세서리"</string>
     <string name="header_category_personal" msgid="8893959635328775096">"개인"</string>
-    <string name="accounts_category_title" msgid="7591072907146317425">"계정"</string>
+    <string name="connect_to_network" msgid="2209125715907353369">"네트워크에 연결"</string>
+    <string name="add_an_account" msgid="1123478843971990449">"계정 추가"</string>
+    <string name="accounts_category_title" msgid="7839427428921349418">"계정 및 로그인"</string>
+    <string name="accounts_category_summary_no_account" msgid="5739678666463033824">"계정 없음"</string>
+    <plurals name="accounts_category_summary" formatted="false" msgid="3864659911073569648">
+      <item quantity="other">계정 <xliff:g id="ACCOUNTS_NUMBER_1">%1$d</xliff:g>개</item>
+      <item quantity="one">계정 <xliff:g id="ACCOUNTS_NUMBER_0">%1$d</xliff:g>개</item>
+    </plurals>
+    <string name="connectivity_network_category_title" msgid="6005656364481347542">"네트워크 및 인터넷"</string>
+    <string name="applications_category_title" msgid="3552921143969612110">"앱"</string>
+    <string name="device_pref_category_title" msgid="5264163316572335776">"기기 환경설정"</string>
+    <string name="remotes_and_accessories_category_title" msgid="2729050422677319645">"리모컨 및 액세서리"</string>
+    <string name="remotes_and_accessories_category_summary_no_bluetooth_device" msgid="3967545806275801632">"연결된 블루투스 기기 없음"</string>
+    <plurals name="remotes_and_accessories_category_summary" formatted="false" msgid="2004733390509722820">
+      <item quantity="other">액세서리 <xliff:g id="ACCESSORIES_NUMBER_1">%1$d</xliff:g>개</item>
+      <item quantity="one">액세서리 <xliff:g id="ACCESSORIES_NUMBER_0">%1$d</xliff:g>개</item>
+    </plurals>
     <string name="add_account" msgid="4098060223200619258">"계정 추가"</string>
     <string name="account_header_remove_account" msgid="3288957118207682685">"계정 삭제"</string>
     <string name="account_sync" msgid="773808124331714965">"동기화된 앱 선택"</string>
@@ -40,27 +62,47 @@
 %1$s</xliff:g>"</string>
     <string name="sync_failed" msgid="5514824149810480551">"동기화 실패"</string>
     <string name="sync_active" msgid="6891115263481154378">"동기화 사용 중"</string>
-    <string name="connectivity_network" msgid="8321537111272398501">"네트워크"</string>
     <string name="connectivity_wifi" msgid="489974791299647708">"Wi-Fi"</string>
     <string name="connectivity_ethernet" msgid="2182407318634700320">"이더넷"</string>
+    <string name="connectivity_summary_ethernet_connected" msgid="2015335020646410586">"이더넷에 연결됨"</string>
+    <string name="connectivity_summary_no_network_connected" msgid="5187378791046457432">"네트워크에 연결되지 않음"</string>
+    <string name="connectivity_summary_wifi_disabled" msgid="6904637079319724455">"Wi-Fi가 사용 중지됨"</string>
     <string name="wifi_setting_always_scan" msgid="8883713018717323351">"항상 검색"</string>
     <string name="wifi_setting_always_scan_context" msgid="398651204440349752">"Wi-Fi가 꺼져 있을 때에도 Google의 위치 서비스 및 기타 앱이 네트워크를 검색하도록 합니다."</string>
     <string name="wifi_setting_enable_wifi" msgid="9214100840401870408">"Wi-Fi"</string>
+    <string name="connectivity_hint_message" msgid="1314202316675864203">"네트워크에 연결"</string>
+    <string name="apps_recently_used_category_title" msgid="5254492409677346900">"최근에 사용한 앱"</string>
+    <string name="apps_see_all_apps" msgid="5546179088197139203">"모든 앱 보기"</string>
+    <string name="apps_permissions_category_title" msgid="4476837368840442313">"권한"</string>
+    <string name="all_apps_title" msgid="5330174847732759402">"모든 앱"</string>
+    <string name="all_apps_show_system_apps" msgid="4648447904721171884">"시스템 앱 보기"</string>
+    <string name="all_apps_installed" msgid="54800379871111518">"설치된 앱"</string>
+    <string name="all_apps_other" msgid="8297097642727891911">"시스템 앱"</string>
+    <string name="all_apps_disabled" msgid="2016067533586741345">"사용 중지된 앱"</string>
     <string name="device_daydream" msgid="3354366974209179614">"화면 보호기"</string>
     <string name="device_display" msgid="101455384386372747">"디스플레이"</string>
     <string name="device_sound" msgid="9214182566287657481">"소리"</string>
     <string name="device_surround_sound" msgid="6272196310566546860">"서라운드 사운드"</string>
     <string name="device_sound_effects" msgid="7793281745920228622">"시스템 사운드"</string>
-    <string name="device_apps" msgid="9180435229638772838">"앱"</string>
-    <string name="device_storage_reset" msgid="1425978936501134425">"저장소 및 재설정"</string>
+    <string name="device_apps" msgid="1971794537385509294">"애플리케이션"</string>
+    <string name="device_storage" msgid="5536683600091277826">"저장소"</string>
+    <string name="device_reset" msgid="1885840356489458285">"재설정"</string>
     <string name="device_backup_restore" msgid="5627523987587511884">"백업 및 복원"</string>
-    <string name="device_reset" msgid="2827002349560023125">"초기화"</string>
+    <string name="device_factory_reset" msgid="6537106927211842545">"초기화"</string>
     <string name="device_calibration" msgid="8632962533376605191">"보정"</string>
+    <string name="surround_sound_select_formats" msgid="6329868407147678259">"형식 선택"</string>
+    <string name="surround_sound_category_title" msgid="1331285587464316534">"서라운드 사운드"</string>
+    <string name="surround_sound_format_ac3" msgid="1482464022424295698">"AC3(Dolby Digital)"</string>
+    <string name="surround_sound_format_e_ac3" msgid="4406523828595644068">"E-AC3(Dolby Digital Plus/DD+)"</string>
+    <string name="surround_sound_format_dts" msgid="1730946367570023539">"DTS"</string>
+    <string name="surround_sound_format_dts_hd" msgid="3324695734675414927">"DTS-HD"</string>
+    <string name="surround_sound_format_iec61937" msgid="1610948713240264858">"IEC61937"</string>
+    <string name="surround_sound_auto_info" msgid="4957977219847012992">"참고: 기기가 지원되는 형식을 올바르게 보고하지 않는 경우 자동 옵션이 작동하지 않을 수 있습니다."</string>
+    <string name="surround_sound_auto_summary" msgid="175387511376834034">"자동: 기기가 지원되는 것으로 보고하는 형식 사용(권장)"</string>
+    <string name="surround_sound_none_summary" msgid="4295042972785042496">"사용 안함: 서라운드 사운드를 사용하지 않음"</string>
+    <string name="surround_sound_manual_summary" msgid="9208540024024014501">"수동: 사용하려는 형식 선택"</string>
     <string name="device_storage_clear_cache_title" msgid="3365635664766067643">"캐시된 데이터를 지우시겠습니까?"</string>
     <string name="device_storage_clear_cache_message" msgid="6495570470005696210">"모든 앱의 캐시된 데이터가 지워집니다."</string>
-    <string name="apps_downloaded" msgid="4222190849854323480">"다운로드한 앱"</string>
-    <string name="apps_system" msgid="2499191125802829425">"시스템 앱"</string>
-    <string name="apps_running" msgid="6430310491739956228">"실행 중인 앱"</string>
     <string name="accessories_add" msgid="1347802656349218830">"액세서리 추가"</string>
     <string name="accessory_state_pairing" msgid="7501989679637780963">"페어링 중..."</string>
     <string name="accessory_state_connecting" msgid="8777884957977608529">"연결 중…"</string>
@@ -91,12 +133,16 @@
     <string name="system_date_time" msgid="8898457978560618950">"날짜 및 시간"</string>
     <string name="system_language" msgid="2337138146114609247">"언어"</string>
     <string name="system_keyboard" msgid="7680159735294672514">"키보드"</string>
+    <string name="system_keyboard_autofill" msgid="5787948036400896834">"키보드 및 자동 완성"</string>
+    <string name="system_autofill" msgid="8647914463541617409">"자동 완성"</string>
     <string name="system_home" msgid="2858989138172296012">"홈 화면"</string>
     <string name="system_search" msgid="2837264654143247611">"검색"</string>
     <string name="system_google" msgid="8560404305602209622">"Google"</string>
     <string name="system_security" msgid="8230080273993484407">"보안 및 제한"</string>
     <string name="system_speech" msgid="8128688499687306982">"음성"</string>
     <string name="system_inputs" msgid="2413907183796651102">"입력"</string>
+    <string name="system_inputs_devices" msgid="8700905419497948327">"입력 및 기기"</string>
+    <string name="system_home_theater_control" msgid="2053198603790384368">"홈 시어터 컨트롤"</string>
     <string name="system_accessibility" msgid="6215431399759498005">"접근성"</string>
     <string name="system_developer_options" msgid="3237985523474863638">"개발자 옵션"</string>
     <string name="accessibility_none" msgid="3441648940134070004">"없음"</string>
@@ -143,14 +189,11 @@
     <string name="imei_information_title" msgid="5208860549282877136">"IMEI 정보"</string>
     <string name="status_bt_address" msgid="1571721865060122393">"블루투스 주소"</string>
     <string name="status_up_time" msgid="1674116490191446110">"가동 시간"</string>
-    <string name="status_wimax_mac_address" msgid="1102907383444152052">"4G MAC 주소"</string>
     <string name="legal_information" msgid="2346024659831852038">"법적 정보"</string>
     <string name="copyright_title" msgid="5564228453228549353">"저작권"</string>
     <string name="license_title" msgid="4482927105870812604">"라이선스"</string>
     <string name="terms_title" msgid="8480859222932736291">"이용약관"</string>
     <string name="webview_license_title" msgid="8843666223583780825">"시스템 WebView 라이선스"</string>
-    <string name="wallpaper_attributions" msgid="8622098625739634898">"배경화면"</string>
-    <string name="wallpaper_attributions_values" msgid="1565931506291182879">"위성 이미지 제공업체:\n©2014 CNES / Astrium, DigitalGlobe, Bluesky"</string>
   <string-array name="wifi_signal_strength">
     <item msgid="6926038943588801452">"나쁨"</item>
     <item msgid="5986166866411161790">"양호"</item>
@@ -168,10 +211,8 @@
     <string name="wifi_setting_see_all" msgid="3217814666041974878">"모두 보기"</string>
     <string name="wifi_setting_see_fewer" msgid="5958876323942699235">"간략히 보기"</string>
     <string name="wifi_setting_available_networks" msgid="6713791371350513043">"사용 가능한 네트워크"</string>
-    <string name="wifi_setting_other_options_wps" msgid="2320322351779996152">"WPS를 통해 연결"</string>
     <string name="wifi_setting_other_options_add_network" msgid="2791106243851894788">"새 네트워크 추가"</string>
     <string name="security_type" msgid="524443802004143058">"보안 유형"</string>
-    <string name="wps_network" msgid="1052148085426051873">"WPS로 연결"</string>
     <string name="other_network" msgid="3539704463099544488">"다른 네트워크…"</string>
     <string name="skip_network" msgid="6380260543776712357">"건너뛰기"</string>
     <string name="wifi_security_type_none" msgid="6622722325237471927">"없음"</string>
@@ -206,6 +247,8 @@
     <string name="wifi_forget_network" msgid="7302755141573045803">"네트워크 저장 안함"</string>
     <string name="wifi_forget_network_description" msgid="3328285160018330334">"저장된 비밀번호를 비롯하여 이 네트워크에 연결하는 데 사용된 정보가 삭제됩니다."</string>
     <string name="wifi_action_ok" msgid="5932500664228395779">"확인"</string>
+    <string name="wifi_setup_action_dont_change_network" msgid="5136210803832000656">"계속"</string>
+    <string name="wifi_setup_action_change_network" msgid="4320731433166354508">"네트워크 변경"</string>
     <string name="wifi_action_change_network" msgid="5196215981075986148">"변경"</string>
     <string name="wifi_action_dont_change_network" msgid="1449920958930251977">"변경 안함"</string>
     <string name="wifi_action_advanced_yes" msgid="8586473568311558982">"확인"</string>
@@ -234,6 +277,11 @@
     <string name="proxy_port_description" msgid="6791098212244367568">"유효한 포트를 입력합니다.\n예: <xliff:g id="ID_1">8080</xliff:g>"</string>
     <string name="proxy_exclusionlist_description" msgid="6020640103462473072">"제외된 도메인의 쉼표로 구분된 목록을 입력하거나 비워둡니다.\n예: <xliff:g id="ID_1">example.com,mycomp.test.com,localhost</xliff:g>"</string>
     <string name="proxy_hostname_description" msgid="5824391500254472447">"유효한 호스트 이름을 입력합니다.\n예: <xliff:g id="ID_1">proxy.example.com</xliff:g>"</string>
+    <string name="title_wifi_eap_method" msgid="3723583936041145157">"<xliff:g id="SSID">%1$s</xliff:g> EAP 방식 선택"</string>
+    <string name="title_wifi_phase2_authentication" msgid="8292177518924013886">"<xliff:g id="SSID">%1$s</xliff:g> 2단계 인증 선택"</string>
+    <string name="title_wifi_identity" msgid="6154397685951091638">"<xliff:g id="SSID">%1$s</xliff:g> ID 입력"</string>
+    <string name="title_wifi_anonymous_identity" msgid="4530402657655491360">"<xliff:g id="SSID">%1$s</xliff:g>에 익명 ID 입력"</string>
+    <string name="wifi_setup_summary_title_connected" msgid="3349953509191969645">"\'<xliff:g id="SSID">%1$s</xliff:g>\'에 연결됨"</string>
     <string name="wifi_summary_title_connected" msgid="8329216588732277139">"네트워크에 연결됨"</string>
     <string name="wifi_summary_title_not_connected" msgid="3799548944869386251">"네트워크에 연결되지 않음"</string>
     <string name="wifi_summary_description_connected_to_wifi_network" msgid="7583498018733069053">"이미 <xliff:g id="SSID">%1$s</xliff:g>에 연결되어 있습니다. 다른 네트워크에 연결하시겠습니까?"</string>
@@ -317,15 +365,6 @@
     <string name="system_package" msgid="9200255718634512790">"외부 장치에 시스템 업데이트를 설치할 수 없습니다."</string>
     <string name="move_error_device_admin" msgid="2060627704270836951">"외부 장치에 기기 관리자를 설치할 수 없습니다."</string>
     <string name="learn_more_action" msgid="7015991954404958779">"자세히 알아보기"</string>
-    <string name="wifi_wps_retry_scan" msgid="6171190323753080808">"다시 시도"</string>
-    <string name="wifi_wps_title" msgid="1872305810119408482">"WPS 라우터 검색 중…"</string>
-    <string name="wifi_wps_instructions" msgid="3618110962669110034">"라우터에서 WPS(Wi-Fi Protected Setup) 버튼을 누르세요.\n\'WPS\'라고 되어 있거나 왼쪽의 기호가 표시되어 있을 수 있습니다."</string>
-    <string name="wifi_wps_onstart_pin" msgid="594985182235834825">"WiFi 공유기에 PIN <xliff:g id="NUMBER">%1$s</xliff:g>을(를) 입력하세요."</string>
-    <string name="wifi_wps_onstart_pin_description" msgid="4206001352944024353">"PIN을 입력하고 나면 설정을 완료하는 데 최대 2분이 소요될 수 있습니다."</string>
-    <string name="wifi_wps_failed_generic" msgid="8934636373182298397">"Wi-Fi 공유기를 찾을 수 없음"</string>
-    <string name="wifi_wps_failed_wep" msgid="9158670824165143348">"Wi-Fi 공유기 보안 설정(WEP)이 지원되지 않음"</string>
-    <string name="wifi_wps_failed_tkip" msgid="1712545345594227319">"Wi-Fi 공유기 보안 설정(TKIP)이 지원되지 않음"</string>
-    <string name="wifi_wps_failed_overlap" msgid="3091222818050940041">"다른 WPS 세션이 진행 중입니다. 몇 분 후에 다시 시도해 주세요."</string>
     <string name="system_date" msgid="2767108116769558081">"날짜"</string>
     <string name="system_time" msgid="6726022312605226285">"시간"</string>
     <string name="system_set_date" msgid="2437586307768561116">"날짜 설정"</string>
@@ -443,7 +482,7 @@
     <string name="system_select_debug_app" msgid="8592021815119618485">"디버깅할 앱 선택"</string>
     <string name="system_wait_for_debugger" msgid="4007354935701089555">"디버거 연결 대기"</string>
     <string name="system_verify_apps_over_usb" msgid="7340861918835270609">"USB를 통해 설치된 앱 확인"</string>
-    <string name="system_desc_verify_apps_over_usb" msgid="6722973410408262393">"ADB/ADT을 통해 설치된 앱에 유해한 동작이 있는지 확인"</string>
+    <string name="system_desc_verify_apps_over_usb" msgid="6722973410408262393">"ADB/ADT를 통해 설치된 앱에 유해한 동작이 있는지 확인"</string>
     <string name="system_wifi_verbose_logging" msgid="3474525355071613242">"Wi-Fi 상세 로깅"</string>
     <string name="system_desc_wifi_verbose_logging" msgid="1559904751873455868">"Wi-Fi 상세 로깅 사용"</string>
     <string name="system_show_touches" msgid="2179121368437801757">"터치한 항목 표시"</string>
@@ -470,7 +509,7 @@
     <string name="system_desc_wait_for_debugger" msgid="2342968959255039368">"디버깅된 애플리케이션이 실행되기 전에 디버거 연결을 위해 대기"</string>
     <string name="system_desc_show_layout_bounds" msgid="3449386884226708985">"클립 경계, 여백 등 표시"</string>
     <string name="system_desc_show_gpu_view_updates" msgid="8045162296029336710">"GPU로 드로잉했을 때 창 내부 보기 깜박이기"</string>
-    <string name="system_desc_show_hardware_layer" msgid="642854466995400529">"업데이트 할 때 하드웨어 레이어 깜박이기"</string>
+    <string name="system_desc_show_hardware_layer" msgid="642854466995400529">"업데이트할 때 하드웨어 레이어 녹색으로 깜박이기"</string>
     <string name="system_desc_show_gpu_overdraw" msgid="8204945204510618865">"오버드로가 많은 순으로: 파란색, 녹색, 옅은 빨간색, 빨간색"</string>
     <string name="system_desc_show_surface_updates" msgid="8177734845253807688">"업데이트할 때 전체 창 표면  깜박이기"</string>
     <string name="system_desc_strict_mode_enabled" msgid="4647420860235689510">"앱이 기본 스레드에서 오래 작업하면 화면 깜박이기"</string>
@@ -519,9 +558,14 @@
     <string name="tts_rate_normal" msgid="362011908545519639">"표준"</string>
     <string name="tts_rate_fast" msgid="3792863158623953072">"빠름"</string>
     <string name="tts_rate_very_fast" msgid="5876670536911919074">"매우 빠름"</string>
+    <string name="title_settings" msgid="5433841477518010243">"<xliff:g id="NAME">%1$s</xliff:g> 설정"</string>
     <string name="title_current_keyboard" msgid="4259032357469819835">"현재 키보드"</string>
     <string name="title_configure" msgid="6929522003149212388">"설정"</string>
     <string name="desc_configure_keyboard" msgid="7187242843867404657">"키보드 옵션"</string>
+    <string name="title_current_autofill_service" msgid="6055852915343152350">"현재 자동 완성 서비스"</string>
+    <string name="title_select_autofill_service" msgid="2515782066694197988">"자동 완성 서비스 선택"</string>
+    <string name="autofill_none" msgid="2426888642367790651">"없음"</string>
+    <string name="autofill_confirmation_message" msgid="9068009043054751287">"&lt;b&gt;이 앱을 신뢰할 수 있는지 확인하세요.&lt;/b&gt; &lt;br/&gt; &lt;br/&gt; &lt;xliff:g id=app_name example=Password service&gt;%1$s&lt;/xliff:g&gt;에서는 화면의 내용을 통해 자동 완성할 수 있는 항목을 판단합니다."</string>
     <string name="computing_size" msgid="2955133568424704042">"계산 중..."</string>
     <string name="title_select_wifi_network" msgid="1038871400014761952">"Wi-Fi 네트워크 선택"</string>
     <string name="accessories_wifi_display_rename_device" msgid="7416728299196887186">"이름 변경"</string>
@@ -645,7 +689,7 @@
     <string name="confirm_factory_reset_description" msgid="1049842658625287303">"개인정보와 다운로드한 앱을 모두 삭제하시겠습니까? 이 작업은 취소할 수 없습니다."</string>
     <string name="confirm_factory_reset_device" msgid="8923287482399582268">"모두 지우기"</string>
     <string name="select_device_name_title" msgid="5165800500130943604">"<xliff:g id="DEVICEMODEL">%1$s</xliff:g>에 사용할 이름 선택"</string>
-    <string name="select_device_name_description" msgid="6890879006777364213">"다른 기기에서 이 기기로 전송하거나 연결할 때 식별할 수 있도록 <xliff:g id="DEVICEMODEL">%1$s</xliff:g>에 이름을 지정해 주세요."</string>
+    <string name="select_device_name_description" msgid="4939767901420114190">"다른 기기에서 이 기기에 전송하거나 연결할 때 기기를 알아볼 수 있도록 이름을 지정해 주세요."</string>
   <string-array name="rooms">
     <item msgid="9056203990862307284">"Android TV"</item>
     <item msgid="7449352861592960712">"거실 TV"</item>
@@ -655,11 +699,13 @@
     <string name="custom_room" msgid="8655516733933892458">"맞춤 이름 입력..."</string>
     <string name="device_rename_title" msgid="2629557295786267185">"<xliff:g id="DEVICEMODEL">%1$s</xliff:g> 이름 변경"</string>
     <string name="device_rename_description" msgid="2461752788563877107">"이 <xliff:g id="DEVICEMODEL">%1$s</xliff:g>의 이름은 현재 \'<xliff:g id="DEVICENAME">%2$s</xliff:g>\'입니다."</string>
+    <string name="device_name_suggestion_title" msgid="2312205155408810120">"기기 이름 설정"</string>
+    <string name="device_name_suggestion_summary" msgid="5657494684788779371">"이 이름을 사용하여 휴대전화에서 사진, 동영상 등을 전송합니다."</string>
     <string name="change_setting" msgid="2047402388786162246">"변경"</string>
     <string name="keep_settings" msgid="6798327196645732517">"변경 안함"</string>
     <string name="apps_permissions" msgid="1283592091618660965">"권한"</string>
     <string name="device_apps_permissions" msgid="2966387603529725982">"앱 권한"</string>
-    <string name="app_permissions_group_summary" msgid="7906834786705287901">"앱 <xliff:g id="COUNT_1">%d</xliff:g>개 중 <xliff:g id="COUNT_0">%d</xliff:g>개가 허용됨"</string>
+    <string name="app_permissions_group_summary" msgid="7906834786705287901">"앱 <xliff:g id="COUNT_1">%2$d</xliff:g>개 중 <xliff:g id="COUNT_0">%1$d</xliff:g>개가 허용됨"</string>
     <string name="bluetooth_permission_request" msgid="6649813878683015301">"블루투스 권한 요청"</string>
     <string name="security_patch" msgid="2131617390189164481">"Android 보안 패치 수준"</string>
     <string name="choose_application" msgid="5662960665577780353">"애플리케이션 선택"</string>
@@ -674,4 +720,27 @@
     <string name="app_permission_summary_not_allowed" msgid="3667663331476577913">"허용되지 않음"</string>
     <string name="usage_access" msgid="1914242907684452328">"사용 기록 액세스"</string>
     <string name="usage_access_description" msgid="6290001769893747651">"앱에서 사용 기록에 액세스할 수 있도록 허용하면 사용 중인 다른 앱의 종류와 사용 빈도, 이동통신사, 언어 설정, 기타 세부정보를 추적할 수 있게 됩니다."</string>
+    <string name="high_power_apps" msgid="7796096221999495077">"전원 최적화"</string>
+    <string name="high_power_apps_description" msgid="1990016812115792282">"앱의 전원 사용 최적화"</string>
+    <string name="high_power_apps_empty" msgid="1355906551507153470">"최적화가 필요한 앱이 없음"</string>
+    <string name="high_power_on" msgid="7725180078784796673">"최적화되지 않음"</string>
+    <string name="high_power_off" msgid="308272752152871252">"전원 사용 최적화 중"</string>
+    <string name="high_power_system" msgid="7815843517656137656">"전원 최적화를 사용할 수 없음"</string>
+    <string name="manage_notification_access_title" msgid="2051765294087620434">"알림 액세스"</string>
+    <string name="no_notification_listeners" msgid="4583789599075326886">"설치된 앱 중에서 알림 액세스를 요청한 앱이 없습니다."</string>
+    <string name="notification_listener_security_warning_summary" msgid="3647205635922300578">"이 앱이 연락처 이름과 수신 메시지에 포함된 텍스트 등의 개인정보를 비롯한 모든 알림을 읽을 수 있게 됩니다. 또한 알림을 닫거나 알림에 포함된 작업을 실행할 수도 있습니다."</string>
+    <string name="system_alert_window_settings" msgid="2069031369694448339">"다른 앱 위에 표시"</string>
+    <string name="permit_draw_overlay" msgid="2400084757761408906">"다른 앱 위에 표시 허용"</string>
+    <string name="allow_overlay_description" msgid="1946279120428813474">"앱이 사용 중인 다른 앱 위에 표시되도록 허용합니다. 이로 인해 다른 앱 사용에 방해를 받거나 앱의 표시 또는 작동 방식이 변경될 수도 있습니다."</string>
+    <string name="write_system_settings" msgid="2730923656857824907">"시스템 설정 수정"</string>
+    <string name="write_settings_title" msgid="8750406725746598710">"시스템 설정 수정 가능"</string>
+    <string name="write_settings_description" msgid="2765037074460395437">"이 권한은 앱이 시스템 설정을 수정하도록 허용합니다."</string>
+    <string name="write_settings_on" msgid="3312616037931341656">"예"</string>
+    <string name="write_settings_off" msgid="6219072254626503312">"아니요"</string>
+    <string name="picture_in_picture_title" msgid="7738692876349058">"PIP 모드"</string>
+    <string name="picture_in_picture_app_detail_switch" msgid="8063965798321494391">"PIP 모드 허용"</string>
+    <string name="picture_in_picture_empty_text" msgid="5592688180792300051">"PIP 모드를 지원하는 앱이 설치되지 않았습니다."</string>
+    <string name="picture_in_picture_app_detail_summary" msgid="3478182415601436326">"앱이 열려 있을 때나 사용자가 앱에서 나갔을 때 앱에서 PIP 창을 표시하도록 허용합니다(예: 동영상 시청을 계속하기 위해). 이 창은 사용 중인 다른 앱 위에 표시됩니다."</string>
+    <string name="special_access" msgid="3513811566600299998">"특수 앱 액세스"</string>
+    <string name="string_concat" msgid="5897947064488902904">"<xliff:g id="PART1">%1s</xliff:g>, <xliff:g id="PART2">%2s</xliff:g>"</string>
 </resources>

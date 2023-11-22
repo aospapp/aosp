@@ -16,6 +16,8 @@
 
 #include "ext4_utils/ext4_crypt.h"
 
+#include <array>
+
 #include <asm/ioctl.h>
 #include <dirent.h>
 #include <errno.h>
@@ -29,6 +31,8 @@
 #include <android-base/file.h>
 #include <android-base/logging.h>
 #include <cutils/properties.h>
+#include <logwrap/logwrap.h>
+#include <utils/misc.h>
 
 #define XATTR_NAME_ENCRYPTION_POLICY "encryption.policy"
 #define EXT4_KEYREF_DELIMITER ((char)'.')
@@ -48,6 +52,8 @@ struct ext4_encryption_policy {
 
 #define EXT4_ENCRYPTION_MODE_AES_256_XTS    1
 #define EXT4_ENCRYPTION_MODE_AES_256_CTS    4
+#define EXT4_ENCRYPTION_MODE_SPECK128_256_XTS 7
+#define EXT4_ENCRYPTION_MODE_SPECK128_256_CTS 8
 #define EXT4_ENCRYPTION_MODE_AES_256_HEH    126
 #define EXT4_ENCRYPTION_MODE_PRIVATE        127
 
@@ -68,6 +74,27 @@ bool e4crypt_is_native() {
     char value[PROPERTY_VALUE_MAX];
     property_get("ro.crypto.type", value, "none");
     return !strcmp(value, "file");
+}
+
+static void log_ls(const char* dirname) {
+    std::array<const char*, 3> argv = {"ls", "-laZ", dirname};
+    int status = 0;
+    auto res =
+        android_fork_execvp(argv.size(), const_cast<char**>(argv.data()), &status, false, true);
+    if (res != 0) {
+        PLOG(ERROR) << argv[0] << " " << argv[1] << " " << argv[2] << "failed";
+        return;
+    }
+    if (!WIFEXITED(status)) {
+        LOG(ERROR) << argv[0] << " " << argv[1] << " " << argv[2]
+                   << " did not exit normally, status: " << status;
+        return;
+    }
+    if (WEXITSTATUS(status) != 0) {
+        LOG(ERROR) << argv[0] << " " << argv[1] << " " << argv[2]
+                   << " returned failure: " << WEXITSTATUS(status);
+        return;
+    }
 }
 
 static void policy_to_hex(const char* policy, char* hex) {
@@ -109,18 +136,15 @@ static bool is_dir_empty(const char *dirname, bool *is_empty)
 }
 
 static uint8_t e4crypt_get_policy_flags(int filenames_encryption_mode) {
-
-    // With HEH, pad filenames with zeroes to the next 16-byte boundary.  This
-    // is not required, but it's more secure (helps hide the length of
-    // filenames), makes the inputs evenly divisible into blocks which is more
-    // efficient for encryption and decryption, and we had the opportunity to
-    // make a breaking change when introducing a new mode anyway.
-    if (filenames_encryption_mode == EXT4_ENCRYPTION_MODE_AES_256_HEH) {
-        return EXT4_POLICY_FLAGS_PAD_16;
+    if (filenames_encryption_mode == EXT4_ENCRYPTION_MODE_AES_256_CTS) {
+        // Use legacy padding with our original filenames encryption mode.
+        return EXT4_POLICY_FLAGS_PAD_4;
     }
-
-    // Default flags (4-byte padding) for CTS
-    return EXT4_POLICY_FLAGS_PAD_4;
+    // With a new mode we can use the better padding flag without breaking existing devices: pad
+    // filenames with zeroes to the next 16-byte boundary.  This is more secure (helps hide the
+    // length of filenames) and makes the inputs evenly divisible into blocks which is more
+    // efficient for encryption and decryption.
+    return EXT4_POLICY_FLAGS_PAD_16;
 }
 
 static bool e4crypt_policy_set(const char *directory, const char *policy,
@@ -131,6 +155,9 @@ static bool e4crypt_policy_set(const char *directory, const char *policy,
         LOG(ERROR) << "Policy wrong length: " << policy_length;
         return false;
     }
+    char policy_hex[EXT4_KEY_DESCRIPTOR_SIZE_HEX];
+    policy_to_hex(policy, policy_hex);
+
     int fd = open(directory, O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
     if (fd == -1) {
         PLOG(ERROR) << "Failed to open directory " << directory;
@@ -144,15 +171,15 @@ static bool e4crypt_policy_set(const char *directory, const char *policy,
     eep.flags = e4crypt_get_policy_flags(filenames_encryption_mode);
     memcpy(eep.master_key_descriptor, policy, EXT4_KEY_DESCRIPTOR_SIZE);
     if (ioctl(fd, EXT4_IOC_SET_ENCRYPTION_POLICY, &eep)) {
-        PLOG(ERROR) << "Failed to set encryption policy for " << directory;
+        PLOG(ERROR) << "Failed to set encryption policy for " << directory  << " to " << policy_hex
+            << " modes " << contents_encryption_mode << "/" << filenames_encryption_mode;
         close(fd);
         return false;
     }
     close(fd);
 
-    char policy_hex[EXT4_KEY_DESCRIPTOR_SIZE_HEX];
-    policy_to_hex(policy, policy_hex);
-    LOG(INFO) << "Policy for " << directory << " set to " << policy_hex;
+    LOG(INFO) << "Policy for " << directory << " set to " << policy_hex
+        << " modes " << contents_encryption_mode << "/" << filenames_encryption_mode;
     return true;
 }
 
@@ -176,6 +203,7 @@ static bool e4crypt_policy_get(const char *directory, char *policy,
     if (ioctl(fd, EXT4_IOC_GET_ENCRYPTION_POLICY, &eep) != 0) {
         PLOG(ERROR) << "Failed to get encryption policy for " << directory;
         close(fd);
+        log_ls(directory);
         return false;
     }
     close(fd);
@@ -214,6 +242,7 @@ static bool e4crypt_policy_check(const char *directory, const char *policy,
         policy_to_hex(policy, policy_hex);
         LOG(ERROR) << "Found policy " << existing_policy_hex << " at " << directory
                    << " which doesn't match expected value " << policy_hex;
+        log_ls(directory);
         return false;
     }
     LOG(INFO) << "Found policy " << existing_policy_hex << " at " << directory
@@ -231,6 +260,8 @@ int e4crypt_policy_ensure(const char *directory, const char *policy,
     if (!strcmp(contents_encryption_mode, "software") ||
         !strcmp(contents_encryption_mode, "aes-256-xts")) {
         contents_mode = EXT4_ENCRYPTION_MODE_AES_256_XTS;
+    } else if (!strcmp(contents_encryption_mode, "speck128/256-xts")) {
+        contents_mode = EXT4_ENCRYPTION_MODE_SPECK128_256_XTS;
     } else if (!strcmp(contents_encryption_mode, "ice")) {
         contents_mode = EXT4_ENCRYPTION_MODE_PRIVATE;
     } else {
@@ -241,6 +272,8 @@ int e4crypt_policy_ensure(const char *directory, const char *policy,
 
     if (!strcmp(filenames_encryption_mode, "aes-256-cts")) {
         filenames_mode = EXT4_ENCRYPTION_MODE_AES_256_CTS;
+    } else if (!strcmp(filenames_encryption_mode, "speck128/256-cts")) {
+        filenames_mode = EXT4_ENCRYPTION_MODE_SPECK128_256_CTS;
     } else if (!strcmp(filenames_encryption_mode, "aes-256-heh")) {
         filenames_mode = EXT4_ENCRYPTION_MODE_AES_256_HEH;
     } else {

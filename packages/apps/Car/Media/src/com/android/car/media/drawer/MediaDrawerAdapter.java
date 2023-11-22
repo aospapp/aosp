@@ -17,9 +17,11 @@ package com.android.car.media.drawer;
 
 import android.content.Context;
 import android.support.annotation.Nullable;
-import com.android.car.app.CarDrawerActivity;
-import com.android.car.app.CarDrawerAdapter;
-import com.android.car.app.DrawerItemViewHolder;
+import android.support.v7.widget.RecyclerView;
+
+import androidx.car.drawer.CarDrawerAdapter;
+import androidx.car.drawer.CarDrawerController;
+import androidx.car.drawer.DrawerItemViewHolder;
 
 /**
  * Subclass of CarDrawerAdapter used by the Media app.
@@ -28,7 +30,7 @@ import com.android.car.app.DrawerItemViewHolder;
  * {@link MediaItemsFetcher}. The current fetcher being used can be updated at runtime.
  */
 class MediaDrawerAdapter extends CarDrawerAdapter {
-    private final CarDrawerActivity mActivity;
+    private final CarDrawerController mDrawerController;
     private MediaItemsFetcher mCurrentFetcher;
     private MediaFetchCallback mFetchCallback;
     private int mCurrentScrollPosition;
@@ -49,9 +51,9 @@ class MediaDrawerAdapter extends CarDrawerAdapter {
         void onFetchEnd();
     }
 
-    MediaDrawerAdapter(CarDrawerActivity activity) {
-        super(activity, true /* showDisabledListOnEmpty */);
-        mActivity = activity;
+    MediaDrawerAdapter(Context context, CarDrawerController drawerController) {
+        super(context, true /* showDisabledListOnEmpty */);
+        mDrawerController = drawerController;
     }
 
     /**
@@ -68,21 +70,25 @@ class MediaDrawerAdapter extends CarDrawerAdapter {
      *
      * @param fetcher New {@link MediaItemsFetcher} to use for display Drawer items.
      */
+    void setFetcherAndInvoke(MediaItemsFetcher fetcher) {
+        setFetcher(fetcher);
+
+        if (mFetchCallback != null) {
+            mFetchCallback.onFetchStart();
+        }
+
+        mCurrentFetcher.start(() -> {
+            closeFetch();
+            notifyDataSetChanged();
+        });
+    }
+
     void setFetcher(MediaItemsFetcher fetcher) {
         if (mCurrentFetcher != null) {
             mCurrentFetcher.cleanup();
         }
         mCurrentFetcher = fetcher;
-        mCurrentFetcher.start(() -> {
-            if (mFetchCallback != null) {
-                mFetchCallback.onFetchEnd();
-            }
-            notifyDataSetChanged();
-        });
-
-        if (mFetchCallback != null) {
-            mFetchCallback.onFetchStart();
-        }
+        notifyDataSetChanged();
     }
 
     @Override
@@ -118,8 +124,16 @@ class MediaDrawerAdapter extends CarDrawerAdapter {
         if (mCurrentFetcher != null) {
             mCurrentFetcher.cleanup();
             mCurrentFetcher = null;
+            notifyDataSetChanged();
         }
-        mFetchCallback = null;
+        closeFetch();
+    }
+
+    private void closeFetch() {
+        if (mFetchCallback != null) {
+            mFetchCallback.onFetchEnd();
+            mFetchCallback = null;
+        }
     }
 
     public void scrollToCurrent() {
@@ -129,8 +143,18 @@ class MediaDrawerAdapter extends CarDrawerAdapter {
         int scrollPosition = mCurrentFetcher.getScrollPosition();
         if (scrollPosition != MediaItemsFetcher.DONT_SCROLL
                 && mCurrentScrollPosition != scrollPosition) {
-            mActivity.scrollToPosition(scrollPosition);
+            mDrawerController.scrollToPosition(scrollPosition);
             mCurrentScrollPosition = scrollPosition;
         }
     }
+
+    @Override
+    public void onAttachedToRecyclerView(RecyclerView recyclerView) {
+        if (mCurrentFetcher != null) {
+            MediaItemsFetcher fetcher = mCurrentFetcher;
+            fetcher.cleanup();
+            setFetcherAndInvoke(fetcher);
+        }
+    }
+
 }

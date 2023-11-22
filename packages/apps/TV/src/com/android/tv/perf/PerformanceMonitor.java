@@ -16,9 +16,9 @@
 
 package com.android.tv.perf;
 
-import android.content.Context;
-
 import static com.android.tv.perf.EventNames.EventName;
+
+import android.content.Context;
 
 /** Measures Performance. */
 public interface PerformanceMonitor {
@@ -61,7 +61,6 @@ public interface PerformanceMonitor {
      *     returned.
      */
     TimerEvent startTimer();
-
 
     /**
      * Stops timer for a specific event and records the timer duration. passing a null TimerEvent

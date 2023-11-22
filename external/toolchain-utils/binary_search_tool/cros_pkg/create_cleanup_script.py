@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/env python2
 #
 #  Copyright 2015 Google Inc. All Rights Reserved
 """The script to generate a cleanup script after setup.sh.
@@ -90,8 +90,8 @@ def Main(argv):
       if options.renamed_tree:
         # Old build tree existed and was a real tree, so it got
         # renamed.  Move the renamed tree back to the original tree.
-        out_file.write('sudo mv /build/%s.save /build/%s\n' %
-                       (options.board, options.board))
+        out_file.write('sudo mv /build/%s.save /build/%s\n' % (options.board,
+                                                               options.board))
       else:
         # Old tree existed and was already a soft link.  Re-create the
         # original soft link.

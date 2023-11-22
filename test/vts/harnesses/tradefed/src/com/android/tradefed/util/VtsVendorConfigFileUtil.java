@@ -118,7 +118,11 @@ public class VtsVendorConfigFileUtil {
      */
     public boolean LoadVendorConfig(IBuildInfo buildInfo) throws RuntimeException {
         Map<String, String> attrs = buildInfo.getBuildAttributes();
-        mDefaultType = attrs.get(KEY_VENDOR_TEST_CONFIG_DEFAULT_TYPE);
+        if (attrs.containsKey(KEY_VENDOR_TEST_CONFIG_DEFAULT_TYPE)) {
+            mDefaultType = attrs.get(KEY_VENDOR_TEST_CONFIG_DEFAULT_TYPE);
+        } else {
+            CLog.i("No default vendor test configuration provided. Defaulting to prod.");
+        }
         mVendorConfigFilePath = attrs.get(KEY_VENDOR_TEST_CONFIG_FILE_PATH);
         return LoadVendorConfig(mDefaultType, mVendorConfigFilePath);
     }

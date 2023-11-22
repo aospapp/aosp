@@ -43,8 +43,8 @@ class HostMessageHandlers {
 
   static void handleLoadNanoappRequest(
       uint16_t hostClientId, uint32_t transactionId, uint64_t appId,
-      uint32_t appVersion, uint32_t targetApiVersion, const void *appBinary,
-      size_t appBinaryLen);
+      uint32_t appVersion, uint32_t targetApiVersion, const void *buffer,
+      size_t bufferLen, uint32_t fragmentId, size_t appBinaryLen);
 
   static void handleUnloadNanoappRequest(
       uint16_t hostClientId, uint32_t transactionId, uint64_t appId,
@@ -130,7 +130,7 @@ class HostProtocolChre : public HostProtocolCommon {
    */
   static void encodeLoadNanoappResponse(
       flatbuffers::FlatBufferBuilder& builder, uint16_t hostClientId,
-      uint32_t transactionId, bool success);
+      uint32_t transactionId, bool success, uint32_t fragmentId);
 
   /**
    * Encodes a response to the host communicating the result of dynamically
@@ -168,6 +168,20 @@ class HostProtocolChre : public HostProtocolCommon {
    * Encodes a message requesting time sync from host.
    */
   static void encodeTimeSyncRequest(flatbuffers::FlatBufferBuilder& builder);
+
+  /**
+   * Encodes a message notifying the host that audio has been requested by a
+   * nanoapp, so the low-power microphone needs to be powered on.
+   */
+  static void encodeLowPowerMicAccessRequest(
+      flatbuffers::FlatBufferBuilder& builder);
+
+  /**
+   * Encodes a message notifying the host that no nanoapps are requesting audio
+   * anymore, so the low-power microphone may be powered off.
+   */
+  static void encodeLowPowerMicAccessRelease(
+      flatbuffers::FlatBufferBuilder& builder);
 };
 
 }  // namespace chre

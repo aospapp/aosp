@@ -20,12 +20,17 @@ import static android.net.ConnectivityManager.ACTION_RESTRICT_BACKGROUND_CHANGED
 import static android.net.ConnectivityManager.RESTRICT_BACKGROUND_STATUS_DISABLED;
 import static android.net.ConnectivityManager.RESTRICT_BACKGROUND_STATUS_ENABLED;
 import static android.net.ConnectivityManager.RESTRICT_BACKGROUND_STATUS_WHITELISTED;
+import static android.os.BatteryManager.BATTERY_PLUGGED_AC;
+import static android.os.BatteryManager.BATTERY_PLUGGED_USB;
+import static android.os.BatteryManager.BATTERY_PLUGGED_WIRELESS;
+
 import static com.android.compatibility.common.util.SystemUtil.runShellCommand;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
+import android.app.ActivityManager;
 import android.app.Instrumentation;
 import android.app.NotificationManager;
 import android.content.BroadcastReceiver;
@@ -47,8 +52,6 @@ import android.service.notification.NotificationListenerService;
 import android.test.InstrumentationTestCase;
 import android.text.TextUtils;
 import android.util.Log;
-
-import com.android.cts.net.hostside.INetworkStateObserver;
 
 /**
  * Superclass for tests related to background network restrictions.
@@ -82,11 +85,14 @@ abstract class AbstractRestrictBackgroundNetworkTestCase extends Instrumentation
     protected static final String NOTIFICATION_TYPE_ACTION_BUNDLE = "ACTION_BUNDLE";
     protected static final String NOTIFICATION_TYPE_ACTION_REMOTE_INPUT = "ACTION_REMOTE_INPUT";
 
+    // TODO: Update BatteryManager.BATTERY_PLUGGED_ANY as @TestApi
+    public static final int BATTERY_PLUGGED_ANY =
+            BATTERY_PLUGGED_AC | BATTERY_PLUGGED_USB | BATTERY_PLUGGED_WIRELESS;
 
     private static final String NETWORK_STATUS_SEPARATOR = "\\|";
     private static final int SECOND_IN_MS = 1000;
     static final int NETWORK_TIMEOUT_MS = 15 * SECOND_IN_MS;
-    private static final int PROCESS_STATE_FOREGROUND_SERVICE = 4;
+    private static final int PROCESS_STATE_FOREGROUND_SERVICE = 3;
     private static final int PROCESS_STATE_TOP = 2;
 
     private static final String KEY_NETWORK_STATE_OBSERVER = TEST_PKG + ".observer";
@@ -106,6 +112,8 @@ abstract class AbstractRestrictBackgroundNetworkTestCase extends Instrumentation
             new IntentFilter(Intent.ACTION_BATTERY_CHANGED);
 
     private static final String APP_NOT_FOREGROUND_ERROR = "app_not_fg";
+
+    protected static final long TEMP_POWERSAVE_WHITELIST_DURATION_MS = 5_000; // 5 sec
 
     protected Context mContext;
     protected Instrumentation mInstrumentation;
@@ -137,6 +145,7 @@ abstract class AbstractRestrictBackgroundNetworkTestCase extends Instrumentation
             enableLocation();
         }
         mSupported = setUpActiveNetworkMeteringState();
+        setAppIdle(false);
 
         Log.i(TAG, "Apps status on " + getName() + ":\n"
                 + "\ttest app: uid=" + mMyUid + ", state=" + getProcessStateByUid(mMyUid) + "\n"
@@ -257,17 +266,21 @@ abstract class AbstractRestrictBackgroundNetworkTestCase extends Instrumentation
 
     protected void assertBackgroundNetworkAccess(boolean expectAllowed) throws Exception {
         assertBackgroundState(); // Sanity check.
-        assertNetworkAccess(expectAllowed);
+        assertNetworkAccess(expectAllowed /* expectAvailable */, false /* needScreenOn */);
     }
 
     protected void assertForegroundNetworkAccess() throws Exception {
         assertForegroundState(); // Sanity check.
-        assertNetworkAccess(true);
+        // We verified that app is in foreground state but if the screen turns-off while
+        // verifying for network access, the app will go into background state (in case app's
+        // foreground status was due to top activity). So, turn the screen on when verifying
+        // network connectivity.
+        assertNetworkAccess(true /* expectAvailable */, true /* needScreenOn */);
     }
 
     protected void assertForegroundServiceNetworkAccess() throws Exception {
         assertForegroundServiceState(); // Sanity check.
-        assertNetworkAccess(true);
+        assertNetworkAccess(true /* expectAvailable */, false /* needScreenOn */);
     }
 
     /**
@@ -366,7 +379,8 @@ abstract class AbstractRestrictBackgroundNetworkTestCase extends Instrumentation
     /**
      * Asserts whether the active network is available or not.
      */
-    private void assertNetworkAccess(boolean expectAvailable) throws Exception {
+    private void assertNetworkAccess(boolean expectAvailable, boolean needScreenOn)
+            throws Exception {
         final int maxTries = 5;
         String error = null;
         int timeoutMs = 500;
@@ -384,6 +398,9 @@ abstract class AbstractRestrictBackgroundNetworkTestCase extends Instrumentation
             Log.w(TAG, "Network status didn't match for expectAvailable=" + expectAvailable
                     + " on attempt #" + i + ": " + error + "\n"
                     + "Sleeping " + timeoutMs + "ms before trying again");
+            if (needScreenOn) {
+                turnScreenOn();
+            }
             // No sleep after the last turn
             if (i < maxTries) {
                 SystemClock.sleep(timeoutMs);
@@ -474,6 +491,12 @@ abstract class AbstractRestrictBackgroundNetworkTestCase extends Instrumentation
             errors.append("\tconnectionCheckDetails: " + connectionCheckDetails + "\n");
         }
         return errors.toString();
+    }
+
+    protected boolean isLowRamDevice() {
+        final ActivityManager am = (ActivityManager) mContext.getSystemService(
+            Context.ACTIVITY_SERVICE);
+        return am.isLowRamDevice();
     }
 
     protected String executeShellCommand(String command) throws Exception {
@@ -744,6 +767,12 @@ abstract class AbstractRestrictBackgroundNetworkTestCase extends Instrumentation
                 + ". Full list: " + uids);
     }
 
+    protected void addTempPowerSaveModeWhitelist(String packageName, long duration)
+            throws Exception {
+        Log.i(TAG, "Adding pkg " + packageName + " to temp-power-save-mode whitelist");
+        executeShellCommand("dumpsys deviceidle tempwhitelist -d " + duration + " " + packageName);
+    }
+
     protected void assertPowerSaveModeWhitelist(String packageName, boolean expected)
             throws Exception {
         // TODO: currently the power-save mode is behaving like idle, but once it changes, we'll
@@ -793,15 +822,19 @@ abstract class AbstractRestrictBackgroundNetworkTestCase extends Instrumentation
         assertPowerSaveModeExceptIdleWhitelist(packageName, false); // Sanity check
     }
 
-    protected void turnBatteryOff() throws Exception {
+    protected void turnBatteryOn() throws Exception {
         executeSilentShellCommand("cmd battery unplug");
+        executeSilentShellCommand("cmd battery set status "
+                + BatteryManager.BATTERY_STATUS_DISCHARGING);
         assertBatteryState(false);
     }
 
-    protected void turnBatteryOn() throws Exception {
-        executeSilentShellCommand("cmd battery reset");
+    protected void turnBatteryOff() throws Exception {
+        executeSilentShellCommand("cmd battery set ac " + BATTERY_PLUGGED_ANY);
+        executeSilentShellCommand("cmd battery set level 100");
+        executeSilentShellCommand("cmd battery set status "
+                + BatteryManager.BATTERY_STATUS_CHARGING);
         assertBatteryState(true);
-
     }
 
     private void assertBatteryState(boolean pluggedIn) throws Exception {
@@ -832,11 +865,11 @@ abstract class AbstractRestrictBackgroundNetworkTestCase extends Instrumentation
     protected void setBatterySaverMode(boolean enabled) throws Exception {
         Log.i(TAG, "Setting Battery Saver Mode to " + enabled);
         if (enabled) {
-            turnBatteryOff();
+            turnBatteryOn();
             executeSilentShellCommand("cmd power set-mode 1");
         } else {
             executeSilentShellCommand("cmd power set-mode 0");
-            turnBatteryOn();
+            turnBatteryOff();
         }
     }
 
@@ -846,12 +879,12 @@ abstract class AbstractRestrictBackgroundNetworkTestCase extends Instrumentation
 
         Log.i(TAG, "Setting Doze Mode to " + enabled);
         if (enabled) {
-            turnBatteryOff();
+            turnBatteryOn();
             turnScreenOff();
             executeShellCommand("dumpsys deviceidle force-idle deep");
         } else {
             turnScreenOn();
-            turnBatteryOn();
+            turnBatteryOff();
             executeShellCommand("dumpsys deviceidle unforce");
         }
         // Sanity check.
@@ -997,7 +1030,8 @@ abstract class AbstractRestrictBackgroundNetworkTestCase extends Instrumentation
     private Intent getIntentForComponent(int type) {
         final Intent intent = new Intent();
         if (type == TYPE_COMPONENT_ACTIVTIY) {
-            intent.setComponent(new ComponentName(TEST_APP2_PKG, TEST_APP2_ACTIVITY_CLASS));
+            intent.setComponent(new ComponentName(TEST_APP2_PKG, TEST_APP2_ACTIVITY_CLASS))
+                    .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         } else if (type == TYPE_COMPONENT_FOREGROUND_SERVICE) {
             intent.setComponent(new ComponentName(TEST_APP2_PKG, TEST_APP2_SERVICE_CLASS))
                     .setFlags(1);

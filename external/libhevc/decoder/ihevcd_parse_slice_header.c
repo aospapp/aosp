@@ -234,6 +234,7 @@ IHEVCD_ERROR_T ihevcd_parse_slice_header(codec_t *ps_codec,
     WORD8 i1_nal_unit_type = ps_nal->i1_nal_unit_type;
     WORD32 num_poc_total_curr = 0;
     WORD32 slice_address;
+    WORD32 prev_slice_incomplete_flag = 0;
 
     if(ps_codec->i4_slice_error == 1)
         return ret;
@@ -356,7 +357,7 @@ IHEVCD_ERROR_T ihevcd_parse_slice_header(codec_t *ps_codec,
         slice_address = value;
         /* If slice address is greater than the number of CTBs in a picture,
          * ignore the slice */
-        if(value >= ps_sps->i4_pic_size_in_ctb)
+        if(value >= ps_sps->i4_pic_size_in_ctb || value <= 0)
             return IHEVCD_IGNORE_SLICE;
     }
     else
@@ -737,16 +738,7 @@ IHEVCD_ERROR_T ihevcd_parse_slice_header(codec_t *ps_codec,
             {
                 if(ps_codec->i4_pic_present)
                 {
-                    slice_header_t *ps_slice_hdr_next;
-                    ps_codec->i4_slice_error = 1;
-                    ps_codec->s_parse.i4_cur_slice_idx--;
-                    if(ps_codec->s_parse.i4_cur_slice_idx < 0)
-                        ps_codec->s_parse.i4_cur_slice_idx = 0;
-
-                    ps_slice_hdr_next = ps_codec->s_parse.ps_slice_hdr_base + ((ps_codec->s_parse.i4_cur_slice_idx + 1) & (MAX_SLICE_HDR_CNT - 1));
-                    ps_slice_hdr_next->i2_ctb_x = slice_address % ps_sps->i2_pic_wd_in_ctb;
-                    ps_slice_hdr_next->i2_ctb_y = slice_address / ps_sps->i2_pic_wd_in_ctb;
-                    return ret;
+                    prev_slice_incomplete_flag = 1;
                 }
                 else
                 {
@@ -1016,7 +1008,8 @@ IHEVCD_ERROR_T ihevcd_parse_slice_header(codec_t *ps_codec,
         slice_header_t *ps_slice_hdr_prev = ps_codec->s_parse.ps_slice_hdr_base;
         ihevcd_copy_slice_hdr(ps_codec, 0, (ps_codec->s_parse.i4_cur_slice_idx & (MAX_SLICE_HDR_CNT - 1)));
 
-        ps_codec->i4_slice_error = 1;
+        prev_slice_incomplete_flag = 1;
+        ASSERT(ps_codec->s_parse.i4_cur_slice_idx == 1);
 
         ps_slice_hdr_prev->i2_ctb_x = 0;
         ps_slice_hdr_prev->i2_ctb_y = 0;
@@ -1053,6 +1046,14 @@ IHEVCD_ERROR_T ihevcd_parse_slice_header(codec_t *ps_codec,
         {
             return IHEVCD_IGNORE_SLICE;
         }
+    }
+
+    if(prev_slice_incomplete_flag)
+    {
+        ps_codec->i4_slice_error = 1;
+        ps_codec->s_parse.i4_cur_slice_idx--;
+        if(ps_codec->s_parse.i4_cur_slice_idx < 0)
+            ps_codec->s_parse.i4_cur_slice_idx = 0;
     }
 
     return ret;

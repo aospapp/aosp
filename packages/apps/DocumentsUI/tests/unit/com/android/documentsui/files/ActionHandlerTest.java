@@ -17,9 +17,12 @@
 package com.android.documentsui.files;
 
 import static com.android.documentsui.testing.IntentAsserts.assertHasAction;
+import static com.android.documentsui.testing.IntentAsserts.assertHasData;
+import static com.android.documentsui.testing.IntentAsserts.assertHasExtra;
 import static com.android.documentsui.testing.IntentAsserts.assertHasExtraIntent;
 import static com.android.documentsui.testing.IntentAsserts.assertHasExtraList;
 import static com.android.documentsui.testing.IntentAsserts.assertHasExtraUri;
+import static com.android.documentsui.testing.IntentAsserts.assertTargetsComponent;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
@@ -35,8 +38,8 @@ import android.net.Uri;
 import android.os.Parcelable;
 import android.provider.DocumentsContract;
 import android.provider.DocumentsContract.Path;
-import android.support.test.filters.MediumTest;
 import android.support.test.InstrumentationRegistry;
+import android.support.test.filters.MediumTest;
 import android.support.test.runner.AndroidJUnit4;
 import android.util.Pair;
 import android.view.DragEvent;
@@ -49,6 +52,7 @@ import com.android.documentsui.base.DocumentInfo;
 import com.android.documentsui.base.DocumentStack;
 import com.android.documentsui.base.RootInfo;
 import com.android.documentsui.base.Shared;
+import com.android.documentsui.inspector.InspectorActivity;
 import com.android.documentsui.testing.ClipDatas;
 import com.android.documentsui.testing.DocumentStackAsserts;
 import com.android.documentsui.testing.Roots;
@@ -56,8 +60,10 @@ import com.android.documentsui.testing.TestActivityConfig;
 import com.android.documentsui.testing.TestDocumentClipper;
 import com.android.documentsui.testing.TestDragAndDropManager;
 import com.android.documentsui.testing.TestEnv;
+import com.android.documentsui.testing.TestFeatures;
 import com.android.documentsui.testing.TestProvidersAccess;
 import com.android.documentsui.ui.TestDialogController;
+import com.android.internal.util.Preconditions;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -76,11 +82,13 @@ public class ActionHandlerTest {
     private ActionHandler<TestActivity> mHandler;
     private TestDocumentClipper mClipper;
     private TestDragAndDropManager mDragAndDropManager;
+    private TestFeatures mFeatures;
     private boolean refreshAnswer = false;
 
     @Before
     public void setUp() {
-        mEnv = TestEnv.create();
+        mFeatures = new TestFeatures();
+        mEnv = TestEnv.create(mFeatures);
         mActivity = TestActivity.create(mEnv);
         mActionModeAddons = new TestActionModeAddons();
         mDialogs = new TestDialogController();
@@ -326,6 +334,15 @@ public class ActionHandlerTest {
     }
 
     @Test
+    public void testDocumentPicked_Home_SendsActionViewForApks() throws Exception {
+        mActivity.currentRoot = TestProvidersAccess.HOME;
+
+        mHandler.openDocument(TestEnv.FILE_APK, ActionHandler.VIEW_TYPE_PREVIEW,
+                ActionHandler.VIEW_TYPE_REGULAR);
+        mActivity.assertActivityStarted(Intent.ACTION_VIEW);
+    }
+
+    @Test
     public void testDocumentPicked_Downloads_ManagesPartialFiles() throws Exception {
         mActivity.currentRoot = TestProvidersAccess.DOWNLOADS;
 
@@ -532,6 +549,78 @@ public class ActionHandlerTest {
         mHandler.onActivityResult(AbstractActionHandler.CODE_AUTHENTICATION,
                 Activity.RESULT_CANCELED, null);
         mActivity.refreshCurrentRootAndDirectory.assertNotCalled();
+    }
+
+    @Test
+    public void testShowInspector() throws Exception {
+        mHandler.showInspector(TestEnv.FILE_GIF);
+
+        mActivity.startActivity.assertCalled();
+        Intent intent = mActivity.startActivity.getLastValue();
+        assertTargetsComponent(intent, InspectorActivity.class);
+        assertHasData(intent, TestEnv.FILE_GIF.derivedUri);
+
+        // should only send this under especial circumstances. See test below.
+        assertFalse(intent.getExtras().containsKey(Intent.EXTRA_TITLE));
+    }
+
+    @Test
+    public void testShowInspector_DebugDisabled() throws Exception {
+        mFeatures.debugSupport = false;
+
+        mHandler.showInspector(TestEnv.FILE_GIF);
+        Intent intent = mActivity.startActivity.getLastValue();
+
+        assertHasExtra(intent, Shared.EXTRA_SHOW_DEBUG);
+        assertFalse(intent.getExtras().getBoolean(Shared.EXTRA_SHOW_DEBUG));
+    }
+
+    @Test
+    public void testShowInspector_DebugEnabled() throws Exception {
+        mFeatures.debugSupport = true;
+
+        mHandler.showInspector(TestEnv.FILE_GIF);
+        Intent intent = mActivity.startActivity.getLastValue();
+
+        assertHasExtra(intent, Shared.EXTRA_SHOW_DEBUG);
+        assertTrue(intent.getExtras().getBoolean(Shared.EXTRA_SHOW_DEBUG));
+    }
+
+    @Test
+    public void testShowInspector_OverridesRootDocumentName() throws Exception {
+        mActivity.currentRoot = TestProvidersAccess.PICKLES;
+        mEnv.populateStack();
+
+        // Verify test setup is correct, but not an assert related to the logic of our test.
+        Preconditions.checkState(mEnv.state.stack.size() == 1);
+        Preconditions.checkNotNull(mEnv.state.stack.peek());
+
+        DocumentInfo rootDoc = mEnv.state.stack.peek();
+        rootDoc.displayName = "poodles";
+
+        mHandler.showInspector(rootDoc);
+        Intent intent = mActivity.startActivity.getLastValue();
+        assertEquals(
+                TestProvidersAccess.PICKLES.title,
+                intent.getExtras().getString(Intent.EXTRA_TITLE));
+    }
+
+    @Test
+    public void testShowInspector_OverridesRootDocumentNameX() throws Exception {
+        mActivity.currentRoot = TestProvidersAccess.PICKLES;
+        mEnv.populateStack();
+        mEnv.state.stack.push(TestEnv.FOLDER_2);
+
+        // Verify test setup is correct, but not an assert related to the logic of our test.
+        Preconditions.checkState(mEnv.state.stack.size() == 2);
+        Preconditions.checkNotNull(mEnv.state.stack.peek());
+
+        DocumentInfo rootDoc = mEnv.state.stack.peek();
+        rootDoc.displayName = "poodles";
+
+        mHandler.showInspector(rootDoc);
+        Intent intent = mActivity.startActivity.getLastValue();
+        assertFalse(intent.getExtras().containsKey(Intent.EXTRA_TITLE));
     }
 
     private void assertRootPicked(Uri expectedUri) throws Exception {

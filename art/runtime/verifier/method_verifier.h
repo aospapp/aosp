@@ -25,13 +25,14 @@
 #include "base/macros.h"
 #include "base/scoped_arena_containers.h"
 #include "base/value_object.h"
-#include "dex_file.h"
-#include "dex_file_types.h"
+#include "dex/code_item_accessors.h"
+#include "dex/dex_file.h"
+#include "dex/dex_file_types.h"
+#include "dex/method_reference.h"
 #include "handle.h"
 #include "instruction_flags.h"
-#include "method_reference.h"
-#include "register_line.h"
 #include "reg_type_cache.h"
+#include "register_line.h"
 #include "verifier_enums.h"
 
 namespace art {
@@ -67,7 +68,7 @@ enum RegisterTrackingMode {
 // execution of that instruction.
 class PcToRegisterLineTable {
  public:
-  explicit PcToRegisterLineTable(ScopedArenaAllocator& arena);
+  explicit PcToRegisterLineTable(ScopedArenaAllocator& allocator);
   ~PcToRegisterLineTable();
 
   // Initialize the RegisterTable. Every instruction address can have a different set of information
@@ -75,6 +76,10 @@ class PcToRegisterLineTable {
   // branch target addresses (because we merge into that).
   void Init(RegisterTrackingMode mode, InstructionFlags* flags, uint32_t insns_size,
             uint16_t registers_size, MethodVerifier* verifier);
+
+  bool IsInitialized() const {
+    return !register_lines_.empty();
+  }
 
   RegisterLine* GetLine(size_t idx) const {
     return register_lines_[idx].get();
@@ -126,10 +131,6 @@ class MethodVerifier {
     return *dex_file_;
   }
 
-  uint32_t DexFileVersion() const {
-    return dex_file_->GetVersion();
-  }
-
   RegTypeCache* GetRegTypeCache() {
     return &reg_types_;
   }
@@ -148,20 +149,22 @@ class MethodVerifier {
   void Dump(std::ostream& os) REQUIRES_SHARED(Locks::mutator_lock_);
   void Dump(VariableIndentationOutputStream* vios) REQUIRES_SHARED(Locks::mutator_lock_);
 
+  // Information structure for a lock held at a certain point in time.
+  struct DexLockInfo {
+    // The registers aliasing the lock.
+    std::set<uint32_t> dex_registers;
+    // The dex PC of the monitor-enter instruction.
+    uint32_t dex_pc;
+
+    explicit DexLockInfo(uint32_t dex_pc_in) {
+      dex_pc = dex_pc_in;
+    }
+  };
   // Fills 'monitor_enter_dex_pcs' with the dex pcs of the monitor-enter instructions corresponding
   // to the locks held at 'dex_pc' in method 'm'.
+  // Note: this is the only situation where the verifier will visit quickened instructions.
   static void FindLocksAtDexPc(ArtMethod* m, uint32_t dex_pc,
-                               std::vector<uint32_t>* monitor_enter_dex_pcs)
-      REQUIRES_SHARED(Locks::mutator_lock_);
-
-  // Returns the accessed field corresponding to the quick instruction's field
-  // offset at 'dex_pc' in method 'm'.
-  static ArtField* FindAccessedFieldAtDexPc(ArtMethod* m, uint32_t dex_pc)
-      REQUIRES_SHARED(Locks::mutator_lock_);
-
-  // Returns the invoked method corresponding to the quick instruction's vtable
-  // index at 'dex_pc' in method 'm'.
-  static ArtMethod* FindInvokedMethodAtDexPc(ArtMethod* m, uint32_t dex_pc)
+                               std::vector<DexLockInfo>* monitor_enter_dex_pcs)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
   static void Init() REQUIRES_SHARED(Locks::mutator_lock_);
@@ -186,13 +189,15 @@ class MethodVerifier {
       REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Accessors used by the compiler via CompilerCallback
-  const DexFile::CodeItem* CodeItem() const;
+  const CodeItemDataAccessor& CodeItem() const {
+    return code_item_accessor_;
+  }
   RegisterLine* GetRegLine(uint32_t dex_pc);
   ALWAYS_INLINE const InstructionFlags& GetInstructionFlags(size_t index) const;
   ALWAYS_INLINE InstructionFlags& GetInstructionFlags(size_t index);
   mirror::ClassLoader* GetClassLoader() REQUIRES_SHARED(Locks::mutator_lock_);
   mirror::DexCache* GetDexCache() REQUIRES_SHARED(Locks::mutator_lock_);
-  ArtMethod* GetMethod() const REQUIRES_SHARED(Locks::mutator_lock_);
+  ArtMethod* GetMethod() const;
   MethodReference GetMethodReference() const;
   uint32_t GetAccessFlags() const;
   bool HasCheckCasts() const;
@@ -204,13 +209,11 @@ class MethodVerifier {
 
   const RegType& ResolveCheckedClass(dex::TypeIndex class_idx)
       REQUIRES_SHARED(Locks::mutator_lock_);
-  // Returns the method of a quick invoke or null if it cannot be found.
-  ArtMethod* GetQuickInvokedMethod(const Instruction* inst, RegisterLine* reg_line,
-                                           bool is_range, bool allow_failure)
+  // Returns the method index of an invoke instruction.
+  uint16_t GetMethodIdxOfInvoke(const Instruction* inst)
       REQUIRES_SHARED(Locks::mutator_lock_);
-  // Returns the access field of a quick field access (iget/iput-quick) or null
-  // if it cannot be found.
-  ArtField* GetQuickFieldAccess(const Instruction* inst, RegisterLine* reg_line)
+  // Returns the field index of a field access instruction.
+  uint16_t GetFieldIdxOfFieldAccess(const Instruction* inst, bool is_static)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
   uint32_t GetEncounteredFailureTypes() {
@@ -221,8 +224,8 @@ class MethodVerifier {
     return IsConstructor() && !IsStatic();
   }
 
-  ScopedArenaAllocator& GetArena() {
-    return arena_;
+  ScopedArenaAllocator& GetScopedAllocator() {
+    return allocator_;
   }
 
  private:
@@ -243,7 +246,8 @@ class MethodVerifier {
       REQUIRES_SHARED(Locks::mutator_lock_);
 
   void UninstantiableError(const char* descriptor);
-  static bool IsInstantiableOrPrimitive(mirror::Class* klass) REQUIRES_SHARED(Locks::mutator_lock_);
+  static bool IsInstantiableOrPrimitive(ObjPtr<mirror::Class> klass)
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Is the method being verified a constructor? See the comment on the field.
   bool IsConstructor() const {
@@ -316,15 +320,6 @@ class MethodVerifier {
       REQUIRES_SHARED(Locks::mutator_lock_);
 
   void FindLocksAtDexPc() REQUIRES_SHARED(Locks::mutator_lock_);
-
-  ArtField* FindAccessedFieldAtDexPc(uint32_t dex_pc)
-      REQUIRES_SHARED(Locks::mutator_lock_);
-
-  ArtMethod* FindInvokedMethodAtDexPc(uint32_t dex_pc)
-      REQUIRES_SHARED(Locks::mutator_lock_);
-
-  SafeMap<uint32_t, std::set<uint32_t>>& FindStringInitMap()
-      REQUIRES_SHARED(Locks::mutator_lock_);
 
   /*
    * Compute the width of the instruction at each address in the instruction stream, and store it in
@@ -404,6 +399,10 @@ class MethodVerifier {
   /* Ensure that the wide register index is valid for this code item. */
   bool CheckWideRegisterIndex(uint32_t idx);
 
+  // Perform static checks on an instruction referencing a CallSite. All we do here is ensure that
+  // the call site index is in the valid range.
+  bool CheckCallSiteIndex(uint32_t idx);
+
   // Perform static checks on a field Get or set instruction. All we do here is ensure that the
   // field index is in the valid range.
   bool CheckFieldIndex(uint32_t idx);
@@ -411,6 +410,10 @@ class MethodVerifier {
   // Perform static checks on a method invocation instruction. All we do here is ensure that the
   // method index is in the valid range.
   bool CheckMethodIndex(uint32_t idx);
+
+  // Perform static checks on an instruction referencing a constant method handle. All we do here
+  // is ensure that the method index is in the valid range.
+  bool CheckMethodHandleIndex(uint32_t idx);
 
   // Perform static checks on a "new-instance" instruction. Specifically, make sure the class
   // reference isn't for an array class.
@@ -572,13 +575,14 @@ class MethodVerifier {
                            bool is_primitive, bool is_static)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
-  template <FieldAccessType kAccType>
-  void VerifyQuickFieldAccess(const Instruction* inst, const RegType& insn_type, bool is_primitive)
-      REQUIRES_SHARED(Locks::mutator_lock_);
-
-  // Resolves a class based on an index and performs access checks to ensure the referrer can
-  // access the resolved class.
-  const RegType& ResolveClassAndCheckAccess(dex::TypeIndex class_idx)
+  enum class CheckAccess {  // private.
+    kYes,
+    kNo,
+  };
+  // Resolves a class based on an index and, if C is kYes, performs access checks to ensure
+  // the referrer can access the resolved class.
+  template <CheckAccess C>
+  const RegType& ResolveClass(dex::TypeIndex class_idx)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
   /*
@@ -633,9 +637,6 @@ class MethodVerifier {
                                                       MethodType method_type, bool is_range,
                                                       ArtMethod* res_method)
       REQUIRES_SHARED(Locks::mutator_lock_);
-
-  ArtMethod* VerifyInvokeVirtualQuickArgs(const Instruction* inst, bool is_range)
-  REQUIRES_SHARED(Locks::mutator_lock_);
 
   /*
    * Verify the arguments present for a call site. Returns "true" if all is well, "false" otherwise.
@@ -693,12 +694,14 @@ class MethodVerifier {
   const RegType& FromClass(const char* descriptor, mirror::Class* klass, bool precise)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
+  ALWAYS_INLINE bool FailOrAbort(bool condition, const char* error_msg, uint32_t work_insn_idx);
+
   // The thread we're verifying on.
   Thread* const self_;
 
   // Arena allocator.
   ArenaStack arena_stack_;
-  ScopedArenaAllocator arena_;
+  ScopedArenaAllocator allocator_;
 
   RegTypeCache reg_types_;
 
@@ -715,8 +718,7 @@ class MethodVerifier {
   RegisterLineArenaUniquePtr saved_line_;
 
   const uint32_t dex_method_idx_;  // The method we're working on.
-  // Its object representation if known.
-  ArtMethod* mirror_method_ GUARDED_BY(Locks::mutator_lock_);
+  ArtMethod* method_being_verified_;  // Its ArtMethod representation if known.
   const uint32_t method_access_flags_;  // Method's access flags.
   const RegType* return_type_;  // Lazily computed return type of the method.
   const DexFile* const dex_file_;  // The dex file containing the method.
@@ -725,7 +727,7 @@ class MethodVerifier {
   // The class loader for the declaring class of the method.
   Handle<mirror::ClassLoader> class_loader_ GUARDED_BY(Locks::mutator_lock_);
   const DexFile::ClassDef& class_def_;  // The class def of the declaring class of the method.
-  const DexFile::CodeItem* const code_item_;  // The code item containing the code for the method.
+  const CodeItemDataAccessor code_item_accessor_;
   const RegType* declaring_class_;  // Lazily computed reg type of the method's declaring class.
   // Instruction widths and flags, one entry per code unit.
   // Owned, but not unique_ptr since insn_flags_ are allocated in arenas.
@@ -734,7 +736,7 @@ class MethodVerifier {
   uint32_t interesting_dex_pc_;
   // The container into which FindLocksAtDexPc should write the registers containing held locks,
   // null if we're not doing FindLocksAtDexPc.
-  std::vector<uint32_t>* monitor_enter_dex_pcs_;
+  std::vector<DexLockInfo>* monitor_enter_dex_pcs_;
 
   // The types of any error that occurs.
   std::vector<VerifyError> failures_;

@@ -14,15 +14,16 @@
  * limitations under the License.
  */
 
-#include "linker/relative_patcher_test.h"
 #include "linker/x86_64/relative_patcher_x86_64.h"
+
+#include "linker/relative_patcher_test.h"
 
 namespace art {
 namespace linker {
 
 class X86_64RelativePatcherTest : public RelativePatcherTest {
  public:
-  X86_64RelativePatcherTest() : RelativePatcherTest(kX86_64, "default") { }
+  X86_64RelativePatcherTest() : RelativePatcherTest(InstructionSet::kX86_64, "default") { }
 
  protected:
   static const uint8_t kCallRawCode[];

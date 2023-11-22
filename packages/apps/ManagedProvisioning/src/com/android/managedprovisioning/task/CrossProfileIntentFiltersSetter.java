@@ -15,16 +15,20 @@
  */
 package com.android.managedprovisioning.task;
 
+import static android.app.admin.DevicePolicyManager.ACTION_DATA_SHARING_RESTRICTION_CHANGED;
 import static android.content.pm.PackageManager.ONLY_IF_NO_MATCH_FOUND;
 import static android.content.pm.PackageManager.SKIP_CURRENT_PROFILE;
 import static android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH;
 import static com.android.internal.util.Preconditions.checkNotNull;
 
+import android.app.admin.DevicePolicyManager;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.UserInfo;
 import android.hardware.usb.UsbManager;
+import android.os.UserHandle;
 import android.os.UserManager;
 import android.provider.AlarmClock;
 import android.provider.MediaStore;
@@ -46,7 +50,7 @@ public class CrossProfileIntentFiltersSetter {
 
     /** Emergency call intent with mime type is always resolved by primary user. */
     private static final CrossProfileIntentFilter EMERGENCY_CALL_MIME =
-            new CrossProfileIntentFilter.Builder(Direction.TO_PARENT, SKIP_CURRENT_PROFILE)
+            new CrossProfileIntentFilter.Builder(Direction.TO_PARENT, SKIP_CURRENT_PROFILE, false)
                     .addAction(Intent.ACTION_CALL_EMERGENCY)
                     .addAction(Intent.ACTION_CALL_PRIVILEGED)
                     .addCategory(Intent.CATEGORY_DEFAULT)
@@ -60,7 +64,7 @@ public class CrossProfileIntentFiltersSetter {
 
     /** Emergency call intent with data schemes is always resolved by primary user. */
     private static final CrossProfileIntentFilter EMERGENCY_CALL_DATA =
-            new CrossProfileIntentFilter.Builder(Direction.TO_PARENT, SKIP_CURRENT_PROFILE)
+            new CrossProfileIntentFilter.Builder(Direction.TO_PARENT, SKIP_CURRENT_PROFILE, false)
                     .addAction(Intent.ACTION_CALL_EMERGENCY)
                     .addAction(Intent.ACTION_CALL_PRIVILEGED)
                     .addCategory(Intent.CATEGORY_DEFAULT)
@@ -72,7 +76,7 @@ public class CrossProfileIntentFiltersSetter {
 
     /** Dial intent with mime type can be handled by either managed profile or its parent user. */
     private static final CrossProfileIntentFilter DIAL_MIME =
-            new CrossProfileIntentFilter.Builder(Direction.TO_PARENT, ONLY_IF_NO_MATCH_FOUND)
+            new CrossProfileIntentFilter.Builder(Direction.TO_PARENT, ONLY_IF_NO_MATCH_FOUND, false)
                     .addAction(Intent.ACTION_DIAL)
                     .addAction(Intent.ACTION_VIEW)
                     .addCategory(Intent.CATEGORY_DEFAULT)
@@ -86,7 +90,7 @@ public class CrossProfileIntentFiltersSetter {
 
     /** Dial intent with data scheme can be handled by either managed profile or its parent user. */
     private static final CrossProfileIntentFilter DIAL_DATA =
-            new CrossProfileIntentFilter.Builder(Direction.TO_PARENT, ONLY_IF_NO_MATCH_FOUND)
+            new CrossProfileIntentFilter.Builder(Direction.TO_PARENT, ONLY_IF_NO_MATCH_FOUND, false)
                     .addAction(Intent.ACTION_DIAL)
                     .addAction(Intent.ACTION_VIEW)
                     .addCategory(Intent.CATEGORY_DEFAULT)
@@ -101,7 +105,7 @@ public class CrossProfileIntentFiltersSetter {
      * parent user.
      */
     private static final CrossProfileIntentFilter DIAL_RAW =
-            new CrossProfileIntentFilter.Builder(Direction.TO_PARENT, ONLY_IF_NO_MATCH_FOUND)
+            new CrossProfileIntentFilter.Builder(Direction.TO_PARENT, ONLY_IF_NO_MATCH_FOUND, false)
                     .addAction(Intent.ACTION_DIAL)
                     .addCategory(Intent.CATEGORY_DEFAULT)
                     .addCategory(Intent.CATEGORY_BROWSABLE)
@@ -109,14 +113,14 @@ public class CrossProfileIntentFiltersSetter {
 
     /** Pressing the call button can be handled by either managed profile or its parent user. */
     private static final CrossProfileIntentFilter CALL_BUTTON =
-            new CrossProfileIntentFilter.Builder(Direction.TO_PARENT, ONLY_IF_NO_MATCH_FOUND)
+            new CrossProfileIntentFilter.Builder(Direction.TO_PARENT, ONLY_IF_NO_MATCH_FOUND, false)
                     .addAction(Intent.ACTION_CALL_BUTTON)
                     .addCategory(Intent.CATEGORY_DEFAULT)
                     .build();
 
     /** SMS and MMS are exclusively handled by the primary user. */
     private static final CrossProfileIntentFilter SMS_MMS =
-            new CrossProfileIntentFilter.Builder(Direction.TO_PARENT, SKIP_CURRENT_PROFILE)
+            new CrossProfileIntentFilter.Builder(Direction.TO_PARENT, SKIP_CURRENT_PROFILE, false)
                     .addAction(Intent.ACTION_VIEW)
                     .addAction(Intent.ACTION_SENDTO)
                     .addCategory(Intent.CATEGORY_DEFAULT)
@@ -129,7 +133,7 @@ public class CrossProfileIntentFiltersSetter {
 
     /** Mobile network settings is always shown in the primary user. */
     private static final CrossProfileIntentFilter MOBILE_NETWORK_SETTINGS =
-            new CrossProfileIntentFilter.Builder(Direction.TO_PARENT, SKIP_CURRENT_PROFILE)
+            new CrossProfileIntentFilter.Builder(Direction.TO_PARENT, SKIP_CURRENT_PROFILE, false)
                     .addAction(android.provider.Settings.ACTION_DATA_ROAMING_SETTINGS)
                     .addAction(android.provider.Settings.ACTION_NETWORK_OPERATOR_SETTINGS)
                     .addCategory(Intent.CATEGORY_DEFAULT)
@@ -138,7 +142,7 @@ public class CrossProfileIntentFiltersSetter {
     /** HOME intent is always resolved by the primary user. */
     @VisibleForTesting
     static final CrossProfileIntentFilter HOME =
-            new CrossProfileIntentFilter.Builder(Direction.TO_PARENT, SKIP_CURRENT_PROFILE)
+            new CrossProfileIntentFilter.Builder(Direction.TO_PARENT, SKIP_CURRENT_PROFILE, false)
                     .addAction(Intent.ACTION_MAIN)
                     .addCategory(Intent.CATEGORY_DEFAULT)
                     .addCategory(Intent.CATEGORY_HOME)
@@ -146,7 +150,7 @@ public class CrossProfileIntentFiltersSetter {
 
     /** Get content can be forwarded to parent user. */
     private static final CrossProfileIntentFilter GET_CONTENT =
-            new CrossProfileIntentFilter.Builder(Direction.TO_PARENT, 0)
+            new CrossProfileIntentFilter.Builder(Direction.TO_PARENT, 0, true)
                     .addAction(Intent.ACTION_GET_CONTENT)
                     .addCategory(Intent.CATEGORY_DEFAULT)
                     .addCategory(Intent.CATEGORY_OPENABLE)
@@ -155,7 +159,7 @@ public class CrossProfileIntentFiltersSetter {
 
     /** Open document intent can be forwarded to parent user. */
     private static final CrossProfileIntentFilter OPEN_DOCUMENT =
-            new CrossProfileIntentFilter.Builder(Direction.TO_PARENT, 0)
+            new CrossProfileIntentFilter.Builder(Direction.TO_PARENT, 0, true)
                     .addAction(Intent.ACTION_OPEN_DOCUMENT)
                     .addCategory(Intent.CATEGORY_DEFAULT)
                     .addCategory(Intent.CATEGORY_OPENABLE)
@@ -164,7 +168,7 @@ public class CrossProfileIntentFiltersSetter {
 
     /** Pick for any data type can be forwarded to parent user. */
     private static final CrossProfileIntentFilter ACTION_PICK_DATA =
-            new CrossProfileIntentFilter.Builder(Direction.TO_PARENT, 0)
+            new CrossProfileIntentFilter.Builder(Direction.TO_PARENT, 0, true)
                     .addAction(Intent.ACTION_PICK)
                     .addCategory(Intent.CATEGORY_DEFAULT)
                     .addDataType("*/*")
@@ -172,21 +176,21 @@ public class CrossProfileIntentFiltersSetter {
 
     /** Pick without data type can be forwarded to parent user. */
     private static final CrossProfileIntentFilter ACTION_PICK_RAW =
-            new CrossProfileIntentFilter.Builder(Direction.TO_PARENT, 0)
+            new CrossProfileIntentFilter.Builder(Direction.TO_PARENT, 0, true)
                     .addAction(Intent.ACTION_PICK)
                     .addCategory(Intent.CATEGORY_DEFAULT)
                     .build();
 
     /** Speech recognition can be performed by primary user. */
     private static final CrossProfileIntentFilter RECOGNIZE_SPEECH =
-            new CrossProfileIntentFilter.Builder(Direction.TO_PARENT, 0)
+            new CrossProfileIntentFilter.Builder(Direction.TO_PARENT, 0, false)
                     .addAction(ACTION_RECOGNIZE_SPEECH)
                     .addCategory(Intent.CATEGORY_DEFAULT)
                     .build();
 
     /** Media capture can be performed by primary user. */
     private static final CrossProfileIntentFilter MEDIA_CAPTURE =
-            new CrossProfileIntentFilter.Builder(Direction.TO_PARENT, 0)
+            new CrossProfileIntentFilter.Builder(Direction.TO_PARENT, 0, true)
                     .addAction(MediaStore.ACTION_IMAGE_CAPTURE)
                     .addAction(MediaStore.ACTION_IMAGE_CAPTURE_SECURE)
                     .addAction(MediaStore.ACTION_VIDEO_CAPTURE)
@@ -199,7 +203,7 @@ public class CrossProfileIntentFiltersSetter {
 
     /** Alarm setting can be performed by primary user. */
     private static final CrossProfileIntentFilter SET_ALARM =
-            new CrossProfileIntentFilter.Builder(Direction.TO_PARENT, 0)
+            new CrossProfileIntentFilter.Builder(Direction.TO_PARENT, 0, false)
                     .addAction(AlarmClock.ACTION_SET_ALARM)
                     .addAction(AlarmClock.ACTION_SHOW_ALARMS)
                     .addAction(AlarmClock.ACTION_SET_TIMER)
@@ -211,7 +215,7 @@ public class CrossProfileIntentFiltersSetter {
     /** ACTION_SEND can be forwarded to the managed profile on user's choice. */
     @VisibleForTesting
     static final CrossProfileIntentFilter ACTION_SEND =
-            new CrossProfileIntentFilter.Builder(Direction.TO_PROFILE, 0)
+            new CrossProfileIntentFilter.Builder(Direction.TO_PROFILE, 0, true)
                     .addAction(Intent.ACTION_SEND)
                     .addAction(Intent.ACTION_SEND_MULTIPLE)
                     .addCategory(Intent.CATEGORY_DEFAULT)
@@ -220,7 +224,7 @@ public class CrossProfileIntentFiltersSetter {
 
     /** USB devices attached can get forwarded to the profile. */
     private static final CrossProfileIntentFilter USB_DEVICE_ATTACHED =
-            new CrossProfileIntentFilter.Builder(Direction.TO_PROFILE, 0)
+            new CrossProfileIntentFilter.Builder(Direction.TO_PROFILE, 0, false)
                     .addAction(UsbManager.ACTION_USB_DEVICE_ATTACHED)
                     .addAction(UsbManager.ACTION_USB_ACCESSORY_ATTACHED)
                     .addCategory(Intent.CATEGORY_DEFAULT)
@@ -247,6 +251,34 @@ public class CrossProfileIntentFiltersSetter {
             HOME,
             MOBILE_NETWORK_SETTINGS);
 
+    /**
+     * Broadcast receiver for DevicePolicyManager.ACTION_DATA_SHARING_RESTRICTION_CHANGED
+     */
+    public static class RestrictionChangedReceiver extends BroadcastReceiver {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            if (!ACTION_DATA_SHARING_RESTRICTION_CHANGED.equals(intent.getAction())) {
+                return;
+            }
+            int profileUser = intent.getIntExtra(Intent.EXTRA_USER_ID, UserHandle.USER_NULL);
+            if (profileUser == UserHandle.USER_NULL) {
+                return;
+            }
+            UserInfo parent = context.getSystemService(UserManager.class)
+                    .getProfileParent(profileUser);
+            if (parent == null) {
+                return;
+            }
+            // Always call resetFilters() on the parent user, which handles cross profile
+            // intent filters between the parent and its profiles.
+            ProvisionLogger.logd("Resetting cross-profile intent filters on restriction change");
+            new CrossProfileIntentFiltersSetter(context).resetFilters(parent.id);
+            context.sendBroadcastAsUser(new Intent(
+                    DevicePolicyManager.ACTION_DATA_SHARING_RESTRICTION_APPLIED),
+                    UserHandle.of(profileUser));
+        }
+    }
+
     private final PackageManager mPackageManager;
     private final UserManager mUserManager;
 
@@ -267,8 +299,15 @@ public class CrossProfileIntentFiltersSetter {
      */
     public void setFilters(int parentUserId, int managedProfileUserId) {
         ProvisionLogger.logd("Setting cross-profile intent filters");
-
+        boolean disallowSharingIntoProfile = mUserManager.hasUserRestriction(
+                UserManager.DISALLOW_SHARE_INTO_MANAGED_PROFILE,
+                UserHandle.of(managedProfileUserId));
         for (CrossProfileIntentFilter filter : FILTERS) {
+            // Skip filters that allow data to be shared into the profile, if admin has disabled
+            // it.
+            if (disallowSharingIntoProfile && filter.letsPersonalDataIntoProfile) {
+                continue;
+            }
             if (filter.direction == Direction.TO_PARENT) {
                 mPackageManager.addCrossProfileIntentFilter(filter.filter, managedProfileUserId,
                         parentUserId, filter.flags);

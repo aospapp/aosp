@@ -226,7 +226,8 @@ public class BluetoothLeScanFacade extends RpcReceiver {
                     + Integer.toString(scanSettingsIndex));
         }
         if (mScanCallbackList.get(callbackIndex) != null) {
-            mScanner.startScan(mScanFilters, mScanSettings, mScanCallbackList.get(callbackIndex));
+            mScanner.startScan(mScanFilters, mScanSettings,
+                    mScanCallbackList.get(callbackIndex));
         } else {
             throw new Exception("Invalid filterListIndex input:"
                     + Integer.toString(filterListIndex));
@@ -247,7 +248,8 @@ public class BluetoothLeScanFacade extends RpcReceiver {
         Log.d("bluetooth_le_scan starting a background scan");
         boolean result = false;
         if (mLeScanCallbackList.get(leCallbackIndex) != null) {
-            result = mBluetoothAdapter.startLeScan(mLeScanCallbackList.get(leCallbackIndex));
+            result = mBluetoothAdapter.startLeScan(
+                    mLeScanCallbackList.get(leCallbackIndex));
         } else {
             throw new Exception("Invalid leCallbackIndex input:"
                     + Integer.toString(leCallbackIndex));
@@ -452,7 +454,8 @@ public class BluetoothLeScanFacade extends RpcReceiver {
             ScanSettings mScanSettings = mScanSettingsList.get(index);
             return mScanSettings.getScanResultType();
         } else {
-            throw new Exception("Invalid index input:" + Integer.toString(index));
+            throw new Exception("Invalid index input:"
+                    +    Integer.toString(index));
         }
     }
 
@@ -475,10 +478,12 @@ public class BluetoothLeScanFacade extends RpcReceiver {
                 return mScanFilterList.get(index)
                         .get(filterIndex).getManufacturerId();
             } else {
-                throw new Exception("Invalid filterIndex input:" + Integer.toString(filterIndex));
+                throw new Exception("Invalid filterIndex input:"
+                        + Integer.toString(filterIndex));
             }
         } else {
-            throw new Exception("Invalid index input:" + Integer.toString(index));
+            throw new Exception("Invalid index input:"
+                    + Integer.toString(index));
         }
     }
 
@@ -498,12 +503,15 @@ public class BluetoothLeScanFacade extends RpcReceiver {
             throws Exception {
         if (mScanFilterList.get(index) != null) {
             if (mScanFilterList.get(index).get(filterIndex) != null) {
-                return mScanFilterList.get(index).get(filterIndex).getDeviceAddress();
+                return mScanFilterList.get(index).get(
+                        filterIndex).getDeviceAddress();
             } else {
-                throw new Exception("Invalid filterIndex input:" + Integer.toString(filterIndex));
+                throw new Exception("Invalid filterIndex input:"
+                        + Integer.toString(filterIndex));
             }
         } else {
-            throw new Exception("Invalid index input:" + Integer.toString(index));
+            throw new Exception("Invalid index input:"
+                    + Integer.toString(index));
         }
     }
 
@@ -523,12 +531,15 @@ public class BluetoothLeScanFacade extends RpcReceiver {
             throws Exception {
         if (mScanFilterList.get(index) != null) {
             if (mScanFilterList.get(index).get(filterIndex) != null) {
-                return mScanFilterList.get(index).get(filterIndex).getDeviceName();
+                return mScanFilterList.get(index).get(
+                        filterIndex).getDeviceName();
             } else {
-                throw new Exception("Invalid filterIndex input:" + Integer.toString(filterIndex));
+                throw new Exception("Invalid filterIndex input:"
+                        + Integer.toString(filterIndex));
             }
         } else {
-            throw new Exception("Invalid index input:" + Integer.toString(index));
+            throw new Exception("Invalid index input:"
+                    + Integer.toString(index));
         }
     }
 
@@ -548,12 +559,15 @@ public class BluetoothLeScanFacade extends RpcReceiver {
             throws Exception {
         if (mScanFilterList.get(index) != null) {
             if (mScanFilterList.get(index).get(filterIndex) != null) {
-                return mScanFilterList.get(index).get(filterIndex).getManufacturerData();
+                return mScanFilterList.get(index).get(
+                        filterIndex).getManufacturerData();
             } else {
-                throw new Exception("Invalid filterIndex input:" + Integer.toString(filterIndex));
+                throw new Exception("Invalid filterIndex input:"
+                        + Integer.toString(filterIndex));
             }
         } else {
-            throw new Exception("Invalid index input:" + Integer.toString(index));
+            throw new Exception("Invalid index input:"
+                    + Integer.toString(index));
         }
     }
 
@@ -573,12 +587,15 @@ public class BluetoothLeScanFacade extends RpcReceiver {
             throws Exception {
         if (mScanFilterList.get(index) != null) {
             if (mScanFilterList.get(index).get(filterIndex) != null) {
-                return mScanFilterList.get(index).get(filterIndex).getManufacturerDataMask();
+                return mScanFilterList.get(index).get(
+                        filterIndex).getManufacturerDataMask();
             } else {
-                throw new Exception("Invalid filterIndex input:" + Integer.toString(filterIndex));
+                throw new Exception("Invalid filterIndex input:"
+                        + Integer.toString(filterIndex));
             }
         } else {
-            throw new Exception("Invalid index input:" + Integer.toString(index));
+            throw new Exception("Invalid index input:"
+                    + Integer.toString(index));
         }
     }
 
@@ -598,12 +615,15 @@ public class BluetoothLeScanFacade extends RpcReceiver {
             throws Exception {
         if (mScanFilterList.get(index) != null) {
             if (mScanFilterList.get(index).get(filterIndex) != null) {
-                return mScanFilterList.get(index).get(filterIndex).getServiceData();
+                return mScanFilterList.get(index).get(
+                        filterIndex).getServiceData();
             } else {
-                throw new Exception("Invalid filterIndex input:" + Integer.toString(filterIndex));
+                throw new Exception("Invalid filterIndex input:"
+                        + Integer.toString(filterIndex));
             }
         } else {
-            throw new Exception("Invalid index input:" + Integer.toString(index));
+            throw new Exception("Invalid index input:"
+                    + Integer.toString(index));
         }
     }
 
@@ -623,12 +643,15 @@ public class BluetoothLeScanFacade extends RpcReceiver {
             throws Exception {
         if (mScanFilterList.get(index) != null) {
             if (mScanFilterList.get(index).get(filterIndex) != null) {
-                return mScanFilterList.get(index).get(filterIndex).getServiceDataMask();
+                return mScanFilterList.get(index).get(
+                        filterIndex).getServiceDataMask();
             } else {
-                throw new Exception("Invalid filterIndex input:" + Integer.toString(filterIndex));
+                throw new Exception("Invalid filterIndex input:"
+                        + Integer.toString(filterIndex));
             }
         } else {
-            throw new Exception("Invalid index input:" + Integer.toString(index));
+            throw new Exception("Invalid index input:"
+                    + Integer.toString(index));
         }
     }
 
@@ -648,17 +671,21 @@ public class BluetoothLeScanFacade extends RpcReceiver {
             throws Exception {
         if (mScanFilterList.get(index) != null) {
             if (mScanFilterList.get(index).get(filterIndex) != null) {
-                if (mScanFilterList.get(index).get(filterIndex).getServiceUuid() != null) {
-                    return mScanFilterList.get(index).get(filterIndex).getServiceUuid().toString();
+                if (mScanFilterList.get(index).get(
+                        filterIndex).getServiceUuid() != null) {
+                    return mScanFilterList.get(index).get(
+                            filterIndex).getServiceUuid().toString();
                 } else {
                     throw new Exception("No Service Uuid set for filter:"
                             + Integer.toString(filterIndex));
                 }
             } else {
-                throw new Exception("Invalid filterIndex input:" + Integer.toString(filterIndex));
+                throw new Exception("Invalid filterIndex input:"
+                        + Integer.toString(filterIndex));
             }
         } else {
-            throw new Exception("Invalid index input:" + Integer.toString(index));
+            throw new Exception("Invalid index input:"
+                    + Integer.toString(index));
         }
     }
 
@@ -678,18 +705,22 @@ public class BluetoothLeScanFacade extends RpcReceiver {
             throws Exception {
         if (mScanFilterList.get(index) != null) {
             if (mScanFilterList.get(index).get(filterIndex) != null) {
-                if (mScanFilterList.get(index).get(filterIndex).getServiceUuidMask() != null) {
-                    return mScanFilterList.get(index).get(filterIndex).getServiceUuidMask()
+                if (mScanFilterList.get(index).get(
+                        filterIndex).getServiceUuidMask() != null) {
+                    return mScanFilterList.get(
+                            index).get(filterIndex).getServiceUuidMask()
                             .toString();
                 } else {
                     throw new Exception("No Service Uuid Mask set for filter:"
                             + Integer.toString(filterIndex));
                 }
             } else {
-                throw new Exception("Invalid filterIndex input:" + Integer.toString(filterIndex));
+                throw new Exception("Invalid filterIndex input:"
+                        + Integer.toString(filterIndex));
             }
         } else {
-            throw new Exception("Invalid index input:" + Integer.toString(index));
+            throw new Exception("Invalid index input:"
+                    + Integer.toString(index));
         }
     }
 
@@ -708,8 +739,8 @@ public class BluetoothLeScanFacade extends RpcReceiver {
     }
 
     /**
-     * Add filter "manufacturereDataId and/or manufacturerData" to existing ScanFilter
-     *
+     * Add filter "manufacturereDataId and/or manufacturerData" to existing
+     * ScanFilter
      * @param manufacturerDataId the manufacturer data id to filter against
      * @param manufacturerDataMask the manufacturere data mask to filter against
      * @throws Exception
@@ -742,13 +773,10 @@ public class BluetoothLeScanFacade extends RpcReceiver {
      */
     @Rpc(description = "Add filter \"serviceData and serviceDataMask\" to existing ScanFilter ")
     public void bleSetScanFilterServiceData(
-            @RpcParameter(name = "serviceUuid")
-            String serviceUuid,
-            @RpcParameter(name = "serviceData")
-            byte[] serviceData,
+            @RpcParameter(name = "serviceUuid") String serviceUuid,
+            @RpcParameter(name = "serviceData") byte[] serviceData,
             @RpcParameter(name = "serviceDataMask")
-            @RpcOptional
-            byte[] serviceDataMask
+            @RpcOptional byte[] serviceDataMask
             ) {
         if (serviceDataMask != null) {
             mScanFilterBuilder
@@ -841,14 +869,17 @@ public class BluetoothLeScanFacade extends RpcReceiver {
             String errorString = "UNKNOWN_ERROR_CODE";
             if (errorCode == ScanCallback.SCAN_FAILED_ALREADY_STARTED) {
                 errorString = "SCAN_FAILED_ALREADY_STARTED";
-            } else if (errorCode == ScanCallback.SCAN_FAILED_APPLICATION_REGISTRATION_FAILED) {
+            } else if (errorCode
+                    == ScanCallback.SCAN_FAILED_APPLICATION_REGISTRATION_FAILED) {
                 errorString = "SCAN_FAILED_APPLICATION_REGISTRATION_FAILED";
-            } else if (errorCode == ScanCallback.SCAN_FAILED_FEATURE_UNSUPPORTED) {
+            } else if (errorCode
+                    == ScanCallback.SCAN_FAILED_FEATURE_UNSUPPORTED) {
                 errorString = "SCAN_FAILED_FEATURE_UNSUPPORTED";
             } else if (errorCode == ScanCallback.SCAN_FAILED_INTERNAL_ERROR) {
                 errorString = "SCAN_FAILED_INTERNAL_ERROR";
             }
-            Log.d("bluetooth_le_scan change onScanFailed " + mEventType + " " + index + " error "
+            Log.d("bluetooth_le_scan change onScanFailed "
+                    + mEventType + " " + index + " error "
                     + errorString);
             mResults.putInt("ID", index);
             mResults.putString("Type", "onScanFailed");
@@ -861,12 +892,14 @@ public class BluetoothLeScanFacade extends RpcReceiver {
 
         @Override
         public void onScanResult(int callbackType, ScanResult result) {
-            Log.d("bluetooth_le_scan change onUpdate " + mEventType + " " + index);
+            Log.d("bluetooth_le_scan change onUpdate "
+                    + mEventType + " " + index);
             mResults.putInt("ID", index);
             mResults.putInt("CallbackType", callbackType);
             mResults.putString("Type", "onScanResult");
             mResults.putParcelable("Result", result);
-            mEventFacade.postEvent(mEventType + index + "onScanResults", mResults.clone());
+            mEventFacade.postEvent(
+                    mEventType + index + "onScanResults", mResults.clone());
             mResults.clear();
         }
 
@@ -877,7 +910,8 @@ public class BluetoothLeScanFacade extends RpcReceiver {
             mResults.putInt("ID", index);
             mResults.putString("Type", "onBatchScanResults");
             mResults.putParcelableList("Results", results);
-            mEventFacade.postEvent(mEventType + index + "onBatchScanResult", mResults.clone());
+            mEventFacade.postEvent(mEventType
+                    + index + "onBatchScanResult", mResults.clone());
             mResults.clear();
         }
     }
@@ -894,43 +928,45 @@ public class BluetoothLeScanFacade extends RpcReceiver {
         }
 
         @Override
-        public void onLeScan(BluetoothDevice device, int rssi, byte[] scanRecord) {
+        public void onLeScan(
+                BluetoothDevice device, int rssi, byte[] scanRecord) {
             Log.d("bluetooth_classic_le_scan " + mEventType + " " + index);
             mResults.putParcelable("Device", device);
             mResults.putInt("Rssi", rssi);
             mResults.putByteArray("ScanRecord", scanRecord);
             mResults.putString("Type", "onLeScan");
-            mEventFacade.postEvent(mEventType + index + "onLeScan", mResults.clone());
+            mEventFacade.postEvent(mEventType
+                    + index + "onLeScan", mResults.clone());
             mResults.clear();
         }
     }
 
     @Override
     public void shutdown() {
-      if (mBluetoothAdapter.getState() == BluetoothAdapter.STATE_ON) {
-          for (myScanCallback mScanCallback : mScanCallbackList.values()) {
-              if (mScanCallback != null) {
-                  try {
-                    mBluetoothAdapter.getBluetoothLeScanner()
-                      .stopScan(mScanCallback);
-                  } catch (NullPointerException e) {
-                    Log.e("Failed to stop ble scan callback.", e);
-                  }
-              }
-          }
-          for (myLeScanCallback mLeScanCallback : mLeScanCallbackList.values()) {
-              if (mLeScanCallback != null) {
-                  try {
-                      mBluetoothAdapter.stopLeScan(mLeScanCallback);
-                  } catch (NullPointerException e) {
-                    Log.e("Failed to stop classic ble scan callback.", e);
-                  }
-              }
-          }
-      }
-      mScanCallbackList.clear();
-      mScanFilterList.clear();
-      mScanSettingsList.clear();
-      mLeScanCallbackList.clear();
+        if (mBluetoothAdapter.getState() == BluetoothAdapter.STATE_ON) {
+            for (myScanCallback mScanCallback : mScanCallbackList.values()) {
+                if (mScanCallback != null) {
+                    try {
+                        mBluetoothAdapter.getBluetoothLeScanner()
+                                .stopScan(mScanCallback);
+                    } catch (NullPointerException e) {
+                        Log.e("Failed to stop ble scan callback.", e);
+                    }
+                }
+            }
+            for (myLeScanCallback mLeScanCallback : mLeScanCallbackList.values()) {
+                if (mLeScanCallback != null) {
+                    try {
+                        mBluetoothAdapter.stopLeScan(mLeScanCallback);
+                    } catch (NullPointerException e) {
+                        Log.e("Failed to stop classic ble scan callback.", e);
+                    }
+                }
+            }
+        }
+        mScanCallbackList.clear();
+        mScanFilterList.clear();
+        mScanSettingsList.clear();
+        mLeScanCallbackList.clear();
     }
 }

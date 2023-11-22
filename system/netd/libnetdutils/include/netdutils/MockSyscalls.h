@@ -37,6 +37,8 @@ class MockSyscalls : public Syscalls {
                        StatusOr<UniqueFd>(const std::string& pathname, int flags, mode_t mode));
     MOCK_CONST_METHOD3(socket, StatusOr<UniqueFd>(int domain, int type, int protocol));
     MOCK_CONST_METHOD3(getsockname, Status(Fd sock, sockaddr* addr, socklen_t* addrlen));
+    MOCK_CONST_METHOD5(getsockopt, Status(Fd sock, int level, int optname, void* optval,
+                                          socklen_t *optlen));
     MOCK_CONST_METHOD5(setsockopt, Status(Fd sock, int level, int optname, const void* optval,
                                           socklen_t optlen));
 
@@ -46,6 +48,8 @@ class MockSyscalls : public Syscalls {
     // Use Return(ByMove(...)) to deal with movable return types.
     MOCK_CONST_METHOD2(eventfd, StatusOr<UniqueFd>(unsigned int initval, int flags));
     MOCK_CONST_METHOD3(ppoll, StatusOr<int>(pollfd* fds, nfds_t nfds, double timeout));
+
+    MOCK_CONST_METHOD2(writev, StatusOr<size_t>(Fd fd, const std::vector<iovec>& iov));
     MOCK_CONST_METHOD2(write, StatusOr<size_t>(Fd fd, const Slice buf));
     MOCK_CONST_METHOD2(read, StatusOr<Slice>(Fd fd, const Slice buf));
     MOCK_CONST_METHOD5(sendto, StatusOr<size_t>(Fd sock, const Slice buf, int flags,

@@ -23,17 +23,17 @@
     <string name="pkcs12_file_password_dialog_title" msgid="8102721384767269510">"Udtræk fra %s"</string>
     <string name="name_credential_dialog_title" msgid="277729846491554437">"Giv certifikatet et navn"</string>
     <string name="credential_name" msgid="1974979771369744378">"Certifikatnavn:"</string>
-    <string name="credential_password" msgid="3520176519550993326">"Indtast adgangskoden for at udtrække certifikaterne."</string>
+    <string name="credential_password" msgid="3520176519550993326">"Angiv adgangskoden for at udtrække certifikaterne."</string>
     <string name="credential_info" msgid="2436768402308470397">"Pakken indeholder:"</string>
     <string name="p12_description" msgid="4128352087331630024">"Certifikater i PKCS12-nøgler."</string>
     <string name="one_userkey" msgid="3500697912370644881">"en brugernøgle"</string>
     <string name="one_usercrt" msgid="7690798336332403106">"et brugercertifikat"</string>
     <string name="one_cacrt" msgid="2667950425420663146">"et CA-certifikat"</string>
     <string name="n_cacrts" msgid="2141498640685639208">"%d CA-certifikater"</string>
-    <string name="password_error" msgid="2042471639556516356">"Indtast den korrekte adgangskode."</string>
-    <string name="password_empty_error" msgid="591713406761723025">"Indtast adgangskoden."</string>
-    <string name="name_empty_error" msgid="3808800768660110354">"Indtast et navn."</string>
-    <string name="name_char_error" msgid="3176618568784938968">"Indtast et navn, som kun indeholder bogstaver og tal."</string>
+    <string name="password_error" msgid="2042471639556516356">"Angiv den korrekte adgangskode."</string>
+    <string name="password_empty_error" msgid="591713406761723025">"Angiv adgangskoden."</string>
+    <string name="name_empty_error" msgid="3808800768660110354">"Angiv et navn."</string>
+    <string name="name_char_error" msgid="3176618568784938968">"Angiv et navn, som kun indeholder bogstaver og tal."</string>
     <string name="unable_to_save_cert" msgid="9178604087335389686">"Certifikatet kunne ikke gemmes. Lageret for loginoplysninger er ikke aktiveret eller korrekt installeret."</string>
     <string name="cert_not_saved" msgid="4037698479662830270">"Certifikatet er ikke installeret."</string>
     <string name="no_cert_to_saved" msgid="5708884372817309068">"Der er intet certifikat at installere."</string>
@@ -52,6 +52,7 @@
     <item msgid="375085478373011304">"VPN og apps"</item>
     <item msgid="692322974985472861">"Wi-Fi"</item>
   </string-array>
+    <string name="certificate_capabilities_warning" msgid="4158609401937799110">"Bemærk! Udstederen af dette certifikat kan inspicere al trafik til og fra enheden."</string>
     <string name="wifi_title" msgid="8475811746333426489">"Wi-Fi-profil"</string>
     <string name="wifi_detail_title" msgid="3627332137252994395">"Oplysninger om %s"</string>
     <string name="wifi_detail_label" msgid="3032151019356747583">"Oplysninger"</string>

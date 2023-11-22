@@ -1,4 +1,4 @@
-// Copyright 2015, VIXL authors
+// Copyright 2017, VIXL authors
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -34,10 +34,9 @@ extern "C" {
 #include <algorithm>
 #include <ostream>
 
-#include "utils-vixl.h"
 #include "code-buffer-vixl.h"
+#include "utils-vixl.h"
 #include "aarch32/constants-aarch32.h"
-#include "aarch32/label-aarch32.h"
 
 #ifdef __arm__
 #define HARDFLOAT __attribute__((noinline, pcs("aapcs-vfp")))
@@ -163,6 +162,8 @@ class RegisterOrAPSR_nzcv {
     return Register(code_);
   }
 };
+
+const RegisterOrAPSR_nzcv APSR_nzcv(kPcCode);
 
 inline std::ostream& operator<<(std::ostream& os,
                                 const RegisterOrAPSR_nzcv reg) {
@@ -301,6 +302,7 @@ class DataType {
     return (value_ & kDataTypeSizeMask) == size;
   }
   const char* GetName() const;
+  bool Is(DataType type) const { return value_ == type.value_; }
   bool Is(DataTypeValue value) const { return value_ == value; }
   bool Is(DataTypeType type) const { return GetType() == type; }
   bool IsNoneOr(DataTypeValue value) const {
@@ -710,7 +712,7 @@ class NeonRegisterList {
         type_(kOneLane),
         lane_(lane),
         length_(1) {
-    VIXL_ASSERT((lane_ >= 0) && (lane_ < 4));
+    VIXL_ASSERT((lane_ >= 0) && (lane_ < 8));
   }
   NeonRegisterList(DRegister first,
                    DRegister last,
@@ -734,7 +736,7 @@ class NeonRegisterList {
         spacing_(spacing),
         type_(kOneLane),
         lane_(lane) {
-    VIXL_ASSERT((lane >= 0) && (lane < 4));
+    VIXL_ASSERT((lane >= 0) && (lane < 8));
     VIXL_ASSERT(first.GetCode() <= last.GetCode());
 
     int range = last.GetCode() - first.GetCode();
@@ -1001,6 +1003,7 @@ class Condition {
 
  public:
   static const Condition None() { return Condition(kNone); }
+  static const Condition Never() { return Condition(kNever); }
   explicit Condition(uint32_t condition) : condition_(condition) {
     VIXL_ASSERT(condition <= kNone);
   }
@@ -1341,98 +1344,13 @@ inline std::ostream& operator<<(std::ostream& os, Alignment align) {
   return os << " :" << (0x10 << static_cast<uint32_t>(align.GetType()));
 }
 
-class RawLiteral : public Label {
- public:
-  enum PlacementPolicy { kPlacedWhenUsed, kManuallyPlaced };
-
-  enum DeletionPolicy {
-    kDeletedOnPlacementByPool,
-    kDeletedOnPoolDestruction,
-    kManuallyDeleted
-  };
-
- public:
-  RawLiteral(const void* addr,
-             size_t size,
-             PlacementPolicy placement_policy = kPlacedWhenUsed,
-             DeletionPolicy deletion_policy = kManuallyDeleted)
-      : addr_(addr),
-        size_(size),
-        position_(kMaxOffset),
-        manually_placed_(placement_policy == kManuallyPlaced),
-        deletion_policy_(deletion_policy) {
-    // We can't have manually placed literals that are not manually deleted.
-    VIXL_ASSERT(!IsManuallyPlaced() ||
-                (GetDeletionPolicy() == kManuallyDeleted));
-  }
-  RawLiteral(const void* addr, size_t size, DeletionPolicy deletion_policy)
-      : addr_(addr),
-        size_(size),
-        position_(kMaxOffset),
-        manually_placed_(false),
-        deletion_policy_(deletion_policy) {}
-  ~RawLiteral() {}
-  const void* GetDataAddress() const { return addr_; }
-  size_t GetSize() const { return size_; }
-  size_t GetAlignedSize() const { return (size_ + 3) & ~0x3; }
-
-  Offset GetPositionInPool() const { return position_; }
-  void SetPositionInPool(Offset position_in_pool) {
-    // Assumed that the literal has not already been added to
-    // the pool.
-    VIXL_ASSERT(position_ == Label::kMaxOffset);
-    position_ = position_in_pool;
-  }
-
-  bool IsManuallyPlaced() const { return manually_placed_; }
-  DeletionPolicy GetDeletionPolicy() const { return deletion_policy_; }
-
- private:
-  // Data address before it's moved into the code buffer.
-  const void* const addr_;
-  // Data size before it's moved into the code buffer.
-  const size_t size_;
-  // Position in the pool, if not in a pool: Label::kMaxOffset.
-  Offset position_;
-  // When this flag is true, the label will be placed manually.
-  bool manually_placed_;
-  // When is the literal to be removed from the memory
-  // Can be delete'd when:
-  //   moved into the code buffer: kDeletedOnPlacementByPool
-  //   the pool is delete'd: kDeletedOnPoolDestruction
-  //   or left to the application: kManuallyDeleted.
-  DeletionPolicy deletion_policy_;
-};
-
-template <typename T>
-class Literal : public RawLiteral {
- public:
-  explicit Literal(const T& value,
-                   PlacementPolicy placement_policy = kPlacedWhenUsed,
-                   DeletionPolicy deletion_policy = kManuallyDeleted)
-      : RawLiteral(&value_, sizeof(T), placement_policy, deletion_policy),
-        value_(value) {}
-  explicit Literal(const T& value, DeletionPolicy deletion_policy)
-      : RawLiteral(&value_, sizeof(T), deletion_policy), value_(value) {}
-  void UpdateValue(const T& value, CodeBuffer* buffer) {
-    value_ = value;
-    if (IsBound()) {
-      buffer->UpdateData(GetLocation(), GetDataAddress(), GetSize());
-    }
-  }
-
- private:
-  T value_;
-};
-
-class StringLiteral : public RawLiteral {
- public:
-  explicit StringLiteral(const char* str,
-                         PlacementPolicy placement_policy = kPlacedWhenUsed,
-                         DeletionPolicy deletion_policy = kManuallyDeleted)
-      : RawLiteral(str, strlen(str) + 1, placement_policy, deletion_policy) {}
-  explicit StringLiteral(const char* str, DeletionPolicy deletion_policy)
-      : RawLiteral(str, strlen(str) + 1, deletion_policy) {}
+// Structure containing information on forward references.
+struct ReferenceInfo {
+  int size;
+  int min_offset;
+  int max_offset;
+  int alignment;  // As a power of two.
+  enum { kAlignPc, kDontAlignPc } pc_needs_aligning;
 };
 
 }  // namespace aarch32

@@ -6,6 +6,8 @@ fi
 
 stop thermal-engine
 stop perfd
+stop vendor.thermal-engine
+stop vendor.perfd
 
 echo 0 > /sys/devices/system/cpu/cpu0/online
 echo 0 > /sys/devices/system/cpu/cpu1/online

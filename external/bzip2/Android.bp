@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-cc_library_static {
+cc_library {
     name: "libbz",
     host_supported: true,
     arch: {
@@ -25,6 +25,7 @@ cc_library_static {
     cflags: [
         "-O3",
         "-DUSE_MMAP",
+        "-Werror",
         "-Wno-unused-parameter",
     ],
     export_include_dirs: ["."],
@@ -44,11 +45,10 @@ cc_library_static {
 cc_binary {
     name: "bzip2",
     srcs: ["bzip2.c"],
-    // This is only static because we don't currently have libbz.so on device.
-    // If that changes, change this too.
-    static_libs: ["libbz"],
+    shared_libs: ["libbz"],
     stl: "none",
     cflags: [
+        "-Werror",
         "-Wno-unused-parameter",
     ],
     symlinks: [

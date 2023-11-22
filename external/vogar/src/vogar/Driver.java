@@ -151,12 +151,7 @@ public final class Driver {
     private void enqueueActionTasks(Action action) {
         Expectation expectation = run.expectationStore.get(action.getName());
         boolean useLargeTimeout = expectation.getTags().contains("large");
-        File jar;
-        if (run.useJack) {
-            jar = run.hostJack(action);
-        } else {
-            jar = run.hostJar(action);
-        }
+        File jar = run.hostJar(action);
         Task build = new BuildActionTask(run, action, this, jar);
         run.taskQueue.enqueue(build);
 

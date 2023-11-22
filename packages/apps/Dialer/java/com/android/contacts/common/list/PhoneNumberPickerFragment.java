@@ -37,9 +37,9 @@ import com.android.dialer.callintent.CallSpecificAppData;
 import com.android.dialer.common.Assert;
 import com.android.dialer.common.LogUtil;
 import com.android.dialer.dialercontact.DialerContact;
+import com.android.dialer.duo.DuoComponent;
 import com.android.dialer.enrichedcall.EnrichedCallComponent;
 import com.android.dialer.enrichedcall.EnrichedCallManager;
-import com.android.dialer.lightbringer.LightbringerComponent;
 import com.android.dialer.logging.DialerImpression;
 import com.android.dialer.logging.Logger;
 import com.android.dialer.performancereport.PerformanceReport;
@@ -91,13 +91,10 @@ public class PhoneNumberPickerFragment extends ContactEntryListFragment<ContactE
   }
 
   @Override
-  public void onLightbringerIconClicked(int position) {
+  public void onDuoVideoIconClicked(int position) {
     PerformanceReport.stopRecording();
     String phoneNumber = getPhoneNumber(position);
-    Intent intent =
-        LightbringerComponent.get(getContext())
-            .getLightbringer()
-            .getIntent(getContext(), phoneNumber);
+    Intent intent = DuoComponent.get(getContext()).getDuo().getIntent(getContext(), phoneNumber);
     // DialtactsActivity.ACTIVITY_REQUEST_CODE_LIGHTBRINGER
     // Cannot reference because of cyclic dependencies
     Logger.get(getContext())
@@ -235,6 +232,7 @@ public class PhoneNumberPickerFragment extends ContactEntryListFragment<ContactE
       cacheContactInfo(position);
       CallSpecificAppData callSpecificAppData =
           CallSpecificAppData.newBuilder()
+              .setAllowAssistedDialing(true)
               .setCallInitiationType(getCallInitiationType(true /* isRemoteDirectory */))
               .setPositionOfSelectedSearchResult(position)
               .setCharactersInSearchString(getQueryString() == null ? 0 : getQueryString().length())
@@ -278,7 +276,7 @@ public class PhoneNumberPickerFragment extends ContactEntryListFragment<ContactE
   @MainThread
   public void onLoadFinished(Loader<Cursor> loader, Cursor data) {
     Assert.isMainThread();
-    // TODO: define and verify behavior for "Nearby places", corp directories,
+    // TODO(strongarm): define and verify behavior for "Nearby places", corp directories,
     // and dividers listed in UI between these categories
     if (mCursorReranker != null
         && data != null
@@ -353,7 +351,7 @@ public class PhoneNumberPickerFragment extends ContactEntryListFragment<ContactE
         if (view.getCallToAction() != ContactListItemView.NONE
             || view.getPhoneNumber() == null
             || manager.getCapabilities(view.getPhoneNumber()) == null
-            || !manager.getCapabilities(view.getPhoneNumber()).supportsCallComposer()) {
+            || !manager.getCapabilities(view.getPhoneNumber()).isCallComposerCapable()) {
           continue;
         }
         view.setCallToAction(ContactListItemView.CALL_AND_SHARE, listener, view.getPosition());

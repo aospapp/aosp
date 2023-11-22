@@ -20,6 +20,7 @@ import android.content.Context;
 import android.hardware.display.DisplayManager;
 import android.hardware.display.DisplayManager.DisplayListener;
 import android.os.PowerManager;
+import android.os.Trace;
 import android.support.annotation.NonNull;
 import android.telecom.CallAudioState;
 import android.view.Display;
@@ -43,47 +44,50 @@ public class ProximitySensor
 
   private static final String TAG = ProximitySensor.class.getSimpleName();
 
-  private final PowerManager mPowerManager;
-  private final PowerManager.WakeLock mProximityWakeLock;
-  private final AudioModeProvider mAudioModeProvider;
-  private final AccelerometerListener mAccelerometerListener;
-  private final ProximityDisplayListener mDisplayListener;
-  private int mOrientation = AccelerometerListener.ORIENTATION_UNKNOWN;
-  private boolean mUiShowing = false;
-  private boolean mIsPhoneOffhook = false;
-  private boolean mDialpadVisible;
-  private boolean mIsAttemptingVideoCall;
-  private boolean mIsVideoCall;
+  private final PowerManager powerManager;
+  private final PowerManager.WakeLock proximityWakeLock;
+  private final AudioModeProvider audioModeProvider;
+  private final AccelerometerListener accelerometerListener;
+  private final ProximityDisplayListener displayListener;
+  private int orientation = AccelerometerListener.ORIENTATION_UNKNOWN;
+  private boolean uiShowing = false;
+  private boolean isPhoneOffhook = false;
+  private boolean dialpadVisible;
+  private boolean isAttemptingVideoCall;
+  private boolean isVideoCall;
+  private boolean isRttCall;
 
   public ProximitySensor(
       @NonNull Context context,
       @NonNull AudioModeProvider audioModeProvider,
       @NonNull AccelerometerListener accelerometerListener) {
-    mPowerManager = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
-    if (mPowerManager.isWakeLockLevelSupported(PowerManager.PROXIMITY_SCREEN_OFF_WAKE_LOCK)) {
-      mProximityWakeLock =
-          mPowerManager.newWakeLock(PowerManager.PROXIMITY_SCREEN_OFF_WAKE_LOCK, TAG);
+    Trace.beginSection("ProximitySensor.Constructor");
+    powerManager = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
+    if (powerManager.isWakeLockLevelSupported(PowerManager.PROXIMITY_SCREEN_OFF_WAKE_LOCK)) {
+      proximityWakeLock =
+          powerManager.newWakeLock(PowerManager.PROXIMITY_SCREEN_OFF_WAKE_LOCK, TAG);
     } else {
       LogUtil.i("ProximitySensor.constructor", "Device does not support proximity wake lock.");
-      mProximityWakeLock = null;
+      proximityWakeLock = null;
     }
-    mAccelerometerListener = accelerometerListener;
-    mAccelerometerListener.setListener(this);
+    this.accelerometerListener = accelerometerListener;
+    this.accelerometerListener.setListener(this);
 
-    mDisplayListener =
+    displayListener =
         new ProximityDisplayListener(
             (DisplayManager) context.getSystemService(Context.DISPLAY_SERVICE));
-    mDisplayListener.register();
+    displayListener.register();
 
-    mAudioModeProvider = audioModeProvider;
-    mAudioModeProvider.addListener(this);
+    this.audioModeProvider = audioModeProvider;
+    this.audioModeProvider.addListener(this);
+    Trace.endSection();
   }
 
   public void tearDown() {
-    mAudioModeProvider.removeListener(this);
+    audioModeProvider.removeListener(this);
 
-    mAccelerometerListener.enable(false);
-    mDisplayListener.unregister();
+    accelerometerListener.enable(false);
+    displayListener.unregister();
 
     turnOffProximitySensor(true);
   }
@@ -91,7 +95,7 @@ public class ProximitySensor
   /** Called to identify when the device is laid down flat. */
   @Override
   public void orientationChanged(int orientation) {
-    mOrientation = orientation;
+    this.orientation = orientation;
     updateProximitySensorMode();
   }
 
@@ -102,17 +106,24 @@ public class ProximitySensor
     // sensor during incoming call screen. We check hasLiveCall() because a disconnected call
     // can also put the in-call screen in the INCALL state.
     boolean hasOngoingCall = InCallState.INCALL == newState && callList.hasLiveCall();
-    boolean isOffhook = (InCallState.OUTGOING == newState) || hasOngoingCall;
+    boolean isOffhook =
+        InCallState.PENDING_OUTGOING == newState
+            || InCallState.OUTGOING == newState
+            || hasOngoingCall;
 
     DialerCall activeCall = callList.getActiveCall();
     boolean isVideoCall = activeCall != null && activeCall.isVideoCall();
+    boolean isRttCall = activeCall != null && activeCall.isRttCall();
 
-    if (isOffhook != mIsPhoneOffhook || mIsVideoCall != isVideoCall) {
-      mIsPhoneOffhook = isOffhook;
-      mIsVideoCall = isVideoCall;
+    if (isOffhook != isPhoneOffhook
+        || this.isVideoCall != isVideoCall
+        || this.isRttCall != isRttCall) {
+      isPhoneOffhook = isOffhook;
+      this.isVideoCall = isVideoCall;
+      this.isRttCall = isRttCall;
 
-      mOrientation = AccelerometerListener.ORIENTATION_UNKNOWN;
-      mAccelerometerListener.enable(mIsPhoneOffhook);
+      orientation = AccelerometerListener.ORIENTATION_UNKNOWN;
+      accelerometerListener.enable(isPhoneOffhook);
 
       updateProximitySensorMode();
     }
@@ -124,7 +135,7 @@ public class ProximitySensor
   }
 
   public void onDialpadVisible(boolean visible) {
-    mDialpadVisible = visible;
+    dialpadVisible = visible;
     updateProximitySensorMode();
   }
 
@@ -133,25 +144,25 @@ public class ProximitySensor
         "ProximitySensor.setIsAttemptingVideoCall",
         "isAttemptingVideoCall: %b",
         isAttemptingVideoCall);
-    mIsAttemptingVideoCall = isAttemptingVideoCall;
+    this.isAttemptingVideoCall = isAttemptingVideoCall;
     updateProximitySensorMode();
   }
   /** Used to save when the UI goes in and out of the foreground. */
   public void onInCallShowing(boolean showing) {
     if (showing) {
-      mUiShowing = true;
+      uiShowing = true;
 
       // We only consider the UI not showing for instances where another app took the foreground.
       // If we stopped showing because the screen is off, we still consider that showing.
-    } else if (mPowerManager.isScreenOn()) {
-      mUiShowing = false;
+    } else if (powerManager.isScreenOn()) {
+      uiShowing = false;
     }
     updateProximitySensorMode();
   }
 
   void onDisplayStateChanged(boolean isDisplayOn) {
     LogUtil.i("ProximitySensor.onDisplayStateChanged", "isDisplayOn: %b", isDisplayOn);
-    mAccelerometerListener.enable(isDisplayOn);
+    accelerometerListener.enable(isDisplayOn);
   }
 
   /**
@@ -161,14 +172,14 @@ public class ProximitySensor
    * replaced with the ProximityDisplayListener.
    */
   public boolean isScreenReallyOff() {
-    return !mPowerManager.isScreenOn();
+    return !powerManager.isScreenOn();
   }
 
   private void turnOnProximitySensor() {
-    if (mProximityWakeLock != null) {
-      if (!mProximityWakeLock.isHeld()) {
+    if (proximityWakeLock != null) {
+      if (!proximityWakeLock.isHeld()) {
         LogUtil.i("ProximitySensor.turnOnProximitySensor", "acquiring wake lock");
-        mProximityWakeLock.acquire();
+        proximityWakeLock.acquire();
       } else {
         LogUtil.i("ProximitySensor.turnOnProximitySensor", "wake lock already acquired");
       }
@@ -176,11 +187,11 @@ public class ProximitySensor
   }
 
   private void turnOffProximitySensor(boolean screenOnImmediately) {
-    if (mProximityWakeLock != null) {
-      if (mProximityWakeLock.isHeld()) {
+    if (proximityWakeLock != null) {
+      if (proximityWakeLock.isHeld()) {
         LogUtil.i("ProximitySensor.turnOffProximitySensor", "releasing wake lock");
         int flags = (screenOnImmediately ? 0 : PowerManager.RELEASE_FLAG_WAIT_FOR_NO_PROXIMITY);
-        mProximityWakeLock.release(flags);
+        proximityWakeLock.release(flags);
       } else {
         LogUtil.i("ProximitySensor.turnOffProximitySensor", "wake lock already released");
       }
@@ -203,39 +214,41 @@ public class ProximitySensor
    * request for, or is in a video call; or the phone is horizontal while in a call.
    */
   private synchronized void updateProximitySensorMode() {
-    final int audioRoute = mAudioModeProvider.getAudioState().getRoute();
+    Trace.beginSection("ProximitySensor.updateProximitySensorMode");
+    final int audioRoute = audioModeProvider.getAudioState().getRoute();
 
     boolean screenOnImmediately =
         (CallAudioState.ROUTE_WIRED_HEADSET == audioRoute
             || CallAudioState.ROUTE_SPEAKER == audioRoute
             || CallAudioState.ROUTE_BLUETOOTH == audioRoute
-            || mIsAttemptingVideoCall
-            || mIsVideoCall);
+            || isAttemptingVideoCall
+            || isVideoCall
+            || isRttCall);
 
     // We do not keep the screen off when the user is outside in-call screen and we are
     // horizontal, but we do not force it on when we become horizontal until the
     // proximity sensor goes negative.
-    final boolean horizontal = (mOrientation == AccelerometerListener.ORIENTATION_HORIZONTAL);
-    screenOnImmediately |= !mUiShowing && horizontal;
+    final boolean horizontal = (orientation == AccelerometerListener.ORIENTATION_HORIZONTAL);
+    screenOnImmediately |= !uiShowing && horizontal;
 
     // We do not keep the screen off when dialpad is visible, we are horizontal, and
     // the in-call screen is being shown.
     // At that moment we're pretty sure users want to use it, instead of letting the
     // proximity sensor turn off the screen by their hands.
-    screenOnImmediately |= mDialpadVisible && horizontal;
+    screenOnImmediately |= dialpadVisible && horizontal;
 
     LogUtil.i(
         "ProximitySensor.updateProximitySensorMode",
         "screenOnImmediately: %b, dialPadVisible: %b, "
             + "offHook: %b, horizontal: %b, uiShowing: %b, audioRoute: %s",
         screenOnImmediately,
-        mDialpadVisible,
-        mIsPhoneOffhook,
-        mOrientation == AccelerometerListener.ORIENTATION_HORIZONTAL,
-        mUiShowing,
+        dialpadVisible,
+        isPhoneOffhook,
+        orientation == AccelerometerListener.ORIENTATION_HORIZONTAL,
+        uiShowing,
         CallAudioState.audioRouteToString(audioRoute));
 
-    if (mIsPhoneOffhook && !screenOnImmediately) {
+    if (isPhoneOffhook && !screenOnImmediately) {
       LogUtil.v("ProximitySensor.updateProximitySensorMode", "turning on proximity sensor");
       // Phone is in use!  Arrange for the screen to turn off
       // automatically when the sensor detects a close object.
@@ -246,6 +259,7 @@ public class ProximitySensor
       // behavior in either case.
       turnOffProximitySensor(screenOnImmediately);
     }
+    Trace.endSection();
   }
 
   /**
@@ -255,19 +269,19 @@ public class ProximitySensor
    */
   public class ProximityDisplayListener implements DisplayListener {
 
-    private DisplayManager mDisplayManager;
-    private boolean mIsDisplayOn = true;
+    private DisplayManager displayManager;
+    private boolean isDisplayOn = true;
 
     ProximityDisplayListener(DisplayManager displayManager) {
-      mDisplayManager = displayManager;
+      this.displayManager = displayManager;
     }
 
     void register() {
-      mDisplayManager.registerDisplayListener(this, null);
+      displayManager.registerDisplayListener(this, null);
     }
 
     void unregister() {
-      mDisplayManager.unregisterDisplayListener(this);
+      displayManager.unregisterDisplayListener(this);
     }
 
     @Override
@@ -276,14 +290,14 @@ public class ProximitySensor
     @Override
     public void onDisplayChanged(int displayId) {
       if (displayId == Display.DEFAULT_DISPLAY) {
-        final Display display = mDisplayManager.getDisplay(displayId);
+        final Display display = displayManager.getDisplay(displayId);
 
         final boolean isDisplayOn = display.getState() != Display.STATE_OFF;
         // For call purposes, we assume that as long as the screen is not truly off, it is
         // considered on, even if it is in an unknown or low power idle state.
-        if (isDisplayOn != mIsDisplayOn) {
-          mIsDisplayOn = isDisplayOn;
-          onDisplayStateChanged(mIsDisplayOn);
+        if (isDisplayOn != this.isDisplayOn) {
+          this.isDisplayOn = isDisplayOn;
+          onDisplayStateChanged(this.isDisplayOn);
         }
       }
     }

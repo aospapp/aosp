@@ -21,16 +21,31 @@ import android.database.CursorWindow;
 import android.database.MatrixCursor;
 import android.database.sqlite.SQLiteException;
 import android.os.Parcel;
-import android.test.AndroidTestCase;
+import android.support.test.runner.AndroidJUnit4;
+import android.test.suitebuilder.annotation.SmallTest;
+
+import org.junit.Assert;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Random;
 
-public class CursorWindowTest extends AndroidTestCase {
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
+@RunWith(AndroidJUnit4.class)
+@SmallTest
+public class CursorWindowTest {
 
     private static final String TEST_STRING = "Test String";
 
+    @Test
     public void testWriteCursorToWindow() throws Exception {
         // create cursor
         String[] colNames = new String[]{"_id", "name", "number", "profit"};
@@ -75,6 +90,7 @@ public class CursorWindowTest extends AndroidTestCase {
         assertEquals(0, window.getNumRows());
     }
 
+    @Test
     public void testNull() {
         CursorWindow window = getOneByOneWindow();
 
@@ -82,10 +98,11 @@ public class CursorWindowTest extends AndroidTestCase {
         assertTrue(window.putNull(0, 0));
         assertNull(window.getString(0, 0));
         assertEquals(0, window.getLong(0, 0));
-        assertEquals(0.0, window.getDouble(0, 0));
+        assertEquals(0.0, window.getDouble(0, 0), 0.0);
         assertNull(window.getBlob(0, 0));
     }
 
+    @Test
     public void testEmptyString() {
         CursorWindow window = getOneByOneWindow();
 
@@ -93,9 +110,10 @@ public class CursorWindowTest extends AndroidTestCase {
         assertTrue(window.putString("", 0, 0));
         assertEquals("", window.getString(0, 0));
         assertEquals(0, window.getLong(0, 0));
-        assertEquals(0.0, window.getDouble(0, 0));
+        assertEquals(0.0, window.getDouble(0, 0), 0.0);
     }
 
+    @Test
     public void testConstructors() {
         int TEST_NUMBER = 5;
         CursorWindow cursorWindow;
@@ -121,8 +139,11 @@ public class CursorWindowTest extends AndroidTestCase {
         cursorWindow = CursorWindow.CREATOR.createFromParcel(parcel);
         assertEquals(TEST_NUMBER, cursorWindow.getStartPosition());
         assertEquals(TEST_STRING, cursorWindow.getString(TEST_NUMBER, 0));
+
+        parcel.recycle();
     }
 
+    @Test
     public void testDataStructureOperations() {
         CursorWindow cursorWindow = new CursorWindow(true);
 
@@ -175,6 +196,7 @@ public class CursorWindowTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testAccessDataValues() {
         final long NUMBER_LONG_INTEGER = (long) 0xaabbccddffL;
         final long NUMBER_INTEGER = (int) NUMBER_LONG_INTEGER;
@@ -214,8 +236,8 @@ public class CursorWindowTest extends AndroidTestCase {
         assertEquals(0, cursorWindow.getLong(0, 0));
         assertEquals(0, cursorWindow.getInt(0, 0));
         assertEquals(0, cursorWindow.getShort(0, 0));
-        assertEquals(0.0, cursorWindow.getDouble(0, 0));
-        assertEquals(0.0f, cursorWindow.getFloat(0, 0), 0.00000001f);
+        assertEquals(0.0, cursorWindow.getDouble(0, 0), 0.0);
+        assertEquals(0.0f, cursorWindow.getFloat(0, 0), 0.0);
         assertFalse(cursorWindow.isNull(0, 0));
         assertFalse(cursorWindow.isBlob(0, 0));
 
@@ -226,8 +248,8 @@ public class CursorWindowTest extends AndroidTestCase {
         assertEquals(0, cursorWindow.getLong(0, 1));
         assertEquals(0, cursorWindow.getInt(0, 1));
         assertEquals(0, cursorWindow.getShort(0, 1));
-        assertEquals(0.0, cursorWindow.getDouble(0, 1));
-        assertEquals(0.0f, cursorWindow.getFloat(0, 1), 0.00000001f);
+        assertEquals(0.0, cursorWindow.getDouble(0, 1), 0.0);
+        assertEquals(0.0f, cursorWindow.getFloat(0, 1), 0.0);
         assertNull(cursorWindow.getBlob(0, 1));
         assertTrue(cursorWindow.isNull(0, 1));
         // If the field is null, isBlob will return true.
@@ -239,8 +261,8 @@ public class CursorWindowTest extends AndroidTestCase {
         assertEquals(NUMBER_INTEGER, cursorWindow.getInt(0, 2));
         assertEquals(Long.toString(NUMBER_LONG_INTEGER), cursorWindow.getString(0, 2));
         assertEquals(NUMBER_SHORT, cursorWindow.getShort(0, 2));
-        assertEquals(NUMBER_FLOAT_SCIENCE, cursorWindow.getFloat(0, 2), 0.00000001f);
-        assertEquals(NUMBER_DOUBLE_SCIENCE, cursorWindow.getDouble(0, 2), 0.00000001);
+        assertEquals(NUMBER_FLOAT_SCIENCE, cursorWindow.getFloat(0, 2), 0.0);
+        assertEquals(NUMBER_DOUBLE_SCIENCE, cursorWindow.getDouble(0, 2), 0.0);
         try {
             cursorWindow.getBlob(0, 2);
             fail("Can't get Blob from a Integer value.");
@@ -259,8 +281,8 @@ public class CursorWindowTest extends AndroidTestCase {
         assertEquals(NUMBER_FLOAT_SCIENCE_STRING2.substring(0, 6), cursorWindow.getString(0, 3)
                 .substring(0, 6));
         assertEquals(NUMBER_SHORT, cursorWindow.getShort(0, 3));
-        assertEquals(NUMBER_FLOAT_SCIENCE, cursorWindow.getFloat(0, 3), 0.00000001f);
-        assertEquals(NUMBER_DOUBLE_SCIENCE, cursorWindow.getDouble(0, 3), 0.00000001);
+        assertEquals(NUMBER_FLOAT_SCIENCE, cursorWindow.getFloat(0, 3), 0.0);
+        assertEquals(NUMBER_DOUBLE_SCIENCE, cursorWindow.getDouble(0, 3), 0.0);
         try {
             cursorWindow.getBlob(0, 3);
             fail("Can't get Blob from a Double value.");
@@ -279,6 +301,7 @@ public class CursorWindowTest extends AndroidTestCase {
         assertTrue(cursorWindow.isBlob(0, 4));
     }
 
+    @Test
     public void testCopyStringToBuffer() {
         int DEFAULT_ARRAY_LENGTH = 64;
         String baseString = "0123456789";
@@ -314,6 +337,7 @@ public class CursorWindowTest extends AndroidTestCase {
         assertEquals(expectedString.length(), charArrayBuffer.data.length);
     }
 
+    @Test
     public void testAccessStartPosition() {
         final int TEST_POSITION_1 = 0;
         final int TEST_POSITION_2 = 3;
@@ -343,6 +367,7 @@ public class CursorWindowTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testClearAndOnAllReferencesReleased() {
         MockCursorWindow cursorWindow = new MockCursorWindow(true);
 
@@ -369,9 +394,41 @@ public class CursorWindowTest extends AndroidTestCase {
         assertTrue(cursorWindow.hasReleasedAllReferences());
     }
 
+    @Test
     public void testDescribeContents() {
         CursorWindow cursorWindow = new CursorWindow(true);
         assertEquals(0, cursorWindow.describeContents());
+    }
+
+    @Test
+    public void testDefaultCursorWindowSize() {
+        CursorWindow cursorWindow = new CursorWindow("test");
+        cursorWindow.setNumColumns(1);
+        byte[] bytes = new byte[1024];
+        Arrays.fill(bytes, (byte) 1);
+        // Ensure that the default is not too small and it's possible to fill CursorWindow
+        // with ~2Mb of data
+        int testRowCount = 2016;
+        for (int i = 0; i < testRowCount; i++) {
+            assertTrue(cursorWindow.allocRow());
+            assertTrue("Allocation failed for row " + i, cursorWindow.putBlob(bytes, i, 0));
+        }
+        assertTrue(cursorWindow.allocRow());
+        assertFalse("Allocation should fail for row " + testRowCount,
+                cursorWindow.putBlob(bytes, testRowCount, 0));
+    }
+
+    @Test
+    public void testCustomSize() {
+        // Allocate CursorWindow with max size 10KB and test that restriction is enforced
+        CursorWindow cursorWindow = new CursorWindow("test", 10000);
+        cursorWindow.setNumColumns(1);
+        byte[] bytes = new byte[8000];
+        Arrays.fill(bytes, (byte) 1);
+        assertTrue(cursorWindow.allocRow());
+        assertTrue("Allocation of 1 row should succeed", cursorWindow.putBlob(bytes, 0, 0));
+        assertTrue(cursorWindow.allocRow());
+        assertFalse("Allocation of 2nd row should fail", cursorWindow.putBlob(bytes, 1, 0));
     }
 
     private class MockCursorWindow extends CursorWindow {

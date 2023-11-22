@@ -82,5 +82,19 @@
     <string name="cant_call_due_to_ongoing_unknown_call" msgid="149091978697302211">"Başka bir uygulamada devam eden çağrınız nedeniyle telefon araması yapılamıyor."</string>
     <string name="notification_channel_incoming_call" msgid="3513761697082968084">"Gelen çağrılar"</string>
     <string name="notification_channel_missed_call" msgid="8727062678632713146">"Cevapsız çağrılar"</string>
+    <string name="notification_channel_call_blocking" msgid="2943358779746676070">"Çağrı Engelleme"</string>
     <string name="alert_outgoing_call" msgid="982908156825958001">"Bu çağrıyı yaptığınızda <xliff:g id="OTHER_APP">%1$s</xliff:g> çağrınız sona erecek."</string>
+    <string name="phone_settings_call_blocking_txt" msgid="3976004073043846733">"Çağrı Engelleme"</string>
+    <string name="phone_settings_number_not_in_contact_txt" msgid="3126829421867168652">"Kişiler arasında bulunmayan numaralar"</string>
+    <string name="phone_settings_number_not_in_contact_summary_txt" msgid="9043147855140079119">"Kişileriniz arasında bulunmayan numaralar engellenir"</string>
+    <string name="phone_settings_private_num_txt" msgid="8623574188879134262">"Gizli"</string>
+    <string name="phone_settings_private_num_summary_txt" msgid="7516314821207782191">"Gizli numaradan arayanlar engellenir"</string>
+    <string name="phone_settings_payphone_txt" msgid="2493356957416981318">"Ankesörlü telefon"</string>
+    <string name="phone_settings_payphone_summary_txt" msgid="6126709946103814653">"Ankesörlü telefonlardan gelen çağrılar engellenir"</string>
+    <string name="phone_settings_unknown_txt" msgid="5836407031508172721">"Bilinmeyen"</string>
+    <string name="phone_settings_unknown_summary_txt" msgid="3457690230497753233">"Tanımlanamayan arayanlardan gelen çağrılar engellenir"</string>
+    <string name="phone_strings_call_blocking_turned_off_notification_title_txt" msgid="628536625775266096">"Çağrı Engelleme"</string>
+    <string name="phone_strings_call_blocking_turned_off_notification_text_txt" msgid="6264230048947693941">"Çağrı Engelleme devre dışı bırakıldı"</string>
+    <string name="phone_strings_emergency_call_made_dialog_title_txt" msgid="7421611725400166580">"Acil durum çağrısı yapıldı"</string>
+    <string name="phone_strings_emergency_call_made_dialog_call_blocking_text_txt" msgid="4083285098613193052">"Acil durum müdahale ekibinin sizinle iletişime geçmesine olanak tanımak için Çağrı Engelleme devre dışı bırakıldı."</string>
 </resources>

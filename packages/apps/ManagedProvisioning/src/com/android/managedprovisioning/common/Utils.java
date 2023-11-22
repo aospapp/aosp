@@ -24,6 +24,8 @@ import static android.app.admin.DevicePolicyManager.ACTION_PROVISION_MANAGED_USE
 import static android.app.admin.DevicePolicyManager.MIME_TYPE_PROVISIONING_NFC;
 import static android.nfc.NfcAdapter.ACTION_NDEF_DISCOVERED;
 
+import static com.android.managedprovisioning.common.Globals.ACTION_PROVISION_MANAGED_DEVICE_SILENTLY;
+
 import android.accounts.Account;
 import android.accounts.AccountManager;
 import android.accounts.AccountManagerFuture;
@@ -43,6 +45,7 @@ import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.content.pm.ResolveInfo;
 import android.content.pm.UserInfo;
+import android.content.res.TypedArray;
 import android.graphics.Color;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
@@ -174,7 +177,7 @@ public class Utils {
      */
     @NonNull
     public ComponentName findDeviceAdmin(String dpcPackageName, ComponentName dpcComponentName,
-            Context context) throws IllegalProvisioningArgumentException {
+            Context context, int userId) throws IllegalProvisioningArgumentException {
         if (dpcComponentName != null) {
             dpcPackageName = dpcComponentName.getPackageName();
         }
@@ -184,10 +187,11 @@ public class Utils {
         }
         PackageInfo pi;
         try {
-            pi = context.getPackageManager().getPackageInfo(dpcPackageName,
-                    PackageManager.GET_RECEIVERS | PackageManager.MATCH_DISABLED_COMPONENTS);
+            pi = context.getPackageManager().getPackageInfoAsUser(dpcPackageName,
+                    PackageManager.GET_RECEIVERS | PackageManager.MATCH_DISABLED_COMPONENTS,
+                    userId);
         } catch (NameNotFoundException e) {
-            throw new IllegalProvisioningArgumentException("Dpc "+ dpcPackageName
+            throw new IllegalProvisioningArgumentException("Dpc " + dpcPackageName
                     + " is not installed. ", e);
         }
 
@@ -436,6 +440,11 @@ public class Utils {
                 dpmProvisioningAction = intent.getAction();
                 break;
 
+            // Silent device owner is same as device owner.
+            case ACTION_PROVISION_MANAGED_DEVICE_SILENTLY:
+                dpmProvisioningAction = ACTION_PROVISION_MANAGED_DEVICE;
+                break;
+
             // NFC cases which need to take mime-type into account.
             case ACTION_NDEF_DISCOVERED:
                 String mimeType = intent.getType();
@@ -485,8 +494,8 @@ public class Utils {
      */
     // TODO: Move the list of device owner actions into a Globals class.
     public final boolean isProfileOwnerAction(String action) {
-        return action.equals(ACTION_PROVISION_MANAGED_PROFILE)
-                || action.equals(ACTION_PROVISION_MANAGED_USER);
+        return ACTION_PROVISION_MANAGED_PROFILE.equals(action)
+                || ACTION_PROVISION_MANAGED_USER.equals(action);
     }
 
     /**
@@ -494,8 +503,8 @@ public class Utils {
      */
     // TODO: Move the list of device owner actions into a Globals class.
     public final boolean isDeviceOwnerAction(String action) {
-        return action.equals(ACTION_PROVISION_MANAGED_DEVICE)
-                || action.equals(ACTION_PROVISION_MANAGED_SHAREABLE_DEVICE);
+        return ACTION_PROVISION_MANAGED_DEVICE.equals(action)
+                || ACTION_PROVISION_MANAGED_SHAREABLE_DEVICE.equals(action);
     }
 
     /**
@@ -677,5 +686,16 @@ public class Utils {
     public boolean isPackageDeviceOwner(DevicePolicyManager dpm, String packageName) {
         final ComponentName deviceOwner = dpm.getDeviceOwnerComponentOnCallingUser();
         return deviceOwner != null && deviceOwner.getPackageName().equals(packageName);
+    }
+
+    public int getAccentColor(Context context) {
+        return getAttrColor(context, android.R.attr.colorAccent);
+    }
+
+    private int getAttrColor(Context context, int attr) {
+        TypedArray ta = context.obtainStyledAttributes(new int[]{attr});
+        int attrColor = ta.getColor(0, 0);
+        ta.recycle();
+        return attrColor;
     }
 }

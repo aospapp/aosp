@@ -829,3 +829,207 @@ class DiscoveryTest(AwareBaseTest):
         s_type=aconsts.SUBSCRIBE_TYPE_ACTIVE,
         p_mf_1="hello there string",
         s_mf_1="goodbye there string")
+
+  #######################################
+  # Multiple concurrent services
+  #######################################
+
+  def run_multiple_concurrent_services(self, type_x, type_y):
+    """Validate multiple identical discovery services running on both devices:
+    - DUT1 & DUT2 running Publish for X
+    - DUT1 & DUT2 running Publish for Y
+    - DUT1 Subscribes for X
+    - DUT2 Subscribes for Y
+    Message exchanges.
+
+    Note: test requires that devices support 2 publish sessions concurrently.
+    The test will be skipped if the devices are not capable.
+
+    Args:
+      type_x, type_y: A list of [ptype, stype] of the publish and subscribe
+                      types for services X and Y respectively.
+    """
+    dut1 = self.android_devices[0]
+    dut2 = self.android_devices[1]
+
+    X_SERVICE_NAME = "ServiceXXX"
+    Y_SERVICE_NAME = "ServiceYYY"
+
+    asserts.skip_if(dut1.aware_capabilities[aconsts.CAP_MAX_PUBLISHES] < 2 or
+                    dut2.aware_capabilities[aconsts.CAP_MAX_PUBLISHES] < 2,
+                    "Devices do not support 2 publish sessions")
+
+    # attach and wait for confirmation
+    id1 = dut1.droid.wifiAwareAttach(False)
+    autils.wait_for_event(dut1, aconsts.EVENT_CB_ON_ATTACHED)
+    time.sleep(self.device_startup_offset)
+    id2 = dut2.droid.wifiAwareAttach(False)
+    autils.wait_for_event(dut2, aconsts.EVENT_CB_ON_ATTACHED)
+
+    # DUT1 & DUT2: start publishing both X & Y services and wait for
+    # confirmations
+    dut1_x_pid = dut1.droid.wifiAwarePublish(id1,
+                                             autils.create_discovery_config(
+                                               X_SERVICE_NAME, type_x[0]))
+    event = autils.wait_for_event(dut1, aconsts.SESSION_CB_ON_PUBLISH_STARTED)
+    asserts.assert_equal(event["data"][aconsts.SESSION_CB_KEY_SESSION_ID],
+                         dut1_x_pid,
+                         "Unexpected DUT1 X publish session discovery ID")
+
+    dut1_y_pid = dut1.droid.wifiAwarePublish(id1,
+                                             autils.create_discovery_config(
+                                               Y_SERVICE_NAME, type_y[0]))
+    event = autils.wait_for_event(dut1, aconsts.SESSION_CB_ON_PUBLISH_STARTED)
+    asserts.assert_equal(event["data"][aconsts.SESSION_CB_KEY_SESSION_ID],
+                         dut1_y_pid,
+                         "Unexpected DUT1 Y publish session discovery ID")
+
+    dut2_x_pid = dut2.droid.wifiAwarePublish(id2,
+                                             autils.create_discovery_config(
+                                                 X_SERVICE_NAME, type_x[0]))
+    event = autils.wait_for_event(dut2, aconsts.SESSION_CB_ON_PUBLISH_STARTED)
+    asserts.assert_equal(event["data"][aconsts.SESSION_CB_KEY_SESSION_ID],
+                         dut2_x_pid,
+                         "Unexpected DUT2 X publish session discovery ID")
+
+    dut2_y_pid = dut2.droid.wifiAwarePublish(id2,
+                                             autils.create_discovery_config(
+                                                 Y_SERVICE_NAME, type_y[0]))
+    event = autils.wait_for_event(dut2, aconsts.SESSION_CB_ON_PUBLISH_STARTED)
+    asserts.assert_equal(event["data"][aconsts.SESSION_CB_KEY_SESSION_ID],
+                         dut2_y_pid,
+                         "Unexpected DUT2 Y publish session discovery ID")
+
+    # DUT1: start subscribing for X
+    dut1_x_sid = dut1.droid.wifiAwareSubscribe(id1,
+                                               autils.create_discovery_config(
+                                                   X_SERVICE_NAME, type_x[1]))
+    autils.wait_for_event(dut1, aconsts.SESSION_CB_ON_SUBSCRIBE_STARTED)
+
+    # DUT2: start subscribing for Y
+    dut2_y_sid = dut2.droid.wifiAwareSubscribe(id2,
+                                               autils.create_discovery_config(
+                                                   Y_SERVICE_NAME, type_y[1]))
+    autils.wait_for_event(dut2, aconsts.SESSION_CB_ON_SUBSCRIBE_STARTED)
+
+    # DUT1 & DUT2: wait for service discovery
+    event = autils.wait_for_event(dut1,
+                                  aconsts.SESSION_CB_ON_SERVICE_DISCOVERED)
+    asserts.assert_equal(event["data"][aconsts.SESSION_CB_KEY_SESSION_ID],
+                         dut1_x_sid,
+                         "Unexpected DUT1 X subscribe session discovery ID")
+    dut1_peer_id_for_dut2_x = event["data"][aconsts.SESSION_CB_KEY_PEER_ID]
+
+    event = autils.wait_for_event(dut2,
+                                  aconsts.SESSION_CB_ON_SERVICE_DISCOVERED)
+    asserts.assert_equal(event["data"][aconsts.SESSION_CB_KEY_SESSION_ID],
+                         dut2_y_sid,
+                         "Unexpected DUT2 Y subscribe session discovery ID")
+    dut2_peer_id_for_dut1_y = event["data"][aconsts.SESSION_CB_KEY_PEER_ID]
+
+    # DUT1.X send message to DUT2
+    x_msg = "Hello X on DUT2!"
+    dut1.droid.wifiAwareSendMessage(dut1_x_sid, dut1_peer_id_for_dut2_x,
+                                     self.get_next_msg_id(), x_msg,
+                                     self.msg_retx_count)
+    autils.wait_for_event(dut1, aconsts.SESSION_CB_ON_MESSAGE_SENT)
+    event = autils.wait_for_event(dut2, aconsts.SESSION_CB_ON_MESSAGE_RECEIVED)
+    asserts.assert_equal(event["data"][aconsts.SESSION_CB_KEY_SESSION_ID],
+                         dut2_x_pid,
+                        "Unexpected publish session ID on DUT2 for meesage "
+                        "received on service X")
+    asserts.assert_equal(
+        event["data"][aconsts.SESSION_CB_KEY_MESSAGE_AS_STRING], x_msg,
+        "Message on service X from DUT1 to DUT2 not received correctly")
+
+    # DUT2.Y send message to DUT1
+    y_msg = "Hello Y on DUT1!"
+    dut2.droid.wifiAwareSendMessage(dut2_y_sid, dut2_peer_id_for_dut1_y,
+                                    self.get_next_msg_id(), y_msg,
+                                    self.msg_retx_count)
+    autils.wait_for_event(dut2, aconsts.SESSION_CB_ON_MESSAGE_SENT)
+    event = autils.wait_for_event(dut1, aconsts.SESSION_CB_ON_MESSAGE_RECEIVED)
+    asserts.assert_equal(event["data"][aconsts.SESSION_CB_KEY_SESSION_ID],
+                         dut1_y_pid,
+                         "Unexpected publish session ID on DUT1 for meesage "
+                         "received on service Y")
+    asserts.assert_equal(
+        event["data"][aconsts.SESSION_CB_KEY_MESSAGE_AS_STRING], y_msg,
+        "Message on service Y from DUT2 to DUT1 not received correctly")
+
+  @test_tracker_info(uuid="eef80cf3-1fd2-4526-969b-6af2dce785d7")
+  def test_multiple_concurrent_services_both_unsolicited_passive(self):
+    """Validate multiple concurrent discovery sessions running on both devices.
+    - DUT1 & DUT2 running Publish for X
+    - DUT1 & DUT2 running Publish for Y
+    - DUT1 Subscribes for X
+    - DUT2 Subscribes for Y
+    Message exchanges.
+
+    Both sessions are Unsolicited/Passive.
+
+    Note: test requires that devices support 2 publish sessions concurrently.
+    The test will be skipped if the devices are not capable.
+    """
+    self.run_multiple_concurrent_services(
+      type_x=[aconsts.PUBLISH_TYPE_UNSOLICITED, aconsts.SUBSCRIBE_TYPE_PASSIVE],
+      type_y=[aconsts.PUBLISH_TYPE_UNSOLICITED, aconsts.SUBSCRIBE_TYPE_PASSIVE])
+
+  @test_tracker_info(uuid="46739f04-ab2b-4556-b1a4-9aa2774869b5")
+  def test_multiple_concurrent_services_both_solicited_active(self):
+    """Validate multiple concurrent discovery sessions running on both devices.
+    - DUT1 & DUT2 running Publish for X
+    - DUT1 & DUT2 running Publish for Y
+    - DUT1 Subscribes for X
+    - DUT2 Subscribes for Y
+    Message exchanges.
+
+    Both sessions are Solicited/Active.
+
+    Note: test requires that devices support 2 publish sessions concurrently.
+    The test will be skipped if the devices are not capable.
+    """
+    self.run_multiple_concurrent_services(
+      type_x=[aconsts.PUBLISH_TYPE_SOLICITED, aconsts.SUBSCRIBE_TYPE_ACTIVE],
+      type_y=[aconsts.PUBLISH_TYPE_SOLICITED, aconsts.SUBSCRIBE_TYPE_ACTIVE])
+
+  @test_tracker_info(uuid="5f8f7fd2-4a0e-4cca-8cbb-6d54353f2baa")
+  def test_multiple_concurrent_services_mix_unsolicited_solicited(self):
+    """Validate multiple concurrent discovery sessions running on both devices.
+    - DUT1 & DUT2 running Publish for X
+    - DUT1 & DUT2 running Publish for Y
+    - DUT1 Subscribes for X
+    - DUT2 Subscribes for Y
+    Message exchanges.
+
+    Session A is Unsolicited/Passive.
+    Session B is Solicited/Active.
+
+    Note: test requires that devices support 2 publish sessions concurrently.
+    The test will be skipped if the devices are not capable.
+    """
+    self.run_multiple_concurrent_services(
+      type_x=[aconsts.PUBLISH_TYPE_UNSOLICITED, aconsts.SUBSCRIBE_TYPE_PASSIVE],
+      type_y=[aconsts.PUBLISH_TYPE_SOLICITED, aconsts.SUBSCRIBE_TYPE_ACTIVE])
+
+  #########################################################
+
+  @test_tracker_info(uuid="908ec896-fc7a-4ee4-b633-a2f042b74448")
+  def test_upper_lower_service_name_equivalence(self):
+    """Validate that Service Name is case-insensitive. Publish a service name
+    with mixed case, subscribe to the same service name with alternative case
+    and verify that discovery happens."""
+    p_dut = self.android_devices[0]
+    s_dut = self.android_devices[1]
+
+    pub_service_name = "GoogleAbCdEf"
+    sub_service_name = "GoogleaBcDeF"
+
+    autils.create_discovery_pair(p_dut, s_dut,
+                               p_config=autils.create_discovery_config(
+                                 pub_service_name,
+                                 aconsts.PUBLISH_TYPE_UNSOLICITED),
+                               s_config=autils.create_discovery_config(
+                                 sub_service_name,
+                                 aconsts.SUBSCRIBE_TYPE_PASSIVE),
+                               device_startup_offset=self.device_startup_offset)

@@ -20,11 +20,14 @@ import android.annotation.DrawableRes;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothManager;
 import android.content.Context;
+import android.view.MotionEvent;
+import android.view.View;
+import android.widget.Switch;
 
+import com.android.car.list.IconToggleLineItem;
 import com.android.car.settings.R;
 import com.android.car.settings.bluetooth.BluetoothSettingsFragment;
 import com.android.car.settings.common.BaseFragment;
-import com.android.car.settings.common.IconToggleLineItem;
 
 
 /**
@@ -43,12 +46,20 @@ public class BluetoothLineItem extends IconToggleLineItem {
     }
 
     @Override
-    public void onToggleClicked(boolean isChecked) {
-        if (isChecked) {
-            mBluetoothAdapter.enable();
-        } else {
-            mBluetoothAdapter.disable();
+    public boolean onToggleTouched(Switch toggleSwitch, MotionEvent event) {
+        if (!isBluetoothAvailable()) {
+            return true;
         }
+        // intercept touch event, so we can process the request and update the switch
+        // state accordingly
+        if (event.getAction() == MotionEvent.ACTION_DOWN) {
+            if (isChecked()) {
+                mBluetoothAdapter.disable();
+            } else {
+                mBluetoothAdapter.enable();
+            }
+        }
+        return true;
     }
 
     @Override
@@ -58,12 +69,14 @@ public class BluetoothLineItem extends IconToggleLineItem {
 
     @Override
     public boolean isClickable() {
-        return true;
+        return isBluetoothAvailable();
     }
 
     @Override
-    public void onClicked() {
-        mFragmentController.launchFragment(BluetoothSettingsFragment.getInstance());
+    public void onClick(View view) {
+        if (isBluetoothAvailable()) {
+            mFragmentController.launchFragment(BluetoothSettingsFragment.getInstance());
+        }
     }
 
     @Override
@@ -73,19 +86,25 @@ public class BluetoothLineItem extends IconToggleLineItem {
 
     @Override
     public boolean isChecked() {
-        return mBluetoothAdapter.isEnabled();
+        return isBluetoothAvailable() && mBluetoothAdapter.isEnabled();
     }
 
     @Override
     public @DrawableRes int getIcon() {
-        return getIconRes(mBluetoothAdapter.isEnabled());
+        return getIconRes(isBluetoothAvailable() && mBluetoothAdapter.isEnabled());
     }
 
     public void onBluetoothStateChanged(boolean enabled) {
-        if (mIconUpdateListener == null) {
-            return;
+        if (mIconUpdateListener != null) {
+            mIconUpdateListener.onUpdateIcon(getIconRes(enabled));
         }
-        mIconUpdateListener.onUpdateIcon(getIconRes(enabled));
+        if (mSwitchStateUpdateListener != null) {
+            mSwitchStateUpdateListener.onToggleChanged(enabled);
+        }
+    }
+
+    private boolean isBluetoothAvailable() {
+        return mBluetoothAdapter != null;
     }
 
     private @DrawableRes int getIconRes(boolean enabled) {

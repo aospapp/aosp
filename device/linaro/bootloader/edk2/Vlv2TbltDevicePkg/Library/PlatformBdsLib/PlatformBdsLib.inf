@@ -1,7 +1,7 @@
 #/** @file
 # Component name for module PlatformBootManagerLib
 #
-# Copyright (c) 2008  - 2015, Intel Corporation. All rights reserved.<BR>
+# Copyright (c) 2008  - 2016, Intel Corporation. All rights reserved.<BR>
 #                                                                                  
 # This program and the accompanying materials are licensed and made available under
 # the terms and conditions of the BSD License that accompanies this distribution.  
@@ -49,6 +49,8 @@
   ShellPkg/ShellPkg.dec
   CryptoPkg/CryptoPkg.dec
   SecurityPkg/SecurityPkg.dec
+  SignedCapsulePkg/SignedCapsulePkg.dec
+  SourceLevelDebugPkg/SourceLevelDebugPkg.dec
 
 [LibraryClasses]
   DxeServicesTableLib
@@ -72,6 +74,7 @@
   FileHandleLib
   S3BootScriptLib
   SerialPortLib
+  CapsuleLib
 
 [Protocols]
   gEfiFirmwareVolume2ProtocolGuid
@@ -90,6 +93,7 @@
   gEfiMmioDeviceProtocolGuid
   gEfiI2cMasterProtocolGuid
   gEfiI2cHostProtocolGuid
+  gEsrtManagementProtocolGuid
 
 [Guids]
   gEfiMemoryTypeInformationGuid
@@ -97,8 +101,14 @@
   gEfiGlobalVariableGuid
   gEfiNormalSetupGuid
   gEfiPartTypeSystemPartGuid
+  gEfiEndOfDxeEventGroupGuid
 
 [Pcd]
+  gEfiSignedCapsulePkgTokenSpaceGuid.PcdEdkiiRsa2048Sha256TestPublicKeyFileGuid
+  gEfiSignedCapsulePkgTokenSpaceGuid.PcdEdkiiPkcs7TestPublicKeyFileGuid
+  gEfiSecurityPkgTokenSpaceGuid.PcdRsa2048Sha256PublicKeyBuffer
+  gEfiSecurityPkgTokenSpaceGuid.PcdPkcs7CertBuffer
+  gEfiMdeModulePkgTokenSpaceGuid.PcdTestKeyUsed
   gPlatformModuleTokenSpaceGuid.PcdFlashFvRecovery2Base
   gPlatformModuleTokenSpaceGuid.PcdFlashFvMainBase
   gPlatformModuleTokenSpaceGuid.PcdFlashFvRecoveryBase

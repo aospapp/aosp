@@ -8,6 +8,14 @@ cc_library_shared {
     static_libs: ["libhevcdec"],
     srcs: ["SoftHEVC.cpp"],
 
+    cflags: [
+        "-Wall",
+        "-Werror",
+        "-Wno-unused-variable",
+    ],
+
+    version_script: "exports.lds",
+
     include_dirs: [
         "external/libhevc/decoder",
         "external/libhevc/common",
@@ -26,7 +34,6 @@ cc_library_shared {
     },
 
     shared_libs: [
-        "libmedia_omx",
         "libstagefright_omx",
         "libstagefright_foundation",
         "libutils",

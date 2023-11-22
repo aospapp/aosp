@@ -1,7 +1,2 @@
-# Script to start "pm" on the device, which has a very rudimentary
-# shell.
-#
-base=/system
-export CLASSPATH=$base/framework/ime.jar
-exec app_process $base/bin com.android.commands.ime.Ime "$@"
-
+#!/system/bin/sh
+exec cmd input_method ime "$@"

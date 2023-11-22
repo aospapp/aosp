@@ -424,9 +424,69 @@ $(call add-clean-step, rm -rf $(OUT_DIR)/versions_checked.mk)
 $(call add-clean-step, rm -rf $(PRODUCT_OUT)/system/vendor/nativetest*)
 $(call add-clean-step, rm -rf $(PRODUCT_OUT)/vendor/nativetest*)
 
+# Jack is no longer the default compiler, remove the intermediates
+$(call add-clean-step, rm -rf $(OUT_DIR)/target/common/obj/*/*/classes*.jack)
+$(call add-clean-step, rm -rf $(OUT_DIR)/target/common/obj/*/*/jack*)
+
 # Move adbd from $(PRODUCT_OUT)/root/sbin to $(PRODUCT_OUT)/system/bin
 $(call add-clean-step, rm -rf $(PRODUCT_OUT)/root/sbin/adbd)
 $(call add-clean-step, rm -rf $(PRODUCT_OUT)/symbols/sbin/adbd)
+
+# Soong linux -> linux_glibc rename
+$(call add-clean-step, find $(SOONG_OUT_DIR)/.intermediates -name 'linux_x86*' | xargs rm -rf)
+$(call add-clean-step, find $(SOONG_OUT_DIR)/.intermediates -name 'linux_common*' | xargs rm -rf)
+
+# Remove old aidl/logtags files that may be in the generated source directory
+$(call add-clean-step, rm -rf $(OUT_DIR)/target/common/obj/*/*_intermediates/src)
+$(call add-clean-step, rm -f $(OUT_DIR)/target/common/obj/*/*_intermediates/java-source-list)
+$(call add-clean-step, rm -rf $(OUT_DIR)/host/common/obj/*/*_intermediates/src)
+$(call add-clean-step, rm -f $(OUT_DIR)/host/common/obj/*/*_intermediates/java-source-list)
+
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/obj/APPS/*/flat-res)
+
+# Remove old VNDK directories without version
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/system/lib/vndk)
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/system/lib/vndk-sp)
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/system/lib64/vndk)
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/system/lib64/vndk-sp)
+
+# Remove old dex output directories
+$(call add-clean-step, rm -rf $(TARGET_OUT_COMMON_INTERMEDIATES)/*/*_intermediates/with-local/)
+$(call add-clean-step, rm -rf $(TARGET_OUT_COMMON_INTERMEDIATES)/*/*_intermediates/no-local/)
+$(call add-clean-step, rm -rf $(HOST_OUT_COMMON_INTERMEDIATES)/*/*_intermediates/with-local/)
+$(call add-clean-step, rm -rf $(HOST_OUT_COMMON_INTERMEDIATES)/*/*_intermediates/no-local/)
+
+# Remove legacy VINTF metadata files
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/system/manifest.xml)
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/system/vendor/manifest.xml)
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/vendor/manifest.xml)
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/system/vendor/compatibility_matrix.xml)
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/vendor/compatibility_matrix.xml)
+
+# Remove DisplayCutoutEmulation overlays
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/vendor/overlay/DisplayCutoutEmulationWide)
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/vendor/overlay/DisplayCutoutEmulationNarrow)
+
+# Remove obsolete intermedates src files
+$(call add-clean-step, rm -rf $(TARGET_OUT_COMMON_INTERMEDIATES)/*/*_intermediates/src/RenderScript.stamp*)
+$(call add-clean-step, rm -rf $(TARGET_OUT_COMMON_INTERMEDIATES)/APPS/*_intermediates/src)
+$(call add-clean-step, rm -rf $(TARGET_OUT_COMMON_INTERMEDIATES)/JAVA_LIBRARIES/*_intermediates/src)
+$(call add-clean-step, rm -rf $(TARGET_OUT_COMMON_INTERMEDIATES)/APPS/*_intermediates/java-source-list)
+$(call add-clean-step, rm -rf $(TARGET_OUT_COMMON_INTERMEDIATES)/JAVA_LIBRARIES/*_intermediates/java-source-list)
+$(call add-clean-step, rm -rf $(OUT_DOCS)/*-timestamp)
+
+$(call add-clean-step, rm -rf $(TARGET_COMMON_OUT_ROOT)/obj_asan/APPS/*_intermediates/src)
+$(call add-clean-step, rm -rf $(TARGET_COMMON_OUT_ROOT)/obj_asan/JAVA_LIBRARIES/*_intermediates/src)
+$(call add-clean-step, rm -rf $(TARGET_COMMON_OUT_ROOT)/obj_asan/APPS/*_intermediates/java-source-list)
+$(call add-clean-step, rm -rf $(TARGET_COMMON_OUT_ROOT)/obj_asan/JAVA_LIBRARIES/*_intermediates/java-source-list)
+
+# Remove stale init.noenforce.rc
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/system/etc/init/gsi/init.noenforce.rc)
+
+# Clean up Launcher3 which has been replaced with Launcher3QuickStep
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/system/app/Launcher3)
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/system/priv-app/Launcher3)
+$(call add-clean-step, rm -rf $(OUT_DIR)/target/common/obj/APPS/Launcher3_intermediates)
 
 # ************************************************
 # NEWER CLEAN STEPS MUST BE AT THE END OF THE LIST

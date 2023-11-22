@@ -24,13 +24,15 @@ LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
-LOCAL_JAVA_LIBRARIES := legacy-android-test cts-junit
+LOCAL_JAVA_LIBRARIES := cts-junit android.test.base.stubs
 
 LOCAL_STATIC_JAVA_LIBRARIES = \
-	android-support-v4 \
+	androidx.legacy_legacy-support-v4 \
 	ctstestrunner \
 	android-support-test \
-	legacy-android-test
+	compatibility-device-util \
+	ShortcutManagerTestUtils \
+	testng
 
 LOCAL_SDK_VERSION := current
 

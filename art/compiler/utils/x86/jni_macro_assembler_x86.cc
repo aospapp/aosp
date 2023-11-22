@@ -16,10 +16,10 @@
 
 #include "jni_macro_assembler_x86.h"
 
-#include "utils/assembler.h"
 #include "base/casts.h"
 #include "entrypoints/quick/quick_entrypoints.h"
 #include "thread.h"
+#include "utils/assembler.h"
 
 namespace art {
 namespace x86 {
@@ -85,7 +85,8 @@ void X86JNIMacroAssembler::BuildFrame(size_t frame_size,
 }
 
 void X86JNIMacroAssembler::RemoveFrame(size_t frame_size,
-                                       ArrayRef<const ManagedRegister> spill_regs) {
+                                       ArrayRef<const ManagedRegister> spill_regs,
+                                       bool may_suspend ATTRIBUTE_UNUSED) {
   CHECK_ALIGNED(frame_size, kStackAlignment);
   cfi().RememberState();
   // -kFramePointerSize for ArtMethod*.
@@ -517,7 +518,7 @@ void X86JNIMacroAssembler::GetCurrentThread(FrameOffset offset,
 }
 
 void X86JNIMacroAssembler::ExceptionPoll(ManagedRegister /*scratch*/, size_t stack_adjust) {
-  X86ExceptionSlowPath* slow = new (__ GetArena()) X86ExceptionSlowPath(stack_adjust);
+  X86ExceptionSlowPath* slow = new (__ GetAllocator()) X86ExceptionSlowPath(stack_adjust);
   __ GetBuffer()->EnqueueSlowPath(slow);
   __ fs()->cmpl(Address::Absolute(Thread::ExceptionOffset<kX86PointerSize>()), Immediate(0));
   __ j(kNotEqual, slow->Entry());

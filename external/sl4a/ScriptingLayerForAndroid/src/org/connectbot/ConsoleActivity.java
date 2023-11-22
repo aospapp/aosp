@@ -68,7 +68,7 @@ import com.googlecode.android_scripting.Log;
 import com.googlecode.android_scripting.R;
 import com.googlecode.android_scripting.ScriptProcess;
 import com.googlecode.android_scripting.activity.Preferences;
-import com.googlecode.android_scripting.activity.ScriptingLayerService;
+import com.googlecode.android_scripting.service.ScriptingLayerService;
 
 import de.mud.terminal.VDUBuffer;
 import de.mud.terminal.vt320;

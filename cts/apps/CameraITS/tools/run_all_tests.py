@@ -13,21 +13,82 @@
 # limitations under the License.
 
 import copy
+import math
 import os
 import os.path
-import tempfile
+import re
 import subprocess
-import time
 import sys
+import tempfile
+import time
 
 import its.caps
+import its.cv2image
 import its.device
 from its.device import ItsSession
+import its.image
+
+import numpy as np
 
 CHART_DELAY = 1  # seconds
+CHART_DISTANCE = 30.0  # cm
+CHART_HEIGHT = 13.5  # cm
+CHART_SCALE_START = 0.65
+CHART_SCALE_STOP = 1.35
+CHART_SCALE_STEP = 0.025
 FACING_EXTERNAL = 2
 NUM_TRYS = 2
+SCENE3_FILE = os.path.join(os.environ["CAMERA_ITS_TOP"], "pymodules", "its",
+                           "test_images", "ISO12233.png")
 SKIP_RET_CODE = 101  # note this must be same as tests/scene*/test_*
+VGA_HEIGHT = 480
+VGA_WIDTH = 640
+
+# Not yet mandated tests
+NOT_YET_MANDATED = {
+        "scene0": [
+                "test_jitter",
+                "test_burst_capture",
+                "test_test_patterns"
+        ],
+        "scene1": [
+                "test_ae_af",
+                "test_ae_precapture_trigger",
+                "test_crop_region_raw",
+                "test_ev_compensation_advanced",
+                "test_ev_compensation_basic",
+                "test_yuv_plus_jpeg"
+        ],
+        "scene2": [
+                "test_num_faces"
+        ],
+        "scene3": [
+                "test_flip_mirror",
+                "test_lens_movement_reporting",
+                "test_lens_position"
+        ],
+        "scene4": [
+                "test_multi_camera_alignment"
+        ],
+        "scene5": [],
+        "sensor_fusion": []
+}
+
+
+def calc_camera_fov():
+    """Determine the camera field of view from internal params."""
+    with ItsSession() as cam:
+        props = cam.get_camera_properties()
+    try:
+        focal_l = props['android.lens.info.availableFocalLengths'][0]
+        sensor_size = props['android.sensor.info.physicalSize']
+        diag = math.sqrt(sensor_size['height'] ** 2 +
+                         sensor_size['width'] ** 2)
+        fov = str(round(2 * math.degrees(math.atan(diag / (2 * focal_l))), 2))
+    except ValueError:
+        fov = str(0)
+    print 'Calculated FoV: %s' % fov
+    return fov
 
 
 def evaluate_socket_failure(err_file_path):
@@ -36,6 +97,7 @@ def evaluate_socket_failure(err_file_path):
     with open(err_file_path, 'r') as ferr:
         for line in ferr:
             if (line.find('socket.error') != -1 or
+                line.find('socket.timeout') != -1 or
                 line.find('Problem with socket') != -1):
                 socket_fail = True
     return socket_fail
@@ -79,34 +141,8 @@ def main():
         tmp_dir: location of temp directory for output files
         skip_scene_validation: force skip scene validation. Used when test scene
                  is setup up front and don't require tester validation.
+        dist:    [Experimental] chart distance in cm.
     """
-
-    # Not yet mandated tests
-    NOT_YET_MANDATED = {
-        "scene0": [
-            "test_jitter",
-            "test_burst_capture"
-            ],
-        "scene1": [
-            "test_ae_af",
-            "test_ae_precapture_trigger",
-            "test_crop_region_raw",
-            "test_ev_compensation_advanced",
-            "test_ev_compensation_basic",
-            "test_yuv_plus_jpeg"
-            ],
-        "scene2": [
-            "test_num_faces",
-            ],
-        "scene3": [
-            "test_3a_consistency",
-            "test_lens_movement_reporting",
-            "test_lens_position"
-            ],
-        "scene4": [],
-        "scene5": [],
-        "sensor_fusion": []
-    }
 
     all_scenes = ["scene0", "scene1", "scene2", "scene3", "scene4", "scene5",
                   "sensor_fusion"]
@@ -139,6 +175,9 @@ def main():
     rot_rig_id = None
     tmp_dir = None
     skip_scene_validation = False
+    chart_distance = CHART_DISTANCE
+    chart_height = CHART_HEIGHT
+
     for s in sys.argv[1:]:
         if s[:7] == "camera=" and len(s) > 7:
             camera_ids = s[7:].split(',')
@@ -155,7 +194,10 @@ def main():
             tmp_dir = s[8:]
         elif s == 'skip_scene_validation':
             skip_scene_validation = True
+        elif s[:5] == 'dist=' and len(s) > 5:
+            chart_distance = float(re.sub('cm', '', s[5:]))
 
+    chart_dist_arg = 'dist= ' + str(chart_distance)
     auto_scene_switch = chart_host_id is not None
     merge_result_switch = result_device_id is not None
 
@@ -183,7 +225,7 @@ def main():
                     break
 
         if not valid_scenes:
-            print "Unknown scene specifiied:", s
+            print 'Unknown scene specified:', s
             assert False
         scenes = temp_scenes
 
@@ -218,16 +260,8 @@ def main():
 
     # user doesn't specify camera id, run through all cameras
     if not camera_ids:
-        camera_ids_path = os.path.join(topdir, "camera_ids.txt")
-        out_arg = "out=" + camera_ids_path
-        cmd = ['python',
-               os.path.join(os.getcwd(), "tools/get_camera_ids.py"), out_arg,
-               device_id_arg]
-        cam_code = subprocess.call(cmd, cwd=topdir)
-        assert cam_code == 0
-        with open(camera_ids_path, "r") as f:
-            for line in f:
-                camera_ids.append(line.replace('\n', ''))
+        with its.device.ItsSession() as cam:
+            camera_ids = cam.get_camera_ids()
 
     print "Running ITS on camera: %s, scene %s" % (camera_ids, scenes)
 
@@ -245,6 +279,7 @@ def main():
             assert wake_code == 0
 
     for camera_id in camera_ids:
+        camera_fov = calc_camera_fov()
         # Loop capturing images until user confirm test scene is correct
         camera_id_arg = "camera=" + camera_id
         print "Preparing to run ITS on camera", camera_id
@@ -280,9 +315,10 @@ def main():
                     if (not merge_result_switch or
                             (merge_result_switch and camera_ids[0] == '0')):
                         scene_arg = 'scene=' + scene
+                        fov_arg = 'fov=' + camera_fov
                         cmd = ['python',
                                os.path.join(os.getcwd(), 'tools/load_scene.py'),
-                               scene_arg, screen_id_arg]
+                               scene_arg, chart_dist_arg, fov_arg, screen_id_arg]
                     else:
                         time.sleep(CHART_DELAY)
                 else:
@@ -299,6 +335,18 @@ def main():
                     valid_scene_code = subprocess.call(cmd, cwd=topdir)
                     assert valid_scene_code == 0
             print "Start running ITS on camera %s, %s" % (camera_id, scene)
+            # Extract chart from scene for scene3 once up front
+            chart_loc_arg = ''
+            if scene == 'scene3':
+                if float(camera_fov) < 90 and np.isclose(chart_distance, 20,
+                                                         rtol=0.1):
+                    chart_height *= 0.67
+                chart = its.cv2image.Chart(SCENE3_FILE, chart_height,
+                                           chart_distance, CHART_SCALE_START,
+                                           CHART_SCALE_STOP, CHART_SCALE_STEP)
+                chart_loc_arg = 'chart_loc=%.2f,%.2f,%.2f,%.2f,%.3f' % (
+                        chart.xnorm, chart.ynorm, chart.wnorm, chart.hnorm,
+                        chart.scale)
             # Run each test, capturing stdout and stderr.
             for (testname, testpath) in tests:
                 if auto_scene_switch:
@@ -330,7 +378,8 @@ def main():
                             test_code = skip_code
                     if skip_code is not SKIP_RET_CODE:
                         cmd = ['python', os.path.join(os.getcwd(), testpath)]
-                        cmd += sys.argv[1:] + [camera_id_arg]
+                        cmd += sys.argv[1:] + [camera_id_arg] + [chart_loc_arg]
+                        cmd += [chart_dist_arg]
                         with open(outpath, 'w') as fout, open(errpath, 'w') as ferr:
                             test_code = subprocess.call(
                                 cmd, stderr=ferr, stdout=fout, cwd=outdir)
@@ -364,6 +413,7 @@ def main():
 
                 msg = "%s %s/%s [%.1fs]" % (retstr, scene, testname, t1-t0)
                 print msg
+                its.device.adb_log(device_id, msg)
                 msg_short = "%s %s [%.1fs]" % (retstr, testname, t1-t0)
                 if test_failed:
                     summary += msg_short + "\n"
@@ -394,7 +444,9 @@ def main():
                                           else ItsSession.RESULT_FAIL)
             results[scene][ItsSession.SUMMARY_KEY] = summary_path
 
-        print "Reporting ITS result to CtsVerifier"
+        msg = "Reporting ITS result to CtsVerifier"
+        print msg
+        its.device.adb_log(device_id, msg)
         if merge_result_switch:
             # results are modified by report_result
             results_backup = copy.deepcopy(results)

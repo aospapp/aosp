@@ -111,5 +111,7 @@ public class PointFTest {
         mPointF.readFromParcel(p);
         assertEquals(10.0f, mPointF.x, 0.0f);
         assertEquals(20.0f, mPointF.y, 0.0f);
+
+        p.recycle();
     }
 }

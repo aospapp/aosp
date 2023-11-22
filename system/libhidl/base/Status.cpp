@@ -53,7 +53,7 @@ static std::string statusToString(status_t s) {
     }
     std::string str = std::to_string(s);
     char *err = strerror(-s);
-    if (err != NULL) {
+    if (err != nullptr) {
         str.append(1, ' ').append(err);
     }
     return str;

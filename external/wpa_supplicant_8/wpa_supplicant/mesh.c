@@ -84,6 +84,7 @@ static struct mesh_conf * mesh_config_create(struct wpa_supplicant *wpa_s,
 			MESH_CONF_SEC_AMPE;
 	else
 		conf->security |= MESH_CONF_SEC_NONE;
+#ifdef CONFIG_IEEE80211W
 	conf->ieee80211w = ssid->ieee80211w;
 	if (conf->ieee80211w == MGMT_FRAME_PROTECTION_DEFAULT) {
 		if (wpa_s->drv_enc & WPA_DRIVER_CAPA_ENC_BIP)
@@ -91,6 +92,7 @@ static struct mesh_conf * mesh_config_create(struct wpa_supplicant *wpa_s,
 		else
 			conf->ieee80211w = NO_MGMT_FRAME_PROTECTION;
 	}
+#endif /* CONFIG_IEEE80211W */
 
 	cipher = wpa_pick_pairwise_cipher(ssid->pairwise_cipher, 0);
 	if (cipher < 0 || cipher == WPA_CIPHER_TKIP) {
@@ -257,11 +259,10 @@ static int wpa_supplicant_mesh_init(struct wpa_supplicant *wpa_s,
 		 * advertised in beacons match the one in peering frames, sigh.
 		 */
 		if (conf->hw_mode == HOSTAPD_MODE_IEEE80211G) {
-			conf->basic_rates = os_malloc(sizeof(basic_rates_erp));
+			conf->basic_rates = os_memdup(basic_rates_erp,
+						      sizeof(basic_rates_erp));
 			if (!conf->basic_rates)
 				goto out_free;
-			os_memcpy(conf->basic_rates, basic_rates_erp,
-				  sizeof(basic_rates_erp));
 		}
 	} else {
 		rate_len = 0;
@@ -304,11 +305,10 @@ static int wpa_supplicant_mesh_init(struct wpa_supplicant *wpa_s,
 			wpas_mesh_copy_groups(bss, wpa_s);
 		} else {
 			bss->conf->sae_groups =
-				os_malloc(sizeof(default_groups));
+				os_memdup(default_groups,
+					  sizeof(default_groups));
 			if (!bss->conf->sae_groups)
 				goto out_free;
-			os_memcpy(bss->conf->sae_groups, default_groups,
-				  sizeof(default_groups));
 		}
 
 		len = os_strlen(ssid->passphrase);
@@ -413,6 +413,10 @@ int wpa_supplicant_join_mesh(struct wpa_supplicant *wpa_s,
 	else if (wpa_s->conf->dtim_period > 0)
 		params.dtim_period = wpa_s->conf->dtim_period;
 	params.conf.max_peer_links = wpa_s->conf->max_peer_links;
+	if (ssid->mesh_rssi_threshold < DEFAULT_MESH_RSSI_THRESHOLD) {
+		params.conf.rssi_threshold = ssid->mesh_rssi_threshold;
+		params.conf.flags |= WPA_DRIVER_MESH_CONF_FLAG_RSSI_THRESHOLD;
+	}
 
 	if (ssid->key_mgmt & WPA_KEY_MGMT_SAE) {
 		params.flags |= WPA_DRIVER_MESH_FLAG_SAE_AUTH;

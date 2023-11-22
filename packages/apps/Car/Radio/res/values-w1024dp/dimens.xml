@@ -15,6 +15,6 @@ limitations under the License.
 -->
 <resources>
     <dimen name="car_radio_metadata_container_width">484dp</dimen>
-    <dimen name="manual_tuner_back_button_container_size">@dimen/stream_content_keyline_1</dimen>
+    <dimen name="manual_tuner_back_button_container_size">@dimen/car_keyline_1</dimen>
     <dimen name="manual_tuner_container_width">450dp</dimen>
 </resources>

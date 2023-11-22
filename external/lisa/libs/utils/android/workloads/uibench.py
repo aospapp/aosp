@@ -23,44 +23,56 @@ from subprocess import Popen, PIPE
 from time import sleep
 
 from android import Screen, System, Workload
+import pandas as pd
+
 
 class UiBench(Workload):
     """
     Android UiBench workload
     """
+    # Packages required by this workload
+    packages = [
+        Workload.WorkloadPackage("com.android.test.uibench",
+            "data/app/UiBench/UiBench.apk",
+            "frameworks/base/tests/UiBench"),
+        Workload.WorkloadPackage("com.android.uibench.janktests",
+            "data/app/UiBenchJankTests/UiBenchJankTests.apk",
+            "platform_testing/tests/jank/uibench"),
+    ]
 
     # Package required by this workload
-    package = 'com.android.test.uibench'
+    package = packages[0].package_name
 
     # Instrumentation required to run tests
-    test_package = 'com.android.uibench.janktests'
+    test_package = packages[1].package_name
 
     # Supported tests list
-    test_ClippedListView = 'UiBenchJankTests#testClippedListView'
-    test_DialogListFling = 'UiBenchJankTests#testDialogListFling'
-    test_FadingEdgeListViewFling = 'UiBenchJankTests#testFadingEdgeListViewFling'
-    test_FullscreenOverdraw = 'UiBenchJankTests#testFullscreenOverdraw'
-    test_GLTextureView = 'UiBenchJankTests#testGLTextureView'
-    test_InflatingListViewFling = 'UiBenchJankTests#testInflatingListViewFling'
-    test_Invalidate = 'UiBenchJankTests#testInvalidate'
-    test_InvalidateTree = 'UiBenchJankTests#testInvalidateTree'
-    test_OpenNavigationDrawer = 'UiBenchJankTests#testOpenNavigationDrawer'
-    test_OpenNotificationShade = 'UiBenchJankTests#testOpenNotificationShade'
-    test_ResizeHWLayer = 'UiBenchJankTests#testResizeHWLayer'
-    test_SaveLayerAnimation = 'UiBenchJankTests#testSaveLayerAnimation'
-    test_SlowBindRecyclerViewFling = 'UiBenchJankTests#testSlowBindRecyclerViewFling'
-    test_SlowNestedRecyclerViewFling = 'UiBenchJankTests#testSlowNestedRecyclerViewFling'
-    test_SlowNestedRecyclerViewInitialFling = 'UiBenchJankTests#testSlowNestedRecyclerViewInitialFling'
-    test_TrivialAnimation = 'UiBenchJankTests#testTrivialAnimation'
-    test_TrivialListViewFling = 'UiBenchJankTests#testTrivialListViewFling'
-    test_TrivialRecyclerListViewFling = 'UiBenchJankTests#testTrivialRecyclerListViewFling'
-    test_BitmapUploadJank = 'UiBenchRenderingJankTests#testBitmapUploadJank'
-    test_ShadowGridListFling = 'UiBenchRenderingJankTests#testShadowGridListFling'
-    test_EditTextTyping = 'UiBenchTextJankTests#testEditTextTyping'
-    test_LayoutCacheHighHitrateFling = 'UiBenchTextJankTests#testLayoutCacheHighHitrateFling'
-    test_LayoutCacheLowHitrateFling = 'UiBenchTextJankTests#testLayoutCacheLowHitrateFling'
-    test_ActivityTransitionsAnimation = 'UiBenchTransitionsJankTests#testActivityTransitionsAnimation'
-    test_WebViewFling = 'UiBenchWebView#testWebViewFling'
+    test_list = \
+    ['UiBenchJankTests#testClippedListView',
+    'UiBenchJankTests#testDialogListFling',
+    'UiBenchJankTests#testFadingEdgeListViewFling',
+    'UiBenchJankTests#testFullscreenOverdraw',
+    'UiBenchJankTests#testGLTextureView',
+    'UiBenchJankTests#testInflatingListViewFling',
+    'UiBenchJankTests#testInvalidate',
+    'UiBenchJankTests#testInvalidateTree',
+    'UiBenchJankTests#testOpenNavigationDrawer',
+    'UiBenchJankTests#testOpenNotificationShade',
+    'UiBenchJankTests#testResizeHWLayer',
+    'UiBenchJankTests#testSaveLayerAnimation',
+    'UiBenchJankTests#testSlowBindRecyclerViewFling',
+    'UiBenchJankTests#testSlowNestedRecyclerViewFling',
+    'UiBenchJankTests#testSlowNestedRecyclerViewInitialFling',
+    'UiBenchJankTests#testTrivialAnimation',
+    'UiBenchJankTests#testTrivialListViewFling',
+    'UiBenchJankTests#testTrivialRecyclerListViewFling',
+    'UiBenchRenderingJankTests#testBitmapUploadJank',
+    'UiBenchRenderingJankTests#testShadowGridListFling',
+    'UiBenchTextJankTests#testEditTextTyping',
+    'UiBenchTextJankTests#testLayoutCacheHighHitrateFling',
+    'UiBenchTextJankTests#testLayoutCacheLowHitrateFling',
+    'UiBenchTransitionsJankTests#testActivityTransitionsAnimation',
+    'UiBenchWebView#testWebViewFling']
 
     def __init__(self, test_env):
         super(UiBench, self).__init__(test_env)
@@ -70,7 +82,10 @@ class UiBench(Workload):
         # Set of output data reported by UiBench
         self.db_file = None
 
-    def run(self, out_dir, test_name, duration_s, collect=''):
+    def get_test_list(self):
+	return UiBench.test_list
+
+    def run(self, out_dir, test_name, iterations=10, collect=''):
         """
         Run single UiBench workload.
 
@@ -80,22 +95,29 @@ class UiBench(Workload):
         :param test_name: Name of the test to run
         :type test_name: str
 
-        :param duration_s: Run benchmak for this required number of seconds
-        :type duration_s: int
+        :param iterations: Run benchmak for this required number of iterations
+        :type iterations: int
 
         :param collect: Specifies what to collect. Possible values:
-            - 'energy'
             - 'systrace'
             - 'ftrace'
-            - any combination of the above
         :type collect: list(str)
         """
+
+        if 'energy' in collect:
+            raise ValueError('UiBench workload does not support energy data collection')
 
         activity = '.' + test_name
 
         # Keep track of mandatory parameters
         self.out_dir = out_dir
         self.collect = collect
+
+        # Filter out test overhead
+        filter_prop = System.get_boolean_property(self._target, 'debug.hwui.filter_test_overhead')
+        if not filter_prop:
+            System.set_property(
+                self._target, 'debug.hwui.filter_test_overhead', 'true', restart=True)
 
         # Unlock device screen (assume no password required)
         Screen.unlock(self._target)
@@ -109,16 +131,8 @@ class UiBench(Workload):
         # Set min brightness
         Screen.set_brightness(self._target, auto=False, percent=0)
 
-        # Start the main view of the app which must be running
-        # to reset the frame statistics.
-        System.monkey(self._target, self.package)
-
         # Force screen in PORTRAIT mode
         Screen.set_orientation(self._target, portrait=True)
-
-        # Reset frame statistics
-        System.gfxinfo_reset(self._target, self.package)
-        sleep(1)
 
         # Clear logcat
         os.system(self._adb('logcat -c'));
@@ -128,16 +142,19 @@ class UiBench(Workload):
         UIBENCH_BENCHMARK_START_RE = re.compile(start_logline)
         self._log.debug("START string [%s]", start_logline)
 
+        finish_logline = r'TestRunner: finished'
+        UIBENCH_BENCHMARK_FINISH_RE = re.compile(finish_logline)
+        self._log.debug("FINISH string [%s]", start_logline)
+
         # Parse logcat output lines
         logcat_cmd = self._adb(
                 'logcat TestRunner:* System.out:I *:S BENCH:*'\
                 .format(self._target.adb_name))
         self._log.info("%s", logcat_cmd)
 
-        # Run benchmark with a lot of iterations to avoid finishing before duration_s elapses
-        command = "nohup am instrument -e iterations 1000000 -e class {}{} -w {}".format(
-            self.test_package, activity, self.test_package)
-        self._target.background(command)
+        command = "am instrument -e iterations {} -e class {}{} -w {}".format(
+            iterations, self.test_package, activity, self.test_package)
+        test_proc = self._target.background(command)
 
         logcat = Popen(logcat_cmd, shell=True, stdout=PIPE)
         while True:
@@ -150,19 +167,19 @@ class UiBench(Workload):
             if match:
                 self.tracingStart()
                 self._log.debug("Benchmark started!")
+
+            match = UIBENCH_BENCHMARK_FINISH_RE.search(message)
+            if match:
+                self.tracingStop()
+                self._log.debug("Benchmark finished!")
+                test_proc.wait()
                 break
-
-        # Run the workload for the required time
-        self._log.info('Benchmark [%s] started, waiting %d [s]',
-                     activity, duration_s)
-        sleep(duration_s)
-
-        self._log.debug("Benchmark done!")
-        self.tracingStop()
 
         # Get frame stats
         self.db_file = os.path.join(out_dir, "framestats.txt")
-        System.gfxinfo_get(self._target, self.package, self.db_file)
+        with open(self.db_file, 'w') as f:
+            f.writelines(test_proc.stdout.readlines())
+        self.results = self.get_results(out_dir)
 
         # Close and clear application
         System.force_stop(self._target, self.package, clear=True)
@@ -175,4 +192,19 @@ class UiBench(Workload):
         System.set_airplane_mode(self._target, on=False)
         Screen.set_brightness(self._target, auto=True)
 
+    @staticmethod
+    def get_results(res_dir):
+        path = os.path.join(res_dir, 'framestats.txt')
+        with open(path, "r") as f:
+            lines = f.readlines()
+
+        values = []
+        columns = []
+        RESULTS_PARSE_RE = re.compile(r'gfx-([^=]+)=([0-9.]+)')
+        for line in lines:
+            matches = RESULTS_PARSE_RE.search(line)
+            if matches:
+                columns.append(matches.group(1))
+                values.append(float(matches.group(2)))
+        return pd.DataFrame([values], columns=columns)
 # vim :set tabstop=4 shiftwidth=4 expandtab

@@ -92,6 +92,8 @@
 @   mode
 @   pi1_coeff
 
+.equ    nt_offset,      40
+
 .text
 .align 4
 
@@ -106,7 +108,7 @@ ihevc_intra_pred_chroma_dc_a9q:
 
     stmfd       sp!, {r4-r12, r14}          @stack stores the values of the arguments
 
-    ldr         r4,[sp,#40]                 @loads nt
+    ldr         r4,[sp,#nt_offset]          @loads nt
     mov         r9, #0
     vmov        d17, r9, r9
 

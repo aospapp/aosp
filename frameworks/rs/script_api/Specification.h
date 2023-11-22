@@ -141,7 +141,7 @@ struct VersionInfo {
      */
     bool scan(Scanner* scanner, unsigned int maxApiLevel);
     /* Return true if the target can be found whitin the range. */
-    bool includesVersion(int target) const {
+    bool includesVersion(unsigned int target) const {
         return (minVersion == 0 || target >= minVersion) &&
                (maxVersion == 0 || target <= maxVersion);
     }
@@ -597,7 +597,7 @@ public:
      */
     bool readSpecFile(const std::string& fileName, unsigned int maxApiLevel);
     // Generate all the files.
-    bool generateFiles(bool forVerification, unsigned int maxApiLevel) const;
+    bool generateFiles(unsigned int maxApiLevel) const;
 
     const std::vector<SpecFile*>& getSpecFiles() const { return mSpecFiles; }
     const std::map<std::string, Constant*>& getConstants() const { return mConstants; }

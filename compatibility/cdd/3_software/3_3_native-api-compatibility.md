@@ -1,7 +1,5 @@
 ## 3.3\. Native API Compatibility
 
-Device implementers are:
-
 Native code compatibility is challenging. For this reason,
 device implementers are:
 
@@ -58,6 +56,7 @@ Device implementations:
     *   liblog (Android logging)
     *   libmediandk.so (native media APIs support)
     *   libm (math library)
+    *   libneuralnetworks.so (Neural Networks API)
     *   libOpenMAXAL.so (OpenMAX AL 1.0.1 support)
     *   libOpenSLES.so (OpenSL ES 1.0.1 audio support)
     *   libRS.so

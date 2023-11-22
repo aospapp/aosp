@@ -23,6 +23,7 @@
 #include <cutils/properties.h>
 #include <media/stagefright/foundation/ADebug.h>
 #include <media/stagefright/foundation/AMessage.h>
+#include <media/stagefright/foundation/ByteUtils.h>
 #include <media/stagefright/MediaDefs.h>
 #include <media/stagefright/MediaErrors.h>
 #include <media/stagefright/Utils.h>
@@ -483,6 +484,9 @@ static bool MakeURL(const char *baseURL, const char *url, AString *out) {
         // Base URL must be absolute
         return false;
     }
+    if (!strncasecmp("data:", url, 5)) {
+        return false;
+    }
     const size_t schemeEnd = (strstr(baseURL, "//") - baseURL) + 2;
     CHECK(schemeEnd == 7 || schemeEnd == 8);
 
@@ -658,10 +662,13 @@ status_t M3UParser::parse(const void *_data, size_t size) {
         }
 
         if (!line.startsWith("#")) {
+            if (itemMeta == NULL) {
+                ALOGV("itemMeta == NULL");
+                return ERROR_MALFORMED;
+            }
             if (!mIsVariantPlaylist) {
                 int64_t durationUs;
-                if (itemMeta == NULL
-                        || !itemMeta->findInt64("durationUs", &durationUs)) {
+                if (!itemMeta->findInt64("durationUs", &durationUs)) {
                     return ERROR_MALFORMED;
                 }
                 itemMeta->setInt32("discontinuity-sequence",
@@ -897,6 +904,9 @@ status_t M3UParser::parseStreamInf(
         }
     }
 
+    if (meta->get() == NULL) {
+        return ERROR_MALFORMED;
+    }
     return OK;
 }
 

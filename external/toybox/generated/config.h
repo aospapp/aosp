@@ -42,8 +42,8 @@
 #define USE_TOYBOX_SHADOW(...)
 #define CFG_TOYBOX_SMACK 0
 #define USE_TOYBOX_SMACK(...)
-#define CFG_TOYBOX_SUID 1
-#define USE_TOYBOX_SUID(...) __VA_ARGS__
+#define CFG_TOYBOX_SUID 0
+#define USE_TOYBOX_SUID(...)
 #define CFG_TOYBOX_UID_SYS 100
 #define CFG_TOYBOX_UID_USR 500
 #define CFG_TOYBOX_UTMPX 0
@@ -118,6 +118,8 @@
 #define USE_CP_PRESERVE(...) __VA_ARGS__
 #define CFG_CP 1
 #define USE_CP(...) __VA_ARGS__
+#define CFG_CRC32 0
+#define USE_CRC32(...)
 #define CFG_CROND 0
 #define USE_CROND(...)
 #define CFG_CRONTAB 0
@@ -184,6 +186,8 @@
 #define USE_FIND(...) __VA_ARGS__
 #define CFG_FLOCK 1
 #define USE_FLOCK(...) __VA_ARGS__
+#define CFG_FMT 1
+#define USE_FMT(...) __VA_ARGS__
 #define CFG_FOLD 0
 #define USE_FOLD(...)
 #define CFG_FREERAMDISK 1
@@ -206,8 +210,8 @@
 #define USE_GETENFORCE(...) __VA_ARGS__
 #define CFG_GETFATTR 1
 #define USE_GETFATTR(...) __VA_ARGS__
-#define CFG_GETPROP 1
-#define USE_GETPROP(...) __VA_ARGS__
+#define CFG_GETPROP 0
+#define USE_GETPROP(...)
 #define CFG_GETTY 0
 #define USE_GETTY(...)
 #define CFG_GREP 1
@@ -260,8 +264,8 @@
 #define USE_IONICE(...) __VA_ARGS__
 #define CFG_IORENICE 1
 #define USE_IORENICE(...) __VA_ARGS__
-#define CFG_IOTOP 0
-#define USE_IOTOP(...)
+#define CFG_IOTOP 1
+#define USE_IOTOP(...) __VA_ARGS__
 #define CFG_IPCRM 0
 #define USE_IPCRM(...)
 #define CFG_IPCS 0
@@ -504,6 +508,8 @@
 #define USE_STOP(...) __VA_ARGS__
 #define CFG_STRINGS 1
 #define USE_STRINGS(...) __VA_ARGS__
+#define CFG_STTY 1
+#define USE_STTY(...) __VA_ARGS__
 #define CFG_SU 0
 #define USE_SU(...)
 #define CFG_SULOGIN 0
@@ -548,6 +554,8 @@
 #define USE_TEST_MANY_OPTIONS(...)
 #define CFG_TEST_SCANKEY 0
 #define USE_TEST_SCANKEY(...)
+#define CFG_TEST_UTF8TOWC 0
+#define USE_TEST_UTF8TOWC(...)
 #define CFG_TFTPD 0
 #define USE_TFTPD(...)
 #define CFG_TFTP 0

@@ -26,12 +26,14 @@ import android.graphics.drawable.Animatable2;
 import android.graphics.drawable.AnimatedVectorDrawable;
 import android.graphics.drawable.Drawable;
 import android.support.annotation.NonNull;
+import android.view.ContextThemeWrapper;
 import android.view.View;
 import android.view.ViewGroup.LayoutParams;
 import android.widget.ImageView;
 import android.widget.TextView;
 
 import com.android.managedprovisioning.R;
+import com.android.managedprovisioning.model.CustomizationParams;
 
 import java.util.List;
 
@@ -54,14 +56,10 @@ public class BenefitsAnimation {
     /** Id of an {@link ImageView} containing the animated graphic */
     private static final int ID_ANIMATED_GRAPHIC = R.id.animated_info;
 
-    /** Id of an {@link ImageView} containing the animated pager dots */
-    private static final int ID_ANIMATED_DOTS = R.id.animated_dots;
-
     private static final int SLIDE_COUNT = 3;
     private static final int ANIMATION_ORIGINAL_WIDTH_PX = 1080;
 
     private final AnimatedVectorDrawable mTopAnimation;
-    private final AnimatedVectorDrawable mDotsAnimation;
     private final Animator mTextAnimation;
     private final Activity mActivity;
 
@@ -72,7 +70,7 @@ public class BenefitsAnimation {
      * @param contentDescription for accessibility
      */
     public BenefitsAnimation(@NonNull Activity activity, @NonNull List<Integer> captions,
-            int contentDescription) {
+            int contentDescription, CustomizationParams customizationParams) {
         if (captions.size() != SLIDE_COUNT) {
             throw new IllegalArgumentException(
                     "Wrong number of slide captions. Expected: " + SLIDE_COUNT);
@@ -81,7 +79,9 @@ public class BenefitsAnimation {
         mTextAnimation = checkNotNull(assembleTextAnimation());
         applySlideCaptions(captions);
         applyContentDescription(contentDescription);
-        mDotsAnimation = checkNotNull(extractAnimationFromImageView(ID_ANIMATED_DOTS));
+
+        setTopInfoDrawable(customizationParams);
+
         mTopAnimation = checkNotNull(extractAnimationFromImageView(ID_ANIMATED_GRAPHIC));
 
         // chain all animations together
@@ -89,6 +89,19 @@ public class BenefitsAnimation {
 
         // once the screen is ready, adjust size
         mActivity.findViewById(android.R.id.content).post(this::adjustToScreenSize);
+    }
+
+    private void setTopInfoDrawable(CustomizationParams customizationParams) {
+        int swiperTheme = new SwiperThemeMatcher(mActivity, new ColorMatcher())
+                .findTheme(customizationParams.mainColor);
+
+        ContextThemeWrapper wrapper = new ContextThemeWrapper(mActivity, swiperTheme);
+        Drawable drawable =
+                mActivity.getResources().getDrawable(
+                        R.drawable.topinfo_animation,
+                        wrapper.getTheme());
+        ImageView imageView = mActivity.findViewById(ID_ANIMATED_GRAPHIC);
+        imageView.setImageDrawable(drawable);
     }
 
     /** Starts playing the animation in a loop. */
@@ -160,7 +173,6 @@ public class BenefitsAnimation {
                 super.onAnimationStart(drawable);
 
                 // starting the other animations at the same time
-                mDotsAnimation.start();
                 mTextAnimation.start();
             }
 
@@ -169,7 +181,6 @@ public class BenefitsAnimation {
                 super.onAnimationEnd(drawable);
 
                 // without explicitly stopping them, sometimes they won't restart
-                mDotsAnimation.stop();
                 mTextAnimation.cancel();
 
                 // repeating the animation in loop

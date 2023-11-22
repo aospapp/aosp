@@ -57,6 +57,7 @@
 #include <signal.h>
 #include <pwd.h>
 #include "test.h"
+#include "safe_macros.h"
 
 static void setup(void);
 static void cleanup(void);
@@ -140,21 +141,14 @@ static void setup(void)
 
 	/* Switch to nobody user for correct error code collection */
 	ltpuser = getpwnam(nobody_uid);
-	if (setgid(ltpuser->pw_gid) == -1) {
-		tst_brkm(TBROK | TERRNO, NULL, "setgid(%d) failed",
-			 ltpuser->pw_gid);
-	} else if (setuid(ltpuser->pw_uid) == -1) {
-		tst_brkm(TBROK | TERRNO, NULL, "setuid(%d) failed",
-			 ltpuser->pw_uid);
-	}
+	SAFE_SETGID(NULL, ltpuser->pw_gid);
+	SAFE_SETUID(NULL, ltpuser->pw_uid);
 
 	tst_tmpdir();
 
 	sprintf(filename, "open3.%d", getpid());
 
-	fildes = creat(filename, 0600);
-	if (fildes == -1)
-		tst_brkm(TBROK, cleanup, "Can't creat %s", filename);
+	fildes = SAFE_CREAT(cleanup, filename, 0600);
 
 	close(fildes);
 

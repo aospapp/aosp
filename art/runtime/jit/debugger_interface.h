@@ -21,28 +21,32 @@
 #include <memory>
 #include <vector>
 
+#include "base/array_ref.h"
+#include "base/mutex.h"
+
 namespace art {
 
-extern "C" {
-  struct JITCodeEntry;
-}
+// Notify native tools (e.g. libunwind) that DEX file has been opened.
+// It takes the lock itself. The parameter must point to dex data (not the DexFile* object).
+void AddNativeDebugInfoForDex(Thread* current_thread, ArrayRef<const uint8_t> dexfile);
 
-// Notify native debugger about new JITed code by passing in-memory ELF.
-// It takes ownership of the in-memory ELF file.
-JITCodeEntry* CreateJITCodeEntry(std::vector<uint8_t> symfile);
+// Notify native tools (e.g. libunwind) that DEX file has been closed.
+// It takes the lock itself. The parameter must point to dex data (not the DexFile* object).
+void RemoveNativeDebugInfoForDex(Thread* current_thread, ArrayRef<const uint8_t> dexfile);
 
-// Notify native debugger that JITed code has been removed.
-// It also releases the associated in-memory ELF file.
-void DeleteJITCodeEntry(JITCodeEntry* entry);
+// Notify native tools about new JITed code by passing in-memory ELF.
+// The handle is the object that is being described (needed to be able to remove the entry).
+// The method will make copy of the passed ELF file (to shrink it to the minimum size).
+void AddNativeDebugInfoForJit(const void* handle, const std::vector<uint8_t>& symfile)
+    REQUIRES(Locks::native_debug_interface_lock_);
 
-// Notify native debugger about new JITed code by passing in-memory ELF.
-// The address is used only to uniquely identify the entry.
-// It takes ownership of the in-memory ELF file.
-void CreateJITCodeEntryForAddress(uintptr_t address, std::vector<uint8_t> symfile);
+// Notify native debugger that JITed code has been removed and free the debug info.
+void RemoveNativeDebugInfoForJit(const void* handle)
+    REQUIRES(Locks::native_debug_interface_lock_);
 
-// Notify native debugger that JITed code has been removed.
-// Returns false if entry for the given address was not found.
-bool DeleteJITCodeEntryForAddress(uintptr_t address);
+// Returns approximate memory used by all JITCodeEntries.
+size_t GetJitNativeDebugInfoMemUsage()
+    REQUIRES(Locks::native_debug_interface_lock_);
 
 }  // namespace art
 

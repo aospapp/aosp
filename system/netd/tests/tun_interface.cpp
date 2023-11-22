@@ -20,12 +20,14 @@
 #include <netdb.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <linux/if.h>
+#include <linux/if_tun.h>
+#include <net/if.h>
+#include <netinet/in.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <linux/if.h>
-#include <linux/if_tun.h>
 
 #include <android-base/stringprintf.h>
 #include <android-base/strings.h>
@@ -57,12 +59,16 @@ int TunInterface::init() {
         return -EINVAL;
     }
 
-    // Create a tun interface with a name based on our PID.
-    mIfName = StringPrintf("netdtest%u", getpid());
+    // Create a tun interface with a name based on our PID and some randomness.
+    // iptables will only accept interfaces whose name is up to IFNAMSIZ - 1 bytes long.
+    mIfName = StringPrintf("netd%u_%u", getpid(), arc4random());
+    if (mIfName.size() >= IFNAMSIZ) {
+        mIfName.resize(IFNAMSIZ - 1);
+    }
     struct ifreq ifr = {
         .ifr_ifru = { .ifru_flags = IFF_TUN },
     };
-    snprintf(ifr.ifr_name, sizeof(ifr.ifr_name), "%s", mIfName.c_str());
+    strlcpy(ifr.ifr_name, mIfName.c_str(), sizeof(ifr.ifr_name));
 
     mFd = open(TUN_DEV, O_RDWR | O_NONBLOCK | O_CLOEXEC);
     if (mFd == -1) return -errno;
@@ -80,6 +86,8 @@ int TunInterface::init() {
         close(mFd);
         return ret;
     }
+
+    mIfIndex = if_nametoindex(ifr.ifr_name);
 
     return 0;
 }

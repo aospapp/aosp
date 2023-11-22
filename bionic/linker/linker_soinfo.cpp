@@ -152,7 +152,7 @@ static bool is_symbol_global_and_defined(const soinfo* si, const ElfW(Sym)* s) {
       ELF_ST_BIND(s->st_info) == STB_WEAK) {
     return s->st_shndx != SHN_UNDEF;
   } else if (ELF_ST_BIND(s->st_info) != STB_LOCAL) {
-    DL_WARN("unexpected ST_BIND value: %d for \"%s\" in \"%s\"",
+    DL_WARN("Warning: unexpected ST_BIND value: %d for \"%s\" in \"%s\" (ignoring)",
             ELF_ST_BIND(s->st_info), si->get_string(s->st_name), si->get_realpath());
   }
 
@@ -537,6 +537,14 @@ void soinfo::set_nodelete() {
   rtld_flags_ |= RTLD_NODELETE;
 }
 
+void soinfo::set_tls_nodelete() {
+  flags_ |= FLAG_TLS_NODELETE;
+}
+
+void soinfo::unset_tls_nodelete() {
+  flags_ &= ~FLAG_TLS_NODELETE;
+}
+
 const char* soinfo::get_realpath() const {
 #if defined(__work_around_b_24465209__)
   if (has_min_version(2)) {
@@ -650,11 +658,19 @@ bool soinfo::is_gnu_hash() const {
 }
 
 bool soinfo::can_unload() const {
-  return !is_linked() || ((get_rtld_flags() & (RTLD_NODELETE | RTLD_GLOBAL)) == 0);
+  return !is_linked() ||
+         (
+             (get_rtld_flags() & (RTLD_NODELETE | RTLD_GLOBAL)) == 0 &&
+             (flags_ & FLAG_TLS_NODELETE) == 0
+         );
 }
 
 bool soinfo::is_linked() const {
   return (flags_ & FLAG_LINKED) != 0;
+}
+
+bool soinfo::is_image_linked() const {
+  return (flags_ & FLAG_IMAGE_LINKED) != 0;
 }
 
 bool soinfo::is_main_executable() const {
@@ -669,6 +685,10 @@ void soinfo::set_linked() {
   flags_ |= FLAG_LINKED;
 }
 
+void soinfo::set_image_linked() {
+  flags_ |= FLAG_IMAGE_LINKED;
+}
+
 void soinfo::set_linker_flag() {
   flags_ |= FLAG_LINKER;
 }
@@ -677,12 +697,16 @@ void soinfo::set_main_executable() {
   flags_ |= FLAG_EXE;
 }
 
-void soinfo::increment_ref_count() {
-  local_group_root_->ref_count_++;
+size_t soinfo::increment_ref_count() {
+  return ++local_group_root_->ref_count_;
 }
 
 size_t soinfo::decrement_ref_count() {
   return --local_group_root_->ref_count_;
+}
+
+size_t soinfo::get_ref_count() const {
+  return local_group_root_->ref_count_;
 }
 
 soinfo* soinfo::get_local_group_root() const {

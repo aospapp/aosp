@@ -22,5 +22,6 @@
         <boolean name="enableMultipartSMS" value="true" />
         <boolean name="allow_non_emergency_calls_in_ecm_bool" value="false" />
         <string name="carrier_eri_file_name_string">eri_311490.xml</string>
+        <boolean name="config_telephony_use_own_number_for_voicemail_bool" value="true" />
     </carrier_config>
 </carrier_config_list>

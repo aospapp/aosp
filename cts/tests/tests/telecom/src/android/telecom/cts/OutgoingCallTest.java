@@ -16,13 +16,12 @@
 
 package android.telecom.cts;
 
-import static android.telecom.cts.TestUtils.shouldTestTelecom;
-
 import android.content.Context;
 import android.media.AudioManager;
 import android.os.Bundle;
 import android.telecom.CallAudioState;
 import android.telecom.TelecomManager;
+import android.telephony.TelephonyManager;
 
 /**
  * Verifies the behavior of Telecom during various outgoing call flows.
@@ -93,5 +92,18 @@ public class OutgoingCallTest extends BaseTelecomTestWithMockServices {
             return; // Do not verify if the only available route is speaker.
         }
         assertNotAudioRoute(mInCallCallbacks.getService(), CallAudioState.ROUTE_SPEAKER);
+    }
+
+    public void testPhoneStateListenerInvokedOnOutgoingCall() throws Exception {
+        if (!mShouldTestTelecom) {
+            return;
+        }
+
+        placeAndVerifyCall();
+        verifyConnectionForOutgoingCall();
+        String expectedNumber = connectionService.outgoingConnections.get(0)
+                .getAddress().getSchemeSpecificPart();
+        verifyPhoneStateListenerCallbacksForCall(TelephonyManager.CALL_STATE_OFFHOOK,
+                expectedNumber);
     }
 }

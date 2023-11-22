@@ -15,8 +15,9 @@
  */
 
 #include <inttypes.h>
+
+#include <cstdio>
 #include <memory>
-#include <stdio.h>
 
 #include "android-base/logging.h"
 #include "android-base/stringprintf.h"
@@ -45,6 +46,19 @@ jstring JNICALL Java_art_Test992_getSourceFileName(JNIEnv* env,
   }
   jstring ret = env->NewStringUTF(file);
   jvmti_env->Deallocate(reinterpret_cast<unsigned char*>(file));
+  return ret;
+}
+
+extern "C" JNIEXPORT
+jstring JNICALL Java_art_Test992_getSourceDebugExtension(JNIEnv* env,
+                                                         jclass klass ATTRIBUTE_UNUSED,
+                                                         jclass target) {
+  char* ext = nullptr;
+  if (JvmtiErrorToException(env, jvmti_env, jvmti_env->GetSourceDebugExtension(target, &ext))) {
+    return nullptr;
+  }
+  jstring ret = env->NewStringUTF(ext);
+  jvmti_env->Deallocate(reinterpret_cast<unsigned char*>(ext));
   return ret;
 }
 

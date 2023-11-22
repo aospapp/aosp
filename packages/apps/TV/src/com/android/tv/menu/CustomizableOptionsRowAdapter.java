@@ -17,15 +17,11 @@
 package com.android.tv.menu;
 
 import android.content.Context;
-
-import com.android.tv.customization.CustomAction;
-
+import com.android.tv.common.customization.CustomAction;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * An adapter of options that can accepts customization data.
- */
+/** An adapter of options that can accepts customization data. */
 public abstract class CustomizableOptionsRowAdapter extends OptionsRowAdapter {
     private final List<CustomAction> mCustomActions;
 
@@ -54,8 +50,9 @@ public abstract class CustomizableOptionsRowAdapter extends OptionsRowAdapter {
                 // Type of MenuAction should be unique in the Adapter.
                 int type = -(i + 1);
                 CustomAction customAction = mCustomActions.get(i);
-                MenuAction action = new MenuAction(
-                        customAction.getTitle(), type, customAction.getIconDrawable());
+                MenuAction action =
+                        new MenuAction(
+                                customAction.getTitle(), type, customAction.getIconDrawable());
 
                 if (customAction.isFront()) {
                     actions.add(position++, action);

@@ -32,10 +32,8 @@ public final class ObexTime {
          * match OBEX time string: YYYYMMDDTHHMMSS with optional UTF offset
          * +/-hhmm
          */
-        Pattern p = Pattern
-                .compile(
-                        "(\\d{4})(\\d{2})(\\d{2})T(\\d{2})(\\d{2})(\\d{2})(([+-])(\\d{2})(\\d{2})"
-                                + ")?");
+        Pattern p = Pattern.compile(
+                "(\\d{4})(\\d{2})(\\d{2})T(\\d{2})(\\d{2})(\\d{2})(([+-])(\\d{2})(\\d{2})" + ")?");
         Matcher m = p.matcher(time);
 
         if (m.matches()) {
@@ -95,9 +93,8 @@ public final class ObexTime {
         cal.setTime(mDate);
 
         /* note that months are numbered stating from 0 */
-        return String.format(Locale.US, "%04d%02d%02dT%02d%02d%02d",
-                cal.get(Calendar.YEAR), cal.get(Calendar.MONTH) + 1,
-                cal.get(Calendar.DATE), cal.get(Calendar.HOUR_OF_DAY),
+        return String.format(Locale.US, "%04d%02d%02dT%02d%02d%02d", cal.get(Calendar.YEAR),
+                cal.get(Calendar.MONTH) + 1, cal.get(Calendar.DATE), cal.get(Calendar.HOUR_OF_DAY),
                 cal.get(Calendar.MINUTE), cal.get(Calendar.SECOND));
     }
 }

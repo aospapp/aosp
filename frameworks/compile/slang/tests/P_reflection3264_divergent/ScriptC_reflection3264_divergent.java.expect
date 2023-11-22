@@ -43,20 +43,17 @@ public class ScriptC_reflection3264_divergent extends ScriptC {
         __ALLOCATION = Element.ALLOCATION(rs);
         __ScriptField_NonDivergent = ScriptField_NonDivergent.createElement(rs);
         __ScriptField_Divergent = ScriptField_Divergent.createElement(rs);
-        __ScriptField_DivergentNest = ScriptField_DivergentNest.createElement(rs);
     }
 
     private Element __@@INVALID@@;
     private Element __ALLOCATION;
     private Element __I32;
     private Element __ScriptField_Divergent;
-    private Element __ScriptField_DivergentNest;
     private Element __ScriptField_NonDivergent;
     private FieldPacker __rs_fp_@@INVALID@@;
     private FieldPacker __rs_fp_ALLOCATION;
     private FieldPacker __rs_fp_I32;
     private FieldPacker __rs_fp_ScriptField_Divergent;
-    private FieldPacker __rs_fp_ScriptField_DivergentNest;
     private FieldPacker __rs_fp_ScriptField_NonDivergent;
     private final static int mExportVarIdx_intVar = 0;
     private int mExportVar_intVar;
@@ -261,63 +258,6 @@ public class ScriptC_reflection3264_divergent extends ScriptC {
 
     public Script.FieldID getFieldID_dArray() {
         return createFieldID(mExportVarIdx_dArray, null);
-    }
-
-    private final static int mExportVarIdx_dnVar = 10;
-    private ScriptField_DivergentNest.Item mExportVar_dnVar;
-    public synchronized void set_dnVar(ScriptField_DivergentNest.Item v) {
-        mExportVar_dnVar = v;
-        FieldPacker fp = new FieldPacker(sIs64Bit ? 64 : 20);
-        fp.addI32(v.x);
-        fp.skip(sIs64Bit ? 4 : 0);
-        fp.addI32(v.d.i);
-        fp.skip(sIs64Bit ? 4 : 0);
-        fp.addObj(v.d.a);
-        fp.addI32(v.d.j);
-        fp.skip(sIs64Bit ? 4 : 0);
-        fp.addI32(v.y);
-        fp.skip(sIs64Bit ? 4 : 0);
-        int []__dimArr = new int[1];
-        __dimArr[0] = 1;
-        setVar(mExportVarIdx_dnVar, fp, __ScriptField_DivergentNest, __dimArr);
-    }
-
-    public ScriptField_DivergentNest.Item get_dnVar() {
-        return mExportVar_dnVar;
-    }
-
-    public Script.FieldID getFieldID_dnVar() {
-        return createFieldID(mExportVarIdx_dnVar, null);
-    }
-
-    private final static int mExportVarIdx_dnArray = 11;
-    private ScriptField_DivergentNest.Item[] mExportVar_dnArray;
-    public synchronized void set_dnArray(ScriptField_DivergentNest.Item[] v) {
-        mExportVar_dnArray = v;
-        FieldPacker fp = new FieldPacker(sIs64Bit ? 480 : 200);
-        for (int ct1 = 0; ct1 < 10; ct1++) {
-            fp.addI32(v[ct1].x);
-            fp.skip(sIs64Bit ? 4 : 0);
-            fp.addI32(v[ct1].d.i);
-            fp.skip(sIs64Bit ? 4 : 0);
-            fp.addObj(v[ct1].d.a);
-            fp.addI32(v[ct1].d.j);
-            fp.skip(sIs64Bit ? 4 : 0);
-            fp.addI32(v[ct1].y);
-            fp.skip(sIs64Bit ? 4 : 0);
-        }
-
-        int []__dimArr = new int[1];
-        __dimArr[0] = 10;
-        setVar(mExportVarIdx_dnArray, fp, __ScriptField_DivergentNest, __dimArr);
-    }
-
-    public ScriptField_DivergentNest.Item[] get_dnArray() {
-        return mExportVar_dnArray;
-    }
-
-    public Script.FieldID getFieldID_dnArray() {
-        return createFieldID(mExportVarIdx_dnArray, null);
     }
 
     //private final static int mExportForEachIdx_root = 0;

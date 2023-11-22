@@ -16,23 +16,28 @@
   -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.android.car.media"
-    android:sharedUserId="com.android.car.media" >
+    android:sharedUserId="com.android.car.media"
+    package="com.android.car.media" >
+
+    <uses-permission android:name="android.permission.MEDIA_CONTENT_CONTROL"/>
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
 
     <uses-sdk
         android:minSdkVersion="24"
         android:targetSdkVersion='24'/>
 
-    <application android:label="CarMediaApp"
+    <application
+        android:label="CarMediaApp"
         android:icon="@drawable/ic_music">
 
         <meta-data
             android:name="android.car.application"
             android:resource="@xml/automotive_app_desc" />
 
-        <activity android:name=".MediaActivity"
-            android:theme="@style/CarDrawerActivityTheme"
-            android:label="CarMediaApp"
+        <activity
+            android:name=".MediaActivity"
+            android:theme="@style/MediaActivityTheme"
             android:resizeableActivity="true"
             android:launchMode="singleTop">
             <intent-filter>

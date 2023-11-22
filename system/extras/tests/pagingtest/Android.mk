@@ -10,6 +10,8 @@ LOCAL_SRC_FILES:=    \
 
 LOCAL_MODULE:= pagingtest
 
+LOCAL_CFLAGS := -Wall -Werror
+
 LOCAL_MODULE_TAGS := tests
 
 LOCAL_MODULE_PATH := $(local_target_dir)

@@ -16,35 +16,45 @@
 
 package com.android.tradefed.testtype;
 
-import com.android.ddmlib.testrunner.TestIdentifier;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
+import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.result.ITestInvocationListener;
+import com.android.tradefed.result.TestDescription;
 import com.android.tradefed.util.CommandResult;
 import com.android.tradefed.util.CommandStatus;
 import com.android.tradefed.util.IRunUtil;
 
-import junit.framework.TestCase;
-
 import org.easymock.EasyMock;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
+
+import java.util.HashMap;
 
 /** Unit tests for {@link PythonUnitTestRunner}. */
-public class PythonUnitTestRunnerTest extends TestCase {
+@RunWith(JUnit4.class)
+public class PythonUnitTestRunnerTest {
 
     private static final String[] TEST_PASS_STDERR = {
-        "b (a) ... ok", "", PythonUnitTestResultParser.LINE, "Ran 1 tests in 1s", "", "OK",
+        "b (a) ... ok", "", PythonUnitTestResultParser.DASH_LINE, "Ran 1 tests in 1s", "", "OK",
     };
 
     private static final String[] TEST_FAIL_STDERR = {
         "b (a) ... ERROR",
         "",
-        PythonUnitTestResultParser.EQLINE,
+        PythonUnitTestResultParser.EQUAL_LINE,
         "ERROR: b (a)",
-        PythonUnitTestResultParser.LINE,
+        PythonUnitTestResultParser.DASH_LINE,
         "Traceback (most recent call last):",
         "  File \"test_rangelib.py\", line 129, in test_reallyfail",
         "    raise ValueError()",
         "ValueError",
         "",
-        PythonUnitTestResultParser.LINE,
+        PythonUnitTestResultParser.DASH_LINE,
         "Ran 1 tests in 1s",
         "",
         "FAILED (errors=1)",
@@ -117,31 +127,33 @@ public class PythonUnitTestRunnerTest extends TestCase {
     private PythonUnitTestRunner mRunner;
     private ITestInvocationListener mMockListener;
 
-    @Override
+    @Before
     public void setUp() throws Exception {
-        super.setUp();
         mRunner = new PythonUnitTestRunner();
         mMockListener = EasyMock.createMock(ITestInvocationListener.class);
     }
 
+    @Test
     public void testCheckPythonVersion_276given270min() {
         CommandResult c = new CommandResult();
         c.setStderr("Python 2.7.6");
         mRunner.checkPythonVersion(c);
     }
 
+    @Test
     public void testCheckPythonVersion_276given331min() {
         CommandResult c = new CommandResult();
         c.setStderr("Python 2.7.6");
         mRunner.setMinPythonVersion("3.3.1");
         try {
             mRunner.checkPythonVersion(c);
-            fail("Detected 2.7.6 >= 3.3.1");
-        } catch (AssertionError e) {
-            return;
+            fail("Should have thrown an exception.");
+        } catch (RuntimeException expected) {
+            // expected
         }
     }
 
+    @Test
     public void testCheckPythonVersion_300given276min() {
         CommandResult c = new CommandResult();
         c.setStderr("Python 3.0.0");
@@ -171,24 +183,28 @@ public class PythonUnitTestRunnerTest extends TestCase {
     private void setMockListenerExpectTestPass(boolean testPass) {
         mMockListener.testRunStarted((String) EasyMock.anyObject(), EasyMock.anyInt());
         EasyMock.expectLastCall().times(1);
-        mMockListener.testStarted((TestIdentifier) EasyMock.anyObject());
+        mMockListener.testStarted((TestDescription) EasyMock.anyObject());
         EasyMock.expectLastCall().times(1);
         if (!testPass) {
             mMockListener.testFailed(
-                    (TestIdentifier) EasyMock.anyObject(), (String) EasyMock.anyObject());
+                    (TestDescription) EasyMock.anyObject(), (String) EasyMock.anyObject());
             EasyMock.expectLastCall().times(1);
         }
-        mMockListener.testEnded((TestIdentifier) EasyMock.anyObject(), EasyMock.anyObject());
+        mMockListener.testEnded(
+                (TestDescription) EasyMock.anyObject(),
+                (HashMap<String, Metric>) EasyMock.anyObject());
         EasyMock.expectLastCall().times(1);
         if (!testPass) {
             mMockListener.testRunFailed((String) EasyMock.anyObject());
             EasyMock.expectLastCall().times(1);
         }
-        mMockListener.testRunEnded(EasyMock.anyLong(), EasyMock.anyObject());
+        mMockListener.testRunEnded(
+                EasyMock.anyLong(), (HashMap<String, Metric>) EasyMock.anyObject());
         EasyMock.expectLastCall().times(1);
     }
 
     /** Test execution succeeds and all test cases pass. */
+    @Test
     public void testRunPass() {
         IRunUtil mockRunUtil = getMockRunUtil(UnitTestResult.PASS);
         setMockListenerExpectTestPass(true);
@@ -198,6 +214,7 @@ public class PythonUnitTestRunnerTest extends TestCase {
     }
 
     /** Test execution succeeds and some test cases fail. */
+    @Test
     public void testRunFail() {
         IRunUtil mockRunUtil = getMockRunUtil(UnitTestResult.FAIL);
         setMockListenerExpectTestPass(false);
@@ -207,6 +224,7 @@ public class PythonUnitTestRunnerTest extends TestCase {
     }
 
     /** Test execution fails. */
+    @Test
     public void testRunExecutionFail() {
         IRunUtil mockRunUtil = getMockRunUtil(UnitTestResult.EXECUTION_FAIL);
         EasyMock.replay(mockRunUtil);
@@ -214,12 +232,13 @@ public class PythonUnitTestRunnerTest extends TestCase {
             mRunner.doRunTest(mMockListener, mockRunUtil, "");
             fail("Should not reach here.");
         } catch (RuntimeException e) {
-            assertEquals("Failed to parse python-unittest", e.getMessage());
+            assertEquals("Failed to parse Python unittest result", e.getMessage());
         }
         EasyMock.verify(mockRunUtil);
     }
 
     /** Test execution times out. */
+    @Test
     public void testRunTimeout() {
         IRunUtil mockRunUtil = getMockRunUtil(UnitTestResult.TIMEOUT);
         EasyMock.replay(mockRunUtil);

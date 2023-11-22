@@ -14,19 +14,42 @@
      limitations under the License.
 -->
 <resources xmlns:android="http://schemas.android.com/apk/res/android">
+    <style name="TextAppearance.Car.Key1" >
+        <item name="android:textStyle">normal</item>
+        <item name="android:textSize">@dimen/car_key1_size</item>
+        <item name="android:textColor">@color/car_key1</item>
+    </style>
+
+    <style name="TextAppearance.Car.Key2" >
+        <item name="android:textStyle">normal</item>
+        <item name="android:textSize">@dimen/car_key2_size</item>
+        <item name="android:textColor">@color/car_key2</item>
+    </style>
 
     <!-- Phone -->
     <style name="DialpadKeyButtonStyle">
         <item name="android:clickable">true</item>
-        <item name="android:layout_width">@dimen/stream_button_size</item>
-        <item name="android:layout_height">@dimen/stream_button_size</item>
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:minWidth">@dimen/car_touch_target_size</item>
+        <item name="android:minHeight">@dimen/car_touch_target_size</item>
         <item name="android:background">@drawable/dialpad_button_background</item>
         <item name="android:focusable">true</item>
     </style>
 
-    <style name="DialpadCall">
-        <item name="android:layout_width">@dimen/dial_number_call_button_width</item>
-        <item name="android:layout_height">@dimen/dial_number_call_button_width</item>
+    <style name="DialpadPrimaryButton">
+        <item name="android:layout_width">@dimen/fab_button_size</item>
+        <item name="android:layout_height">@dimen/fab_button_size</item>
+        <item name="android:elevation">@dimen/call_fab_elevation</item>
+        <item name="android:scaleType">center</item>
+    </style>
+
+    <style name="DialpadSecondaryButton">
+        <item name="android:layout_width">@dimen/bksp_button_width</item>
+        <item name="android:layout_height">@dimen/bksp_button_width</item>
+        <item name="android:background">@drawable/dialpad_delete_button_background</item>
+        <item name="android:scaleType">centerInside</item>
+        <item name="android:tint">@color/car_tint</item>
     </style>
 
     <style name="InCallDialpad">
@@ -39,7 +62,7 @@
         <item name="android:textColor">@color/car_headline1</item>
     </style>
 
-    <style name="NoHfpText" parent="CarBody2.Light">
+    <style name="NoHfpText" parent="TextAppearance.Car.Body2">
         <item name="android:textColor">@color/car_body1_light</item>
         <item name="android:gravity">center</item>
         <item name="android:maxLines">3</item>

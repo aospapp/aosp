@@ -231,8 +231,8 @@ longer.)
     - Install the drivers into a directory called Intel3.5 in your WORKSPACE.
 
   - Include the driver in OVMF during the build:
-    - Add "-D E1000_ENABLE -D FD_SIZE_2MB" to your build command,
-    - For example: "build -D E1000_ENABLE -D FD_SIZE_2MB".
+    - Add "-D E1000_ENABLE" to your build command,
+    - For example: "build -D E1000_ENABLE".
 
 * When a matching iPXE driver is configured for a NIC as described above, it
   takes priority over other drivers that could possibly drive the card too:
@@ -290,11 +290,11 @@ If you must use UNIXGCC, then you can override the build options for
 particular libraries and modules in the .dsc to re-enable debugging
 selectively. For example:
   [Components]
-  OvmfPkg/Library/PlatformBdsLib/PlatformBdsLib.inf {
+  OvmfPkg/Library/PlatformBootManagerLib/PlatformBootManagerLib.inf {
     <BuildOptions>
       GCC:*_*_*_CC_FLAGS             = -UMDEPKG_NDEBUG
   }
-  IntelFrameworkModulePkg/Universal/BdsDxe/BdsDxe.inf {
+  MdeModulePkg/Universal/BdsDxe/BdsDxe.inf {
     <BuildOptions>
       GCC:*_*_*_CC_FLAGS             = -UMDEPKG_NDEBUG
   }

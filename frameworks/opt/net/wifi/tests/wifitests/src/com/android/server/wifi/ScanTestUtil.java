@@ -60,17 +60,25 @@ public class ScanTestUtil {
         return request;
     }
 
+    public static WifiScanner.ScanSettings createRequest(int type, int band, int period, int batch,
+            int bssidsPerScan, int reportEvents) {
+        return createRequest(WifiScanner.TYPE_HIGH_ACCURACY, band, period, 0, 0,
+                batch, bssidsPerScan, reportEvents);
+    }
+
     public static WifiScanner.ScanSettings createRequest(int band, int period, int batch,
             int bssidsPerScan, int reportEvents) {
-        return createRequest(band, period, 0, 0, batch, bssidsPerScan, reportEvents);
+        return createRequest(WifiScanner.TYPE_HIGH_ACCURACY, band, period, 0, 0, batch,
+                bssidsPerScan, reportEvents);
     }
 
     /**
      * Create an exponential back off scan request if maxPeriod != period && maxPeriod != 0.
      */
-    public static WifiScanner.ScanSettings createRequest(int band, int period, int maxPeriod,
-            int stepCount, int batch, int bssidsPerScan, int reportEvents) {
+    public static WifiScanner.ScanSettings createRequest(int type, int band, int period,
+            int maxPeriod, int stepCount, int batch, int bssidsPerScan, int reportEvents) {
         WifiScanner.ScanSettings request = new WifiScanner.ScanSettings();
+        request.type = type;
         request.band = band;
         request.channels = null;
         request.periodInMs = period;
@@ -88,11 +96,16 @@ public class ScanTestUtil {
     public static class NativeScanSettingsBuilder {
         private final WifiNative.ScanSettings mSettings = new WifiNative.ScanSettings();
         public NativeScanSettingsBuilder() {
+            mSettings.scanType = WifiNative.SCAN_TYPE_LOW_LATENCY;
             mSettings.buckets = new WifiNative.BucketSettings[0];
             mSettings.num_buckets = 0;
             mSettings.report_threshold_percent = 100;
         }
 
+        public NativeScanSettingsBuilder withType(int type) {
+            mSettings.scanType = type;
+            return this;
+        }
         public NativeScanSettingsBuilder withBasePeriod(int basePeriod) {
             mSettings.base_period_ms = basePeriod;
             return this;
@@ -165,6 +178,21 @@ public class ScanTestUtil {
         public WifiNative.ScanSettings build() {
             return mSettings;
         }
+
+    }
+
+    private static int getNativeScanType(int type) {
+        switch(type) {
+            case WifiScanner.TYPE_LOW_LATENCY:
+                return WifiNative.SCAN_TYPE_LOW_LATENCY;
+            case WifiScanner.TYPE_LOW_POWER:
+                return WifiNative.SCAN_TYPE_LOW_POWER;
+            case WifiScanner.TYPE_HIGH_ACCURACY:
+                return WifiNative.SCAN_TYPE_HIGH_ACCURACY;
+            default:
+                fail();
+                return -1;
+        }
     }
 
     /**
@@ -178,7 +206,8 @@ public class ScanTestUtil {
                 .withBasePeriod(0)
                 .withMaxApPerScan(0)
                 .withMaxPercentToCache(0)
-                .withMaxScansToCache(0);
+                .withMaxScansToCache(0)
+                .withType(getNativeScanType(requestSettings.type));
         if (requestSettings.band == WifiScanner.WIFI_BAND_UNSPECIFIED) {
             builder.addBucketWithChannels(0, reportEvents, requestSettings.channels);
         } else {
@@ -193,6 +222,15 @@ public class ScanTestUtil {
      */
     public static WifiNative.ScanSettings createSingleScanNativeSettingsForChannels(
             int reportEvents, WifiScanner.ChannelSpec... channels) {
+        return createSingleScanNativeSettingsForChannels(
+            WifiNative.SCAN_TYPE_LOW_LATENCY, reportEvents, channels);
+    }
+
+    /**
+     * Compute the expected native scan settings that are expected for the given channels & type.
+     */
+    public static WifiNative.ScanSettings createSingleScanNativeSettingsForChannels(
+            int nativeScanType, int reportEvents, WifiScanner.ChannelSpec... channels) {
         int actualReportEvents = reportEvents | WifiScanner.REPORT_EVENT_AFTER_EACH_SCAN;
         return new NativeScanSettingsBuilder()
                 .withBasePeriod(0)
@@ -200,6 +238,7 @@ public class ScanTestUtil {
                 .withMaxPercentToCache(0)
                 .withMaxScansToCache(0)
                 .addBucketWithChannels(0, actualReportEvents, channels)
+                .withType(nativeScanType)
                 .build();
     }
 
@@ -312,6 +351,7 @@ public class ScanTestUtil {
 
     public static void assertNativeScanSettingsEquals(WifiNative.ScanSettings expected,
             WifiNative.ScanSettings actual) {
+        assertEquals("scan type", expected.scanType, actual.scanType);
         assertEquals("bssids per scan", expected.max_ap_per_scan, actual.max_ap_per_scan);
         assertEquals("scans to cache", expected.report_threshold_num_scans,
                 actual.report_threshold_num_scans);

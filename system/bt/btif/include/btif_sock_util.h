@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2009-2012 Broadcom Corporation
+ *  Copyright 2009-2012 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -28,8 +28,6 @@
 #define BTIF_SOCK_UTIL_H
 
 #include <stdint.h>
-
-void dump_bin(const char* title, const char* data, int size);
 
 int sock_send_fd(int sock_fd, const uint8_t* buffer, int len, int send_fd);
 int sock_send_all(int sock_fd, const uint8_t* buf, int len);

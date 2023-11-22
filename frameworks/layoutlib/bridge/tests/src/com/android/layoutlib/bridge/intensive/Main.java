@@ -18,6 +18,7 @@ package com.android.layoutlib.bridge.intensive;
 
 import com.android.layoutlib.bridge.BridgeRenderSessionTest;
 import com.android.layoutlib.bridge.TestDelegates;
+import com.android.layoutlib.bridge.android.BridgeContextTest;
 import com.android.layoutlib.bridge.android.BridgeXmlBlockParserTest;
 import com.android.layoutlib.bridge.impl.LayoutParserWrapperTest;
 import com.android.layoutlib.bridge.impl.ResourceHelperTest;
@@ -36,8 +37,8 @@ import android.util.BridgeXmlPullAttributesTest;
 @SuiteClasses({
         RenderTests.class, LayoutParserWrapperTest.class,
         BridgeXmlBlockParserTest.class, BridgeXmlPullAttributesTest.class,
-        Matrix_DelegateTest.class, TestDelegates.class, PerformanceTests.class,
-        BridgeRenderSessionTest.class, ResourceHelperTest.class
+        Matrix_DelegateTest.class, TestDelegates.class,
+        BridgeRenderSessionTest.class, ResourceHelperTest.class, BridgeContextTest.class
 })
 public class Main {
 }

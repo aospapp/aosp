@@ -11,12 +11,12 @@ import org.mockito.MockitoAnnotations;
 import org.mockito.StateMaster;
 import org.mockito.internal.MockitoCore;
 import org.mockito.internal.configuration.ConfigurationAccess;
+import org.mockito.internal.invocation.mockref.MockStrongReference;
+import org.mockito.internal.invocation.InterceptedInvocation;
 import org.mockito.internal.debugging.LocationImpl;
 import org.mockito.internal.invocation.InvocationBuilder;
-import org.mockito.internal.invocation.InvocationImpl;
 import org.mockito.internal.invocation.InvocationMatcher;
 import org.mockito.internal.invocation.SerializableMethod;
-import org.mockito.internal.invocation.realmethod.RealMethod;
 import org.mockito.invocation.Invocation;
 
 import java.io.ByteArrayOutputStream;
@@ -65,13 +65,9 @@ public class TestBase {
         for (int i = 0; i < args.length; i++) {
             types[i] = args[i].getClass();
         }
-        return new InvocationImpl(mock(type), new SerializableMethod(type.getMethod(methodName,
-                types)), args, 1, null, new LocationImpl());
-    }
-
-    protected static Invocation invocationOf(Class<?> type, String methodName, RealMethod realMethod) throws NoSuchMethodException {
-        return new InvocationImpl(new Object(), new SerializableMethod(type.getMethod(methodName,
-                new Class<?>[0])), new Object[0], 1, realMethod, new LocationImpl());
+        return new InterceptedInvocation(new MockStrongReference<Object>(mock(type), false),
+            new SerializableMethod(type.getMethod(methodName, types)), args, InterceptedInvocation.NO_OP,
+            new LocationImpl(), 1);
     }
 
     protected static Invocation invocationAt(String location) {
@@ -102,5 +98,14 @@ public class TestBase {
      */
     public static String filterLineNo(String stackTrace) {
         return stackTrace.replaceAll("(\\((\\w+\\.java):(\\d)+\\))", "($2:0)");
+    }
+
+    /**
+     * Filters out hashCode from the text. Useful for writing assertions that contain the String representation of mock objects
+     * @param text to filter
+     * @return filtered text
+     */
+    public static String filterHashCode(String text) {
+        return text.replaceAll("hashCode: (\\d)+\\.", "hashCode: xxx.");
     }
 }

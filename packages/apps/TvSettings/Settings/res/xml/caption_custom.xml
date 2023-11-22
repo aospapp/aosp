@@ -19,7 +19,7 @@
     android:title="@string/captions_customoptions">
     <ListPreference
         android:key="font_family"
-        android:persistent="false"
+        android:persistent="true"
         android:title="@string/captions_fontfamily"
         android:summary="%s"
         android:entries="@array/captioning_typeface_selector_titles"
@@ -27,19 +27,19 @@
     <!-- Entries set in code -->
     <ListPreference
         android:key="text_color"
-        android:persistent="false"
+        android:persistent="true"
         android:title="@string/captions_textcolor"
         android:summary="%s" />
     <ListPreference
         android:key="text_opacity"
-        android:persistent="false"
+        android:persistent="true"
         android:title="@string/captions_textopacity"
         android:summary="%s"
         android:entries="@array/captioning_opacity_selector_titles"
         android:entryValues="@array/captioning_opacity_selector_values" />
     <ListPreference
         android:key="edge_type"
-        android:persistent="false"
+        android:persistent="true"
         android:title="@string/captions_edgetype"
         android:summary="%s"
         android:entries="@array/captioning_edge_type_selector_titles"
@@ -47,23 +47,23 @@
     <!-- Entries set in code -->
     <ListPreference
         android:key="edge_color"
-        android:persistent="false"
+        android:persistent="true"
         android:title="@string/captions_edgecolor"
         android:summary="%s" />
     <!-- Entries set in code -->
     <SwitchPreference
         android:key="background_show"
-        android:persistent="false"
+        android:persistent="true"
         android:title="@string/captions_backgroundshow" />
     <ListPreference
         android:key="background_color"
-        android:persistent="false"
+        android:persistent="true"
         android:dependency="background_show"
         android:title="@string/captions_backgroundcolor"
         android:summary="%s" />
     <ListPreference
         android:key="background_opacity"
-        android:persistent="false"
+        android:persistent="true"
         android:dependency="background_show"
         android:title="@string/captions_backgroundopacity"
         android:summary="%s"
@@ -71,18 +71,18 @@
         android:entryValues="@array/captioning_opacity_selector_values" />
     <SwitchPreference
         android:key="window_show"
-        android:persistent="false"
+        android:persistent="true"
         android:title="@string/captions_windowshow" />
     <!-- Entries set in code -->
     <ListPreference
         android:key="window_color"
-        android:persistent="false"
+        android:persistent="true"
         android:dependency="window_show"
         android:title="@string/captions_windowcolor"
         android:summary="%s"/>
     <ListPreference
         android:key="window_opacity"
-        android:persistent="false"
+        android:persistent="true"
         android:dependency="window_show"
         android:title="@string/captions_windowopacity"
         android:summary="%s"

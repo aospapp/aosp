@@ -24,15 +24,15 @@
 // OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+#include <list>
 #include <sstream>
 #include <string>
-#include <list>
 
 #include "test-runner.h"
 #include "test-utils.h"
 
-#include "aarch32/macro-assembler-aarch32.h"
 #include "aarch32/disasm-aarch32.h"
+#include "aarch32/macro-assembler-aarch32.h"
 
 #ifdef VIXL_NEGATIVE_TESTING
 #include <stdexcept>
@@ -804,8 +804,8 @@ TEST(macro_assembler_load) {
                      "The MacroAssembler does not convert loads and stores "
                      "with a PC offset register.\n");
 
-  // TODO: PC should not be allowed as register offset (unpredictable).
-  SHOULD_FAIL_TEST_BOTH(Ldr(r0, MemOperand(r0, Sign(plus), pc, Offset)));
+  MUST_FAIL_TEST_BOTH(Ldr(r0, MemOperand(r0, Sign(plus), pc, Offset)),
+                      "Unpredictable instruction.\n");
 
   // TODO: PC should not be allowed as register base in A32 with pre-index
   //       and post-index (unpredictable).
@@ -861,14 +861,15 @@ TEST(macro_assembler_store) {
   // SP is allowed as base, offset and source.
   COMPARE_BOTH(Str(sp, MemOperand(sp, sp, Offset)), "str sp, [sp, sp]\n");
 
-  // TODO: PC is allowed as the value we are storing for A32, but
-  //       should not be allowed for T32 (unpredictable).
   COMPARE_A32(Str(pc, MemOperand(r0, r0, Offset)), "str pc, [r0, r0]\n");
   COMPARE_A32(Str(pc, MemOperand(r0, r0, PreIndex)), "str pc, [r0, r0]!\n");
   COMPARE_A32(Str(pc, MemOperand(r0, r0, PostIndex)), "str pc, [r0], r0\n");
-  SHOULD_FAIL_TEST_T32(Str(pc, MemOperand(r0, r0, Offset)));
-  SHOULD_FAIL_TEST_T32(Str(pc, MemOperand(r0, r0, PreIndex)));
-  SHOULD_FAIL_TEST_T32(Str(pc, MemOperand(r0, r0, PostIndex)));
+  MUST_FAIL_TEST_T32(Str(pc, MemOperand(r0, r0, Offset)),
+                     "Unpredictable instruction.\n");
+  MUST_FAIL_TEST_T32(Str(pc, MemOperand(r0, r0, PreIndex)),
+                     "Unpredictable instruction.\n");
+  MUST_FAIL_TEST_T32(Str(pc, MemOperand(r0, r0, PostIndex)),
+                     "Unpredictable instruction.\n");
 
   // PC is allowed as register base in the offset variant only for A32.
   COMPARE_A32(Str(r0, MemOperand(pc, r0, Offset)), "str r0, [pc, r0]\n");
@@ -898,8 +899,8 @@ TEST(macro_assembler_store) {
                      "The MacroAssembler does not convert loads and stores "
                      "with a PC offset register.\n");
 
-  // TODO: PC should not be allowed as register offset (unpredictable).
-  SHOULD_FAIL_TEST_BOTH(Str(r0, MemOperand(r0, Sign(plus), pc, Offset)));
+  MUST_FAIL_TEST_BOTH(Str(r0, MemOperand(r0, Sign(plus), pc, Offset)),
+                      "Unpredictable instruction.\n");
 
   // TODO: PC should not be allowed as register base in A32 with pre-index
   //       and post-index (unpredictable).
@@ -1631,6 +1632,7 @@ TEST(macro_assembler_too_large_immediate) {
   CLEANUP();
 }
 
+
 TEST(macro_assembler_Cbz) {
   SETUP();
 
@@ -1638,7 +1640,7 @@ TEST(macro_assembler_Cbz) {
   // Cbz/Cbnz are not available in A32 mode.
   // Make sure GetArchitectureStatePCOffset() returns the correct value.
   __ UseA32();
-  Label label_64(__ GetCursorOffset() + __ GetArchitectureStatePCOffset(), 64);
+  Label label_64(__ GetCursorOffset() + __ GetArchitectureStatePCOffset() + 64);
   MUST_FAIL_TEST_A32(Cbz(r0, &label_64), "Cbz is only available for T32.\n");
   MUST_FAIL_TEST_A32(Cbnz(r0, &label_64), "Cbnz is only available for T32.\n");
 #endif
@@ -1647,13 +1649,13 @@ TEST(macro_assembler_Cbz) {
   // Make sure GetArchitectureStatePCOffset() returns the correct value.
   __ UseT32();
   // Largest encodable offset.
-  Label label_126(__ GetCursorOffset() + __ GetArchitectureStatePCOffset(),
+  Label label_126(__ GetCursorOffset() + __ GetArchitectureStatePCOffset() +
                   126);
   COMPARE_T32(Cbz(r0, &label_126), "cbz r0, 0x00000082\n");
   COMPARE_T32(Cbnz(r0, &label_126), "cbnz r0, 0x00000082\n");
 
   // Offset cannot be encoded.
-  Label label_128(__ GetCursorOffset() + __ GetArchitectureStatePCOffset(),
+  Label label_128(__ GetCursorOffset() + __ GetArchitectureStatePCOffset() +
                   128);
   COMPARE_T32(Cbz(r0, &label_128),
               "cbnz r0, 0x00000004\n"
@@ -1663,7 +1665,7 @@ TEST(macro_assembler_Cbz) {
               "b 0x00000084\n");
 
   // Offset that cannot be encoded and needs 32-bit branch instruction.
-  Label label_8192(__ GetCursorOffset() + __ GetArchitectureStatePCOffset(),
+  Label label_8192(__ GetCursorOffset() + __ GetArchitectureStatePCOffset() +
                    8192);
   COMPARE_T32(Cbz(r0, &label_8192),
               "cbnz r0, 0x00000006\n"
@@ -1673,7 +1675,8 @@ TEST(macro_assembler_Cbz) {
               "b 0x00002004\n");
 
   // Negative offset.
-  Label label_neg(__ GetCursorOffset() + __ GetArchitectureStatePCOffset(), -8);
+  Label label_neg(__ GetCursorOffset() + __ GetArchitectureStatePCOffset() +
+                  -8);
   COMPARE_T32(Cbz(r0, &label_neg),
               "cbnz r0, 0x00000004\n"
               "b 0xfffffffc\n");
@@ -1682,7 +1685,7 @@ TEST(macro_assembler_Cbz) {
               "b 0xfffffffc\n");
 
   // Large negative offset.
-  Label label_neg128(__ GetCursorOffset() + __ GetArchitectureStatePCOffset(),
+  Label label_neg128(__ GetCursorOffset() + __ GetArchitectureStatePCOffset() +
                      -128);
   COMPARE_T32(Cbz(r0, &label_neg128),
               "cbnz r0, 0x00000004\n"
@@ -1691,6 +1694,370 @@ TEST(macro_assembler_Cbz) {
               "cbz r0, 0x00000004\n"
               "b 0xffffff84\n");
 #endif
+
+  CLEANUP();
+}
+
+
+#ifdef VIXL_NEGATIVE_TESTING
+TEST(assembler_crc_negative) {
+  SETUP();
+
+  ExactAssemblyScope scope(&masm, 2, CodeBufferCheckScope::kMaximumSize);
+
+  masm.it(eq);
+
+  MUST_FAIL_TEST_T32(crc32b(eq, r0, r1, r2), "Unpredictable instruction.\n");
+  MUST_FAIL_TEST_T32(crc32cb(eq, r0, r1, r2), "Unpredictable instruction.\n");
+  MUST_FAIL_TEST_T32(crc32ch(eq, r0, r1, r2), "Unpredictable instruction.\n");
+  MUST_FAIL_TEST_T32(crc32cw(eq, r0, r1, r2), "Unpredictable instruction.\n");
+  MUST_FAIL_TEST_T32(crc32h(eq, r0, r1, r2), "Unpredictable instruction.\n");
+  MUST_FAIL_TEST_T32(crc32w(eq, r0, r1, r2), "Unpredictable instruction.\n");
+
+  CLEANUP();
+}
+#endif
+
+
+#ifdef VIXL_NEGATIVE_TESTING
+TEST(assembler_hvc_negative) {
+  SETUP();
+
+  ExactAssemblyScope scope(&masm, 2, CodeBufferCheckScope::kMaximumSize);
+
+  masm.it(eq);
+
+  MUST_FAIL_TEST_T32(hvc(eq, 0), "Unpredictable instruction.\n");
+
+  CLEANUP();
+}
+#endif
+
+
+TEST(macro_assembler_vld) {
+  SETUP();
+
+  COMPARE_BOTH(Vld1(Untyped8,
+                    NeonRegisterList(d0, kMultipleLanes),
+                    AlignedMemOperand(r1, kNoAlignment)),
+               "vld1.8 {d0}, [r1]\n");
+  COMPARE_BOTH(Vld1(Untyped8,
+                    NeonRegisterList(d0, kMultipleLanes),
+                    AlignedMemOperand(r1, kNoAlignment, PostIndex)),
+               "vld1.8 {d0}, [r1]!\n");
+  COMPARE_BOTH(Vld1(Untyped8,
+                    NeonRegisterList(d0, kMultipleLanes),
+                    AlignedMemOperand(r8, kNoAlignment, r2, PostIndex)),
+               "vld1.8 {d0}, [r8], r2\n");
+  COMPARE_BOTH(Vld1(Untyped8,
+                    NeonRegisterList(d0, kAllLanes),
+                    AlignedMemOperand(r1, kNoAlignment)),
+               "vld1.8 {d0[]}, [r1]\n");
+  COMPARE_BOTH(Vld1(Untyped8,
+                    NeonRegisterList(d0, kAllLanes),
+                    AlignedMemOperand(r9, kNoAlignment, PostIndex)),
+               "vld1.8 {d0[]}, [r9]!\n");
+  COMPARE_BOTH(Vld1(Untyped8,
+                    NeonRegisterList(d0, kAllLanes),
+                    AlignedMemOperand(r1, kNoAlignment, r2, PostIndex)),
+               "vld1.8 {d0[]}, [r1], r2\n");
+  COMPARE_BOTH(Vld1(Untyped8,
+                    NeonRegisterList(d0, 0),
+                    AlignedMemOperand(r10, kNoAlignment)),
+               "vld1.8 {d0[0]}, [r10]\n");
+  COMPARE_BOTH(Vld1(Untyped8,
+                    NeonRegisterList(d0, 1),
+                    AlignedMemOperand(r1, kNoAlignment, PostIndex)),
+               "vld1.8 {d0[1]}, [r1]!\n");
+  COMPARE_BOTH(Vld1(Untyped8,
+                    NeonRegisterList(d0, 2),
+                    AlignedMemOperand(r1, kNoAlignment, r2, PostIndex)),
+               "vld1.8 {d0[2]}, [r1], r2\n");
+
+  COMPARE_BOTH(Vld2(Untyped8,
+                    NeonRegisterList(d0, d1, kSingle, kMultipleLanes),
+                    AlignedMemOperand(r1, kNoAlignment)),
+               "vld2.8 {d0,d1}, [r1]\n");
+  COMPARE_BOTH(Vld2(Untyped8,
+                    NeonRegisterList(d0, d1, kSingle, kMultipleLanes),
+                    AlignedMemOperand(r1, kNoAlignment, PostIndex)),
+               "vld2.8 {d0,d1}, [r1]!\n");
+  COMPARE_BOTH(Vld2(Untyped8,
+                    NeonRegisterList(d0, d1, kSingle, kMultipleLanes),
+                    AlignedMemOperand(r1, kNoAlignment, r8, PostIndex)),
+               "vld2.8 {d0,d1}, [r1], r8\n");
+  COMPARE_BOTH(Vld2(Untyped8,
+                    NeonRegisterList(d0, d1, kSingle, kAllLanes),
+                    AlignedMemOperand(r1, kNoAlignment)),
+               "vld2.8 {d0[],d1[]}, [r1]\n");
+  COMPARE_BOTH(Vld2(Untyped8,
+                    NeonRegisterList(d0, d1, kSingle, kAllLanes),
+                    AlignedMemOperand(r9, kNoAlignment, PostIndex)),
+               "vld2.8 {d0[],d1[]}, [r9]!\n");
+  COMPARE_BOTH(Vld2(Untyped8,
+                    NeonRegisterList(d0, d1, kSingle, kAllLanes),
+                    AlignedMemOperand(r1, kNoAlignment, r2, PostIndex)),
+               "vld2.8 {d0[],d1[]}, [r1], r2\n");
+  COMPARE_BOTH(Vld2(Untyped8,
+                    NeonRegisterList(d0, d1, kSingle, 0),
+                    AlignedMemOperand(r10, kNoAlignment)),
+               "vld2.8 {d0[0],d1[0]}, [r10]\n");
+  COMPARE_BOTH(Vld2(Untyped8,
+                    NeonRegisterList(d0, d1, kSingle, 1),
+                    AlignedMemOperand(r1, kNoAlignment, PostIndex)),
+               "vld2.8 {d0[1],d1[1]}, [r1]!\n");
+  COMPARE_BOTH(Vld2(Untyped8,
+                    NeonRegisterList(d0, d1, kSingle, 2),
+                    AlignedMemOperand(r1, kNoAlignment, r2, PostIndex)),
+               "vld2.8 {d0[2],d1[2]}, [r1], r2\n");
+
+  COMPARE_BOTH(Vld3(Untyped8,
+                    NeonRegisterList(d0, d2, kSingle, kMultipleLanes),
+                    AlignedMemOperand(r1, kNoAlignment)),
+               "vld3.8 {d0,d1,d2}, [r1]\n");
+  COMPARE_BOTH(Vld3(Untyped8,
+                    NeonRegisterList(d0, d2, kSingle, kMultipleLanes),
+                    AlignedMemOperand(r1, kNoAlignment, PostIndex)),
+               "vld3.8 {d0,d1,d2}, [r1]!\n");
+  COMPARE_BOTH(Vld3(Untyped8,
+                    NeonRegisterList(d0, d2, kSingle, kMultipleLanes),
+                    AlignedMemOperand(r11, kNoAlignment, r2, PostIndex)),
+               "vld3.8 {d0,d1,d2}, [r11], r2\n");
+  COMPARE_BOTH(Vld3(Untyped8,
+                    NeonRegisterList(d0, d2, kSingle, kAllLanes),
+                    MemOperand(r1)),
+               "vld3.8 {d0[],d1[],d2[]}, [r1]\n");
+  COMPARE_BOTH(Vld3(Untyped8,
+                    NeonRegisterList(d0, d2, kSingle, kAllLanes),
+                    MemOperand(r11, PostIndex)),
+               "vld3.8 {d0[],d1[],d2[]}, [r11]!\n");
+  COMPARE_BOTH(Vld3(Untyped8,
+                    NeonRegisterList(d0, d2, kSingle, kAllLanes),
+                    MemOperand(r1, r2, PostIndex)),
+               "vld3.8 {d0[],d1[],d2[]}, [r1], r2\n");
+  COMPARE_BOTH(Vld3(Untyped8,
+                    NeonRegisterList(d0, d2, kSingle, 0),
+                    MemOperand(sp)),
+               "vld3.8 {d0[0],d1[0],d2[0]}, [sp]\n");
+  COMPARE_BOTH(Vld3(Untyped8,
+                    NeonRegisterList(d0, d2, kSingle, 1),
+                    MemOperand(r1, PostIndex)),
+               "vld3.8 {d0[1],d1[1],d2[1]}, [r1]!\n");
+  COMPARE_BOTH(Vld3(Untyped8,
+                    NeonRegisterList(d0, d2, kSingle, 2),
+                    MemOperand(r1, r2, PostIndex)),
+               "vld3.8 {d0[2],d1[2],d2[2]}, [r1], r2\n");
+
+  COMPARE_BOTH(Vld4(Untyped8,
+                    NeonRegisterList(d0, d6, kDouble, kMultipleLanes),
+                    AlignedMemOperand(r1, kNoAlignment)),
+               "vld4.8 {d0,d2,d4,d6}, [r1]\n");
+  COMPARE_BOTH(Vld4(Untyped8,
+                    NeonRegisterList(d0, d3, kSingle, kMultipleLanes),
+                    AlignedMemOperand(r1, kNoAlignment, PostIndex)),
+               "vld4.8 {d0,d1,d2,d3}, [r1]!\n");
+  COMPARE_BOTH(Vld4(Untyped8,
+                    NeonRegisterList(d0, d3, kSingle, kMultipleLanes),
+                    AlignedMemOperand(r1, kNoAlignment, r2, PostIndex)),
+               "vld4.8 {d0,d1,d2,d3}, [r1], r2\n");
+  COMPARE_BOTH(Vld4(Untyped8,
+                    NeonRegisterList(d0, d3, kSingle, kAllLanes),
+                    AlignedMemOperand(r1, kNoAlignment)),
+               "vld4.8 {d0[],d1[],d2[],d3[]}, [r1]\n");
+  COMPARE_BOTH(Vld4(Untyped8,
+                    NeonRegisterList(d0, d6, kDouble, kAllLanes),
+                    AlignedMemOperand(r1, kNoAlignment, PostIndex)),
+               "vld4.8 {d0[],d2[],d4[],d6[]}, [r1]!\n");
+  COMPARE_BOTH(Vld4(Untyped8,
+                    NeonRegisterList(d0, d3, kSingle, kAllLanes),
+                    AlignedMemOperand(r1, kNoAlignment, r2, PostIndex)),
+               "vld4.8 {d0[],d1[],d2[],d3[]}, [r1], r2\n");
+  COMPARE_BOTH(Vld4(Untyped16,
+                    NeonRegisterList(d0, d6, kDouble, 3),
+                    AlignedMemOperand(r1, kNoAlignment)),
+               "vld4.16 {d0[3],d2[3],d4[3],d6[3]}, [r1]\n");
+  COMPARE_BOTH(Vld4(Untyped8,
+                    NeonRegisterList(d0, d3, kSingle, 6),
+                    AlignedMemOperand(r1, kNoAlignment, PostIndex)),
+               "vld4.8 {d0[6],d1[6],d2[6],d3[6]}, [r1]!\n");
+  COMPARE_BOTH(Vld4(Untyped8,
+                    NeonRegisterList(d0, d3, kSingle, 7),
+                    AlignedMemOperand(r1, kNoAlignment, r2, PostIndex)),
+               "vld4.8 {d0[7],d1[7],d2[7],d3[7]}, [r1], r2\n");
+
+  CLEANUP();
+}
+
+
+TEST(macro_assembler_vst) {
+  SETUP();
+
+  COMPARE_BOTH(Vst1(Untyped8,
+                    NeonRegisterList(d0, kMultipleLanes),
+                    AlignedMemOperand(r1, kNoAlignment)),
+               "vst1.8 {d0}, [r1]\n");
+  COMPARE_BOTH(Vst1(Untyped8,
+                    NeonRegisterList(d0, kMultipleLanes),
+                    AlignedMemOperand(r1, kNoAlignment, PostIndex)),
+               "vst1.8 {d0}, [r1]!\n");
+  COMPARE_BOTH(Vst1(Untyped8,
+                    NeonRegisterList(d0, kMultipleLanes),
+                    AlignedMemOperand(r1, kNoAlignment, r2, PostIndex)),
+               "vst1.8 {d0}, [r1], r2\n");
+  COMPARE_BOTH(Vst1(Untyped8,
+                    NeonRegisterList(d0, 0),
+                    AlignedMemOperand(r1, kNoAlignment)),
+               "vst1.8 {d0[0]}, [r1]\n");
+  COMPARE_BOTH(Vst1(Untyped8,
+                    NeonRegisterList(d0, 1),
+                    AlignedMemOperand(r1, kNoAlignment, PostIndex)),
+               "vst1.8 {d0[1]}, [r1]!\n");
+  COMPARE_BOTH(Vst1(Untyped8,
+                    NeonRegisterList(d0, 2),
+                    AlignedMemOperand(r1, kNoAlignment, r2, PostIndex)),
+               "vst1.8 {d0[2]}, [r1], r2\n");
+
+  COMPARE_BOTH(Vst2(Untyped8,
+                    NeonRegisterList(d0, d1, kSingle, kMultipleLanes),
+                    AlignedMemOperand(r1, kNoAlignment)),
+               "vst2.8 {d0,d1}, [r1]\n");
+  COMPARE_BOTH(Vst2(Untyped8,
+                    NeonRegisterList(d0, d1, kSingle, kMultipleLanes),
+                    AlignedMemOperand(r1, kNoAlignment, PostIndex)),
+               "vst2.8 {d0,d1}, [r1]!\n");
+  COMPARE_BOTH(Vst2(Untyped8,
+                    NeonRegisterList(d0, d1, kSingle, kMultipleLanes),
+                    AlignedMemOperand(r1, kNoAlignment, r2, PostIndex)),
+               "vst2.8 {d0,d1}, [r1], r2\n");
+  COMPARE_BOTH(Vst2(Untyped8,
+                    NeonRegisterList(d0, d1, kSingle, 3),
+                    AlignedMemOperand(r1, kNoAlignment)),
+               "vst2.8 {d0[3],d1[3]}, [r1]\n");
+  COMPARE_BOTH(Vst2(Untyped8,
+                    NeonRegisterList(d0, d1, kSingle, 4),
+                    AlignedMemOperand(r1, kNoAlignment, PostIndex)),
+               "vst2.8 {d0[4],d1[4]}, [r1]!\n");
+  COMPARE_BOTH(Vst2(Untyped8,
+                    NeonRegisterList(d0, d1, kSingle, 5),
+                    AlignedMemOperand(r1, kNoAlignment, r2, PostIndex)),
+               "vst2.8 {d0[5],d1[5]}, [r1], r2\n");
+
+  COMPARE_BOTH(Vst3(Untyped8,
+                    NeonRegisterList(d0, d2, kSingle, kMultipleLanes),
+                    AlignedMemOperand(r1, kNoAlignment)),
+               "vst3.8 {d0,d1,d2}, [r1]\n");
+  COMPARE_BOTH(Vst3(Untyped8,
+                    NeonRegisterList(d0, d2, kSingle, kMultipleLanes),
+                    AlignedMemOperand(r1, kNoAlignment, PostIndex)),
+               "vst3.8 {d0,d1,d2}, [r1]!\n");
+  COMPARE_BOTH(Vst3(Untyped8,
+                    NeonRegisterList(d0, d2, kSingle, kMultipleLanes),
+                    AlignedMemOperand(r1, kNoAlignment, r2, PostIndex)),
+               "vst3.8 {d0,d1,d2}, [r1], r2\n");
+  COMPARE_BOTH(Vst3(Untyped8,
+                    NeonRegisterList(d0, d2, kSingle, 0),
+                    MemOperand(r1)),
+               "vst3.8 {d0[0],d1[0],d2[0]}, [r1]\n");
+  COMPARE_BOTH(Vst3(Untyped8,
+                    NeonRegisterList(d0, d2, kSingle, 6),
+                    MemOperand(r1, PostIndex)),
+               "vst3.8 {d0[6],d1[6],d2[6]}, [r1]!\n");
+  COMPARE_BOTH(Vst3(Untyped8,
+                    NeonRegisterList(d0, d2, kSingle, 7),
+                    MemOperand(r1, r2, PostIndex)),
+               "vst3.8 {d0[7],d1[7],d2[7]}, [r1], r2\n");
+
+  COMPARE_BOTH(Vst4(Untyped8,
+                    NeonRegisterList(d10, d13, kSingle, kMultipleLanes),
+                    AlignedMemOperand(r1, kNoAlignment)),
+               "vst4.8 {d10,d11,d12,d13}, [r1]\n");
+  COMPARE_BOTH(Vst4(Untyped8,
+                    NeonRegisterList(d10, d13, kSingle, kMultipleLanes),
+                    AlignedMemOperand(r1, kNoAlignment, PostIndex)),
+               "vst4.8 {d10,d11,d12,d13}, [r1]!\n");
+  COMPARE_BOTH(Vst4(Untyped8,
+                    NeonRegisterList(d0, d3, kSingle, kMultipleLanes),
+                    AlignedMemOperand(r8, kNoAlignment, r9, PostIndex)),
+               "vst4.8 {d0,d1,d2,d3}, [r8], r9\n");
+  COMPARE_BOTH(Vst4(Untyped8,
+                    NeonRegisterList(d0, d3, kSingle, 0),
+                    AlignedMemOperand(r1, kNoAlignment)),
+               "vst4.8 {d0[0],d1[0],d2[0],d3[0]}, [r1]\n");
+  COMPARE_BOTH(Vst4(Untyped8,
+                    NeonRegisterList(d0, d3, kSingle, 0),
+                    AlignedMemOperand(r1, kNoAlignment, PostIndex)),
+               "vst4.8 {d0[0],d1[0],d2[0],d3[0]}, [r1]!\n");
+  COMPARE_BOTH(Vst4(Untyped8,
+                    NeonRegisterList(d0, d3, kSingle, 0),
+                    AlignedMemOperand(r1, kNoAlignment, r2, PostIndex)),
+               "vst4.8 {d0[0],d1[0],d2[0],d3[0]}, [r1], r2\n");
+
+  CLEANUP();
+}
+
+
+TEST(assembler_vldm_vstm_negative) {
+  SETUP();
+
+  ExactAssemblyScope scope(&masm, 0, CodeBufferCheckScope::kMaximumSize);
+
+  MUST_FAIL_TEST_BOTH(fldmdbx(pc, WRITE_BACK, DRegisterList(d0)),
+                      "Unpredictable instruction.\n");
+  MUST_FAIL_TEST_BOTH(fldmiax(pc, WRITE_BACK, DRegisterList(d0)),
+                      "Unpredictable instruction.\n");
+  MUST_FAIL_TEST_T32(fldmiax(pc, NO_WRITE_BACK, DRegisterList(d0)),
+                     "Unpredictable instruction.\n");
+
+  MUST_FAIL_TEST_BOTH(fstmdbx(pc, WRITE_BACK, DRegisterList(d0)),
+                      "Unpredictable instruction.\n");
+  MUST_FAIL_TEST_BOTH(fstmiax(pc, WRITE_BACK, DRegisterList(d0)),
+                      "Unpredictable instruction.\n");
+  MUST_FAIL_TEST_T32(fstmiax(pc, NO_WRITE_BACK, DRegisterList(d0)),
+                     "Unpredictable instruction.\n");
+
+  MUST_FAIL_TEST_BOTH(vldmdb(pc, WRITE_BACK, SRegisterList(s0)),
+                      "Unpredictable instruction.\n");
+  MUST_FAIL_TEST_BOTH(vldm(pc, WRITE_BACK, SRegisterList(s0)),
+                      "Unpredictable instruction.\n");
+  MUST_FAIL_TEST_T32(vldm(pc, NO_WRITE_BACK, SRegisterList(s0)),
+                     "Unpredictable instruction.\n");
+  MUST_FAIL_TEST_BOTH(vldmia(pc, WRITE_BACK, SRegisterList(s0)),
+                      "Unpredictable instruction.\n");
+  MUST_FAIL_TEST_T32(vldmia(pc, NO_WRITE_BACK, SRegisterList(s0)),
+                     "Unpredictable instruction.\n");
+
+  MUST_FAIL_TEST_BOTH(vldmdb(pc, WRITE_BACK, DRegisterList(d0)),
+                      "Unpredictable instruction.\n");
+  MUST_FAIL_TEST_BOTH(vldm(pc, WRITE_BACK, DRegisterList(d0)),
+                      "Unpredictable instruction.\n");
+  MUST_FAIL_TEST_T32(vldm(pc, NO_WRITE_BACK, DRegisterList(d0)),
+                     "Unpredictable instruction.\n");
+  MUST_FAIL_TEST_BOTH(vldmia(pc, WRITE_BACK, DRegisterList(d0)),
+                      "Unpredictable instruction.\n");
+  MUST_FAIL_TEST_T32(vldmia(pc, NO_WRITE_BACK, DRegisterList(d0)),
+                     "Unpredictable instruction.\n");
+
+  MUST_FAIL_TEST_BOTH(vstmdb(pc, WRITE_BACK, SRegisterList(s0)),
+                      "Unpredictable instruction.\n");
+  MUST_FAIL_TEST_BOTH(vstm(pc, WRITE_BACK, SRegisterList(s0)),
+                      "Unpredictable instruction.\n");
+  MUST_FAIL_TEST_T32(vstm(pc, NO_WRITE_BACK, SRegisterList(s0)),
+                     "Unpredictable instruction.\n");
+  MUST_FAIL_TEST_BOTH(vstmia(pc, WRITE_BACK, SRegisterList(s0)),
+                      "Unpredictable instruction.\n");
+  MUST_FAIL_TEST_T32(vstmia(pc, NO_WRITE_BACK, SRegisterList(s0)),
+                     "Unpredictable instruction.\n");
+
+  MUST_FAIL_TEST_BOTH(vstmdb(pc, WRITE_BACK, DRegisterList(d0)),
+                      "Unpredictable instruction.\n");
+  MUST_FAIL_TEST_BOTH(vstm(pc, WRITE_BACK, DRegisterList(d0)),
+                      "Unpredictable instruction.\n");
+  MUST_FAIL_TEST_T32(vstm(pc, NO_WRITE_BACK, DRegisterList(d0)),
+                     "Unpredictable instruction.\n");
+  MUST_FAIL_TEST_BOTH(vstmia(pc, WRITE_BACK, DRegisterList(d0)),
+                      "Unpredictable instruction.\n");
+  MUST_FAIL_TEST_T32(vstmia(pc, NO_WRITE_BACK, DRegisterList(d0)),
+                     "Unpredictable instruction.\n");
 
   CLEANUP();
 }
@@ -1868,6 +2235,20 @@ TEST(macro_assembler_A32_Vldr_s) { TEST_VMEMOP(Vldr, "vldr ", s2); }
 TEST(macro_assembler_A32_Vstr_s) { TEST_VMEMOP(Vstr, "vstr ", s3); }
 
 #undef TEST_VMEMOP
+
+TEST(assembler_vstr_negative) {
+  SETUP();
+
+  ExactAssemblyScope scope(&masm, 8, CodeBufferCheckScope::kMaximumSize);
+
+  MUST_FAIL_TEST_T32(vstr(s0, MemOperand(pc, 0)),
+                     "Unpredictable instruction.\n");
+
+  MUST_FAIL_TEST_T32(vstr(d0, MemOperand(pc, 0)),
+                     "Unpredictable instruction.\n");
+
+  CLEANUP();
+}
 
 TEST(macro_assembler_Vldr_Vstr_negative) {
   SETUP();
@@ -2135,10 +2516,7 @@ TEST(macro_assembler_PushRegisterList) {
   // Deprecated, but accepted:
   SHOULD_FAIL_TEST_A32(Push(RegisterList(pc)));
   // Whereas we don't accept the single-register version:
-  MUST_FAIL_TEST_A32(Push(pc), "Unpredictable instruction.\n");
-
-  // For T32, pushing the PC is allowed:
-  COMPARE_T32(Push(pc), "push {pc}\n");
+  MUST_FAIL_TEST_BOTH(Push(pc), "Unpredictable instruction.\n");
 
   // Accepted, but stores UNKNOWN value for the SP:
   SHOULD_FAIL_TEST_A32(Push(RegisterList(r0, sp)));
@@ -2492,9 +2870,7 @@ TEST(macro_assembler_pc_rel_T32) {
 
   MUST_FAIL_TEST_T32(Add(r0, pc, 4096), "Unpredictable instruction.\n");
 
-  // TODO: This case is incorrect; the instruction is unpredictable. The test
-  // must be updated once the bug is fixed.
-  COMPARE_T32(Add(r0, pc, -4096), "sub r0, pc, #4096\n");
+  MUST_FAIL_TEST_T32(Add(r0, pc, -4096), "Unpredictable instruction.\n");
 
   MUST_FAIL_TEST_T32(Add(r0, pc, 0xffff), "Ill-formed 'add' instruction.\n");
   MUST_FAIL_TEST_T32(Add(r0, pc, 0x10002), "Ill-formed 'add' instruction.\n");
@@ -2518,9 +2894,7 @@ TEST(macro_assembler_pc_rel_T32) {
   // COMPARE_T32(Sub(r0, pc, -4096), "mov r0, pc\n"
   //                                 "add r0, #4096\n");
 
-  // TODO: This case is incorrect; the instruction is unpredictable. The test
-  // must be updated once the bug is fixed.
-  COMPARE_T32(Sub(r0, pc, 4096), "sub r0, pc, #4096\n");
+  MUST_FAIL_TEST_T32(Sub(r0, pc, 4096), "Unpredictable instruction.\n");
 
   MUST_FAIL_TEST_T32(Sub(r0, pc, -0xffff), "Ill-formed 'add' instruction.\n");
   MUST_FAIL_TEST_T32(Sub(r0, pc, -0x10002), "Ill-formed 'add' instruction.\n");
@@ -3294,9 +3668,7 @@ TEST(macro_assembler_T32_IT) {
               "bne 0x00000006\n"
               "sub r7, sp, #1\n");
 
-  COMPARE_T32(Sub(eq, pc, pc, 0),
-              "bne 0x00000006\n"
-              "sub pc, #0\n");
+  MUST_FAIL_TEST_T32(Sub(eq, pc, pc, 0), "Unpredictable instruction.\n");
 
   // TST (register) T1
   COMPARE_T32(Tst(eq, r0, r1),
@@ -3315,25 +3687,33 @@ TEST(unbound_label) {
   SETUP();
 
 #ifdef VIXL_DEBUG
-  MUST_FAIL_TEST_BOTH_BLOCK({
-    Label label;
-    masm.B(&label);
-  }, "Label used but not bound.\n")
+  MUST_FAIL_TEST_BOTH_BLOCK(
+      {
+        Label label;
+        masm.B(&label);
+      },
+      "Location, label or literal used but not bound.\n")
 
-  MUST_FAIL_TEST_BOTH_BLOCK({
-    Label label;
-    masm.B(eq, &label);
-  }, "Label used but not bound.\n")
+  MUST_FAIL_TEST_BOTH_BLOCK(
+      {
+        Label label;
+        masm.B(eq, &label);
+      },
+      "Location, label or literal used but not bound.\n")
 
-  MUST_FAIL_TEST_T32_BLOCK({
-    Label label;
-    masm.Cbz(r0, &label);
-  }, "Label used but not bound.\n")
+  MUST_FAIL_TEST_T32_BLOCK(
+      {
+        Label label;
+        masm.Cbz(r0, &label);
+      },
+      "Location, label or literal used but not bound.\n")
 
-  MUST_FAIL_TEST_T32_BLOCK({
-    Label label;
-    masm.Cbnz(r1, &label);
-  }, "Label used but not bound.\n")
+  MUST_FAIL_TEST_T32_BLOCK(
+      {
+        Label label;
+        masm.Cbnz(r1, &label);
+      },
+      "Location, label or literal used but not bound.\n")
 #endif
 
   CLEANUP();
@@ -3456,10 +3836,7 @@ TEST(preloads) {
   COMPARE_A32(Pldw(MemOperand(r0, r1, LSL, 20)), "pldw [r0, r1, lsl #20]\n");
 
   // PLD literal
-  Label pld_label;
-  COMPARE_A32(Pld(&pld_label);, "pld [pc, #-0]\n");
-  COMPARE_T32(Pld(&pld_label);, "pld [pc, #-0]\n");
-  __ Bind(&pld_label);
+  COMPARE_BOTH(Pld(MemOperand(pc, minus, 0)), "pld [pc, #-0]\n");
 
   // PLI immediate
   COMPARE_BOTH(Pli(MemOperand(r0, 0)), "pli [r0]\n");
@@ -3475,10 +3852,24 @@ TEST(preloads) {
   COMPARE_A32(Pli(MemOperand(r0, r1, LSL, 20)), "pli [r0, r1, lsl #20]\n");
 
   // PLI literal
-  Label pli_label;
-  COMPARE_A32(Pli(&pli_label);, "pli [pc, #-0]\n");
-  COMPARE_T32(Pli(&pli_label);, "pli [pc, #-0]\n");
-  __ Bind(&pli_label);
+  COMPARE_BOTH(Pli(MemOperand(pc, minus, 0)), "pli [pc, #-0]\n");
+
+  CLEANUP();
+}
+
+
+TEST(vcmp_vcmpe) {
+  SETUP();
+
+  COMPARE_BOTH(Vcmp(F32, s0, s1), "vcmp.f32 s0, s1\n");
+  COMPARE_BOTH(Vcmp(F64, d0, d1), "vcmp.f64 d0, d1\n");
+  COMPARE_BOTH(Vcmp(F32, s0, 0.0f), "vcmp.f32 s0, #0.0\n");
+  COMPARE_BOTH(Vcmp(F64, d0, 0.0), "vcmp.f64 d0, #0.0\n");
+
+  COMPARE_BOTH(Vcmpe(F32, s0, s1), "vcmpe.f32 s0, s1\n");
+  COMPARE_BOTH(Vcmpe(F64, d0, d1), "vcmpe.f64 d0, d1\n");
+  COMPARE_BOTH(Vcmpe(F32, s0, 0.0f), "vcmpe.f32 s0, #0.0\n");
+  COMPARE_BOTH(Vcmpe(F64, d0, 0.0), "vcmpe.f64 d0, #0.0\n");
 
   CLEANUP();
 }
@@ -3852,6 +4243,29 @@ TEST(nop_code) {
 
   COMPARE_BOTH(Orr(r0, r0, r0), "");
   COMPARE_BOTH(Orr(DontCare, r0, r0, r0), "");
+
+  CLEANUP();
+}
+
+
+TEST(minus_zero_offsets) {
+  SETUP();
+
+  COMPARE_A32(Ldr(r0, MemOperand(pc, minus, 0)), "ldr r0, [pc, #-0]\n");
+  COMPARE_T32(Ldr(r0, MemOperand(pc, minus, 0)), "ldr.w r0, [pc, #-0]\n");
+  COMPARE_BOTH(Ldrb(r0, MemOperand(pc, minus, 0)), "ldrb r0, [pc, #-0]\n");
+  COMPARE_BOTH(Ldrh(r0, MemOperand(pc, minus, 0)), "ldrh r0, [pc, #-0]\n");
+  COMPARE_BOTH(Ldrd(r0, r1, MemOperand(pc, minus, 0)),
+               "ldrd r0, r1, [pc, #-0]\n");
+  COMPARE_BOTH(Ldrsb(r0, MemOperand(pc, minus, 0)), "ldrsb r0, [pc, #-0]\n");
+  COMPARE_BOTH(Ldrsh(r0, MemOperand(pc, minus, 0)), "ldrsh r0, [pc, #-0]\n");
+  COMPARE_BOTH(Pld(MemOperand(pc, minus, 0)), "pld [pc, #-0]\n");
+  COMPARE_BOTH(Pli(MemOperand(pc, minus, 0)), "pli [pc, #-0]\n");
+  COMPARE_BOTH(Vldr(s0, MemOperand(pc, minus, 0)), "vldr s0, [pc, #-0]\n");
+  COMPARE_BOTH(Vldr(d0, MemOperand(pc, minus, 0)), "vldr d0, [pc, #-0]\n");
+
+  // This is an alias of ADR with a minus zero offset.
+  COMPARE_BOTH(Sub(r0, pc, 0), "sub r0, pc, #0\n");
 
   CLEANUP();
 }

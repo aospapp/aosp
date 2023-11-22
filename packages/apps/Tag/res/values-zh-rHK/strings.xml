@@ -29,4 +29,5 @@
     <string name="mime_display_name" msgid="5926357152623764485">"NFC 標記的資料"</string>
     <string name="vcard_title" msgid="7122634780732426007">"^1 的聯絡人資訊"</string>
     <string name="call_phone_permission_denied" msgid="8515177111984654599">"此應用程式需要存取「電話」權限才能撥打電話。您可以在「設定」中管理「標籤」權限"</string>
+    <string name="external_storage_permission_denied" msgid="7665146019168376837">"此應用程式需取得外部儲存空間存取權，才能存取檔案。您可以在「設定」中管理標籤權限。"</string>
 </resources>

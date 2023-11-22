@@ -105,5 +105,5 @@
     <string name="clear_all_message" msgid="1548432000373861295">"要清除所有信息和联系人吗？"</string>
     <string name="emergency_info_footer" msgid="8751758742506410146">"添加医疗信息和紧急情况联系人有助于第一线救援人员在发生紧急事件时提供相关援助。\n\n任何人都无需将您的手机解锁，即可在锁定屏幕上看到此类信息，并能通过点按相关联系人的姓名拨打对方的电话。"</string>
     <string name="settings_suggestion_title" msgid="2503369576806243476">"添加紧急信息"</string>
-    <string name="settings_suggestion_body" msgid="6623265155762787567">"协助第一线救援人员找到重要信息"</string>
+    <string name="settings_suggestion_body" msgid="5559349261345837716">"让一线急救人员查看您的信息"</string>
 </resources>

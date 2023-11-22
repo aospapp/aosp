@@ -23,10 +23,15 @@ from vts.runners.host import test_runner
 from vts.testcases.template.gtest_binary_test import gtest_binary_test
 from vts.testcases.template.gtest_binary_test import gtest_test_case
 from vts.utils.python.cpu import cpu_frequency_scaling
+from vts.utils.python.hal import hal_service_name_utils
+from vts.utils.python.precondition import precondition_utils
 
+# The pattern indicating a full hal test name including the service name info.
+# e.g. TM.TC(default)_32bit
+_HAL_TEST_NAME_PATTERN = ".*\(.*\).*"
 
 class HidlHalGTest(gtest_binary_test.GtestBinaryTest):
-    '''Base class to run a VTS target-side HIDL HAL test.
+    """Base class to run a VTS target-side HIDL HAL test.
 
     Attributes:
         DEVICE_TEST_DIR: string, temp location for storing binary
@@ -35,26 +40,48 @@ class HidlHalGTest(gtest_binary_test.GtestBinaryTest):
         testcases: list of GtestTestCase objects, list of test cases to run
         _cpu_freq: CpuFrequencyScalingController instance of a target device.
         _dut: AndroidDevice, the device under test as config
-    '''
+        _target_hals: List of String, the targeting hal service of the test.
+                      e.g (["android.hardware.foo@1.0::IFoo"])
+    """
 
     def setUpClass(self):
         """Checks precondition."""
         super(HidlHalGTest, self).setUpClass()
+        if not hasattr(self, "_target_hals"):
+            self._target_hals = []
 
-        opt_params = [keys.ConfigKeys.IKEY_SKIP_IF_THERMAL_THROTTLING]
+        opt_params = [keys.ConfigKeys.IKEY_SKIP_IF_THERMAL_THROTTLING,
+                      keys.ConfigKeys.IKEY_DISABLE_CPU_FREQUENCY_SCALING]
         self.getUserParams(opt_param_names=opt_params)
 
         self._skip_if_thermal_throttling = self.getUserParam(
             keys.ConfigKeys.IKEY_SKIP_IF_THERMAL_THROTTLING,
             default_value=False)
+        self._disable_cpu_frequency_scaling = self.getUserParam(
+            keys.ConfigKeys.IKEY_DISABLE_CPU_FREQUENCY_SCALING,
+            default_value=True)
 
-        if not self._skip_all_testcases:
-            logging.info("Disable CPU frequency scaling")
+        if not self.isSkipAllTests():
             self._cpu_freq = cpu_frequency_scaling.CpuFrequencyScalingController(
                 self._dut)
-            self._cpu_freq.DisableCpuScaling()
+            if self._disable_cpu_frequency_scaling:
+                logging.info("Disable CPU frequency scaling")
+                self._cpu_freq.DisableCpuScaling()
         else:
             self._cpu_freq = None
+
+        if not self.isSkipAllTests():
+            ret = precondition_utils.CanRunHidlHalTest(
+                self, self._dut, self.shell, self.run_as_compliance_test)
+            if not ret:
+                self.skipAllTests("HIDL HAL precondition check failed.")
+
+        if self.sancov.enabled and self._target_hals:
+            self.sancov.InitializeDeviceCoverage(self._dut,
+                                                 self._target_hals)
+        if self.coverage.enabled and self._target_hals:
+            self.coverage.SetHalNames(self._target_hals)
+            self.coverage.SetCoverageReportFilePrefix(self.test_module_name + self.abi_bitness)
 
     def CreateTestCases(self):
         """Create testcases and conditionally enable passthrough mode.
@@ -68,14 +95,13 @@ class HidlHalGTest(gtest_binary_test.GtestBinaryTest):
         passthrough_opt = self.getUserParam(
             keys.ConfigKeys.IKEY_PASSTHROUGH_MODE, default_value=False)
 
-        # Enable coverage if specified in the configuration or coverage enabled.
-        # TODO(ryanjcampbell@) support binderized mode
-        if passthrough_opt or self.coverage.enabled:
+        # Enable coverage if specified in the configuration.
+        if passthrough_opt:
             self._EnablePassthroughMode()
 
     # @Override
     def CreateTestCase(self, path, tag=''):
-        '''Create a list of GtestTestCase objects from a binary path.
+        """Create a list of GtestTestCase objects from a binary path.
 
         Support testing against different service names by first executing a
         dummpy test case which lists all the registered hal services. Then
@@ -89,7 +115,7 @@ class HidlHalGTest(gtest_binary_test.GtestBinaryTest):
 
         Returns:
             A list of GtestTestCase objects.
-        '''
+        """
         initial_test_cases = super(HidlHalGTest, self).CreateTestCase(path,
                                                                       tag)
         if not initial_test_cases:
@@ -99,80 +125,72 @@ class HidlHalGTest(gtest_binary_test.GtestBinaryTest):
         list_service_test_case.args += " --list_registered_services"
         results = self.shell.Execute(list_service_test_case.GetRunCommand())
         if (results[const.EXIT_CODE][0]):
-            logging.error('Failed to list test cases from binary %s',
+            logging.error("Failed to list test cases from binary %s",
                           list_service_test_case.path)
         # parse the results to get the registered service list.
         registered_services = []
-        for line in results[const.STDOUT][0].split('\n'):
+        comb_mode = hal_service_name_utils.CombMode.FULL_PERMUTATION
+        # TODO: consider to use a standard data format (e.g. json) instead of
+        # parsing the print output.
+        for line in results[const.STDOUT][0].split("\n"):
             line = str(line)
-            if line.startswith('hal_service: '):
-                service = line[len('hal_service: '):]
+            if line.startswith("hal_service: "):
+                service = line[len("hal_service: "):]
                 registered_services.append(service)
+            if line.startswith("service_comb_mode: "):
+                comb_mode = int(line[len("service_comb_mode: "):])
 
         # If no service registered, return the initial test cases directly.
         if not registered_services:
+            logging.error("No hal service registered.")
             return initial_test_cases
+
+        self._target_hals = copy.copy(registered_services)
 
         # find the correponding service name(s) for each registered service and
         # store the mapping in dict service_instances.
         service_instances = {}
         for service in registered_services:
-            cmd = '"lshal -i | grep -o %s/.* | sort -u"' % service
-            out = str(self._dut.adb.shell(cmd)).split()
-            service_names = map(lambda x: x[x.find('/') + 1:], out)
-            logging.info("registered service: %s with name: %s" %
-                         (service, ' '.join(service_names)))
-            service_instances[service] = service_names
+            testable, service_names = hal_service_name_utils.GetHalServiceName(
+                self.shell, service, self.abi_bitness,
+                self.run_as_compliance_test)
+            if not testable:
+                self.skipAllTests("Hal: %s is not testable, "
+                                  "skip all tests." % service)
+                return initial_test_cases
+            if not service_names:
+                self.skipAllTests("No service name found for: %s, skip all tests." % service)
+                # If any of the test services are not available, return the
+                # initial test cases directly.
+                return initial_test_cases
+            else:
+                service_instances[service] = service_names
+        logging.info("registered service instances: %s", service_instances)
+        logging.info("service comb mode: %d", comb_mode)
+
+        # If request NO_COMBINATION mode, return the initial test cases directly.
+        if comb_mode == hal_service_name_utils.CombMode.NO_COMBINATION:
+            return initial_test_cases
 
         # get all the combination of service instances.
-        service_instance_combinations = self._GetServiceInstancesCombinations(
-            registered_services, service_instances)
+        service_instance_combinations = hal_service_name_utils.GetServiceInstancesCombinations(
+            registered_services, service_instances, comb_mode);
 
         new_test_cases = []
-        for test_case in initial_test_cases:
-            for instance_combination in service_instance_combinations:
+        appendix_list = []
+        for instance_combination in service_instance_combinations:
+            for test_case in initial_test_cases:
                 new_test_case = copy.copy(test_case)
+                service_name_list = []
                 for instance in instance_combination:
                     new_test_case.args += " --hal_service_instance=" + instance
-                    new_test_case.tag = instance[instance.find(
-                        '/'):] + new_test_case.tag
+                    service_name_list.append(instance[instance.find('/')+1:])
+                name_appendix = "({0})".format(",".join(service_name_list))
+                new_test_case.name_appendix = name_appendix
                 new_test_cases.append(new_test_case)
+            appendix_list.append(name_appendix)
+        self.test_filter.ExpandAppendix(appendix_list, _HAL_TEST_NAME_PATTERN)
         return new_test_cases
-
-    @classmethod
-    def _GetServiceInstancesCombinations(self, services, service_instances):
-        '''Create all combinations of instances for all services.
-
-        Args:
-            services: list, all services used in the test. e.g. [s1, s2]
-            service_instances: dictionary, mapping of each service and the
-                               corresponding service name(s).
-                               e.g. {"s1": ["n1"], "s2": ["n2", "n3"]}
-
-        Returns:
-            A list of all service instance combinations.
-            e.g. [[s1/n1, s2/n2], [s1/n1, s2/n3]]
-        '''
-
-        service_instance_combinations = []
-        if not services:
-            return service_instance_combinations
-        service = services.pop()
-        pre_instance_combs = self._GetServiceInstancesCombinations(
-            services, service_instances)
-        if service not in service_instances:
-            return pre_instance_combs
-        for name in service_instances[service]:
-            if not pre_instance_combs:
-                new_instance_comb = [service + '/' + name]
-                service_instance_combinations.append(new_instance_comb)
-            else:
-                for instance_comb in pre_instance_combs:
-                    new_instance_comb = [service + '/' + name]
-                    new_instance_comb.extend(instance_comb)
-                    service_instance_combinations.append(new_instance_comb)
-
-        return service_instance_combinations
 
     def _EnablePassthroughMode(self):
         """Enable passthrough mode by setting getStub to true.
@@ -209,9 +227,16 @@ class HidlHalGTest(gtest_binary_test.GtestBinaryTest):
 
     def tearDownClass(self):
         """Turns off CPU frequency scaling."""
-        if (not self._skip_all_testcases and getattr(self, "_cpu_freq", None)):
+        if (not self.isSkipAllTests() and getattr(self, "_cpu_freq", None)
+            and self._disable_cpu_frequency_scaling):
             logging.info("Enable CPU frequency scaling")
             self._cpu_freq.EnableCpuScaling()
+
+        if self.sancov.enabled and self._target_hals:
+            self.sancov.FlushDeviceCoverage(self._dut, self._target_hals)
+            self.sancov.ProcessDeviceCoverage(self._dut,
+                                              self._target_hals)
+            self.sancov.Upload()
 
         super(HidlHalGTest, self).tearDownClass()
 

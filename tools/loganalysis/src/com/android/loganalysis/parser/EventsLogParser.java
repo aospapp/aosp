@@ -23,7 +23,9 @@ import com.android.loganalysis.item.TransitionDelayItem;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -32,28 +34,27 @@ import java.util.regex.Pattern;
  */
 public class EventsLogParser implements IParser {
 
-    // 08-21 17:53:53.876 1053 2135
-    private static final String EVENTS_PREFIX = "^\\d{2}-\\d{2} \\d{2}:\\d{2}"
-            + ":\\d{2}.\\d{3}\\s+\\d+\\s+\\d+ ";
-
-    // 01-01 01:38:44.863  1037  1111 I sysui_multi_action:
-    // [319,64,321,64,322,99,325,5951,757,761,758,9,759,4,806,com.google.android.gm,871,
-    // com.google.android.gm.welcome.WelcomeTourActivity,905,0]
-    private static final Pattern TRANSITION_STARTING_DELAY = Pattern.compile(
-            String.format("%s%s", EVENTS_PREFIX, "I sysui_multi_action: \\[319,(.*),321,(.*)"
-                    + ",322,(.*),806,(.*),871,(.*),905.*\\]$"));
-
-    // 01-01 01:38:44.863  1037  1111 I sysui_multi_action:
-    // [319,64,322,99,325,5951,757,761,758,9,759,4,806,com.google.android.gm,871,
-    // com.google.android.gm.welcome.WelcomeTourActivity,905,0]
-    private static final Pattern TRANSITION_DELAY = Pattern.compile(
-            String.format("%s%s", EVENTS_PREFIX, "I sysui_multi_action: \\[319,(.*),322,(.*)"
-                    + ",806,(.*),871,(.*),905.*\\]$"));
+    // 09-18 23:56:19.376 1140 1221 I sysui_multi_action:
+    // [319,51,321,50,322,190,325,670,757,761,758,7,759,1,806,com.google.android.calculator,871,
+    // com.android.calculator2.Calculator,905,0,945,41]
+    private static final Pattern SYSUI_TRANSITION_INFO_PATTERN = Pattern.compile(
+            "^(?<date>[0-9-]*)\\s+(?<time>[0-9:.]*)\\s+\\d+\\s+\\d+ I sysui_multi_action:"
+                    + " \\[(?<transitioninfo>.*)\\]$");
 
     // 08-21 17:53:53.876 1053 2135 I sysui_latency: [1,50]
-    private static final Pattern ACTION_LATENCY = Pattern.compile(
-            String.format("%s%s", EVENTS_PREFIX, "I sysui_latency: \\[(?<action>.*),"
-                    + "(?<delay>.*)\\]$"));
+    private static final Pattern ACTION_LATENCY = Pattern.compile("^(?<date>[0-9-]*)\\s+"
+            + "(?<time>[0-9:.]*)\\s+\\d+\\s+\\d+ I sysui_latency: \\[(?<action>.*),"
+            + "(?<delay>.*)\\]$");
+
+    private static final String DATE = "date";
+    private static final String TIME = "time";
+    private static final String TRANSITION_INFO = "transitioninfo";
+    private static final String PACKAGE_KEY = "806";
+    private static final String ACTIVITY_KEY = "871";
+    private static final String TRANSITION_DELAY_KEY = "319";
+    private static final String STARTING_WINDOW_DELAY_KEY = "321";
+    private static final String COLD_LAUNCH_KEY = "945";
+    private static final String WINDOWS_DRAWN_DELAY_KEY = "322";
 
     @Override
     public IItem parse(List<String> lines) {
@@ -62,37 +63,66 @@ public class EventsLogParser implements IParser {
     }
 
     /**
-     * Method to parse the transition delay information from the events log
-     *
+     * Parse the transition delay information from the events log.
      * @param input
-     * @return
+     * @return list of transition delay items.
      * @throws IOException
      */
     public List<TransitionDelayItem> parseTransitionDelayInfo(BufferedReader input)
             throws IOException {
         List<TransitionDelayItem> transitionDelayItems = new ArrayList<TransitionDelayItem>();
         String line;
+        Matcher match = null;
         while ((line = input.readLine()) != null) {
-            Matcher match = null;
-            if (((match = matches(TRANSITION_STARTING_DELAY, line)) != null)) {
-                TransitionDelayItem delayItem = new TransitionDelayItem();
-                delayItem.setComponentName(match.group(4) + "/" + match.group(5));
-                delayItem.setTransitionDelay(Long.parseLong(match.group(1)));
-                delayItem.setStartingWindowDelay(Long.parseLong(match.group(2)));
-                transitionDelayItems.add(delayItem);
-            } else if (((match = matches(TRANSITION_DELAY, line)) != null)) {
-                TransitionDelayItem delayItem = new TransitionDelayItem();
-                delayItem.setComponentName(match.group(3) + "/" + match.group(4));
-                delayItem.setTransitionDelay(Long.parseLong(match.group(1)));
-                transitionDelayItems.add(delayItem);
+            if ((match = matches(SYSUI_TRANSITION_INFO_PATTERN, line)) != null) {
+                Map<String, String> transitionInfoMap = getTransitionInfoMap(
+                        match.group(TRANSITION_INFO));
+                if (transitionInfoMap.containsKey(TRANSITION_DELAY_KEY)) {
+                    TransitionDelayItem delayItem = new TransitionDelayItem();
+                    if (null != transitionInfoMap.get(PACKAGE_KEY)
+                            && null != transitionInfoMap.get(ACTIVITY_KEY)
+                            && null != transitionInfoMap.get(TRANSITION_DELAY_KEY)
+                            && null != transitionInfoMap.get(WINDOWS_DRAWN_DELAY_KEY)) {
+                        delayItem.setComponentName(transitionInfoMap.get(PACKAGE_KEY) + "/"
+                                + transitionInfoMap.get(ACTIVITY_KEY));
+                        delayItem.setTransitionDelay(Long.parseLong(transitionInfoMap
+                                .get(TRANSITION_DELAY_KEY)));
+                        delayItem.setDateTime(String.format("%s %s", match.group(DATE),
+                                match.group(TIME)));
+                        delayItem.setWindowDrawnDelay(
+                                Long.parseLong(transitionInfoMap.get(WINDOWS_DRAWN_DELAY_KEY)));
+                    }
+                    if (transitionInfoMap.containsKey(COLD_LAUNCH_KEY)) {
+                        if (null != transitionInfoMap.get(STARTING_WINDOW_DELAY_KEY)) {
+                            delayItem.setStartingWindowDelay(Long.parseLong(transitionInfoMap
+                                    .get(STARTING_WINDOW_DELAY_KEY)));
+                        }
+                    }
+                    transitionDelayItems.add(delayItem);
+                }
             }
         }
         return transitionDelayItems;
     }
 
     /**
+     * Split the transition info string in to key, values and return a map.
+     * @param transitionInfo transition info map in hey value format.
+     * @return
+     */
+    public Map<String, String> getTransitionInfoMap(String transitionInfo) {
+        String[] transitionSplit = transitionInfo.split(",");
+        Map<String, String> transitionInfoMap = new HashMap<>();
+        if (transitionSplit.length % 2 == 0) {
+            for (int i = 0; i < transitionSplit.length; i = i + 2) {
+                transitionInfoMap.put(transitionSplit[i], transitionSplit[i + 1]);
+            }
+        }
+        return transitionInfoMap;
+    }
+
+    /**
      * Method to parse the latency information from the events log
-     *
      * @param input
      * @return
      * @throws IOException

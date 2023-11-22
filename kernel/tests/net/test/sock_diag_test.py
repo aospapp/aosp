@@ -18,6 +18,7 @@
 from errno import *  # pylint: disable=wildcard-import
 import os
 import random
+import select
 from socket import *  # pylint: disable=wildcard-import
 import struct
 import threading
@@ -33,7 +34,35 @@ import tcp_test
 
 NUM_SOCKETS = 30
 NO_BYTECODE = ""
-HAVE_KERNEL_SUPPORT = net_test.LINUX_VERSION >= (4, 9, 0)
+HAVE_SO_COOKIE_SUPPORT = net_test.LINUX_VERSION >= (4, 9, 0)
+
+IPPROTO_SCTP = 132
+
+def HaveUdpDiag():
+  # There is no way to tell whether a dump succeeded: if the appropriate handler
+  # wasn't found, __inet_diag_dump just returns an empty result instead of an
+  # error. So, just check to see if a UDP dump returns no sockets when we know
+  # it should return one.
+  s = socket(AF_INET6, SOCK_DGRAM, 0)
+  s.bind(("::", 0))
+  s.connect((s.getsockname()))
+  sd = sock_diag.SockDiag()
+  have_udp_diag = len(sd.DumpAllInetSockets(IPPROTO_UDP, "")) > 0
+  s.close()
+  return have_udp_diag
+
+def HaveSctp():
+  if net_test.LINUX_VERSION < (4, 7, 0):
+    return False
+  try:
+    s = socket(AF_INET, SOCK_STREAM, IPPROTO_SCTP)
+    s.close()
+    return True
+  except IOError:
+    return False
+
+HAVE_UDP_DIAG = HaveUdpDiag()
+HAVE_SCTP = HaveSctp()
 
 
 class SockDiagBaseTest(multinetwork_base.MultiNetworkBaseTest):
@@ -108,18 +137,36 @@ class SockDiagBaseTest(multinetwork_base.MultiNetworkBaseTest):
     self.assertFalse("???" in decoded)
     return bytecode
 
-  def CloseDuringBlockingCall(self, sock, call, expected_errno):
+  def _EventDuringBlockingCall(self, sock, call, expected_errno, event):
+    """Simulates an external event during a blocking call on sock.
+
+    Args:
+      sock: The socket to use.
+      call: A function, the call to make. Takes one parameter, sock.
+      expected_errno: The value that call is expected to fail with, or None if
+        call is expected to succeed.
+      event: A function, the event that will happen during the blocking call.
+        Takes one parameter, sock.
+    """
     thread = SocketExceptionThread(sock, call)
     thread.start()
     time.sleep(0.1)
-    self.sock_diag.CloseSocketFromFd(sock)
+    event(sock)
     thread.join(1)
     self.assertFalse(thread.is_alive())
-    self.assertIsNotNone(thread.exception)
-    self.assertTrue(isinstance(thread.exception, IOError),
-                    "Expected IOError, got %s" % thread.exception)
-    self.assertEqual(expected_errno, thread.exception.errno)
+    if expected_errno is not None:
+      self.assertIsNotNone(thread.exception)
+      self.assertTrue(isinstance(thread.exception, IOError),
+                      "Expected IOError, got %s" % thread.exception)
+      self.assertEqual(expected_errno, thread.exception.errno)
+    else:
+      self.assertIsNone(thread.exception)
     self.assertSocketClosed(sock)
+
+  def CloseDuringBlockingCall(self, sock, call, expected_errno):
+    self._EventDuringBlockingCall(
+        sock, call, expected_errno,
+        lambda sock: self.sock_diag.CloseSocketFromFd(sock))
 
   def setUp(self):
     super(SockDiagBaseTest, self).setUp()
@@ -313,7 +360,7 @@ class SockDiagTest(SockDiagBaseTest):
       cookie = sock.getsockopt(net_test.SOL_SOCKET, net_test.SO_COOKIE, 8)
       self.assertEqual(diag_msg.id.cookie, cookie)
 
-  @unittest.skipUnless(HAVE_KERNEL_SUPPORT, "SO_COOKIE not supported")
+  @unittest.skipUnless(HAVE_SO_COOKIE_SUPPORT, "SO_COOKIE not supported")
   def testGetsockoptcookie(self):
     self.CheckSocketCookie(AF_INET, "127.0.0.1")
     self.CheckSocketCookie(AF_INET6, "::1")
@@ -410,7 +457,7 @@ class SocketExceptionThread(threading.Thread):
   def run(self):
     try:
       self.operation(self.sock)
-    except IOError, e:
+    except (IOError, AssertionError), e:
       self.exception = e
 
 
@@ -434,9 +481,9 @@ class SockDiagTcpTest(tcp_test.TcpBaseTest, SockDiagBaseTest):
     self.assertTrue(children)
     for child, unused_args in children:
       self.assertEqual(tcp_test.TCP_SYN_RECV, child.state)
-      self.assertEqual(self.sock_diag.PaddedAddress(self.remoteaddr),
+      self.assertEqual(self.sock_diag.PaddedAddress(self.remotesockaddr),
                        child.id.dst)
-      self.assertEqual(self.sock_diag.PaddedAddress(self.myaddr),
+      self.assertEqual(self.sock_diag.PaddedAddress(self.mysockaddr),
                        child.id.src)
 
 
@@ -612,9 +659,12 @@ class SockDestroyTcpTest(tcp_test.TcpBaseTest, SockDiagBaseTest):
     """Tests that accept() is interrupted by SOCK_DESTROY."""
     for version in [4, 5, 6]:
       self.IncomingConnection(version, tcp_test.TCP_LISTEN, self.netid)
+      self.assertRaisesErrno(ENOTCONN, self.s.recv, 4096)
       self.CloseDuringBlockingCall(self.s, lambda sock: sock.accept(), EINVAL)
       self.assertRaisesErrno(ECONNABORTED, self.s.send, "foo")
       self.assertRaisesErrno(EINVAL, self.s.accept)
+      # TODO: this should really return an error such as ENOTCONN...
+      self.assertEquals("", self.s.recv(4096))
 
   def testReadInterrupted(self):
     """Tests that read() is interrupted by SOCK_DESTROY."""
@@ -622,7 +672,10 @@ class SockDestroyTcpTest(tcp_test.TcpBaseTest, SockDiagBaseTest):
       self.IncomingConnection(version, tcp_test.TCP_ESTABLISHED, self.netid)
       self.CloseDuringBlockingCall(self.accepted, lambda sock: sock.recv(4096),
                                    ECONNABORTED)
+      # Writing returns EPIPE, and reading returns EOF.
       self.assertRaisesErrno(EPIPE, self.accepted.send, "foo")
+      self.assertEquals("", self.accepted.recv(4096))
+      self.assertEquals("", self.accepted.recv(4096))
 
   def testConnectInterrupted(self):
     """Tests that connect() is interrupted by SOCK_DESTROY."""
@@ -630,15 +683,13 @@ class SockDestroyTcpTest(tcp_test.TcpBaseTest, SockDiagBaseTest):
       family = {4: AF_INET, 5: AF_INET6, 6: AF_INET6}[version]
       s = net_test.Socket(family, SOCK_STREAM, IPPROTO_TCP)
       self.SelectInterface(s, self.netid, "mark")
-      if version == 5:
-        remoteaddr = "::ffff:" + self.GetRemoteAddress(4)
-        version = 4
-      else:
-        remoteaddr = self.GetRemoteAddress(version)
+
+      remotesockaddr = self.GetRemoteSocketAddress(version)
+      remoteaddr = self.GetRemoteAddress(version)
       s.bind(("", 0))
       _, sport = s.getsockname()[:2]
       self.CloseDuringBlockingCall(
-          s, lambda sock: sock.connect((remoteaddr, 53)), ECONNABORTED)
+          s, lambda sock: sock.connect((remotesockaddr, 53)), ECONNABORTED)
       desc, syn = packets.SYN(53, version, self.MyAddress(version, self.netid),
                               remoteaddr, sport=sport, seq=None)
       self.ExpectPacketOn(self.netid, desc, syn)
@@ -646,6 +697,106 @@ class SockDestroyTcpTest(tcp_test.TcpBaseTest, SockDiagBaseTest):
       self.ExpectNoPacketsOn(self.netid, msg)
 
 
+class PollOnCloseTest(tcp_test.TcpBaseTest, SockDiagBaseTest):
+  """Tests that the effect of SOCK_DESTROY on poll matches TCP RSTs.
+
+  The behaviour of poll() in these cases is not what we might expect: if only
+  POLLIN is specified, it will return POLLIN|POLLERR|POLLHUP, but if POLLOUT
+  is (also) specified, it will only return POLLOUT.
+  """
+
+  POLLIN_OUT = select.POLLIN | select.POLLOUT
+  POLLIN_ERR_HUP = select.POLLIN | select.POLLERR | select.POLLHUP
+
+  def setUp(self):
+    super(PollOnCloseTest, self).setUp()
+    self.netid = random.choice(self.tuns.keys())
+
+  POLL_FLAGS = [(select.POLLIN, "IN"), (select.POLLOUT, "OUT"),
+                (select.POLLERR, "ERR"), (select.POLLHUP, "HUP")]
+
+  def PollResultToString(self, poll_events, ignoremask):
+    out = []
+    for fd, event in poll_events:
+      flags = [name for (flag, name) in self.POLL_FLAGS
+               if event & flag & ~ignoremask != 0]
+      out.append((fd, "|".join(flags)))
+    return out
+
+  def BlockingPoll(self, sock, mask, expected, ignoremask):
+    p = select.poll()
+    p.register(sock, mask)
+    expected_fds = [(sock.fileno(), expected)]
+    # Don't block forever or we'll hang continuous test runs on failure.
+    # A 5-second timeout should be long enough not to be flaky.
+    actual_fds = p.poll(5000)
+    self.assertEqual(self.PollResultToString(expected_fds, ignoremask),
+                     self.PollResultToString(actual_fds, ignoremask))
+
+  def RstDuringBlockingCall(self, sock, call, expected_errno):
+    self._EventDuringBlockingCall(
+        sock, call, expected_errno,
+        lambda _: self.ReceiveRstPacketOn(self.netid))
+
+  def assertSocketErrors(self, errno):
+    # The first operation returns the expected errno.
+    self.assertRaisesErrno(errno, self.accepted.recv, 4096)
+
+    # Subsequent operations behave as normal.
+    self.assertRaisesErrno(EPIPE, self.accepted.send, "foo")
+    self.assertEquals("", self.accepted.recv(4096))
+    self.assertEquals("", self.accepted.recv(4096))
+
+  def CheckPollDestroy(self, mask, expected, ignoremask):
+    """Interrupts a poll() with SOCK_DESTROY."""
+    for version in [4, 5, 6]:
+      self.IncomingConnection(version, tcp_test.TCP_ESTABLISHED, self.netid)
+      self.CloseDuringBlockingCall(
+          self.accepted,
+          lambda sock: self.BlockingPoll(sock, mask, expected, ignoremask),
+          None)
+      self.assertSocketErrors(ECONNABORTED)
+
+  def CheckPollRst(self, mask, expected, ignoremask):
+    """Interrupts a poll() by receiving a TCP RST."""
+    for version in [4, 5, 6]:
+      self.IncomingConnection(version, tcp_test.TCP_ESTABLISHED, self.netid)
+      self.RstDuringBlockingCall(
+          self.accepted,
+          lambda sock: self.BlockingPoll(sock, mask, expected, ignoremask),
+          None)
+      self.assertSocketErrors(ECONNRESET)
+
+  def testReadPollRst(self):
+    # Until 3d4762639d ("tcp: remove poll() flakes when receiving RST"), poll()
+    # would sometimes return POLLERR and sometimes POLLIN|POLLERR|POLLHUP. This
+    # is due to a race inside the kernel and thus is not visible on the VM, only
+    # on physical hardware.
+    if net_test.LINUX_VERSION < (4, 14, 0):
+      ignoremask = select.POLLIN | select.POLLHUP
+    else:
+      ignoremask = 0
+    self.CheckPollRst(select.POLLIN, self.POLLIN_ERR_HUP, ignoremask)
+
+  def testWritePollRst(self):
+    self.CheckPollRst(select.POLLOUT, select.POLLOUT, 0)
+
+  def testReadWritePollRst(self):
+    self.CheckPollRst(self.POLLIN_OUT, select.POLLOUT, 0)
+
+  def testReadPollDestroy(self):
+    # tcp_abort has the same race that tcp_reset has, but it's not fixed yet.
+    ignoremask = select.POLLIN | select.POLLHUP
+    self.CheckPollDestroy(select.POLLIN, self.POLLIN_ERR_HUP, ignoremask)
+
+  def testWritePollDestroy(self):
+    self.CheckPollDestroy(select.POLLOUT, select.POLLOUT, 0)
+
+  def testReadWritePollDestroy(self):
+    self.CheckPollDestroy(self.POLLIN_OUT, select.POLLOUT, 0)
+
+
+@unittest.skipUnless(HAVE_UDP_DIAG, "INET_UDP_DIAG not enabled")
 class SockDestroyUdpTest(SockDiagBaseTest):
 
   """Tests SOCK_DESTROY on UDP sockets.
@@ -685,7 +836,7 @@ class SockDestroyUdpTest(SockDiagBaseTest):
   def testSocketAddressesAfterClose(self):
     for version in 4, 5, 6:
       netid = random.choice(self.NETIDS)
-      dst = self.GetRemoteAddress(version)
+      dst = self.GetRemoteSocketAddress(version)
       family = {4: AF_INET, 5: AF_INET6, 6: AF_INET6}[version]
       unspec = {4: "0.0.0.0", 5: "::", 6: "::"}[version]
 
@@ -699,7 +850,7 @@ class SockDestroyUdpTest(SockDiagBaseTest):
 
       # Closing a socket bound to an IP address leaves the address as is.
       s = self.BuildSocket(version, net_test.UDPSocket, netid, "mark")
-      src = self.MyAddress(version, netid)
+      src = self.MySocketAddress(version, netid)
       s.bind((src, 0))
       s.connect((dst, 53))
       port = s.getsockname()[1]
@@ -715,7 +866,7 @@ class SockDestroyUdpTest(SockDiagBaseTest):
 
       # Closing a socket bound to IP address and port leaves both as is.
       s = self.BuildSocket(version, net_test.UDPSocket, netid, "mark")
-      src = self.MyAddress(version, netid)
+      src = self.MySocketAddress(version, netid)
       port = self.BindToRandomPort(s, src)
       self.sock_diag.CloseSocketFromFd(s)
       self.assertEqual((src, port), s.getsockname()[:2])
@@ -762,6 +913,7 @@ class SockDestroyPermissionTest(SockDiagBaseTest):
     self.assertRaises(ValueError, self.sock_diag.CloseSocketFromFd, s)
 
 
+  @unittest.skipUnless(HAVE_UDP_DIAG, "INET_UDP_DIAG not enabled")
   def testUdp(self):
     self.CheckPermissions(SOCK_DGRAM)
 
@@ -779,8 +931,6 @@ class SockDiagMarkTest(tcp_test.TcpBaseTest, SockDiagBaseTest):
         a52e95a net: diag: allow socket bytecode filters to match socket marks
         d545cac net: inet: diag: expose the socket mark to privileged processes.
   """
-
-  IPPROTO_SCTP = 132
 
   def FilterEstablishedSockets(self, mark, mask):
     instructions = [(sock_diag.INET_DIAG_BC_MARK_COND, 1, 2, (mark, mask))]
@@ -896,21 +1046,21 @@ class SockDiagMarkTest(tcp_test.TcpBaseTest, SockDiagBaseTest):
       # Other TCP states are tested in SockDestroyTcpTest.
 
       # UDP sockets.
-      s = socket(family, SOCK_DGRAM, 0)
-      mark = self.SetRandomMark(s)
-      s.connect(("", 53))
-      self.assertSocketMarkIs(s, mark)
-      s.close()
+      if HAVE_UDP_DIAG:
+        s = socket(family, SOCK_DGRAM, 0)
+        mark = self.SetRandomMark(s)
+        s.connect(("", 53))
+        self.assertSocketMarkIs(s, mark)
+        s.close()
 
       # Basic test for SCTP. sctp_diag was only added in 4.7.
-      if net_test.LINUX_VERSION >= (4, 7, 0):
-        s = socket(family, SOCK_STREAM, self.IPPROTO_SCTP)
+      if HAVE_SCTP:
+        s = socket(family, SOCK_STREAM, IPPROTO_SCTP)
         s.bind((addr, 0))
         s.listen(1)
         mark = self.SetRandomMark(s)
         self.assertSocketMarkIs(s, mark)
-        sockets = self.sock_diag.DumpAllInetSockets(self.IPPROTO_SCTP,
-                                                    NO_BYTECODE)
+        sockets = self.sock_diag.DumpAllInetSockets(IPPROTO_SCTP, NO_BYTECODE)
         self.assertEqual(1, len(sockets))
         self.assertEqual(mark, sockets[0][1].get("INET_DIAG_MARK", None))
         s.close()

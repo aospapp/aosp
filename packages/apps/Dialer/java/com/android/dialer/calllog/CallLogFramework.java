@@ -17,102 +17,42 @@
 package com.android.dialer.calllog;
 
 import android.content.Context;
-import android.content.SharedPreferences;
-import android.preference.PreferenceManager;
-import android.support.annotation.MainThread;
-import android.support.annotation.Nullable;
 import com.android.dialer.calllog.datasources.CallLogDataSource;
 import com.android.dialer.calllog.datasources.DataSources;
-import com.android.dialer.common.Assert;
 import com.android.dialer.common.LogUtil;
 import com.android.dialer.configprovider.ConfigProviderBindings;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 
 /**
- * Coordinates work across CallLog data sources to detect if the annotated call log is out of date
- * ("dirty") and update it if necessary.
+ * Coordinates work across {@link DataSources}.
  *
  * <p>All methods should be called on the main thread.
  */
 @Singleton
-public final class CallLogFramework implements CallLogDataSource.ContentObserverCallbacks {
-
-  static final String PREF_FORCE_REBUILD = "callLogFrameworkForceRebuild";
+public final class CallLogFramework {
 
   private final DataSources dataSources;
-
-  @Nullable private CallLogUi ui;
 
   @Inject
   CallLogFramework(DataSources dataSources) {
     this.dataSources = dataSources;
   }
 
-  public boolean isNewCallLogEnabled(Context context) {
-    return ConfigProviderBindings.get(context).getBoolean("enable_new_call_log_tab", false);
-  }
-
   /** Registers the content observers for all data sources. */
   public void registerContentObservers(Context appContext) {
     LogUtil.enterBlock("CallLogFramework.registerContentObservers");
 
-    if (!isNewCallLogEnabled(appContext)) {
-      LogUtil.i("CallLogFramework.registerContentObservers", "new call log not enabled");
-      return;
+    // This is the same condition used in MainImpl#isNewUiEnabled. It means that bugfood/debug
+    // users will have "new call log" content observers firing. These observers usually do simple
+    // things like writing shared preferences.
+    // TODO(zachh): Find a way to access Main#isNewUiEnabled without creating a circular dependency.
+    if (ConfigProviderBindings.get(appContext).getBoolean("is_nui_shortcut_enabled", false)) {
+      for (CallLogDataSource dataSource : dataSources.getDataSourcesIncludingSystemCallLog()) {
+        dataSource.registerContentObservers(appContext);
+      }
+    } else {
+      LogUtil.i("CallLogFramework.registerContentObservers", "not registering content observers");
     }
-
-    for (CallLogDataSource dataSource : dataSources.getDataSourcesIncludingSystemCallLog()) {
-      dataSource.registerContentObservers(appContext, this);
-    }
-  }
-
-  /**
-   * Attach a UI component to the framework so that it may be notified of changes to the annotated
-   * call log.
-   */
-  public void attachUi(CallLogUi ui) {
-    LogUtil.enterBlock("CallLogFramework.attachUi");
-    this.ui = ui;
-  }
-
-  /**
-   * Detaches the UI from the framework. This should be called when the UI is hidden or destroyed
-   * and no longer needs to be notified of changes to the annotated call log.
-   */
-  public void detachUi() {
-    LogUtil.enterBlock("CallLogFramework.detachUi");
-    this.ui = null;
-  }
-
-  /**
-   * Marks the call log as dirty and notifies any attached UI components. If there are no UI
-   * components currently attached, this is an efficient operation since it is just writing a shared
-   * pref.
-   *
-   * <p>We don't want to actually force a rebuild when there is no UI running because we don't want
-   * to be constantly rebuilding the database when the device is sitting on a desk and receiving a
-   * lot of calls, for example.
-   */
-  @Override
-  @MainThread
-  public void markDirtyAndNotify(Context appContext) {
-    Assert.isMainThread();
-    LogUtil.enterBlock("CallLogFramework.markDirtyAndNotify");
-
-    SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(appContext);
-    sharedPreferences.edit().putBoolean(PREF_FORCE_REBUILD, true).apply();
-
-    if (ui != null) {
-      ui.invalidateUi();
-    }
-  }
-
-  /** Callbacks invoked on listening UI components. */
-  public interface CallLogUi {
-
-    /** Notifies the call log UI that the annotated call log is out of date. */
-    @MainThread
-    void invalidateUi();
   }
 }

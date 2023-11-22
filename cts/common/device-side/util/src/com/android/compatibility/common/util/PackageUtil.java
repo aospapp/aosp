@@ -31,6 +31,8 @@ import java.security.NoSuchAlgorithmException;
  */
 public class PackageUtil {
 
+    private static final String TAG = PackageUtil.class.getSimpleName();
+
     private static final int SYSTEM_APP_MASK =
             ApplicationInfo.FLAG_SYSTEM | ApplicationInfo.FLAG_UPDATED_SYSTEM_APP;
     private static final char[] HEX_ARRAY = "0123456789ABCDEF".toCharArray();
@@ -66,6 +68,18 @@ public class PackageUtil {
             return ai != null && ((ai.flags & SYSTEM_APP_MASK) != 0);
         } catch(PackageManager.NameNotFoundException e) {
             return false;
+        }
+    }
+
+    /** Returns the version string of the package name, or null if the package can't be found */
+    public static String getVersionString(String packageName) {
+        try {
+            PackageInfo info = getPackageManager().getPackageInfo(packageName,
+                    PackageManager.GET_META_DATA);
+            return info.versionName;
+        } catch (PackageManager.NameNotFoundException | NullPointerException e) {
+            Log.w(TAG, "Could not find version string for package " + packageName);
+            return null;
         }
     }
 

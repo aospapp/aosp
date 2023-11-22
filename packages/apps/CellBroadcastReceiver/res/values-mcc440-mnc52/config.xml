@@ -16,6 +16,7 @@
 
 <resources>
     <string-array name="additional_cbs_channels_strings" translatable="false">
-        <item>0xA003:type=other, emergency=true</item>
+        <item>0xAC00:type=test, emergency=true, scope=carrier</item>
+        <item>0x1105-0xAFFF:type=other, emergency=true, scope=carrier</item>
     </string-array>
 </resources>

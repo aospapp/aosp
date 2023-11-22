@@ -10,7 +10,7 @@ DEPENDENCIES = 'arc'
 JOB_RETRIES = 2
 TEST_TYPE = 'server'
 TIME = 'LENGTHY'
-
+PRIORITY = 70
 DOC = ('Run tradefed to collect all of the available GTS tests for this device.')
 
 def run_GTS(machine):
@@ -20,7 +20,7 @@ def run_GTS(machine):
         host=host,
         iterations=1,
         tag='tradefed-run-collect-tests-only',
-        gts_tradefed_args = ['run', 'commandAndExit', 'collect-tests-only'],
+        tradefed_args = ['run', 'commandAndExit', 'collect-tests-only'],
         timeout=600)
 
 parallel_simple(run_GTS, machines)

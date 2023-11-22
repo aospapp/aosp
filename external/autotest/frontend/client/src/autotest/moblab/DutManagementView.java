@@ -33,6 +33,11 @@ public class DutManagementView extends TabView {
   private CheckBox poolCheckBox;
   private TextBox poolLabelName;
   private Label poolLabel;
+  private TextBox attributeName;
+  private TextBox attributeValue;
+  private HorizontalPanel labelActionRow;
+  private HorizontalPanel attribActionRow;
+  private HorizontalPanel attribValueActionRow;
 
   private static final int DHCP_IP_COLUMN = 0;
   private static final int DHCP_MAC_COLUMN = 1;
@@ -50,6 +55,12 @@ public class DutManagementView extends TabView {
     dutInfoTable.removeAllRows();
     poolCheckBox.setValue(false);
     poolLabelName.setText("");
+    attributeName.setText("");
+    attributeValue.setValue("");
+
+    labelActionRow.setVisible(false);
+    attribActionRow.setVisible(false);
+
     loadData();
   }
 
@@ -58,7 +69,7 @@ public class DutManagementView extends TabView {
     super.initialize();
     // Main table of connected DUT information.
     dutInfoTable = new FlexTable();
-    
+
     // The row of controls underneath the main data table.
     dutSetupPanel = new VerticalPanel();
 
@@ -68,18 +79,30 @@ public class DutManagementView extends TabView {
     options.addItem("Remove Selected DUT's");
     options.addItem("Add Label Selected DUT's");
     options.addItem("Remove Label Selected DUT's");
+    options.addItem("Add Attribute to Selected DUT's");
+    options.addItem("Remove Attribute from Selected DUT's");
     options.setStyleName("dut_manage_action_row");
     options.addChangeHandler(new ChangeHandler() {
       @Override
       public void onChange(ChangeEvent event) {
         if (options.getSelectedIndex() == 2 || options.getSelectedIndex() == 3) {
-          poolCheckBox.setEnabled(true);
           poolCheckBox.setValue(false);
-          poolLabelName.setEnabled(true);
           poolLabelName.setText("");
+          labelActionRow.setVisible(true);
+          attribActionRow.setVisible(false);
+        } else if (options.getSelectedIndex() == 4 || options.getSelectedIndex() == 5) {
+          attributeName.setText("");
+          attributeValue.setValue("");
+          labelActionRow.setVisible(false);
+          attribActionRow.setVisible(true);
+          if (options.getSelectedIndex() == 4) {
+            attribValueActionRow.setVisible(true);
+          } else {
+            attribValueActionRow.setVisible(false);
+          }
         } else {
-          poolCheckBox.setEnabled(false);
-          poolLabelName.setEnabled(false);
+          labelActionRow.setVisible(false);
+          attribActionRow.setVisible(false);
         }
       }
     });
@@ -105,9 +128,13 @@ public class DutManagementView extends TabView {
               } else if (action == 1) {
                 removeDut(i);
               } else if (action == 2) {
-                addLabel(i, getLabelString());
+                addLabel(i, getPoolLabelString());
               } else if (action == 3) {
-                removeLabel(i, getLabelString());
+                removeLabel(i, getPoolLabelString());
+              } else if (action == 4) {
+                addAttribute(i, attributeName.getText(), attributeValue.getText());
+              } else if (action == 5) {
+                removeAttribute(i, attributeName.getText());
               }
             }
           }
@@ -133,7 +160,32 @@ public class DutManagementView extends TabView {
     // The text entry of the label to add or remove.
     poolLabelName = new TextBox();
     poolLabelName.setStyleName("dut_manage_action_row_item");
-    poolCheckBox.setEnabled(false);
+
+    labelActionRow = new HorizontalPanel();
+    labelActionRow.add(poolCheckBox);
+    labelActionRow.add(poolLabel);
+    labelActionRow.add(poolLabelName);
+
+    // The name/value pair required to set an attribute
+    Label attributeNameLabel = new Label();
+    attributeNameLabel.setText("Attribute:");
+    attributeNameLabel.setStyleName("dut_manage_action_row_item");
+    attributeName = new TextBox();
+    attributeName.setStyleName("dut_manage_action_row_item");
+
+    Label attributeValueLabel = new Label();
+    attributeValueLabel.setText("Value:");
+    attributeValueLabel.setStyleName("dut_manage_action_row_item");
+    attributeValue = new TextBox();
+    attributeValue.setStyleName("dut_manage_action_row_item");
+
+    attribActionRow = new HorizontalPanel();
+    attribActionRow.add(attributeNameLabel);
+    attribActionRow.add(attributeName);
+    attribValueActionRow = new HorizontalPanel();
+    attribValueActionRow.add(attributeValueLabel);
+    attribValueActionRow.add(attributeValue);
+    attribActionRow.add(attribValueActionRow);
 
    // Assemble the display panels in the correct order.
     dutSetupPanel.add(dutInfoTable);
@@ -141,17 +193,15 @@ public class DutManagementView extends TabView {
     actionRow.setStyleName("dut_manage_action_row");
     actionRow.setVerticalAlignment(HasVerticalAlignment.ALIGN_MIDDLE);
     actionRow.add(options);
-    actionRow.add(poolCheckBox);
-    actionRow.add(poolLabel);
-    actionRow.add(poolLabelName);
+    actionRow.add(labelActionRow);
+    actionRow.add(attribActionRow);
     actionRow.add(actionButton);
     dutSetupPanel.add(actionRow);
     dutSetupPanel.add(informationArea);
     addWidget(dutSetupPanel, "view_dut_manage");
-    poolLabelName.setEnabled(false);
   }
 
-  private String getLabelString() {
+  private String getPoolLabelString() {
     StringBuilder builder = new StringBuilder(poolLabelName.getText());
     if (poolCheckBox.getValue()) {
       builder.insert(0, "pool:");
@@ -172,7 +222,11 @@ public class DutManagementView extends TabView {
           if (info.getConfiguredIpsToLabels().keySet().contains(dutIpAddress)) {
             labelString = info.getConfiguredIpsToLabels().get(dutIpAddress);
           } else {
-            labelString = "DUT Not Configured in Autotest";
+            boolean sshOk =
+                info.getConnectedIpsToSshConnection().get(dutIpAddress);
+            labelString = sshOk ? "DUT Not Configured in Autotest" :
+                "Unable to connect to DUT over SSH, check device is powered " +
+                "on, connected and has a test image on it.";
           }
           addRow(row, dutIpAddress, info.getConnectedIpsToMacAddress().get(dutIpAddress), labelString);
           row++;
@@ -272,6 +326,29 @@ public class DutManagementView extends TabView {
   private void removeLabel(int row_number, String labelName) {
     String ipAddress = ((Label)dutInfoTable.getWidget(row_number, DHCP_IP_COLUMN)).getText();
     MoblabRpcHelper.removeMoblabLabel(ipAddress, labelName, new LogAction(informationArea));
+  }
+
+ /**
+   * Make an RPC to to the autotest system to add an attribute to a DUT whoes details are in the
+   * given row.
+   * @param row_number row in the data table that has the information about the DUT
+   * @param attributeName the attribute name to be set.
+   * @param attributeValue the attribute value to be associated with the attributeName.
+   */
+  private void addAttribute(int row_number, String attributeName, String attributeValue) {
+    String ipAddress = ((Label)dutInfoTable.getWidget(row_number, DHCP_IP_COLUMN)).getText();
+    MoblabRpcHelper.setMoblabAttribute(ipAddress, attributeName, attributeValue, new LogAction(informationArea));
+  }
+
+ /**
+   * Make an RPC to to the autotest system to remove an attribute to a DUT whoes details are in the
+   * given row.
+   * @param row_number row in the data table that has the information about the DUT
+   * @param attributeName the attribute name to be removed.
+   */
+  private void removeAttribute(int row_number, String attributeName) {
+    String ipAddress = ((Label)dutInfoTable.getWidget(row_number, DHCP_IP_COLUMN)).getText();
+    MoblabRpcHelper.removeMoblabAttribute(ipAddress, attributeName, new LogAction(informationArea));
   }
 
   /**

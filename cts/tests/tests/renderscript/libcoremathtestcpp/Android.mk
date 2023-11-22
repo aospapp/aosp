@@ -22,10 +22,10 @@ LOCAL_MODULE := libcoremathtestcpp_jni
 LOCAL_MODULE_TAGS := optional
 LOCAL_SRC_FILES := CoreMathTestJni.cpp
 
-LOCAL_CFLAGS := -std=c++11
+LOCAL_CFLAGS := -std=c++11 -Wall -Werror
 
 LOCAL_SDK_VERSION := 21
-LOCAL_NDK_STL_VARIANT := stlport_static
+LOCAL_NDK_STL_VARIANT := c++_static
 
 LOCAL_C_INCLUDES := $(JNI_H_INCLUDE)
 LOCAL_C_INCLUDES += frameworks/rs/cpp

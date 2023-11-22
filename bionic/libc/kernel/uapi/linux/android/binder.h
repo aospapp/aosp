@@ -28,6 +28,8 @@ enum {
   BINDER_TYPE_HANDLE = B_PACK_CHARS('s', 'h', '*', B_TYPE_LARGE),
   BINDER_TYPE_WEAK_HANDLE = B_PACK_CHARS('w', 'h', '*', B_TYPE_LARGE),
   BINDER_TYPE_FD = B_PACK_CHARS('f', 'd', '*', B_TYPE_LARGE),
+  BINDER_TYPE_FDA = B_PACK_CHARS('f', 'd', 'a', B_TYPE_LARGE),
+  BINDER_TYPE_PTR = B_PACK_CHARS('p', 't', '*', B_TYPE_LARGE),
 };
 enum {
   FLAT_BINDER_FLAG_PRIORITY_MASK = 0xff,
@@ -40,14 +42,44 @@ typedef __u32 binder_uintptr_t;
 typedef __u64 binder_size_t;
 typedef __u64 binder_uintptr_t;
 #endif
-struct flat_binder_object {
+struct binder_object_header {
   __u32 type;
+};
+struct flat_binder_object {
+  struct binder_object_header hdr;
   __u32 flags;
   union {
     binder_uintptr_t binder;
     __u32 handle;
   };
   binder_uintptr_t cookie;
+};
+struct binder_fd_object {
+  struct binder_object_header hdr;
+  __u32 pad_flags;
+  union {
+    binder_uintptr_t pad_binder;
+    __u32 fd;
+  };
+  binder_uintptr_t cookie;
+};
+struct binder_buffer_object {
+  struct binder_object_header hdr;
+  __u32 flags;
+  binder_uintptr_t buffer;
+  binder_size_t length;
+  binder_size_t parent;
+  binder_size_t parent_offset;
+};
+enum {
+  BINDER_BUFFER_FLAG_HAS_PARENT = 0x01,
+};
+struct binder_fd_array_object {
+  struct binder_object_header hdr;
+  __u32 pad;
+  binder_size_t num_fds;
+  binder_size_t parent;
+  binder_size_t parent_offset;
 };
 struct binder_write_read {
   binder_size_t write_size;
@@ -65,6 +97,12 @@ struct binder_version {
 #else
 #define BINDER_CURRENT_PROTOCOL_VERSION 8
 #endif
+struct binder_node_debug_info {
+  binder_uintptr_t ptr;
+  binder_uintptr_t cookie;
+  __u32 has_strong_ref;
+  __u32 has_weak_ref;
+};
 #define BINDER_WRITE_READ _IOWR('b', 1, struct binder_write_read)
 #define BINDER_SET_IDLE_TIMEOUT _IOW('b', 3, __s64)
 #define BINDER_SET_MAX_THREADS _IOW('b', 5, __u32)
@@ -72,6 +110,7 @@ struct binder_version {
 #define BINDER_SET_CONTEXT_MGR _IOW('b', 7, __s32)
 #define BINDER_THREAD_EXIT _IOW('b', 8, __s32)
 #define BINDER_VERSION _IOWR('b', 9, struct binder_version)
+#define BINDER_GET_NODE_DEBUG_INFO _IOWR('b', 11, struct binder_node_debug_info)
 enum transaction_flags {
   TF_ONE_WAY = 0x01,
   TF_ROOT_OBJECT = 0x04,
@@ -97,6 +136,10 @@ struct binder_transaction_data {
     } ptr;
     __u8 buf[8];
   } data;
+};
+struct binder_transaction_data_sg {
+  struct binder_transaction_data transaction_data;
+  binder_size_t buffers_size;
 };
 struct binder_ptr_cookie {
   binder_uintptr_t ptr;
@@ -153,5 +196,7 @@ enum binder_driver_command_protocol {
   BC_REQUEST_DEATH_NOTIFICATION = _IOW('c', 14, struct binder_handle_cookie),
   BC_CLEAR_DEATH_NOTIFICATION = _IOW('c', 15, struct binder_handle_cookie),
   BC_DEAD_BINDER_DONE = _IOW('c', 16, binder_uintptr_t),
+  BC_TRANSACTION_SG = _IOW('c', 17, struct binder_transaction_data_sg),
+  BC_REPLY_SG = _IOW('c', 18, struct binder_transaction_data_sg),
 };
 #endif

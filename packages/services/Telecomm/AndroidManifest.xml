@@ -36,8 +36,11 @@
     <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS_FULL" />
     <uses-permission android:name="android.permission.MANAGE_USERS" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <!-- Required to determine source of ongoing audio recordings. -->
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_ROUTING" />
     <uses-permission android:name="android.permission.MODIFY_PHONE_STATE" />
     <uses-permission android:name="android.permission.READ_CALL_LOG" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.STOP_APP_SWITCHES" />
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.WRITE_CALL_LOG" />
@@ -99,6 +102,15 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
+
+        <activity android:name=".settings.CallBlockDisabledActivity"
+                android:configChanges="keyboardHidden|orientation|screenSize"
+                android:excludeFromRecents="true"
+                android:launchMode="singleInstance"
+                android:theme="@style/Theme.Telecomm.Transparent"
+                android:process=":ui">
+        </activity>
+
         <!-- Activity that starts the outgoing call process by listening to CALL intent which
              contain contact information in the intent's data. CallActivity handles any data
              URL with the schemes "tel", "sip", and "voicemail". It also handles URLs linked to

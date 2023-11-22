@@ -8,7 +8,13 @@ package org.mockito.internal.exceptions;
 import org.mockito.exceptions.base.MockitoAssertionError;
 import org.mockito.exceptions.base.MockitoException;
 import org.mockito.exceptions.misusing.*;
-import org.mockito.exceptions.verification.*;
+import org.mockito.exceptions.verification.NeverWantedButInvoked;
+import org.mockito.exceptions.verification.NoInteractionsWanted;
+import org.mockito.exceptions.verification.SmartNullPointerException;
+import org.mockito.exceptions.verification.TooLittleActualInvocations;
+import org.mockito.exceptions.verification.TooManyActualInvocations;
+import org.mockito.exceptions.verification.VerificationInOrderFailure;
+import org.mockito.exceptions.verification.WantedButNotInvoked;
 import org.mockito.internal.debugging.LocationImpl;
 import org.mockito.internal.exceptions.util.ScenarioPrinter;
 import org.mockito.internal.junit.ExceptionFactory;
@@ -44,6 +50,8 @@ import static org.mockito.internal.util.StringUtil.join;
  * read (xunit plugins take only fraction of screen on modern IDEs).
  */
 public class Reporter {
+
+    private final static String NON_PUBLIC_PARENT = "Mocking methods declared on non-public parent classes is not supported.";
 
     private Reporter() {
     }
@@ -102,7 +110,7 @@ public class Reporter {
                 "Also, this error might show up because:",
                 "1. you stub either of: final/private/equals()/hashCode() methods.",
                 "   Those methods *cannot* be stubbed/verified.",
-                "   " + MockitoLimitations.NON_PUBLIC_PARENT,
+                "   " + NON_PUBLIC_PARENT,
                 "2. inside when() you don't call method on mock but on some other object.",
                 ""
         ));
@@ -118,7 +126,7 @@ public class Reporter {
                 "",
                 "Also, this error might show up because you verify either of: final/private/equals()/hashCode() methods.",
                 "Those methods *cannot* be stubbed/verified.",
-                MockitoLimitations.NON_PUBLIC_PARENT,
+                NON_PUBLIC_PARENT,
                 ""
         ));
     }
@@ -448,6 +456,9 @@ public class Reporter {
                 "'" + methodName + "' is a *void method* and it *cannot* be stubbed with a *return value*!",
                 "Voids are usually stubbed with Throwables:",
                 "    doThrow(exception).when(mock).someVoidMethod();",
+                "If you need to set the void method to do nothing you can use:",
+                "    doNothing().when(mock).someVoidMethod();",
+                "For more information, check out the javadocs for Mockito.doNothing().",
                 "***",
                 "If you're unsure why you're getting above error read on.",
                 "Due to the nature of the syntax above problem might occur because:",
@@ -455,7 +466,7 @@ public class Reporter {
                 "2. Somewhere in your test you are stubbing *final methods*. Sorry, Mockito does not verify/stub final methods.",
                 "3. A spy is stubbed using when(spy.foo()).then() syntax. It is safer to stub spies - ",
                 "   - with doReturn|Throw() family of methods. More in javadocs for Mockito.spy() method.",
-                "4. " + MockitoLimitations.NON_PUBLIC_PARENT,
+                "4. " + NON_PUBLIC_PARENT,
                 ""
         ));
     }
@@ -522,7 +533,7 @@ public class Reporter {
                 "",
                 "Also, this error might show up because you use argument matchers with methods that cannot be mocked.",
                 "Following methods *cannot* be stubbed/verified: final/private/equals()/hashCode().",
-                MockitoLimitations.NON_PUBLIC_PARENT,
+                NON_PUBLIC_PARENT,
                 ""
         ));
     }
@@ -646,7 +657,7 @@ public class Reporter {
         return new FriendlyReminderException(join("",
                                                   "Don't panic! I'm just a friendly reminder!",
                                                   "timeout() should not be used with atMost() or never() because...",
-                                                  "...it does not make much sense - the test would have passed immediately in concurency",
+                                                  "...it does not make much sense - the test would have passed immediately in concurrency",
                                                   "We kept this method only to avoid compilation errors when upgrading Mockito.",
                                                   "In future release we will remove timeout(x).atMost(y) from the API.",
                                                   "If you want to find out more please refer to issue 235",
@@ -662,8 +673,8 @@ public class Reporter {
 
     }
 
-    public static MockitoException invocationListenerDoesNotAcceptNullParameters() {
-        return new MockitoException("invocationListeners() does not accept null parameters");
+    public static MockitoException methodDoesNotAcceptParameter(String method, String parameter) {
+        return new MockitoException(method + "() does not accept " + parameter + " See the Javadoc.");
     }
 
     public static MockitoException invocationListenersRequiresAtLeastOneListener() {
@@ -848,7 +859,7 @@ public class Reporter {
                 heading,
                 "Clean & maintainable test code requires zero unnecessary code.",
                 "Following stubbings are unnecessary (click to navigate to relevant line of code):" + stubbings,
-                "Please remove unnecessary stubbings or use 'silent' option. More info: javadoc for UnnecessaryStubbingException class."
+                "Please remove unnecessary stubbings or use 'lenient' strictness. More info: javadoc for UnnecessaryStubbingException class."
         ));
     }
 
@@ -879,7 +890,7 @@ public class Reporter {
                 "  - stubbing the same method multiple times using 'given().will()' or 'when().then()' API",
                 "    Please use 'will().given()' or 'doReturn().when()' API for stubbing.",
                 "  - stubbed method is intentionally invoked with different arguments by code under test",
-                "    Please use 'default' or 'silent' JUnit Rule.",
+                "    Please use default or 'silent' JUnit Rule (equivalent of Strictness.LENIENT).",
                 "For more information see javadoc for PotentialStubbingProblem class."));
     }
 

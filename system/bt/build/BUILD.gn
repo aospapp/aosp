@@ -1,5 +1,5 @@
 #
-#  Copyright (C) 2015 Google, Inc.
+#  Copyright 2015 Google, Inc.
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 
 config("default_include_dirs") {
   include_dirs = [
-    "//third_party/libhardware/include/",
+    "//include/",
     "//types/",
   ]
 }
@@ -28,6 +28,7 @@ config("linux") {
     #TODO(jpawlowski): uncomment once we have no warnings on linux build
     #    "-Wall",
     #    "-Werror",
+    "-Wno-gnu-variable-sized-type-not-at-end",
     "-g",
     "-O0",
     "-fpic",
@@ -53,11 +54,6 @@ config("linux") {
     "LOG_NDEBUG=1",
     "EXPORT_SYMBOL=__attribute__((visibility(\"default\")))",
     "KERNEL_MISSING_CLOCK_BOOTTIME_ALARM=TRUE",
-
-    # This is a macro to that can be used by android hardware/libhardware
-    # to not include dependencies on core project. This is a temporary
-    # workaround until we get rid of dependency on hardware.
-    "_HW_DONT_INCLUDE_CORE_=1",
 
     # This is a macro to that can be used by source code to detect if the
     # current build is done by GN or via Android.mk. This is a temporary

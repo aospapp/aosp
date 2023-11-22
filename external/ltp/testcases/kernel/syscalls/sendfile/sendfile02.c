@@ -57,6 +57,7 @@
 #include <unistd.h>
 #include <inttypes.h>
 #include "test.h"
+#include "safe_macros.h"
 
 #ifndef OFF_T
 #define OFF_T off_t
@@ -107,9 +108,7 @@ void do_sendfile(OFF_T offset, int i)
 	if ((in_fd = open(in_file, O_RDONLY)) < 0) {
 		tst_brkm(TBROK, cleanup, "open failed: %d", errno);
 	}
-	if (stat(in_file, &sb) < 0) {
-		tst_brkm(TBROK, cleanup, "stat failed: %d", errno);
-	}
+	SAFE_STAT(cleanup, in_file, &sb);
 
 	if ((before_pos = lseek(in_fd, 0, SEEK_CUR)) < 0) {
 		tst_brkm(TBROK, cleanup,
@@ -229,8 +228,7 @@ int create_server(void)
 			 strerror(errno));
 		return -1;
 	}
-	if (getsockname(sockfd, (struct sockaddr *)&sin1, &slen) == -1)
-		tst_brkm(TBROK | TERRNO, cleanup, "getsockname failed");
+	SAFE_GETSOCKNAME(cleanup, sockfd, (struct sockaddr *)&sin1, &slen);
 
 	child_pid = FORK_OR_VFORK();
 	if (child_pid < 0) {
@@ -257,10 +255,7 @@ int create_server(void)
 			 strerror(errno));
 		return -1;
 	}
-	if (connect(s, (struct sockaddr *)&sin1, sizeof(sin1)) < 0) {
-		tst_brkm(TBROK, cleanup, "call to connect() failed: %s",
-			 strerror(errno));
-	}
+	SAFE_CONNECT(cleanup, s, (struct sockaddr *)&sin1, sizeof(sin1));
 	return s;
 
 }

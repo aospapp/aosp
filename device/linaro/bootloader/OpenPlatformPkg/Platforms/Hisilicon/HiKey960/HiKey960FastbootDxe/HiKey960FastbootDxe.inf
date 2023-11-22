@@ -1,0 +1,62 @@
+#/** @file
+#
+#  Copyright (c) 2014, ARM Ltd. All rights reserved.<BR>
+#  Copyright (c) 2015-2017, Linaro. All rights reserved.
+#
+#  This program and the accompanying materials
+#  are licensed and made available under the terms and conditions of the BSD License
+#  which accompanies this distribution. The full text of the license may be found at
+#  http://opensource.org/licenses/bsd-license.php
+#  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+#
+#
+#**/
+
+[Defines]
+  INF_VERSION                    = 0x00010019
+  BASE_NAME                      = HiKey960FastbootDxe
+  FILE_GUID                      = 80f046c6-d5ba-4916-a656-2e2b28d32304
+  MODULE_TYPE                    = UEFI_DRIVER
+  VERSION_STRING                 = 1.0
+  ENTRY_POINT                    = HiKey960FastbootPlatformEntryPoint
+
+[Sources.common]
+  HiKey960FastbootDxe.c
+
+[LibraryClasses]
+  BaseLib
+  BaseMemoryLib
+  CacheMaintenanceLib
+  DebugLib
+  DevicePathLib
+  IoLib
+  MemoryAllocationLib
+  PcdLib
+  UefiBootServicesTableLib
+  UefiRuntimeServicesTableLib
+  UefiDriverEntryPoint
+  UsbSerialNumberLib
+  TimerLib
+
+[Protocols]
+  gAndroidFastbootPlatformProtocolGuid
+  gEfiBlockIoProtocolGuid
+  gEfiDevicePathToTextProtocolGuid
+  gEfiDiskIoProtocolGuid
+  gEfiEraseBlockProtocolGuid
+  gEfiSimpleTextOutProtocolGuid
+
+[Packages]
+  ArmPlatformPkg/ArmPlatformPkg.dec
+  ArmPkg/ArmPkg.dec
+  EmbeddedPkg/EmbeddedPkg.dec
+  MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+  OpenPlatformPkg/Platforms/Hisilicon/HiKey960/HiKey960.dec
+
+[Pcd]
+  gArmPlatformTokenSpaceGuid.PcdFirmwareVendor
+  gHiKey960TokenSpaceGuid.PcdAndroidFastbootNvmDevicePath
+  gHiKey960TokenSpaceGuid.PcdArmFastbootFlashLimit
+  gHiKey960TokenSpaceGuid.PcdXloaderDevicePath

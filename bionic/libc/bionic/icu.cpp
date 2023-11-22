@@ -32,6 +32,7 @@
 #include <dlfcn.h>
 #include <pthread.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include <async_safe/log.h>
 
@@ -67,7 +68,7 @@ static bool __find_icu() {
   }
   free(namelist);
 
-  if (max_version == -1 || max_version < ICUDATA_VERSION_MIN) {
+  if (max_version < ICUDATA_VERSION_MIN) {
     async_safe_write_log(ANDROID_LOG_ERROR, "bionic-icu", "couldn't find an ICU .dat file");
     return false;
   }

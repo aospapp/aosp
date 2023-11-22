@@ -32,10 +32,13 @@ See doctests/001_rpc_test.txt for (lots) more examples.
 __author__ = 'showard@google.com (Steve Howard)'
 
 import ast
+import collections
+import contextlib
 import datetime
 import logging
 import os
 import sys
+import warnings
 
 from django.db import connection as db_connection
 from django.db import transaction
@@ -72,6 +75,23 @@ from autotest_lib.site_utils import stable_version_utils
 
 _CONFIG = global_config.global_config
 
+# Definition of LabHealthIndicator
+LabHealthIndicator = collections.namedtuple(
+        'LabHealthIndicator',
+        [
+                'if_lab_close',
+                'available_duts',
+                'devserver_health',
+                'upcoming_builds',
+        ]
+)
+
+RESPECT_STATIC_LABELS = global_config.global_config.get_config_value(
+        'SKYLAB', 'respect_static_labels', type=bool, default=False)
+
+RESPECT_STATIC_ATTRIBUTES = global_config.global_config.get_config_value(
+        'SKYLAB', 'respect_static_attributes', type=bool, default=False)
+
 # Relevant CrosDynamicSuiteExceptions are defined in client/common_lib/error.py.
 
 # labels
@@ -83,6 +103,12 @@ def modify_label(id, **data):
     @param data: New data for a label.
     """
     label_model = models.Label.smart_get(id)
+    if label_model.is_replaced_by_static():
+        raise error.UnmodifiableLabelException(
+                'Failed to delete label "%s" because it is a static label. '
+                'Use go/chromeos-skylab-inventory-tools to modify this '
+                'label.' % label_model.name)
+
     label_model.update_object(data)
 
     # Master forwards the RPC to shards
@@ -97,6 +123,12 @@ def delete_label(id):
     @param id: id or name of a label. More often a label name.
     """
     label_model = models.Label.smart_get(id)
+    if label_model.is_replaced_by_static():
+        raise error.UnmodifiableLabelException(
+                'Failed to delete label "%s" because it is a static label. '
+                'Use go/chromeos-skylab-inventory-tools to modify this '
+                'label.' % label_model.name)
+
     # Hosts that have the label to be deleted. Save this info before
     # the label is deleted to use it later.
     hosts = []
@@ -148,6 +180,9 @@ def add_label_to_hosts(id, hosts):
     @raises models.Label.DoesNotExist: If the label with id doesn't exist.
     """
     label = models.Label.smart_get(id)
+    if label.is_replaced_by_static():
+        label = models.StaticLabel.smart_get(label.name)
+
     host_objs = models.Host.smart_get_bulk(hosts)
     if label.platform:
         models.Host.check_no_platform(host_objs)
@@ -236,7 +271,14 @@ def remove_label_from_hosts(id, hosts):
     @param hosts: The hostnames of hosts that need to remove the label from.
     """
     host_objs = models.Host.smart_get_bulk(hosts)
-    models.Label.smart_get(id).host_set.remove(*host_objs)
+    label = models.Label.smart_get(id)
+    if label.is_replaced_by_static():
+        raise error.UnmodifiableLabelException(
+                'Failed to remove label "%s" for hosts "%r" because it is a '
+                'static label. Use go/chromeos-skylab-inventory-tools to '
+                'modify this label.' % (label.name, hosts))
+
+    label.host_set.remove(*host_objs)
 
 
 @rpc_utils.route_rpc_to_master
@@ -263,7 +305,32 @@ def get_labels(exclude_filters=(), **filter_data):
     labels = models.Label.query_objects(filter_data)
     for exclude_filter in exclude_filters:
         labels = labels.exclude(**exclude_filter)
-    return rpc_utils.prepare_rows_as_nested_dicts(labels, ())
+
+    if not RESPECT_STATIC_LABELS:
+        return rpc_utils.prepare_rows_as_nested_dicts(labels, ())
+
+    static_labels = models.StaticLabel.query_objects(filter_data)
+    for exclude_filter in exclude_filters:
+        static_labels = static_labels.exclude(**exclude_filter)
+
+    non_static_lists = rpc_utils.prepare_rows_as_nested_dicts(labels, ())
+    static_lists = rpc_utils.prepare_rows_as_nested_dicts(static_labels, ())
+
+    label_ids = [label.id for label in labels]
+    replaced = models.ReplacedLabel.objects.filter(label__id__in=label_ids)
+    replaced_ids = {r.label_id for r in replaced}
+    replaced_label_names = {l.name for l in labels if l.id in replaced_ids}
+
+    return_lists  = []
+    for non_static_label in non_static_lists:
+        if non_static_label.get('id') not in replaced_ids:
+            return_lists.append(non_static_label)
+
+    for static_label in static_lists:
+        if static_label.get('name') in replaced_label_names:
+            return_lists.append(static_label)
+
+    return return_lists
 
 
 # hosts
@@ -306,12 +373,20 @@ def modify_host(id, **kwargs):
     # between the master and a shard.
     if kwargs.get('locked', None) and 'lock_time' not in kwargs:
         kwargs['lock_time'] = datetime.datetime.now()
-    host.update_object(kwargs)
 
     # force_modifying_locking is not an internal field in database, remove.
-    kwargs.pop('force_modify_locking', None)
+    shard_kwargs = dict(kwargs)
+    shard_kwargs.pop('force_modify_locking', None)
     rpc_utils.fanout_rpc([host], 'modify_host_local',
-                         include_hostnames=False, id=id, **kwargs)
+                         include_hostnames=False, id=id, **shard_kwargs)
+
+    # Update the local DB **after** RPC fanout is complete.
+    # This guarantees that the master state is only updated if the shards were
+    # correctly updated.
+    # In case the shard update fails mid-flight and the master-shard desync, we
+    # always consider the master state to be the source-of-truth, and any
+    # (automated) corrective actions will revert the (partial) shard updates.
+    host.update_object(kwargs)
 
 
 def modify_host_local(id, **kwargs):
@@ -365,7 +440,7 @@ def modify_hosts(host_filter_data, update_data):
                               'lock modification will be enforced. %s', e)
 
         if host.shard:
-            affected_shard_hostnames.add(host.shard.rpc_hostname())
+            affected_shard_hostnames.add(host.shard.hostname)
             affected_host_ids.append(host.id)
 
     # This is required to make `lock_time` for a host be exactly same
@@ -400,7 +475,14 @@ def add_labels_to_host(id, labels):
     @param labels: ids or names for labels.
     """
     label_objs = models.Label.smart_get_bulk(labels)
-    models.Host.smart_get(id).labels.add(*label_objs)
+    if not RESPECT_STATIC_LABELS:
+        models.Host.smart_get(id).labels.add(*label_objs)
+    else:
+        static_labels, non_static_labels = models.Host.classify_label_objects(
+            label_objs)
+        host = models.Host.smart_get(id)
+        host.static_labels.add(*static_labels)
+        host.labels.add(*non_static_labels)
 
 
 @rpc_utils.route_rpc_to_master
@@ -417,6 +499,7 @@ def host_add_labels(id, labels):
         _create_label_everywhere(label, [id])
 
     label_objs = models.Label.smart_get_bulk(labels)
+
     platforms = [label.name for label in label_objs if label.platform]
     boards = [label.name for label in label_objs
               if label.name.startswith('board:')]
@@ -444,7 +527,18 @@ def remove_labels_from_host(id, labels):
     @param labels: ids or names for labels.
     """
     label_objs = models.Label.smart_get_bulk(labels)
-    models.Host.smart_get(id).labels.remove(*label_objs)
+    if not RESPECT_STATIC_LABELS:
+        models.Host.smart_get(id).labels.remove(*label_objs)
+    else:
+        static_labels, non_static_labels = models.Host.classify_label_objects(
+                label_objs)
+        host = models.Host.smart_get(id)
+        host.labels.remove(*non_static_labels)
+        if static_labels:
+            logging.info('Cannot remove labels "%r" for host "%r" due to they '
+                         'are static labels. Use '
+                         'go/chromeos-skylab-inventory-tools to modify these '
+                         'labels.', static_labels, id)
 
 
 @rpc_utils.route_rpc_to_master
@@ -472,15 +566,45 @@ def get_host_attribute(attribute, **host_filter_data):
     models.Host.objects.populate_relationships(hosts, models.HostAttribute,
                                                'attribute_list')
     host_attr_dicts = []
+    host_objs = []
     for host_obj in hosts:
         for attr_obj in host_obj.attribute_list:
             if attr_obj.attribute == attribute:
                 host_attr_dicts.append(attr_obj.get_object_dict())
+                host_objs.append(host_obj)
+
+    if RESPECT_STATIC_ATTRIBUTES:
+        for host_attr, host_obj in zip(host_attr_dicts, host_objs):
+            static_attrs = models.StaticHostAttribute.query_objects(
+                    {'host_id': host_obj.id, 'attribute': attribute})
+            if len(static_attrs) > 0:
+                host_attr['value'] = static_attrs[0].value
+
     return rpc_utils.prepare_for_serialization(host_attr_dicts)
 
 
+@rpc_utils.route_rpc_to_master
 def set_host_attribute(attribute, value, **host_filter_data):
+    """Set an attribute on hosts.
+
+    This RPC is a shim that forwards calls to master to be handled there.
+
+    @param attribute: string name of attribute
+    @param value: string, or None to delete an attribute
+    @param host_filter_data: filter data to apply to Hosts to choose hosts to
+                             act upon
     """
+    assert not utils.is_shard()
+    set_host_attribute_impl(attribute, value, **host_filter_data)
+
+
+def set_host_attribute_impl(attribute, value, **host_filter_data):
+    """Set an attribute on hosts.
+
+    *** DO NOT CALL THIS RPC from client code ***
+    This RPC exists for master-shard communication only.
+    Call set_host_attribute instead.
+
     @param attribute: string name of attribute
     @param value: string, or None to delete an attribute
     @param host_filter_data: filter data to apply to Hosts to choose hosts to
@@ -494,7 +618,7 @@ def set_host_attribute(attribute, value, **host_filter_data):
 
     # Master forwards this RPC to shards.
     if not utils.is_shard():
-        rpc_utils.fanout_rpc(hosts, 'set_host_attribute', False,
+        rpc_utils.fanout_rpc(hosts, 'set_host_attribute_impl', False,
                 attribute=attribute, value=value, **host_filter_data)
 
 
@@ -509,11 +633,13 @@ def get_hosts(multiple_labels=(), exclude_only_if_needed_labels=False,
 
     @param multiple_labels: match hosts in all of the labels given.  Should
             be a list of label names.
-    @param exclude_only_if_needed_labels: Exclude hosts with at least one
-            "only_if_needed" label applied.
+    @param exclude_only_if_needed_labels: Deprecated. Raise error if it's True.
     @param include_current_job: Set to True to include ids of currently running
             job and special task.
     """
+    if exclude_only_if_needed_labels:
+        raise error.RPCException('exclude_only_if_needed_labels is deprecated')
+
     hosts = rpc_utils.get_host_query(multiple_labels,
                                      exclude_only_if_needed_labels,
                                      valid_only, filter_data)
@@ -524,14 +650,40 @@ def get_hosts(multiple_labels=(), exclude_only_if_needed_labels=False,
                                                'acl_list')
     models.Host.objects.populate_relationships(hosts, models.HostAttribute,
                                                'attribute_list')
+    models.Host.objects.populate_relationships(hosts,
+                                               models.StaticHostAttribute,
+                                               'staticattribute_list')
     host_dicts = []
     for host_obj in hosts:
         host_dict = host_obj.get_object_dict()
-        host_dict['labels'] = [label.name for label in host_obj.label_list]
-        host_dict['platform'] = rpc_utils.find_platform(host_obj)
         host_dict['acls'] = [acl.name for acl in host_obj.acl_list]
         host_dict['attributes'] = dict((attribute.attribute, attribute.value)
                                        for attribute in host_obj.attribute_list)
+        if RESPECT_STATIC_LABELS:
+            label_list = []
+            # Only keep static labels which has a corresponding entries in
+            # afe_labels.
+            for label in host_obj.label_list:
+                if label.is_replaced_by_static():
+                    static_label = models.StaticLabel.smart_get(label.name)
+                    label_list.append(static_label)
+                else:
+                    label_list.append(label)
+
+            host_dict['labels'] = [label.name for label in label_list]
+            host_dict['platform'] = rpc_utils.find_platform(
+                    host_obj.hostname, label_list)
+        else:
+            host_dict['labels'] = [label.name for label in host_obj.label_list]
+            host_dict['platform'] = rpc_utils.find_platform(
+                    host_obj.hostname, host_obj.label_list)
+
+        if RESPECT_STATIC_ATTRIBUTES:
+            # Overwrite attribute with values in afe_static_host_attributes.
+            for attr in host_obj.staticattribute_list:
+                if attr.attribute in host_dict['attributes']:
+                    host_dict['attributes'][attr.attribute] = attr.value
+
         if include_current_job:
             host_dict['current_job'] = None
             host_dict['current_special_task'] = None
@@ -547,6 +699,7 @@ def get_hosts(multiple_labels=(), exclude_only_if_needed_labels=False,
                         '%d-%s' % (tasks[0].get_object_dict()['id'],
                                    tasks[0].get_object_dict()['task'].lower()))
         host_dicts.append(host_dict)
+
     return rpc_utils.prepare_for_serialization(host_dicts)
 
 
@@ -557,10 +710,13 @@ def get_num_hosts(multiple_labels=(), exclude_only_if_needed_labels=False,
 
     @returns The number of matching hosts.
     """
+    if exclude_only_if_needed_labels:
+        raise error.RPCException('exclude_only_if_needed_labels is deprecated')
+
     hosts = rpc_utils.get_host_query(multiple_labels,
                                      exclude_only_if_needed_labels,
                                      valid_only, filter_data)
-    return hosts.count()
+    return len(hosts)
 
 
 # tests
@@ -746,7 +902,7 @@ def generate_control_file(tests=(), profilers=(),
 def create_job_page_handler(name, priority, control_file, control_type,
                             image=None, hostless=False, firmware_rw_build=None,
                             firmware_ro_build=None, test_source_build=None,
-                            is_cloning=False, **kwargs):
+                            is_cloning=False, cheets_build=None, **kwargs):
     """\
     Create and enqueue a job.
 
@@ -762,11 +918,21 @@ def create_job_page_handler(name, priority, control_file, control_type,
     @param test_source_build: Build to be used to retrieve test code. Default
                               to None.
     @param is_cloning: True if creating a cloning job.
+    @param cheets_build: ChromeOS Android build  to be installed in the dut.
+                         Default to None. Cheets build will not be updated.
     @param kwargs extra args that will be required by create_suite_job or
                   create_job.
 
     @returns The created Job id number.
     """
+    test_args = {}
+    if kwargs.get('args'):
+        # args' format is: ['disable_sysinfo=False', 'fast=True', ...]
+        args = kwargs.get('args')
+        for arg in args:
+            k, v = arg.split('=')[0], arg.split('=')[1]
+            test_args[k] = v
+
     if is_cloning:
         logging.info('Start to clone a new job')
         # When cloning a job, hosts and meta_hosts should not exist together,
@@ -784,6 +950,8 @@ def create_job_page_handler(name, priority, control_file, control_type,
     if image and hostless:
         builds = {}
         builds[provision.CROS_VERSION_PREFIX] = image
+        if cheets_build:
+            builds[provision.CROS_ANDROID_VERSION_PREFIX] = cheets_build
         if firmware_rw_build:
             builds[provision.FW_RW_VERSION_PREFIX] = firmware_rw_build
         if firmware_ro_build:
@@ -791,9 +959,10 @@ def create_job_page_handler(name, priority, control_file, control_type,
         return create_suite_job(
                 name=name, control_file=control_file, priority=priority,
                 builds=builds, test_source_build=test_source_build,
-                is_cloning=is_cloning, **kwargs)
+                is_cloning=is_cloning, test_args=test_args, **kwargs)
+
     return create_job(name, priority, control_file, control_type, image=image,
-                      hostless=hostless, **kwargs)
+                      hostless=hostless, test_args=test_args, **kwargs)
 
 
 @rpc_utils.route_rpc_to_master
@@ -824,7 +993,7 @@ def create_job(
         test_retry=0,
         run_reset=True,
         require_ssp=None,
-        args=(),
+        test_args=None,
         **kwargs):
     """\
     Create and enqueue a job.
@@ -866,13 +1035,13 @@ def create_job(
                        autotest-server package doesn't exist for the build or
                        image is not set, drone will run the test without server-
                        side packaging. Default is None.
-    @param args A list of args to be injected into control file.
+    @param test_args A dict of args passed to be injected into control file.
     @param kwargs extra keyword args. NOT USED.
 
     @returns The created Job id number.
     """
-    if args:
-        control_file = tools.inject_vars({'args': args}, control_file)
+    if test_args:
+        control_file = tools.inject_vars(test_args, control_file)
     if image:
         dependencies += (provision.image_version_to_label(image),)
     return rpc_utils.create_job_common(
@@ -968,7 +1137,7 @@ def _forward_special_tasks_on_hosts(task, rpc, **filter_data):
     @return: A list of hostnames that a special task was created for.
     """
     hosts = models.Host.query_objects(filter_data)
-    shard_host_map = rpc_utils.bucket_hosts_by_shard(hosts, rpc_hostnames=True)
+    shard_host_map = rpc_utils.bucket_hosts_by_shard(hosts)
 
     # Filter out hosts on a shard from those on the master, forward
     # rpcs to the shard with an additional hostname__in filter, and
@@ -1310,7 +1479,7 @@ def get_host_special_tasks(host_id, **filter_data):
         # objects that aren't JSON-serializable.  So, we have to
         # call AFE.run() to get the raw, serializable output from
         # the shard.
-        shard_afe = frontend.AFE(server=host.shard.rpc_hostname())
+        shard_afe = frontend.AFE(server=host.shard.hostname)
         return shard_afe.run('get_special_tasks',
                              host_id=host_id, **filter_data)
 
@@ -1345,7 +1514,7 @@ def get_host_num_special_tasks(host, **kwargs):
     if not host_model.shard:
         return get_num_special_tasks(host=host, **kwargs)
     else:
-        shard_afe = frontend.AFE(server=host_model.shard.rpc_hostname())
+        shard_afe = frontend.AFE(server=host_model.shard.hostname)
         return shard_afe.run('get_num_special_tasks', host=host, **kwargs)
 
 
@@ -1399,7 +1568,7 @@ def get_host_status_task(host_id, end_time):
         # objects that aren't JSON-serializable.  So, we have to
         # call AFE.run() to get the raw, serializable output from
         # the shard.
-        shard_afe = frontend.AFE(server=host.shard.rpc_hostname())
+        shard_afe = frontend.AFE(server=host.shard.hostname)
         return shard_afe.run('get_status_task',
                              host_id=host_id, end_time=end_time)
 
@@ -1435,7 +1604,7 @@ def get_host_diagnosis_interval(host_id, end_time, success):
         return status_history.get_diagnosis_interval(
                 host_id, end_time, success)
     else:
-        shard_afe = frontend.AFE(server=host.shard.rpc_hostname())
+        shard_afe = frontend.AFE(server=host.shard.hostname)
         return shard_afe.get_host_diagnosis_interval(
                 host_id, end_time, success)
 
@@ -1585,6 +1754,7 @@ def get_static_data():
                                    "Resetting": "Resetting hosts"}
 
     result['wmatrix_url'] = rpc_utils.get_wmatrix_url()
+    result['stainless_url'] = rpc_utils.get_stainless_url()
     result['is_moblab'] = bool(utils.is_moblab())
 
     return result
@@ -1613,9 +1783,43 @@ def get_hosts_by_attribute(attribute, value):
     @returns List of hostnames that all have the same host attribute and
              value.
     """
-    hosts = models.HostAttribute.query_objects({'attribute': attribute,
-                                                'value': value})
-    return [row.host.hostname for row in hosts if row.host.invalid == 0]
+    rows = models.HostAttribute.query_objects({'attribute': attribute,
+                                               'value': value})
+    if RESPECT_STATIC_ATTRIBUTES:
+        returned_hosts = set()
+        # Add hosts:
+        #     * Non-valid
+        #     * Exist in afe_host_attribute with given attribute.
+        #     * Don't exist in afe_static_host_attribute OR exist in
+        #       afe_static_host_attribute with the same given value.
+        for row in rows:
+            if row.host.invalid != 0:
+                continue
+
+            static_hosts = models.StaticHostAttribute.query_objects(
+                {'host_id': row.host.id, 'attribute': attribute})
+            values = [static_host.value for static_host in static_hosts]
+            if len(values) == 0 or values[0] == value:
+                returned_hosts.add(row.host.hostname)
+
+        # Add hosts:
+        #     * Non-valid
+        #     * Exist in afe_static_host_attribute with given attribute
+        #       and value
+        #     * No need to check whether each static attribute has its
+        #       corresponding entry in afe_host_attribute since it is ensured
+        #       in inventory sync.
+        static_rows = models.StaticHostAttribute.query_objects(
+                {'attribute': attribute, 'value': value})
+        for row in static_rows:
+            if row.host.invalid != 0:
+                continue
+
+            returned_hosts.add(row.host.hostname)
+
+        return list(returned_hosts)
+    else:
+        return [row.host.hostname for row in rows if row.host.invalid == 0]
 
 
 def canonicalize_suite_name(suite_name):
@@ -1718,6 +1922,7 @@ def create_suite_job(
         name='',
         board='',
         pool='',
+        child_dependencies=(),
         control_file='',
         check_hosts=True,
         num=None,
@@ -1739,8 +1944,7 @@ def create_suite_job(
         is_cloning=False,
         job_keyvals=None,
         test_args=None,
-        **kwargs
-):
+        **kwargs):
     """
     Create a job to run a test suite on the given device with the given image.
 
@@ -1758,6 +1962,8 @@ def create_suite_job(
     @param test_source_build: Build that contains the server-side test code.
     @param pool: Specify the pool of machines to use for scheduling
             purposes.
+    @param child_dependencies: (optional) list of additional dependency labels
+            (strings) that will be added as dependency labels to child jobs.
     @param control_file: the control file of the job.
     @param check_hosts: require appropriate live hosts to exist in the lab.
     @param num: Specify the number of machines to schedule across (integer).
@@ -1804,12 +2010,9 @@ def create_suite_job(
 
     @return: the job ID of the suite; -1 on error.
     """
-    if type(num) is not int and num is not None:
-        raise error.SuiteArgumentException('Ill specified num argument %r. '
-                                           'Must be an integer or None.' % num)
-    if num == 0:
-        logging.warning("Can't run on 0 hosts; using default.")
-        num = None
+    if num is not None:
+        warnings.warn('num is deprecated for create_suite_job')
+    del num
 
     if builds is None:
         builds = {}
@@ -1858,6 +2061,27 @@ def create_suite_job(
     if is_cloning:
         control_file = tools.remove_injection(control_file)
 
+    if suite_args is None:
+        suite_args = dict()
+
+    # TODO(crbug.com/758427): suite_args_raw is needed to run old tests.
+    # Can be removed after R64.
+    if 'tests' in suite_args:
+        # TODO(crbug.com/758427): test_that used to have its own
+        # snowflake implementation of parsing command line arguments in
+        # the test
+        suite_args_raw = ' '.join([':lab:'] + suite_args['tests'])
+    # TODO(crbug.com/760675): Needed for CTS/GTS as above, but when
+    # 'tests' is not passed.  Can be removed after R64.
+    elif name.rpartition('/')[-1] in {'control.cts_N',
+                                      'control.cts_N_preconditions',
+                                      'control.gts'}:
+        suite_args_raw = ''
+    else:
+        # TODO(crbug.com/758427): This is for suite_attr_wrapper.  Can
+        # be removed after R64.
+        suite_args_raw = repr(suite_args)
+
     inject_dict = {
         'board': board,
         # `build` is needed for suites like AU to stage image inside suite
@@ -1866,13 +2090,15 @@ def create_suite_job(
         'builds': builds,
         'check_hosts': check_hosts,
         'pool': pool,
-        'num': num,
+        'child_dependencies': child_dependencies,
         'file_bugs': file_bugs,
         'timeout': timeout,
         'timeout_mins': timeout_mins,
         'devserver_url': ds.url(),
         'priority': priority,
-        'suite_args' : suite_args,
+        # TODO(crbug.com/758427): injecting suite_args is needed to run
+        # old tests
+        'suite_args' : suite_args_raw,
         'wait_for_results': wait_for_results,
         'job_retry': job_retry,
         'max_retries': max_retries,
@@ -1884,6 +2110,7 @@ def create_suite_job(
         'job_keyvals': job_keyvals,
         'test_args': test_args,
     }
+    inject_dict.update(suite_args)
     control_file = tools.inject_vars(inject_dict, control_file)
 
     return rpc_utils.create_job_common(name,
@@ -2098,64 +2325,52 @@ def remove_board_from_shard(hostname, label):
     if label not in shard.labels.all():
         raise error.RPCException(
           'Cannot remove label from shard that does not belong to it.')
+
     shard.labels.remove(label)
-    models.Host.objects.filter(labels__in=[label]).update(shard=None)
+    if label.is_replaced_by_static():
+        static_label = models.StaticLabel.smart_get(label.name)
+        models.Host.objects.filter(
+                static_labels__in=[static_label]).update(shard=None)
+    else:
+        models.Host.objects.filter(labels__in=[label]).update(shard=None)
 
 
 def delete_shard(hostname):
     """Delete a shard and reclaim all resources from it.
 
-    This claims back all assigned hosts from the shard. To ensure all DUTs are
-    in a sane state, a Reboot task with highest priority is scheduled for them.
-    This reboots the DUTs and then all left tasks continue to run in drone of
-    the master.
-
-    The procedure for deleting a shard:
-        * Lock all unlocked hosts on that shard.
-        * Remove shard information .
-        * Assign a reboot task with highest priority to these hosts.
-        * Unlock these hosts, then, the reboot tasks run in front of all other
-        tasks.
-
-    The status of jobs that haven't been reported to be finished yet, will be
-    lost. The master scheduler will pick up the jobs and execute them.
-
-    @param hostname: Hostname of the shard to delete.
+    This claims back all assigned hosts from the shard.
     """
     shard = rpc_utils.retrieve_shard(shard_hostname=hostname)
-    hostnames_to_lock = [h.hostname for h in
-                         models.Host.objects.filter(shard=shard, locked=False)]
-
-    # TODO(beeps): Power off shard
-    # For ChromeOS hosts, a reboot test with the highest priority is added to
-    # the DUT. After a reboot it should be ganranteed that no processes from
-    # prior tests that were run by a shard are still running on.
-
-    # Lock all unlocked hosts.
-    dicts = {'locked': True, 'lock_time': datetime.datetime.now()}
-    models.Host.objects.filter(hostname__in=hostnames_to_lock).update(**dicts)
 
     # Remove shard information.
     models.Host.objects.filter(shard=shard).update(shard=None)
-    models.Job.objects.filter(shard=shard).update(shard=None)
+
+    # Note: The original job-cleanup query was performed with django call
+    #   models.Job.objects.filter(shard=shard).update(shard=None)
+    #
+    # But that started becoming unreliable due to the large size of afe_jobs.
+    #
+    # We don't need atomicity here, so the new cleanup method is iterative, in
+    # chunks of 100k jobs.
+    QUERY = ('UPDATE afe_jobs SET shard_id = NULL WHERE shard_id = %s '
+             'LIMIT 100000')
+    try:
+        with contextlib.closing(db_connection.cursor()) as cursor:
+            clear_jobs = True
+            assert shard.id is not None
+            while clear_jobs:
+                res = cursor.execute(QUERY % shard.id).fetchone()
+                clear_jobs = bool(res)
+    # Unit tests use sqlite backend instead of MySQL. sqlite does not support
+    # UPDATE ... LIMIT, so fall back to the old behavior.
+    except DatabaseError as e:
+        if 'syntax error' in str(e):
+            models.Job.objects.filter(shard=shard).update(shard=None)
+        else:
+            raise
+
     shard.labels.clear()
     shard.delete()
-
-    # Assign a reboot task with highest priority: Super.
-    t = models.Test.objects.get(name='platform_BootPerfServer:shard')
-    c = utils.read_file(os.path.join(common.autotest_dir, t.path))
-    if hostnames_to_lock:
-        rpc_utils.create_job_common(
-                'reboot_dut_for_shard_deletion',
-                priority=priorities.Priority.SUPER,
-                control_type='Server',
-                control_file=c, hosts=hostnames_to_lock,
-                timeout_mins=10,
-                max_runtime_mins=10)
-
-    # Unlock these shard-related hosts.
-    dicts = {'locked': False, 'lock_time': None}
-    models.Host.objects.filter(hostname__in=hostnames_to_lock).update(**dicts)
 
 
 def get_servers(hostname=None, role=None, status=None):
@@ -2298,3 +2513,21 @@ def get_tests_by_build(build, ignore_invalid_tests=True):
 
     test_objects = sorted(test_objects, key=lambda x: x.get('name'))
     return rpc_utils.prepare_for_serialization(test_objects)
+
+
+@rpc_utils.route_rpc_to_master
+def get_lab_health_indicators(board=None):
+    """Get the healthy indicators for whole lab.
+
+    The indicators now includes:
+    1. lab is closed or not.
+    2. Available DUTs list for a given board.
+    3. Devserver capacity.
+    4. When is the next major DUT utilization (e.g. CQ is coming in 3 minutes).
+
+    @param board: if board is specified, a list of available DUTs will be
+        returned for it. Otherwise, skip this indicator.
+
+    @returns: A healthy indicator object including health info.
+    """
+    return LabHealthIndicator(None, None, None, None)

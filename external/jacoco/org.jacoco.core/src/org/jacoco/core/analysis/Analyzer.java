@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2017 Mountainminds GmbH & Co. KG and Contributors
+ * Copyright (c) 2009, 2018 Mountainminds GmbH & Co. KG and Contributors
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -23,7 +23,7 @@ import java.util.zip.ZipInputStream;
 import org.jacoco.core.data.ExecutionData;
 import org.jacoco.core.data.ExecutionDataStore;
 import org.jacoco.core.internal.ContentTypeDetector;
-import org.jacoco.core.internal.Java9Support;
+import org.jacoco.core.internal.InputStreams;
 import org.jacoco.core.internal.Pack200Streams;
 import org.jacoco.core.internal.analysis.ClassAnalyzer;
 import org.jacoco.core.internal.analysis.ClassCoverageImpl;
@@ -107,7 +107,7 @@ public class Analyzer {
 	 */
 	public void analyzeClass(final ClassReader reader) {
 		final ClassVisitor visitor = createAnalyzingVisitor(
-				CRC64.checksum(reader.b), reader.getClassName());
+				CRC64.classId(reader.b), reader.getClassName());
 		reader.accept(visitor, 0);
 	}
 
@@ -124,15 +124,15 @@ public class Analyzer {
 	public void analyzeClass(final byte[] buffer, final String location)
 			throws IOException {
 		try {
-			analyzeClass(
-					new ClassReader(Java9Support.downgradeIfRequired(buffer)));
+			analyzeClass(new ClassReader(buffer));
 		} catch (final RuntimeException cause) {
 			throw analyzerError(location, cause);
 		}
 	}
 
 	/**
-	 * Analyzes the class definition from a given input stream.
+	 * Analyzes the class definition from a given input stream. The provided
+	 * {@link InputStream} is not closed by this method.
 	 * 
 	 * @param input
 	 *            stream to read class definition from
@@ -143,17 +143,19 @@ public class Analyzer {
 	 */
 	public void analyzeClass(final InputStream input, final String location)
 			throws IOException {
+		final byte[] buffer;
 		try {
-			analyzeClass(Java9Support.readFully(input), location);
-		} catch (final RuntimeException e) {
+			buffer = InputStreams.readFully(input);
+		} catch (final IOException e) {
 			throw analyzerError(location, e);
 		}
+		analyzeClass(buffer, location);
 	}
 
 	private IOException analyzerError(final String location,
 			final Exception cause) {
-		final IOException ex = new IOException(String.format(
-				"Error while analyzing %s.", location));
+		final IOException ex = new IOException(
+				String.format("Error while analyzing %s.", location));
 		ex.initCause(cause);
 		return ex;
 	}
@@ -162,7 +164,8 @@ public class Analyzer {
 	 * Analyzes all classes found in the given input stream. The input stream
 	 * may either represent a single class file, a ZIP archive, a Pack200
 	 * archive or a gzip stream that is searched recursively for class files.
-	 * All other content types are ignored.
+	 * All other content types are ignored. The provided {@link InputStream} is
+	 * not closed by this method.
 	 * 
 	 * @param input
 	 *            input data
@@ -177,7 +180,7 @@ public class Analyzer {
 		final ContentTypeDetector detector;
 		try {
 			detector = new ContentTypeDetector(input);
-		} catch (IOException e) {
+		} catch (final IOException e) {
 			throw analyzerError(location, e);
 		}
 		switch (detector.getType()) {
@@ -259,11 +262,11 @@ public class Analyzer {
 		return count;
 	}
 
-	private ZipEntry nextEntry(ZipInputStream input, String location)
-			throws IOException {
+	private ZipEntry nextEntry(final ZipInputStream input,
+			final String location) throws IOException {
 		try {
 			return input.getNextEntry();
-		} catch (IOException e) {
+		} catch (final IOException e) {
 			throw analyzerError(location, e);
 		}
 	}
@@ -273,7 +276,7 @@ public class Analyzer {
 		GZIPInputStream gzipInputStream;
 		try {
 			gzipInputStream = new GZIPInputStream(input);
-		} catch (IOException e) {
+		} catch (final IOException e) {
 			throw analyzerError(location, e);
 		}
 		return analyzeAll(gzipInputStream, location);
@@ -284,7 +287,7 @@ public class Analyzer {
 		InputStream unpackedInput;
 		try {
 			unpackedInput = Pack200Streams.unpack(input);
-		} catch (IOException e) {
+		} catch (final IOException e) {
 			throw analyzerError(location, e);
 		}
 		return analyzeAll(unpackedInput, location);

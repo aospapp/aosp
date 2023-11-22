@@ -109,6 +109,39 @@ public class TestAppInstallSetupTest {
     }
 
     @Test
+    public void testSetup_instantMode() throws Exception {
+        OptionSetter setter = new OptionSetter(mPrep);
+        setter.setOptionValue("instant-mode", "true");
+        EasyMock.expect(
+                        mMockTestDevice.installPackage(
+                                (File) EasyMock.anyObject(),
+                                EasyMock.eq(true),
+                                EasyMock.eq("--instant")))
+                .andReturn(null);
+        EasyMock.replay(mMockBuildInfo, mMockTestDevice);
+        mPrep.setUp(mMockTestDevice, mMockBuildInfo);
+        EasyMock.verify(mMockBuildInfo, mMockTestDevice);
+    }
+
+    /**
+     * If force-install-mode is set, we ignore "instant-mode". This allow some preparer to receive
+     * options as part of the same Tf config but keep their behavior.
+     */
+    @Test
+    public void testSetup_forceMode() throws Exception {
+        OptionSetter setter = new OptionSetter(mPrep);
+        setter.setOptionValue("instant-mode", "true");
+        setter.setOptionValue("force-install-mode", "FULL");
+        EasyMock.expect(
+                        mMockTestDevice.installPackage(
+                                (File) EasyMock.anyObject(), EasyMock.eq(true)))
+                .andReturn(null);
+        EasyMock.replay(mMockBuildInfo, mMockTestDevice);
+        mPrep.setUp(mMockTestDevice, mMockBuildInfo);
+        EasyMock.verify(mMockBuildInfo, mMockTestDevice);
+    }
+
+    @Test
     public void testInstallFailure() throws Exception {
         final String failure = "INSTALL_PARSE_FAILED_MANIFEST_MALFORMED";
         EasyMock.expect(

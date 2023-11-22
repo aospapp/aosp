@@ -110,17 +110,27 @@ var validatePathTestCases = append(commonValidatePathTestCases, []strsTestCase{
 
 func TestValidateSafePath(t *testing.T) {
 	for _, testCase := range validateSafePathTestCases {
-		ctx := &configErrorWrapper{}
-		out := validateSafePath(ctx, testCase.in...)
-		check(t, "validateSafePath", p(testCase.in), out, ctx.errors, testCase.out, testCase.err)
+		t.Run(strings.Join(testCase.in, ","), func(t *testing.T) {
+			ctx := &configErrorWrapper{}
+			out, err := validateSafePath(testCase.in...)
+			if err != nil {
+				reportPathError(ctx, err)
+			}
+			check(t, "validateSafePath", p(testCase.in), out, ctx.errors, testCase.out, testCase.err)
+		})
 	}
 }
 
 func TestValidatePath(t *testing.T) {
 	for _, testCase := range validatePathTestCases {
-		ctx := &configErrorWrapper{}
-		out := validatePath(ctx, testCase.in...)
-		check(t, "validatePath", p(testCase.in), out, ctx.errors, testCase.out, testCase.err)
+		t.Run(strings.Join(testCase.in, ","), func(t *testing.T) {
+			ctx := &configErrorWrapper{}
+			out, err := validatePath(testCase.in...)
+			if err != nil {
+				reportPathError(ctx, err)
+			}
+			check(t, "validatePath", p(testCase.in), out, ctx.errors, testCase.out, testCase.err)
+		})
 	}
 }
 
@@ -133,6 +143,7 @@ func TestOptionalPath(t *testing.T) {
 }
 
 func checkInvalidOptionalPath(t *testing.T, path OptionalPath) {
+	t.Helper()
 	if path.Valid() {
 		t.Errorf("Uninitialized OptionalPath should not be valid")
 	}
@@ -150,9 +161,11 @@ func checkInvalidOptionalPath(t *testing.T, path OptionalPath) {
 func check(t *testing.T, testType, testString string,
 	got interface{}, err []error,
 	expected interface{}, expectedErr []error) {
+	t.Helper()
 
 	printedTestCase := false
 	e := func(s string, expected, got interface{}) {
+		t.Helper()
 		if !printedTestCase {
 			t.Errorf("test case %s: %s", testType, testString)
 			printedTestCase = true
@@ -194,7 +207,7 @@ func (moduleInstallPathContextImpl) Fs() pathtools.FileSystem {
 	return pathtools.MockFs(nil)
 }
 
-func (m moduleInstallPathContextImpl) Config() interface{} {
+func (m moduleInstallPathContextImpl) Config() Config {
 	return m.androidBaseContextImpl.config
 }
 
@@ -209,7 +222,7 @@ func (m moduleInstallPathContextImpl) InstallInSanitizerDir() bool {
 }
 
 func TestPathForModuleInstall(t *testing.T) {
-	testConfig := TestConfig("")
+	testConfig := TestConfig("", nil)
 
 	hostTarget := Target{Os: Linux}
 	deviceTarget := Target{Os: Android}
@@ -246,11 +259,33 @@ func TestPathForModuleInstall(t *testing.T) {
 			ctx: &moduleInstallPathContextImpl{
 				androidBaseContextImpl: androidBaseContextImpl{
 					target: deviceTarget,
-					vendor: true,
+					kind:   socSpecificModule,
 				},
 			},
 			in:  []string{"bin", "my_test"},
 			out: "target/product/test_device/vendor/bin/my_test",
+		},
+		{
+			name: "odm binary",
+			ctx: &moduleInstallPathContextImpl{
+				androidBaseContextImpl: androidBaseContextImpl{
+					target: deviceTarget,
+					kind:   deviceSpecificModule,
+				},
+			},
+			in:  []string{"bin", "my_test"},
+			out: "target/product/test_device/odm/bin/my_test",
+		},
+		{
+			name: "product binary",
+			ctx: &moduleInstallPathContextImpl{
+				androidBaseContextImpl: androidBaseContextImpl{
+					target: deviceTarget,
+					kind:   productSpecificModule,
+				},
+			},
+			in:  []string{"bin", "my_test"},
+			out: "target/product/test_device/product/bin/my_test",
 		},
 
 		{
@@ -269,7 +304,31 @@ func TestPathForModuleInstall(t *testing.T) {
 			ctx: &moduleInstallPathContextImpl{
 				androidBaseContextImpl: androidBaseContextImpl{
 					target: deviceTarget,
-					vendor: true,
+					kind:   socSpecificModule,
+				},
+				inData: true,
+			},
+			in:  []string{"nativetest", "my_test"},
+			out: "target/product/test_device/data/nativetest/my_test",
+		},
+		{
+			name: "odm native test binary",
+			ctx: &moduleInstallPathContextImpl{
+				androidBaseContextImpl: androidBaseContextImpl{
+					target: deviceTarget,
+					kind:   deviceSpecificModule,
+				},
+				inData: true,
+			},
+			in:  []string{"nativetest", "my_test"},
+			out: "target/product/test_device/data/nativetest/my_test",
+		},
+		{
+			name: "product native test binary",
+			ctx: &moduleInstallPathContextImpl{
+				androidBaseContextImpl: androidBaseContextImpl{
+					target: deviceTarget,
+					kind:   productSpecificModule,
 				},
 				inData: true,
 			},
@@ -293,12 +352,36 @@ func TestPathForModuleInstall(t *testing.T) {
 			ctx: &moduleInstallPathContextImpl{
 				androidBaseContextImpl: androidBaseContextImpl{
 					target: deviceTarget,
-					vendor: true,
+					kind:   socSpecificModule,
 				},
 				inSanitizerDir: true,
 			},
 			in:  []string{"bin", "my_test"},
 			out: "target/product/test_device/data/asan/vendor/bin/my_test",
+		},
+		{
+			name: "sanitized odm binary",
+			ctx: &moduleInstallPathContextImpl{
+				androidBaseContextImpl: androidBaseContextImpl{
+					target: deviceTarget,
+					kind:   deviceSpecificModule,
+				},
+				inSanitizerDir: true,
+			},
+			in:  []string{"bin", "my_test"},
+			out: "target/product/test_device/data/asan/odm/bin/my_test",
+		},
+		{
+			name: "sanitized product binary",
+			ctx: &moduleInstallPathContextImpl{
+				androidBaseContextImpl: androidBaseContextImpl{
+					target: deviceTarget,
+					kind:   productSpecificModule,
+				},
+				inSanitizerDir: true,
+			},
+			in:  []string{"bin", "my_test"},
+			out: "target/product/test_device/data/asan/product/bin/my_test",
 		},
 
 		{
@@ -318,7 +401,33 @@ func TestPathForModuleInstall(t *testing.T) {
 			ctx: &moduleInstallPathContextImpl{
 				androidBaseContextImpl: androidBaseContextImpl{
 					target: deviceTarget,
-					vendor: true,
+					kind:   socSpecificModule,
+				},
+				inData:         true,
+				inSanitizerDir: true,
+			},
+			in:  []string{"nativetest", "my_test"},
+			out: "target/product/test_device/data/asan/data/nativetest/my_test",
+		},
+		{
+			name: "sanitized odm native test binary",
+			ctx: &moduleInstallPathContextImpl{
+				androidBaseContextImpl: androidBaseContextImpl{
+					target: deviceTarget,
+					kind:   deviceSpecificModule,
+				},
+				inData:         true,
+				inSanitizerDir: true,
+			},
+			in:  []string{"nativetest", "my_test"},
+			out: "target/product/test_device/data/asan/data/nativetest/my_test",
+		},
+		{
+			name: "sanitized product native test binary",
+			ctx: &moduleInstallPathContextImpl{
+				androidBaseContextImpl: androidBaseContextImpl{
+					target: deviceTarget,
+					kind:   productSpecificModule,
 				},
 				inData:         true,
 				inSanitizerDir: true,
@@ -338,5 +447,74 @@ func TestPathForModuleInstall(t *testing.T) {
 					tc.out)
 			}
 		})
+	}
+}
+
+func TestDirectorySortedPaths(t *testing.T) {
+	makePaths := func() Paths {
+		return Paths{
+			PathForTesting("a.txt"),
+			PathForTesting("a/txt"),
+			PathForTesting("a/b/c"),
+			PathForTesting("a/b/d"),
+			PathForTesting("b"),
+			PathForTesting("b/b.txt"),
+			PathForTesting("a/a.txt"),
+		}
+	}
+
+	expected := []string{
+		"a.txt",
+		"a/a.txt",
+		"a/b/c",
+		"a/b/d",
+		"a/txt",
+		"b",
+		"b/b.txt",
+	}
+
+	paths := makePaths()
+	reversePaths := ReversePaths(paths)
+
+	sortedPaths := PathsToDirectorySortedPaths(paths)
+	reverseSortedPaths := PathsToDirectorySortedPaths(reversePaths)
+
+	if !reflect.DeepEqual(Paths(sortedPaths).Strings(), expected) {
+		t.Fatalf("sorted paths:\n %#v\n != \n %#v", paths.Strings(), expected)
+	}
+
+	if !reflect.DeepEqual(Paths(reverseSortedPaths).Strings(), expected) {
+		t.Fatalf("sorted reversed paths:\n %#v\n !=\n %#v", reversePaths.Strings(), expected)
+	}
+
+	expectedA := []string{
+		"a/a.txt",
+		"a/b/c",
+		"a/b/d",
+		"a/txt",
+	}
+
+	inA := sortedPaths.PathsInDirectory("a")
+	if !reflect.DeepEqual(inA.Strings(), expectedA) {
+		t.Errorf("FilesInDirectory(a):\n %#v\n != \n %#v", inA.Strings(), expectedA)
+	}
+
+	expectedA_B := []string{
+		"a/b/c",
+		"a/b/d",
+	}
+
+	inA_B := sortedPaths.PathsInDirectory("a/b")
+	if !reflect.DeepEqual(inA_B.Strings(), expectedA_B) {
+		t.Errorf("FilesInDirectory(a/b):\n %#v\n != \n %#v", inA_B.Strings(), expectedA_B)
+	}
+
+	expectedB := []string{
+		"b/b.txt",
+	}
+
+	inB := sortedPaths.PathsInDirectory("b")
+	if !reflect.DeepEqual(inB.Strings(), expectedB) {
+		t.Errorf("FilesInDirectory(b):\n %#v\n != \n %#v", inA.Strings(), expectedA)
 	}
 }

@@ -3,10 +3,12 @@ LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 LOCAL_SRC_FILES := \
     color.c utils.c rt_names.c ll_types.c ll_proto.c ll_addr.c inet_proto.c \
-    mpls_pton.c namespace.c names.c libgenl.c libnetlink.c
+    mpls_pton.c namespace.c names.c libgenl.c libnetlink.c bpf.c exec.c fs.c \
+    json_print.c json_writer.c
 LOCAL_MODULE := libiprouteutil
 LOCAL_SYSTEM_SHARED_LIBRARIES := libc
-LOCAL_C_INCLUDES := $(LOCAL_PATH)/../include
+
+LOCAL_C_INCLUDES := $(LOCAL_PATH)/../include $(UAPI_INCLUDES)
 LOCAL_CFLAGS := -O2 -g -W -Wall \
 	-DCONFDIR=\"/data/misc/net\" \
 	-DHAVE_UNISTD_H \
@@ -46,7 +48,8 @@ include $(CLEAR_VARS)
 LOCAL_SRC_FILES := ll_map.c libnetlink.c
 LOCAL_MODULE := libnetlink
 LOCAL_SYSTEM_SHARED_LIBRARIES := libc
-LOCAL_C_INCLUDES := $(LOCAL_PATH)/../include
+
+LOCAL_C_INCLUDES := $(LOCAL_PATH)/../include $(UAPI_INCLUDES)
 LOCAL_CFLAGS := -O2 -g -W -Wall \
 	-DHAVE_UNISTD_H \
 	-DHAVE_ERRNO_H \

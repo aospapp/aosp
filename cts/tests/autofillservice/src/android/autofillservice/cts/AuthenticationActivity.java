@@ -50,6 +50,13 @@ public class AuthenticationActivity extends AbstractAutoFillActivity {
     private static final String EXTRA_DATASET_ID = "dataset_id";
     private static final String EXTRA_RESPONSE_ID = "response_id";
 
+    /**
+     * When launched with this intent, it will pass it back to the
+     * {@link AutofillManager#EXTRA_CLIENT_STATE} of the result.
+     */
+    private static final String EXTRA_OUTPUT_CLIENT_STATE = "output_client_state";
+
+
     private static final int MSG_WAIT_FOR_LATCH = 1;
 
     private static Bundle sData;
@@ -84,10 +91,15 @@ public class AuthenticationActivity extends AbstractAutoFillActivity {
      */
     public static IntentSender createSender(Context context, int id,
             CannedDataset dataset) {
+        return createSender(context, id, dataset, null);
+    }
+
+    public static IntentSender createSender(Context context, int id,
+            CannedDataset dataset, Bundle outClientState) {
         Preconditions.checkArgument(id > 0, "id must be positive");
         Preconditions.checkState(sDatasets.get(id) == null, "already have id");
         sDatasets.put(id, dataset);
-        return createSender(context, EXTRA_DATASET_ID, id);
+        return createSender(context, EXTRA_DATASET_ID, id, outClientState);
     }
 
     /**
@@ -95,15 +107,25 @@ public class AuthenticationActivity extends AbstractAutoFillActivity {
      */
     public static IntentSender createSender(Context context, int id,
             CannedFillResponse response) {
+        return createSender(context, id, response, null);
+    }
+
+    public static IntentSender createSender(Context context, int id,
+            CannedFillResponse response, Bundle outData) {
         Preconditions.checkArgument(id > 0, "id must be positive");
         Preconditions.checkState(sResponses.get(id) == null, "already have id");
         sResponses.put(id, response);
-        return createSender(context, EXTRA_RESPONSE_ID, id);
+        return createSender(context, EXTRA_RESPONSE_ID, id, outData);
     }
 
-    private static IntentSender createSender(Context context, String extraName, int id) {
+    private static IntentSender createSender(Context context, String extraName, int id,
+            Bundle outClientState) {
         final Intent intent = new Intent(context, AuthenticationActivity.class);
         intent.putExtra(extraName, id);
+        if (outClientState != null) {
+            Log.d(TAG, "Create with " + outClientState + " as " + EXTRA_OUTPUT_CLIENT_STATE);
+            intent.putExtra(EXTRA_OUTPUT_CLIENT_STATE, outClientState);
+        }
         final PendingIntent pendingIntent = PendingIntent.getActivity(context, id, intent, 0);
         sPendingIntents.add(pendingIntent);
         return pendingIntent.getIntentSender();
@@ -213,6 +235,13 @@ public class AuthenticationActivity extends AbstractAutoFillActivity {
         // Pass on the auth result
         final Intent intent = new Intent();
         intent.putExtra(AutofillManager.EXTRA_AUTHENTICATION_RESULT, result);
+
+        final Bundle outClientState = getIntent().getBundleExtra(EXTRA_OUTPUT_CLIENT_STATE);
+        if (outClientState != null) {
+            Log.d(TAG, "Adding " + outClientState + " as " + AutofillManager.EXTRA_CLIENT_STATE);
+            intent.putExtra(AutofillManager.EXTRA_CLIENT_STATE, outClientState);
+        }
+
         final int resultCode;
         synchronized (sLock) {
             resultCode = sResultCode;

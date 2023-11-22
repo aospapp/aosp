@@ -17,6 +17,7 @@
 package com.android.cts.usepermission;
 
 import static junit.framework.Assert.assertEquals;
+
 import static org.junit.Assert.fail;
 
 import static com.android.cts.externalstorageapp.CommonExternalStorageTest.assertDirNoAccess;
@@ -28,6 +29,7 @@ import static com.android.cts.externalstorageapp.CommonExternalStorageTest.logCo
 import android.Manifest;
 import android.content.pm.PackageManager;
 import android.os.Environment;
+
 import org.junit.Before;
 import org.junit.Test;
 
@@ -47,6 +49,7 @@ public class UsePermissionTest23 extends BasePermissionsTest {
         mWatch = pm.hasSystemFeature(PackageManager.FEATURE_WATCH);
     }
 
+    @Test
     public void testFail() throws Exception {
         fail("Expected");
     }
@@ -450,7 +453,7 @@ public class UsePermissionTest23 extends BasePermissionsTest {
                 Manifest.permission.WRITE_CALENDAR
         };
 
-        // Request the permission and do nothing
+        // Request the permission and allow it
         BasePermissionActivity.Result result = requestPermissions(permissions,
                 REQUEST_CODE_PERMISSIONS, BasePermissionActivity.class, () -> {
             try {
@@ -463,9 +466,24 @@ public class UsePermissionTest23 extends BasePermissionsTest {
             }
         });
 
-        // Expect the permission is not granted
+        // Expect the permission are reported as granted
         assertPermissionRequestResult(result, REQUEST_CODE_PERMISSIONS,
                 permissions, new boolean[] {true, true});
+
+        // The permissions are granted
+        assertEquals(PackageManager.PERMISSION_GRANTED, getInstrumentation().getContext()
+                .checkSelfPermission(Manifest.permission.WRITE_CONTACTS));
+        assertEquals(PackageManager.PERMISSION_GRANTED, getInstrumentation().getContext()
+                .checkSelfPermission(Manifest.permission.WRITE_CALENDAR));
+
+        // In API < N_MR1 all permissions of a group are granted. I.e. the grant was "expanded"
+        assertEquals(PackageManager.PERMISSION_GRANTED, getInstrumentation().getContext()
+                .checkSelfPermission(Manifest.permission.READ_CALENDAR));
+
+        // Even the contacts group was expanded, the read-calendar permission is not in the
+        // manifest, hence not granted.
+        assertEquals(PackageManager.PERMISSION_DENIED, getInstrumentation().getContext()
+                .checkSelfPermission(Manifest.permission.READ_CONTACTS));
     }
 
     @Test
@@ -532,6 +550,76 @@ public class UsePermissionTest23 extends BasePermissionsTest {
     @Test
     public void testAllPermissionsGrantedOnUpgrade() throws Exception {
         assertAllPermissionsGrantState(PackageManager.PERMISSION_GRANTED);
+    }
+
+    @Test
+    public void testNullPermissionRequest() throws Exception {
+        String[] permissions = new String[] {null};
+
+        // Go through normal grant flow
+        BasePermissionActivity.Result result = requestPermissions(permissions,
+                REQUEST_CODE_PERMISSIONS,
+                BasePermissionActivity.class,
+                () -> { /* empty */ });
+
+        assertPermissionRequestResult(result, REQUEST_CODE_PERMISSIONS,
+                permissions, new boolean[] {false});
+    }
+
+    @Test
+    public void testNullAndRealPermission() throws Exception {
+        // Make sure we don't have the permissions
+        assertEquals(PackageManager.PERMISSION_DENIED, getInstrumentation().getContext()
+                .checkSelfPermission(Manifest.permission.WRITE_CONTACTS));
+        assertEquals(PackageManager.PERMISSION_DENIED, getInstrumentation().getContext()
+                .checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE));
+
+        String[] permissions = new String[] {
+                null,
+                Manifest.permission.WRITE_CONTACTS,
+                null,
+                Manifest.permission.WRITE_EXTERNAL_STORAGE
+        };
+
+        // Request the permission and allow it
+        BasePermissionActivity.Result result = requestPermissions(permissions,
+                REQUEST_CODE_PERMISSIONS, BasePermissionActivity.class, () -> {
+                    try {
+                        clickAllowButton();
+                        getUiDevice().waitForIdle();
+                        clickAllowButton();
+                        getUiDevice().waitForIdle();
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                });
+
+        // Expect the permission are reported as granted
+        assertPermissionRequestResult(result, REQUEST_CODE_PERMISSIONS,
+                permissions, new boolean[] {false, true, false, true});
+
+        // The permissions are granted
+        assertEquals(PackageManager.PERMISSION_GRANTED, getInstrumentation().getContext()
+                .checkSelfPermission(Manifest.permission.WRITE_CONTACTS));
+        assertEquals(PackageManager.PERMISSION_GRANTED, getInstrumentation().getContext()
+                .checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE));
+    }
+
+    @Test
+    public void testInvalidPermission() throws Exception {
+        String[] permissions = new String[] {
+                getInstrumentation().getContext().getPackageName() + ".abadname"
+        };
+
+        // Request the permission and allow it
+        BasePermissionActivity.Result result = requestPermissions(permissions,
+                REQUEST_CODE_PERMISSIONS,
+                BasePermissionActivity.class,
+                () -> { /* empty */ });
+
+        // Expect the permissions is not granted
+        assertPermissionRequestResult(result, REQUEST_CODE_PERMISSIONS,
+                permissions, new boolean[] {false});
     }
 
     private void assertAllPermissionsRevoked() {

@@ -24,8 +24,9 @@ LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
 LOCAL_SRC_FILES := $(call all-subdir-java-files)
 
 LOCAL_PACKAGE_NAME := NoShareUidApp
+LOCAL_SDK_VERSION := current
 
 LOCAL_PROGUARD_ENABLED := disabled
 LOCAL_DEX_PREOPT := false
 
-include $(BUILD_PACKAGE)
+include $(BUILD_CTS_PACKAGE)

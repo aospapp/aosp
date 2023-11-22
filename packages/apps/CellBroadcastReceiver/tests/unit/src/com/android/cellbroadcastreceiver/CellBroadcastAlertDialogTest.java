@@ -16,6 +16,10 @@
 
 package com.android.cellbroadcastreceiver;
 
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+
 import android.app.Notification;
 import android.app.NotificationManager;
 import android.content.Intent;
@@ -33,10 +37,6 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
 import java.util.ArrayList;
-
-import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
 
 public class CellBroadcastAlertDialogTest extends
         CellBroadcastActivityTestCase<CellBroadcastAlertDialog> {
@@ -94,7 +94,7 @@ public class CellBroadcastAlertDialogTest extends
         waitForMs(100);
 
         CharSequence etremeAlertString =
-                getActivity().getResources().getText(R.string.cmas_extreme_alert);
+                getActivity().getResources().getText(R.string.cmas_presidential_level_alert);
         assertEquals(etremeAlertString, getActivity().getTitle());
         assertEquals(etremeAlertString,
                 ((TextView) getActivity().findViewById(R.id.alertTitle)).getText());

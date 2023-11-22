@@ -126,7 +126,8 @@ MmcStopTransmission (
 #define MMCI0_BLOCKLEN 512
 #define MMCI0_TIMEOUT  10000
 
-STATIC EFI_STATUS
+STATIC
+EFI_STATUS
 MmcTransferBlock (
   IN EFI_BLOCK_IO_PROTOCOL    *This,
   IN UINTN                    Cmd,
@@ -148,7 +149,8 @@ MmcTransferBlock (
   MmcHost = MmcHostInstance->MmcHost;
 
   //Set command argument based on the card access mode (Byte mode or Block mode)
-  if (MmcHostInstance->CardInfo.OCRData.AccessMode & BIT1) {
+  if ((MmcHostInstance->CardInfo.OCRData.AccessMode & MMC_OCR_ACCESS_MASK) ==
+      MMC_OCR_ACCESS_SECTOR) {
     CmdArg = Lba;
   } else {
     CmdArg = Lba * This->Media->BlockSize;
@@ -187,17 +189,16 @@ MmcTransferBlock (
   Timeout = MMCI0_TIMEOUT;
   CmdArg = MmcHostInstance->CardInfo.RCA << 16;
   Response[0] = 0;
-  while(   (!(Response[0] & MMC_R0_READY_FOR_DATA))
+  while(!(Response[0] & MMC_R0_READY_FOR_DATA)
         && (MMC_R0_CURRENTSTATE (Response) != MMC_R0_STATE_TRAN)
         && Timeout--) {
     Status = MmcHost->SendCommand (MmcHost, MMC_CMD13, CmdArg);
     if (!EFI_ERROR (Status)) {
       MmcHost->ReceiveResponse (MmcHost, MMC_RESPONSE_TYPE_R1, Response);
-      if ((Response[0] & MMC_R0_READY_FOR_DATA)) {
+      if (Response[0] & MMC_R0_READY_FOR_DATA) {
         break;  // Prevents delay once finished
       }
     }
-    gBS->Stall (1);
   }
 
   if (BufferSize > This->Media->BlockSize) {
@@ -255,7 +256,7 @@ MmcIoBlocks (
     return EFI_NO_MEDIA;
   }
 
-  if (MmcHost->IsMultiBlock && MmcHost->IsMultiBlock(MmcHost)) {
+  if (MMC_HOST_HAS_ISMULTIBLOCK(MmcHost) && MmcHost->IsMultiBlock(MmcHost)) {
     BlockCount = (BufferSize + This->Media->BlockSize - 1) / This->Media->BlockSize;
   }
 
@@ -379,7 +380,7 @@ MmcFlushBlocks (
 EFI_STATUS
 EFIAPI
 MmcEraseBlocks (
-  IN EFI_BLOCK_IO_PROTOCOL          *This,
+  IN EFI_ERASE_BLOCK_PROTOCOL       *This,
   IN UINT32                         MediaId,
   IN EFI_LBA                        Lba,
   IN OUT EFI_ERASE_BLOCK_TOKEN      *Token,
@@ -392,12 +393,12 @@ MmcEraseBlocks (
   UINT32                 Response[4];
   UINTN                  CmdArg;
 
-  MmcHostInstance = MMC_HOST_INSTANCE_FROM_BLOCK_IO_THIS (This);
+  MmcHostInstance = MMC_HOST_INSTANCE_FROM_ERASEBLK (This);
   ASSERT (MmcHostInstance != NULL);
   MmcHost = MmcHostInstance->MmcHost;
   ASSERT (MmcHost);
 
-  if (This->Media->ReadOnly == TRUE)
+  if (MmcHostInstance->BlockIo.Media->ReadOnly == TRUE)
      return EFI_WRITE_PROTECTED;
 
 // EFI_DEVICE_ERROR, EFI_INVALID_PARAMETER
@@ -405,7 +406,7 @@ MmcEraseBlocks (
   if (!MmcHostInstance->BlockIo.Media->MediaPresent)
      return EFI_NO_MEDIA;
 
-  if (This->Media->MediaId != MediaId)
+  if (MmcHostInstance->BlockIo.Media->MediaId != MediaId)
      return EFI_MEDIA_CHANGED;
 
   CmdArg = Lba;

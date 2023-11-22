@@ -64,6 +64,7 @@ os.environ.update(custom_env)
 
 if target.has_key('make'):
   build_command = 'make'
+  build_command += ' DX='
   build_command += ' -j' + str(n_threads)
   build_command += ' -C ' + env.ANDROID_BUILD_TOP
   build_command += ' ' + target.get('make')
@@ -95,10 +96,19 @@ if target.has_key('golem'):
 if target.has_key('run-test'):
   run_test_command = [os.path.join(env.ANDROID_BUILD_TOP,
                                    'art/test/testrunner/testrunner.py')]
-  run_test_command += target.get('run-test', [])
-  run_test_command += ['-j', str(n_threads)]
+  test_flags = target.get('run-test', [])
+  run_test_command += test_flags
+  # Let testrunner compute concurrency based on #cpus.
+  # b/65822340
+  # run_test_command += ['-j', str(n_threads)]
+
+  # In the config assume everything will run with --host and on ART.
+  # However for only [--jvm] this is undesirable, so don't pass in ART-specific flags.
+  if ['--jvm'] != test_flags:
+    run_test_command += ['--host']
+    run_test_command += ['--dex2oat-jobs']
+    run_test_command += ['4']
   run_test_command += ['-b']
-  run_test_command += ['--host']
   run_test_command += ['--verbose']
 
   sys.stdout.write(str(run_test_command) + '\n')

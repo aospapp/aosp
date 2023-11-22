@@ -21,6 +21,7 @@
 #include <sys/types.h>
 
 #include <algorithm>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -72,6 +73,7 @@ class Subsystem {
     friend class SubsystemParser;
 
     Subsystem() {}
+    Subsystem(std::string name) : name_(std::move(name)) {}
 
     // Returns the full path for a uevent of a device that is a member of this subsystem,
     // according to the rules parsed from ueventd.rc
@@ -102,8 +104,8 @@ class DeviceHandler {
 
     DeviceHandler();
     DeviceHandler(std::vector<Permissions> dev_permissions,
-                  std::vector<SysfsPermissions> sysfs_permissions,
-                  std::vector<Subsystem> subsystems, bool skip_restorecon);
+                  std::vector<SysfsPermissions> sysfs_permissions, std::vector<Subsystem> subsystems,
+                  std::set<std::string> boot_devices, bool skip_restorecon);
     ~DeviceHandler(){};
 
     void HandleDeviceEvent(const Uevent& uevent);
@@ -124,7 +126,7 @@ class DeviceHandler {
     std::vector<Permissions> dev_permissions_;
     std::vector<SysfsPermissions> sysfs_permissions_;
     std::vector<Subsystem> subsystems_;
-    selabel_handle* sehandle_;
+    std::set<std::string> boot_devices_;
     bool skip_restorecon_;
     std::string sysfs_mount_point_;
 };

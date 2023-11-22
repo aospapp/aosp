@@ -165,4 +165,9 @@ public class MixedManagedProfileOwnerTest extends DeviceAndProfileOwnerTest {
         // MixedProfileOwnerTest
         executeResetPasswordWithTokenTests(false);
     }
+
+    @Override
+    public void testSetSystemSetting() {
+        // Managed profile owner cannot set currently whitelisted system settings.
+    }
 }

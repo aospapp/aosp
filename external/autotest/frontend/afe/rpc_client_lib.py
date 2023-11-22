@@ -13,6 +13,28 @@ from autotest_lib.client.common_lib import utils
 class AuthError(Exception):
     pass
 
+def add_protocol(hostname):
+    """Constructs a normalized URL to make RPC calls
+
+    This function exists because our configuration files
+    (global_config/shadow_config) include only the hostname of the RPC server to
+    hit, not the protocol (http/https).
+    To support endpoints that require a specific protocol, we allow the hostname
+    to include the protocol prefix, and respect the protocol. If no protocol is
+    provided, http is used, viz,
+
+        add_protocol('cautotest') --> 'http://cautotest'
+        add_protocol('http://cautotest') --> 'http://cautotest'
+        add_protocol('https://cautotest') --> 'https://cautotest'
+
+    @param hostname: hostname or url prefix of the RPC server.
+    @returns: A string URL for the RPC server with the protocl prefix.
+    """
+    if (not hostname.startswith('http://') and
+        not hostname.startswith('https://')):
+        return 'http://' + hostname
+    return hostname
+
 
 def get_proxy(*args, **kwargs):
     """Use this to access the AFE or TKO RPC interfaces."""

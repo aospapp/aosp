@@ -65,6 +65,8 @@ public class MockInCallService extends InCallService {
         public void onRttStatusChanged(Call call, boolean enabled, Call.RttCall rttCall) {}
         public void onRttRequest(Call call, int id) {}
         public void onRttInitiationFailure(Call call, int reason) {}
+        public void onHandoverComplete(Call call) {}
+        public void onHandoverFailed(Call call, int failureReason) {}
 
         final public MockInCallService getService() {
             return mService;
@@ -187,6 +189,22 @@ public class MockInCallService extends InCallService {
             super.onRttInitiationFailure(call, reason);
             if (getCallbacks() != null) {
                 getCallbacks().onRttInitiationFailure(call, reason);
+            }
+        }
+
+        @Override
+        public void onHandoverComplete(Call call) {
+            super.onHandoverComplete(call);
+            if (getCallbacks() != null) {
+                getCallbacks().onHandoverComplete(call);
+            }
+        }
+
+        @Override
+        public void onHandoverFailed(Call call, int failureReason) {
+            super.onHandoverFailed(call, failureReason);
+            if (getCallbacks() != null) {
+                getCallbacks().onHandoverFailed(call, failureReason);
             }
         }
     };

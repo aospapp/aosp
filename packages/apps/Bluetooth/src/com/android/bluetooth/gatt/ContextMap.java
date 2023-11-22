@@ -17,22 +17,21 @@ package com.android.bluetooth.gatt;
 
 import android.os.Binder;
 import android.os.IBinder;
-import android.os.IBinder.DeathRecipient;
 import android.os.IInterface;
 import android.os.RemoteException;
+import android.os.SystemClock;
 import android.os.WorkSource;
 import android.util.Log;
+
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.UUID;
-import java.util.HashMap;
-import java.util.Map;
-
-import com.android.bluetooth.btservice.BluetoothProto;
 
 /**
  * Helper class that keeps track of registered GATT applications.
@@ -46,16 +45,16 @@ import com.android.bluetooth.btservice.BluetoothProto;
      * Connection class helps map connection IDs to device addresses.
      */
     class Connection {
-        int connId;
-        String address;
-        int appId;
-        long startTime;
+        public int connId;
+        public String address;
+        public int appId;
+        public long startTime;
 
-        Connection(int connId, String address,int appId) {
+        Connection(int connId, String address, int appId) {
             this.connId = connId;
             this.address = address;
             this.appId = appId;
-            this.startTime = System.currentTimeMillis();
+            this.startTime = SystemClock.elapsedRealtime();
         }
     }
 
@@ -64,27 +63,27 @@ import com.android.bluetooth.btservice.BluetoothProto;
      */
     class App {
         /** The UUID of the application */
-        UUID uuid;
+        public UUID uuid;
 
         /** The id of the application */
-        int id;
+        public int id;
 
         /** The package name of the application */
-        String name;
+        public String name;
 
         /** Statistics for this app */
-        AppScanStats appScanStats;
+        public AppScanStats appScanStats;
 
         /** Application callbacks */
-        C callback;
+        public C callback;
 
         /** Context information */
-        T info;
+        public T info;
         /** Death receipient */
         private IBinder.DeathRecipient mDeathRecipient;
 
         /** Flag to signal that transport is congested */
-        Boolean isCongested = false;
+        public Boolean isCongested = false;
 
         /** Whether the calling app has location permission */
         boolean hasLocationPermisson;
@@ -93,7 +92,7 @@ import com.android.bluetooth.btservice.BluetoothProto;
         boolean hasPeersMacAddressPermission;
 
         /** Internal callback info queue, waiting to be send on congestion clear */
-        private List<CallbackInfo> congestionQueue = new ArrayList<CallbackInfo>();
+        private List<CallbackInfo> mCongestionQueue = new ArrayList<CallbackInfo>();
 
         /**
          * Creates a new app context.
@@ -111,9 +110,11 @@ import com.android.bluetooth.btservice.BluetoothProto;
          */
         void linkToDeath(IBinder.DeathRecipient deathRecipient) {
             // It might not be a binder object
-            if (callback == null) return;
+            if (callback == null) {
+                return;
+            }
             try {
-                IBinder binder = ((IInterface)callback).asBinder();
+                IBinder binder = ((IInterface) callback).asBinder();
                 binder.linkToDeath(deathRecipient, 0);
                 mDeathRecipient = deathRecipient;
             } catch (RemoteException e) {
@@ -127,8 +128,8 @@ import com.android.bluetooth.btservice.BluetoothProto;
         void unlinkToDeath() {
             if (mDeathRecipient != null) {
                 try {
-                    IBinder binder = ((IInterface)callback).asBinder();
-                    binder.unlinkToDeath(mDeathRecipient,0);
+                    IBinder binder = ((IInterface) callback).asBinder();
+                    binder.unlinkToDeath(mDeathRecipient, 0);
                 } catch (NoSuchElementException e) {
                     Log.e(TAG, "Unable to unlink deathRecipient for app id " + id);
                 }
@@ -136,12 +137,14 @@ import com.android.bluetooth.btservice.BluetoothProto;
         }
 
         void queueCallback(CallbackInfo callbackInfo) {
-            congestionQueue.add(callbackInfo);
+            mCongestionQueue.add(callbackInfo);
         }
 
         CallbackInfo popQueuedCallback() {
-            if (congestionQueue.size() == 0) return null;
-            return congestionQueue.remove(0);
+            if (mCongestionQueue.size() == 0) {
+                return null;
+            }
+            return mCongestionQueue.remove(0);
         }
     }
 
@@ -275,7 +278,9 @@ import com.android.bluetooth.btservice.BluetoothProto;
             Iterator<App> i = mApps.iterator();
             while (i.hasNext()) {
                 App entry = i.next();
-                if (entry.id == id) return entry;
+                if (entry.id == id) {
+                    return entry;
+                }
             }
         }
         Log.e(TAG, "Context not found for ID " + id);
@@ -290,7 +295,9 @@ import com.android.bluetooth.btservice.BluetoothProto;
             Iterator<App> i = mApps.iterator();
             while (i.hasNext()) {
                 App entry = i.next();
-                if (entry.uuid.equals(uuid)) return entry;
+                if (entry.uuid.equals(uuid)) {
+                    return entry;
+                }
             }
         }
         Log.e(TAG, "Context not found for UUID " + uuid);
@@ -305,7 +312,9 @@ import com.android.bluetooth.btservice.BluetoothProto;
             Iterator<App> i = mApps.iterator();
             while (i.hasNext()) {
                 App entry = i.next();
-                if (entry.name.equals(name)) return entry;
+                if (entry.name.equals(name)) {
+                    return entry;
+                }
             }
         }
         Log.e(TAG, "Context not found for name " + name);
@@ -367,7 +376,7 @@ import com.android.bluetooth.btservice.BluetoothProto;
         Iterator<Connection> ii = mConnections.iterator();
         while (ii.hasNext()) {
             Connection connection = ii.next();
-            if (connection.connId == connId){
+            if (connection.connId == connId) {
                 return getById(connection.appId);
             }
         }
@@ -379,13 +388,16 @@ import com.android.bluetooth.btservice.BluetoothProto;
      */
     Integer connIdByAddress(int id, String address) {
         App entry = getById(id);
-        if (entry == null) return null;
+        if (entry == null) {
+            return null;
+        }
 
         Iterator<Connection> i = mConnections.iterator();
         while (i.hasNext()) {
             Connection connection = i.next();
-            if (connection.address.equalsIgnoreCase(address) && connection.appId == id)
+            if (connection.address.equalsIgnoreCase(address) && connection.appId == id) {
                 return connection.connId;
+            }
         }
         return null;
     }
@@ -397,7 +409,9 @@ import com.android.bluetooth.btservice.BluetoothProto;
         Iterator<Connection> i = mConnections.iterator();
         while (i.hasNext()) {
             Connection connection = i.next();
-            if (connection.connId == connId) return connection.address;
+            if (connection.connId == connId) {
+                return connection.address;
+            }
         }
         return null;
     }
@@ -407,8 +421,9 @@ import com.android.bluetooth.btservice.BluetoothProto;
         Iterator<Connection> i = mConnections.iterator();
         while (i.hasNext()) {
             Connection connection = i.next();
-            if (connection.appId == appId)
+            if (connection.appId == appId) {
                 currentConnections.add(connection);
+            }
         }
         return currentConnections;
     }
@@ -435,9 +450,9 @@ import com.android.bluetooth.btservice.BluetoothProto;
     /**
      * Returns connect device map with addr and appid
      */
-    Map<Integer, String> getConnectedMap(){
+    Map<Integer, String> getConnectedMap() {
         Map<Integer, String> connectedmap = new HashMap<Integer, String>();
-        for(Connection conn: mConnections){
+        for (Connection conn : mConnections) {
             connectedmap.put(conn.appId, conn.address);
         }
         return connectedmap;

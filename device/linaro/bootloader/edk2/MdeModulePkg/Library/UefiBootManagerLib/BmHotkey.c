@@ -1,7 +1,8 @@
 /** @file
   Hotkey library functions.
 
-Copyright (c) 2011 - 2015, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2011 - 2016, Intel Corporation. All rights reserved.<BR>
+(C) Copyright 2016 Hewlett Packard Enterprise Development LP<BR>
 This program and the accompanying materials
 are licensed and made available under the terms and conditions of the BSD License
 which accompanies this distribution.  The full text of the license may be found at
@@ -441,6 +442,55 @@ BmHotkeyCallback (
 }
 
 /**
+  Return the active Simple Text Input Ex handle array.
+  If the SystemTable.ConsoleInHandle is NULL, the function returns all
+  founded Simple Text Input Ex handles.
+  Otherwise, it just returns the ConsoleInHandle.
+
+  @param Count  Return the handle count.
+
+  @retval The active console handles.
+**/
+EFI_HANDLE *
+BmGetActiveConsoleIn (
+  OUT UINTN                             *Count
+  )
+{
+  EFI_STATUS                            Status;
+  EFI_HANDLE                            *Handles;
+
+  Handles = NULL;
+  *Count  = 0;
+
+  if (gST->ConsoleInHandle != NULL) {
+    Status = gBS->OpenProtocol (
+                    gST->ConsoleInHandle,
+                    &gEfiSimpleTextInputExProtocolGuid,
+                    NULL,
+                    gImageHandle,
+                    NULL,
+                    EFI_OPEN_PROTOCOL_TEST_PROTOCOL
+                    );
+    if (!EFI_ERROR (Status)) {
+      Handles = AllocateCopyPool (sizeof (EFI_HANDLE), &gST->ConsoleInHandle);
+      if (Handles != NULL) {
+        *Count = 1;
+      }
+    }
+  } else {
+    Status = gBS->LocateHandleBuffer (
+                    ByProtocol,
+                    &gEfiSimpleTextInputExProtocolGuid,
+                    NULL,
+                    Count,
+                    &Handles
+                    );
+  }
+
+  return Handles;
+}
+
+/**
   Unregister hotkey notify list.
 
   @param    Hotkey                Hotkey list.
@@ -461,13 +511,7 @@ BmUnregisterHotkeyNotify (
   EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL     *TxtInEx;
   VOID                                  *NotifyHandle;
 
-  gBS->LocateHandleBuffer (
-          ByProtocol,
-          &gEfiSimpleTextInputExProtocolGuid,
-          NULL,
-          &HandleCount,
-          &Handles
-          );
+  Handles = BmGetActiveConsoleIn (&HandleCount);
   for (Index = 0; Index < HandleCount; Index++) {
     Status = gBS->HandleProtocol (Handles[Index], &gEfiSimpleTextInputExProtocolGuid, (VOID **) &TxtInEx);
     ASSERT_EFI_ERROR (Status);
@@ -483,6 +527,10 @@ BmUnregisterHotkeyNotify (
         DEBUG ((EFI_D_INFO, "[Bds]UnregisterKeyNotify: %04x/%04x %r\n", Hotkey->KeyData[KeyIndex].Key.ScanCode, Hotkey->KeyData[KeyIndex].Key.UnicodeChar, Status));
       }
     }
+  }
+
+  if (Handles != NULL) {
+    FreePool (Handles);
   }
 
   return EFI_SUCCESS;
@@ -632,9 +680,11 @@ BmProcessKeyOption (
 
   KeyShiftStateCount = 0;
   BmGenerateKeyShiftState (0, KeyOption, EFI_SHIFT_STATE_VALID, KeyShiftStates, &KeyShiftStateCount);
-  ASSERT (KeyShiftStateCount <= sizeof (KeyShiftStates) / sizeof (KeyShiftStates[0]));
+  ASSERT (KeyShiftStateCount <= ARRAY_SIZE (KeyShiftStates));
 
   EfiAcquireLock (&mBmHotkeyLock);
+
+  Handles = BmGetActiveConsoleIn (&HandleCount);
 
   for (Index = 0; Index < KeyShiftStateCount; Index++) {
     Hotkey = AllocateZeroPool (sizeof (BM_HOTKEY));
@@ -651,13 +701,6 @@ BmProcessKeyOption (
     }
     InsertTailList (&mBmHotkeyList, &Hotkey->Link);
 
-    gBS->LocateHandleBuffer (
-            ByProtocol,
-            &gEfiSimpleTextInputExProtocolGuid,
-            NULL,
-            &HandleCount,
-            &Handles
-            );
     for (HandleIndex = 0; HandleIndex < HandleCount; HandleIndex++) {
       Status = gBS->HandleProtocol (Handles[HandleIndex], &gEfiSimpleTextInputExProtocolGuid, (VOID **) &TxtInEx);
       ASSERT_EFI_ERROR (Status);
@@ -665,6 +708,9 @@ BmProcessKeyOption (
     }
   }
 
+  if (Handles != NULL) {
+    FreePool (Handles);
+  }
   EfiReleaseLock (&mBmHotkeyLock);
 
   return EFI_SUCCESS;
@@ -875,13 +921,20 @@ EfiBootManagerStartHotkeyService (
     BmProcessKeyOption (mBmContinueKeyOption);
   }
 
-  EfiCreateProtocolNotifyEvent (
-    &gEfiSimpleTextInputExProtocolGuid,
-    TPL_CALLBACK,
-    BmTxtInExCallback,
-    NULL,
-    &mBmTxtInExRegistration
-    );
+  //
+  // Hook hotkey on every future SimpleTextInputEx instance when
+  // SystemTable.ConsoleInHandle == NULL, which means the console
+  // manager (ConSplitter) is absent.
+  //
+  if (gST->ConsoleInHandle == NULL) {
+    EfiCreateProtocolNotifyEvent (
+      &gEfiSimpleTextInputExProtocolGuid,
+      TPL_CALLBACK,
+      BmTxtInExCallback,
+      NULL,
+      &mBmTxtInExRegistration
+      );
+  }
 
   Status = EfiCreateEventReadyToBootEx (
              TPL_CALLBACK,
@@ -890,7 +943,6 @@ EfiBootManagerStartHotkeyService (
              &Event
              );
   ASSERT_EFI_ERROR (Status);
-
 
   mBmHotkeyServiceStarted = TRUE;
   return Status;

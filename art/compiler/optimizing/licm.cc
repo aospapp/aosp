@@ -84,10 +84,10 @@ void LICM::Run() {
   // Only used during debug.
   ArenaBitVector* visited = nullptr;
   if (kIsDebugBuild) {
-    visited = new (graph_->GetArena()) ArenaBitVector(graph_->GetArena(),
-                                                      graph_->GetBlocks().size(),
-                                                      false,
-                                                      kArenaAllocLICM);
+    visited = new (graph_->GetAllocator()) ArenaBitVector(graph_->GetAllocator(),
+                                                          graph_->GetBlocks().size(),
+                                                          false,
+                                                          kArenaAllocLICM);
   }
 
   // Post order visit to visit inner loops before outer loops.
@@ -129,10 +129,25 @@ void LICM::Run() {
            !inst_it.Done();
            inst_it.Advance()) {
         HInstruction* instruction = inst_it.Current();
-        if (instruction->CanBeMoved()
-            && (!instruction->CanThrow() || !found_first_non_hoisted_visible_instruction_in_loop)
-            && !instruction->GetSideEffects().MayDependOn(loop_effects)
-            && InputsAreDefinedBeforeLoop(instruction)) {
+        bool can_move = false;
+        if (instruction->CanBeMoved() && InputsAreDefinedBeforeLoop(instruction)) {
+          if (instruction->CanThrow()) {
+            if (!found_first_non_hoisted_visible_instruction_in_loop) {
+              DCHECK(instruction->GetBlock()->IsLoopHeader());
+              if (instruction->IsClinitCheck()) {
+                // clinit is only done once, and since all visible instructions
+                // in the loop header so far have been hoisted out, we can hoist
+                // the clinit check out also.
+                can_move = true;
+              } else if (!instruction->GetSideEffects().MayDependOn(loop_effects)) {
+                can_move = true;
+              }
+            }
+          } else if (!instruction->GetSideEffects().MayDependOn(loop_effects)) {
+            can_move = true;
+          }
+        }
+        if (can_move) {
           // We need to update the environment if the instruction has a loop header
           // phi in it.
           if (instruction->NeedsEnvironment()) {
@@ -141,8 +156,10 @@ void LICM::Run() {
             DCHECK(!instruction->HasEnvironment());
           }
           instruction->MoveBefore(pre_header->GetLastInstruction());
-          MaybeRecordStat(MethodCompilationStat::kLoopInvariantMoved);
-        } else if (instruction->CanThrow() || instruction->DoesAnyWrite()) {
+          MaybeRecordStat(stats_, MethodCompilationStat::kLoopInvariantMoved);
+        }
+
+        if (!can_move && (instruction->CanThrow() || instruction->DoesAnyWrite())) {
           // If `instruction` can do something visible (throw or write),
           // we cannot move further instructions that can throw.
           found_first_non_hoisted_visible_instruction_in_loop = true;

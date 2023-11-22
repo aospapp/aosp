@@ -2,7 +2,7 @@
   Main file for ls shell level 2 function.
 
   (C) Copyright 2013-2015 Hewlett-Packard Development Company, L.P.<BR>
-  Copyright (c) 2009 - 2015, Intel Corporation. All rights reserved.<BR>
+  Copyright (c) 2009 - 2016, Intel Corporation. All rights reserved.<BR>
   This program and the accompanying materials
   are licensed and made available under the terms and conditions of the BSD License
   which accompanies this distribution.  The full text of the license may be found at
@@ -22,7 +22,6 @@
   @param[in] TheList           a list of files from the volume.
 **/
 EFI_STATUS
-EFIAPI
 PrintSfoVolumeInfoTableEntry(
   IN CONST EFI_SHELL_FILE_INFO *TheList
   )
@@ -152,7 +151,6 @@ PrintSfoVolumeInfoTableEntry(
 
 **/
 VOID
-EFIAPI
 PrintFileInformation(
   IN CONST BOOLEAN              Sfo, 
   IN CONST EFI_SHELL_FILE_INFO  *TheNode, 
@@ -263,7 +261,6 @@ PrintFileInformation(
   @param[in] Path           String with starting path.
 **/
 VOID
-EFIAPI
 PrintNonSfoHeader(
   IN CONST CHAR16 *Path
   )
@@ -300,7 +297,6 @@ PrintNonSfoHeader(
   @param[in] Dirs             The number of directories.
 **/
 VOID
-EFIAPI
 PrintNonSfoFooter(
   IN UINT64                     Files, 
   IN UINT64                     Size, 
@@ -339,7 +335,6 @@ PrintNonSfoFooter(
   @retval SHELL_SUCCESS     the printing was sucessful.
 **/
 SHELL_STATUS
-EFIAPI
 PrintLsOutput(
   IN CONST BOOLEAN Rec,
   IN CONST UINT64  Attribs,
@@ -442,6 +437,7 @@ PrintLsOutput(
       }
 
       if (!Sfo && !HeaderPrinted) {
+        PathRemoveLastItem (CorrectedPath);
         PrintNonSfoHeader(CorrectedPath);
       }
       PrintFileInformation(Sfo, Node, &FileCount, &FileSize, &DirCount);
@@ -707,10 +703,14 @@ ShellCommandRunLs (
               //
               // must split off the search part that applies to files from the end of the directory part
               //
-              for (StrnCatGrow(&SearchString, NULL, PathName, 0)
-                ; SearchString != NULL && StrStr(SearchString, L"\\") != NULL
-                ; CopyMem(SearchString, StrStr(SearchString, L"\\") + 1, 1 + StrSize(StrStr(SearchString, L"\\") + 1))) ;
-              FullPath[StrLen(FullPath) - StrLen(SearchString)] = CHAR_NULL;
+              StrnCatGrow(&SearchString, NULL, FullPath, 0);
+              if (SearchString == NULL) {
+                FreePool (FullPath);
+                ShellCommandLineFreeVarList (Package);
+                return SHELL_OUT_OF_RESOURCES;
+              }
+              PathRemoveLastItem (FullPath);
+              CopyMem (SearchString, SearchString + StrLen (FullPath), StrSize (SearchString + StrLen (FullPath)));
             }
           }
         }

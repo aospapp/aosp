@@ -17,18 +17,18 @@
 package android.appsecurity.cts;
 
 import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
-import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.device.DeviceNotAvailableException;
-import com.android.tradefed.testtype.DeviceTestCase;
-import com.android.tradefed.testtype.IBuildReceiver;
+import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
+
+import org.junit.Assert;
+import org.junit.Before;
 
 import java.util.ArrayList;
 
 /**
  * Base class.
  */
-public class BaseAppSecurityTest extends DeviceTestCase implements IBuildReceiver {
-    protected IBuildInfo mBuildInfo;
+abstract class BaseAppSecurityTest extends BaseHostJUnit4Test {
 
     /** Whether multi-user is supported. */
     protected boolean mSupportsMultiUser;
@@ -37,15 +37,9 @@ public class BaseAppSecurityTest extends DeviceTestCase implements IBuildReceive
     /** Users we shouldn't delete in the tests */
     private ArrayList<Integer> mFixedUsers;
 
-    @Override
-    public void setBuild(IBuildInfo buildInfo) {
-        mBuildInfo = buildInfo;
-    }
-
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        assertNotNull(mBuildInfo); // ensure build has been set before test is run.
+    @Before
+    public void setUp() throws Exception {
+        Assert.assertNotNull(getBuild()); // ensure build has been set before test is run.
 
         mSupportsMultiUser = getDevice().getMaxNumberOfUsersSupported() > 1;
         mIsSplitSystemUser = checkIfSplitSystemUser();
@@ -70,8 +64,8 @@ public class BaseAppSecurityTest extends DeviceTestCase implements IBuildReceive
         if (userId < 0) {
             userId = mPrimaryUserId;
         }
-        CompatibilityBuildHelper buildHelper = new CompatibilityBuildHelper(mBuildInfo);
-        assertNull(getDevice().installPackageForUser(
+        CompatibilityBuildHelper buildHelper = new CompatibilityBuildHelper(getBuild());
+        Assert.assertNull(getDevice().installPackageForUser(
                 buildHelper.getTestFile(apk), true, false, userId, "-t"));
     }
 

@@ -19,6 +19,7 @@ package libcore.java.net;
 import junit.framework.TestCase;
 
 import java.io.BufferedReader;
+import java.io.FileDescriptor;
 import java.io.InputStreamReader;
 import java.lang.reflect.Field;
 import java.net.Inet4Address;
@@ -34,7 +35,16 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.regex.Pattern;
+import libcore.io.IoUtils;
+import libcore.io.Libcore;
 
+import static android.system.OsConstants.AF_INET;
+import static android.system.OsConstants.IFF_LOOPBACK;
+import static android.system.OsConstants.IFF_MULTICAST;
+import static android.system.OsConstants.IFF_POINTOPOINT;
+import static android.system.OsConstants.IFF_RUNNING;
+import static android.system.OsConstants.IFF_UP;
+import static android.system.OsConstants.SOCK_DGRAM;
 import static java.net.NetworkInterface.getNetworkInterfaces;
 
 public class NetworkInterfaceTest extends TestCase {
@@ -228,6 +238,34 @@ public class NetworkInterfaceTest extends TestCase {
         }
     }
 
+    // b/71977275
+    public void testIsUp() throws Exception {
+        for (NetworkInterface nif : Collections.list(getNetworkInterfaces())) {
+            int flags = getFlags(nif);
+            assertEquals(
+                    ((flags & IFF_UP) == IFF_UP) && ((flags & IFF_RUNNING) == IFF_RUNNING),
+                    nif.isUp());
+        }
+    }
+
+    public void testIsLoopback() throws Exception {
+        for (NetworkInterface nif : Collections.list(getNetworkInterfaces())) {
+            assertEquals((getFlags(nif) & IFF_LOOPBACK) == IFF_LOOPBACK, nif.isLoopback());
+        }
+    }
+
+    public void testIsPointToPoint() throws Exception {
+        for (NetworkInterface nif : Collections.list(getNetworkInterfaces())) {
+            assertEquals((getFlags(nif) & IFF_POINTOPOINT) == IFF_POINTOPOINT, nif.isPointToPoint());
+        }
+    }
+
+    public void testSupportsMulticast() throws Exception {
+        for (NetworkInterface nif : Collections.list(getNetworkInterfaces())) {
+            assertEquals((getFlags(nif) & IFF_MULTICAST) == IFF_MULTICAST, nif.supportsMulticast());
+        }
+    }
+
     // Is ifName a name of a Ethernet device?
     private static Pattern ethernetNamePattern = Pattern.compile("^(eth|wlan)[0-9]+$");
     private static boolean isEthernet(String ifName) throws Exception {
@@ -237,6 +275,15 @@ public class NetworkInterfaceTest extends TestCase {
     public void testGetInterfaceAddressesDoesNotThrowNPE() throws Exception {
         try (MulticastSocket mcastSock = new MulticastSocket()) {
             mcastSock.getNetworkInterface().getInterfaceAddresses();
+        }
+    }
+
+    private int getFlags(NetworkInterface nif) throws Exception {
+        FileDescriptor fd = Libcore.rawOs.socket(AF_INET, SOCK_DGRAM, 0);
+        try {
+            return Libcore.rawOs.ioctlFlags(fd, nif.getName());
+        } finally {
+            IoUtils.closeQuietly(fd);
         }
     }
 }

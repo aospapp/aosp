@@ -14,7 +14,6 @@
 #include "core/fxcrt/fx_system.h"
 #include "core/fxge/cfx_unicodeencoding.h"
 #include "core/fxge/fx_dib.h"
-#include "core/fxge/fx_freetype.h"
 
 class CFX_UnicodeEncodingEx : public CFX_UnicodeEncoding {
  public:
@@ -24,14 +23,14 @@ class CFX_UnicodeEncodingEx : public CFX_UnicodeEncoding {
   // CFX_UnicodeEncoding:
   uint32_t GlyphFromCharCode(uint32_t charcode) override;
 
-  uint32_t CharCodeFromUnicode(FX_WCHAR Unicode) const;
+  uint32_t CharCodeFromUnicode(wchar_t Unicode) const;
 
  private:
   uint32_t m_nEncodingID;
 };
 
-CFX_UnicodeEncodingEx* FX_CreateFontEncodingEx(
+std::unique_ptr<CFX_UnicodeEncodingEx> FX_CreateFontEncodingEx(
     CFX_Font* pFont,
-    uint32_t nEncodingID = FXFM_ENCODING_NONE);
+    uint32_t nEncodingID);
 
 #endif  // CORE_FXGE_CFX_UNICODEENCODINGEX_H_

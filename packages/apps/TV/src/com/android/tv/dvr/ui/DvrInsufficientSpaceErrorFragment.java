@@ -22,19 +22,15 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.support.v17.leanback.widget.GuidanceStylist.Guidance;
 import android.support.v17.leanback.widget.GuidedAction;
-
 import com.android.tv.R;
-import com.android.tv.TvApplication;
+import com.android.tv.TvSingletons;
 import com.android.tv.common.SoftPreconditions;
 import com.android.tv.dvr.ui.browse.DvrBrowseActivity;
-
 import java.util.ArrayList;
 import java.util.List;
 
 public class DvrInsufficientSpaceErrorFragment extends DvrGuidedStepFragment {
-    /**
-     * Key for the failed scheduled recordings information.
-     */
+    /** Key for the failed scheduled recordings information. */
     public static final String FAILED_SCHEDULED_RECORDING_INFOS =
             "failed_scheduled_recording_infos";
 
@@ -54,7 +50,8 @@ public class DvrInsufficientSpaceErrorFragment extends DvrGuidedStepFragment {
         }
         SoftPreconditions.checkState(
                 mFailedScheduledRecordingInfos != null && !mFailedScheduledRecordingInfos.isEmpty(),
-                TAG, "failed scheduled recording is null");
+                TAG,
+                "failed scheduled recording is null");
     }
 
     @Override
@@ -63,28 +60,39 @@ public class DvrInsufficientSpaceErrorFragment extends DvrGuidedStepFragment {
         String description;
         int failedScheduledRecordingSize = mFailedScheduledRecordingInfos.size();
         if (failedScheduledRecordingSize == 1) {
-            title =  getString(
-                    R.string.dvr_error_insufficient_space_title_one_recording,
-                    mFailedScheduledRecordingInfos.get(0));
-            description = getString(
-                    R.string.dvr_error_insufficient_space_description_one_recording,
-                    mFailedScheduledRecordingInfos.get(0));
+            title =
+                    getString(
+                            R.string.dvr_error_insufficient_space_title_one_recording,
+                            mFailedScheduledRecordingInfos.get(0));
+            description =
+                    getString(
+                            R.string.dvr_error_insufficient_space_description_one_recording,
+                            mFailedScheduledRecordingInfos.get(0));
         } else if (failedScheduledRecordingSize == 2) {
-            title =  getString(
-                    R.string.dvr_error_insufficient_space_title_two_recordings,
-                    mFailedScheduledRecordingInfos.get(0), mFailedScheduledRecordingInfos.get(1));
-            description = getString(
-                    R.string.dvr_error_insufficient_space_description_two_recordings,
-                    mFailedScheduledRecordingInfos.get(0), mFailedScheduledRecordingInfos.get(1));
+            title =
+                    getString(
+                            R.string.dvr_error_insufficient_space_title_two_recordings,
+                            mFailedScheduledRecordingInfos.get(0),
+                            mFailedScheduledRecordingInfos.get(1));
+            description =
+                    getString(
+                            R.string.dvr_error_insufficient_space_description_two_recordings,
+                            mFailedScheduledRecordingInfos.get(0),
+                            mFailedScheduledRecordingInfos.get(1));
         } else {
-            title =  getString(
-                    R.string.dvr_error_insufficient_space_title_three_or_more_recordings,
-                    mFailedScheduledRecordingInfos.get(0), mFailedScheduledRecordingInfos.get(1),
-                    mFailedScheduledRecordingInfos.get(2));
-            description = getString(
-                    R.string.dvr_error_insufficient_space_description_three_or_more_recordings,
-                    mFailedScheduledRecordingInfos.get(0), mFailedScheduledRecordingInfos.get(1),
-                    mFailedScheduledRecordingInfos.get(2));
+            title =
+                    getString(
+                            R.string.dvr_error_insufficient_space_title_three_or_more_recordings,
+                            mFailedScheduledRecordingInfos.get(0),
+                            mFailedScheduledRecordingInfos.get(1),
+                            mFailedScheduledRecordingInfos.get(2));
+            description =
+                    getString(
+                            R.string
+                                    .dvr_error_insufficient_space_description_three_or_more_recordings,
+                            mFailedScheduledRecordingInfos.get(0),
+                            mFailedScheduledRecordingInfos.get(1),
+                            mFailedScheduledRecordingInfos.get(2));
         }
         return new Guidance(title, description, null, null);
     }
@@ -92,15 +100,18 @@ public class DvrInsufficientSpaceErrorFragment extends DvrGuidedStepFragment {
     @Override
     public void onCreateActions(List<GuidedAction> actions, Bundle savedInstanceState) {
         Activity activity = getActivity();
-        actions.add(new GuidedAction.Builder(activity)
-                .clickAction(GuidedAction.ACTION_ID_OK)
-                .build());
-        if (TvApplication.getSingletons(getContext()).getDvrManager().hasValidItems()) {
-            actions.add(new GuidedAction.Builder(activity)
-                    .id(ACTION_VIEW_RECENT_RECORDINGS)
-                    .title(getResources().getString(
-                            R.string.dvr_error_insufficient_space_action_view_recent_recordings))
-                    .build());
+        actions.add(
+                new GuidedAction.Builder(activity).clickAction(GuidedAction.ACTION_ID_OK).build());
+        if (TvSingletons.getSingletons(getContext()).getDvrManager().hasValidItems()) {
+            actions.add(
+                    new GuidedAction.Builder(activity)
+                            .id(ACTION_VIEW_RECENT_RECORDINGS)
+                            .title(
+                                    getResources()
+                                            .getString(
+                                                    R.string
+                                                            .dvr_error_insufficient_space_action_view_recent_recordings))
+                            .build());
         }
     }
 

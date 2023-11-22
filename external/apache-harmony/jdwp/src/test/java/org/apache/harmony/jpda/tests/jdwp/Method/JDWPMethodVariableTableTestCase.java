@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 import org.apache.harmony.jpda.tests.framework.jdwp.CommandPacket;
 import org.apache.harmony.jpda.tests.framework.jdwp.JDWPCommands;
+import org.apache.harmony.jpda.tests.framework.jdwp.Method;
 import org.apache.harmony.jpda.tests.framework.jdwp.ReplyPacket;
 import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
 
@@ -282,7 +283,7 @@ abstract class JDWPMethodVariableTableTestCase extends JDWPMethodTestCase {
 
         long classID = getClassIDBySignature(getDebuggeeClassSignature());
 
-        MethodInfo[] methodsInfo = jdwpGetMethodsInfo(classID);
+        Method[] methodsInfo = debuggeeWrapper.vmMirror.getMethods(classID);
         assertFalse("Invalid number of methods: 0", methodsInfo.length == 0);
 
         final byte commandCode;
@@ -298,7 +299,7 @@ abstract class JDWPMethodVariableTableTestCase extends JDWPMethodTestCase {
         }
 
         int checkedMethodsCount = 0;
-        for (MethodInfo methodInfo : methodsInfo) {
+        for (Method methodInfo : methodsInfo) {
             logWriter.println(methodInfo.toString());
 
             // get variable table for this class
@@ -352,21 +353,16 @@ abstract class JDWPMethodVariableTableTestCase extends JDWPMethodTestCase {
                             variableInfo.signature, signature);
 
                         if (variableInfo.isParameter) {
-                            // Check parameter's slot
-                            assertTrue("Invalid slot " + variableInfo.expectedParameterSlot +
-                                    " for parameter \"" + name + "\"",
-                                    variableInfo.expectedParameterSlot < argCnt);
-                            assertEquals("Invalid slot for parameter \"" + name + "\"",
-                                    variableInfo.expectedParameterSlot, slot);
-
+                            // It would be nice to check the slot but that isn't specified by the
+                            // JLS. So different runtimes might have different values.
+                            //
                             // A parameter's scope start is == 0.
                             assertEquals("Invalid codeIndex " + codeIndex + " for parameter \"" +
                                     name + "\"", 0, codeIndex);
                         } else {
-                            // A local variable's slot must be >= argCount.
-                            assertTrue("Invalid slot " + slot + " for local var \"" + name + "\"",
-                                    slot >= argCnt);
-
+                            // It would be nice to check the slot but that isn't specified by the
+                            // JLS. So different runtimes might have different values.
+                            //
                             // A local variable's scope start is >= 0.
                             assertTrue("Invalid codeIndex " + codeIndex + " for local var \"" +
                                     name + "\"", codeIndex >= 0);

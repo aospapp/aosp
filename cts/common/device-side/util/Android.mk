@@ -24,15 +24,17 @@ LOCAL_STATIC_JAVA_LIBRARIES := \
     android-support-test \
     ub-uiautomator \
     mockito-target-minus-junit4 \
-    legacy-android-test
+    androidx.annotation_annotation
 
-LOCAL_JAVA_LIBRARIES := android.test.runner
+LOCAL_JAVA_LIBRARIES := \
+    android.test.runner.stubs \
+    android.test.base.stubs
 
 LOCAL_MODULE_TAGS := optional
 
 LOCAL_MODULE := compatibility-device-util
 
-LOCAL_SDK_VERSION := current
+LOCAL_SDK_VERSION := test_current
 
 include $(BUILD_STATIC_JAVA_LIBRARY)
 

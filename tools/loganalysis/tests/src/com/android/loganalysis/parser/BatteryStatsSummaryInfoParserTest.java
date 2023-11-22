@@ -20,7 +20,9 @@ import com.android.loganalysis.item.BatteryStatsSummaryInfoItem;
 import junit.framework.TestCase;
 
 import java.util.Arrays;
+import java.util.GregorianCalendar;
 import java.util.List;
+import java.util.TimeZone;
 
 /**
  * Unit tests for {@link BatteryStatsSummaryInfoParser}
@@ -83,8 +85,14 @@ public class BatteryStatsSummaryInfoParserTest extends TestCase {
         assertEquals("The battery dropped a level 24 mins on average",
                 summary.getBatteryDischargeRate());
 
-        assertEquals("The peak discharge time was during Tue Dec 09 16:31:07 PST 2014 to "
-                + "Tue Dec 09 19:35:52 PST 2014 where battery dropped from 89 to 80",
+        // Get the current timezone short name (PST, GMT) to properly output the time as expected.
+        String timezone =
+                new GregorianCalendar().getTimeZone().getDisplayName(false, TimeZone.SHORT);
+        assertEquals(
+                String.format(
+                        "The peak discharge time was during Tue Dec 09 16:31:07 %s 2014 to "
+                                + "Tue Dec 09 19:35:52 %s 2014 where battery dropped from 89 to 80",
+                        timezone, timezone),
                 summary.getPeakDischargeTime());
     }
 

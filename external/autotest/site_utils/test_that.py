@@ -5,7 +5,6 @@
 
 import argparse
 import os
-import pipes
 import signal
 import subprocess
 import sys
@@ -118,6 +117,9 @@ def _parse_arguments_internal(argv):
                         action='store',
                         help='Board for which the test will run. Default: %s' %
                              (default_board or 'Not configured'))
+    parser.add_argument('-m', '--model', metavar='MODEL', default='',
+                        help='Specific model the test will run against. '
+                             'Matches the model:FAKE_MODEL label for the host.')
     parser.add_argument('-i', '--build', metavar='BUILD',
                         default=test_runner_utils.NO_BUILD,
                         help='Build to test. Device will be reimaged if '
@@ -164,6 +166,10 @@ def parse_local_arguments(argv):
     parser.add_argument('-x', '--max_runtime_mins', type=int,
                         dest='max_runtime_mins', default=20,
                         help='Default time allowed for the tests to complete.')
+    # TODO(crbug.com/763207): This is to support calling old moblab RPC
+    # with ToT code.  This does not need to be supported after M62.
+    parser.add_argument('--oldrpc', action='store_true',
+                        help='Use old AFE RPC.')
     _, remaining_argv = parser.parse_known_args(argv)
     return parser, remaining_argv
 
@@ -305,21 +311,41 @@ def _main_for_lab_run(argv, arguments):
     @param argv: Script command line arguments.
     @param arguments: Parsed command line arguments.
     """
-    autotest_path = os.path.realpath(os.path.join(os.path.dirname(__file__),
-                                                  '..'))
-    flattened_argv = ' '.join([pipes.quote(item) for item in argv])
+    autotest_path = os.path.realpath(os.path.join(
+            os.path.dirname(os.path.realpath(__file__)),
+            '..',
+    ))
     command = [os.path.join(autotest_path, 'site_utils',
                             'run_suite.py'),
                '--board=%s' % (arguments.board,),
                '--build=%s' % (arguments.build,),
+               '--model=%s' % (arguments.model,),
                '--suite_name=%s' % 'test_that_wrapper',
                '--pool=%s' % (arguments.pool,),
                '--max_runtime_mins=%s' % str(arguments.max_runtime_mins),
-               '--suite_args=%s' % (flattened_argv,)]
+               '--suite_args=%s'
+               % repr({'tests': _suite_arg_tests(argv)})]
+    # TODO(crbug.com/763207): This is to support calling old moblab RPC
+    # with ToT code.  This does not need to be supported after M62.
+    if arguments.oldrpc:
+        command.append('--oldrpc')
     if arguments.web:
         command.extend(['--web=%s' % (arguments.web,)])
     logging.info('About to start lab suite with command %s.', command)
     return subprocess.call(command)
+
+
+def _suite_arg_tests(argv):
+    """
+    Construct a list of tests to pass into suite_args.
+
+    This is passed in suite_args to run_suite for running a test in the
+    lab.
+
+    @param argv: Remote Script command line arguments.
+    """
+    arguments = parse_arguments(argv)
+    return arguments.tests
 
 
 def main(argv):

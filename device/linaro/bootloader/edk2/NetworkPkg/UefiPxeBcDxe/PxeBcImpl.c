@@ -1,7 +1,7 @@
 /** @file
   This implementation of EFI_PXE_BASE_CODE_PROTOCOL and EFI_LOAD_FILE_PROTOCOL.
 
-  Copyright (c) 2007 - 2015, Intel Corporation. All rights reserved.<BR>
+  Copyright (c) 2007 - 2016, Intel Corporation. All rights reserved.<BR>
 
   This program and the accompanying materials
   are licensed and made available under the terms and conditions of the BSD License
@@ -102,12 +102,12 @@ EfiPxeBcStart (
     // PXE over IPv6 starts here, initialize the fields and list header.
     //
     Private->Ip6Policy                          = PXEBC_IP6_POLICY_MAX;
-    Private->ProxyOffer.Dhcp6.Packet.Offer.Size = PXEBC_DHCP6_PACKET_MAX_SIZE;
-    Private->DhcpAck.Dhcp6.Packet.Ack.Size      = PXEBC_DHCP6_PACKET_MAX_SIZE;
-    Private->PxeReply.Dhcp6.Packet.Ack.Size     = PXEBC_DHCP6_PACKET_MAX_SIZE;
+    Private->ProxyOffer.Dhcp6.Packet.Offer.Size = PXEBC_CACHED_DHCP6_PACKET_MAX_SIZE;
+    Private->DhcpAck.Dhcp6.Packet.Ack.Size      = PXEBC_CACHED_DHCP6_PACKET_MAX_SIZE;
+    Private->PxeReply.Dhcp6.Packet.Ack.Size     = PXEBC_CACHED_DHCP6_PACKET_MAX_SIZE;
 
     for (Index = 0; Index < PXEBC_OFFER_MAX_NUM; Index++) {
-      Private->OfferBuffer[Index].Dhcp6.Packet.Offer.Size = PXEBC_DHCP6_PACKET_MAX_SIZE;
+      Private->OfferBuffer[Index].Dhcp6.Packet.Offer.Size = PXEBC_CACHED_DHCP6_PACKET_MAX_SIZE;
     }
 
     //
@@ -154,12 +154,12 @@ EfiPxeBcStart (
     //
     // PXE over IPv4 starts here, initialize the fields.
     //
-    Private->ProxyOffer.Dhcp4.Packet.Offer.Size = PXEBC_DHCP4_PACKET_MAX_SIZE;
-    Private->DhcpAck.Dhcp4.Packet.Ack.Size      = PXEBC_DHCP4_PACKET_MAX_SIZE;
-    Private->PxeReply.Dhcp4.Packet.Ack.Size     = PXEBC_DHCP4_PACKET_MAX_SIZE;
+    Private->ProxyOffer.Dhcp4.Packet.Offer.Size = PXEBC_CACHED_DHCP4_PACKET_MAX_SIZE;
+    Private->DhcpAck.Dhcp4.Packet.Ack.Size      = PXEBC_CACHED_DHCP4_PACKET_MAX_SIZE;
+    Private->PxeReply.Dhcp4.Packet.Ack.Size     = PXEBC_CACHED_DHCP4_PACKET_MAX_SIZE;
 
     for (Index = 0; Index < PXEBC_OFFER_MAX_NUM; Index++) {
-      Private->OfferBuffer[Index].Dhcp4.Packet.Offer.Size = PXEBC_DHCP4_PACKET_MAX_SIZE;
+      Private->OfferBuffer[Index].Dhcp4.Packet.Offer.Size = PXEBC_CACHED_DHCP4_PACKET_MAX_SIZE;
     }
 
     PxeBcSeedDhcp4Packet (&Private->SeedPacket, Private->Udp4Read);
@@ -856,8 +856,7 @@ EfiPxeBcMtftp (
       (BufferSize == NULL) ||
       (ServerIp == NULL) ||
       ((BufferPtr == NULL) && DontUseBuffer) ||
-      ((BlockSize != NULL) && (*BlockSize < PXE_MTFTP_DEFAULT_BLOCK_SIZE)) ||
-      (!NetIp4IsUnicast (NTOHL (ServerIp->Addr[0]), 0) && !NetIp6IsValidUnicast (&ServerIp->v6))) {
+      ((BlockSize != NULL) && (*BlockSize < PXE_MTFTP_DEFAULT_BLOCK_SIZE))) {
     return EFI_INVALID_PARAMETER;
   }
 
@@ -865,6 +864,16 @@ EfiPxeBcMtftp (
   Status    = EFI_DEVICE_ERROR;
   Private   = PXEBC_PRIVATE_DATA_FROM_PXEBC (This);
   Mode      = Private->PxeBc.Mode;
+
+  if (Mode->UsingIpv6) {
+    if (!NetIp6IsValidUnicast (&ServerIp->v6)) {
+      return EFI_INVALID_PARAMETER;
+    }
+  } else {
+    if (IP4_IS_UNSPECIFIED (NTOHL (ServerIp->Addr[0])) || IP4_IS_LOCAL_BROADCAST (NTOHL (ServerIp->Addr[0])))   {
+      return EFI_INVALID_PARAMETER;
+    }
+  }
 
   if (Mode->UsingIpv6) {
     //
@@ -1076,7 +1085,7 @@ EfiPxeBcUdpWrite (
     DoNotFragment = TRUE;
   }
 
-  if (!Mode->UsingIpv6 && GatewayIp != NULL && !NetIp4IsUnicast (NTOHL (GatewayIp->Addr[0]), 0)) {
+  if (!Mode->UsingIpv6 && GatewayIp != NULL && !NetIp4IsUnicast (NTOHL (GatewayIp->Addr[0]), EFI_NTOHL(Mode->SubnetMask))) {
     //
     // Gateway is provided but it's not a unicast IPv4 address, while it will be ignored for IPv6.
     //
@@ -1125,7 +1134,9 @@ EfiPxeBcUdpWrite (
                &Private->SubnetMask.v4,
                &Private->GatewayIp.v4,
                &Private->CurSrcPort,
-               DoNotFragment
+               DoNotFragment,
+               Private->Mode.TTL,
+               Private->Mode.ToS
                );
   }
 
@@ -1585,13 +1596,16 @@ EfiPxeBcSetIpFilter (
       //
       return EFI_INVALID_PARAMETER;
     }
-    if ((NewFilter->Filters & EFI_PXE_BASE_CODE_IP_FILTER_STATION_IP) != 0 &&
-        (NetIp4IsUnicast (EFI_IP4 (NewFilter->IpList[Index].v4), 0) ||
-         NetIp6IsValidUnicast (&NewFilter->IpList[Index].v6))) {
-      //
-      // If EFI_PXE_BASE_CODE_IP_FILTER_STATION_IP is set and IPv4/IPv6 address
-      // is in IpList, promiscuous mode is needed.
-      //
+    if (Mode->UsingIpv6) {
+      if ((NewFilter->Filters & EFI_PXE_BASE_CODE_IP_FILTER_STATION_IP) != 0 &&
+          NetIp6IsValidUnicast (&NewFilter->IpList[Index].v6)) {
+        NeedPromiscuous = TRUE;
+      }
+    } else if ((EFI_NTOHL(Mode->StationIp) != 0) &&
+               (EFI_NTOHL(Mode->SubnetMask) != 0) &&
+               IP4_NET_EQUAL(EFI_NTOHL(Mode->StationIp), EFI_NTOHL(NewFilter->IpList[Index].v4), EFI_NTOHL(Mode->SubnetMask.v4)) &&
+               NetIp4IsUnicast (EFI_IP4 (NewFilter->IpList[Index].v4), EFI_NTOHL(Mode->SubnetMask)) &&
+               ((NewFilter->Filters & EFI_PXE_BASE_CODE_IP_FILTER_STATION_IP) != 0)) {
       NeedPromiscuous = TRUE;
     }
   }
@@ -1985,9 +1999,7 @@ EfiPxeBcSetStationIP (
     return EFI_INVALID_PARAMETER;
   }
 
-  if (NewStationIp != NULL &&
-      (!NetIp4IsUnicast (NTOHL (NewStationIp->Addr[0]), 0) &&
-       !NetIp6IsValidUnicast (&NewStationIp->v6))) {
+  if (NewStationIp != NULL && !NetIp6IsValidUnicast (&NewStationIp->v6)) {
     return EFI_INVALID_PARAMETER;
   }
 
@@ -2001,6 +2013,14 @@ EfiPxeBcSetStationIP (
     return EFI_INVALID_PARAMETER;
   }
 
+  if (!Mode->UsingIpv6 && NewStationIp != NULL) {
+    if (IP4_IS_UNSPECIFIED(NTOHL (NewStationIp->Addr[0])) || 
+        IP4_IS_LOCAL_BROADCAST(NTOHL (NewStationIp->Addr[0])) ||
+        (NewSubnetMask != NULL && !NetIp4IsUnicast (NTOHL (NewStationIp->Addr[0]), NTOHL (NewSubnetMask->Addr[0])))) {
+      return EFI_INVALID_PARAMETER;
+    }
+  }
+  
   if (!Mode->Started) {
     return EFI_NOT_STARTED;
   }

@@ -320,6 +320,7 @@ public:
                 b->mOffset += tocopy;
                 if (b->mOffset == b->mSize) {
                     mReadyQueue.pop_front();
+                    queueBuffers();
                 }
             }
             copied = osize - size;

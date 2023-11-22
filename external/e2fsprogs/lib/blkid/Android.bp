@@ -4,6 +4,7 @@ cc_library {
     name: "libext2_blkid",
     host_supported: true,
     unique_host_soname: true,
+    defaults: ["e2fsprogs-defaults"],
     srcs: [
         "cache.c",
         "dev.c",
@@ -25,14 +26,19 @@ cc_library {
             include_dirs: [ "external/e2fsprogs/include/mingw" ],
             cflags: [
                 "-Wno-pointer-to-int-cast",
+                "-Wno-unused-variable",
+            ],
+            clang_cflags: [
+                "-Wno-error=typedef-redefinition",
             ],
             enabled: true
         },
     },
 
     cflags: [
-        "-W",
-        "-Wall",
+        "-Wno-error=attributes",
+        "-Wno-error=pointer-sign",
+        "-Wno-unused-parameter",
         "-fno-strict-aliasing",
     ],
 

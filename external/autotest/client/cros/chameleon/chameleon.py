@@ -329,12 +329,22 @@ class ChameleonBoard(object):
         return self._usb_ctrl
 
 
-    def get_bluetooh_hid_mouse(self):
-        """Gets the emulated bluetooth hid mouse on Chameleon.
+    def get_bluetooth_hid_mouse(self):
+        """Gets the emulated Bluetooth (BR/EDR) HID mouse on Chameleon.
 
         @return: A BluetoothHIDMouseFlow object.
         """
         return self._chameleond_proxy.bluetooth_mouse
+
+
+    def get_bluetooth_hog_mouse(self):
+        """Gets the emulated Bluetooth Low Energy HID mouse on Chameleon.
+
+        Note that this uses HID over GATT, or HOG.
+
+        @return: A BluetoothHOGMouseFlow object.
+        """
+        return self._chameleond_proxy.bluetooth_hog_mouse
 
 
     def get_avsync_probe(self):

@@ -18,17 +18,13 @@ package com.android.tv.dialog;
 
 import android.app.Activity;
 import android.app.DialogFragment;
-
 import com.android.tv.MainActivity;
-import com.android.tv.TvApplication;
+import com.android.tv.TvSingletons;
 import com.android.tv.analytics.HasTrackerLabel;
 import com.android.tv.analytics.Tracker;
 
-/**
- * Provides the safe dismiss feature regardless of the DialogFragment's life cycle.
- */
-public abstract class SafeDismissDialogFragment extends DialogFragment
-        implements HasTrackerLabel {
+/** Provides the safe dismiss feature regardless of the DialogFragment's life cycle. */
+public abstract class SafeDismissDialogFragment extends DialogFragment implements HasTrackerLabel {
     private MainActivity mActivity;
     private boolean mAttached = false;
     private boolean mDismissPending = false;
@@ -41,7 +37,7 @@ public abstract class SafeDismissDialogFragment extends DialogFragment
         if (activity instanceof MainActivity) {
             mActivity = (MainActivity) activity;
         }
-        mTracker = TvApplication.getSingletons(activity).getTracker();
+        mTracker = TvSingletons.getSingletons(activity).getTracker();
         if (mDismissPending) {
             mDismissPending = false;
             dismiss();
@@ -69,9 +65,7 @@ public abstract class SafeDismissDialogFragment extends DialogFragment
         mTracker = null;
     }
 
-    /**
-     * Dismiss safely regardless of the DialogFragment's life cycle.
-     */
+    /** Dismiss safely regardless of the DialogFragment's life cycle. */
     @Override
     public void dismiss() {
         if (!mAttached) {

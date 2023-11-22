@@ -30,19 +30,19 @@ GLOBALS(
 static void do_elf_file(int fd, struct stat *sb)
 {
   int endian = toybuf[5], bits = toybuf[4], i, j;
-  int64_t (*elf_int)(void *ptr, unsigned size) = peek_le;
+  int64_t (*elf_int)(void *ptr, unsigned size);
   // Values from include/linux/elf-em.h (plus arch/*/include/asm/elf.h)
   // Names are linux/arch/ directory (sometimes before 32/64 bit merges)
   struct {int val; char *name;} type[] = {{0x9026, "alpha"}, {93, "arc"},
     {195, "arcv2"}, {40, "arm"}, {183, "arm64"}, {0x18ad, "avr32"},
-    {106, "blackfin"}, {140, "c6x"}, {23, "cell"}, {76, "cris"},
+    {247, "bpf"}, {106, "blackfin"}, {140, "c6x"}, {23, "cell"}, {76, "cris"},
     {0x5441, "frv"}, {46, "h8300"}, {164, "hexagon"}, {50, "ia64"},
     {88, "m32r"}, {0x9041, "m32r"}, {4, "m68k"}, {174, "metag"},
-    {0xbaab, "microblaze"}, {8, "mips"}, {10, "mips-old"}, {89, "mn10300"},
-    {0xbeef, "mn10300-old"}, {113, "nios2"}, {92, "openrisc"},
-    {0x8472, "openrisc-old"}, {15, "parisc"}, {20, "ppc"}, {21, "ppc64"},
-    {22, "s390"}, {0xa390, "s390-old"}, {135, "score"}, {42, "sh"},
-    {2, "sparc"}, {18, "sparc8+"}, {43, "sparc9"}, {188, "tile"},
+    {189, "microblaze"}, {0xbaab, "microblaze-old"}, {8, "mips"},
+    {10, "mips-old"}, {89, "mn10300"}, {0xbeef, "mn10300-old"}, {113, "nios2"},
+    {92, "openrisc"}, {0x8472, "openrisc-old"}, {15, "parisc"}, {20, "ppc"},
+    {21, "ppc64"}, {22, "s390"}, {0xa390, "s390-old"}, {135, "score"},
+    {42, "sh"}, {2, "sparc"}, {18, "sparc8+"}, {43, "sparc9"}, {188, "tile"},
     {191, "tilegx"}, {3, "386"}, {6, "486"}, {62, "x86-64"}, {94, "xtensa"},
     {0xabc7, "xtensa-old"}
   };
@@ -53,14 +53,16 @@ static void do_elf_file(int fd, struct stat *sb)
   int phentsize, phnum, shsize, shnum;
 
   printf("ELF ");
+  elf_int = (endian==2) ? peek_be : peek_le;
 
-  // executable (ELF says this is short but reality says byte, not MSB swapped)
-  i = toybuf[16];
+  // executable type
+  i = elf_int(toybuf+16, 2);
   if (i == 1) printf("relocatable");
   else if (i == 2) printf("executable");
   else if (i == 3) printf("shared object");
   else if (i == 4) printf("core dump");
   else printf("(bad type %d)", i);
+  if (elf_int(toybuf+36+12*(bits==2), 4) & 0x8000) printf(" (fdpic)");
   printf(", ");
 
   // "64-bit"
@@ -73,10 +75,8 @@ static void do_elf_file(int fd, struct stat *sb)
 
   // "LSB"
   if (endian == 1) printf("LSB ");
-  else if (endian == 2) {
-    printf("MSB ");
-    elf_int = peek_be;
-  } else {
+  else if (endian == 2) printf("MSB ");
+  else {
     printf("(bad endian %d) \n", endian);
     endian = 0;
   }
@@ -251,7 +251,69 @@ static void do_regular_file(int fd, char *name, struct stat *sb)
   } else if (len>4 && strstart(&s, "BZh") && isdigit(*s))
     xprintf("bzip2 compressed data, block size = %c00k\n", *s);
   else if (len>10 && strstart(&s, "\x1f\x8b")) xputs("gzip compressed data");
-  else {
+  else if (len>32 && !memcmp(s+1, "\xfa\xed\xfe", 3)) {
+    int bit = s[0]=='\xce'?32:64;
+    char *what;
+
+    xprintf("Mach-O %d-bit ", bit);
+
+    if (s[4] == 7) what = (bit==32)?"x86":"x86-";
+    else if (s[4] == 12) what = "arm";
+    else if (s[4] == 18) what = "ppc";
+    else what = NULL;
+    if (what) xprintf("%s%s ", what, (bit==32)?"":"64");
+    else xprintf("(bad arch %d) ", s[4]);
+
+    if (s[12] == 1) what = "object";
+    else if (s[12] == 2) what = "executable";
+    else if (s[12] == 6) what = "shared library";
+    else what = NULL;
+    if (what) xprintf("%s\n", what);
+    else xprintf("(bad type %d)\n", s[9]);
+  } else if (len>36 && !memcmp(s, "OggS\x00\x02", 6)) {
+    xprintf("Ogg data");
+    // https://wiki.xiph.org/MIMETypesCodecs
+    if (!memcmp(s+28, "CELT    ", 8)) xprintf(", celt audio");
+    if (!memcmp(s+28, "CMML    ", 8)) xprintf(", cmml text");
+    if (!memcmp(s+28, "BBCD\0", 5)) xprintf(", dirac video");
+    if (!memcmp(s+28, "\177FLAC", 5)) xprintf(", flac audio");
+    if (!memcmp(s+28, "\x8bJNG\r\n\x1a\n", 8)) xprintf(", jng video");
+    if (!memcmp(s+28, "\x80kate\0\0\0", 8)) xprintf(", kate text");
+    if (!memcmp(s+28, "OggMIDI\0", 8)) xprintf(", midi text");
+    if (!memcmp(s+28, "\x8aMNG\r\n\x1a\n", 8)) xprintf(", mng video");
+    if (!memcmp(s+28, "OpusHead", 8)) xprintf(", opus audio");
+    if (!memcmp(s+28, "PCM     ", 8)) xprintf(", pcm audio");
+    if (!memcmp(s+28, "\x89PNG\r\n\x1a\n", 8)) xprintf(", png video");
+    if (!memcmp(s+28, "Speex   ", 8)) xprintf(", speex audio");
+    if (!memcmp(s+28, "\x80theora", 7)) xprintf(", theora video");
+    if (!memcmp(s+28, "\x01vorbis", 7)) xprintf(", vorbis audio");
+    if (!memcmp(s+28, "YUV4MPEG", 8)) xprintf(", yuv4mpeg video");
+    xputc('\n');
+  } else if (len>12 && !memcmp(s, "\x00\x01\x00\x00", 4)) {
+    xputs("TrueType font");
+  } else if (len>12 && !memcmp(s, "ttcf\x00", 5)) {
+    xprintf("TrueType font collection, version %d, %d fonts\n",
+            (int)peek_be(s+4, 2), (int)peek_be(s+8, 4));
+  } else if (len>4 && !memcmp(s, "BC\xc0\xde", 4)) {
+    xputs("LLVM IR bitcode");
+  } else if (strstart(&s, "-----BEGIN CERTIFICATE-----")) {
+    xputs("PEM certificate");
+
+  // https://msdn.microsoft.com/en-us/library/windows/desktop/ms680547(v=vs.85).aspx
+  } else if (len>0x70 && !memcmp(s, "MZ", 2) &&
+      (magic=peek_le(s+0x3c,4))<len-4 && !memcmp(s+magic, "\x50\x45\0\0", 4)) {
+    xprintf("MS PE32%s executable %s", (peek_le(s+magic+24, 2)==0x20b)?"+":"",
+        (peek_le(s+magic+22, 2)&0x2000)?"(DLL) ":"");
+    if (peek_le(s+magic+20, 2)>70) {
+      char *types[] = {0, "native", "GUI", "console", "OS/2", "driver", "CE",
+          "EFI", "EFI boot", "EFI runtime", "EFI ROM", "XBOX", 0, "boot"};
+      int type = peek_le(s+magic+92, 2);
+      char *name = (type>0 && type<ARRAY_LEN(types))?types[type]:0;
+
+      xprintf("(%s) ", name?name:"unknown");
+    }
+    xprintf("%s\n", (peek_le(s+magic+4, 2)==0x14c)?"x86":"x86-64");
+  } else {
     char *what = 0;
     int i, bytes;
 
@@ -267,7 +329,7 @@ static void do_regular_file(int fd, char *name, struct stat *sb)
     } else for (i = 0; i<len; ++i) {
       if (!(isprint(toybuf[i]) || isspace(toybuf[i]))) {
         wchar_t wc;
-        if ((bytes = mbrtowc(&wc, s+i, len-i, 0))>0 && wcwidth(wc)>=0) {
+        if ((bytes = utf8towc(&wc, s+i, len-i))>0 && wcwidth(wc)>=0) {
           i += bytes-1;
           if (!what) what = "UTF-8 text";
         } else {

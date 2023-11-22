@@ -68,11 +68,6 @@ interface IPhoneSubInfo {
     String getSubscriberIdForSubscriber(int subId, String callingPackage);
 
     /**
-     * Retrieves the Group Identifier Level1 for GSM phones.
-     */
-    String getGroupIdLevel1(String callingPackage);
-
-    /**
      * Retrieves the Group Identifier Level1 for GSM phones of a subId.
      */
     String getGroupIdLevel1ForSubscriber(int subId, String callingPackage);
@@ -152,6 +147,13 @@ interface IPhoneSubInfo {
     in ImsiEncryptionInfo imsiEncryptionInfo);
 
     /**
+     * Resets the Carrier Keys in the database. This involves 2 steps:
+     *  1. Delete the keys from the database.
+     *  2. Send an intent to download new Certificates.
+     */
+    void resetCarrierKeysForImsiEncryption(int subId, String callingPackage);
+
+    /**
      * Retrieves the alpha identifier associated with the voice mail number.
      */
     String getVoiceMailAlphaTag(String callingPackage);
@@ -166,41 +168,33 @@ interface IPhoneSubInfo {
      * Returns the IMS private user identity (IMPI) that was loaded from the ISIM.
      * @return the IMPI, or null if not present or not loaded
      */
-    String getIsimImpi();
+    String getIsimImpi(int subId);
 
     /**
      * Returns the IMS home network domain name that was loaded from the ISIM.
      * @return the IMS domain name, or null if not present or not loaded
      */
-    String getIsimDomain();
+    String getIsimDomain(int subId);
 
     /**
      * Returns the IMS public user identities (IMPU) that were loaded from the ISIM.
      * @return an array of IMPU strings, with one IMPU per string, or null if
      *      not present or not loaded
      */
-    String[] getIsimImpu();
+    String[] getIsimImpu(int subId);
 
     /**
      * Returns the IMS Service Table (IST) that was loaded from the ISIM.
      * @return IMS Service Table or null if not present or not loaded
      */
-    String getIsimIst();
+    String getIsimIst(int subId);
 
     /**
      * Returns the IMS Proxy Call Session Control Function(PCSCF) that were loaded from the ISIM.
      * @return an array of PCSCF strings with one PCSCF per string, or null if
      *      not present or not loaded
      */
-    String[] getIsimPcscf();
-
-    /**
-     * TODO: Deprecate and remove this interface. Superceded by getIccsimChallengeResponse.
-     * Returns the response of ISIM Authetification through RIL.
-     * @return the response of ISIM Authetification, or null if
-     *     the Authentification hasn't been successed or isn't present iphonesubinfo.
-     */
-    String getIsimChallengeResponse(String nonce);
+    String[] getIsimPcscf(int subId);
 
     /**
      * Returns the response of the SIM application on the UICC to authentication

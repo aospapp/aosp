@@ -43,14 +43,14 @@ import android.view.ViewGroup;
 import android.view.ViewGroup.LayoutParams;
 import android.view.ViewTreeObserver;
 import android.view.accessibility.AccessibilityManager;
-
+import android.view.accessibility.AccessibilityManager.AccessibilityStateChangeListener;
 import com.android.tv.ChannelTuner;
-import com.android.tv.Features;
 import com.android.tv.MainActivity;
 import com.android.tv.R;
-import com.android.tv.util.DurationTimer;
+import com.android.tv.TvFeatures;
 import com.android.tv.analytics.Tracker;
 import com.android.tv.common.WeakHandler;
+import com.android.tv.common.util.DurationTimer;
 import com.android.tv.data.ChannelDataManager;
 import com.android.tv.data.GenreItems;
 import com.android.tv.data.ProgramDataManager;
@@ -58,17 +58,16 @@ import com.android.tv.dvr.DvrDataManager;
 import com.android.tv.dvr.DvrScheduleManager;
 import com.android.tv.ui.HardwareLayerAnimatorListenerAdapter;
 import com.android.tv.ui.ViewUtils;
+import com.android.tv.ui.hideable.AutoHideScheduler;
 import com.android.tv.util.TvInputManagerHelper;
 import com.android.tv.util.Utils;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
-/**
- * The program guide.
- */
-public class ProgramGuide implements ProgramGrid.ChildFocusListener {
+/** The program guide. */
+public class ProgramGuide
+        implements ProgramGrid.ChildFocusListener, AccessibilityStateChangeListener {
     private static final String TAG = "ProgramGuide";
     private static final boolean DEBUG = false;
 
@@ -83,8 +82,8 @@ public class ProgramGuide implements ProgramGrid.ChildFocusListener {
     // We clip out the first program entry in ProgramManager, if it does not have enough width.
     // In order to prevent from clipping out the current program, this value need be larger than
     // or equal to ProgramManager.FIRST_ENTRY_MIN_DURATION.
-    private static final long MIN_DURATION_FROM_START_TIME_TO_CURRENT_TIME
-            = ProgramManager.FIRST_ENTRY_MIN_DURATION;
+    private static final long MIN_DURATION_FROM_START_TIME_TO_CURRENT_TIME =
+            ProgramManager.FIRST_ENTRY_MIN_DURATION;
 
     private static final int MSG_PROGRAM_TABLE_FADE_IN_ANIM = 1000;
 
@@ -103,7 +102,7 @@ public class ProgramGuide implements ProgramGrid.ChildFocusListener {
     private final long mViewPortMillis;
     private final int mRowHeight;
     private final int mDetailHeight;
-    private final int mSelectionRow;  // Row that is focused
+    private final int mSelectionRow; // Row that is focused
     private final int mTableFadeAnimDuration;
     private final int mAnimationDuration;
     private final int mDetailPadding;
@@ -145,34 +144,44 @@ public class ProgramGuide implements ProgramGrid.ChildFocusListener {
     private final Handler mHandler = new ProgramGuideHandler(this);
     private boolean mActive;
 
-    private final Runnable mHideRunnable = new Runnable() {
-        @Override
-        public void run() {
-            hide();
-        }
-    };
+    private final AutoHideScheduler mAutoHideScheduler;
     private final long mShowDurationMillis;
     private ViewTreeObserver.OnGlobalLayoutListener mOnLayoutListenerForShow;
 
     private final ProgramManagerListener mProgramManagerListener = new ProgramManagerListener();
 
-    private final Runnable mUpdateTimeIndicator = new Runnable() {
-        @Override
-        public void run() {
-            positionCurrentTimeIndicator();
-            mHandler.postAtTime(this,
-                    Utils.ceilTime(SystemClock.uptimeMillis(), TIME_INDICATOR_UPDATE_FREQUENCY));
-        }
-    };
+    private final Runnable mUpdateTimeIndicator =
+            new Runnable() {
+                @Override
+                public void run() {
+                    positionCurrentTimeIndicator();
+                    mHandler.postAtTime(
+                            this,
+                            Utils.ceilTime(
+                                    SystemClock.uptimeMillis(), TIME_INDICATOR_UPDATE_FREQUENCY));
+                }
+            };
 
-    public ProgramGuide(MainActivity activity, ChannelTuner channelTuner,
-            TvInputManagerHelper tvInputManagerHelper, ChannelDataManager channelDataManager,
-            ProgramDataManager programDataManager, @Nullable DvrDataManager dvrDataManager,
-            @Nullable DvrScheduleManager dvrScheduleManager, Tracker tracker,
-            Runnable preShowRunnable, Runnable postHideRunnable) {
+    @SuppressWarnings("RestrictTo")
+    public ProgramGuide(
+            MainActivity activity,
+            ChannelTuner channelTuner,
+            TvInputManagerHelper tvInputManagerHelper,
+            ChannelDataManager channelDataManager,
+            ProgramDataManager programDataManager,
+            @Nullable DvrDataManager dvrDataManager,
+            @Nullable DvrScheduleManager dvrScheduleManager,
+            Tracker tracker,
+            Runnable preShowRunnable,
+            Runnable postHideRunnable) {
         mActivity = activity;
-        mProgramManager = new ProgramManager(tvInputManagerHelper, channelDataManager,
-                programDataManager, dvrDataManager, dvrScheduleManager);
+        mProgramManager =
+                new ProgramManager(
+                        tvInputManagerHelper,
+                        channelDataManager,
+                        programDataManager,
+                        dvrDataManager,
+                        dvrScheduleManager);
         mChannelTuner = channelTuner;
         mTracker = tracker;
         mPreShowRunnable = preShowRunnable;
@@ -185,9 +194,11 @@ public class ProgramGuide implements ProgramGrid.ChildFocusListener {
 
         Point displaySize = new Point();
         mActivity.getWindowManager().getDefaultDisplay().getSize(displaySize);
-        int gridWidth = displaySize.x
-                - res.getDimensionPixelOffset(R.dimen.program_guide_table_margin_start)
-                - res.getDimensionPixelSize(R.dimen.program_guide_table_header_column_width);
+        int gridWidth =
+                displaySize.x
+                        - res.getDimensionPixelOffset(R.dimen.program_guide_table_margin_start)
+                        - res.getDimensionPixelSize(
+                                R.dimen.program_guide_table_header_column_width);
         mViewPortMillis = (gridWidth * HOUR_IN_MILLIS) / mWidthPerHour;
 
         mRowHeight = res.getDimensionPixelSize(R.dimen.program_guide_table_item_row_height);
@@ -201,43 +212,49 @@ public class ProgramGuide implements ProgramGrid.ChildFocusListener {
         mDetailPadding = res.getDimensionPixelOffset(R.dimen.program_guide_table_detail_padding);
 
         mContainer = mActivity.findViewById(R.id.program_guide);
-        ViewTreeObserver.OnGlobalFocusChangeListener globalFocusChangeListener
-                = new GlobalFocusChangeListener();
+        ViewTreeObserver.OnGlobalFocusChangeListener globalFocusChangeListener =
+                new GlobalFocusChangeListener();
         mContainer.getViewTreeObserver().addOnGlobalFocusChangeListener(globalFocusChangeListener);
 
         GenreListAdapter genreListAdapter = new GenreListAdapter(mActivity, mProgramManager, this);
         mSidePanel = mContainer.findViewById(R.id.program_guide_side_panel);
-        mSidePanelGridView = (VerticalGridView) mContainer.findViewById(
-                R.id.program_guide_side_panel_grid_view);
-        mSidePanelGridView.getRecycledViewPool().setMaxRecycledViews(
-                R.layout.program_guide_side_panel_row,
-                res.getInteger(R.integer.max_recycled_view_pool_epg_side_panel_row));
+        mSidePanelGridView =
+                (VerticalGridView) mContainer.findViewById(R.id.program_guide_side_panel_grid_view);
+        mSidePanelGridView
+                .getRecycledViewPool()
+                .setMaxRecycledViews(
+                        R.layout.program_guide_side_panel_row,
+                        res.getInteger(R.integer.max_recycled_view_pool_epg_side_panel_row));
         mSidePanelGridView.setAdapter(genreListAdapter);
         mSidePanelGridView.setWindowAlignment(VerticalGridView.WINDOW_ALIGN_NO_EDGE);
-        mSidePanelGridView.setWindowAlignmentOffset(mActivity.getResources()
-                .getDimensionPixelOffset(R.dimen.program_guide_side_panel_alignment_y));
+        mSidePanelGridView.setWindowAlignmentOffset(
+                mActivity
+                        .getResources()
+                        .getDimensionPixelOffset(R.dimen.program_guide_side_panel_alignment_y));
         mSidePanelGridView.setWindowAlignmentOffsetPercent(
                 VerticalGridView.WINDOW_ALIGN_OFFSET_PERCENT_DISABLED);
 
-        if (Features.EPG_SEARCH.isEnabled(mActivity)) {
-            mSearchOrb = (SearchOrbView) mContainer.findViewById(
-                    R.id.program_guide_side_panel_search_orb);
+        if (TvFeatures.EPG_SEARCH.isEnabled(mActivity)) {
+            mSearchOrb =
+                    (SearchOrbView)
+                            mContainer.findViewById(R.id.program_guide_side_panel_search_orb);
             mSearchOrb.setVisibility(View.VISIBLE);
 
-            mSearchOrb.setOnOrbClickedListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View view) {
-                    hide();
-                    mActivity.showProgramGuideSearchFragment();
-                }
-            });
+            mSearchOrb.setOnOrbClickedListener(
+                    new View.OnClickListener() {
+                        @Override
+                        public void onClick(View view) {
+                            hide();
+                            mActivity.showProgramGuideSearchFragment();
+                        }
+                    });
             mSidePanelGridView.setOnChildSelectedListener(
                     new android.support.v17.leanback.widget.OnChildSelectedListener() {
-                @Override
-                public void onChildSelected(ViewGroup viewGroup, View view, int i, long l) {
-                    mSearchOrb.animate().alpha(i == 0 ? 1.0f : 0.0f);
-                }
-            });
+                        @Override
+                        public void onChildSelected(ViewGroup viewGroup, View view, int i, long l) {
+                            mSearchOrb.animate().alpha(i == 0 ? 1.0f : 0.0f);
+                        }
+                    });
         } else {
             mSearchOrb = null;
         }
@@ -246,134 +263,156 @@ public class ProgramGuide implements ProgramGrid.ChildFocusListener {
 
         mTimelineRow = (TimelineRow) mTable.findViewById(R.id.time_row);
         mTimeListAdapter = new TimeListAdapter(res);
-        mTimelineRow.getRecycledViewPool().setMaxRecycledViews(
-                R.layout.program_guide_table_header_row_item,
-                res.getInteger(R.integer.max_recycled_view_pool_epg_header_row_item));
+        mTimelineRow
+                .getRecycledViewPool()
+                .setMaxRecycledViews(
+                        R.layout.program_guide_table_header_row_item,
+                        res.getInteger(R.integer.max_recycled_view_pool_epg_header_row_item));
         mTimelineRow.setAdapter(mTimeListAdapter);
 
         ProgramTableAdapter programTableAdapter = new ProgramTableAdapter(mActivity, this);
-        programTableAdapter.registerAdapterDataObserver(new RecyclerView.AdapterDataObserver() {
-            @Override
-            public void onChanged() {
-                // It is usually called when Genre is changed.
-                // Reset selection of ProgramGrid
-                resetRowSelection();
-                updateGuidePosition();
-            }
-        });
+        programTableAdapter.registerAdapterDataObserver(
+                new RecyclerView.AdapterDataObserver() {
+                    @Override
+                    public void onChanged() {
+                        // It is usually called when Genre is changed.
+                        // Reset selection of ProgramGrid
+                        resetRowSelection();
+                        updateGuidePosition();
+                    }
+                });
 
         mGrid = (ProgramGrid) mTable.findViewById(R.id.grid);
         mGrid.initialize(mProgramManager);
-        mGrid.getRecycledViewPool().setMaxRecycledViews(
-                R.layout.program_guide_table_row,
-                res.getInteger(R.integer.max_recycled_view_pool_epg_table_row));
+        mGrid.getRecycledViewPool()
+                .setMaxRecycledViews(
+                        R.layout.program_guide_table_row,
+                        res.getInteger(R.integer.max_recycled_view_pool_epg_table_row));
         mGrid.setAdapter(programTableAdapter);
 
         mGrid.setChildFocusListener(this);
-        mGrid.setOnChildSelectedListener(new OnChildSelectedListener() {
-            @Override
-            public void onChildSelected(ViewGroup parent, View view, int position, long id) {
-                if (mIsDuringResetRowSelection) {
-                    // Ignore if it's during the first resetRowSelection, because onChildSelected
-                    // will be called again when rows are bound to the program table. if selectRow
-                    // is called here, mSelectedRow is set and the second selectRow call doesn't
-                    // work as intended.
-                    mIsDuringResetRowSelection = false;
-                    return;
-                }
-                selectRow(view);
-            }
-        });
+        mGrid.setOnChildSelectedListener(
+                new OnChildSelectedListener() {
+                    @Override
+                    public void onChildSelected(
+                            ViewGroup parent, View view, int position, long id) {
+                        if (mIsDuringResetRowSelection) {
+                            // Ignore if it's during the first resetRowSelection, because
+                            // onChildSelected
+                            // will be called again when rows are bound to the program table. if
+                            // selectRow
+                            // is called here, mSelectedRow is set and the second selectRow call
+                            // doesn't
+                            // work as intended.
+                            mIsDuringResetRowSelection = false;
+                            return;
+                        }
+                        selectRow(view);
+                    }
+                });
         mGrid.setFocusScrollStrategy(ProgramGrid.FOCUS_SCROLL_ALIGNED);
         mGrid.setWindowAlignmentOffset(mSelectionRow * mRowHeight);
         mGrid.setWindowAlignmentOffsetPercent(ProgramGrid.WINDOW_ALIGN_OFFSET_PERCENT_DISABLED);
         mGrid.setItemAlignmentOffset(0);
         mGrid.setItemAlignmentOffsetPercent(ProgramGrid.ITEM_ALIGN_OFFSET_PERCENT_DISABLED);
 
-        RecyclerView.OnScrollListener onScrollListener = new RecyclerView.OnScrollListener() {
-            @Override
-            public void onScrolled(RecyclerView recyclerView, int dx, int dy) {
-                onHorizontalScrolled(dx);
-            }
-        };
+        RecyclerView.OnScrollListener onScrollListener =
+                new RecyclerView.OnScrollListener() {
+                    @Override
+                    public void onScrolled(RecyclerView recyclerView, int dx, int dy) {
+                        onHorizontalScrolled(dx);
+                    }
+                };
         mTimelineRow.addOnScrollListener(onScrollListener);
 
         mCurrentTimeIndicator = mTable.findViewById(R.id.current_time_indicator);
 
-        mShowAnimatorFull = createAnimator(
-                R.animator.program_guide_side_panel_enter_full,
-                0,
-                R.animator.program_guide_table_enter_full);
+        mShowAnimatorFull =
+                createAnimator(
+                        R.animator.program_guide_side_panel_enter_full,
+                        0,
+                        R.animator.program_guide_table_enter_full);
 
-        mShowAnimatorPartial = createAnimator(
-                R.animator.program_guide_side_panel_enter_partial,
-                0,
-                R.animator.program_guide_table_enter_partial);
-        mShowAnimatorPartial.addListener(new AnimatorListenerAdapter() {
-            @Override
-            public void onAnimationStart(Animator animation) {
-                mSidePanelGridView.setVisibility(View.VISIBLE);
-                mSidePanelGridView.setAlpha(1.0f);
-            }
-        });
+        mShowAnimatorPartial =
+                createAnimator(
+                        R.animator.program_guide_side_panel_enter_partial,
+                        0,
+                        R.animator.program_guide_table_enter_partial);
+        mShowAnimatorPartial.addListener(
+                new AnimatorListenerAdapter() {
+                    @Override
+                    public void onAnimationStart(Animator animation) {
+                        mSidePanelGridView.setVisibility(View.VISIBLE);
+                        mSidePanelGridView.setAlpha(1.0f);
+                    }
+                });
 
-        mHideAnimatorFull = createAnimator(
-                R.animator.program_guide_side_panel_exit,
-                0,
-                R.animator.program_guide_table_exit);
-        mHideAnimatorFull.addListener(new AnimatorListenerAdapter() {
-            @Override
-            public void onAnimationEnd(Animator animation) {
-                mContainer.setVisibility(View.GONE);
-            }
-        });
-        mHideAnimatorPartial = createAnimator(
-                R.animator.program_guide_side_panel_exit,
-                0,
-                R.animator.program_guide_table_exit);
-        mHideAnimatorPartial.addListener(new AnimatorListenerAdapter() {
-            @Override
-            public void onAnimationEnd(Animator animation) {
-                mContainer.setVisibility(View.GONE);
-            }
-        });
+        mHideAnimatorFull =
+                createAnimator(
+                        R.animator.program_guide_side_panel_exit,
+                        0,
+                        R.animator.program_guide_table_exit);
+        mHideAnimatorFull.addListener(
+                new AnimatorListenerAdapter() {
+                    @Override
+                    public void onAnimationEnd(Animator animation) {
+                        mContainer.setVisibility(View.GONE);
+                    }
+                });
+        mHideAnimatorPartial =
+                createAnimator(
+                        R.animator.program_guide_side_panel_exit,
+                        0,
+                        R.animator.program_guide_table_exit);
+        mHideAnimatorPartial.addListener(
+                new AnimatorListenerAdapter() {
+                    @Override
+                    public void onAnimationEnd(Animator animation) {
+                        mContainer.setVisibility(View.GONE);
+                    }
+                });
 
-        mPartialToFullAnimator = createAnimator(
-                R.animator.program_guide_side_panel_hide,
-                R.animator.program_guide_side_panel_grid_fade_out,
-                R.animator.program_guide_table_partial_to_full);
-        mFullToPartialAnimator = createAnimator(
-                R.animator.program_guide_side_panel_reveal,
-                R.animator.program_guide_side_panel_grid_fade_in,
-                R.animator.program_guide_table_full_to_partial);
+        mPartialToFullAnimator =
+                createAnimator(
+                        R.animator.program_guide_side_panel_hide,
+                        R.animator.program_guide_side_panel_grid_fade_out,
+                        R.animator.program_guide_table_partial_to_full);
+        mFullToPartialAnimator =
+                createAnimator(
+                        R.animator.program_guide_side_panel_reveal,
+                        R.animator.program_guide_side_panel_grid_fade_in,
+                        R.animator.program_guide_table_full_to_partial);
 
-        mProgramTableFadeOutAnimator = AnimatorInflater.loadAnimator(mActivity,
-                R.animator.program_guide_table_fade_out);
+        mProgramTableFadeOutAnimator =
+                AnimatorInflater.loadAnimator(mActivity, R.animator.program_guide_table_fade_out);
         mProgramTableFadeOutAnimator.setTarget(mTable);
-        mProgramTableFadeOutAnimator.addListener(new HardwareLayerAnimatorListenerAdapter(mTable) {
-            @Override
-            public void onAnimationEnd(Animator animation) {
-                super.onAnimationEnd(animation);
+        mProgramTableFadeOutAnimator.addListener(
+                new HardwareLayerAnimatorListenerAdapter(mTable) {
+                    @Override
+                    public void onAnimationEnd(Animator animation) {
+                        super.onAnimationEnd(animation);
 
-                if (!isActive()) {
-                    return;
-                }
-                mProgramManager.resetChannelListWithGenre(mLastRequestedGenreId);
-                resetTimelineScroll();
-                if (!mHandler.hasMessages(MSG_PROGRAM_TABLE_FADE_IN_ANIM)) {
-                    mHandler.sendEmptyMessage(MSG_PROGRAM_TABLE_FADE_IN_ANIM);
-                }
-            }
-        });
-        mProgramTableFadeInAnimator = AnimatorInflater.loadAnimator(mActivity,
-                R.animator.program_guide_table_fade_in);
+                        if (!isActive()) {
+                            return;
+                        }
+                        mProgramManager.resetChannelListWithGenre(mLastRequestedGenreId);
+                        resetTimelineScroll();
+                        if (!mHandler.hasMessages(MSG_PROGRAM_TABLE_FADE_IN_ANIM)) {
+                            mHandler.sendEmptyMessage(MSG_PROGRAM_TABLE_FADE_IN_ANIM);
+                        }
+                    }
+                });
+        mProgramTableFadeInAnimator =
+                AnimatorInflater.loadAnimator(mActivity, R.animator.program_guide_table_fade_in);
         mProgramTableFadeInAnimator.setTarget(mTable);
         mProgramTableFadeInAnimator.addListener(new HardwareLayerAnimatorListenerAdapter(mTable));
         mSharedPreference = PreferenceManager.getDefaultSharedPreferences(mActivity);
         mAccessibilityManager =
                 (AccessibilityManager) mActivity.getSystemService(Context.ACCESSIBILITY_SERVICE);
-        mShowGuidePartial = mAccessibilityManager.isEnabled()
-                || mSharedPreference.getBoolean(KEY_SHOW_GUIDE_PARTIAL, true);
+        mShowGuidePartial =
+                mAccessibilityManager.isEnabled()
+                        || mSharedPreference.getBoolean(KEY_SHOW_GUIDE_PARTIAL, true);
+        mAutoHideScheduler = new AutoHideScheduler(activity, this::hide);
     }
 
     @Override
@@ -397,12 +436,12 @@ public class ProgramGuide implements ProgramGrid.ChildFocusListener {
     }
 
     /**
-     * Show the program guide.  This reveals the side panel, and the program guide table is shown
+     * Show the program guide. This reveals the side panel, and the program guide table is shown
      * partially.
      *
-     * <p>Note: the animation which starts together with ProgramGuide showing animation needs to
-     * be initiated in {@code runnableAfterAnimatorReady}. If the animation starts together
-     * with show(), the animation may drop some frames.
+     * <p>Note: the animation which starts together with ProgramGuide showing animation needs to be
+     * initiated in {@code runnableAfterAnimatorReady}. If the animation starts together with
+     * show(), the animation may drop some frames.
      */
     public void show(final Runnable runnableAfterAnimatorReady) {
         if (mContainer.getVisibility() == View.VISIBLE) {
@@ -416,9 +455,10 @@ public class ProgramGuide implements ProgramGrid.ChildFocusListener {
         mVisibleDuration.start();
 
         mProgramManager.programGuideVisibilityChanged(true);
-        mStartUtcTime = Utils.floorTime(
-                System.currentTimeMillis() - MIN_DURATION_FROM_START_TIME_TO_CURRENT_TIME,
-                HALF_HOUR_IN_MILLIS);
+        mStartUtcTime =
+                Utils.floorTime(
+                        System.currentTimeMillis() - MIN_DURATION_FROM_START_TIME_TO_CURRENT_TIME,
+                        HALF_HOUR_IN_MILLIS);
         mProgramManager.updateInitialTimeRange(mStartUtcTime, mStartUtcTime + mViewPortMillis);
         mProgramManager.addListener(mProgramManagerListener);
         mLastRequestedGenreId = GenreItems.ID_ALL_CHANNELS;
@@ -435,51 +475,60 @@ public class ProgramGuide implements ProgramGrid.ChildFocusListener {
         if (DEBUG) {
             Log.d(TAG, "show()");
         }
-        mOnLayoutListenerForShow = new ViewTreeObserver.OnGlobalLayoutListener() {
-            @Override
-            public void onGlobalLayout() {
-                mContainer.getViewTreeObserver().removeOnGlobalLayoutListener(this);
-                mTable.setLayerType(View.LAYER_TYPE_HARDWARE, null);
-                mSidePanelGridView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
-                mTable.buildLayer();
-                mSidePanelGridView.buildLayer();
-                mOnLayoutListenerForShow = null;
-                mTimelineAnimation = true;
-                // Make sure that time indicator update starts after animation is finished.
-                startCurrentTimeIndicator(TIME_INDICATOR_UPDATE_FREQUENCY);
-                if (DEBUG) {
-                    mContainer.getViewTreeObserver().addOnDrawListener(
-                            new ViewTreeObserver.OnDrawListener() {
-                                long time = System.currentTimeMillis();
-                                int count = 0;
+        mOnLayoutListenerForShow =
+                new ViewTreeObserver.OnGlobalLayoutListener() {
+                    @Override
+                    public void onGlobalLayout() {
+                        mContainer.getViewTreeObserver().removeOnGlobalLayoutListener(this);
+                        mTable.setLayerType(View.LAYER_TYPE_HARDWARE, null);
+                        mSidePanelGridView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
+                        mTable.buildLayer();
+                        mSidePanelGridView.buildLayer();
+                        mOnLayoutListenerForShow = null;
+                        mTimelineAnimation = true;
+                        // Make sure that time indicator update starts after animation is finished.
+                        startCurrentTimeIndicator(TIME_INDICATOR_UPDATE_FREQUENCY);
+                        if (DEBUG) {
+                            mContainer
+                                    .getViewTreeObserver()
+                                    .addOnDrawListener(
+                                            new ViewTreeObserver.OnDrawListener() {
+                                                long time = System.currentTimeMillis();
+                                                int count = 0;
 
-                                @Override
-                                public void onDraw() {
-                                    long curtime = System.currentTimeMillis();
-                                    Log.d(TAG, "onDraw " + count++ + " " + (curtime - time) + "ms");
-                                    time = curtime;
-                                    if (count > 10) {
-                                        mContainer.getViewTreeObserver().removeOnDrawListener(this);
-                                    }
-                                }
-                            });
-                }
-                updateGuidePosition();
-                runnableAfterAnimatorReady.run();
-                if (mShowGuidePartial) {
-                    mShowAnimatorPartial.start();
-                } else {
-                    mShowAnimatorFull.start();
-                }
-            }
-        };
+                                                @Override
+                                                public void onDraw() {
+                                                    long curtime = System.currentTimeMillis();
+                                                    Log.d(
+                                                            TAG,
+                                                            "onDraw "
+                                                                    + count++
+                                                                    + " "
+                                                                    + (curtime - time)
+                                                                    + "ms");
+                                                    time = curtime;
+                                                    if (count > 10) {
+                                                        mContainer
+                                                                .getViewTreeObserver()
+                                                                .removeOnDrawListener(this);
+                                                    }
+                                                }
+                                            });
+                        }
+                        updateGuidePosition();
+                        runnableAfterAnimatorReady.run();
+                        if (mShowGuidePartial) {
+                            mShowAnimatorPartial.start();
+                        } else {
+                            mShowAnimatorFull.start();
+                        }
+                    }
+                };
         mContainer.getViewTreeObserver().addOnGlobalLayoutListener(mOnLayoutListenerForShow);
         scheduleHide();
     }
 
-    /**
-     * Hide the program guide.
-     */
+    /** Hide the program guide. */
     public void hide() {
         if (!isActive()) {
             return;
@@ -516,52 +565,43 @@ public class ProgramGuide implements ProgramGrid.ChildFocusListener {
         }
     }
 
-    /**
-     * Schedules hiding the program guide.
-     */
+    /** Schedules hiding the program guide. */
     public void scheduleHide() {
-        cancelHide();
-        mHandler.postDelayed(mHideRunnable, mShowDurationMillis);
+        mAutoHideScheduler.schedule(mShowDurationMillis);
     }
 
-    /**
-     * Cancels hiding the program guide.
-     */
+    /** Cancels hiding the program guide. */
     public void cancelHide() {
-        mHandler.removeCallbacks(mHideRunnable);
+        mAutoHideScheduler.cancel();
     }
 
-    /**
-     * Process the {@code KEYCODE_BACK} key event.
-     */
+    /** Process the {@code KEYCODE_BACK} key event. */
     public void onBackPressed() {
         hide();
     }
 
-    /**
-     * Returns {@code true} if the program guide should process the input events.
-     */
+    /** Returns {@code true} if the program guide should process the input events. */
     public boolean isActive() {
         return mActive;
     }
 
     /**
-     * Returns {@code true} if the program guide is shown, i.e. showing animation is done and
-     * hiding animation is not started yet.
+     * Returns {@code true} if the program guide is shown, i.e. showing animation is done and hiding
+     * animation is not started yet.
      */
     public boolean isRunningAnimation() {
-        return mShowAnimatorPartial.isStarted() || mShowAnimatorFull.isStarted()
-                || mHideAnimatorPartial.isStarted() || mHideAnimatorFull.isStarted();
+        return mShowAnimatorPartial.isStarted()
+                || mShowAnimatorFull.isStarted()
+                || mHideAnimatorPartial.isStarted()
+                || mHideAnimatorFull.isStarted();
     }
 
-    /** Returns if program table is in full screen mode. **/
+    /** Returns if program table is in full screen mode. * */
     boolean isFull() {
         return !mShowGuidePartial;
     }
 
-    /**
-     * Requests change genre to {@code genreId}.
-     */
+    /** Requests change genre to {@code genreId}. */
     void requestGenreChange(int genreId) {
         if (mLastRequestedGenreId == genreId) {
             // When Recycler.onLayout() removes its children to recycle,
@@ -575,15 +615,15 @@ public class ProgramGuide implements ProgramGrid.ChildFocusListener {
             // When requestGenreChange is called repeatedly in short time, we keep the fade-out
             // state for mTableFadeAnimDuration from now. Without it, we'll see blinks.
             mHandler.removeMessages(MSG_PROGRAM_TABLE_FADE_IN_ANIM);
-            mHandler.sendEmptyMessageDelayed(MSG_PROGRAM_TABLE_FADE_IN_ANIM,
-                    mTableFadeAnimDuration);
+            mHandler.sendEmptyMessageDelayed(
+                    MSG_PROGRAM_TABLE_FADE_IN_ANIM, mTableFadeAnimDuration);
             return;
         }
         if (mHandler.hasMessages(MSG_PROGRAM_TABLE_FADE_IN_ANIM)) {
             mProgramManager.resetChannelListWithGenre(mLastRequestedGenreId);
             mHandler.removeMessages(MSG_PROGRAM_TABLE_FADE_IN_ANIM);
-            mHandler.sendEmptyMessageDelayed(MSG_PROGRAM_TABLE_FADE_IN_ANIM,
-                    mTableFadeAnimDuration);
+            mHandler.sendEmptyMessageDelayed(
+                    MSG_PROGRAM_TABLE_FADE_IN_ANIM, mTableFadeAnimDuration);
             return;
         }
         if (mProgramTableFadeInAnimator.isStarted()) {
@@ -593,9 +633,7 @@ public class ProgramGuide implements ProgramGrid.ChildFocusListener {
         mProgramTableFadeOutAnimator.start();
     }
 
-    /**
-     * Returns the scroll offset of the time line row in pixels.
-     */
+    /** Returns the scroll offset of the time line row in pixels. */
     int getTimelineRowScrollOffset() {
         return mTimelineRow.getScrollOffset();
     }
@@ -605,9 +643,7 @@ public class ProgramGuide implements ProgramGrid.ChildFocusListener {
         return mGrid;
     }
 
-    /**
-     * Gets {@link VerticalGridView} for "genre select" side panel.
-     */
+    /** Gets {@link VerticalGridView} for "genre select" side panel. */
     VerticalGridView getSidePanel() {
         return mSidePanelGridView;
     }
@@ -628,9 +664,12 @@ public class ProgramGuide implements ProgramGrid.ChildFocusListener {
         int startPadding = res.getDimensionPixelOffset(R.dimen.program_guide_table_margin_start);
         int topPadding = res.getDimensionPixelOffset(R.dimen.program_guide_table_margin_top);
         int bottomPadding = res.getDimensionPixelOffset(R.dimen.program_guide_table_margin_bottom);
-        int tableHeight = res.getDimensionPixelOffset(R.dimen.program_guide_table_header_row_height)
-                + mDetailHeight + mRowHeight * mGrid.getAdapter().getItemCount() + topPadding
-                + bottomPadding;
+        int tableHeight =
+                res.getDimensionPixelOffset(R.dimen.program_guide_table_header_row_height)
+                        + mDetailHeight
+                        + mRowHeight * mGrid.getAdapter().getItemCount()
+                        + topPadding
+                        + bottomPadding;
         if (tableHeight > screenHeight) {
             // EPG height is longer that the screen height.
             mTable.setPaddingRelative(startPadding, topPadding, 0, 0);
@@ -645,8 +684,8 @@ public class ProgramGuide implements ProgramGrid.ChildFocusListener {
         }
     }
 
-    private Animator createAnimator(int sidePanelAnimResId, int sidePanelGridAnimResId,
-            int tableAnimResId) {
+    private Animator createAnimator(
+            int sidePanelAnimResId, int sidePanelGridAnimResId, int tableAnimResId) {
         List<Animator> animatorList = new ArrayList<>();
 
         Animator sidePanelAnimator = AnimatorInflater.loadAnimator(mActivity, sidePanelAnimResId);
@@ -654,8 +693,8 @@ public class ProgramGuide implements ProgramGrid.ChildFocusListener {
         animatorList.add(sidePanelAnimator);
 
         if (sidePanelGridAnimResId != 0) {
-            Animator sidePanelGridAnimator = AnimatorInflater.loadAnimator(mActivity,
-                    sidePanelGridAnimResId);
+            Animator sidePanelGridAnimator =
+                    AnimatorInflater.loadAnimator(mActivity, sidePanelGridAnimResId);
             sidePanelGridAnimator.setTarget(mSidePanelGridView);
             sidePanelGridAnimator.addListener(
                     new HardwareLayerAnimatorListenerAdapter(mSidePanelGridView));
@@ -700,8 +739,9 @@ public class ProgramGuide implements ProgramGrid.ChildFocusListener {
     }
 
     private void positionCurrentTimeIndicator() {
-        int offset = GuideUtils.convertMillisToPixel(mStartUtcTime, System.currentTimeMillis())
-                - mTimelineRow.getScrollOffset();
+        int offset =
+                GuideUtils.convertMillisToPixel(mStartUtcTime, System.currentTimeMillis())
+                        - mTimelineRow.getScrollOffset();
         if (offset < 0) {
             mCurrentTimeIndicator.setVisibility(View.GONE);
         } else {
@@ -743,8 +783,7 @@ public class ProgramGuide implements ProgramGrid.ChildFocusListener {
         mSelectedRow = null;
         mIsDuringResetRowSelection = true;
         mGrid.setSelectedPosition(
-                Math.max(mProgramManager.getChannelIndex(mChannelTuner.getCurrentChannel()),
-                        0));
+                Math.max(mProgramManager.getChannelIndex(mChannelTuner.getCurrentChannel()), 0));
         mGrid.resetFocusState();
         mGrid.onItemSelectionReset();
         mIsDuringResetRowSelection = false;
@@ -767,12 +806,13 @@ public class ProgramGuide implements ProgramGrid.ChildFocusListener {
             detailView.setVisibility(View.VISIBLE);
 
             final ProgramRow programRow = (ProgramRow) row.findViewById(R.id.row);
-            programRow.post(new Runnable() {
-                @Override
-                public void run() {
-                    programRow.focusCurrentProgram();
-                }
-            });
+            programRow.post(
+                    new Runnable() {
+                        @Override
+                        public void run() {
+                            programRow.focusCurrentProgram();
+                        }
+                    });
         } else {
             animateRowChange(mSelectedRow, row);
         }
@@ -799,38 +839,45 @@ public class ProgramGuide implements ProgramGrid.ChildFocusListener {
         if (outDetail != null && outDetail.isShown()) {
             final View outDetailContent = outDetail.findViewById(R.id.detail_content_full);
 
-            Animator fadeOutAnimator = ObjectAnimator.ofPropertyValuesHolder(outDetailContent,
-                    PropertyValuesHolder.ofFloat(View.ALPHA, outDetail.getAlpha(), 0f),
-                    PropertyValuesHolder.ofFloat(View.TRANSLATION_Y,
-                            outDetailContent.getTranslationY(), animationPadding));
+            Animator fadeOutAnimator =
+                    ObjectAnimator.ofPropertyValuesHolder(
+                            outDetailContent,
+                            PropertyValuesHolder.ofFloat(View.ALPHA, outDetail.getAlpha(), 0f),
+                            PropertyValuesHolder.ofFloat(
+                                    View.TRANSLATION_Y,
+                                    outDetailContent.getTranslationY(),
+                                    animationPadding));
             fadeOutAnimator.setStartDelay(0);
             fadeOutAnimator.setDuration(mAnimationDuration);
             fadeOutAnimator.addListener(new HardwareLayerAnimatorListenerAdapter(outDetailContent));
 
-            Animator collapseAnimator = ViewUtils
-                    .createHeightAnimator(outDetail, ViewUtils.getLayoutHeight(outDetail), 0);
+            Animator collapseAnimator =
+                    ViewUtils.createHeightAnimator(
+                            outDetail, ViewUtils.getLayoutHeight(outDetail), 0);
             collapseAnimator.setStartDelay(mAnimationDuration);
             collapseAnimator.setDuration(mTableFadeAnimDuration);
-            collapseAnimator.addListener(new AnimatorListenerAdapter() {
-                @Override
-                public void onAnimationStart(Animator animator) {
-                    outDetailContent.setVisibility(View.GONE);
-                }
+            collapseAnimator.addListener(
+                    new AnimatorListenerAdapter() {
+                        @Override
+                        public void onAnimationStart(Animator animator) {
+                            outDetailContent.setVisibility(View.GONE);
+                        }
 
-                @Override
-                public void onAnimationEnd(Animator animator) {
-                    outDetailContent.setVisibility(View.VISIBLE);
-                }
-            });
+                        @Override
+                        public void onAnimationEnd(Animator animator) {
+                            outDetailContent.setVisibility(View.VISIBLE);
+                        }
+                    });
 
             AnimatorSet outAnimator = new AnimatorSet();
             outAnimator.playTogether(fadeOutAnimator, collapseAnimator);
-            outAnimator.addListener(new AnimatorListenerAdapter() {
-                @Override
-                public void onAnimationEnd(Animator animator) {
-                    mDetailOutAnimator = null;
-                }
-            });
+            outAnimator.addListener(
+                    new AnimatorListenerAdapter() {
+                        @Override
+                        public void onAnimationEnd(Animator animator) {
+                            mDetailOutAnimator = null;
+                        }
+                    });
             mDetailOutAnimator = outAnimator;
             outAnimator.start();
         }
@@ -842,39 +889,49 @@ public class ProgramGuide implements ProgramGrid.ChildFocusListener {
             Animator expandAnimator = ViewUtils.createHeightAnimator(inDetail, 0, mDetailHeight);
             expandAnimator.setStartDelay(mAnimationDuration);
             expandAnimator.setDuration(mTableFadeAnimDuration);
-            expandAnimator.addListener(new AnimatorListenerAdapter() {
-                @Override
-                public void onAnimationStart(Animator animator) {
-                    inDetailContent.setVisibility(View.GONE);
-                }
+            expandAnimator.addListener(
+                    new AnimatorListenerAdapter() {
+                        @Override
+                        public void onAnimationStart(Animator animator) {
+                            inDetailContent.setVisibility(View.GONE);
+                        }
 
-                @Override
-                public void onAnimationEnd(Animator animator) {
-                    inDetailContent.setVisibility(View.VISIBLE);
-                    inDetailContent.setAlpha(0);
-                }
-            });
-            Animator fadeInAnimator = ObjectAnimator.ofPropertyValuesHolder(inDetailContent,
-                    PropertyValuesHolder.ofFloat(View.ALPHA, 0f, 1f),
-                    PropertyValuesHolder.ofFloat(View.TRANSLATION_Y, -animationPadding, 0f));
+                        @Override
+                        public void onAnimationEnd(Animator animator) {
+                            inDetailContent.setVisibility(View.VISIBLE);
+                            inDetailContent.setAlpha(0);
+                        }
+                    });
+            Animator fadeInAnimator =
+                    ObjectAnimator.ofPropertyValuesHolder(
+                            inDetailContent,
+                            PropertyValuesHolder.ofFloat(View.ALPHA, 0f, 1f),
+                            PropertyValuesHolder.ofFloat(
+                                    View.TRANSLATION_Y, -animationPadding, 0f));
             fadeInAnimator.setDuration(mAnimationDuration);
             fadeInAnimator.addListener(new HardwareLayerAnimatorListenerAdapter(inDetailContent));
 
             AnimatorSet inAnimator = new AnimatorSet();
             inAnimator.playSequentially(expandAnimator, fadeInAnimator);
-            inAnimator.addListener(new AnimatorListenerAdapter() {
-                @Override
-                public void onAnimationEnd(Animator animator) {
-                    mDetailInAnimator = null;
-                }
-            });
+            inAnimator.addListener(
+                    new AnimatorListenerAdapter() {
+                        @Override
+                        public void onAnimationEnd(Animator animator) {
+                            mDetailInAnimator = null;
+                        }
+                    });
             mDetailInAnimator = inAnimator;
             inAnimator.start();
         }
     }
 
-    private class GlobalFocusChangeListener implements
-            ViewTreeObserver.OnGlobalFocusChangeListener {
+    @Override
+    public void onAccessibilityStateChanged(boolean enabled) {
+        mAutoHideScheduler.onAccessibilityStateChanged(enabled);
+    }
+
+    private class GlobalFocusChangeListener
+            implements ViewTreeObserver.OnGlobalFocusChangeListener {
         private static final int UNKNOWN = 0;
         private static final int SIDE_PANEL = 1;
         private static final int PROGRAM_TABLE = 2;
@@ -912,11 +969,16 @@ public class ProgramGuide implements ProgramGrid.ChildFocusListener {
     private class ProgramManagerListener extends ProgramManager.ListenerAdapter {
         @Override
         public void onTimeRangeUpdated() {
-            int scrollOffset = (int) (mWidthPerHour * mProgramManager.getShiftedTime()
-                    / HOUR_IN_MILLIS);
+            int scrollOffset =
+                    (int) (mWidthPerHour * mProgramManager.getShiftedTime() / HOUR_IN_MILLIS);
             if (DEBUG) {
-                Log.d(TAG, "Horizontal scroll to " + scrollOffset + " pixels ("
-                        + mProgramManager.getShiftedTime() + " millis)");
+                Log.d(
+                        TAG,
+                        "Horizontal scroll to "
+                                + scrollOffset
+                                + " pixels ("
+                                + mProgramManager.getShiftedTime()
+                                + " millis)");
             }
             mTimelineRow.scrollTo(scrollOffset, mTimelineAnimation);
         }

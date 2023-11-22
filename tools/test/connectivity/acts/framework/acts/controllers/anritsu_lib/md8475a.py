@@ -1,4 +1,4 @@
-#/usr/bin/env python3.4
+#!/usr/bin/env python3.4
 #
 #   Copyright 2016 - The Android Open Source Project
 #
@@ -53,6 +53,23 @@ IMEI_READ_USERDATA_GSM = "081502"
 IMEISV_READ_USERDATA_GSM = "081503"
 IDENTITY_REQ_DATA_LEN = 24
 SEQ_LOG_MESSAGE_START_INDEX = 60
+
+WCDMA_BANDS = {
+    "I": "1",
+    "II": "2",
+    "III": "3",
+    "IV": "4",
+    "V": "5",
+    "VI": "6",
+    "VII": "7",
+    "VIII": "8",
+    "IX": "9",
+    "X": "10",
+    "XI": "11",
+    "XII": "12",
+    "XIII": "13",
+    "XIV": "14"
+}
 
 
 def create(configs, logger):
@@ -651,6 +668,8 @@ class MD8475A(object):
         # this is needed before Sync command is supported in 6.40a
         if self.send_query("IMSVNSTAT? 1") == "RUNNING":
             self.send_command("IMSSTOPVN 1")
+        if self.send_query("IMSVNSTAT? 2") == "RUNNING":
+            self.send_command("IMSSTOPVN 2")
         stat = self.send_query("STAT?")
         # Stop simulation if its is RUNNING
         if stat == "RUNNING":
@@ -710,8 +729,19 @@ class MD8475A(object):
         error = int(
             self.send_query("SIMMODEL %s;ERROR?" % sim_model,
                             COMMAND_COMPLETE_WAIT_TIME))
-        if error:
-            return False
+        if error:  # Try again if first set SIMMODEL fails
+            time.sleep(3)
+            if "WLAN" in sim_model:
+                new_sim_model = sim_model[:-5]
+                error = int(
+                    self.send_query("SIMMODEL %s;ERROR?" % new_sim_model,
+                                    COMMAND_COMPLETE_WAIT_TIME))
+                time.sleep(3)
+            error = int(
+                self.send_query("SIMMODEL %s;ERROR?" % sim_model,
+                                COMMAND_COMPLETE_WAIT_TIME))
+            if error:
+                return False
         # Reset every time after SIMMODEL is set because SIMMODEL will load
         # some of the contents from previous parameter files.
         self.reset()
@@ -864,6 +894,34 @@ class MD8475A(object):
         """
         bts_number, rat_info = self.send_query("CAMPINGCELL?").split(",")
         return bts_number, rat_info
+
+    def get_supported_bands(self, rat):
+        """ Gets the supported bands from UE capability information
+
+        Args:
+          rat: LTE or WCDMA
+
+        Returns:
+            returns a list of bnads
+        """
+        cmd = "UEINFO? "
+        if rat == "LTE":
+            cmd += "L"
+        elif rat == "WCDMA":
+            cmd += "W"
+        else:
+            raise ValueError('The rat argument needs to be "LTE" or "WCDMA"')
+        cmd += "_SupportedBand"
+        result = self.send_query(cmd).split(",")
+        if result == "NONE":
+            return None
+        if rat == "WCDMA":
+            bands = []
+            for band in result:
+                bands.append(WCDMA_BANDS[band])
+            return bands
+        else:
+            return result
 
     def start_testcase(self):
         """ Starts a test case on Anritsu
@@ -1506,8 +1564,14 @@ class _BaseTransceiverStation(object):
         Returns:
             None
         """
-        cmd = "OLVL {},{}".format(level, self._bts_number)
-        self._anritsu.send_command(cmd)
+        counter = 1
+        while float(level) != float(self.output_level):
+            if counter > 3:
+                raise AnritsuError("Fail to set output level in 3 tries!")
+            cmd = "OLVL {},{}".format(level, self._bts_number)
+            self._anritsu.send_command(cmd)
+            counter += 1
+            time.sleep(1)
 
     @property
     def input_level(self):
@@ -1532,8 +1596,14 @@ class _BaseTransceiverStation(object):
         Returns:
             None
         """
-        cmd = "RFLVL {},{}".format(level, self._bts_number)
-        self._anritsu.send_command(cmd)
+        counter = 1
+        while float(level) != float(self.input_level):
+            if counter > 3:
+                raise AnritsuError("Fail to set intput level in 3 tries!")
+            cmd = "RFLVL {},{}".format(level, self._bts_number)
+            self._anritsu.send_command(cmd)
+            counter += 1
+            time.sleep(1)
 
     @property
     def band(self):
@@ -2466,6 +2536,38 @@ class _BaseTransceiverStation(object):
         """
         cmd = "ULMCS {},{}".format(mcs_ul, self._bts_number)
         self._anritsu.send_command(cmd)
+
+    @property
+    def lte_scheduling_mode(self):
+        """ Gets the Scheduling mode of the LTE cell
+
+        Args:
+            None
+
+        Returns:
+            Scheduling mode
+        """
+        cmd = "SCHEDULEMODE? " + self._bts_number
+        return self._anritsu.send_query(cmd)
+
+    @lte_scheduling_mode.setter
+    def lte_scheduling_mode(self, mode):
+        """ Sets the Scheduling mode of the LTE cell
+
+        Args:
+            mode: STATIC (default) or DYNAMIC
+
+        Returns:
+            None
+        """
+        counter = 1
+        while mode != self.lte_scheduling_mode:
+            if counter > 3:
+                raise AnritsuError("Fail to set scheduling mode in 3 tries!")
+            cmd = "SCHEDULEMODE {},{}".format(mode, self._bts_number)
+            self._anritsu.send_command(cmd)
+            counter += 1
+            time.sleep(1)
 
     @property
     def lte_mcs_dl(self):
@@ -3420,6 +3522,58 @@ class _PacketDataNetwork(object):
         cmd = "PDNVNID {},{}".format(self._pdn_number, vnid)
         self._anritsu.send_command(cmd)
 
+    @property
+    def pdn_apn_name(self):
+        """ Get PDN APN NAME
+
+        Args:
+            None
+
+        Returns:
+            PDN APN NAME
+        """
+        cmd = "PDNCHECKAPN? " + self._pdn_number
+        return self._anritsu.send_query(cmd)
+
+    @pdn_apn_name.setter
+    def pdn_apn_name(self, name):
+        """ Set PDN APN NAME
+
+        Args:
+            name: fast.t-mobile.com, ims
+
+        Returns:
+            None
+        """
+        cmd = "PDNCHECKAPN {},{}".format(self._pdn_number, name)
+        self._anritsu.send_command(cmd)
+
+    @property
+    def pdn_qci(self):
+        """ Get PDN QCI Value
+
+        Args:
+            None
+
+        Returns:
+            PDN QCI Value
+        """
+        cmd = "PDNQCIDEFAULT? " + self._pdn_number
+        return self._anritsu.send_query(cmd)
+
+    @pdn_qci.setter
+    def pdn_qci(self, qci_value):
+        """ Set PDN QCI Value
+
+        Args:
+            qci_value: 5, 9
+
+        Returns:
+            None
+        """
+        cmd = "PDNQCIDEFAULT {},{}".format(self._pdn_number, qci_value)
+        self._anritsu.send_command(cmd)
+
 
 class _TriggerMessage(object):
     '''Class to interact with trigger message handling supported by MD8475 '''
@@ -3555,6 +3709,32 @@ class _IMS_Services(object):
         self._anritsu.send_command(cmd)
 
     @property
+    def imscscf_iptype(self):
+        """ Gets CSCF IP Type
+
+        Args:
+            None
+
+        Returns:
+            CSCF IP Type
+        """
+        cmd = "IMSCSCFIPTYPE? " + self._vnid
+        return self._anritsu.send_query(cmd)
+
+    @imscscf_iptype.setter
+    def imscscf_iptype(self, iptype):
+        """ Set CSCF IP Type
+
+        Args:
+            iptype: IPV4, IPV6, IPV4V6
+
+        Returns:
+            None
+        """
+        cmd = "IMSCSCFIPTYPE {},{}".format(self._vnid, iptype)
+        self._anritsu.send_command(cmd)
+
+    @property
     def cscf_monitoring_ua(self):
         """ Get CSCF Monitoring UA URI
 
@@ -3578,6 +3758,146 @@ class _IMS_Services(object):
             None
         """
         cmd = "IMSCSCFUAURI {},{}".format(self._vnid, ua_uri)
+        self._anritsu.send_command(cmd)
+
+    @property
+    def cscf_host_name(self):
+        """ Get CSCF Host Name
+
+        Args:
+            None
+
+        Returns:
+            CSCF Host Name
+        """
+        cmd = "IMSCSCFNAME? " + self._vnid
+        return self._anritsu.send_query(cmd)
+
+    @cscf_host_name.setter
+    def cscf_host_name(self, host_name):
+        """ Set CSCF Host Name
+
+        Args:
+            host_name: CSCF Host Name
+
+        Returns:
+            None
+        """
+        cmd = "IMSCSCFNAME {},{}".format(self._vnid, host_name)
+        self._anritsu.send_command(cmd)
+
+    @property
+    def cscf_ims_authentication(self):
+        """ Get CSCF IMS Auth Value
+
+        Args:
+            None
+
+        Returns:
+            CSCF IMS Auth
+        """
+        cmd = "IMSCSCFAUTH? " + self._vnid
+        return self._anritsu.send_query(cmd)
+
+    @cscf_ims_authentication.setter
+    def cscf_ims_authentication(self, on_off):
+        """ Set CSCF IMS Auth Value
+
+        Args:
+            on_off: CSCF IMS Auth ENABLE/DISABLE
+
+        Returns:
+            None
+        """
+        cmd = "IMSCSCFAUTH {},{}".format(self._vnid, on_off)
+        self._anritsu.send_command(cmd)
+
+    @property
+    def cscf_virtual_ua(self):
+        """ Get CSCF Virtual UA URI
+
+        Args:
+            None
+
+        Returns:
+            CSCF Virtual UA URI
+        """
+        cmd = "IMSCSCFVUAURI? " + self._vnid
+        return self._anritsu.send_query(cmd)
+
+    @cscf_virtual_ua.setter
+    def cscf_virtual_ua(self, ua_uri):
+        """ Set CSCF Virtual UA URI
+
+        Args:
+            ua_uri: CSCF Virtual UA URI
+
+        Returns:
+            None
+        """
+        cmd = "IMSCSCFVUAURI {},{}".format(self._vnid, ua_uri)
+        self._anritsu.send_command(cmd)
+
+    @property
+    def tmo_cscf_userslist_add(self):
+        """ Get CSCF USERLIST
+
+        Args:
+            None
+
+        Returns:
+            CSCF USERLIST
+        """
+        cmd = "IMSCSCFUSERSLIST? " + self._vnid
+        return self._anritsu.send_query(cmd)
+
+    @tmo_cscf_userslist_add.setter
+    def tmo_cscf_userslist_add(self, username):
+        """ Set CSCF USER to USERLIST
+            This is needed if IMS AUTH is enabled
+
+        Args:
+            username: CSCF Username
+
+        Returns:
+            None
+        """
+        cmd = "IMSCSCFUSERSLISTADD {},{},00112233445566778899AABBCCDDEEFF,TS34108,AKAV1_MD5,\
+        OPC,00000000000000000000000000000000,8000,TRUE,FALSE,0123456789ABCDEF0123456789ABCDEF,\
+        54CDFEAB9889000001326754CDFEAB98,6754CDFEAB9889BAEFDC457623100132,\
+        326754CDFEAB9889BAEFDC4576231001,TRUE,TRUE,TRUE".format(
+            self._vnid, username)
+        self._anritsu.send_command(cmd)
+
+    @property
+    def vzw_cscf_userslist_add(self):
+        """ Get CSCF USERLIST
+
+        Args:
+            None
+
+        Returns:
+            CSCF USERLIST
+        """
+        cmd = "IMSCSCFUSERSLIST? " + self._vnid
+        return self._anritsu.send_query(cmd)
+
+    @vzw_cscf_userslist_add.setter
+    def vzw_cscf_userslist_add(self, username):
+        """ Set CSCF USER to USERLIST
+            This is needed if IMS AUTH is enabled
+
+        Args:
+            username: CSCF Username
+
+        Returns:
+            None
+        """
+        cmd = "IMSCSCFUSERSLISTADD {},{},465B5CE8B199B49FAA5F0A2EE238A6BC,MILENAGE,AKAV1_MD5,\
+        OP,5F1D289C5D354D0A140C2548F5F3E3BA,8000,TRUE,FALSE,0123456789ABCDEF0123456789ABCDEF,\
+        54CDFEAB9889000001326754CDFEAB98,6754CDFEAB9889BAEFDC457623100132,\
+        326754CDFEAB9889BAEFDC4576231001,TRUE,TRUE,TRUE".format(
+            self._vnid, username)
         self._anritsu.send_command(cmd)
 
     @property
@@ -3632,6 +3952,32 @@ class _IMS_Services(object):
             None
         """
         cmd = "IMSNDPNIC {},{}".format(self._vnid, nic_name)
+        self._anritsu.send_command(cmd)
+
+    @property
+    def ndp_prefix(self):
+        """ Gets NDP IPv6 Prefix
+
+        Args:
+            None
+
+        Returns:
+            NDP IPv6 Prefix
+        """
+        cmd = "IMSNDPPREFIX? " + self._vnid
+        return self._anritsu.send_query(cmd)
+
+    @ndp_prefix.setter
+    def ndp_prefix(self, prefix_addr):
+        """ Set NDP IPv6 Prefix
+
+        Args:
+            prefix_addr: NDP IPV6 Prefix Addr
+
+        Returns:
+            None
+        """
+        cmd = "IMSNDPPREFIX {},{},64".format(self._vnid, prefix_addr)
         self._anritsu.send_command(cmd)
 
     @property

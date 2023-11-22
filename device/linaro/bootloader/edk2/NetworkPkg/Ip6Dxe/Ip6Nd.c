@@ -1,7 +1,7 @@
 /** @file
   Implementation of Neighbor Discovery support routines.
 
-  Copyright (c) 2009 - 2012, Intel Corporation. All rights reserved.<BR>
+  Copyright (c) 2009 - 2016, Intel Corporation. All rights reserved.<BR>
 
   This program and the accompanying materials
   are licensed and made available under the terms and conditions of the BSD License
@@ -198,7 +198,7 @@ Ip6CreatePrefixListEntry (
   LIST_ENTRY                *Entry;
   IP6_PREFIX_LIST_ENTRY     *TmpPrefixEntry;
 
-  if (Prefix == NULL || PreferredLifetime > ValidLifetime || PrefixLength >= IP6_PREFIX_NUM) {
+  if (Prefix == NULL || PreferredLifetime > ValidLifetime || PrefixLength > IP6_PREFIX_MAX) {
     return NULL;
   }
 
@@ -853,9 +853,9 @@ Ip6OnDADFinished (
         // with DNS SERVERS.
         //
         Oro         = (EFI_DHCP6_PACKET_OPTION *) OptBuf;
-        Oro->OpCode = HTONS (IP6_CONFIG_DHCP6_OPTION_ORO);
+        Oro->OpCode = HTONS (DHCP6_OPT_ORO);
         Oro->OpLen  = HTONS (2);
-        *((UINT16 *) &Oro->Data[0]) = HTONS (IP6_CONFIG_DHCP6_OPTION_DNS_SERVERS);
+        *((UINT16 *) &Oro->Data[0]) = HTONS (DHCP6_OPT_DNS_SERVERS);
 
         InfoReqReXmit.Irt = 4;
         InfoReqReXmit.Mrc = 64;

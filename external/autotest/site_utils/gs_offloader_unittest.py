@@ -23,7 +23,11 @@ import common
 from autotest_lib.client.common_lib import global_config
 from autotest_lib.client.common_lib import time_utils
 from autotest_lib.client.common_lib import utils
-from autotest_lib.site_utils import cloud_console_client
+#For unittest without cloud_client.proto compiled.
+try:
+    from autotest_lib.site_utils import cloud_console_client
+except ImportError:
+    cloud_console_client = None
 from autotest_lib.site_utils import gs_offloader
 from autotest_lib.site_utils import job_directories
 from autotest_lib.tko import models
@@ -92,8 +96,9 @@ class OffloaderOptionsTests(mox.MoxTestBase):
         sub_offloader = gs_offloader.GSOffloader(expected_gsuri,
             multiprocessing, delete_age, console_client)
         self.mox.StubOutWithMock(gs_offloader, 'GSOffloader')
-        self.mox.StubOutWithMock(cloud_console_client,
-                                'is_cloud_notification_enabled')
+        if cloud_console_client:
+            self.mox.StubOutWithMock(cloud_console_client,
+                    'is_cloud_notification_enabled')
         if console_client:
             cloud_console_client.is_cloud_notification_enabled().AndReturn(True)
             gs_offloader.GSOffloader(
@@ -101,8 +106,9 @@ class OffloaderOptionsTests(mox.MoxTestBase):
                     mox.IsA(cloud_console_client.PubSubBasedClient)).AndReturn(
                         sub_offloader)
         else:
-            cloud_console_client.is_cloud_notification_enabled().AndReturn(
-                    False)
+            if cloud_console_client:
+                cloud_console_client.is_cloud_notification_enabled().AndReturn(
+                        False)
             gs_offloader.GSOffloader(
                 expected_gsuri, multiprocessing, delete_age, None).AndReturn(
                     sub_offloader)
@@ -240,6 +246,8 @@ class OffloaderOptionsTests(mox.MoxTestBase):
 
     def test_offloader_pubsub_enabled(self):
         """Test multiprocessing is set."""
+        if not cloud_console_client:
+            return
         self.mox.StubOutWithMock(pubsub_utils, "PubSubClient")
         sub_offloader = self._mock_get_sub_offloader(True, False,
                 cloud_console_client.PubSubBasedClient())

@@ -242,7 +242,7 @@ public class SurfaceViewSyncTest {
                 + " incorrect frames observed - incorrect positioning",
                 result.failFrames == 0);
         float framesPerSecond = 1.0f * result.passFrames
-                / TimeUnit.MILLISECONDS.toSeconds(CapturedActivity.CAPTURE_DURATION_MS);
+                / TimeUnit.MILLISECONDS.toSeconds(mActivity.getCaptureDurationMs());
         assertTrue("Error, only " + result.passFrames
                 + " frames observed, virtual display only capturing at "
                 + framesPerSecond + " frames per second",

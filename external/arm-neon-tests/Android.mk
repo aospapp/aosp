@@ -23,13 +23,13 @@ ARM_NEON_TESTS_REFNAMES =                                                \
            vld1 vadd vld1_lane vld1_dup vdup vget_high vget_low          \
            vqdmlal_lane vqdmlsl_lane vext vshrn_n vset_lane vget_lane    \
            vqsub vqdmulh_lane vqdmull vqdmlal vqdmlsl vceq vcge vcle     \
-           vcgt vclt vbsl vshl vldX vdup_lane vrshrn_n vqdmull_lane      \
+           vcgt vclt vbsl vshl vdup_lane vrshrn_n vqdmull_lane           \
            vst1_lane vqshl vqshl_n vqrshrn_n vsub vqadd vabs vqabs       \
            vcombine vmax vmin vneg vqneg vmlal vmlal_lane vmlsl          \
            vmlsl_lane vmovl vmovn vmull vmull_lane vrev vrshl vshl_n     \
            vshr_n vsra_n vtrn vuzp vzip vreinterpret vqdmulh vqrdmulh    \
            vqrdmulh_lane vqrshl vaba vabal vabd vabdl vand vorr vorn     \
-           veor vbic vcreate vldX_lane vldX_dup vmla vmls vmul           \
+           veor vbic vcreate vldX_lane vmla vmls vmul                    \
            vmul_lane vmul_n vmull_n vqdmulh_n vqdmull_n vqrdmulh_n       \
            vmla_lane vmls_lane vmla_n vmls_n vmlal_n vmlsl_n vqdmlal_n   \
            vqdmlsl_n vsri_n vsli_n vtst vaddhn vraddhn vaddl vaddw       \
@@ -49,6 +49,15 @@ ARM_NEON_TESTS_EXPECTED_INPUT = expected_input4gcc.txt
 
 ARM_NEON_TESTS_CFLAGS = -DREFFILE=\"$(ARM_NEON_TESTS_REFGCCARM)\" \
                         -DGCCTESTS_FILE=\"$(ARM_NEON_TESTS_EXPECTED_INPUT)\"
+
+ARM_NEON_TESTS_CFLAGS += \
+     -Wall \
+     -Werror \
+     -Wno-format \
+     -Wno-ignored-qualifiers \
+     -Wno-uninitialized \
+     -Wno-unused-function \
+     -Wno-unused-variable \
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := arm_neon_tests_arm

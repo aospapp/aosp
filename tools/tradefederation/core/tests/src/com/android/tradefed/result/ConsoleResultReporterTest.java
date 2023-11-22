@@ -15,12 +15,12 @@
  */
 package com.android.tradefed.result;
 
-import com.android.ddmlib.testrunner.TestIdentifier;
 import com.android.tradefed.invoker.IInvocationContext;
+import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
+import com.android.tradefed.util.proto.TfMetricProtoUtil;
 
 import junit.framework.TestCase;
 
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -28,7 +28,7 @@ import java.util.Map;
  * Unit tests for {@link ConsoleResultReporter}
  */
 public class ConsoleResultReporterTest extends TestCase {
-    private static final Map<String, String> EMPTY_MAP = Collections.emptyMap();
+    private static final HashMap<String, Metric> EMPTY_MAP = new HashMap<>();
     // Regex to match the TestResult run time format, examples: (10ms)  (5ms)
     private static final String RUN_TIME_MS_REGEX = "\\((\\d+)ms\\)";
 
@@ -54,7 +54,7 @@ public class ConsoleResultReporterTest extends TestCase {
         Map<String, String> metrics = new HashMap<>();
         metrics.put("key2", "value2");
         metrics.put("key1", "value1");
-        reporter.testRunEnded(0, metrics);
+        reporter.testRunEnded(0, TfMetricProtoUtil.upgradeConvert(metrics));
         reporter.invocationEnded(0);
         assertEquals(
                 "Test results:\n" +
@@ -72,13 +72,13 @@ public class ConsoleResultReporterTest extends TestCase {
         IInvocationContext nullContext = null;
         reporter.invocationStarted(nullContext);
         reporter.testRunStarted("Test Run", 1);
-        TestIdentifier testId = new TestIdentifier("class", "method");
+        TestDescription testId = new TestDescription("class", "method");
         reporter.testStarted(testId);
         Map<String, String> metrics = new HashMap<>();
         metrics.put("key2", "value2");
         metrics.put("key1", "value1");
-        reporter.testEnded(testId, metrics);
-        reporter.testRunEnded(0, EMPTY_MAP);
+        reporter.testEnded(testId, TfMetricProtoUtil.upgradeConvert(metrics));
+        reporter.testRunEnded(0, new HashMap<String, Metric>());
         reporter.invocationEnded(0);
 
         StringBuilder expected = new StringBuilder();
@@ -98,10 +98,10 @@ public class ConsoleResultReporterTest extends TestCase {
         ConsoleResultReporter reporter = new ConsoleResultReporter();
         IInvocationContext nullContext = null;
         reporter.invocationStarted(nullContext);
-        reporter.testLogSaved(null, null, null, new LogFile(
-                "/path/to/log1", "http://log1", false /* compressed */, true /* text */));
-        reporter.testLogSaved(null, null, null, new LogFile(
-                "/path/to/log2", null, false /* compressed */, true /* text */));
+        reporter.testLogSaved(
+                null, null, null, new LogFile("/path/to/log1", "http://log1", LogDataType.TEXT));
+        reporter.testLogSaved(
+                null, null, null, new LogFile("/path/to/log2", null, LogDataType.TEXT));
         reporter.invocationEnded(0);
         assertEquals(
                 "Test results:\n" +
@@ -122,30 +122,30 @@ public class ConsoleResultReporterTest extends TestCase {
 
         reporter.testRunStarted("Test Run 1", 3);
 
-        TestIdentifier run1test1Id = new TestIdentifier("class1", "method1");
+        TestDescription run1test1Id = new TestDescription("class1", "method1");
         reporter.testStarted(run1test1Id);
         reporter.testFailed(run1test1Id, "trace");
         Map<String, String> run1Test1Metrics = new HashMap<>();
         run1Test1Metrics.put("run1_test1_key1", "run1_test1_value1");
         run1Test1Metrics.put("run1_test1_key2", "run1_test1_value2");
-        reporter.testEnded(run1test1Id, run1Test1Metrics);
+        reporter.testEnded(run1test1Id, TfMetricProtoUtil.upgradeConvert(run1Test1Metrics));
 
-        TestIdentifier run1test2Id = new TestIdentifier("class1", "method2");
+        TestDescription run1test2Id = new TestDescription("class1", "method2");
         reporter.testStarted(run1test2Id);
         Map<String, String> run1Test2Metrics = new HashMap<>();
         run1Test2Metrics.put("run1_test2_key1", "run1_test2_value1");
         run1Test2Metrics.put("run1_test2_key2", "run1_test2_value2");
-        reporter.testEnded(run1test2Id, run1Test2Metrics);
+        reporter.testEnded(run1test2Id, TfMetricProtoUtil.upgradeConvert(run1Test2Metrics));
 
-        TestIdentifier run1test3Id = new TestIdentifier("class1", "method3");
+        TestDescription run1test3Id = new TestDescription("class1", "method3");
         reporter.testStarted(run1test3Id);
         reporter.testAssumptionFailure(run1test3Id, "trace");
         Map<String, String> run1Test3Metrics = new HashMap<>();
         run1Test3Metrics.put("run1_test3_key1", "run1_test3_value1");
         run1Test3Metrics.put("run1_test3_key2", "run1_test3_value2");
-        reporter.testEnded(run1test3Id, run1Test3Metrics);
+        reporter.testEnded(run1test3Id, TfMetricProtoUtil.upgradeConvert(run1Test3Metrics));
 
-        TestIdentifier run1test4Id = new TestIdentifier("class1", "method4");
+        TestDescription run1test4Id = new TestDescription("class1", "method4");
         reporter.testStarted(run1test4Id);
         reporter.testIgnored(run1test4Id);
         reporter.testEnded(run1test4Id, EMPTY_MAP);
@@ -153,24 +153,24 @@ public class ConsoleResultReporterTest extends TestCase {
         Map<String, String> run1Metrics = new HashMap<>();
         run1Metrics.put("run1_key1", "run1_value2");
         run1Metrics.put("run1_key2", "run1_value1");
-        reporter.testRunEnded(0, run1Metrics);
+        reporter.testRunEnded(0, TfMetricProtoUtil.upgradeConvert(run1Metrics));
 
         reporter.testRunStarted("Test Run 2", 4);
-        TestIdentifier run2test1Id = new TestIdentifier("class2", "method1");
+        TestDescription run2test1Id = new TestDescription("class2", "method1");
         reporter.testStarted(run2test1Id);
         reporter.testFailed(run2test1Id, "trace");
         reporter.testEnded(run2test1Id, EMPTY_MAP);
 
-        TestIdentifier run2test2Id = new TestIdentifier("class2", "method2");
+        TestDescription run2test2Id = new TestDescription("class2", "method2");
         reporter.testStarted(run2test2Id);
         reporter.testEnded(run2test2Id, EMPTY_MAP);
 
-        TestIdentifier run2test3Id = new TestIdentifier("class2", "method3");
+        TestDescription run2test3Id = new TestDescription("class2", "method3");
         reporter.testStarted(run2test3Id);
         reporter.testAssumptionFailure(run2test3Id, "trace");
         reporter.testEnded(run2test3Id, EMPTY_MAP);
 
-        TestIdentifier run2test4Id = new TestIdentifier("class2", "method4");
+        TestDescription run2test4Id = new TestDescription("class2", "method4");
         reporter.testStarted(run2test4Id);
         reporter.testIgnored(run2test4Id);
         reporter.testEnded(run2test4Id, EMPTY_MAP);
@@ -180,15 +180,15 @@ public class ConsoleResultReporterTest extends TestCase {
         Map<String, String> run3Metrics = new HashMap<>();
         run3Metrics.put("run3_key1", "run3_value1");
         run3Metrics.put("run3_key2", "run3_value2");
-        reporter.testRunEnded(0, run3Metrics);
+        reporter.testRunEnded(0, TfMetricProtoUtil.upgradeConvert(run3Metrics));
 
         reporter.testRunStarted("Test Run 4", 0);
         reporter.testRunEnded(0, EMPTY_MAP);
 
-        reporter.testLogSaved(null, null, null, new LogFile(
-                "/path/to/log1", "http://log1", false /* compressed */, true /* text */));
-        reporter.testLogSaved(null, null, null, new LogFile(
-                "/path/to/log2", null, false /* compressed */, true /* text */));
+        reporter.testLogSaved(
+                null, null, null, new LogFile("/path/to/log1", "http://log1", LogDataType.TEXT));
+        reporter.testLogSaved(
+                null, null, null, new LogFile("/path/to/log2", null, LogDataType.TEXT));
         reporter.invocationEnded(0);
 
         StringBuilder expected = new StringBuilder();

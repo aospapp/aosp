@@ -14,13 +14,18 @@
  * limitations under the License.
  */
 
+#include "CompilationBuilder.h"
 #include "ExecutionPlan.h"
+#include "GraphDump.h"
 #include "HalInterfaces.h"
 #include "Manager.h"
 #include "ModelBuilder.h"
 #include "NeuralNetworks.h"
+#include "NeuralNetworksOEM.h"
 #include "NeuralNetworksWrapper.h"
+#include "SampleDriver.h"
 #include "Utils.h"
+#include "ValidateHal.h"
 
 #include <gtest/gtest.h>
 
@@ -31,6 +36,10 @@
 // may be useful when analyzing failures:
 //
 // #define VERBOSE VERBOSE
+
+// Uncomment the following line to generate DOT graphs.
+//
+// #define GRAPH GRAPH
 
 // These tests do whitebox testing of the graph partitioning
 // algorithm.  It is "whitebox" in the sense that we're not evaluating
@@ -89,15 +98,17 @@
 // - It finds model inputs, model outputs, and submodel inputs in
 //   the order the corresponding operands were added to the subgraph
 //   (see ExecutionStep methods getModelInputs(), getModelOutputs(),
-//   getSubModelInputs()).
-// - It finds submodel outputs in numerical order of corresponding
+//   getTempsAsSubModelInputs(), getOutputsAsSubModelInputs()).
+// - It finds temps as submodel outputs in numerical order of corresponding
 //   operand number in the original model (see ExecutionStep method
-//   getSubModelOutputs()).
+//   getTempsAsSubModelOutputs()).
 // - When it calls identifyInputsAndOutputs() on the submodel, it
-//   passes inputs from getModelInputs() in order followed by submodel
-//   inputs from getSubModelInputs() in order; and it passes outputs
-//   from getModelOutputs() in order followed by submodel outputs from
-//   getSubModelOutputs() in order.
+//   passes inputs from getModelInputs() in order, followed by temps as
+//   submodel inputs from getTempsAsSubModelInputs() in order,
+//   followed by outputs as submodel inputs from
+//   getOutputsAsSubModelInputs() in order; and it passes outputs from
+//   getModelOutputs() in order followed by submodel outputs from
+//   getTempsAsSubModelOutputs() in order.
 //
 // TODO: Maybe the logic for comparing a partition to an expected
 //       model should be changed to tolerate reorderings of inputs and
@@ -111,12 +122,17 @@
 
 namespace {
 
+using CompilationBuilder = ::android::nn::CompilationBuilder;
 using Device = ::android::nn::Device;
+using DeviceManager = ::android::nn::DeviceManager;
 using ExecutePreference = ::android::nn::wrapper::ExecutePreference;
 using ExecutionPlan = ::android::nn::ExecutionPlan;
 using ExecutionStep = ::android::nn::ExecutionStep;
-using HidlModel = ::android::hardware::neuralnetworks::V1_0::Model;
+using HidlModel = ::android::hardware::neuralnetworks::V1_1::Model;
 using ModelBuilder = ::android::nn::ModelBuilder;
+using Result = ::android::nn::wrapper::Result;
+using SampleDriver = ::android::nn::sample_driver::SampleDriver;
+using WrapperCompilation = ::android::nn::wrapper::Compilation;
 using WrapperModel = ::android::nn::wrapper::Model;
 using WrapperOperandType = ::android::nn::wrapper::OperandType;
 using WrapperType = ::android::nn::wrapper::Type;
@@ -187,32 +203,62 @@ void dump(const char* name, const ModelBuilder* model) {
 }
 #endif
 
-// This is an IDevice for testing purposes.  It only has two
-// interesting properties, both of which are specified as constructor
-// arguments: device capabilities, and which subset of operation kinds
-// (0..7) does the device support.  The subset is represented with a
-// bitmask, in which operation kind K corresponds to the bit (1 << K).
-class PartitioningIDevice : public IDevice {
-public:
-    PartitioningIDevice(Capabilities capabilities, uint32_t operationMask) :
-            mCapabilities(capabilities), mOperationMask(operationMask) {}
-    ~PartitioningIDevice() override {}
+#ifdef GRAPH
+inline void hidlGraphDump(const char* name, const HidlModel& model) {
+    ::android::nn::graphDump(name, model);
+}
+#endif
 
-    Return<ErrorStatus> prepareModel(const HidlModel&,
-                                     const sp<IPreparedModelCallback>& cb) override {
-        cb->notify(ErrorStatus::NONE, nullptr);
+void graphDump([[maybe_unused]] const char* name, [[maybe_unused]] const WrapperModel& model) {
+#ifdef GRAPH
+    HidlModel hidlModel;
+    reinterpret_cast<const ModelBuilder*>(model.getHandle())->setHidlModel(&hidlModel);
+    hidlGraphDump(name, hidlModel);
+#endif
+}
+
+// This is an IDevice for testing purposes.  It only has a few
+// interesting properties, all of which are specified as constructor
+// arguments: device capabilities; which subset of operation kinds
+// (0..7) does the device support; does the device support the OEM
+// operation.  The subset is represented with a bitmask, in which
+// operation kind K corresponds to the bit (1 << K).
+class PartitioningDriver : public SampleDriver {
+private:
+    // Dummy class -- a prepared model must not be nullptr.
+    class PartitioningPreparedModel : public IPreparedModel {
+    public:
+        Return<ErrorStatus> execute(const Request&,
+                                    const sp<IExecutionCallback>&) override {
+            return ErrorStatus::DEVICE_UNAVAILABLE;
+        }
+    };
+public:
+    enum OEM { OEMNo, OEMYes };
+
+    PartitioningDriver(const char *name, Capabilities capabilities,
+                       uint32_t operationMask, OEM oem = OEMNo) :
+            SampleDriver(name), mCapabilities(capabilities),
+            mOperationMask(operationMask), mOEM(oem) {}
+    ~PartitioningDriver() override {}
+
+    Return<ErrorStatus> prepareModel_1_1(const Model&, ExecutionPreference,
+                                         const sp<IPreparedModelCallback>& cb) override {
+        cb->notify(ErrorStatus::NONE, new PartitioningPreparedModel);
         return ErrorStatus::NONE;
     }
+
     Return<DeviceStatus> getStatus() override {
         return DeviceStatus::AVAILABLE;
     }
 
-    Return<void> getCapabilities(getCapabilities_cb cb) override {
+    Return<void> getCapabilities_1_1(getCapabilities_1_1_cb cb) override {
         cb(ErrorStatus::NONE, mCapabilities);
         return Void();
     }
-    Return<void> getSupportedOperations(const HidlModel& model,
-                                        getSupportedOperations_cb cb) override {
+
+    Return<void> getSupportedOperations_1_1(const Model& model,
+                                            getSupportedOperations_cb cb) override {
         if (!android::nn::validateModel(model)) {
             cb(ErrorStatus::INVALID_ARGUMENT, std::vector<bool>());
             return Void();
@@ -221,6 +267,10 @@ public:
         const size_t count = model.operations.size();
         std::vector<bool> supported(count);
         for (size_t i = 0; i < count; i++) {
+            if (model.operations[i].type == OperationType::OEM_OPERATION) {
+                supported[i] = (mOEM == OEMYes);
+                continue;
+            }
             supported[i] = false;
             uint32_t operation = lookupOperation(model, i);
             if ((operation != kBadOperation) && (mOperationMask & (1 << operation))) {
@@ -230,9 +280,11 @@ public:
         cb(ErrorStatus::NONE, supported);
         return Void();
     }
+
 private:
     Capabilities mCapabilities;
     uint32_t mOperationMask;
+    OEM mOEM;
 };
 
 // This class adds some simple abstractions and utilities on top of
@@ -256,13 +308,25 @@ public:
     // Create an operation with two inputs and one output, specifying
     // the operation kind (0..7) and the input operand indexes.
     // Returns the output operand index.
-    uint32_t addOperation2To1(uint32_t operation, const uint32_t input0, const uint32_t input1) {
+    enum class Dimensioned { NO, YES };
+    uint32_t addOperation2To1(uint32_t operation, const uint32_t input0, const uint32_t input1,
+                              Dimensioned dimensionedOutput = Dimensioned::YES) {
         ANeuralNetworksOperationType type =
                 (operation < kNumFuseCodes ? ANEURALNETWORKS_ADD : ANEURALNETWORKS_MUL);
         int32_t fuseCode = (operation < kNumFuseCodes ? operation : operation - kNumFuseCodes);
         uint32_t input2 = addIntOperand(fuseCode);
-        uint32_t output = addOperandOfSameType(input0);
+        uint32_t output = addOperandOfSameType(input0, dimensionedOutput);
         addOperation(type, { input0, input1, input2 }, { output });
+        return output;
+    }
+
+    // Create an OEM operation with one input and one output,
+    // specifying the input operand index.  Returns the output operand
+    // index.
+    uint32_t addOperationOEM1To1(const uint32_t input,
+                                 Dimensioned dimensionedOutput = Dimensioned::YES) {
+        uint32_t output = addOperandOfSameType(input, dimensionedOutput);
+        addOperation(ANEURALNETWORKS_OEM_OPERATION, { input }, { output });
         return output;
     }
 
@@ -294,11 +358,44 @@ private:
 
     // Create an operand of the same type as the specified operand,
     // and return the operand index of the new operand.
-    uint32_t addOperandOfSameType(uint32_t operand) {
+    uint32_t addOperandOfSameType(uint32_t operand, Dimensioned dimensioned = Dimensioned::YES) {
         const Operand& operandStruct =
                 reinterpret_cast<const ModelBuilder*>(getHandle())->getOperand(operand);
         WrapperOperandType type(static_cast<WrapperType>(operandStruct.type), { 1 });
+        if (dimensioned == Dimensioned::NO) {
+            for (auto& dimension : type.dimensions) {
+                dimension = 0;
+            }
+        }
         return addOperand(&type);
+    }
+};
+
+// This class adds some utilities on top of ::android::nn::wrapper::Compilation.
+class PartitioningCompilation : public WrapperCompilation {
+public:
+    PartitioningCompilation(const WrapperModel* model) : WrapperCompilation(model) { }
+
+    Result setPartitioning(uint32_t partitioning) {
+        return static_cast<Result>(builder()->setPartitioning(partitioning));
+    }
+
+    using WrapperCompilation::finish;
+    Result finish(const std::vector<std::shared_ptr<Device>>& devices) {
+        return static_cast<Result>(builder()->finish(devices));
+    }
+
+    const ExecutionPlan& getExecutionPlan() const {
+        return builder()->forTest_getExecutionPlan();
+    }
+
+private:
+    CompilationBuilder* builder() {
+        return reinterpret_cast<CompilationBuilder*>(getHandle());
+    }
+
+    const CompilationBuilder* builder() const {
+        return reinterpret_cast<const CompilationBuilder*>(getHandle());
     }
 };
 
@@ -329,24 +426,39 @@ private:
 
 class PartitioningTest : public ::testing::Test {
 protected:
-    // workaround for private types in ExecutionStep
-    using RemapVectorType = decltype(static_cast<ExecutionStep*>(nullptr)->getModelInputs());
-    using SubModelOutputSetType = decltype(static_cast<ExecutionStep*>(nullptr)->getSubModelOutputs());
+    using RemapVectorType = ExecutionStep::RemapVectorType;
+    using SubModelOutputSetType = ExecutionStep::SubModelOutputSetType;
 
     virtual void SetUp() {
     }
 
-    // From a vector of triples (tuples), each of the form (name,
-    // capabilities, bitmask of supported operation kinds), create a
-    // vector of Devices.
+    // From a vector of DeviceSpecification, create a vector of
+    // Devices.
+    struct DeviceSpecification {
+        DeviceSpecification(const std::string &name, Capabilities capabilities,
+                            uint32_t operationMask,
+                            PartitioningDriver::OEM oem = PartitioningDriver::OEMNo) :
+                mName(name), mCapabilities(capabilities),
+                mOperationMask(operationMask), mOEM(oem) { }
+        std::string mName;
+        Capabilities mCapabilities;
+        uint32_t mOperationMask;
+        PartitioningDriver::OEM mOEM;
+    };
     static std::vector<std::shared_ptr<Device>>
-    makeDevices(std::vector<std::tuple<std::string, Capabilities, uint32_t>> specifications) {
+    makeDevices(std::vector<DeviceSpecification> specifications) {
         std::vector<std::shared_ptr<Device>> devices;
         for (const auto& specification : specifications) {
             devices.push_back(std::make_shared<Device>(
-                std::get<0>(specification),
-                new PartitioningIDevice(std::get<1>(specification), std::get<2>(specification))));
-            devices.back()->initialize();
+                specification.mName,
+                new PartitioningDriver(specification.mName.c_str(),
+                                       specification.mCapabilities,
+                                       specification.mOperationMask,
+                                       specification.mOEM)));
+            if (!devices.back()->initialize()) {
+                EXPECT_NE("failed to initialize device", nullptr);
+                return {};
+            }
         }
         return devices;
     }
@@ -631,7 +743,7 @@ protected:
     bool compare(std::shared_ptr<const ExecutionStep> step,
                  const WrapperModel* model, std::shared_ptr<Device> device) {
         return (step->getDevice() == device) &&
-                compare(step->getSubModel().get(),
+                compare(step->getSubModel(),
                         reinterpret_cast<const ModelBuilder*>(model->getHandle()));
     }
 };
@@ -646,20 +758,36 @@ TEST_F(PartitioningTest, SimpleModel) {
     model.identifyInputsAndOutputs({ opnd0, opnd1, opnd3 }, { opnd4 });
     model.finish();
     ASSERT_TRUE(model.isValid());
+    graphDump("SimpleModel", model);
 
     // Simple partition (two devices are each capable of everything, one is the best).
     const auto devicesA = makeDevices(
         {
-            {"bad", { .float32Performance = { .execTime = 1.5, .powerUsage = 1.5 },
-                            .quantized8Performance = { .execTime = 1.5, .powerUsage = 1.5 } }, ~0},
+            {"bad", { .float32Performance = { .execTime = 0.9, .powerUsage = 0.9 },
+                            .quantized8Performance = { .execTime = 0.9, .powerUsage = 0.9 } }, ~0U},
             {"good", { .float32Performance = { .execTime = 0.5, .powerUsage = 0.5 },
-                            .quantized8Performance = { .execTime = 0.5, .powerUsage = 0.5 } }, ~0}
+                            .quantized8Performance = { .execTime = 0.5, .powerUsage = 0.5 } }, ~0U}
         });
     ExecutionPlan planA;
     ASSERT_EQ(model.partitionTheWork(devicesA, ExecutePreference::PREFER_LOW_POWER, &planA),
               ANEURALNETWORKS_NO_ERROR);
     ASSERT_EQ(planA.forTest_getKind(), ExecutionPlan::Kind::SIMPLE);
+    ASSERT_NE(planA.forTest_simpleGetDevice().get(), nullptr);
     ASSERT_EQ(planA.forTest_simpleGetDevice()->getName(), "good");
+
+    // Simple partition (two devices are each capable of everything, none better than CPU).
+    const auto devicesC = makeDevices(
+        {
+            {"bad", { .float32Performance = { .execTime = 1.1, .powerUsage = 1.1 },
+                            .quantized8Performance = { .execTime = 1.1, .powerUsage = 1.1 } }, ~0U},
+            {"bad2", { .float32Performance = { .execTime = 1.0, .powerUsage = 1.0 },
+                            .quantized8Performance = { .execTime = 1.0, .powerUsage = 1.0 } }, ~0U}
+        });
+    ExecutionPlan planC;
+    ASSERT_EQ(model.partitionTheWork(devicesC, ExecutePreference::PREFER_LOW_POWER, &planC),
+              ANEURALNETWORKS_NO_ERROR);
+    ASSERT_EQ(planC.forTest_getKind(), ExecutionPlan::Kind::SIMPLE);
+    ASSERT_EQ(planC.forTest_simpleGetDevice(), nullptr);
 
     // Compound partition (two devices, each is capable of one of the
     // two operations).  We could do more extensive checking here --
@@ -667,8 +795,8 @@ TEST_F(PartitioningTest, SimpleModel) {
     // correct (model and submodel)x(inputs and outputs).
     const auto devicesB = makeDevices(
         {
-            {"0", { .float32Performance = { .execTime = 1.5, .powerUsage = 1.5 },
-                            .quantized8Performance = { .execTime = 1.5, .powerUsage = 1.5 } }, 1<<0},
+            {"0", { .float32Performance = { .execTime = 0.9, .powerUsage = 0.9 },
+                            .quantized8Performance = { .execTime = 0.9, .powerUsage = 0.9 } }, 1<<0},
             {"1", { .float32Performance = { .execTime = 0.5, .powerUsage = 0.5 },
                             .quantized8Performance = { .execTime = 0.5, .powerUsage = 0.5 } }, 1<<1}
         });
@@ -692,10 +820,12 @@ TEST_F(PartitioningTest, SimpleModel) {
                   (RemapVectorType{ { opnd0, b0Opnd0 }, { opnd1, b0Opnd1 } }));
         ASSERT_EQ(stepsB[0]->getModelOutputs(),
                   (RemapVectorType{}));
-        ASSERT_EQ(stepsB[0]->getSubModelInputs(),
+        ASSERT_EQ(stepsB[0]->getTempsAsSubModelInputs(),
                   (RemapVectorType{}));
-        ASSERT_EQ(stepsB[0]->getSubModelOutputs(),
+        ASSERT_EQ(stepsB[0]->getTempsAsSubModelOutputs(),
                   (SubModelOutputSetType{ { opnd2, b0Opnd2 } }));
+        ASSERT_EQ(stepsB[0]->getOutputsAsSubModelInputs(),
+                  (RemapVectorType{}));
     }
     {
         // Build a model to compare against the submodel from stepsB[1].
@@ -716,10 +846,12 @@ TEST_F(PartitioningTest, SimpleModel) {
                   (RemapVectorType{ { opnd3, b1Opnd3 } }));
         ASSERT_EQ(stepsB[1]->getModelOutputs(),
                   (RemapVectorType{ { opnd4, b1Opnd4 } }));
-        ASSERT_EQ(stepsB[1]->getSubModelInputs(),
+        ASSERT_EQ(stepsB[1]->getTempsAsSubModelInputs(),
                   (RemapVectorType{ { opnd2, b1Opnd2 } }));
-        ASSERT_EQ(stepsB[1]->getSubModelOutputs(),
+        ASSERT_EQ(stepsB[1]->getTempsAsSubModelOutputs(),
                   (SubModelOutputSetType{}));
+        ASSERT_EQ(stepsB[1]->getOutputsAsSubModelInputs(),
+                  (RemapVectorType{}));
     }
 }
 
@@ -780,10 +912,12 @@ TEST_F(PartitioningTest, Cpu) {
                   (RemapVectorType{ { opnd0, m0Opnd0 }, { opnd1, m0Opnd1 } }));
         ASSERT_EQ(step0->getModelOutputs(),
                   (RemapVectorType{}));
-        ASSERT_EQ(step0->getSubModelInputs(),
+        ASSERT_EQ(step0->getTempsAsSubModelInputs(),
                   (RemapVectorType{}));
-        ASSERT_EQ(step0->getSubModelOutputs(),
+        ASSERT_EQ(step0->getTempsAsSubModelOutputs(),
                   (SubModelOutputSetType{ { opnd2, m0Opnd2 }, { opnd3, m0Opnd3 } }));
+        ASSERT_EQ(step0->getOutputsAsSubModelInputs(),
+                  (RemapVectorType{}));
     }
     {
         const auto& step1 = steps[1];
@@ -803,10 +937,12 @@ TEST_F(PartitioningTest, Cpu) {
                   (RemapVectorType{ { opnd0, m1Opnd0 } }));
         ASSERT_EQ(step1->getModelOutputs(),
                   (RemapVectorType{ { opnd4, m1Opnd4 } }));
-        ASSERT_EQ(step1->getSubModelInputs(),
+        ASSERT_EQ(step1->getTempsAsSubModelInputs(),
                   (RemapVectorType{ { opnd3, m1Opnd3 }, { opnd2, m1Opnd2 } }));
-        ASSERT_EQ(step1->getSubModelOutputs(),
+        ASSERT_EQ(step1->getTempsAsSubModelOutputs(),
                   (SubModelOutputSetType{ { opnd5, m1Opnd5 } }));
+        ASSERT_EQ(step1->getOutputsAsSubModelInputs(),
+                  (RemapVectorType{}));
     }
     {
         const auto& step2 = steps[2];
@@ -826,11 +962,213 @@ TEST_F(PartitioningTest, Cpu) {
                   (RemapVectorType{ { opnd6, m2Opnd6 } }));
         ASSERT_EQ(step2->getModelOutputs(),
                   (RemapVectorType{ { opnd8, m2Opnd8 } }));
-        ASSERT_EQ(step2->getSubModelInputs(),
+        ASSERT_EQ(step2->getTempsAsSubModelInputs(),
                   (RemapVectorType{ { opnd3, m2Opnd3 }, { opnd5, m2Opnd5 } }));
-        ASSERT_EQ(step2->getSubModelOutputs(),
+        ASSERT_EQ(step2->getTempsAsSubModelOutputs(),
                   (SubModelOutputSetType{}));
+        ASSERT_EQ(step2->getOutputsAsSubModelInputs(),
+                  (RemapVectorType{}));
     }
+}
+
+TEST_F(PartitioningTest, SetPartitioning) {
+    PartitioningModel model;
+    uint32_t opnd0 = model.addFloatOperand();
+    uint32_t opnd1 = model.addFloatOperand();
+    uint32_t opnd2 = model.addOperation2To1(0, opnd0, opnd1, PartitioningModel::Dimensioned::NO);
+    uint32_t opnd3 = model.addFloatOperand();
+    uint32_t opnd4 = model.addOperation2To1(1, opnd2, opnd3);
+    model.identifyInputsAndOutputs({ opnd0, opnd1, opnd3 }, { opnd4 });
+    model.finish();
+    ASSERT_TRUE(model.isValid());
+
+    // We expect that we cannot successfully partition, because we
+    // have an intermediate operand (opnd2) without dimensions, and
+    // this is not currently handled.
+
+    // One device that can and should execute operation 0.
+    const auto devices = makeDevices({
+            {"hw", { .float32Performance = { .execTime = 0.5, .powerUsage = 0.5 },
+                            .quantized8Performance = { .execTime = 0.5, .powerUsage = 0.5 } }, (1<<0)},
+        });
+
+    // Test kPartitioningNo.  We should not even attempt partitioning,
+    // so there should be no execution plan.
+    PartitioningCompilation cPNo(&model);
+    ASSERT_EQ(cPNo.setPartitioning(DeviceManager::kPartitioningNo), Result::NO_ERROR);
+    ASSERT_EQ(cPNo.finish(devices), Result::NO_ERROR);
+    ASSERT_EQ(cPNo.getExecutionPlan().forTest_getKind(), ExecutionPlan::Kind::EMPTY);
+
+    // Test kPartitioningWithFallback.  We should attempt
+    // partitioning, reach the end of the partitioning process (so we
+    // have an execution plan), discover the dimensionless
+    // intermediate operand, and still return success (because of
+    // fallback).
+    PartitioningCompilation cPWithFallback(&model);
+    ASSERT_EQ(cPWithFallback.setPartitioning(DeviceManager::kPartitioningWithFallback), Result::NO_ERROR);
+    ASSERT_EQ(cPWithFallback.finish(devices), Result::NO_ERROR);
+    ASSERT_EQ(cPWithFallback.getExecutionPlan().forTest_getKind(), ExecutionPlan::Kind::ERROR);
+
+    // Test kPartitioningWithoutFallback.  We should attempt
+    // partitioning, and fail.
+    PartitioningCompilation cPWithoutFallback(&model);
+    ASSERT_EQ(cPWithoutFallback.setPartitioning(DeviceManager::kPartitioningWithoutFallback), Result::NO_ERROR);
+    ASSERT_EQ(cPWithoutFallback.finish(devices), Result::OP_FAILED);
+    ASSERT_TRUE(cPWithoutFallback.getExecutionPlan().forTest_hasSubModelOutputsOfUnknownSize());
+    ASSERT_EQ(cPWithoutFallback.getExecutionPlan().forTest_getKind(), ExecutionPlan::Kind::ERROR);
+}
+
+// Regression test for http://b/69166603:
+//     "partitioned compilation and execution yields wrong results when model output is submodel input"
+TEST_F(PartitioningTest, ModelOutputAsSubmodelInput) {
+    PartitioningModel model;
+    uint32_t opnd0 = model.addFloatOperand();
+    uint32_t opnd1 = model.addFloatOperand();
+    uint32_t opnd2 = model.addOperation2To1(0, opnd0, opnd1);
+    uint32_t opnd3 = model.addOperation2To1(1, opnd2, opnd2);
+    model.identifyInputsAndOutputs({ opnd0, opnd1 }, { opnd2, opnd3 });
+    model.finish();
+    ASSERT_TRUE(model.isValid());
+
+    // Compound partition (two devices, each is capable of one of the
+    // two operations).  We could do more extensive checking here --
+    // for example, verify that each step within the plan has the
+    // correct (model and submodel)x(inputs and outputs).
+    const auto devices = makeDevices(
+        {
+            {"0", { .float32Performance = { .execTime = 0.5, .powerUsage = 0.5 },
+                            .quantized8Performance = { .execTime = 0.5, .powerUsage = 0.5 } }, 1<<0},
+            {"1", { .float32Performance = { .execTime = 0.5, .powerUsage = 0.5 },
+                            .quantized8Performance = { .execTime = 0.5, .powerUsage = 0.5 } }, 1<<1}
+        });
+    ExecutionPlan plan;
+    ASSERT_EQ(model.partitionTheWork(devices, ExecutePreference::PREFER_LOW_POWER, &plan),
+              ANEURALNETWORKS_NO_ERROR);
+    ASSERT_EQ(plan.forTest_getKind(), ExecutionPlan::Kind::COMPOUND);
+    const auto& steps = plan.forTest_compoundGetSteps();
+    ASSERT_EQ(steps.size(), size_t(2));
+    {
+        // Build a model to compare against the submodel from steps[0].
+        PartitioningModel model0;
+        uint32_t m0Opnd0 = model0.addFloatOperand();
+        uint32_t m0Opnd1 = model0.addFloatOperand();
+        uint32_t m0Opnd2 = model0.addOperation2To1(0, m0Opnd0, m0Opnd1);
+        model0.identifyInputsAndOutputs({ m0Opnd0, m0Opnd1 }, { m0Opnd2 });
+        model0.finish();
+        ASSERT_TRUE(model0.isValid());
+        ASSERT_NO_FATAL_FAILURE(ASSERT_TRUE(compare(steps[0], &model0, devices[0])));
+        ASSERT_EQ(steps[0]->getModelInputs(),
+                  (RemapVectorType{ { opnd0, m0Opnd0 }, { opnd1, m0Opnd1 } }));
+        ASSERT_EQ(steps[0]->getModelOutputs(),
+                  (RemapVectorType{ { opnd2, m0Opnd2 } }));
+        ASSERT_EQ(steps[0]->getTempsAsSubModelInputs(),
+                  (RemapVectorType{}));
+        ASSERT_EQ(steps[0]->getTempsAsSubModelOutputs(),
+                  (SubModelOutputSetType{}));
+        ASSERT_EQ(steps[0]->getOutputsAsSubModelInputs(),
+                  (RemapVectorType{}));
+    }
+    {
+        // Build a model to compare against the submodel from steps[1].
+        PartitioningModel model1;
+        uint32_t m1Opnd2 = model1.addFloatOperand();
+        uint32_t m1Opnd3 = model1.addOperation2To1(1, m1Opnd2, m1Opnd2);
+        model1.identifyInputsAndOutputs({ m1Opnd2 }, { m1Opnd3 });
+        model1.finish();
+        ASSERT_TRUE(model1.isValid());
+        ASSERT_NO_FATAL_FAILURE(ASSERT_TRUE(compare(steps[1], &model1, devices[1])));
+        ASSERT_EQ(steps[1]->getModelInputs(),
+                  (RemapVectorType{}));
+        ASSERT_EQ(steps[1]->getModelOutputs(),
+                  (RemapVectorType{ { opnd3, m1Opnd3 } }));
+        ASSERT_EQ(steps[1]->getTempsAsSubModelInputs(),
+                  (RemapVectorType{}));
+        ASSERT_EQ(steps[1]->getTempsAsSubModelOutputs(),
+                  (SubModelOutputSetType{}));
+        ASSERT_EQ(steps[1]->getOutputsAsSubModelInputs(),
+                  (RemapVectorType{ { opnd2, m1Opnd2 } }));
+    }
+}
+
+TEST_F(PartitioningTest, OemOperations) {
+    // Trivial model consisting solely of OEM operation.
+    PartitioningModel model;
+    uint32_t opndIn = model.addFloatOperand();
+    uint32_t opndOut = model.addOperationOEM1To1(opndIn);
+    model.identifyInputsAndOutputs({ opndIn }, { opndOut });
+    model.finish();
+    ASSERT_TRUE(model.isValid());
+
+    // Verify that the best driver than can run an OEM operation is
+    // used, even if it is not better than the CPU.
+    const auto devicesBestOEM = makeDevices(
+        {
+            {"badOEM", { .float32Performance = { .execTime = 1.5, .powerUsage = 1.5 },
+                         .quantized8Performance = { .execTime = 1.5, .powerUsage = 1.5 } },
+                        ~0U, PartitioningDriver::OEMYes},
+            {"noOEM", { .float32Performance = { .execTime = 0.5, .powerUsage = 0.5 },
+                        .quantized8Performance = { .execTime = 0.5, .powerUsage = 0.5 } },
+                        ~0U, PartitioningDriver::OEMNo},
+            {"goodOEM", { .float32Performance = { .execTime = 1.2, .powerUsage = 1.2 },
+                          .quantized8Performance = { .execTime = 1.2, .powerUsage = 1.2 } },
+                        ~0U, PartitioningDriver::OEMYes}
+        });
+    PartitioningCompilation compilationBestOEM(&model);
+    ASSERT_EQ(compilationBestOEM.finish(devicesBestOEM), Result::NO_ERROR);
+    const auto& planBestOEM = compilationBestOEM.getExecutionPlan();
+    ASSERT_EQ(planBestOEM.forTest_getKind(), ExecutionPlan::Kind::SIMPLE);
+    ASSERT_NE(planBestOEM.forTest_simpleGetDevice().get(), nullptr);
+    ASSERT_EQ(planBestOEM.forTest_simpleGetDevice()->getName(), "goodOEM");
+
+    // Verify that we get an error if no driver can run an OEM operation.
+    const auto devicesNoOEM = makeDevices(
+        {
+            {"noOEM", { .float32Performance = { .execTime = 0.5, .powerUsage = 0.5 },
+                        .quantized8Performance = { .execTime = 0.5, .powerUsage = 0.5 } },
+                        ~0U, PartitioningDriver::OEMNo}
+        });
+    PartitioningCompilation compilationNoOEM(&model);
+    ASSERT_EQ(compilationNoOEM.finish(devicesNoOEM), Result::BAD_DATA);
+
+    // Verify that we get an error if there are no drivers (only CPU fallback).
+    PartitioningCompilation compilationNoDrivers(&model);
+    ASSERT_EQ(compilationNoDrivers.finish({} /* no drivers */), Result::BAD_DATA);
+}
+
+TEST_F(PartitioningTest, RelaxedFP) {
+    const auto devices = makeDevices(
+        {
+            // Best choice for non-relaxed model.
+            {"f32", { .float32Performance = { .execTime = 0.8, .powerUsage = 0.8 },
+                      .relaxedFloat32toFloat16Performance = { .execTime = 0.9, .powerUsage = 0.9 }},
+                    ~0U},
+            // Best choice for relaxed model.
+            {"f16", { .float32Performance = { .execTime = 0.9, .powerUsage = 0.9 },
+                      .relaxedFloat32toFloat16Performance = { .execTime = 0.8, .powerUsage = 0.8 }},
+                    ~0U}
+        });
+
+    auto TrivialTest = [&devices](bool doRelax, const char* expectDevice) {
+        // Trivial model consisting solely of one operation.
+        SCOPED_TRACE(expectDevice);
+        PartitioningModel model;
+        uint32_t opnd0 = model.addFloatOperand();
+        uint32_t opnd1 = model.addFloatOperand();
+        uint32_t opnd2 = model.addOperation2To1(0, opnd0, opnd1);
+        model.identifyInputsAndOutputs({ opnd0, opnd1 }, { opnd2 });
+        model.relaxComputationFloat32toFloat16(doRelax);
+        model.finish();
+        ASSERT_TRUE(model.isValid());
+        // Verify that the model will be executed on the appropriate device.
+        ExecutionPlan plan;
+        ASSERT_EQ(model.partitionTheWork(devices, ExecutePreference::PREFER_LOW_POWER, &plan),
+                  ANEURALNETWORKS_NO_ERROR);
+        ASSERT_EQ(plan.forTest_getKind(), ExecutionPlan::Kind::SIMPLE);
+        ASSERT_EQ(plan.forTest_simpleGetDevice()->getName(), expectDevice);
+    };
+
+    ASSERT_NO_FATAL_FAILURE(TrivialTest(false, "f32"));
+    ASSERT_NO_FATAL_FAILURE(TrivialTest(true, "f16"));
 }
 
 }  // namespace

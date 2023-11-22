@@ -52,6 +52,7 @@
     <item msgid="375085478373011304">"VPN ແລະແອັບຯ"</item>
     <item msgid="692322974985472861">"Wi-Fi"</item>
   </string-array>
+    <string name="certificate_capabilities_warning" msgid="4158609401937799110">"ໝາຍເຫດ: ຜູ້ອອກໃບຮັບຮອງນີ້ອາດກວດສອບທຣາບຟິກທັງໝົດທີ່ສົ່ງໄປຫາ ແລະ ສົ່ງມາຈາກ."</string>
     <string name="wifi_title" msgid="8475811746333426489">"ໂປ​ຣ​ໄຟ​ລ໌ Wi-Fi"</string>
     <string name="wifi_detail_title" msgid="3627332137252994395">"ລາຍ​ລະ​ອຽດ​ສຳ​ລັບ %s"</string>
     <string name="wifi_detail_label" msgid="3032151019356747583">"ລາຍລະອຽດ"</string>

@@ -85,10 +85,12 @@ public abstract class TestResources extends Resources {
         return strings.get(id);
     }
 
+    @Override
     @NonNull
     public final String getString(
             @StringRes int id, Object... formatArgs) throws NotFoundException {
-        return getString(id);
+        final String raw = getString(id);
+        return String.format(raw, formatArgs);
     }
 
     @Override
@@ -106,6 +108,7 @@ public abstract class TestResources extends Resources {
         return null;
     }
 
+    @Override
     public final CharSequence getText(@StringRes int resId) {
         return getString(resId);
     }

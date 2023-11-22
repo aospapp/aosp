@@ -13,28 +13,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#define LOG_TAG "VtsAgentSocketServer"
 
 #include "SocketServerForDriver.h"
 
-#include <errno.h>
 #include <netdb.h>
 #include <netinet/in.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include <sys/socket.h>
-#include <sys/types.h>
 #include <sys/un.h>
-#include <unistd.h>
+#include <string>
 
-#include <iostream>
-#include <sstream>
-
-#include <VtsDriverCommUtil.h>
+#include <android-base/logging.h>
 
 #include "test/vts/proto/AndroidSystemControlMessage.pb.h"
-
-using namespace std;
 
 namespace android {
 namespace vts {
@@ -43,20 +34,19 @@ static const int kCallbackServerPort = 5010;
 
 void SocketServerForDriver::RpcCallToRunner(
     const AndroidSystemCallbackRequestMessage& message) {
-  cout << __func__ << ":" << __LINE__ << " " << message.id() << endl;
   struct sockaddr_in serv_addr;
   struct hostent* server;
 
   int sockfd;
   sockfd = socket(AF_INET, SOCK_STREAM, 0);
   if (sockfd < 0) {
-    cerr << __func__ << " ERROR opening socket" << endl;
+    LOG(ERROR) << "ERROR opening socket";
     exit(-1);
     return;
   }
   server = gethostbyname("127.0.0.1");
   if (server == NULL) {
-    cerr << __func__ << " ERROR can't resolve the host name, localhost" << endl;
+    LOG(ERROR) << "Can't resolve the host name, localhost";
     exit(-1);
     return;
   }
@@ -67,7 +57,7 @@ void SocketServerForDriver::RpcCallToRunner(
   serv_addr.sin_port = htons(runner_port_);
 
   if (connect(sockfd, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) < 0) {
-    cerr << __func__ << " ERROR connecting" << endl;
+    LOG(ERROR) << "ERROR connecting";
     exit(-1);
     return;
   }
@@ -79,7 +69,7 @@ void SocketServerForDriver::RpcCallToRunner(
 void SocketServerForDriver::Start() {
   AndroidSystemCallbackRequestMessage message;
   if (!VtsSocketRecvMessage(&message)) return;
-  cout << __func__ << " Callback ID: " << message.id() << endl;
+  LOG(INFO) << "Start server for driver with callback ID: " << message.id();
   RpcCallToRunner(message);
   Close();
 }
@@ -89,7 +79,7 @@ int StartSocketServerForDriver(const string& callback_socket_name,
   struct sockaddr_un serv_addr;
   int pid = fork();
   if (pid < 0) {
-    cerr << __func__ << " ERROR on fork" << endl;
+    LOG(ERROR) << "ERROR on fork";
     return -1;
   } else if (pid > 0) {
     return 0;
@@ -102,25 +92,24 @@ int StartSocketServerForDriver(const string& callback_socket_name,
   int sockfd;
   sockfd = socket(PF_UNIX, SOCK_STREAM, 0);
   if (sockfd < 0) {
-    cerr << __func__ << " ERROR opening socket" << endl;
+    LOG(ERROR) << "ERROR opening socket";
     return -1;
   }
 
   bzero((char*) &serv_addr, sizeof(serv_addr));
   serv_addr.sun_family = AF_UNIX;
   strcpy(serv_addr.sun_path, callback_socket_name.c_str());
-  cout << "[agent] callback server at " << callback_socket_name << endl;
+  LOG(INFO) << "Callback server at " << callback_socket_name;
 
   if (::bind(sockfd, (struct sockaddr*) &serv_addr, sizeof(serv_addr)) < 0) {
     int error_save = errno;
-    cerr << getpid() << " " << __func__ << " ERROR on binding "
-         << callback_socket_name << " errno = " << error_save << " "
-         << strerror(error_save) << endl;
+    LOG(ERROR) << "ERROR on binding " << callback_socket_name
+               << " errno = " << error_save << " " << strerror(error_save);
     return -1;
   }
 
   if (listen(sockfd, 5) < 0) {
-    cerr << __func__ << " ERROR on listening" << endl;
+    LOG(ERROR) << "ERROR on listening";
     return -1;
   }
 
@@ -132,10 +121,10 @@ int StartSocketServerForDriver(const string& callback_socket_name,
     clilen = sizeof(cli_addr);
     newsockfd = accept(sockfd, (struct sockaddr*) &cli_addr, &clilen);
     if (newsockfd < 0) {
-      cerr << __func__ << " ERROR on accept " << strerror(errno) << endl;
+      LOG(ERROR) << "ERROR on accept " << strerror(errno);
       break;
     }
-    cout << "[agent] new callback connection." << endl;
+    LOG(DEBUG) << "New callback connection.";
     pid = fork();
     if (pid == 0) {
       close(sockfd);
@@ -145,7 +134,7 @@ int StartSocketServerForDriver(const string& callback_socket_name,
     } else if (pid > 0) {
       close(newsockfd);
     } else {
-      cerr << __func__ << " ERROR on fork" << endl;
+      LOG(ERROR) << "ERROR on fork";
       break;
     }
   }

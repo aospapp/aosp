@@ -16,11 +16,15 @@ package cc
 
 import (
 	"strings"
-
-	"github.com/google/blueprint"
+	"sync"
 
 	"android/soong/android"
 	"android/soong/cc/config"
+)
+
+var (
+	lsdumpPaths []string
+	sabiLock    sync.Mutex
 )
 
 type SAbiProperties struct {
@@ -67,14 +71,21 @@ func (sabimod *sabi) flags(ctx ModuleContext, flags Flags) Flags {
 	// Assuming that the cflags which clang LibTooling tools cannot
 	// understand have not been converted to ninja variables yet.
 	flags.ToolingCFlags = filterOutWithPrefix(flags.CFlags, config.ClangLibToolingUnknownCflags)
+
+	// RSClang does not support recent mcpu option likes exynos-m2.
+	// So we need overriding mcpu option when we want to use it.
+	if ctx.Arch().CpuVariant == "exynos-m2" {
+		flags.ToolingCFlags = append(flags.ToolingCFlags, "-mcpu=cortex-a53")
+	}
+
 	return flags
 }
 
 func sabiDepsMutator(mctx android.TopDownMutatorContext) {
 	if c, ok := mctx.Module().(*Module); ok &&
-		(c.isVndk() || inList(c.Name(), llndkLibraries) ||
+		((c.isVndk() && c.useVndk()) || inList(c.Name(), llndkLibraries) ||
 			(c.sabi != nil && c.sabi.Properties.CreateSAbiDumps)) {
-		mctx.VisitDirectDeps(func(m blueprint.Module) {
+		mctx.VisitDirectDeps(func(m android.Module) {
 			tag := mctx.OtherModuleDependencyTag(m)
 			switch tag {
 			case staticDepTag, staticExportDepTag, lateStaticDepTag, wholeStaticDepTag:

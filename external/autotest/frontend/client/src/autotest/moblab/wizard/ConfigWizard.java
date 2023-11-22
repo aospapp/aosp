@@ -11,6 +11,7 @@ import com.google.gwt.user.client.ui.Composite;
 import com.google.gwt.user.client.ui.FlexTable;
 import com.google.gwt.user.client.ui.FlowPanel;
 import com.google.gwt.user.client.ui.Label;
+import com.google.gwt.user.client.ui.InlineLabel;
 import com.google.gwt.user.client.ui.SimplePanel;
 import com.google.gwt.user.client.ui.VerticalPanel;
 import com.google.gwt.user.client.ui.Widget;
@@ -122,6 +123,32 @@ public class ConfigWizard extends Composite {
         layoutTable.setWidget(row, 0, new Label("Version"));
         layoutTable.setWidget(row, 1, new Label(info.getVersion()));
         row++;
+
+        layoutTable.setWidget(row, 0, new Label("Update"));
+        FlowPanel updatePanel = new FlowPanel();
+        updatePanel.add(new InlineLabel(info.getUpdateString()));
+        Button btnUpdate = new Button(info.getUpdateAction());
+        btnUpdate.addClickHandler(new ClickHandler() {
+          @Override
+          public void onClick(ClickEvent event) {
+            String windowText = "If an update is available, the device will be "
+              + "rebooted and all running jobs will be halted. "
+              + "This may take 5-10 minutes based on network speed. Proceed?";
+            if (Window.confirm(windowText)) {
+              MoblabRpcHelper.updateMoblab(new JsonRpcCallback() {
+                @Override
+                public void onSuccess(JSONValue result) {
+                  String messageText = "Device is rebooting";
+                  NotifyManager.getInstance().showMessage(messageText);
+                }
+              });
+            }
+          }
+        });
+        updatePanel.add(btnUpdate);
+        layoutTable.setWidget(row, 1, updatePanel);
+        row++;
+
         layoutTable.setWidget(row, 0, new Label("Track"));
         layoutTable.setWidget(row, 1, new Label(info.getReleaseTrack()));
         row++;
@@ -132,8 +159,8 @@ public class ConfigWizard extends Composite {
         layoutTable.setWidget(row, 1, new Label(
             info.getMoblabIdentification()));
         row++;
-        layoutTable.setWidget(row, 0, new Label("Moblab Mac Address"));
-        layoutTable.setWidget(row, 1, new Label(info.getMoblabMacAddress()));
+        layoutTable.setWidget(row, 0, new Label("Moblab Serial Number"));
+        layoutTable.setWidget(row, 1, new Label(info.getMoblabSerialNumber()));
       }
     });
     return layoutTable;

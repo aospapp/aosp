@@ -16,14 +16,14 @@
 
 package com.android.car.dialer;
 
-import android.app.Fragment;
-import android.app.LoaderManager;
-import android.content.CursorLoader;
-import android.content.Loader;
 import android.database.Cursor;
 import android.os.Bundle;
 import android.provider.ContactsContract.Contacts;
 import android.support.annotation.Nullable;
+import android.support.v4.app.Fragment;
+import android.support.v4.app.LoaderManager;
+import android.support.v4.content.CursorLoader;
+import android.support.v4.content.Loader;
 import android.support.v7.widget.RecyclerView;
 import android.text.TextUtils;
 import android.util.Log;
@@ -32,10 +32,11 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.net.Uri;
 
-import com.android.car.view.PagedListView;
-
 import java.util.ArrayList;
 import java.util.List;
+
+import androidx.car.widget.DayNightStyle;
+import androidx.car.widget.PagedListView;
 
 /**
  * A fragment that will take a search query, look up contacts that match and display those
@@ -79,9 +80,8 @@ public class ContactResultsFragment extends Fragment implements
     @Override
     public void onViewCreated(View view, Bundle savedInstanceState) {
         mContactResultList = view.findViewById(R.id.contact_result_list);
-        mContactResultList.setLightMode();
+        mContactResultList.setDayNightStyle(DayNightStyle.ALWAYS_LIGHT);
         mContactResultList.setAdapter(mAdapter);
-        mContactResultList.getLayoutManager().setOffsetRows(false);
 
         RecyclerView recyclerView = mContactResultList.getRecyclerView();
         for (RecyclerView.OnScrollListener listener : mOnScrollListeners) {
@@ -124,7 +124,7 @@ public class ContactResultsFragment extends Fragment implements
         if (!TextUtils.isEmpty(mSearchQuery)) {
             // Calling restartLoader so that the loader is always re-created with the new
             // search query.
-            getLoaderManager().restartLoader(0, null /* args */, this /* callback */);
+            LoaderManager.getInstance(this).restartLoader(0, null /* args */, this /* callback */);
         }
     }
 
@@ -161,7 +161,8 @@ public class ContactResultsFragment extends Fragment implements
     }
 
     @Override
-    public void onLoaderReset(Loader<Cursor> loader) {}
+    public void onLoaderReset(Loader<Cursor> loader) {
+    }
 
     @Override
     public void onDestroy() {
@@ -173,8 +174,9 @@ public class ContactResultsFragment extends Fragment implements
     /**
      * Creates a new instance of the {@link ContactResultsFragment}.
      *
-     * @param listener A scroll listener that will be notified when the list of search results has
-     *                 been scrolled.
+     * @param listener           A scroll listener that will be notified when the list of search
+     *                           results has
+     *                           been scrolled.
      * @param initialSearchQuery An optional search query that will be inputted when the fragment
      *                           starts up.
      */

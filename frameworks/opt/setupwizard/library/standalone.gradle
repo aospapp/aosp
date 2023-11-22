@@ -16,5 +16,5 @@
 
 apply from: 'standalone-rules.gradle'
 
-android.compileSdkVersion 25
-android.buildToolsVersion '25.0.0'
+android.compileSdkVersion 26
+android.buildToolsVersion '26.0.0'

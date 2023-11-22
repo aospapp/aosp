@@ -25,8 +25,9 @@ from acts.test_utils.bt.BluetoothBaseTest import BluetoothBaseTest
 from acts.test_utils.bt import bt_test_utils
 from acts.test_utils.bt import BtEnum
 from acts.test_utils.car import car_media_utils
-from acts.utils import exe_cmd
-from acts.controllers import adb
+from acts.test_utils.bt.bt_test_utils import is_a2dp_connected
+from acts.keys import Config
+
 
 DEFAULT_WAIT_TIME = 1.0
 DEFAULT_EVENT_TIMEOUT = 1.0
@@ -126,8 +127,7 @@ class BtCarMediaPassthroughTest(BluetoothBaseTest):
         if not super(BtCarMediaPassthroughTest, self).teardown_test():
             return False
         # If A2dp connection was disconnected as part of the test, connect it back
-        if not (car_media_utils.is_a2dp_connected(self.log, self.SNK,
-                                                  self.SRC)):
+        if not (is_a2dp_connected(self.SNK,self.SRC)):
             result = bt_test_utils.connect_pri_to_sec(
                 self.SRC, self.SNK, set([BtEnum.BluetoothProfile.A2DP.value]))
             if not result:
@@ -235,8 +235,7 @@ class BtCarMediaPassthroughTest(BluetoothBaseTest):
 
         Priority: 0
         """
-        if not (car_media_utils.is_a2dp_connected(self.log, self.SNK,
-                                                  self.SRC)):
+        if not (is_a2dp_connected(self.SNK,self.SRC)):
             self.SNK.log.error('No A2dp Connection')
             return False
 

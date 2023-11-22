@@ -97,6 +97,16 @@ bool osAppIsChre(uint16_t tid)
     return task && osTaskIsChre(task);
 }
 
+uint32_t osAppChreVersion(uint16_t tid)
+{
+    struct Task *task = osTaskFindByTid(tid);
+
+    if (task)
+        return osTaskChreVersion(task);
+    else
+        return 0;
+}
+
 static inline uint32_t osTaskClrSetFlags(struct Task *task, uint32_t clrMask, uint32_t setMask)
 {
     while (true) {
@@ -290,27 +300,39 @@ static inline bool osTaskInit(struct Task *task)
 
 static void osTaskRelease(struct Task *task)
 {
-    uint16_t tid = task->tid;
+    uint32_t taskTid = task->tid;
+    uint32_t platErr, sensorErr;
+    int timErr, heapErr;
+    uint64_t appId;
 
-    osSetCurrentTask(mSystemTask);
+    if (task->app)
+        appId = task->app->hdr.appId;
+    else
+        appId = 0;
 
-    platFreeResources(tid); // HW resources cleanup (IRQ, DMA etc)
-    sensorFreeAll(tid);
-    timTimerCancelAll(tid);
-    heapFreeAll(tid);
+    platErr = platFreeResources(taskTid); // HW resources cleanup (IRQ, DMA etc)
+    sensorErr = sensorFreeAll(taskTid);
+    timErr = timTimerCancelAll(taskTid);
+    heapErr = heapFreeAll(taskTid);
+
+    if (platErr || sensorErr || timErr || heapErr)
+        osLog(LOG_WARN, "released app ID 0x%" PRIx64 "; plat:%08" PRIx32 " sensor:%08" PRIx32 " tim:%d heap:%d; TID %04" PRIX32 "\n", appId, platErr, sensorErr, timErr, heapErr, taskTid);
+    else
+        osLog(LOG_INFO, "released app ID 0x%" PRIx64 "; TID %04" PRIX32 "\n", appId, taskTid);
 }
 
 static inline void osTaskEnd(struct Task *task)
 {
-    struct Task *preempted = osSetCurrentTask(task);
-
-    cpuAppEnd(task->app, &task->platInfo);
+    if (!osTaskTestFlags(task, FL_TASK_ABORTED)) {
+        struct Task *preempted = osSetCurrentTask(task);
+        cpuAppEnd(task->app, &task->platInfo);
+        osSetCurrentTask(preempted);
+    }
 
     // task was supposed to release it's resources,
     // but we do our cleanup anyway
-    osTaskRelease(task);
     // NOTE: we don't need to unsubscribe from events
-    osSetCurrentTask(preempted);
+    osTaskRelease(task);
 }
 
 static inline void osTaskHandle(struct Task *task, uint16_t evtType, uint16_t fromTid, const void* evtData)
@@ -491,6 +513,24 @@ struct Segment *osSegmentGetEnd()
     return (struct Segment *)(start + size);
 }
 
+uint32_t osSegmentGetFree()
+{
+    struct SegmentIterator it;
+    const struct Segment *storageSeg = NULL;
+
+    osSegmentIteratorInit(&it);
+    while (osSegmentIteratorNext(&it)) {
+        if (osSegmentGetState(it.seg) == SEG_ST_EMPTY) {
+            storageSeg = it.seg;
+            break;
+        }
+    }
+    if (!storageSeg || storageSeg > it.sharedEnd)
+        return 0;
+
+    return (uint8_t *)it.sharedEnd - (uint8_t *)storageSeg;
+}
+
 struct Segment *osGetSegment(const struct AppHdr *app)
 {
     uint32_t size;
@@ -592,13 +632,13 @@ bool osAppSegmentClose(struct AppHdr *app, uint32_t segDataSize, uint32_t segSta
     footerLen = (-fullSize) & 3;
     memset(footer, 0x00, footerLen);
 
-#ifdef SEGMENT_CRC_SUPPORT
-    struct SegmentFooter segFooter {
-        .crc = ~crc32(storageSeg, fullSize, ~0),
+    wdtDisableClk();
+    struct SegmentFooter segFooter = {
+        .crc = ~soft_crc32(storageSeg, fullSize, ~0),
     };
+    wdtEnableClk();
     memcpy(&footer[footerLen], &segFooter, sizeof(segFooter));
     footerLen += sizeof(segFooter);
-#endif
 
     if (ret && footerLen)
         ret = osWriteShared((uint8_t*)storageSeg + fullSize, footer, footerLen);
@@ -651,10 +691,10 @@ static inline bool osAppIsValid(const struct AppHdr *app)
 
 static bool osExtAppIsValid(const struct AppHdr *app, uint32_t len)
 {
-    //TODO: when CRC support is ready, add CRC check here
     return  osAppIsValid(app) &&
             len >= sizeof(*app) &&
             osAppSegmentGetState(app) == SEG_ST_VALID &&
+            osAppSegmentCalcCrcResidue(app) == CRC_RESIDUE &&
             !(app->hdr.fwFlags & FL_APP_HDR_INTERNAL);
 }
 
@@ -711,7 +751,8 @@ static bool osStartApp(const struct AppHdr *app)
 
         // print external NanoApp info to facilitate NanoApp debugging
         if (!(task->app->hdr.fwFlags & FL_APP_HDR_INTERNAL))
-            osLog(LOG_INFO, "loaded app ID 0x%llx at flash base 0x%08x ram base 0x%08x; TID %04X\n",
+            osLog(LOG_INFO,
+                  "loaded app ID 0x%" PRIx64 " at flash base 0x%" PRIxPTR " ram base 0x%" PRIxPTR "; TID %04" PRIX16 "\n",
                   task->app->hdr.appId, (uintptr_t) task->app, (uintptr_t) task->platInfo.data, task->tid);
 
         done = osTaskInit(task);
@@ -721,48 +762,79 @@ static bool osStartApp(const struct AppHdr *app)
             osUnloadApp(task);
         } else {
             osAddTask(task);
+            (void)osEnqueueEvt(EVT_APP_BEGIN, task, NULL);
         }
     }
 
     return done;
 }
 
-static bool osStopTask(struct Task *task)
+static bool osStopTask(struct Task *task, bool abort)
 {
+    struct Task *preempted;
+
     if (!task)
         return false;
 
+    if (osTaskTestFlags(task, FL_TASK_STOPPED))
+        return true;
+
+    preempted = osSetCurrentTask(mSystemTask);
     osRemoveTask(task);
-
-    if (osTaskGetIoCount(task))
-    {
-        osTaskHandle(task, EVT_APP_STOP, OS_SYSTEM_TID, NULL);
-        osEnqueueEvt(EVT_APP_END, task, NULL);
-    } else {
-        osTaskEnd(task); // calls app END() and Release()
-        osUnloadApp(task);
-    }
-
     osTaskClrSetFlags(task, 0, FL_TASK_STOPPED);
+
+    if (abort)
+        osTaskClrSetFlags(task, 0, FL_TASK_ABORTED);
+    else if (osTaskGetIoCount(task))
+        osTaskHandle(task, EVT_APP_STOP, OS_SYSTEM_TID, NULL);
+    osEnqueueEvt(EVT_APP_END, task, NULL);
+
+    osSetCurrentTask(preempted);
+
     return true;
 }
 
 void osTaskAbort(struct Task *task)
 {
-    if (!task)
-        return;
-
-    osRemoveTask(task); // remove from active task list
-    // do not call app END()
-    osTaskRelease(task); // release all system resources
-    osUnloadApp(task); // destroy platform app object in RAM
+    osStopTask(task, true);
 }
 
-static bool osExtAppFind(struct SegmentIterator *it, uint64_t appId)
+static bool matchAutoStart(const void *cookie, const struct AppHdr *app)
 {
-    uint64_t vendor = APP_ID_GET_VENDOR(appId);
-    uint64_t seqId = APP_ID_GET_SEQ_ID(appId);
-    uint64_t curAppId;
+    bool match = (bool)cookie;
+
+    if (app->hdr.fwFlags & FL_APP_HDR_CHRE) {
+        if (app->hdr.chreApiMajor == 0xFF && app->hdr.chreApiMinor == 0xFF)
+            return match;
+        else if ((app->hdr.chreApiMajor < 0x01) ||
+                 (app->hdr.chreApiMajor == 0x01 && app->hdr.chreApiMinor < 0x01))
+            return match;
+        else
+            return !match;
+    } else {
+        return match;
+    }
+}
+
+static bool matchAppId(const void *data, const struct AppHdr *app)
+{
+    uint64_t appId, vendor, seqId, curAppId;
+
+    memcpy(&appId, data, sizeof(appId));
+    vendor = APP_ID_GET_VENDOR(appId);
+    seqId = APP_ID_GET_SEQ_ID(appId);
+    curAppId = app->hdr.appId;
+
+    if ((vendor == APP_VENDOR_ANY || vendor == APP_ID_GET_VENDOR(curAppId)) &&
+        (seqId == APP_SEQ_ID_ANY || seqId == APP_ID_GET_SEQ_ID(curAppId))) {
+        return true;
+    } else {
+        return false;
+    }
+}
+
+static bool osExtAppFind(struct SegmentIterator *it, appMatchFunc func, const void *data)
+{
     const struct AppHdr *app;
     const struct Segment *seg;
 
@@ -775,17 +847,14 @@ static bool osExtAppFind(struct SegmentIterator *it, uint64_t appId)
         if (seg->state != SEG_ST_VALID)
             continue;
         app = osSegmentGetData(seg);
-        curAppId = app->hdr.appId;
-
-        if ((vendor == APP_VENDOR_ANY || vendor == APP_ID_GET_VENDOR(curAppId)) &&
-            (seqId == APP_SEQ_ID_ANY || seqId == APP_ID_GET_SEQ_ID(curAppId)))
+        if (func(data, app))
             return true;
     }
 
     return false;
 }
 
-static uint32_t osExtAppStopEraseApps(uint64_t appId, bool doErase)
+static uint32_t osExtAppStopEraseApps(appMatchFunc func, const void *data, bool doErase)
 {
     const struct AppHdr *app;
     int32_t len;
@@ -798,7 +867,7 @@ static uint32_t osExtAppStopEraseApps(uint64_t appId, bool doErase)
     struct Task *task;
 
     osSegmentIteratorInit(&it);
-    while (osExtAppFind(&it, appId)) {
+    while (osExtAppFind(&it, func, data)) {
         app = osSegmentGetData(it.seg);
         len = osSegmentGetSize(it.seg);
         if (!osExtAppIsValid(app, len))
@@ -812,7 +881,7 @@ static uint32_t osExtAppStopEraseApps(uint64_t appId, bool doErase)
         task = osTaskFindByAppID(app->hdr.appId);
         if (task) {
             taskCount++;
-            if (osStopTask(task))
+            if (osStopTask(task, false))
                stopCount++;
         }
     }
@@ -824,14 +893,14 @@ static uint32_t osExtAppStopEraseApps(uint64_t appId, bool doErase)
     return stat.value;
 }
 
-uint32_t osExtAppStopApps(uint64_t appId)
+uint32_t osExtAppStopAppsByAppId(uint64_t appId)
 {
-    return osExtAppStopEraseApps(appId, false);
+    return osExtAppStopEraseApps(matchAppId, &appId, false);
 }
 
-uint32_t osExtAppEraseApps(uint64_t appId)
+uint32_t osExtAppEraseAppsByAppId(uint64_t appId)
 {
-    return osExtAppStopEraseApps(appId, true);
+    return osExtAppStopEraseApps(matchAppId, &appId, true);
 }
 
 static void osScanExternal()
@@ -858,7 +927,7 @@ static void osScanExternal()
     }
 }
 
-uint32_t osExtAppStartApps(uint64_t appId)
+static uint32_t osExtAppStartApps(appMatchFunc func, void *data)
 {
     const struct AppHdr *app;
     int32_t len;
@@ -873,7 +942,7 @@ uint32_t osExtAppStartApps(uint64_t appId)
     osScanExternal();
 
     osSegmentIteratorInit(&it);
-    while (osExtAppFind(&it, appId)) {
+    while (osExtAppFind(&it, func, data)) {
         app = osSegmentGetData(it.seg);
         len = osSegmentGetSize(it.seg);
 
@@ -884,7 +953,7 @@ uint32_t osExtAppStartApps(uint64_t appId)
         appCount++;
         checkIt = it;
         // find the most recent copy
-        while (osExtAppFind(&checkIt, app->hdr.appId)) {
+        while (osExtAppFind(&checkIt, matchAppId, &app->hdr.appId)) {
             if (osExtAppErase(app)) // erase the old one, so we skip it next time
                 eraseCount++;
             app = osSegmentGetData(checkIt.seg);
@@ -906,6 +975,11 @@ uint32_t osExtAppStartApps(uint64_t appId)
     SET_COUNTER(stat.erase, eraseCount);
 
     return stat.value;
+}
+
+uint32_t osExtAppStartAppsByAppId(uint64_t appId)
+{
+    return osExtAppStartApps(matchAppId, &appId);
 }
 
 static void osStartTasks(void)
@@ -958,19 +1032,20 @@ static void osStartTasks(void)
     }
 
     osLog(LOG_DEBUG, "Starting external apps...\n");
-    status = osExtAppStartApps(APP_ID_ANY);
+    status = osExtAppStartApps(matchAutoStart, (void *)true);
     osLog(LOG_DEBUG, "Started %" PRIu32 " internal apps; EXT status: %08" PRIX32 "\n", taskCnt, status);
 }
 
 static void osInternalEvtHandle(uint32_t evtType, void *evtData)
 {
     union SeosInternalSlabData *da = (union SeosInternalSlabData*)evtData;
-    struct Task *task;
+    struct Task *task, *ssTask;
     uint32_t i, j;
     uint16_t tid = EVENT_GET_ORIGIN(evtType);
-    uint16_t evt = EVENT_GET_EVENT(evtType);
+    uint16_t evt = EVENT_GET_EVENT(evtType), newEvt;
     struct Task *srcTask = osTaskFindByTid(tid);
     struct Task *preempted = osSetCurrentTask(srcTask);
+    struct AppEventStartStop ssMsg;
 
     switch (evt) {
     case EVT_SUBSCRIBE_TO_EVT:
@@ -1007,10 +1082,31 @@ static void osInternalEvtHandle(uint32_t evtType, void *evtData)
         }
         break;
 
+    case EVT_APP_BEGIN:
     case EVT_APP_END:
-        task = evtData;
-        osTaskEnd(task);
-        osUnloadApp(task);
+        ssTask = evtData;
+        ssMsg.appId = ssTask->app->hdr.appId;
+        ssMsg.version = ssTask->app->hdr.appVer;
+        ssMsg.tid = ssTask->tid;
+        if (evt == EVT_APP_BEGIN) {
+            newEvt = EVT_APP_STARTED;
+        } else {
+            newEvt = EVT_APP_STOPPED;
+            osTaskEnd(ssTask);
+            osUnloadApp(ssTask);
+        }
+
+        /* send this event to all tasks who want it */
+        for_each_task(&mTasks, task) {
+            if (task != ssTask) {
+                for (i = 0; i < task->subbedEvtCount; i++) {
+                    if (task->subbedEvents[i] == newEvt) {
+                        osTaskHandle(task, newEvt, OS_SYSTEM_TID, &ssMsg);
+                        break;
+                    }
+                }
+            }
+        }
         break;
 
     case EVT_DEFERRED_CALLBACK:
@@ -1133,13 +1229,22 @@ static void osDeferredActionFreeF(void* event)
 
 static bool osEventsSubscribeUnsubscribeV(bool sub, uint32_t numEvts, va_list ap)
 {
-    union SeosInternalSlabData *act = slabAllocatorAlloc(mMiscInternalThingsSlab);
+    struct Task *task = osGetCurrentTask();
+    union SeosInternalSlabData *act;
     int i;
 
-    if (!act || numEvts > MAX_EVT_SUB_CNT)
+    if (!sub && osTaskTestFlags(task, FL_TASK_STOPPED)) // stopping, so this is a no-op
+        return true;
+
+    if (numEvts > MAX_EVT_SUB_CNT)
         return false;
 
-    act->evtSub.tid = osGetCurrentTid();
+    act = slabAllocatorAlloc(mMiscInternalThingsSlab);
+
+    if (!act)
+        return false;
+
+    act->evtSub.tid = task->tid;
     act->evtSub.numEvts = numEvts;
     for (i = 0; i < numEvts; i++)
         act->evtSub.evts[i] = va_arg(ap, uint32_t);
@@ -1202,12 +1307,8 @@ static bool osEnqueueEvtCommon(uint32_t evt, void *evtData, TaggedPtr evtFreeInf
 
     osTaskAddIoCount(task, 1);
 
-    if (osTaskTestFlags(task, FL_TASK_STOPPED)) {
-        handleEventFreeing(evtType, evtData, evtFreeInfo);
-        return true;
-    }
-
-    if (!evtQueueEnqueue(mEvtsInternal, evtType, evtData, evtFreeInfo, urgent)) {
+    if (osTaskTestFlags(task, FL_TASK_STOPPED) ||
+        !evtQueueEnqueue(mEvtsInternal, evtType, evtData, evtFreeInfo, urgent)) {
         osTaskAddIoCount(task, -1);
         return false;
     }
@@ -1307,7 +1408,7 @@ bool osEnqueuePrivateEvtAsApp(uint32_t evtType, void *evtData, uint32_t toTid)
     return osEnqueuePrivateEvtEx(evtType & EVT_MASK, evtData, taggedPtrMakeFromUint(osGetCurrentTid()), toTid);
 }
 
-bool osTidById(uint64_t *appId, uint32_t *tid)
+bool osTidById(const uint64_t *appId, uint32_t *tid)
 {
     struct Task *task;
 

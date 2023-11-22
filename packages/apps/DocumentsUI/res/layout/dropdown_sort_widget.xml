@@ -36,7 +36,7 @@
         android:paddingEnd="12dp"
         android:gravity="center"
         android:fontFamily="sans-serif-medium"
-        android:textSize="14sp"
+        android:textSize="@dimen/dropdown_sort_text_size"
         android:textColor="@color/sort_widget_text_color"/>
 
     <ImageView

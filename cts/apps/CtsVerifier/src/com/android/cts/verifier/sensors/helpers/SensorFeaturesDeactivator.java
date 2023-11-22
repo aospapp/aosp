@@ -137,26 +137,9 @@ public class SensorFeaturesDeactivator {
 
         @Override
         protected int getSettingMode(int defaultValue) {
-            // TODO: replace the use of reflection with Settings.Secure.DOZE_ENABLED when the
-            //       static field is not hidden anymore
-            Class<?> secureSettingsClass = Settings.Secure.class;
-            Field dozeEnabledField;
-            try {
-                dozeEnabledField = secureSettingsClass.getField("DOZE_ENABLED");
-            } catch (NoSuchFieldException e) {
-                return defaultValue;
-            }
-
-            String settingName;
-            try {
-                settingName = (String) dozeEnabledField.get(null /* obj */);
-            } catch (IllegalAccessException e) {
-                return defaultValue;
-            }
-
             return Settings.Secure.getInt(
                     mStateContainer.getContentResolver(),
-                    settingName,
+                    Settings.Secure.DOZE_ENABLED,
                     defaultValue);
         }
     }

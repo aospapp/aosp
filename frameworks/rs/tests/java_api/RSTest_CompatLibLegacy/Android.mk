@@ -29,8 +29,7 @@ LOCAL_SRC_FILES := $(call all-java-files-under, src) $(call all-renderscript-fil
 LOCAL_PACKAGE_NAME := RSTest_CompatLegacy
 
 LOCAL_STATIC_JAVA_LIBRARIES := \
-    android-support-v8-renderscript \
-    legacy-android-test
+    android-support-v8-renderscript
 
 LOCAL_SDK_VERSION := 8
 LOCAL_RENDERSCRIPT_TARGET_API := 18

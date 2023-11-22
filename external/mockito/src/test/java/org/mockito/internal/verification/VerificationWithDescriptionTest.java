@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2017 Mockito contributors
+ * This program is made available under the terms of the MIT License.
+ */
 package org.mockito.internal.verification;
 
 import org.junit.Before;
@@ -8,7 +12,7 @@ import org.mockito.exceptions.base.MockitoAssertionError;
 
 import java.util.List;
 
-import static junit.framework.TestCase.assertTrue;
+import static org.junit.Assert.assertTrue;
 import static org.assertj.core.api.Assertions.fail;
 import static org.mockito.Mockito.description;
 import static org.mockito.Mockito.verify;

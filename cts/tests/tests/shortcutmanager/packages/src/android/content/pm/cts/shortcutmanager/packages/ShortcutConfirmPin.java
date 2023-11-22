@@ -108,6 +108,7 @@ public class ShortcutConfirmPin extends Activity {
                 return;
             }
             ReplyUtil.sendSuccessReply(this, replyAction);
+            Log.e(TAG, "Sent reply");
         } catch (Exception e) {
             Log.e(TAG, "Caught exception", e);
             if (replyAction != null) {

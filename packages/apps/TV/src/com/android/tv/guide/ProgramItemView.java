@@ -24,7 +24,6 @@ import android.graphics.drawable.Drawable;
 import android.graphics.drawable.LayerDrawable;
 import android.graphics.drawable.StateListDrawable;
 import android.os.Handler;
-import android.os.SystemClock;
 import android.text.SpannableStringBuilder;
 import android.text.Spanned;
 import android.text.TextUtils;
@@ -35,21 +34,21 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
 import android.widget.Toast;
-
-import com.android.tv.ApplicationSingletons;
 import com.android.tv.MainActivity;
 import com.android.tv.R;
-import com.android.tv.TvApplication;
+import com.android.tv.TvSingletons;
 import com.android.tv.analytics.Tracker;
 import com.android.tv.common.feature.CommonFeatures;
-import com.android.tv.data.Channel;
+import com.android.tv.common.util.Clock;
+import com.android.tv.data.ChannelDataManager;
+import com.android.tv.data.Program;
+import com.android.tv.data.api.Channel;
 import com.android.tv.dvr.DvrManager;
 import com.android.tv.dvr.data.ScheduledRecording;
 import com.android.tv.dvr.ui.DvrUiHelper;
 import com.android.tv.guide.ProgramManager.TableEntry;
 import com.android.tv.util.ToastUtils;
 import com.android.tv.util.Utils;
-
 import java.lang.reflect.InvocationTargetException;
 import java.util.concurrent.TimeUnit;
 
@@ -60,10 +59,10 @@ public class ProgramItemView extends TextView {
     private static final int MAX_PROGRESS = 10000; // From android.widget.ProgressBar.MAX_VALUE
 
     // State indicating the focused program is the current program
-    private static final int[] STATE_CURRENT_PROGRAM = { R.attr.state_current_program };
+    private static final int[] STATE_CURRENT_PROGRAM = {R.attr.state_current_program};
 
     // Workaround state in order to not use too much texture memory for RippleDrawable
-    private static final int[] STATE_TOO_WIDE = { R.attr.state_program_too_wide };
+    private static final int[] STATE_TOO_WIDE = {R.attr.state_program_too_wide};
 
     private static int sVisibleThreshold;
     private static int sItemPadding;
@@ -73,8 +72,10 @@ public class ProgramItemView extends TextView {
     private static TextAppearanceSpan sEpisodeTitleStyle;
     private static TextAppearanceSpan sGrayedOutEpisodeTitleStyle;
 
+    private final DvrManager mDvrManager;
+    private final Clock mClock;
+    private final ChannelDataManager mChannelDataManager;
     private ProgramGuide mProgramGuide;
-    private DvrManager mDvrManager;
     private TableEntry mTableEntry;
     private int mMaxWidthForRipple;
     private int mTextWidth;
@@ -84,96 +85,119 @@ public class ProgramItemView extends TextView {
     // as a result of the re-layout (see b/21378855).
     private boolean mPreventParentRelayout;
 
-    private static final View.OnClickListener ON_CLICKED = new View.OnClickListener() {
-        @Override
-        public void onClick(final View view) {
-            TableEntry entry = ((ProgramItemView) view).mTableEntry;
-            if (entry == null) {
-                //do nothing
-                return;
-            }
-            ApplicationSingletons singletons = TvApplication.getSingletons(view.getContext());
-            Tracker tracker = singletons.getTracker();
-            tracker.sendEpgItemClicked();
-            final MainActivity tvActivity = (MainActivity) view.getContext();
-            final Channel channel = tvActivity.getChannelDataManager().getChannel(entry.channelId);
-            if (entry.isCurrentProgram()) {
-                view.postDelayed(new Runnable() {
-                    @Override
-                    public void run() {
-                        tvActivity.tuneToChannel(channel);
-                        tvActivity.hideOverlaysForTune();
+    private static final View.OnClickListener ON_CLICKED =
+            new View.OnClickListener() {
+                @Override
+                public void onClick(final View view) {
+                    TableEntry entry = ((ProgramItemView) view).mTableEntry;
+                    Clock clock = ((ProgramItemView) view).mClock;
+                    if (entry == null) {
+                        // do nothing
+                        return;
                     }
-                }, entry.getWidth() > ((ProgramItemView) view).mMaxWidthForRipple ? 0
-                        : view.getResources()
-                                .getInteger(R.integer.program_guide_ripple_anim_duration));
-            } else if (entry.program != null && CommonFeatures.DVR.isEnabled(view.getContext())) {
-                DvrManager dvrManager = singletons.getDvrManager();
-                if (entry.entryStartUtcMillis > System.currentTimeMillis()
-                        && dvrManager.isProgramRecordable(entry.program)) {
-                    if (entry.scheduledRecording == null) {
-                        DvrUiHelper.checkStorageStatusAndShowErrorMessage(tvActivity,
-                                channel.getInputId(), new Runnable() {
+                    TvSingletons singletons = TvSingletons.getSingletons(view.getContext());
+                    Tracker tracker = singletons.getTracker();
+                    tracker.sendEpgItemClicked();
+                    final MainActivity tvActivity = (MainActivity) view.getContext();
+                    final Channel channel =
+                            tvActivity.getChannelDataManager().getChannel(entry.channelId);
+                    if (entry.isCurrentProgram()) {
+                        view.postDelayed(
+                                new Runnable() {
                                     @Override
                                     public void run() {
-                                        DvrUiHelper.requestRecordingFutureProgram(tvActivity,
-                                                entry.program, false);
+                                        tvActivity.tuneToChannel(channel);
+                                        tvActivity.hideOverlaysForTune();
                                     }
-                                });
-                    } else {
-                        dvrManager.removeScheduledRecording(entry.scheduledRecording);
-                        String msg = view.getResources().getString(
-                                R.string.dvr_schedules_deletion_info, entry.program.getTitle());
-                        ToastUtils.show(view.getContext(), msg, Toast.LENGTH_SHORT);
+                                },
+                                entry.getWidth() > ((ProgramItemView) view).mMaxWidthForRipple
+                                        ? 0
+                                        : view.getResources()
+                                                .getInteger(
+                                                        R.integer
+                                                                .program_guide_ripple_anim_duration));
+                    } else if (entry.program != null
+                            && CommonFeatures.DVR.isEnabled(view.getContext())) {
+                        DvrManager dvrManager = singletons.getDvrManager();
+                        if (entry.entryStartUtcMillis > clock.currentTimeMillis()
+                                && dvrManager.isProgramRecordable(entry.program)) {
+                            if (entry.scheduledRecording == null) {
+                                DvrUiHelper.checkStorageStatusAndShowErrorMessage(
+                                        tvActivity,
+                                        channel.getInputId(),
+                                        new Runnable() {
+                                            @Override
+                                            public void run() {
+                                                DvrUiHelper.requestRecordingFutureProgram(
+                                                        tvActivity, entry.program, false);
+                                            }
+                                        });
+                            } else {
+                                dvrManager.removeScheduledRecording(entry.scheduledRecording);
+                                String msg =
+                                        view.getResources()
+                                                .getString(
+                                                        R.string.dvr_schedules_deletion_info,
+                                                        entry.program.getTitle());
+                                ToastUtils.show(view.getContext(), msg, Toast.LENGTH_SHORT);
+                            }
+                        } else {
+                            ToastUtils.show(
+                                    view.getContext(),
+                                    view.getResources()
+                                            .getString(R.string.dvr_msg_cannot_record_program),
+                                    Toast.LENGTH_SHORT);
+                        }
                     }
-                } else {
-                    ToastUtils.show(view.getContext(), view.getResources()
-                            .getString(R.string.dvr_msg_cannot_record_program), Toast.LENGTH_SHORT);
                 }
-            }
-        }
-    };
+            };
 
     private static final View.OnFocusChangeListener ON_FOCUS_CHANGED =
             new View.OnFocusChangeListener() {
-        @Override
-        public void onFocusChange(View view, boolean hasFocus) {
-            if (hasFocus) {
-                ((ProgramItemView) view).mUpdateFocus.run();
-            } else {
-                Handler handler = view.getHandler();
-                if (handler != null) {
-                    handler.removeCallbacks(((ProgramItemView) view).mUpdateFocus);
+                @Override
+                public void onFocusChange(View view, boolean hasFocus) {
+                    if (hasFocus) {
+                        ((ProgramItemView) view).mUpdateFocus.run();
+                    } else {
+                        Handler handler = view.getHandler();
+                        if (handler != null) {
+                            handler.removeCallbacks(((ProgramItemView) view).mUpdateFocus);
+                        }
+                    }
                 }
-            }
-        }
-    };
+            };
 
-    private final Runnable mUpdateFocus = new Runnable() {
-        @Override
-        public void run() {
-            refreshDrawableState();
-            TableEntry entry = mTableEntry;
-            if (entry == null) {
-                //do nothing
-                return;
-            }
-            if (entry.isCurrentProgram()) {
-                Drawable background = getBackground();
-                if (!mProgramGuide.isActive() || mProgramGuide.isRunningAnimation()) {
-                    // If program guide is not active or is during showing/hiding,
-                    // the animation is unnecessary, skip it.
-                    background.jumpToCurrentState();
+    private final Runnable mUpdateFocus =
+            new Runnable() {
+                @Override
+                public void run() {
+                    refreshDrawableState();
+                    TableEntry entry = mTableEntry;
+                    if (entry == null) {
+                        // do nothing
+                        return;
+                    }
+                    if (entry.isCurrentProgram()) {
+                        Drawable background = getBackground();
+                        if (!mProgramGuide.isActive() || mProgramGuide.isRunningAnimation()) {
+                            // If program guide is not active or is during showing/hiding,
+                            // the animation is unnecessary, skip it.
+                            background.jumpToCurrentState();
+                        }
+                        int progress =
+                                getProgress(
+                                        mClock, entry.entryStartUtcMillis, entry.entryEndUtcMillis);
+                        setProgress(background, R.id.reverse_progress, MAX_PROGRESS - progress);
+                    }
+                    if (getHandler() != null) {
+                        getHandler()
+                                .postAtTime(
+                                        this,
+                                        Utils.ceilTime(
+                                                mClock.uptimeMillis(), FOCUS_UPDATE_FREQUENCY));
+                    }
                 }
-                int progress = getProgress(entry.entryStartUtcMillis, entry.entryEndUtcMillis);
-                setProgress(background, R.id.reverse_progress, MAX_PROGRESS - progress);
-            }
-            if (getHandler() != null) {
-                getHandler().postAtTime(this,
-                        Utils.ceilTime(SystemClock.uptimeMillis(), FOCUS_UPDATE_FREQUENCY));
-            }
-        }
-    };
+            };
 
     public ProgramItemView(Context context) {
         this(context, null);
@@ -187,7 +211,10 @@ public class ProgramItemView extends TextView {
         super(context, attrs, defStyle);
         setOnClickListener(ON_CLICKED);
         setOnFocusChangeListener(ON_FOCUS_CHANGED);
-        mDvrManager = TvApplication.getSingletons(getContext()).getDvrManager();
+        TvSingletons singletons = TvSingletons.getSingletons(getContext());
+        mDvrManager = singletons.getDvrManager();
+        mChannelDataManager = singletons.getChannelDataManager();
+        mClock = singletons.getClock();
     }
 
     private void initIfNeeded() {
@@ -196,35 +223,46 @@ public class ProgramItemView extends TextView {
         }
         Resources res = getContext().getResources();
 
-        sVisibleThreshold = res.getDimensionPixelOffset(
-                R.dimen.program_guide_table_item_visible_threshold);
+        sVisibleThreshold =
+                res.getDimensionPixelOffset(R.dimen.program_guide_table_item_visible_threshold);
 
         sItemPadding = res.getDimensionPixelOffset(R.dimen.program_guide_table_item_padding);
-        sCompoundDrawablePadding = res.getDimensionPixelOffset(
-                R.dimen.program_guide_table_item_compound_drawable_padding);
+        sCompoundDrawablePadding =
+                res.getDimensionPixelOffset(
+                        R.dimen.program_guide_table_item_compound_drawable_padding);
 
-        ColorStateList programTitleColor = ColorStateList.valueOf(res.getColor(
-                R.color.program_guide_table_item_program_title_text_color, null));
-        ColorStateList grayedOutProgramTitleColor = res.getColorStateList(
-                R.color.program_guide_table_item_grayed_out_program_text_color, null);
-        ColorStateList episodeTitleColor = ColorStateList.valueOf(res.getColor(
-                R.color.program_guide_table_item_program_episode_title_text_color, null));
-        ColorStateList grayedOutEpisodeTitleColor = ColorStateList.valueOf(res.getColor(
-                R.color.program_guide_table_item_grayed_out_program_episode_title_text_color,
-                null));
-        int programTitleSize = res.getDimensionPixelSize(
-                R.dimen.program_guide_table_item_program_title_font_size);
-        int episodeTitleSize = res.getDimensionPixelSize(
-                R.dimen.program_guide_table_item_program_episode_title_font_size);
+        ColorStateList programTitleColor =
+                ColorStateList.valueOf(
+                        res.getColor(
+                                R.color.program_guide_table_item_program_title_text_color, null));
+        ColorStateList grayedOutProgramTitleColor =
+                res.getColorStateList(
+                        R.color.program_guide_table_item_grayed_out_program_text_color, null);
+        ColorStateList episodeTitleColor =
+                ColorStateList.valueOf(
+                        res.getColor(
+                                R.color.program_guide_table_item_program_episode_title_text_color,
+                                null));
+        ColorStateList grayedOutEpisodeTitleColor =
+                ColorStateList.valueOf(
+                        res.getColor(
+                                R.color
+                                        .program_guide_table_item_grayed_out_program_episode_title_text_color,
+                                null));
+        int programTitleSize =
+                res.getDimensionPixelSize(R.dimen.program_guide_table_item_program_title_font_size);
+        int episodeTitleSize =
+                res.getDimensionPixelSize(
+                        R.dimen.program_guide_table_item_program_episode_title_font_size);
 
-        sProgramTitleStyle = new TextAppearanceSpan(null, 0, programTitleSize, programTitleColor,
-                null);
-        sGrayedOutProgramTitleStyle = new TextAppearanceSpan(null, 0, programTitleSize,
-                grayedOutProgramTitleColor, null);
-        sEpisodeTitleStyle = new TextAppearanceSpan(null, 0, episodeTitleSize, episodeTitleColor,
-                null);
-        sGrayedOutEpisodeTitleStyle = new TextAppearanceSpan(null, 0, episodeTitleSize,
-                grayedOutEpisodeTitleColor, null);
+        sProgramTitleStyle =
+                new TextAppearanceSpan(null, 0, programTitleSize, programTitleColor, null);
+        sGrayedOutProgramTitleStyle =
+                new TextAppearanceSpan(null, 0, programTitleSize, grayedOutProgramTitleColor, null);
+        sEpisodeTitleStyle =
+                new TextAppearanceSpan(null, 0, episodeTitleSize, episodeTitleColor, null);
+        sGrayedOutEpisodeTitleStyle =
+                new TextAppearanceSpan(null, 0, episodeTitleSize, grayedOutEpisodeTitleColor, null);
     }
 
     @Override
@@ -236,8 +274,9 @@ public class ProgramItemView extends TextView {
     @Override
     protected int[] onCreateDrawableState(int extraSpace) {
         if (mTableEntry != null) {
-            int states[] = super.onCreateDrawableState(extraSpace
-                    + STATE_CURRENT_PROGRAM.length + STATE_TOO_WIDE.length);
+            int[] states =
+                    super.onCreateDrawableState(
+                            extraSpace + STATE_CURRENT_PROGRAM.length + STATE_TOO_WIDE.length);
             if (mTableEntry.isCurrentProgram()) {
                 mergeDrawableStates(states, STATE_CURRENT_PROGRAM);
             }
@@ -254,86 +293,168 @@ public class ProgramItemView extends TextView {
     }
 
     @SuppressLint("SwitchIntDef")
-    public void setValues(ProgramGuide programGuide, TableEntry entry, int selectedGenreId,
-            long fromUtcMillis, long toUtcMillis, String gapTitle) {
+    public void setValues(
+            ProgramGuide programGuide,
+            TableEntry entry,
+            int selectedGenreId,
+            long fromUtcMillis,
+            long toUtcMillis,
+            String gapTitle) {
         mProgramGuide = programGuide;
         mTableEntry = entry;
 
         ViewGroup.LayoutParams layoutParams = getLayoutParams();
-        layoutParams.width = entry.getWidth();
-        setLayoutParams(layoutParams);
-
-        String title = entry.program != null ? entry.program.getTitle() : null;
-        String episode = entry.program != null ?
-                entry.program.getEpisodeDisplayTitle(getContext()) : null;
-
-        TextAppearanceSpan titleStyle = sGrayedOutProgramTitleStyle;
-        TextAppearanceSpan episodeStyle = sGrayedOutEpisodeTitleStyle;
-
-        if (entry.getWidth() < sVisibleThreshold) {
-            setText(null);
-        } else {
-            if (entry.isGap()) {
-                title = gapTitle;
-                episode = null;
-            } else if (entry.hasGenre(selectedGenreId)) {
-                titleStyle = sProgramTitleStyle;
-                episodeStyle = sEpisodeTitleStyle;
-            }
-            if (TextUtils.isEmpty(title)) {
-                title = getResources().getString(R.string.program_title_for_no_information);
-            }
-            SpannableStringBuilder description = new SpannableStringBuilder();
-            description.append(title);
-            if (!TextUtils.isEmpty(episode)) {
-                description.append('\n');
-
-                // Add a 'zero-width joiner'/ZWJ in order to ensure we have the same line height for
-                // all lines. This is a non-printing character so it will not change the horizontal
-                // spacing however it will affect the line height. As we ensure the ZWJ has the same
-                // text style as the title it will make sure the line height is consistent.
-                description.append('\u200D');
-
-                int middle = description.length();
-                description.append(episode);
-
-                description.setSpan(titleStyle, 0, middle, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-                description.setSpan(episodeStyle, middle, description.length(),
-                        Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-            } else {
-                description.setSpan(titleStyle, 0, description.length(),
-                        Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-            }
-            setText(description);
-
-            // Sets recording icons if needed.
-            int iconResId = 0;
-            if (mTableEntry.scheduledRecording != null) {
-                if (mDvrManager.isConflicting(mTableEntry.scheduledRecording)) {
-                    iconResId = R.drawable.ic_warning_white_18dp;
-                } else {
-                    switch (mTableEntry.scheduledRecording.getState()) {
-                        case ScheduledRecording.STATE_RECORDING_NOT_STARTED:
-                            iconResId = R.drawable.ic_scheduled_recording;
-                            break;
-                        case ScheduledRecording.STATE_RECORDING_IN_PROGRESS:
-                            iconResId = R.drawable.ic_recording_program;
-                            break;
-                    }
-                }
-            }
-            setCompoundDrawablePadding(iconResId != 0 ? sCompoundDrawablePadding : 0);
-            setCompoundDrawablesRelativeWithIntrinsicBounds(0, 0, iconResId, 0);
+        if (layoutParams != null) {
+            // There is no layoutParams in the tests so we skip this
+            layoutParams.width = entry.getWidth();
+            setLayoutParams(layoutParams);
         }
+        String title = mTableEntry.program != null ? mTableEntry.program.getTitle() : null;
+        if (mTableEntry.isGap()) {
+            title = gapTitle;
+        }
+        if (TextUtils.isEmpty(title)) {
+            title = getResources().getString(R.string.program_title_for_no_information);
+        }
+        updateText(selectedGenreId, title);
+        updateIcons();
+        updateContentDescription(title);
         measure(MeasureSpec.UNSPECIFIED, MeasureSpec.UNSPECIFIED);
         mTextWidth = getMeasuredWidth() - getPaddingStart() - getPaddingEnd();
         // Maximum width for us to use a ripple
         mMaxWidthForRipple = GuideUtils.convertMillisToPixel(fromUtcMillis, toUtcMillis);
     }
 
-    /**
-     * Update programItemView to handle alignments of text.
-     */
+    private boolean isEntryWideEnough() {
+        return mTableEntry != null && mTableEntry.getWidth() >= sVisibleThreshold;
+    }
+
+    private void updateText(int selectedGenreId, String title) {
+        if (!isEntryWideEnough()) {
+            setText(null);
+            return;
+        }
+
+        String episode =
+                mTableEntry.program != null
+                        ? mTableEntry.program.getEpisodeDisplayTitle(getContext())
+                        : null;
+
+        TextAppearanceSpan titleStyle = sGrayedOutProgramTitleStyle;
+        TextAppearanceSpan episodeStyle = sGrayedOutEpisodeTitleStyle;
+        if (mTableEntry.isGap()) {
+
+            episode = null;
+        } else if (mTableEntry.hasGenre(selectedGenreId)) {
+            titleStyle = sProgramTitleStyle;
+            episodeStyle = sEpisodeTitleStyle;
+        }
+        SpannableStringBuilder description = new SpannableStringBuilder();
+        description.append(title);
+        if (!TextUtils.isEmpty(episode)) {
+            description.append('\n');
+
+            // Add a 'zero-width joiner'/ZWJ in order to ensure we have the same line height for
+            // all lines. This is a non-printing character so it will not change the horizontal
+            // spacing however it will affect the line height. As we ensure the ZWJ has the same
+            // text style as the title it will make sure the line height is consistent.
+            description.append('\u200D');
+
+            int middle = description.length();
+            description.append(episode);
+
+            description.setSpan(titleStyle, 0, middle, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+            description.setSpan(
+                    episodeStyle, middle, description.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        } else {
+            description.setSpan(
+                    titleStyle, 0, description.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        }
+        setText(description);
+    }
+
+    private void updateIcons() {
+        // Sets recording icons if needed.
+        int iconResId = 0;
+        if (isEntryWideEnough() && mTableEntry.scheduledRecording != null) {
+            if (mDvrManager.isConflicting(mTableEntry.scheduledRecording)) {
+                iconResId = R.drawable.ic_warning_white_18dp;
+            } else {
+                switch (mTableEntry.scheduledRecording.getState()) {
+                    case ScheduledRecording.STATE_RECORDING_NOT_STARTED:
+                        iconResId = R.drawable.ic_scheduled_recording;
+                        break;
+                    case ScheduledRecording.STATE_RECORDING_IN_PROGRESS:
+                        iconResId = R.drawable.ic_recording_program;
+                        break;
+                    default:
+                        // leave the iconResId=0
+                }
+            }
+        }
+        setCompoundDrawablePadding(iconResId != 0 ? sCompoundDrawablePadding : 0);
+        setCompoundDrawablesRelativeWithIntrinsicBounds(0, 0, iconResId, 0);
+    }
+
+    private void updateContentDescription(String title) {
+        // The content description includes extra information that is displayed on the detail view
+        Resources resources = getResources();
+        String description = title;
+        // TODO(b/73282818): only say channel name when the row changes
+        Channel channel = mChannelDataManager.getChannel(mTableEntry.channelId);
+        if (channel != null) {
+            description = channel.getDisplayNumber() + " " + description;
+        }
+        description +=
+                " "
+                        + Utils.getDurationString(
+                                getContext(),
+                                mClock,
+                                mTableEntry.entryStartUtcMillis,
+                                mTableEntry.entryEndUtcMillis,
+                                true);
+        Program program = mTableEntry.program;
+        if (program != null) {
+            String episodeDescription = program.getEpisodeContentDescription(getContext());
+            if (!TextUtils.isEmpty(episodeDescription)) {
+                description += " " + episodeDescription;
+            }
+        }
+        if (mTableEntry.scheduledRecording != null) {
+            if (mDvrManager.isConflicting(mTableEntry.scheduledRecording)) {
+                description +=
+                        " " + resources.getString(R.string.dvr_epg_program_recording_conflict);
+            } else {
+                switch (mTableEntry.scheduledRecording.getState()) {
+                    case ScheduledRecording.STATE_RECORDING_NOT_STARTED:
+                        description +=
+                                " "
+                                        + resources.getString(
+                                                R.string.dvr_epg_program_recording_scheduled);
+                        break;
+                    case ScheduledRecording.STATE_RECORDING_IN_PROGRESS:
+                        description +=
+                                " "
+                                        + resources.getString(
+                                                R.string.dvr_epg_program_recording_in_progress);
+                        break;
+                    default:
+                        // do nothing
+                }
+            }
+        }
+        if (mTableEntry.isBlocked()) {
+            description += " " + resources.getString(R.string.program_guide_content_locked);
+        } else if (program != null) {
+            String programDescription = program.getDescription();
+            if (!TextUtils.isEmpty(programDescription)) {
+                description += " " + programDescription;
+            }
+        }
+        setContentDescription(description);
+    }
+
+    /** Update programItemView to handle alignments of text. */
     public void updateVisibleArea() {
         View parentView = ((View) getParent());
         if (parentView == null) {
@@ -341,7 +462,7 @@ public class ProgramItemView extends TextView {
         }
         if (getLayoutDirection() == LAYOUT_DIRECTION_LTR) {
             layoutVisibleArea(parentView.getLeft() - getLeft(), getRight() - parentView.getRight());
-        } else  {
+        } else {
             layoutVisibleArea(getRight() - parentView.getRight(), parentView.getLeft() - getLeft());
         }
     }
@@ -349,16 +470,14 @@ public class ProgramItemView extends TextView {
     /**
      * Layout title and episode according to visible area.
      *
-     * Here's the spec.
-     *   1. Don't show text if it's shorter than 48dp.
-     *   2. Try showing whole text in visible area by placing and wrapping text,
-     *      but do not wrap text less than 30min.
-     *   3. Episode title is visible only if title isn't multi-line.
+     * <p>Here's the spec. 1. Don't show text if it's shorter than 48dp. 2. Try showing whole text
+     * in visible area by placing and wrapping text, but do not wrap text less than 30min. 3.
+     * Episode title is visible only if title isn't multi-line.
      *
      * @param startOffset Offset of the start position from the enclosing view's start position.
      * @param endOffset Offset of the end position from the enclosing view's end position.
      */
-     private void layoutVisibleArea(int startOffset, int endOffset) {
+    private void layoutVisibleArea(int startOffset, int endOffset) {
         int width = mTableEntry.getWidth();
         int startPadding = Math.max(0, startOffset);
         int endPadding = Math.max(0, endOffset);
@@ -388,8 +507,8 @@ public class ProgramItemView extends TextView {
         mTableEntry = null;
     }
 
-    private static int getProgress(long start, long end) {
-        long currentTime = System.currentTimeMillis();
+    private static int getProgress(Clock clock, long start, long end) {
+        long currentTime = clock.currentTimeMillis();
         if (currentTime <= start) {
             return 0;
         } else if (currentTime >= end) {
@@ -417,11 +536,15 @@ public class ProgramItemView extends TextView {
 
     private static int getStateCount(StateListDrawable stateListDrawable) {
         try {
-            Object stateCount = StateListDrawable.class.getDeclaredMethod("getStateCount")
-                    .invoke(stateListDrawable);
+            Object stateCount =
+                    StateListDrawable.class
+                            .getDeclaredMethod("getStateCount")
+                            .invoke(stateListDrawable);
             return (int) stateCount;
-        } catch (NoSuchMethodException|IllegalAccessException|IllegalArgumentException
-                |InvocationTargetException e) {
+        } catch (NoSuchMethodException
+                | IllegalAccessException
+                | IllegalArgumentException
+                | InvocationTargetException e) {
             Log.e(TAG, "Failed to call StateListDrawable.getStateCount()", e);
             return 0;
         }
@@ -429,12 +552,15 @@ public class ProgramItemView extends TextView {
 
     private static Drawable getStateDrawable(StateListDrawable stateListDrawable, int index) {
         try {
-            Object drawable = StateListDrawable.class
-                    .getDeclaredMethod("getStateDrawable", Integer.TYPE)
-                    .invoke(stateListDrawable, index);
+            Object drawable =
+                    StateListDrawable.class
+                            .getDeclaredMethod("getStateDrawable", Integer.TYPE)
+                            .invoke(stateListDrawable, index);
             return (Drawable) drawable;
-        } catch (NoSuchMethodException|IllegalAccessException|IllegalArgumentException
-                |InvocationTargetException e) {
+        } catch (NoSuchMethodException
+                | IllegalAccessException
+                | IllegalArgumentException
+                | InvocationTargetException e) {
             Log.e(TAG, "Failed to call StateListDrawable.getStateDrawable(" + index + ")", e);
             return null;
         }

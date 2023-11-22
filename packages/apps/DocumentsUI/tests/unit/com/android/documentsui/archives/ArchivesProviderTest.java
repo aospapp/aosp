@@ -28,11 +28,11 @@ import android.content.ContentResolver;
 import android.content.Context;
 import android.database.ContentObserver;
 import android.database.Cursor;
+import android.media.ExifInterface;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.ParcelFileDescriptor;
 import android.os.RemoteException;
-import android.os.SystemClock;
 import android.provider.DocumentsContract;
 import android.support.test.InstrumentationRegistry;
 import android.support.test.filters.MediumTest;
@@ -262,6 +262,37 @@ public class ArchivesProviderTest {
         // times out.
         assertFalse(latch.await(1, TimeUnit.SECONDS));
 
+        client.release();
+    }
+
+    @Test
+    public void testGetDocumentMetadata() throws InterruptedException, RemoteException {
+        final Uri sourceUri = DocumentsContract.buildDocumentUri(
+                ResourcesProvider.AUTHORITY, "images.zip");
+        final Uri archiveUri = ArchivesProvider.buildUriForArchive(sourceUri,
+                ParcelFileDescriptor.MODE_READ_ONLY);
+
+        final ContentResolver resolver = mContext.getContentResolver();
+        final ContentProviderClient client =
+                resolver.acquireUnstableContentProviderClient(archiveUri);
+
+        ArchivesProvider.acquireArchive(client, archiveUri);
+
+        Uri archivedImageUri = Uri.parse(
+                "content://com.android.documentsui.archives/document/content%3A%2F%2F"
+                + "com.android.documentsui.archives.resourcesprovider%2F"
+                + "document%2Fimages.zip%23268435456%23%2Ffreddy.jpg");
+
+        Bundle metadata = DocumentsContract.getDocumentMetadata(client, archivedImageUri);
+        assertNotNull(metadata);
+        Bundle exif = metadata.getBundle(DocumentsContract.METADATA_EXIF);
+        assertNotNull(exif);
+
+        assertEquals(3036, exif.getInt(ExifInterface.TAG_IMAGE_WIDTH));
+        assertEquals(4048, exif.getInt(ExifInterface.TAG_IMAGE_LENGTH));
+        assertEquals("Pixel", exif.getString(ExifInterface.TAG_MODEL));
+
+        ArchivesProvider.releaseArchive(client, archiveUri);
         client.release();
     }
 }

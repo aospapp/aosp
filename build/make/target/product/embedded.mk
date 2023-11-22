@@ -20,10 +20,13 @@
 PRODUCT_PACKAGES += \
     adb \
     adbd \
-    android.hardware.configstore@1.0-service \
+    usbd \
+    android.hardware.configstore@1.1-service \
     android.hidl.allocator@1.0-service \
     android.hidl.memory@1.0-impl \
+    android.hidl.memory@1.0-impl.vendor \
     atrace \
+    blank_screen \
     bootanimation \
     bootstat \
     charger \
@@ -48,6 +51,7 @@ PRODUCT_PACKAGES += \
     libbinder \
     libc \
     libc_malloc_debug \
+    libc_malloc_hooks \
     libcutils \
     libdl \
     libgui \
@@ -68,7 +72,6 @@ PRODUCT_PACKAGES += \
     linker \
     lmkd \
     logcat \
-    logwrapper \
     lshal \
     recovery \
     service \
@@ -81,25 +84,18 @@ PRODUCT_PACKAGES += \
     tzdatacheck \
     vndservice \
     vndservicemanager \
-    compatibility_matrix.xml \
-    manifest.xml \
-    system_manifest.xml \
-    system_compatibility_matrix.xml \
 
-# SELinux packages
+# VINTF data
 PRODUCT_PACKAGES += \
-    nonplat_mac_permissions.xml \
-    nonplat_property_contexts \
-    nonplat_seapp_contexts \
-    nonplat_service_contexts \
-    nonplat_hwservice_contexts \
-    plat_mac_permissions.xml \
-    plat_property_contexts \
-    plat_seapp_contexts \
-    plat_service_contexts \
-    plat_hwservice_contexts \
+    device_compatibility_matrix.xml \
+    device_manifest.xml \
+    framework_manifest.xml \
+    framework_compatibility_matrix.xml \
+
+# SELinux packages are added as dependencies of the selinux_policy
+# phony package.
+PRODUCT_PACKAGES += \
     selinux_policy \
-    vndservice_contexts
 
 # AID Generation for
 # <pwd.h> and <grp.h>
@@ -109,9 +105,14 @@ PRODUCT_PACKAGES += \
     fs_config_files \
     fs_config_dirs
 
+# If there are product-specific adb keys defined, install them on debuggable
+# builds.
+PRODUCT_PACKAGES_DEBUG += \
+    adb_keys
+
 # Ensure that this property is always defined so that bionic_systrace.cpp
 # can rely on it being initially set by init.
-PRODUCT_DEFAULT_PROPERTY_OVERRIDES += \
+PRODUCT_SYSTEM_DEFAULT_PROPERTIES += \
     debug.atrace.tags.enableflags=0
 
 PRODUCT_COPY_FILES += \

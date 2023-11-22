@@ -18,6 +18,7 @@
 
 pattern_locales := \
     as \
+    be \
     bg \
     bn \
     cu \
@@ -39,6 +40,7 @@ pattern_locales := \
     hu \
     hy \
     kn \
+    la \
     ml \
     mn-cyrl \
     mr \

@@ -25,7 +25,10 @@ import junit.framework.TestCase;
 import dalvik.system.PathClassLoader;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.Arrays;
+import java.util.List;
 import java.util.TreeMap;
 import java.util.function.Function;
 
@@ -124,6 +127,67 @@ public class ClassTest extends TestCase {
       } catch (NoSuchMethodException e) {
           fail("Got exception");
       }
+    }
+
+    public void test_getPrimitiveType_null() throws Throwable {
+        try {
+            getPrimitiveType(null);
+            fail();
+        } catch (NullPointerException expected) {
+            assertNull(expected.getMessage());
+        }
+    }
+
+    public void test_getPrimitiveType_invalid() throws Throwable {
+        List<String> invalidNames = Arrays.asList("", "java.lang.Object", "invalid",
+                "Boolean", "java.lang.Boolean", "java/lang/Boolean", "Ljava/lang/Boolean;");
+        for (String name : invalidNames) {
+            try {
+                getPrimitiveType(name);
+                fail("Invalid type should be rejected: " + name);
+            } catch (ClassNotFoundException expected) {
+                assertEquals(name, expected.getMessage());
+            }
+        }
+    }
+
+    public void test_getPrimitiveType_valid() throws Throwable {
+        checkPrimitiveType("boolean", boolean.class, Boolean.TYPE,
+            boolean[].class.getComponentType());
+        checkPrimitiveType("byte", byte.class, Byte.TYPE, byte[].class.getComponentType());
+        checkPrimitiveType("char", char.class, Character.TYPE, char[].class.getComponentType());
+        checkPrimitiveType("double", double.class, Double.TYPE, double[].class.getComponentType());
+        checkPrimitiveType("float", float.class, Float.TYPE, float[].class.getComponentType());
+        checkPrimitiveType("int", int.class, Integer.TYPE, int[].class.getComponentType());
+        checkPrimitiveType("long", long.class, Long.TYPE, long[].class.getComponentType());
+        checkPrimitiveType("short", short.class, Short.TYPE, short[].class.getComponentType());
+        checkPrimitiveType("void", void.class, Void.TYPE);
+    }
+
+    private static void checkPrimitiveType(String name, Class expected, Class... expectedEqual)
+            throws Throwable {
+        Class clazz = getPrimitiveType(name);
+        assertEquals(name, clazz.getName());
+        assertTrue(clazz.isPrimitive());
+        assertEquals(expected, clazz);
+        for (Class c : expectedEqual) {
+            assertEquals(expected, c);
+        }
+    }
+
+    /** Calls {@link Class#getPrimitiveClass(String)} via reflection. */
+    private static Class getPrimitiveType(String name) throws Throwable {
+        try {
+            Method method = Class.class.getDeclaredMethod("getPrimitiveClass", String.class);
+            method.setAccessible(true);
+            return (Class) method.invoke(null, name);
+        } catch (InvocationTargetException e) {
+            throw e.getTargetException();
+        } catch (Throwable unexpected) {
+            // no other kinds of throwables are expected to happen
+            fail(unexpected.toString());
+            return null;
+        }
     }
 
     public static class TestGetVirtualMethod_Super {

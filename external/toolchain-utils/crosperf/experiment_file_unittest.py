@@ -3,7 +3,6 @@
 # Copyright (c) 2011 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
-
 """The unittest of experiment_file."""
 from __future__ import print_function
 import StringIO
@@ -87,6 +86,7 @@ label: image2 {
 
 class ExperimentFileTest(unittest.TestCase):
   """The main class for Experiment File test."""
+
   def testLoadExperimentFile1(self):
     input_file = StringIO.StringIO(EXPERIMENT_FILE_1)
     experiment_file = ExperimentFile(input_file)

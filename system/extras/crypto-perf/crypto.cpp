@@ -121,7 +121,7 @@ int main(int argc, char **argv) {
     CPU_SET(cmd_data.cpu_to_lock, &cpuset);
     if (sched_setaffinity(0, sizeof(cpuset), &cpuset) != 0) {
 	perror("sched_setaffinity failed");
-	return false;
+	return 1;
     }
     gettimeofday(&begin_time, NULL);
     while (count < MAX_COUNT) {

@@ -18,14 +18,14 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/telecom_display_scrim"
+    android:background="@color/phone_theme_secondary"
     android:clipChildren="false" >
 
-    <com.android.car.view.PagedListView
+    <androidx.car.widget.PagedListView
         android:id="@+id/list_view"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_marginTop="@dimen/lens_header_height"
+        android:layout_marginTop="@dimen/car_app_bar_height"
         android:clipChildren="false"
-        app:showDivider="false" />
+        app:showPagedListViewDivider="false" />
 </FrameLayout>

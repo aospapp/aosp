@@ -105,6 +105,12 @@
 @   r12
 @   r11
 
+.equ    src_stride_offset,     104
+.equ    pred_stride_offset,    108
+.equ    out_stride_offset,     112
+.equ    zero_cols_offset,      116
+.equ    zero_rows_offset,      120
+
 .text
 .align 4
 
@@ -129,15 +135,10 @@ g_ai2_ihevc_trans_16_transpose_addr:
 ihevc_itrans_recon_16x16_a9q:
 
     stmfd       sp!,{r4-r12,lr}
-@   add             sp,sp,#40
-
-
-
-@   ldr         r8,[sp,#4]  @ prediction stride
-@   ldr         r7,[sp,#8]  @ destination stride
-    ldr         r6,[sp,#40]                 @ src stride
-    ldr         r12,[sp,#52]
-    ldr         r11,[sp,#56]
+    vpush       {d8  -  d15}
+    ldr         r6,[sp,#src_stride_offset]  @ src stride
+    ldr         r12,[sp,#zero_cols_offset]
+    ldr         r11,[sp,#zero_rows_offset]
 
 
 
@@ -661,8 +662,8 @@ skip_last12rows_kernel2:
 
     mov         r6,r7
 
-    ldr         r8,[sp,#44]                 @ prediction stride
-    ldr         r7,[sp,#48]                 @ destination stride
+    ldr         r8,[sp,#pred_stride_offset] @ prediction stride
+    ldr         r7,[sp,#out_stride_offset]  @ destination stride
 
     mov         r10,#16
 
@@ -1126,7 +1127,7 @@ skip_last8rows_stage2_kernel2:
     bne         second_stage
 
 
-@   sub         sp,sp,#40
+    vpop        {d8  -  d15}
     ldmfd       sp!,{r4-r12,pc}
 
 

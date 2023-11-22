@@ -16,37 +16,38 @@
   -->
 
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res/com.android.tv.settings"
-    android:title="@string/tts_settings_title">
+                  android:title="@string/tts_settings_title">
 
     <!-- The contents of this category are filled in by the Java code
          based on the list of available engines. -->
     <PreferenceCategory android:key="tts_engine_preference_section"
-        android:title="@string/tts_engine_preference_section_title" />
+                        android:layout="@layout/preference_category_compact_layout"
+                        android:title="@string/tts_engine_preference_section_title"/>
 
-    <Preference android:key="tts_engine_settings"
-        android:title="@string/system_accessibility_tts_engine_config"
-        android:fragment="com.android.tv.settings.system.TtsEngineSettingsFragment" />
+    <Preference android:fragment="com.android.tv.settings.system.TtsEngineSettingsFragment"
+                android:key="tts_engine_settings"
+                android:title="@string/system_accessibility_tts_engine_config"/>
 
     <PreferenceCategory android:key="tts_general_section"
-        android:title="@string/tts_general_section_title">
+                        android:layout="@layout/preference_category_compact_layout"
+                        android:title="@string/tts_general_section_title">
         <ListPreference
-            android:key="tts_default_rate"
-            android:title="@string/tts_default_rate_title"
-            android:summary="@string/tts_default_rate_summary"
-            android:persistent="false"
             android:entries="@array/tts_rate_entries"
-            android:entryValues="@array/tts_rate_values" />
+            android:entryValues="@array/tts_rate_values"
+            android:key="tts_default_rate"
+            android:persistent="true"
+            android:summary="@string/tts_default_rate_summary"
+            android:title="@string/tts_default_rate_title"/>
     </PreferenceCategory>
 
     <Preference android:key="tts_play_example"
-        android:persistent="false"
-        android:title="@string/tts_play_example_title"
-        android:summary="@string/tts_play_example_summary" />
+                android:persistent="true"
+                android:summary="@string/tts_play_example_summary"
+                android:title="@string/tts_play_example_title"/>
 
-    <Preference android:key="tts_status"
-        android:enabled="false"
-        android:shouldDisableView="false"
-        android:persistent="false"
-        android:title="@string/tts_status_title"/>
+    <Preference android:enabled="false"
+                android:key="tts_status"
+                android:persistent="true"
+                android:shouldDisableView="false"
+                android:title="@string/tts_status_title"/>
 </PreferenceScreen>

@@ -34,7 +34,7 @@ From the VIXL toplevel directory run:
 
     $ ./tools/generate_tests.py
 
-The script assumes that `clang-format-3.6` is in the current path. If it isn't,
+The script assumes that `clang-format-3.8` is in the current path. If it isn't,
 you can provide your own:
 
     $ ./tools/generate_tests.py --clang-format /patch/to/clang-format
@@ -381,13 +381,15 @@ pattern.
 
 The "type" field describes the kind of testing we want to do, these types are
 recognized by the generator and, at the moment, can be one of "simulator",
-"assembler" and "macro-assembler". Simulator tests will run each instruction and
-record the changes while assembler tests will only record the code buffer and
-never execute anything. MacroAssembler tests currently only generate code to
-check that the MacroAssembler does not crash; the output itself is not yet
-tested. Because you may want to generate more than one test of the same type, as
-we are doing in the example, we need a way to differentiate them. You may use
-the optional "name" field for this.
+"assembler", "macro-assembler" and "assembler-negative". Simulator tests will
+run each instruction and record the changes while assembler tests will only
+record the code buffer and never execute anything. MacroAssembler tests
+currently only generate code to check that the MacroAssembler does not crash;
+the output itself is not yet tested. Because you may want to generate more than
+one test of the same type, as we are doing in the example, we need a way to
+differentiate them. You may use the optional "name" field for this. Negative
+assembler tests check that the instructions described are not allowed, which
+means that an exception is raised when VIXL is built in negative testing mode.
 
 Finally, we describe how to test the instruction by declaring a list of test
 cases with the "test-cases" field.
@@ -615,7 +617,11 @@ import test_generator.parser
 
 
 default_config_files = [
-    'test/aarch32/config/rd-rn-rm-a32.json',
+    # A32 and T32 tests
+    'test/aarch32/config/rd-rn-rm.json',
+    'test/aarch32/config/cond-dt-drt-drd-drn-drm-float.json',
+
+    # A32 specific tests
     'test/aarch32/config/cond-rd-rn-operand-const-a32.json',
     'test/aarch32/config/cond-rd-rn-operand-rm-a32.json',
     'test/aarch32/config/cond-rd-rn-operand-rm-shift-amount-1to31-a32.json',
@@ -637,6 +643,7 @@ default_config_files = [
     'test/aarch32/config/cond-rd-memop-rs-shift-amount-1to31-a32.json',
     'test/aarch32/config/cond-rd-memop-rs-shift-amount-1to32-a32.json',
 
+    # T32 specific tests
     'test/aarch32/config/cond-rd-rn-t32.json',
     'test/aarch32/config/cond-rd-rn-rm-t32.json',
     'test/aarch32/config/cond-rdlow-rnlow-rmlow-t32.json',
@@ -659,7 +666,6 @@ default_config_files = [
     'test/aarch32/config/cond-rd-operand-rn-shift-rs-t32.json',
     'test/aarch32/config/cond-rd-operand-rn-ror-amount-t32.json',
     'test/aarch32/config/cond-rd-operand-rn-t32.json',
-    'test/aarch32/config/rd-rn-rm-t32.json',
 ]
 
 
@@ -668,6 +674,7 @@ template_files = {
     'simulator': "test/aarch32/config/template-simulator-aarch32.cc.in",
     'assembler': "test/aarch32/config/template-assembler-aarch32.cc.in",
     'macro-assembler': "test/aarch32/config/template-macro-assembler-aarch32.cc.in",
+    'assembler-negative': "test/aarch32/config/template-assembler-negative-aarch32.cc.in",
 }
 
 
@@ -680,7 +687,7 @@ def BuildOptions():
                       metavar='FILE',
                       help='Configuration files, each will generate a test file.')
   result.add_argument('--clang-format',
-                      default='clang-format-3.6', help='Path to clang-format.')
+                      default='clang-format-3.8', help='Path to clang-format.')
   result.add_argument('--jobs', '-j', type=int, metavar='N',
                       default=multiprocessing.cpu_count(),
                       help='Allow N jobs at once')
@@ -751,12 +758,15 @@ def GenerateTest(generator, clang_format, skip_traces):
       'check_print_expected': generator.CheckPrintExpected(),
       'check_print_found': generator.CheckPrintFound(),
 
+      'test_isa': generator.TestISA(),
       'test_name': generator.TestName(),
       'isa_guard': generator.GetIsaGuard()
     })
   # Create the test case and pipe it through `clang-format` before writing it.
   with open(
-      "test/aarch32/test-{}-{}.cc".format(generator.test_type, generator.test_name),
+      "test/aarch32/test-{}-{}-{}.cc".format(generator.test_type,
+                                             generator.test_name,
+                                             generator.test_isa),
       "w") as f:
     proc = subprocess.Popen([clang_format], stdin=subprocess.PIPE,
                             stdout=subprocess.PIPE)
@@ -765,8 +775,9 @@ def GenerateTest(generator, clang_format, skip_traces):
   if not skip_traces:
     # Write dummy trace files into 'test/aarch32/traces/'.
     generator.WriteEmptyTraces("test/aarch32/traces/")
-  print("Generated {} test for \"{}\".".format(generator.test_type, generator.test_name))
-
+  print("Generated {} {} test for \"{}\".".format(generator.test_isa.upper(),
+                                                  generator.test_type,
+                                                  generator.test_name))
 
 if __name__ == '__main__':
   args = BuildOptions()

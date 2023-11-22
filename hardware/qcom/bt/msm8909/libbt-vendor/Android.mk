@@ -62,8 +62,10 @@ LOCAL_SHARED_LIBRARIES := \
         liblog \
         libbtnv
 
+LOCAL_CFLAGS += -Wno-error
 LOCAL_MODULE := libbt-vendor
 LOCAL_CLANG := false
+LOCAL_CXX_STL := none
 LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE_CLASS := SHARED_LIBRARIES
 LOCAL_MODULE_OWNER := qcom

@@ -630,171 +630,14 @@ int ipp_find_media_size(const char *ipp_media_keyword, media_size_t *media_size)
     return -1;
 }
 
-/*
- * Return a freshly allocated string copied from another string
- */
-static char *substring(const char *string, int position, int length) {
-    char *pointer;
-    int c;
-    pointer = malloc(length + 1);
-    if (pointer == NULL) {
-        exit(EXIT_FAILURE);
-    }
-
-    for (c = 0; c < position - 1; c++) {
-        string++;
-    }
-
-    for (c = 0; c < length; c++) {
-        *(pointer + c) = *string;
-        string++;
-    }
-    *(pointer + c) = '\0';
-    return pointer;
-}
-
-/*
- * Parse and IPP media size and return dimensions in millimeters.
- * Format is region_name_#x#<unit> or format is custom_(min\max)_#x#<unit>
- */
-static int getMediaDimensions_mm(const char *mediaSize, media_dimension_mm_t *media_dimensions) {
-    char *tempMediaSize = NULL;
-    char *um;
-    char *buf = NULL; // custom
-    char *dim = NULL; // min
-    char *upper = NULL; // 8.5
-    const char t[2] = "_";
-    const char x[2] = "x";
-    char in[3] = "in";
-    double inch_to_mm = 25.4;
-
-    tempMediaSize = malloc(strlen(mediaSize) + 1);
-    if (tempMediaSize == NULL) {
-        exit(EXIT_FAILURE);
-    }
-    strcpy(tempMediaSize, mediaSize);
-    LOGD("getMediaDimensions_mm Start media:%s", tempMediaSize);
-
-    um = substring(mediaSize, strlen(tempMediaSize) - 1, 2);
-    LOGD("getMediaDimensions um=%s", um);
-
-    // fill in buf with what we need to work with
-    buf = strtok(tempMediaSize, t); // custom
-    while (buf != NULL) {
-        if (dim != NULL) {
-            free(dim);
-        }
-        dim = malloc(strlen(buf) + 1);
-        if (dim == NULL) {
-            exit(EXIT_FAILURE);
-        }
-        strcpy(dim, buf);
-        buf = strtok(NULL, t);
-    }
-
-    if (dim != NULL) {
-        LOGD("getMediaDimensions part2=%s", dim);
-        media_dimensions->Lower = atof(strtok(dim, x));
-        LOGD("getMediaDimensions lower=%g", media_dimensions->Lower);
-        upper = strtok(NULL, x);
-        if (upper != NULL) {
-            // Finally the upper bound
-            char *tempStr = substring(upper, 1, strlen(upper) - 2);
-            media_dimensions->Upper = atof(tempStr);
-            free(tempStr);
-
-            tempStr = substring(upper, 1, strlen(upper) - 2);
-            LOGD("getMediaDimensions part4=%s", tempStr);
-            free(tempStr);
-
-            LOGD("getMediaDimensions upper=%g", media_dimensions->Upper);
-            // finally make sure we are in mm
-            if (strcmp(um, in) == 0) {
-                LOGD("getMediaDimensions part5");
-                media_dimensions->Lower = media_dimensions->Lower * inch_to_mm;
-                media_dimensions->Upper = media_dimensions->Upper * inch_to_mm;
-            }
-
-            if (media_dimensions->Lower > 0 && media_dimensions->Upper > 0) {
-                double dTemp = 0;
-                if (media_dimensions->Lower > media_dimensions->Upper) {
-                    dTemp = media_dimensions->Lower;
-                    media_dimensions->Lower = media_dimensions->Upper;
-                    media_dimensions->Upper = dTemp;
-                }
-                LOGD("getMediaDimensions final lower=%g", media_dimensions->Lower);
-                LOGD("getMediaDimensions final upper=%g", media_dimensions->Upper);
-                free(tempMediaSize);
-                free(dim);
-                free(um);
-                return 1;
-            }
-        }
-        free(dim);
-    }
-    free(um);
-    free(tempMediaSize);
-    return 0;
-}
-
-void parse_getMediaSupported(ipp_t *response, media_supported_t *media_supported,
-        printer_capabilities_t *capabilities) {
+void parse_getMediaSupported(ipp_t *response, media_supported_t *media_supported) {
     int i;
     ipp_attribute_t *attrptr;
     int sizes_idx = 0;
-    char custom_min[] = "custom_min";
-    char custom_max[] = "custom_max";
-    bool apply_custom_min_max = true;
-    int iterate = 0;
-
-    char *optout_manufacture_list[7] = {"Brother", "Epson", "Fuji Xerox", "Konica Minolta",
-            "Kyocera", "Canon", "UTAX_TA"};
-    int manufacturerlist_size = (sizeof(optout_manufacture_list) /
-            sizeof(*optout_manufacture_list));
-
-    media_dimension_mm_t custom_min_dim;
-    media_dimension_mm_t custom_max_dim;
-    int rCustomMin = 0;
-    int rCustomMax = 0;
-    char *tempMediaSize = NULL;
-
-    char manufacturername_from_model[256];
     LOGD(" Entered getMediaSupported");
 
     media_size_t media_sizeTemp;
     int idx = 0;
-
-    // First check printer-device-id for manufacturer exception
-    if ((attrptr = ippFindAttribute(response, "printer-device-id", IPP_TAG_TEXT)) != NULL) {
-        strlcpy(capabilities->make, ippGetString(attrptr, 0, NULL), sizeof(capabilities->make));
-        LOGD("manufacturer_from_deviceid: %s", capabilities->make);
-        for (iterate = 0; iterate < manufacturerlist_size; iterate++) {
-            if (strcasestr(capabilities->make, optout_manufacture_list[iterate]) != NULL) {
-                LOGD("printer device id cmp: %s", strcasestr(capabilities->make,
-                        optout_manufacture_list[iterate]));
-                apply_custom_min_max = false;
-            }
-        }
-    }
-
-    // Second check printer-make-and-model for manufacturer exception
-    if (apply_custom_min_max) {
-        // Get manufacturer name using  printer-make-and-model
-        attrptr = ippFindAttribute(response, "printer-make-and-model", IPP_TAG_TEXT);
-        if (attrptr != NULL) {
-            strlcpy(manufacturername_from_model, ippGetString(attrptr, 0, NULL),
-                    sizeof(manufacturername_from_model));
-            LOGD("manufacturer_from_make_model: %s", manufacturername_from_model);
-            for (iterate = 0; iterate < manufacturerlist_size; iterate++) {
-                if (strcasestr(manufacturername_from_model, optout_manufacture_list[iterate]) !=
-                        NULL) {
-                    LOGD("printer make model cmp: %s", strcasestr(manufacturername_from_model,
-                                    optout_manufacture_list[iterate]));
-                    apply_custom_min_max = false;
-                }
-            }
-        }
-    }
 
     if ((attrptr = ippFindAttribute(response, "media-supported", IPP_TAG_KEYWORD)) != NULL) {
         LOGD("media-supported  found; number of values %d", ippGetCount(attrptr));
@@ -810,93 +653,9 @@ void parse_getMediaSupported(ipp_t *response, media_supported_t *media_supported
                 media_supported->idxKeywordTranTable[sizes_idx] = idx;
                 sizes_idx++;
             }
-
-            if (idx == -1) { // it might be a custom range
-                if (tempMediaSize != NULL) {
-                    free(tempMediaSize);
-                }
-                tempMediaSize = malloc(strlen(ippGetString(attrptr, i, NULL)) + 1);
-                if (tempMediaSize == NULL) {
-                    exit(EXIT_FAILURE);
-                }
-                strcpy(tempMediaSize, ippGetString(attrptr, i, NULL));
-                if (strstr(tempMediaSize, custom_min) != NULL) {
-                    rCustomMin = getMediaDimensions_mm(tempMediaSize, &custom_min_dim);
-                }
-                if (strstr(tempMediaSize, custom_max) != NULL) {
-                    rCustomMax = getMediaDimensions_mm(tempMediaSize, &custom_max_dim);
-                }
-            }
-        }
-        // if value equal to particular manufacture condition goes here
-        if (apply_custom_min_max) {
-            LOGD("*****apply custom range for this manufacture");
-            // Now add in custom sizes if there is a custom min max range
-            media_dimension_mm_t media_dim;
-            int rMediaDim = 0;
-            LOGD("rCustomMin:%d rCustomMax:%d", rCustomMin, rCustomMax);
-            if (rCustomMin > 0 && rCustomMax > 0) { // we have custom support
-                LOGD("CustomRange minLower:%g minUpper:%g maxLower:%g maxUpper:%g",
-                        custom_min_dim.Lower, custom_min_dim.Upper, custom_max_dim.Lower,
-                        custom_max_dim.Upper);
-                media_dim.Lower = 0;
-                media_dim.Upper = 0;
-                for (i = 0; i < SUPPORTED_MEDIA_SIZE_COUNT; i++) {
-                    int found;
-                    int j;
-                    found = 0;
-                    int sizes_idx_start = sizes_idx - 1;
-                    for (j = 0; j < sizes_idx_start; j++) {
-                        if (i == media_supported->idxKeywordTranTable[j]) {
-                            found = 1;
-                            break;
-                        }
-                    }
-                    if (found == 0) {
-                        // check custom
-                        if (tempMediaSize != NULL) {
-                            free(tempMediaSize);
-                        }
-                        tempMediaSize = malloc(strlen(SupportedMediaSizes[i].PWGName) + 1);
-                        if (tempMediaSize == NULL) {
-                            exit(EXIT_FAILURE);
-                        }
-                        strcpy(tempMediaSize, SupportedMediaSizes[i].PWGName);
-                        LOGD("NOT FOUND CHECKING CUSTOM:%s", tempMediaSize);
-                        rMediaDim = getMediaDimensions_mm(tempMediaSize, &media_dim);
-                        if (rMediaDim > 0) {
-                            LOGD("CustomRange minLower:%g minUpper:%g maxLower:%g maxUpper:%g"
-                                    "lower:%g upper:%g",
-                                    custom_min_dim.Lower, custom_min_dim.Upper,
-                                    custom_max_dim.Lower,
-                                    custom_max_dim.Upper, media_dim.Lower, media_dim.Upper);
-                            if (media_dim.Lower >= custom_min_dim.Lower &&
-                                    media_dim.Lower <= custom_max_dim.Lower
-                                    && media_dim.Upper >= custom_min_dim.Upper &&
-                                    media_dim.Upper <= custom_max_dim.Upper) {
-                                LOGD("Add Media Size %s!!", tempMediaSize);
-                                media_supported->media_size[sizes_idx] =
-                                        SupportedMediaSizes[i].media_size;
-                                media_supported->idxKeywordTranTable[sizes_idx] = i;
-                                sizes_idx++;
-                            }
-                        }
-                    }
-                }
-                if (tempMediaSize != NULL) {
-                    free(tempMediaSize);
-                    tempMediaSize = NULL;
-                }
-            }
-        } else {
-            LOGD("*****Dont apply custom range for this manufacture");
         }
     } else {
         LOGD("media-supported not found");
-    }
-
-    if (tempMediaSize) {
-        free(tempMediaSize);
     }
 }
 
@@ -954,7 +713,7 @@ void parse_printerAttributes(ipp_t *response, printer_capabilities_t *capabiliti
     for (i = 0; i <= PAGE_STATUS_MAX - 1; i++) {
         media_supported.media_size[i] = 0;
     }
-    parse_getMediaSupported(response, &media_supported, capabilities);
+    parse_getMediaSupported(response, &media_supported);
 
     parse_printerUris(response, capabilities);
 

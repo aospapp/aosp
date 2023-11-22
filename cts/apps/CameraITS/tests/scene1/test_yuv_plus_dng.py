@@ -27,8 +27,9 @@ def main():
         props = cam.get_camera_properties()
         its.caps.skip_unless(its.caps.raw(props) and
                              its.caps.read_3a(props))
+        mono_camera = its.caps.mono_camera(props)
 
-        cam.do_3a()
+        cam.do_3a(mono_camera=mono_camera)
 
         req = its.objects.auto_capture_request()
         max_dng_size = \

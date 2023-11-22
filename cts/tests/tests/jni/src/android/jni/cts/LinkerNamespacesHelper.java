@@ -16,22 +16,33 @@
 
 package android.jni.cts;
 
-import android.content.Context;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.io.FilenameFilter;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.support.test.InstrumentationRegistry;
 import dalvik.system.PathClassLoader;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.File;
-import java.io.FileReader;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-
 class LinkerNamespacesHelper {
+    private final static String PUBLIC_CONFIG_DIR = "/system/etc/";
+    private final static String PRODUCT_CONFIG_DIR = "/product/etc/";
+    private final static String SYSTEM_CONFIG_FILE = PUBLIC_CONFIG_DIR + "public.libraries.txt";
+    private final static Pattern EXTENSION_CONFIG_FILE_PATTERN = Pattern.compile(
+            "public\\.libraries-([A-Za-z0-9\\-_]+)\\.txt");
+    private final static Pattern EXTENSION_LIBRARY_FILE_PATTERN = Pattern.compile(
+            "lib[^.]+\\.([A-Za-z0-9\\-_]+)\\.so");
     private final static String VENDOR_CONFIG_FILE = "/vendor/etc/public.libraries.txt";
     private final static String[] PUBLIC_SYSTEM_LIBRARIES = {
         "libaaudio.so",
@@ -59,12 +70,29 @@ class LinkerNamespacesHelper {
         "libvulkan.so",
         "libz.so"
     };
+    // The grey-list.
+    private final static String[] PRIVATE_SYSTEM_LIBRARIES = {
+        "libandroid_runtime.so",
+        "libbinder.so",
+        "libcrypto.so",
+        "libcutils.so",
+        "libexpat.so",
+        "libgui.so",
+        "libmedia.so",
+        "libnativehelper.so",
+        "libskia.so",
+        "libssl.so",
+        "libstagefright.so",
+        "libsqlite.so",
+        "libui.so",
+        "libutils.so",
+        "libvorbisidec.so",
+    };
 
     private final static String WEBVIEW_PLAT_SUPPORT_LIB = "libwebviewchromium_plat_support.so";
 
-    public static String runAccessibilityTest() throws IOException {
-        List<String> vendorLibs = new ArrayList<>();
-        File file = new File(VENDOR_CONFIG_FILE);
+    private static List<String> readPublicLibrariesFile(File file) throws IOException {
+        List<String> libs = new ArrayList<>();
         if (file.exists()) {
             try (BufferedReader br = new BufferedReader(new FileReader(file))) {
                 String line;
@@ -73,12 +101,47 @@ class LinkerNamespacesHelper {
                     if (line.isEmpty() || line.startsWith("#")) {
                         continue;
                     }
-                    vendorLibs.add(line);
+                    libs.add(line);
                 }
             }
         }
+        return libs;
+    }
 
+    private static String readExtensionConfigFiles(String configDir, List<String> libs) throws IOException {
+        File[] configFiles = new File(configDir).listFiles(
+                new FilenameFilter() {
+                    public boolean accept(File dir, String name) {
+                        return EXTENSION_CONFIG_FILE_PATTERN.matcher(name).matches();
+                    }
+                });
+        if (configFiles == null) return null;
+
+        for (File configFile: configFiles) {
+            String fileName = configFile.toPath().getFileName().toString();
+            Matcher configMatcher = EXTENSION_CONFIG_FILE_PATTERN.matcher(fileName);
+            if (configMatcher.matches()) {
+                String companyName = configMatcher.group(1);
+                // a lib in public.libraries-acme.txt should be
+                // libFoo.acme.so
+                List<String> libNames = readPublicLibrariesFile(configFile);
+                for (String lib : libNames) {
+                    Matcher libMatcher = EXTENSION_LIBRARY_FILE_PATTERN.matcher(lib);
+                    if (libMatcher.matches() && libMatcher.group(1).equals(companyName)) {
+                        libs.add(lib);
+                    } else {
+                        return "Library \"" + lib + "\" in " + configFile.toString()
+                                + " must have company name " + companyName + " as suffix.";
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    public static String runAccessibilityTest() throws IOException {
         List<String> systemLibs = new ArrayList<>();
+
         Collections.addAll(systemLibs, PUBLIC_SYSTEM_LIBRARIES);
 
         if (InstrumentationRegistry.getContext().getPackageManager().
@@ -86,12 +149,45 @@ class LinkerNamespacesHelper {
             systemLibs.add(WEBVIEW_PLAT_SUPPORT_LIB);
         }
 
+        // Check if public.libraries.txt contains libs other than the
+        // public system libs (NDK libs).
+
+        List<String> oemLibs = new ArrayList<>();
+        String oemLibsError = readExtensionConfigFiles(PUBLIC_CONFIG_DIR, oemLibs);
+        if (oemLibsError != null) return oemLibsError;
+        // OEM libs that passed above tests are available to Android app via JNI
+        systemLibs.addAll(oemLibs);
+
+        // PRODUCT libs that passed are also available
+        List<String> productLibs = new ArrayList<>();
+        String productLibsError = readExtensionConfigFiles(PRODUCT_CONFIG_DIR, productLibs);
+        if (productLibsError != null) return productLibsError;
+
+        List<String> vendorLibs = readPublicLibrariesFile(new File(VENDOR_CONFIG_FILE));
+
+        // Make sure that the libs in grey-list are not exposed to apps. In fact, it
+        // would be better for us to run this check against all system libraries which
+        // are not NDK libs, but grey-list libs are enough for now since they have been
+        // the most popular violators.
+        Set<String> greyListLibs = new HashSet<>();
+        Collections.addAll(greyListLibs, PRIVATE_SYSTEM_LIBRARIES);
+        // Note: check for systemLibs isn't needed since we already checked
+        // /system/etc/public.libraries.txt against NDK and
+        // /system/etc/public.libraries-<company>.txt against lib<name>.<company>.so.
+        for (String lib : vendorLibs) {
+            if (greyListLibs.contains(lib)) {
+                return "Internal library \"" + lib + "\" must not be available to apps.";
+            }
+        }
+
         return runAccessibilityTestImpl(systemLibs.toArray(new String[systemLibs.size()]),
-                                        vendorLibs.toArray(new String[vendorLibs.size()]));
+                                        vendorLibs.toArray(new String[vendorLibs.size()]),
+                                        productLibs.toArray(new String[productLibs.size()]));
     }
 
     private static native String runAccessibilityTestImpl(String[] publicSystemLibs,
-                                                          String[] publicVendorLibs);
+                                                          String[] publicVendorLibs,
+                                                          String[] publicProductLibs);
 
     private static void invokeIncrementGlobal(Class<?> clazz) throws Exception {
         clazz.getMethod("incrementGlobal").invoke(null);

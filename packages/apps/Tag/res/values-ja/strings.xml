@@ -29,4 +29,5 @@
     <string name="mime_display_name" msgid="5926357152623764485">"NFCタグのデータ"</string>
     <string name="vcard_title" msgid="7122634780732426007">"^1の連絡先情報"</string>
     <string name="call_phone_permission_denied" msgid="8515177111984654599">"このアプリで発信するには、電話へのアクセス権限を付与する必要があります。タグの権限は [設定] で管理できます"</string>
+    <string name="external_storage_permission_denied" msgid="7665146019168376837">"このアプリでファイルにアクセスするには、外部ストレージへのアクセス権限を付与する必要があります。タグの権限は [設定] で管理できます。"</string>
 </resources>

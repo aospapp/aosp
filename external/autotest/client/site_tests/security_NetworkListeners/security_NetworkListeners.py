@@ -97,9 +97,7 @@ class security_NetworkListeners(test.test):
             arc_mode = 'enabled'
 
         with chrome.Chrome(arc_mode=arc_mode):
-            cmd = (r'lsof -n -i -sTCP:LISTEN | '
-                   # Workaround for crosbug.com/28235 using a dynamic port #.
-                   r'sed "s/\\(shill.*127.0.0.1\\):.*/\1:DYNAMIC LISTEN/g"')
+            cmd = (r'lsof -n -i -sTCP:LISTEN')
             cmd_output = utils.system_output(cmd, ignore_status=True,
                                              retain_output=True)
             # Use the [1:] slice to discard line 0, the lsof output header.

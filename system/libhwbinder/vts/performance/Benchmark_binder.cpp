@@ -36,7 +36,6 @@ using android::String16;
 
 // libbinder:
 using android::getService;
-using android::BnInterface;
 using android::defaultServiceManager;
 using android::ProcessState;
 using android::binder::Status;
@@ -63,6 +62,8 @@ class BenchmarkServiceAidl : public BnBenchmark {
 
 bool startServer() {
     BenchmarkServiceAidl *service = new BenchmarkServiceAidl();
+    // Tells the kernel to spawn zero threads, but startThreadPool() below will still spawn one.
+    ProcessState::self()->setThreadPoolMaxThreadCount(0);
     defaultServiceManager()->addService(String16(kServiceName),
                                         service);
     ProcessState::self()->startThreadPool();
@@ -99,7 +100,6 @@ int main(int argc, char* argv []) {
         // Child, start benchmarks
         ::benchmark::RunSpecifiedBenchmarks();
     } else {
-        int stat;
         startServer();
         while (true) {
             int stat, retval;

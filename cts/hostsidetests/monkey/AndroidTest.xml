@@ -14,6 +14,7 @@
      limitations under the License.
 -->
 <configuration description="Config for the CTS monkey host tests">
+    <option name="test-suite-tag" value="cts" />
     <option name="config-descriptor:metadata" key="component" value="misc" />
     <test class="com.android.compatibility.common.tradefed.testtype.JarHostTest" >
         <option name="jar" value="CtsMonkeyTestCases.jar" />

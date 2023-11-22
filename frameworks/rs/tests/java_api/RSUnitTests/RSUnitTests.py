@@ -34,10 +34,14 @@ import sys
 import os
 
 
-# List of API versions and the tests that correspond to the API version
-# The test name must correspond to a UT_{}.java file
+# List of platform API versions and the tests that pass on that version as
+# well as all newer versions (e.g. tests under 23 also pass on 24, 25, etc.).
+# The Slang version that correctly compiles the test is assumed to be the
+# same build tools version unless otherwise specified in
+# UNIT_TEST_TOOLS_VERSIONS below.
+# The test name must correspond to a UT_{}.java file.
 # e.g. alloc -> UT_alloc.java
-UNIT_TESTS = {
+UNIT_TEST_PLATFORM_VERSIONS = {
     19: [
         'alloc',
         'array_alloc',
@@ -71,7 +75,6 @@ UNIT_TESTS = {
         'rstypes',
         'sampler',
         'static_globals',
-        'struct_field_simple',
         'struct',
         'unsigned',
         'vector',
@@ -115,7 +118,20 @@ UNIT_TESTS = {
     26: [
         'blur_validation',
         'struct_field',
+        'struct_field_simple',
     ],
+}
+
+
+# List of tests and the build tools version they compile correctly on.
+# The build tools version is the earliest build tools version that can
+# compile it correctly, all versions newer than that version are also
+# expected to compile correctly.
+# Only to override the platform version in UNIT_TEST_PLATFORM_VERSIONS.
+# Only affects forward compatibility tests.
+# Useful for Slang regression fixes.
+UNIT_TEST_TOOLS_VERSIONS = {
+    'reflection3264': 26,
 }
 
 
@@ -182,7 +198,8 @@ def WriteMakeCopyright(gen_file):
   )
 
 
-def WriteMakeSrcFiles(gen_file, api_version, src_dir='src'):
+def WriteMakeSrcFiles(gen_file, api_version, src_dirs=['src'],
+                      use_build_tools_version=False):
   """Writes applicable LOCAL_SRC_FILES to gen_file.
 
   Includes everything under ./src, base UnitTest class, and test files.
@@ -191,28 +208,30 @@ def WriteMakeSrcFiles(gen_file, api_version, src_dir='src'):
   # Get all tests compatible with the build tool version
   # Compatible means build tool version >= test version
   tests = []
-  for test_version, tests_for_version in UNIT_TESTS.iteritems():
+  for test_version, tests_for_version in (
+      UNIT_TEST_PLATFORM_VERSIONS.iteritems()):
     if api_version >= test_version:
       tests.extend(tests_for_version)
+  if use_build_tools_version:
+    tests = [x for x in tests if (x not in UNIT_TEST_TOOLS_VERSIONS or
+                                  test_version >= UNIT_TEST_TOOLS_VERSIONS[x])]
   tests = sorted(tests)
   gen_file.write(
-      'LOCAL_SRC_FILES := $(call all-java-files-under,{})\\\n'
-      '    $(my_rs_unit_tests_path)/UnitTest.java\\\n'.format(
-          src_dir
-      )
+      'LOCAL_SRC_FILES :=\\\n'
+  )
+  for src_dir in src_dirs:
+    gen_file.write('    $(call all-java-files-under,{})\\\n'.format(src_dir))
+
+  gen_file.write(
+      '    $(my_rs_unit_tests_path)/UnitTest.java\\\n'.format(src_dir)
   )
   for test in tests:
     # Add the Java and corresponding rs files to LOCAL_SRC_FILES
     gen_file.write(
-        '    $(my_rs_unit_tests_path)/{}\\\n'
-        .format(JavaFileForUnitTest(test))
+        '    $(my_rs_unit_tests_path)/{}\\\n'.format(JavaFileForUnitTest(test))
     )
     for rs_file in RSFilesForUnitTest(test):
-      gen_file.write(
-          '    $(my_rs_unit_tests_path)/{}\\\n'.format(
-              rs_file
-          )
-      )
+      gen_file.write('    $(my_rs_unit_tests_path)/{}\\\n'.format(rs_file))
 
 
 # ---------- Java file generation ----------
@@ -288,7 +307,7 @@ def SupportLibGenTestDir():
 def AllUnitTestsExceptSupportLibOnly():
   """Returns a set of all unit tests except SUPPORT_LIB_ONLY_UNIT_TESTS."""
   ret = set()
-  for _, tests in UNIT_TESTS.iteritems():
+  for _, tests in UNIT_TEST_PLATFORM_VERSIONS.iteritems():
     ret.update(tests)
   return ret
 
@@ -419,6 +438,11 @@ def ForwardDirLocation(build_tool_version_name):
                       build_tool_version_name)
 
 
+def ForwardJavaSrcLocation(build_tool_version_name):
+  """Returns location of src directory for forward compatibility testing."""
+  return os.path.join(ForwardDirLocation(build_tool_version_name), 'src')
+
+
 def ForwardMakefileLocation(build_tool_version_name):
   """Returns the location of the Makefile for forward compatibility testing."""
   return os.path.join(ForwardDirLocation(build_tool_version_name),
@@ -431,7 +455,14 @@ def ForwardAndroidManifestLocation(build_tool_version_name):
                       'AndroidManifest.xml')
 
 
+def ForwardJavaApiVersionLocation(build_tool_version_name):
+  """Returns Java version file location for forward compatibility testing."""
+  return os.path.join(ForwardJavaSrcLocation(build_tool_version_name),
+                      'RSForwardVersion.java')
+
+
 def WriteForwardAndroidManifest(gen_file, package):
+  """Writes forward compatibility AndroidManifest.xml to gen_file."""
   gen_file.write(
       '<?xml version="1.0" encoding="utf-8"?>\n'
       '<!-- Copyright (C) 2017 The Android Open Source Project\n'
@@ -470,6 +501,17 @@ def WriteForwardAndroidManifest(gen_file, package):
   )
 
 
+def WriteForwardToolsVersion(gen_file, version):
+  """Writes forward compatibility Java class with tools version as String."""
+  WriteJavaCopyright(gen_file)
+  gen_file.write(
+      'package com.android.rs.testforward;\n\n'
+      'public class RSForwardVersion {{\n'
+      '    public static final String VERSION = "{}";\n'
+      '}}\n'.format(version)
+  )
+
+
 def WriteForwardMakefile(gen_file, build_tool_version, build_tool_version_name):
   """Writes the Makefile for forward compatibility testing.
 
@@ -501,7 +543,7 @@ def WriteForwardMakefile(gen_file, build_tool_version, build_tool_version_name):
           build_tool_version_name, make_target_name, build_tool_version_name
       )
   )
-  WriteMakeSrcFiles(gen_file, build_tool_version, '../src')
+  WriteMakeSrcFiles(gen_file, build_tool_version, ['../src', 'src'], True)
   gen_file.write(
       '\n'
       'include $(BUILD_PACKAGE)\n\n'
@@ -529,6 +571,7 @@ def GenerateForward():
     build_tool_version_name = BUILD_TOOL_VERSIONS[build_tool_version]
     if not os.path.exists(ForwardDirLocation(build_tool_version_name)):
       os.mkdir(ForwardDirLocation(build_tool_version_name))
+      os.mkdir(ForwardJavaSrcLocation(build_tool_version_name))
     with open(ForwardMakefileLocation(build_tool_version_name), 'w') as gen_file:
       WriteForwardMakefile(gen_file, build_tool_version, build_tool_version_name)
     print ('Generated forward compatibility Makefile at {}'
@@ -538,6 +581,10 @@ def GenerateForward():
       WriteForwardAndroidManifest(gen_file, package)
     print ('Generated forward compatibility AndroidManifest.xml at {}'
            .format(ForwardAndroidManifestLocation(build_tool_version_name)))
+    with open(ForwardJavaApiVersionLocation(build_tool_version_name), 'w') as gen_file:
+      WriteForwardToolsVersion(gen_file, build_tool_version)
+    print ('Generated forward compatibility RSForwardVersion.java at {}'
+           .format(ForwardJavaApiVersionLocation(build_tool_version_name)))
   with open(ForwardMakeTargetsLocation(), 'w') as gen_file:
     WriteForwardMakeTargets(gen_file)
   print ('Generated forward compatibility targets at {}'
@@ -589,9 +636,9 @@ def WriteBackwardJavaFile(gen_file, package, max_api_version=None):
           package
       )
   )
-  for version in sorted(UNIT_TESTS.keys()):
+  for version in sorted(UNIT_TEST_PLATFORM_VERSIONS.keys()):
     if max_api_version is None or version <= max_api_version:
-      tests = sorted(UNIT_TESTS[version])
+      tests = sorted(UNIT_TEST_PLATFORM_VERSIONS[version])
       gen_file.write(
           '\n\n        if (thisApiVersion >= {}) {{\n'.format(version)
       )

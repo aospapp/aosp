@@ -27,6 +27,7 @@ package org.apache.harmony.jpda.tests.jdwp.Method;
 
 import org.apache.harmony.jpda.tests.framework.jdwp.CommandPacket;
 import org.apache.harmony.jpda.tests.framework.jdwp.JDWPCommands;
+import org.apache.harmony.jpda.tests.framework.jdwp.Method;
 import org.apache.harmony.jpda.tests.framework.jdwp.ReplyPacket;
 import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
 
@@ -48,10 +49,10 @@ public class IsObsoleteTest extends JDWPMethodTestCase {
 
         long classID = getClassIDBySignature("L"+getDebuggeeClassName().replace('.', '/')+";");
 
-        MethodInfo[] methodsInfo = jdwpGetMethodsInfo(classID);
+        Method[] methodsInfo = debuggeeWrapper.vmMirror.getMethods(classID);
         assertFalse("Invalid number of methods", methodsInfo.length == 0);
 
-        for (MethodInfo methodInfo : methodsInfo) {
+        for (Method methodInfo : methodsInfo) {
             logWriter.println(methodInfo.toString());
 
             // get variable table for this class

@@ -20,6 +20,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.os.IBinder;
+import android.os.Process;
 import android.os.RemoteException;
 import android.platform.test.annotations.SecurityTest;
 import android.security.cts.IIsolatedService;
@@ -31,7 +32,6 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import junit.framework.Assert;
 
-@SecurityTest
 public class IsolatedProcessTest extends AndroidTestCase {
     static final String TAG = IsolatedProcessTest.class.getSimpleName();
 
@@ -74,6 +74,7 @@ public class IsolatedProcessTest extends AndroidTestCase {
                 mLatch.await(BIND_SERVICE_TIMEOUT, TimeUnit.MILLISECONDS));
     }
 
+    @SecurityTest
     public void testGetCachedServicesFromIsolatedService() throws RemoteException {
         String[] cachedServices = mService.getCachedSystemServices();
         for (String serviceName : cachedServices) {
@@ -82,12 +83,18 @@ public class IsolatedProcessTest extends AndroidTestCase {
         }
     }
 
+    @SecurityTest
     public void testGetServiceFromIsolatedService() throws RemoteException {
         for (String serviceName : RESTRICTED_SERVICES_TO_TEST) {
             IBinder service = mService.getSystemService(serviceName);
             Assert.assertNull(serviceName + " should not be accessible from an isolated process",
                     service);
         }
+    }
+
+    public void testGetProcessIsIsolated() throws RemoteException {
+        Assert.assertFalse(Process.isIsolated());
+        Assert.assertTrue(mService.getProcessIsIsolated());
     }
 
     @Override

@@ -19,6 +19,7 @@ package android.permission.cts;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
+import android.platform.test.annotations.AppModeFull;
 import android.test.AndroidTestCase;
 import android.test.suitebuilder.annotation.SmallTest;
 
@@ -78,6 +79,8 @@ public class PackageManagerRequiringPermissionsTest extends AndroidTestCase {
      * <p>Requires Permission:
      *   {@link android.Manifest.permission#SET_PREFERRED_APPLICATIONS}.
      */
+    @AppModeFull(reason = "clearPackagePreferredActivities always returns null for instant apps "
+            + "(it does not even check for permissions)")
     public void testClearPackagePreferredActivities() {
         try {
             mPackageManager.clearPackagePreferredActivities(null);

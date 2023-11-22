@@ -15,10 +15,10 @@
  */
 
 #include "Operations.h"
-#include "OperationsUtils.h"
+#include "CpuOperationUtils.h"
 
-#include "internal/optimized/depthwiseconv_float.h"
-#include "internal/optimized/depthwiseconv_uint8.h"
+#include "tensorflow/contrib/lite/kernels/internal/optimized/depthwiseconv_float.h"
+#include "tensorflow/contrib/lite/kernels/internal/optimized/depthwiseconv_uint8.h"
 
 namespace android {
 namespace nn {
@@ -45,17 +45,18 @@ bool depthwiseConvFloat32(const float* inputData, const Shape& inputShape,
 
     ANDROID_NN_DEPTHWISE_CONV_PARAMETERS
 
-    #define ANDROID_NN_DEPTHWISE_CONV(activation)                              \
-        optimized_ops::DepthwiseConv<FusedActivationFunctionType::activation>( \
-            inputData, convertShapeToDims(inputShape),                         \
-            filterData, convertShapeToDims(filterShape),                       \
-            biasData, convertShapeToDims(biasShape),                           \
-            stride_width, stride_height,                                       \
-            paddingWidth, paddingHeight, depth_multiplier,                     \
-            outputData, convertShapeToDims(outputShape))
+    float output_activation_min, output_activation_max;
+    CalculateActivationRangeFloat(activation, &output_activation_min,
+                                  &output_activation_max);
 
-    ANDROID_NN_MACRO_DISPATCH(ANDROID_NN_DEPTHWISE_CONV)
-    #undef ANDROID_NN_DEPTHWISE_CONV
+    tflite::optimized_ops::DepthwiseConv(
+            inputData, convertShapeToDims(inputShape),
+            filterData, convertShapeToDims(filterShape),
+            biasData, convertShapeToDims(biasShape),
+            stride_width, stride_height,
+            paddingWidth, paddingHeight, depth_multiplier,
+            output_activation_min, output_activation_max,
+            outputData, convertShapeToDims(outputShape));
 
     return true;
 }
@@ -92,19 +93,16 @@ bool depthwiseConvQuant8(const uint8_t* inputData, const Shape& inputShape,
     uint32_t inputOffset = -inputShape.offset;
     uint32_t filterOffset = -filterShape.offset;
     uint32_t outputOffset = outputShape.offset;
-    #define ANDROID_NN_DEPTHWISE_CONV(activation)                              \
-        optimized_ops::DepthwiseConv<FusedActivationFunctionType::activation>( \
-            inputData, convertShapeToDims(inputShape), inputOffset,            \
-            filterData, convertShapeToDims(filterShape), filterOffset,         \
-            biasData, convertShapeToDims(biasShape),                           \
-            stride_width, stride_height,                                       \
-            paddingWidth, paddingHeight, depth_multiplier,                     \
-            outputOffset, output_multiplier, output_shift,                     \
-            output_activation_min, output_activation_max,                      \
-            outputData, convertShapeToDims(outputShape))
 
-    ANDROID_NN_MACRO_DISPATCH(ANDROID_NN_DEPTHWISE_CONV)
-    #undef ANDROID_NN_DEPTHWISE_CONV
+    tflite::optimized_ops::DepthwiseConv(
+            inputData, convertShapeToDims(inputShape), inputOffset,
+            filterData, convertShapeToDims(filterShape), filterOffset,
+            biasData, convertShapeToDims(biasShape),
+            stride_width, stride_height,
+            paddingWidth, paddingHeight, depth_multiplier,
+            outputOffset, output_multiplier, output_shift,
+            output_activation_min, output_activation_max,
+            outputData, convertShapeToDims(outputShape));
 
     return true;
 }

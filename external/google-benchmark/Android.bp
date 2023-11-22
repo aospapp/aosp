@@ -26,6 +26,7 @@ cc_library_static {
     cflags: [
         "-DBENCHMARK_ANDROID",
         "-DHAVE_POSIX_REGEX",
+        "-Werror",
     ],
 
     srcs: [
@@ -40,6 +41,7 @@ cc_library_static {
         "src/json_reporter.cc",
         "src/reporter.cc",
         "src/sleep.cc",
+        "src/statistics.cc",
         "src/string_util.cc",
         "src/sysinfo.cc",
         "src/timers.cc",

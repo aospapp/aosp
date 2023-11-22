@@ -29,7 +29,6 @@ import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.ImageView.ScaleType;
 import android.widget.TextView;
-
 import com.android.tv.R;
 import com.android.tv.ui.TunableTvView.BlockScreenType;
 
@@ -62,10 +61,11 @@ public class BlockScreenView extends FrameLayout {
 
     public BlockScreenView(Context context, AttributeSet attrs, int defStyle) {
         super(context, attrs, defStyle);
-        mSpacingNormal = getResources().getDimensionPixelOffset(
-                R.dimen.tvview_block_vertical_spacing);
-        mSpacingShrunken = getResources().getDimensionPixelOffset(
-                R.dimen.shrunken_tvview_block_vertical_spacing);
+        mSpacingNormal =
+                getResources().getDimensionPixelOffset(R.dimen.tvview_block_vertical_spacing);
+        mSpacingShrunken =
+                getResources()
+                        .getDimensionPixelOffset(R.dimen.shrunken_tvview_block_vertical_spacing);
     }
 
     @Override
@@ -78,66 +78,60 @@ public class BlockScreenView extends FrameLayout {
         mSpace = findViewById(R.id.space);
         mBlockingInfoTextView = (TextView) findViewById(R.id.block_screen_text);
         mBackgroundImageView = (ImageView) findViewById(R.id.background_image);
-        mFadeOut = AnimatorInflater.loadAnimator(getContext(),
-                R.animator.tvview_block_screen_fade_out);
+        mFadeOut =
+                AnimatorInflater.loadAnimator(
+                        getContext(), R.animator.tvview_block_screen_fade_out);
         mFadeOut.setTarget(this);
-        mFadeOut.addListener(new AnimatorListenerAdapter() {
-            @Override
-            public void onAnimationEnd(Animator animation) {
-                setVisibility(GONE);
-                setBackgroundImage(null);
-                setAlpha(1.0f);
-            }
-        });
-        mInfoFadeIn = AnimatorInflater.loadAnimator(getContext(),
-                R.animator.tvview_block_screen_fade_in);
+        mFadeOut.addListener(
+                new AnimatorListenerAdapter() {
+                    @Override
+                    public void onAnimationEnd(Animator animation) {
+                        setVisibility(GONE);
+                        setBackgroundImage(null);
+                        setAlpha(1.0f);
+                    }
+                });
+        mInfoFadeIn =
+                AnimatorInflater.loadAnimator(getContext(), R.animator.tvview_block_screen_fade_in);
         mInfoFadeIn.setTarget(mContainerView);
-        mInfoFadeOut = AnimatorInflater.loadAnimator(getContext(),
-                R.animator.tvview_block_screen_fade_out);
+        mInfoFadeOut =
+                AnimatorInflater.loadAnimator(
+                        getContext(), R.animator.tvview_block_screen_fade_out);
         mInfoFadeOut.setTarget(mContainerView);
-        mInfoFadeOut.addListener(new AnimatorListenerAdapter() {
-            @Override
-            public void onAnimationEnd(Animator animation) {
-                mContainerView.setVisibility(GONE);
-            }
-        });
+        mInfoFadeOut.addListener(
+                new AnimatorListenerAdapter() {
+                    @Override
+                    public void onAnimationEnd(Animator animation) {
+                        mContainerView.setVisibility(GONE);
+                    }
+                });
     }
 
-    /**
-     * Sets the normal image.
-     */
+    /** Sets the normal image. */
     public void setIconImage(int resId) {
         mNormalLockIconView.setImageResource(resId);
         updateSpaceVisibility();
     }
 
-    /**
-     * Sets the scale type of the normal image.
-     */
+    /** Sets the scale type of the normal image. */
     public void setIconScaleType(ScaleType scaleType) {
         mNormalLockIconView.setScaleType(scaleType);
         updateSpaceVisibility();
     }
 
-    /**
-     * Show or hide the image of this view.
-     */
+    /** Show or hide the image of this view. */
     public void setIconVisibility(boolean visible) {
         mImageContainer.setVisibility(visible ? VISIBLE : GONE);
         updateSpaceVisibility();
     }
 
-    /**
-     * Sets the text message.
-     */
+    /** Sets the text message. */
     public void setInfoText(int resId) {
         mBlockingInfoTextView.setText(resId);
         updateSpaceVisibility();
     }
 
-    /**
-     * Sets the text message.
-     */
+    /** Sets the text message. */
     public void setInfoText(String text) {
         mBlockingInfoTextView.setText(text);
         updateSpaceVisibility();
@@ -175,19 +169,18 @@ public class BlockScreenView extends FrameLayout {
     }
 
     /**
-     * Changes the spacing between the image view and the text view according to the
-     * {@code blockScreenType}.
+     * Changes the spacing between the image view and the text view according to the {@code
+     * blockScreenType}.
      */
     public void setSpacing(@BlockScreenType int blockScreenType) {
         mSpace.getLayoutParams().height =
                 blockScreenType == TunableTvView.BLOCK_SCREEN_TYPE_SHRUNKEN_TV_VIEW
-                ? mSpacingShrunken : mSpacingNormal;
+                        ? mSpacingShrunken
+                        : mSpacingNormal;
         requestLayout();
     }
 
-    /**
-     * Changes the view layout according to the {@code blockScreenType}.
-     */
+    /** Changes the view layout according to the {@code blockScreenType}. */
     public void onBlockStatusChanged(@BlockScreenType int blockScreenType, boolean withAnimation) {
         if (!withAnimation) {
             switch (blockScreenType) {
@@ -235,25 +228,19 @@ public class BlockScreenView extends FrameLayout {
         updateSpaceVisibility();
     }
 
-    /**
-     * Adds a listener to the fade-in animation of info text and icons of the block screen.
-     */
+    /** Adds a listener to the fade-in animation of info text and icons of the block screen. */
     public void addInfoFadeInAnimationListener(AnimatorListener listener) {
         mInfoFadeIn.addListener(listener);
     }
 
-    /**
-     * Fades out the block screen.
-     */
+    /** Fades out the block screen. */
     public void fadeOut() {
         if (getVisibility() == VISIBLE && !mFadeOut.isStarted()) {
             mFadeOut.start();
         }
     }
 
-    /**
-     * Ends the currently running animations.
-     */
+    /** Ends the currently running animations. */
     public void endAnimations() {
         if (mFadeOut != null && mFadeOut.isRunning()) {
             mFadeOut.end();

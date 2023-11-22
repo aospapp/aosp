@@ -20,11 +20,27 @@
         <option name="cleanup-apks" value="true" />
         <option name="test-file-name" value="CtsIcuTestCases.apk" />
     </target_preparer>
+    <!-- ICU tests are split into shards to improve reliability, mostly due to unrecoverable heap
+         growth. http://b/62512577 -->
+    <!-- A shard containing a small set of tests that are run separately to avoid polluting the heap
+         of the MainTestShard. -->
     <test class="com.android.compatibility.testtype.LibcoreTest" >
         <option name="package" value="android.icu.cts" />
         <option name="instrumentation-arg" key="filter"
                 value="com.android.cts.core.runner.ExpectationBasedFilter" />
         <option name="core-expectation" value="/android/icu/cts/expectations/icu-known-failures.txt" />
-        <option name="runtime-hint" value="18m30s" />
+        <option name="runtime-hint" value="20s" />
+        <option name="include-annotation" value="android.icu.testsharding.HiMemTestShard" />
+        <option name="hidden-api-checks" value="false"/>
+    </test>
+    <!-- The shard used to run most ICU tests. -->
+    <test class="com.android.compatibility.testtype.LibcoreTest" >
+        <option name="package" value="android.icu.cts" />
+        <option name="instrumentation-arg" key="filter"
+                value="com.android.cts.core.runner.ExpectationBasedFilter" />
+        <option name="core-expectation" value="/android/icu/cts/expectations/icu-known-failures.txt" />
+        <option name="runtime-hint" value="18m" />
+        <option name="include-annotation" value="android.icu.testsharding.MainTestShard" />
+        <option name="hidden-api-checks" value="false"/>
     </test>
 </configuration>

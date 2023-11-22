@@ -19,11 +19,11 @@
 #include <hwbinder/BufferedTextOutput.h>
 #include <hwbinder/Debug.h>
 
-#include <utils/Atomic.h>
+#include <cutils/atomic.h>
+#include <cutils/threads.h>
 #include <utils/Log.h>
 #include <utils/RefBase.h>
 #include <utils/Vector.h>
-#include <cutils/threads.h>
 
 #include <hwbinder/Static.h>
 

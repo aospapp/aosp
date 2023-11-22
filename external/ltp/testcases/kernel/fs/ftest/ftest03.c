@@ -64,6 +64,7 @@
 #include <stdio.h>
 #include <inttypes.h>
 #include "test.h"
+#include "safe_macros.h"
 #include "libftest.h"
 
 char *TCID = "ftest03";
@@ -149,10 +150,7 @@ static void setup(void)
 
 	mkdir(fuss, 0755);
 
-	if (chdir(fuss) < 0) {
-		tst_brkm(TBROK, NULL, "\tCan't chdir(%s), error %d.", fuss,
-			 errno);
-	}
+	SAFE_CHDIR(NULL, fuss);
 
 	/*
 	 * Default values for run conditions.
@@ -181,13 +179,8 @@ static void runtest(void)
 		test_name[0] = 'a' + i;
 		test_name[1] = '\0';
 
-		fd = open(test_name, O_RDWR | O_CREAT | O_TRUNC, 0666);
-
-		if (fd < 0) {
-			tst_brkm(TBROK, NULL, "\tError %d creating %s/%s.",
-				 errno,
-				 fuss, test_name);
-		}
+		fd = SAFE_OPEN(NULL, test_name, O_RDWR | O_CREAT | O_TRUNC,
+			       0666);
 
 		if ((child = fork()) == 0) {
 			dotest(nchild, i, fd);

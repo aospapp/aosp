@@ -26,16 +26,15 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
-
 import com.android.tv.MainActivity;
 import com.android.tv.R;
-import com.android.tv.common.SharedPreferencesUtils;
-import com.android.tv.data.Channel;
+import com.android.tv.common.util.SharedPreferencesUtils;
+import com.android.tv.data.ChannelImpl;
 import com.android.tv.data.ChannelNumber;
+import com.android.tv.data.api.Channel;
 import com.android.tv.ui.OnRepeatedKeyInterceptListener;
 import com.android.tv.util.TvInputManagerHelper;
 import com.android.tv.util.Utils;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -55,7 +54,7 @@ public class CustomizeChannelListFragment extends SideFragment {
 
     private static Integer sGroupingType;
     private TvInputManagerHelper mInputManager;
-    private Channel.DefaultComparator mChannelComparator;
+    private ChannelImpl.DefaultComparator mChannelComparator;
     private boolean mGroupByFragmentRunning;
 
     private final List<Item> mItems = new ArrayList<>();
@@ -65,38 +64,46 @@ public class CustomizeChannelListFragment extends SideFragment {
         super.onCreate(savedInstanceState);
         mInputManager = getMainActivity().getTvInputManagerHelper();
         mInitialChannelId = getMainActivity().getCurrentChannelId();
-        mChannelComparator = new Channel.DefaultComparator(getActivity(), mInputManager);
+        mChannelComparator = new ChannelImpl.DefaultComparator(getActivity(), mInputManager);
         if (sGroupingType == null) {
-            SharedPreferences sharedPreferences = getContext().getSharedPreferences(
-                    SharedPreferencesUtils.SHARED_PREF_UI_SETTINGS, Context.MODE_PRIVATE);
+            SharedPreferences sharedPreferences =
+                    getContext()
+                            .getSharedPreferences(
+                                    SharedPreferencesUtils.SHARED_PREF_UI_SETTINGS,
+                                    Context.MODE_PRIVATE);
             sGroupingType = sharedPreferences.getInt(PREF_KEY_GROUP_SETTINGS, GROUP_BY_SOURCE);
         }
     }
 
     @Override
-    public View onCreateView(LayoutInflater inflater, ViewGroup container,
-            Bundle savedInstanceState) {
+    public View onCreateView(
+            LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         View view = super.onCreateView(inflater, container, savedInstanceState);
         VerticalGridView listView = (VerticalGridView) view.findViewById(R.id.side_panel_list);
-        listView.setOnKeyInterceptListener(new OnRepeatedKeyInterceptListener(listView) {
-            @Override
-            public boolean onInterceptKeyEvent(KeyEvent event) {
-                // In order to send tune operation once for continuous channel up/down events,
-                // we only call the moveToChannel method on ACTION_UP event of channel switch keys.
-                if (event.getAction() == KeyEvent.ACTION_UP) {
-                    switch (event.getKeyCode()) {
-                        case KeyEvent.KEYCODE_DPAD_UP:
-                        case KeyEvent.KEYCODE_DPAD_DOWN:
-                            if (mLastFocusedChannelId != Channel.INVALID_ID) {
-                                getMainActivity().tuneToChannel(
-                                        getChannelDataManager().getChannel(mLastFocusedChannelId));
+        listView.setOnKeyInterceptListener(
+                new OnRepeatedKeyInterceptListener(listView) {
+                    @Override
+                    public boolean onInterceptKeyEvent(KeyEvent event) {
+                        // In order to send tune operation once for continuous channel up/down
+                        // events,
+                        // we only call the moveToChannel method on ACTION_UP event of channel
+                        // switch keys.
+                        if (event.getAction() == KeyEvent.ACTION_UP) {
+                            switch (event.getKeyCode()) {
+                                case KeyEvent.KEYCODE_DPAD_UP:
+                                case KeyEvent.KEYCODE_DPAD_DOWN:
+                                    if (mLastFocusedChannelId != Channel.INVALID_ID) {
+                                        getMainActivity()
+                                                .tuneToChannel(
+                                                        getChannelDataManager()
+                                                                .getChannel(mLastFocusedChannelId));
+                                    }
+                                    break;
                             }
-                            break;
+                        }
+                        return super.onInterceptKeyEvent(event);
                     }
-                }
-                return super.onInterceptKeyEvent(event);
-            }
-        });
+                });
 
         if (!mGroupByFragmentRunning) {
             getMainActivity().startShrunkenTvView(false, true);
@@ -118,8 +125,8 @@ public class CustomizeChannelListFragment extends SideFragment {
             }
             mLastFocusedChannelId = mInitialChannelId;
             MainActivity tvActivity = getMainActivity();
-            if (mLastFocusedChannelId != Channel.INVALID_ID &&
-                    mLastFocusedChannelId != tvActivity.getCurrentChannelId()) {
+            if (mLastFocusedChannelId != Channel.INVALID_ID
+                    && mLastFocusedChannelId != tvActivity.getCurrentChannelId()) {
                 tvActivity.tuneToChannel(getChannelDataManager().getChannel(mLastFocusedChannelId));
             }
         }
@@ -184,11 +191,11 @@ public class CustomizeChannelListFragment extends SideFragment {
         Collections.sort(channels, mChannelComparator);
 
         String inputId = null;
-        for (Channel channel: channels) {
+        for (Channel channel : channels) {
             if (!channel.getInputId().equals(inputId)) {
                 inputId = channel.getInputId();
-                String inputLabel = Utils.loadLabel(getActivity(),
-                        mInputManager.getTvInputInfo(inputId));
+                String inputLabel =
+                        Utils.loadLabel(getActivity(), mInputManager.getTvInputInfo(inputId));
                 items.add(new DividerItem(inputLabel));
                 selectGroupItem = new SelectGroupItem();
                 items.add(selectGroupItem);
@@ -204,27 +211,32 @@ public class CustomizeChannelListFragment extends SideFragment {
         items.add(new GroupBySubMenu(getString(R.string.edit_channels_group_by_hd_sd)));
         SelectGroupItem selectGroupItem = null;
         ArrayList<Channel> channels = new ArrayList<>(mChannels);
-        Collections.sort(channels, new Comparator<Channel>() {
-            @Override
-            public int compare(Channel lhs, Channel rhs) {
-                boolean lhsHd = isHdChannel(lhs);
-                boolean rhsHd = isHdChannel(rhs);
-                if (lhsHd == rhsHd) {
-                    return ChannelNumber.compare(lhs.getDisplayNumber(), rhs.getDisplayNumber());
-                } else {
-                    return lhsHd ? -1 : 1;
-                }
-            }
-        });
+        Collections.sort(
+                channels,
+                new Comparator<Channel>() {
+                    @Override
+                    public int compare(Channel lhs, Channel rhs) {
+                        boolean lhsHd = isHdChannel(lhs);
+                        boolean rhsHd = isHdChannel(rhs);
+                        if (lhsHd == rhsHd) {
+                            return ChannelNumber.compare(
+                                    lhs.getDisplayNumber(), rhs.getDisplayNumber());
+                        } else {
+                            return lhsHd ? -1 : 1;
+                        }
+                    }
+                });
 
         Boolean isHdGroup = null;
-        for (Channel channel: channels) {
+        for (Channel channel : channels) {
             boolean isHd = isHdChannel(channel);
             if (isHdGroup == null || isHd != isHdGroup) {
                 isHdGroup = isHd;
-                items.add(new DividerItem(isHd
-                        ? getString(R.string.edit_channels_group_divider_for_hd)
-                        : getString(R.string.edit_channels_group_divider_for_sd)));
+                items.add(
+                        new DividerItem(
+                                isHd
+                                        ? getString(R.string.edit_channels_group_divider_for_hd)
+                                        : getString(R.string.edit_channels_group_divider_for_sd)));
                 selectGroupItem = new SelectGroupItem();
                 items.add(selectGroupItem);
             }
@@ -237,8 +249,8 @@ public class CustomizeChannelListFragment extends SideFragment {
 
     private static boolean isHdChannel(Channel channel) {
         String videoFormat = channel.getVideoFormat();
-        return videoFormat != null &&
-                (Channels.VIDEO_FORMAT_720P.equals(videoFormat)
+        return videoFormat != null
+                && (Channels.VIDEO_FORMAT_720P.equals(videoFormat)
                         || Channels.VIDEO_FORMAT_1080I.equals(videoFormat)
                         || Channels.VIDEO_FORMAT_1080P.equals(videoFormat)
                         || Channels.VIDEO_FORMAT_2160P.equals(videoFormat)
@@ -274,9 +286,11 @@ public class CustomizeChannelListFragment extends SideFragment {
                     break;
                 }
             }
-            mTextView.setText(getString(mAllChecked
-                    ? R.string.edit_channels_item_deselect_group
-                    : R.string.edit_channels_item_select_group));
+            mTextView.setText(
+                    getString(
+                            mAllChecked
+                                    ? R.string.edit_channels_item_deselect_group
+                                    : R.string.edit_channels_item_select_group));
         }
 
         @Override
@@ -290,9 +304,11 @@ public class CustomizeChannelListFragment extends SideFragment {
             }
             getChannelDataManager().notifyChannelBrowsableChanged();
             mAllChecked = !mAllChecked;
-            mTextView.setText(getString(mAllChecked
-                    ? R.string.edit_channels_item_deselect_group
-                    : R.string.edit_channels_item_select_group));
+            mTextView.setText(
+                    getString(
+                            mAllChecked
+                                    ? R.string.edit_channels_item_deselect_group
+                                    : R.string.edit_channels_item_select_group));
         }
     }
 
@@ -331,6 +347,7 @@ public class CustomizeChannelListFragment extends SideFragment {
         protected String getTitle() {
             return getString(R.string.side_panel_title_group_by);
         }
+
         @Override
         public String getTrackerLabel() {
             return GroupBySubMenu.TRACKER_LABEL;
@@ -339,40 +356,46 @@ public class CustomizeChannelListFragment extends SideFragment {
         @Override
         protected List<Item> getItemList() {
             List<Item> items = new ArrayList<>();
-            items.add(new RadioButtonItem(
-                    getString(R.string.edit_channels_group_by_sources)) {
-                @Override
-                protected void onSelected() {
-                    super.onSelected();
-                    setGroupingType(GROUP_BY_SOURCE);
-                    closeFragment();
-                }
-            });
-            items.add(new RadioButtonItem(
-                    getString(R.string.edit_channels_group_by_hd_sd)) {
-                @Override
-                protected void onSelected() {
-                    super.onSelected();
-                    setGroupingType(GROUP_BY_HD_SD);
-                    closeFragment();
-                }
-            });
+            items.add(
+                    new RadioButtonItem(getString(R.string.edit_channels_group_by_sources)) {
+                        @Override
+                        protected void onSelected() {
+                            super.onSelected();
+                            setGroupingType(GROUP_BY_SOURCE);
+                            closeFragment();
+                        }
+                    });
+            items.add(
+                    new RadioButtonItem(getString(R.string.edit_channels_group_by_hd_sd)) {
+                        @Override
+                        protected void onSelected() {
+                            super.onSelected();
+                            setGroupingType(GROUP_BY_HD_SD);
+                            closeFragment();
+                        }
+                    });
             ((RadioButtonItem) items.get(sGroupingType)).setChecked(true);
             return items;
         }
 
         private void setGroupingType(int groupingType) {
             sGroupingType = groupingType;
-            SharedPreferences sharedPreferences = getContext().getSharedPreferences(
-                    SharedPreferencesUtils.SHARED_PREF_UI_SETTINGS, Context.MODE_PRIVATE);
+            SharedPreferences sharedPreferences =
+                    getContext()
+                            .getSharedPreferences(
+                                    SharedPreferencesUtils.SHARED_PREF_UI_SETTINGS,
+                                    Context.MODE_PRIVATE);
             sharedPreferences.edit().putInt(PREF_KEY_GROUP_SETTINGS, groupingType).apply();
         }
     }
 
     private class GroupBySubMenu extends SubMenuItem {
         private static final String TRACKER_LABEL = "Group by";
+
         public GroupBySubMenu(String description) {
-            super(getString(R.string.edit_channels_item_group_by), description,
+            super(
+                    getString(R.string.edit_channels_item_group_by),
+                    description,
                     getMainActivity().getOverlayManager().getSideFragmentManager());
         }
 

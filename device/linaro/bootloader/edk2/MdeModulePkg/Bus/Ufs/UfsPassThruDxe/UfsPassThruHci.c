@@ -2,7 +2,7 @@
   UfsPassThruDxe driver is used to produce EFI_EXT_SCSI_PASS_THRU protocol interface
   for upper layer application to execute UFS-supported SCSI cmds.
 
-  Copyright (c) 2014 - 2015, Intel Corporation. All rights reserved.<BR>
+  Copyright (c) 2014 - 2016, Intel Corporation. All rights reserved.<BR>
   This program and the accompanying materials
   are licensed and made available under the terms and conditions of the BSD License
   which accompanies this distribution.  The full text of the license may be found at
@@ -400,6 +400,11 @@ UfsInitUtpPrdt (
   UINT8      *Remaining;
   UINTN      PrdtNumber;
 
+  if ((BufferSize & (BIT0 | BIT1)) != 0) {
+    BufferSize &= ~(BIT0 | BIT1);
+    DEBUG ((EFI_D_WARN, "UfsInitUtpPrdt: The BufferSize [%d] is not dword-aligned!\n", BufferSize));
+  }
+
   if (BufferSize == 0) {
     return EFI_SUCCESS;
   }
@@ -546,6 +551,7 @@ UfsCreateScsiCommandDesc (
   Trd->Int    = UFS_INTERRUPT_COMMAND;
   Trd->Dd     = DataDirection;
   Trd->Ct     = UFS_STORAGE_COMMAND_TYPE;
+  Trd->Ocs    = 0x0F;
   Trd->UcdBa  = (UINT32)RShiftU64 ((UINT64)CmdDescPhyAddr, 7);
   Trd->UcdBaU = (UINT32)RShiftU64 ((UINT64)CmdDescPhyAddr, 32);
   Trd->RuL    = (UINT16)DivU64x32 ((UINT64)ROUNDUP8 (sizeof (UTP_RESPONSE_UPIU)), sizeof (UINT32));
@@ -714,6 +720,7 @@ UfsCreateNopCommandDesc (
   Trd->Int    = UFS_INTERRUPT_COMMAND;
   Trd->Dd     = 0x00;
   Trd->Ct     = UFS_STORAGE_COMMAND_TYPE;
+  Trd->Ocs    = 0x0F;
   Trd->UcdBa  = (UINT32)RShiftU64 ((UINT64)CmdDescPhyAddr, 7);
   Trd->UcdBaU = (UINT32)RShiftU64 ((UINT64)CmdDescPhyAddr, 32);
   Trd->RuL    = (UINT16)DivU64x32 ((UINT64)ROUNDUP8 (sizeof (UTP_NOP_IN_UPIU)), sizeof (UINT32));
@@ -949,7 +956,7 @@ UfsRwDeviceDesc (
   //
   // Wait for the completion of the transfer request.
   //  
-  Status = UfsWaitMemSet (Private, UFS_HC_UTRLDBR_OFFSET, BIT0, 0, Packet.Timeout);
+  Status = UfsWaitMemSet (Private, UFS_HC_UTRLDBR_OFFSET, BIT0 << Slot, 0, Packet.Timeout);
   if (EFI_ERROR (Status)) {
     goto Exit;
   }
@@ -1072,7 +1079,7 @@ UfsRwAttributes (
   //
   // Wait for the completion of the transfer request.
   //  
-  Status = UfsWaitMemSet (Private, UFS_HC_UTRLDBR_OFFSET, BIT0, 0, Packet.Timeout);
+  Status = UfsWaitMemSet (Private, UFS_HC_UTRLDBR_OFFSET, BIT0 << Slot, 0, Packet.Timeout);
   if (EFI_ERROR (Status)) {
     goto Exit;
   }
@@ -1196,7 +1203,7 @@ UfsRwFlags (
   //
   // Wait for the completion of the transfer request.
   //  
-  Status = UfsWaitMemSet (Private, UFS_HC_UTRLDBR_OFFSET, BIT0, 0, Packet.Timeout);
+  Status = UfsWaitMemSet (Private, UFS_HC_UTRLDBR_OFFSET, BIT0 << Slot, 0, Packet.Timeout);
   if (EFI_ERROR (Status)) {
     goto Exit;
   }
@@ -1363,7 +1370,7 @@ UfsExecNopCmds (
   //
   // Wait for the completion of the transfer request.
   //  
-  Status = UfsWaitMemSet (Private, UFS_HC_UTRLDBR_OFFSET, BIT0, 0, UFS_TIMEOUT);
+  Status = UfsWaitMemSet (Private, UFS_HC_UTRLDBR_OFFSET, BIT0 << Slot, 0, UFS_TIMEOUT);
   if (EFI_ERROR (Status)) {
     goto Exit;
   }
@@ -1431,10 +1438,10 @@ UfsExecScsiCmds (
   UINTN                                MapLength;
   EDKII_UFS_HOST_CONTROLLER_PROTOCOL   *UfsHc;
   EDKII_UFS_HOST_CONTROLLER_OPERATION  Flag;
-  UFS_DATA_DIRECTION                   DataDirection;
   UTP_TR_PRD                           *PrdtBase;
   EFI_TPL                              OldTpl;
   UFS_PASS_THRU_TRANS_REQ              *TransReq;
+  UINTN                                TotalLen;
 
   TransReq       = AllocateZeroPool (sizeof (UFS_PASS_THRU_TRANS_REQ));
   if (TransReq == NULL) {
@@ -1469,24 +1476,23 @@ UfsExecScsiCmds (
   if (EFI_ERROR (Status)) {
     return Status;
   }
+  Status = UfsMmioWrite32 (Private, UFS_HC_UTRLBA_OFFSET, (UINT32)(UINTN)TransReq->Trd);
+
+  Status = UfsMmioWrite32 (Private, UFS_HC_UTRLBAU_OFFSET, (UINT32)RShiftU64 ((UINT64)TransReq->Trd, 32));
 
   TransReq->CmdDescSize = TransReq->Trd->PrdtO * sizeof (UINT32) + TransReq->Trd->PrdtL * sizeof (UTP_TR_PRD);
 
   if (Packet->DataDirection == EFI_EXT_SCSI_DATA_DIRECTION_READ) {
     DataBuf       = Packet->InDataBuffer;
     DataLen       = Packet->InTransferLength;
-    DataDirection = UfsDataIn;
     Flag          = EdkiiUfsHcOperationBusMasterWrite;
   } else {
     DataBuf       = Packet->OutDataBuffer;
     DataLen       = Packet->OutTransferLength;
-    DataDirection = UfsDataOut;
     Flag          = EdkiiUfsHcOperationBusMasterRead;
   }
 
-  if (DataLen == 0) {
-    DataDirection = UfsNoData;
-  } else {
+  if (DataLen != 0) {
     MapLength = DataLen;
     Status    = UfsHc->Map (
                          UfsHc,
@@ -1507,6 +1513,13 @@ UfsExecScsiCmds (
   PrdtBase = (UTP_TR_PRD*)((UINT8*)TransReq->CmdDescHost + ROUNDUP8 (sizeof (UTP_COMMAND_UPIU)) + ROUNDUP8 (sizeof (UTP_RESPONSE_UPIU)));
   ASSERT (PrdtBase != NULL);
   UfsInitUtpPrdt (PrdtBase, (VOID*)(UINTN)DataBufPhyAddr, DataLen);
+
+  //
+  // Flush & invalidate data cache since CmdDescHost is virtual address
+  // and Command UPIU is updated after Map ().
+  //
+  TotalLen = (TransReq->Trd->PrdtO << 2) + (TransReq->Trd->PrdtL << 2);
+  WriteBackInvalidateDataCacheRange (TransReq->CmdDescHost, TotalLen);
 
   //
   // Insert the async SCSI cmd to the Async I/O list
@@ -1534,7 +1547,7 @@ UfsExecScsiCmds (
   //
   // Wait for the completion of the transfer request.
   // 
-  Status = UfsWaitMemSet (Private, UFS_HC_UTRLDBR_OFFSET, BIT0, 0, Packet->Timeout);
+  Status = UfsWaitMemSet (Private, UFS_HC_UTRLDBR_OFFSET, BIT0 << TransReq->Slot, 0, Packet->Timeout);
   if (EFI_ERROR (Status)) {
     goto Exit;
   }
@@ -1749,9 +1762,9 @@ UfsAllocateAlignCommonBuffer (
   EDKII_UFS_HOST_CONTROLLER_PROTOCOL   *UfsHc;
 
   if ((Private->Capabilities & UFS_HC_CAP_64ADDR) == UFS_HC_CAP_64ADDR) {
-    Is32BitAddr = TRUE;
-  } else {
     Is32BitAddr = FALSE;
+  } else {
+    Is32BitAddr = TRUE;
   }
 
   UfsHc  = Private->UfsHostController;
@@ -2079,6 +2092,7 @@ UfsControllerInit (
   )
 {
   EFI_STATUS             Status;
+  EDKII_UFS_HOST_CONTROLLER_PROTOCOL *UfsHc;
 
   Status = UfsEnableHostController (Private);
   if (EFI_ERROR (Status)) {
@@ -2086,9 +2100,22 @@ UfsControllerInit (
     return Status;
   }
 
+  UfsHc  = Private->UfsHostController;
+  Status = UfsHc->PhyInit (UfsHc);
+  if (EFI_ERROR (Status)) {
+    DEBUG ((EFI_D_ERROR, "UfsControllerInit: Phy Init Fails, Status = %r\n", Status));
+    return Status;
+  }
+
   Status = UfsDeviceDetection (Private);
   if (EFI_ERROR (Status)) {
     DEBUG ((EFI_D_ERROR, "UfsControllerInit: Device Detection Fails, Status = %r\n", Status));
+    return Status;
+  }
+
+  Status = UfsHc->PhySetPowerMode (UfsHc);
+  if (EFI_ERROR (Status)) {
+    DEBUG ((EFI_D_ERROR, "UfsControllerInit: Phy Set Power Mode Fails, Status = %r\n", Status));
     return Status;
   }
 

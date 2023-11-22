@@ -30,11 +30,10 @@ import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.os.SystemClock;
+import android.platform.test.annotations.AppModeFull;
 import android.support.test.rule.ActivityTestRule;
 import android.support.test.runner.AndroidJUnit4;
 import android.view.InputDevice;
-import android.view.KeyCharacterMap;
-import android.view.KeyEvent;
 import android.view.MotionEvent;
 
 import org.junit.Rule;
@@ -44,8 +43,7 @@ import org.junit.runner.RunWith;
 /**
  * Test for light status bar.
  *
- * mmma cts/tests/tests/systemui
- * cts-tradefed run commandAndExit cts-dev --module CtsSystemUiTestCases --test android.systemui.cts.LightBarTests --disable-reboot --skip-device-info --skip-all-system-status-check --skip-preconditions
+ * atest CtsSystemUiTestCases:LightBarTests
  */
 @RunWith(AndroidJUnit4.class)
 public class LightBarTests extends LightBarTestBase {
@@ -53,6 +51,12 @@ public class LightBarTests extends LightBarTestBase {
     public static final String TAG = "LightStatusBarTests";
 
     private static final int WAIT_TIME = 2000;
+
+    /**
+     * Color may be slightly off-spec when resources are resized for lower densities. Use this error
+     * margin to accommodate for that when comparing colors.
+     */
+    private static final int COLOR_COMPONENT_ERROR_MARGIN = 10;
 
     private final String NOTIFICATION_TAG = "TEST_TAG";
     private final String NOTIFICATION_CHANNEL_ID = "test_channel";
@@ -64,25 +68,15 @@ public class LightBarTests extends LightBarTestBase {
             LightBarActivity.class);
 
     @Test
+    @AppModeFull // Instant apps cannot create notifications
     public void testLightStatusBarIcons() throws Throwable {
+        assumeHasColoredStatusBar();
+
         mNm = (NotificationManager) getInstrumentation().getContext()
                 .getSystemService(Context.NOTIFICATION_SERVICE);
         NotificationChannel channel1 = new NotificationChannel(NOTIFICATION_CHANNEL_ID,
                 NOTIFICATION_CHANNEL_ID, NotificationManager.IMPORTANCE_LOW);
         mNm.createNotificationChannel(channel1);
-
-        PackageManager pm = getInstrumentation().getContext().getPackageManager();
-        if (pm.hasSystemFeature(PackageManager.FEATURE_WATCH)
-                || pm.hasSystemFeature(PackageManager.FEATURE_TELEVISION)
-                || pm.hasSystemFeature(PackageManager.FEATURE_LEANBACK)) {
-            // No status bar on TVs and watches.
-            return;
-        }
-
-        if (!ActivityManager.isHighEndGfx()) {
-            // non-highEndGfx devices don't do colored system bars.
-            return;
-        }
 
         // post 10 notifications to ensure enough icons in the status bar
         for (int i = 0; i < 10; i++) {
@@ -108,23 +102,7 @@ public class LightBarTests extends LightBarTestBase {
 
     @Test
     public void testLightNavigationBar() throws Throwable {
-        PackageManager pm = getInstrumentation().getContext().getPackageManager();
-        if (pm.hasSystemFeature(PackageManager.FEATURE_WATCH)
-                || pm.hasSystemFeature(PackageManager.FEATURE_TELEVISION)
-                || pm.hasSystemFeature(PackageManager.FEATURE_LEANBACK)) {
-            // No navigation bar on TVs and watches.
-            return;
-        }
-
-        if (!ActivityManager.isHighEndGfx()) {
-            // non-highEndGfx devices don't do colored system bars.
-            return;
-        }
-
-        if (!hasVirtualNavigationBar()) {
-            // No virtual navigation bar, so no effect.
-            return;
-        }
+        assumeHasColorNavigationBar();
 
         requestLightBars(Color.RED /* background */);
         Thread.sleep(WAIT_TIME);
@@ -138,6 +116,19 @@ public class LightBarTests extends LightBarTestBase {
         Bitmap bitmap = takeNavigationBarScreenshot(mActivityRule.getActivity());
         Stats s = evaluateLightBarBitmap(bitmap, Color.RED /* background */);
         assertLightStats(bitmap, s);
+    }
+
+    @Test
+    public void testNavigationBarDivider() throws Throwable {
+        assumeHasColorNavigationBar();
+
+        mActivityRule.runOnUiThread(() -> {
+            mActivityRule.getActivity().getWindow().setNavigationBarColor(Color.RED);
+            mActivityRule.getActivity().getWindow().setNavigationBarDividerColor(Color.WHITE);
+        });
+        Thread.sleep(WAIT_TIME);
+
+        checkNavigationBarDivider(mActivityRule.getActivity(), Color.WHITE);
     }
 
     private void injectCanceledTap(int x, int y) {
@@ -155,12 +146,6 @@ public class LightBarTests extends LightBarTestBase {
         event.recycle();
     }
 
-    private boolean hasVirtualNavigationBar() {
-        boolean hasBackKey = KeyCharacterMap.deviceHasKey(KeyEvent.KEYCODE_BACK);
-        boolean hasHomeKey = KeyCharacterMap.deviceHasKey(KeyEvent.KEYCODE_HOME);
-        return !hasBackKey || !hasHomeKey;
-    }
-
     private void assertLightStats(Bitmap bitmap, Stats s) {
         boolean success = false;
         try {
@@ -168,7 +153,7 @@ public class LightBarTests extends LightBarTestBase {
                     (float) s.backgroundPixels / s.totalPixels(),
                     "Is the bar background showing correctly (solid red)?");
 
-            assertMoreThan("Not enough pixels colored as in the spec", 0.1f,
+            assertMoreThan("Not enough pixels colored as in the spec", 0.3f,
                     (float) s.iconPixels / s.foregroundPixels(),
                     "Are the bar icons colored according to the spec "
                             + "(60% black and 24% black)?");
@@ -258,7 +243,7 @@ public class LightBarTests extends LightBarTestBase {
             }
 
             // What we expect the icons to be colored according to the spec.
-            if (c == mixedIconColor || c == mixedIconPartialColor) {
+            if (isColorSame(c, mixedIconColor) || isColorSame(c, mixedIconPartialColor)) {
                 s.iconPixels++;
                 continue;
             }
@@ -297,5 +282,16 @@ public class LightBarTests extends LightBarTestBase {
                     fgRed + (255 - fgAlpha) * bgRed / 255,
                     fgGreen + (255 - fgAlpha) * bgGreen / 255,
                     fgBlue + (255 - fgAlpha) * bgBlue / 255);
+    }
+
+    /**
+     * Check if two colors' diff is in the error margin as defined in
+     * {@link #COLOR_COMPONENT_ERROR_MARGIN}.
+     */
+    private boolean isColorSame(int c1, int c2){
+        return Math.abs(Color.alpha(c1) - Color.alpha(c2)) < COLOR_COMPONENT_ERROR_MARGIN
+                && Math.abs(Color.red(c1) - Color.red(c2)) < COLOR_COMPONENT_ERROR_MARGIN
+                && Math.abs(Color.green(c1) - Color.green(c2)) < COLOR_COMPONENT_ERROR_MARGIN
+                && Math.abs(Color.blue(c1) - Color.blue(c2)) < COLOR_COMPONENT_ERROR_MARGIN;
     }
 }

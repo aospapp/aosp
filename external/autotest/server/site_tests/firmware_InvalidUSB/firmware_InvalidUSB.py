@@ -37,7 +37,10 @@ class firmware_InvalidUSB(FirmwareTest):
         self.servo.switch_usbkey('dut')
 
     def cleanup(self):
-        self.restore_usb()
+        try:
+            self.restore_usb()
+        except Exception as e:
+            logging.error("Caught exception: %s", str(e))
         super(firmware_InvalidUSB, self).cleanup()
 
     def run_once(self):
@@ -51,7 +54,7 @@ class firmware_InvalidUSB(FirmwareTest):
         self.switcher.reboot_to_mode(to_mode='rec', wait_for_dut_up=False)
         logging.info('Wait to ensure the USB image is unable to boot...')
         try:
-            self.switcher.wait_for_client()
+            self.switcher.wait_for_client(timeout=self.faft_config.usb_image_boot_timeout)
             raise error.TestFail('Should not boot from the invalid USB image.')
         except ConnectionError:
             logging.info(

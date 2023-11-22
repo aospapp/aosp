@@ -18,10 +18,11 @@
  ****************************************************************************/
 #ifndef _LINUX_NF_TABLES_H
 #define _LINUX_NF_TABLES_H
-#define NFT_TABLE_MAXNAMELEN 32
-#define NFT_CHAIN_MAXNAMELEN 32
-#define NFT_SET_MAXNAMELEN 32
-#define NFT_OBJ_MAXNAMELEN 32
+#define NFT_NAME_MAXLEN 256
+#define NFT_TABLE_MAXNAMELEN NFT_NAME_MAXLEN
+#define NFT_CHAIN_MAXNAMELEN NFT_NAME_MAXLEN
+#define NFT_SET_MAXNAMELEN NFT_NAME_MAXLEN
+#define NFT_OBJ_MAXNAMELEN NFT_NAME_MAXLEN
 #define NFT_USERDATA_MAXLEN 256
 enum nft_registers {
   NFT_REG_VERDICT,
@@ -131,6 +132,7 @@ enum nft_rule_attributes {
   NFTA_RULE_POSITION,
   NFTA_RULE_USERDATA,
   NFTA_RULE_PAD,
+  NFTA_RULE_ID,
   __NFTA_RULE_MAX
 };
 #define NFTA_RULE_MAX (__NFTA_RULE_MAX - 1)
@@ -356,12 +358,24 @@ enum nft_payload_attributes {
   __NFTA_PAYLOAD_MAX
 };
 #define NFTA_PAYLOAD_MAX (__NFTA_PAYLOAD_MAX - 1)
+enum nft_exthdr_flags {
+  NFT_EXTHDR_F_PRESENT = (1 << 0),
+};
+enum nft_exthdr_op {
+  NFT_EXTHDR_OP_IPV6,
+  NFT_EXTHDR_OP_TCPOPT,
+  __NFT_EXTHDR_OP_MAX
+};
+#define NFT_EXTHDR_OP_MAX (__NFT_EXTHDR_OP_MAX - 1)
 enum nft_exthdr_attributes {
   NFTA_EXTHDR_UNSPEC,
   NFTA_EXTHDR_DREG,
   NFTA_EXTHDR_TYPE,
   NFTA_EXTHDR_OFFSET,
   NFTA_EXTHDR_LEN,
+  NFTA_EXTHDR_FLAGS,
+  NFTA_EXTHDR_OP,
+  NFTA_EXTHDR_SREG,
   __NFTA_EXTHDR_MAX
 };
 #define NFTA_EXTHDR_MAX (__NFTA_EXTHDR_MAX - 1)
@@ -396,6 +410,11 @@ enum nft_rt_keys {
   NFT_RT_CLASSID,
   NFT_RT_NEXTHOP4,
   NFT_RT_NEXTHOP6,
+  NFT_RT_TCPMSS,
+};
+enum nft_hash_types {
+  NFT_HASH_JENKINS,
+  NFT_HASH_SYM,
 };
 enum nft_hash_attributes {
   NFTA_HASH_UNSPEC,
@@ -405,6 +424,7 @@ enum nft_hash_attributes {
   NFTA_HASH_MODULUS,
   NFTA_HASH_SEED,
   NFTA_HASH_OFFSET,
+  NFTA_HASH_TYPE,
   __NFTA_HASH_MAX,
 };
 #define NFTA_HASH_MAX (__NFTA_HASH_MAX - 1)
@@ -440,6 +460,9 @@ enum nft_ct_keys {
   NFT_CT_LABELS,
   NFT_CT_PKTS,
   NFT_CT_BYTES,
+  NFT_CT_AVGPKT,
+  NFT_CT_ZONE,
+  NFT_CT_EVENTMASK,
 };
 enum nft_ct_attributes {
   NFTA_CT_UNSPEC,
@@ -590,6 +613,8 @@ enum nft_objref_attributes {
 enum nft_gen_attributes {
   NFTA_GEN_UNSPEC,
   NFTA_GEN_ID,
+  NFTA_GEN_PROC_PID,
+  NFTA_GEN_PROC_NAME,
   __NFTA_GEN_MAX
 };
 #define NFTA_GEN_MAX (__NFTA_GEN_MAX - 1)
@@ -615,11 +640,22 @@ enum nft_fib_flags {
   NFTA_FIB_F_MARK = 1 << 2,
   NFTA_FIB_F_IIF = 1 << 3,
   NFTA_FIB_F_OIF = 1 << 4,
+  NFTA_FIB_F_PRESENT = 1 << 5,
 };
+enum nft_ct_helper_attributes {
+  NFTA_CT_HELPER_UNSPEC,
+  NFTA_CT_HELPER_NAME,
+  NFTA_CT_HELPER_L3PROTO,
+  NFTA_CT_HELPER_L4PROTO,
+  __NFTA_CT_HELPER_MAX,
+};
+#define NFTA_CT_HELPER_MAX (__NFTA_CT_HELPER_MAX - 1)
 #define NFT_OBJECT_UNSPEC 0
 #define NFT_OBJECT_COUNTER 1
 #define NFT_OBJECT_QUOTA 2
-#define __NFT_OBJECT_MAX 3
+#define NFT_OBJECT_CT_HELPER 3
+#define NFT_OBJECT_LIMIT 4
+#define __NFT_OBJECT_MAX 5
 #define NFT_OBJECT_MAX (__NFT_OBJECT_MAX - 1)
 enum nft_object_attributes {
   NFTA_OBJ_UNSPEC,

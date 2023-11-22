@@ -33,6 +33,8 @@ extern int register_android_os_cts_SeccompTest(JNIEnv*);
 
 extern int register_android_os_cts_SharedMemoryTest(JNIEnv*);
 
+extern int register_android_os_cts_SPMITest(JNIEnv *);
+
 jint JNI_OnLoad(JavaVM *vm, void *reserved) {
     JNIEnv *env = NULL;
 
@@ -67,6 +69,10 @@ jint JNI_OnLoad(JavaVM *vm, void *reserved) {
     if (register_android_os_cts_SharedMemoryTest(env)) {
         return JNI_ERR;
     }
+
+   if (register_android_os_cts_SPMITest(env)) {
+       return JNI_ERR;
+   }
 
     return JNI_VERSION_1_4;
 }

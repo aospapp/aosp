@@ -17,7 +17,6 @@
 package com.android.tv.common;
 
 import android.util.Log;
-
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
@@ -25,16 +24,15 @@ import java.util.List;
 /**
  * Lazy loaded boolean system property.
  *
- * <p>Set with  <code>adb shell setprop <em>key</em> <em>value</em></code> where:
- * Values 'n', 'no', '0', 'false' or 'off' are considered false.
- * Values 'y', 'yes', '1', 'true' or 'on' are considered true.
- * (case sensitive). See <a href=
+ * <p>Set with <code>adb shell setprop <em>key</em> <em>value</em></code> where: Values 'n', 'no',
+ * '0', 'false' or 'off' are considered false. Values 'y', 'yes', '1', 'true' or 'on' are considered
+ * true. (case sensitive). See <a href=
  * "https://android.googlesource.com/platform/frameworks/base/+/master/core/java/android/os/SystemProperties.java"
  * >android.os.SystemProperties.getBoolean</a>.
  */
 public class BooleanSystemProperty {
-    private final static String TAG = "BooleanSystemProperty";
-    private final static boolean DEBUG = false;
+    private static final String TAG = "BooleanSystemProperty";
+    private static final boolean DEBUG = false;
     private static final List<BooleanSystemProperty> ALL_PROPERTIES = new ArrayList<>();
     private final boolean mDefaultValue;
     private final String mKey;
@@ -78,7 +76,7 @@ public class BooleanSystemProperty {
     }
 
     /**
-     * Clears the cached value.  The next call to getValue will check {@code
+     * Clears the cached value. The next call to getValue will check {@code
      * android.os.SystemProperties}.
      */
     public void reset() {
@@ -88,7 +86,7 @@ public class BooleanSystemProperty {
     /**
      * Returns the value of the system property.
      *
-     * <p>If the value is cached  get the value from {@code android.os.SystemProperties} with the
+     * <p>If the value is cached get the value from {@code android.os.SystemProperties} with the
      * default set in the constructor.
      */
     public boolean getValue() {

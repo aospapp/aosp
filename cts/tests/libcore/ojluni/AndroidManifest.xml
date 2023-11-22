@@ -21,6 +21,9 @@
     <!-- important: instrument another package which actually contains AJUR -->
     <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
                      android:targetPackage="android.libcore.runner"
-                     android:label="CTS Libcore OJ test cases" />
+                     android:label="CTS Libcore OJ test cases">
+        <meta-data android:name="listener"
+                   android:value="com.android.cts.runner.CtsTestRunListener" />
+    </instrumentation>
 
 </manifest>

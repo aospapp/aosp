@@ -127,3 +127,25 @@ class CrosInternalScreenCapturer(object):
         """
         logging.info('Capturing the internal screen on CrOS...')
         return self._display_facade.capture_internal_screen()
+
+
+class CrosCalibrationImageCapturer(object):
+    """A class to capture the calibration image on Chrome OS.
+
+    Calling its member method capture() captures the image.
+
+    """
+    TAG = 'Calibration'
+
+    def __init__(self, display_facade):
+        """Initializes the CrosCalibrationImageCapturer objects."""
+        self._display_facade = display_facade
+
+
+    def capture(self):
+        """Captures the screen.
+
+        @return An Image object.
+        """
+        logging.info('Capturing the calibration image on CrOS...')
+        return self._display_facade.capture_calibration_image()

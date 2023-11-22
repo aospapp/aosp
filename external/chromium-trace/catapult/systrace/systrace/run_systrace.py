@@ -43,12 +43,13 @@ from systrace import systrace_runner
 from systrace import util
 from systrace.tracing_agents import atrace_agent
 from systrace.tracing_agents import atrace_from_file_agent
+from systrace.tracing_agents import atrace_process_dump
 from systrace.tracing_agents import battor_trace_agent
 from systrace.tracing_agents import ftrace_agent
 from systrace.tracing_agents import walt_agent
 
 
-ALL_MODULES = [atrace_agent, atrace_from_file_agent,
+ALL_MODULES = [atrace_agent, atrace_from_file_agent, atrace_process_dump,
                battor_trace_agent, ftrace_agent, walt_agent]
 
 
@@ -80,7 +81,11 @@ def parse_options(argv):
   options, categories = parser.parse_args(argv[1:])
 
   if options.output_file is None:
-    options.output_file = 'trace.json' if options.write_json else 'trace.html'
+    base = 'trace'
+    if options.from_file is not None:
+      base = os.path.splitext(options.from_file)[0]
+    suffix = '.json' if options.write_json else '.html'
+    options.output_file = base + suffix
 
   if options.link_assets or options.asset_dir != 'trace-viewer':
     parser.error('--link-assets and --asset-dir are deprecated.')

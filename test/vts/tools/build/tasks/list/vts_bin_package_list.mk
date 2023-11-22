@@ -19,3 +19,9 @@ vts_bin_packages := \
   vts_hal_replayer \
   vts_shell_driver \
   vts_profiling_configure \
+  vts_coverage_configure \
+  vts_testability_checker \
+
+# Extra apk utils for VTS framework.
+vts_bin_packages += \
+    WifiUtil \

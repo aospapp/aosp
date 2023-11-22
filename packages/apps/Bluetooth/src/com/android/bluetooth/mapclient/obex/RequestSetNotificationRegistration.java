@@ -29,7 +29,7 @@ final class RequestSetNotificationRegistration extends Request {
 
     private final boolean mStatus;
 
-    public RequestSetNotificationRegistration(boolean status) {
+    RequestSetNotificationRegistration(boolean status) {
         mStatus = status;
 
         mHeaderSet.setHeader(HeaderSet.TYPE, TYPE);

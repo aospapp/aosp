@@ -15,12 +15,15 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="android.media.session.cts">
+    package="android.media.session.cts"
+    android:targetSandboxVersion="2">
 
     <uses-sdk android:minSdkVersion="26"/>
 
     <application
         android:testOnly="true">
+        <uses-library android:name="android.test.runner" />
+
         <service
             android:name=".MediaSessionManagerTest"
             android:label="MediaSessionManagerTest"

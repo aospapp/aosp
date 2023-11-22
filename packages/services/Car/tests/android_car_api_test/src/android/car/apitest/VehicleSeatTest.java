@@ -15,8 +15,7 @@
  */
 package android.car.apitest;
 
-import android.car.VehicleSeat;
-import android.hardware.automotive.vehicle.V2_0.VehicleAreaSeat;
+import android.car.VehicleAreaSeat;
 import android.test.AndroidTestCase;
 import android.test.suitebuilder.annotation.SmallTest;
 
@@ -24,14 +23,23 @@ import android.test.suitebuilder.annotation.SmallTest;
 public class VehicleSeatTest extends AndroidTestCase {
 
     public void testMatchWithVehicleHal() {
-        assertEquals(VehicleAreaSeat.ROW_1_LEFT, VehicleSeat.SEAT_ROW_1_LEFT);
-        assertEquals(VehicleAreaSeat.ROW_1_CENTER, VehicleSeat.SEAT_ROW_1_CENTER);
-        assertEquals(VehicleAreaSeat.ROW_1_RIGHT, VehicleSeat.SEAT_ROW_1_RIGHT);
-        assertEquals(VehicleAreaSeat.ROW_2_LEFT, VehicleSeat.SEAT_ROW_2_LEFT);
-        assertEquals(VehicleAreaSeat.ROW_2_CENTER, VehicleSeat.SEAT_ROW_2_CENTER);
-        assertEquals(VehicleAreaSeat.ROW_2_RIGHT, VehicleSeat.SEAT_ROW_2_RIGHT);
-        assertEquals(VehicleAreaSeat.ROW_3_LEFT, VehicleSeat.SEAT_ROW_3_LEFT);
-        assertEquals(VehicleAreaSeat.ROW_3_CENTER, VehicleSeat.SEAT_ROW_3_CENTER);
-        assertEquals(VehicleAreaSeat.ROW_3_RIGHT, VehicleSeat.SEAT_ROW_3_RIGHT);
+        assertEquals(android.hardware.automotive.vehicle.V2_0.VehicleAreaSeat.ROW_1_LEFT,
+                VehicleAreaSeat.SEAT_ROW_1_LEFT);
+        assertEquals(android.hardware.automotive.vehicle.V2_0.VehicleAreaSeat.ROW_1_CENTER,
+                VehicleAreaSeat.SEAT_ROW_1_CENTER);
+        assertEquals(android.hardware.automotive.vehicle.V2_0.VehicleAreaSeat.ROW_1_RIGHT,
+                VehicleAreaSeat.SEAT_ROW_1_RIGHT);
+        assertEquals(android.hardware.automotive.vehicle.V2_0.VehicleAreaSeat.ROW_2_LEFT,
+                VehicleAreaSeat.SEAT_ROW_2_LEFT);
+        assertEquals(android.hardware.automotive.vehicle.V2_0.VehicleAreaSeat.ROW_2_CENTER,
+                VehicleAreaSeat.SEAT_ROW_2_CENTER);
+        assertEquals(android.hardware.automotive.vehicle.V2_0.VehicleAreaSeat.ROW_2_RIGHT,
+                VehicleAreaSeat.SEAT_ROW_2_RIGHT);
+        assertEquals(android.hardware.automotive.vehicle.V2_0.VehicleAreaSeat.ROW_3_LEFT,
+                VehicleAreaSeat.SEAT_ROW_3_LEFT);
+        assertEquals(android.hardware.automotive.vehicle.V2_0.VehicleAreaSeat.ROW_3_CENTER,
+                VehicleAreaSeat.SEAT_ROW_3_CENTER);
+        assertEquals(android.hardware.automotive.vehicle.V2_0.VehicleAreaSeat.ROW_3_RIGHT,
+                VehicleAreaSeat.SEAT_ROW_3_RIGHT);
     }
 }

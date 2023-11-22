@@ -17,7 +17,6 @@
 package com.android.tradefed.testtype;
 
 import com.android.ddmlib.MultiLineReceiver;
-import com.android.ddmlib.testrunner.ITestRunListener;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.config.OptionClass;
@@ -30,8 +29,6 @@ import com.android.tradefed.util.CommandStatus;
 import com.android.tradefed.util.IRunUtil;
 import com.android.tradefed.util.RunUtil;
 import com.android.tradefed.util.TimeUtil;
-
-import org.junit.Assert;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -150,27 +147,46 @@ public class PythonUnitTestRunner implements IRemoteTest, IBuildReceiver {
         Matcher minVersionParts = Pattern.compile(VERSION_REGEX).matcher(mMinPyVersion);
         Matcher versionParts = Pattern.compile(VERSION_REGEX).matcher(c.getStderr());
 
-        Assert.assertTrue(minVersionParts.find());
+        if (minVersionParts.find() == false) {
+            throw new RuntimeException(
+                    String.format("Could not parse the min version: '%s'", mMinPyVersion));
+        }
         int major = Integer.parseInt(minVersionParts.group(1));
         int minor = Integer.parseInt(minVersionParts.group(2));
         int revision = Integer.parseInt(minVersionParts.group(3));
 
-        Assert.assertTrue(versionParts.find());
+        if (versionParts.find() == false) {
+            throw new RuntimeException(
+                    String.format("Could not parse the current version: '%s'", c.getStderr()));
+        }
         int foundMajor = Integer.parseInt(versionParts.group(1));
         int foundMinor = Integer.parseInt(versionParts.group(2));
         int foundRevision = Integer.parseInt(versionParts.group(3));
 
-        Assert.assertTrue(foundMajor >= major);
-        if (!(foundMajor > major)) {
-            Assert.assertTrue(foundMinor >= minor);
-            if (!(foundMinor > minor)) {
-                Assert.assertTrue(foundRevision >= revision);
+        boolean check = false;
+
+        if (foundMajor > major) {
+            check = true;
+        } else if (foundMajor == major) {
+            if (foundMinor > minor) {
+                check = true;
+            } else if (foundMinor == minor) {
+                if (foundRevision >= revision) {
+                    check = true;
+                }
             }
+        }
+
+        if (check == false) {
+            throw new RuntimeException(
+                    String.format(
+                            "Current version '%s' does not meet min version: '%s'",
+                            c.getStderr(), mMinPyVersion));
         }
     }
 
     // Exposed for testing purpose.
-    void doRunTest(ITestRunListener listener, IRunUtil runUtil, String pyModule) {
+    void doRunTest(ITestInvocationListener listener, IRunUtil runUtil, String pyModule) {
         String[] baseOpts = {mPythonBin, "-m", "unittest", "-v"};
         String[] testModule = {pyModule};
         String[] cmd;

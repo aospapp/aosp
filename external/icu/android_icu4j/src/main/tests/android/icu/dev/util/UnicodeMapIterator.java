@@ -13,6 +13,7 @@ import java.util.Iterator;
 import java.util.Set;
 
 import android.icu.text.UTF16;
+import android.icu.testsharding.MainTestShard;
 
 /**
  * UnicodeSetIterator iterates over the contents of a UnicodeSet.  It
@@ -44,7 +45,10 @@ import android.icu.text.UTF16;
  * }
  * </pre>
  * @author M. Davis
+ *
+ * @internal CLDR
  */
+@MainTestShard
 public class UnicodeMapIterator<T> {
 
     /**

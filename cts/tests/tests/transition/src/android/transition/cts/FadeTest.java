@@ -16,6 +16,7 @@
 package android.transition.cts;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNotSame;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Matchers.any;
@@ -30,6 +31,7 @@ import android.graphics.drawable.BitmapDrawable;
 import android.support.test.filters.MediumTest;
 import android.support.test.runner.AndroidJUnit4;
 import android.transition.Fade;
+import android.transition.Scene;
 import android.transition.Transition;
 import android.transition.TransitionListenerAdapter;
 import android.transition.TransitionManager;
@@ -81,12 +83,12 @@ public class FadeTest extends BaseTransitionTest {
         enterScene(R.layout.scene4);
         startTransition(R.layout.scene1);
         verify(mListener, never()).onTransitionEnd(any());
-        waitForEnd(400);
+        waitForEnd(1000);
 
         resetListener();
         startTransition(R.layout.scene4);
         verify(mListener, never()).onTransitionEnd(any());
-        waitForEnd(400);
+        waitForEnd(1000);
 
         // Now only animate in
         mFade = new Fade(Fade.IN);
@@ -94,7 +96,7 @@ public class FadeTest extends BaseTransitionTest {
         resetListener();
         startTransition(R.layout.scene1);
         verify(mListener, never()).onTransitionEnd(any());
-        waitForEnd(400);
+        waitForEnd(1000);
 
         // No animation since it should only animate in
         resetListener();
@@ -112,7 +114,7 @@ public class FadeTest extends BaseTransitionTest {
         resetListener();
         startTransition(R.layout.scene4);
         verify(mListener, never()).onTransitionEnd(any());
-        waitForEnd(400);
+        waitForEnd(1000);
     }
 
     @Test
@@ -173,6 +175,32 @@ public class FadeTest extends BaseTransitionTest {
         // Should only take 20ms, but no need to rush here
         assertTrue(endLatch.await(1, TimeUnit.SECONDS));
         assertTrue(onDisappearCalled.await(0, TimeUnit.SECONDS));
+    }
+
+    // After a transition, a transitioned view as part of a scene should not be removed
+    @Test
+    public void endVisibilityIsCorrect() throws Throwable {
+        final Scene[] scene11 = new Scene[1];
+        mActivityRule.runOnUiThread(() -> {
+            View view = mActivity.getLayoutInflater().inflate(R.layout.scene11, mSceneRoot, false);
+            scene11[0] = new Scene(mSceneRoot, view);
+        });
+        final Scene scene14 = loadScene(R.layout.scene14);
+        enterScene(scene11[0]);
+
+        assertNotNull(mActivity.findViewById(R.id.redSquare));
+
+        // We don't really care how short the duration is, so let's make it really short
+        mFade.setDuration(1);
+
+        startTransition(scene14);
+        waitForEnd(1000); // should be much shorter, but why worry about it?
+
+        assertNotNull(mActivity.findViewById(R.id.redSquare));
+
+        resetListener();
+        startTransition(scene11[0]);
+        assertNotNull(mActivity.findViewById(R.id.redSquare));
     }
 
     private Bitmap createViewBitmap(View view) {

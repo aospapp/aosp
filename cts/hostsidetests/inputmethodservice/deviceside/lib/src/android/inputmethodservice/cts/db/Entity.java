@@ -18,7 +18,7 @@ package android.inputmethodservice.cts.db;
 
 import android.database.Cursor;
 import android.provider.BaseColumns;
-import android.support.annotation.NonNull;
+import androidx.annotation.NonNull;
 
 import java.util.ArrayList;
 import java.util.HashMap;

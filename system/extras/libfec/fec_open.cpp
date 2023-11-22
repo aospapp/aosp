@@ -415,7 +415,7 @@ int fec_close(struct fec_handle *f)
             warn("fdatasync failed: %s", strerror(errno));
         }
 
-        TEMP_FAILURE_RETRY(close(f->fd));
+        close(f->fd);
     }
 
     if (f->verity.hash) {

@@ -25,6 +25,7 @@
 package org.apache.harmony.jpda.tests.jdwp.ClassType;
 
 import org.apache.harmony.jpda.tests.framework.jdwp.CommandPacket;
+import org.apache.harmony.jpda.tests.framework.jdwp.Field;
 import org.apache.harmony.jpda.tests.framework.jdwp.JDWPCommands;
 import org.apache.harmony.jpda.tests.framework.jdwp.JDWPConstants;
 import org.apache.harmony.jpda.tests.framework.jdwp.ReplyPacket;
@@ -82,29 +83,7 @@ public class InvokeMethod002Test extends JDWPSyncTestCase {
             + " status=" + status);
 
         // Get methodID
-        packet = new CommandPacket(
-            JDWPCommands.ReferenceTypeCommandSet.CommandSetID,
-            JDWPCommands.ReferenceTypeCommandSet.MethodsCommand);
-        packet.setNextValueAsClassID(classID);
-
-        reply = debuggeeWrapper.vmMirror.performCommand(packet);
-        checkReplyPacket(reply, "ReferenceType::Methods command");
-
-        int declared = reply.getNextValueAsInt();
-        logWriter.println(" ReferenceType.Methods: declared=" + declared);
-        long targetMethodID = 0;
-        for (int i = 0; i < declared; i++) {
-            long methodID = reply.getNextValueAsMethodID();
-            String name = reply.getNextValueAsString();
-            String signature = reply.getNextValueAsString();
-            int modBits = reply.getNextValueAsInt();
-            logWriter.println("  methodID=" + methodID + " name=" + name
-                + " signature=" + signature + " modBits=" + modBits);
-            if (name.equals("testMethod3")) {
-                targetMethodID = methodID;
-            }
-        }
-        assertAllDataRead(reply);
+        long targetMethodID = getMethodID(classID, "testMethod3");
 
         // Set EventRequest
         packet = new CommandPacket(
@@ -178,25 +157,15 @@ public class InvokeMethod002Test extends JDWPSyncTestCase {
             fieldNames[4] = "checkIntArray";
         }
 
-        packet = new CommandPacket(
-            JDWPCommands.ReferenceTypeCommandSet.CommandSetID,
-            JDWPCommands.ReferenceTypeCommandSet.FieldsCommand);
-        packet.setNextValueAsReferenceTypeID(classID);
+        Field[] fields = debuggeeWrapper.vmMirror.getFieldsInfo(classID);
 
-        reply = debuggeeWrapper.vmMirror.performCommand(packet);
-        checkReplyPacket(reply, "ReferenceType::Fields command");
-
-        int fieldsCount = reply.getNextValueAsInt();
+        int fieldsCount = fields.length;
         assertTrue("Invalid fieldsCount=" + fieldsCount + ", must be >= " + fieldValues.length
                 , fieldsCount >= fieldValues.length);
 
-        for (int i = 0; i < fieldsCount; i++) {
-            long id = reply.getNextValueAsFieldID();
-            String name = reply.getNextValueAsString();
-            //String signature =
-                reply.getNextValueAsString();
-            //int modifiers =
-                reply.getNextValueAsInt();
+        for (Field fieldInfo : fields) {
+            long id = fieldInfo.getFieldID();
+            String name = fieldInfo.getName();
             for (int k = 0; k < fieldNames.length; k++) {
                 if (fieldNames[k].equals(name)) {
                     fieldIDs[k] = id;
@@ -205,7 +174,6 @@ public class InvokeMethod002Test extends JDWPSyncTestCase {
                 }
             }
         }
-        assertAllDataRead(reply);
 
         for (int i = 0; i < fieldIDs.length; i++) {
             if (fieldIDs[i] == 0) {

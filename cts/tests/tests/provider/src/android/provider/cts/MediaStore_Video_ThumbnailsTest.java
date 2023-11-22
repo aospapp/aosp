@@ -26,6 +26,7 @@ import android.media.MediaCodecInfo;
 import android.media.MediaCodecList;
 import android.net.Uri;
 import android.os.Environment;
+import android.provider.MediaStore.Files;
 import android.provider.MediaStore.Video.Media;
 import android.provider.MediaStore.Video.Thumbnails;
 import android.provider.MediaStore.Video.VideoColumns;
@@ -121,6 +122,101 @@ public class MediaStore_Video_ThumbnailsTest extends AndroidTestCase {
         c.close();
 
         assertEquals(1, mResolver.delete(videoUri, null, null));
+    }
+
+    public void testThumbnailGenerationAndCleanup() throws Exception {
+
+        if (!hasCodec()) {
+            // we don't support video, so no need to run the test
+            Log.i(TAG, "SKIPPING testThumbnailGenerationAndCleanup(): codec not supported");
+            return;
+        }
+
+        // insert a video
+        Uri uri = insertVideo();
+
+        // request thumbnail creation
+        Thumbnails.getThumbnail(mResolver, Long.valueOf(uri.getLastPathSegment()),
+                Thumbnails.MINI_KIND, null /* options */);
+
+        // query the thumbnail
+        Cursor c = mResolver.query(
+                Thumbnails.EXTERNAL_CONTENT_URI,
+                new String [] {Thumbnails.DATA},
+                "video_id=?",
+                new String[] {uri.getLastPathSegment()},
+                null /* sort */
+                );
+        assertTrue("couldn't find thumbnail", c.moveToNext());
+        String path = c.getString(0);
+        c.close();
+        assertTrue("thumbnail does not exist", new File(path).exists());
+
+        // delete the source video and check that the thumbnail is gone too
+        mResolver.delete(uri, null /* where clause */, null /* where args */);
+        assertFalse("thumbnail still exists after source file delete", new File(path).exists());
+
+        // insert again
+        uri = insertVideo();
+
+        // request thumbnail creation
+        Thumbnails.getThumbnail(mResolver, Long.valueOf(uri.getLastPathSegment()),
+                Thumbnails.MINI_KIND, null);
+
+        // query its thumbnail again
+        c = mResolver.query(
+                Thumbnails.EXTERNAL_CONTENT_URI,
+                new String [] {Thumbnails.DATA},
+                "video_id=?",
+                new String[] {uri.getLastPathSegment()},
+                null /* sort */
+                );
+        assertTrue("couldn't find thumbnail", c.moveToNext());
+        path = c.getString(0);
+        c.close();
+        assertTrue("thumbnail does not exist", new File(path).exists());
+
+        // update the media type
+        ContentValues values = new ContentValues();
+        values.put("media_type", 0);
+        assertEquals("unexpected number of updated rows",
+                1, mResolver.update(uri, values, null /* where */, null /* where args */));
+
+        // video was marked as regular file in the database, which should have deleted its thumbnail
+
+        // query its thumbnail again
+        c = mResolver.query(
+                Thumbnails.EXTERNAL_CONTENT_URI,
+                new String [] {Thumbnails.DATA},
+                "video_id=?",
+                new String[] {uri.getLastPathSegment()},
+                null /* sort */
+                );
+        if (c != null) {
+            assertFalse("thumbnail entry exists for non-thumbnail file", c.moveToNext());
+            c.close();
+        }
+        assertFalse("thumbnail remains after source file type change", new File(path).exists());
+
+        // check source no longer exists as video
+        c = mResolver.query(uri,
+                null /* projection */, null /* where */, null /* where args */, null /* sort */);
+        assertFalse("source entry should be gone", c.moveToNext());
+        c.close();
+
+        // check source still exists as file
+        Uri fileUri = ContentUris.withAppendedId(
+                Files.getContentUri("external"),
+                Long.valueOf(uri.getLastPathSegment()));
+        c = mResolver.query(fileUri,
+                null /* projection */, null /* where */, null /* where args */, null /* sort */);
+        assertTrue("source entry should be gone", c.moveToNext());
+        String sourcePath = c.getString(c.getColumnIndex("_data"));
+        c.close();
+
+        // clean up
+        mResolver.delete(uri, null /* where */, null /* where args */);
+        new File(sourcePath).delete();
     }
 
     private Uri insertVideo() throws IOException {

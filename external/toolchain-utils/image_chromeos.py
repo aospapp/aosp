@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/env python2
 #
 # Copyright 2011 Google Inc. All Rights Reserved.
 """Script to image a ChromeOS device.
@@ -41,9 +41,8 @@ def CheckForCrosFlash(chromeos_root, remote, log_level):
 
   # Check to see if remote machine has cherrypy, ctypes
   command = "python -c 'import cherrypy, ctypes'"
-  ret = cmd_executer.CrosRunCommand(command,
-                                    chromeos_root=chromeos_root,
-                                    machine=remote)
+  ret = cmd_executer.CrosRunCommand(
+      command, chromeos_root=chromeos_root, machine=remote)
   logger.GetLogger().LogFatalIf(
       ret == 255, 'Failed ssh to %s (for checking cherrypy)' % remote)
   logger.GetLogger().LogFatalIf(
@@ -51,41 +50,57 @@ def CheckForCrosFlash(chromeos_root, remote, log_level):
       'cros flash cannot work.'.format(remote))
 
 
+def DisableCrosBeeps(chromeos_root, remote, log_level):
+  """Disable annoying chromebooks beeps after reboots."""
+  cmd_executer = command_executer.GetCommandExecuter(log_level=log_level)
+
+  command = '/usr/share/vboot/bin/set_gbb_flags.sh 0x1'
+  logger.GetLogger().LogOutput('Trying to disable beeping.')
+
+  ret, o, _ = cmd_executer.CrosRunCommandWOutput(
+      command, chromeos_root=chromeos_root, machine=remote)
+  if ret != 0:
+    logger.GetLogger().LogOutput(o)
+    logger.GetLogger().LogOutput('Failed to disable beeps.')
+
+
 def DoImage(argv):
   """Image ChromeOS."""
 
   parser = argparse.ArgumentParser()
-  parser.add_argument('-c',
-                      '--chromeos_root',
-                      dest='chromeos_root',
-                      help='Target directory for ChromeOS installation.')
+  parser.add_argument(
+      '-c',
+      '--chromeos_root',
+      dest='chromeos_root',
+      help='Target directory for ChromeOS installation.')
   parser.add_argument('-r', '--remote', dest='remote', help='Target device.')
   parser.add_argument('-i', '--image', dest='image', help='Image binary file.')
-  parser.add_argument('-b',
-                      '--board',
-                      dest='board',
-                      help='Target board override.')
-  parser.add_argument('-f',
-                      '--force',
-                      dest='force',
-                      action='store_true',
-                      default=False,
-                      help='Force an image even if it is non-test.')
-  parser.add_argument('-n',
-                      '--no_lock',
-                      dest='no_lock',
-                      default=False,
-                      action='store_true',
-                      help='Do not attempt to lock remote before imaging.  '
-                      'This option should only be used in cases where the '
-                      'exclusive lock has already been acquired (e.g. in '
-                      'a script that calls this one).')
-  parser.add_argument('-l',
-                      '--logging_level',
-                      dest='log_level',
-                      default='verbose',
-                      help='Amount of logging to be used. Valid levels are '
-                      "'quiet', 'average', and 'verbose'.")
+  parser.add_argument(
+      '-b', '--board', dest='board', help='Target board override.')
+  parser.add_argument(
+      '-f',
+      '--force',
+      dest='force',
+      action='store_true',
+      default=False,
+      help='Force an image even if it is non-test.')
+  parser.add_argument(
+      '-n',
+      '--no_lock',
+      dest='no_lock',
+      default=False,
+      action='store_true',
+      help='Do not attempt to lock remote before imaging.  '
+      'This option should only be used in cases where the '
+      'exclusive lock has already been acquired (e.g. in '
+      'a script that calls this one).')
+  parser.add_argument(
+      '-l',
+      '--logging_level',
+      dest='log_level',
+      default='verbose',
+      help='Amount of logging to be used. Valid levels are '
+      "'quiet', 'average', and 'verbose'.")
   parser.add_argument('-a', '--image_args', dest='image_args')
 
   options = parser.parse_args(argv[1:])
@@ -148,9 +163,7 @@ def DoImage(argv):
 
       command = 'cat ' + checksum_file
       ret, device_checksum, _ = cmd_executer.CrosRunCommandWOutput(
-          command,
-          chromeos_root=options.chromeos_root,
-          machine=options.remote)
+          command, chromeos_root=options.chromeos_root, machine=options.remote)
 
       device_checksum = device_checksum.strip()
       image_checksum = str(image_checksum)
@@ -159,9 +172,8 @@ def DoImage(argv):
       l.LogOutput('Device checksum: ' + device_checksum)
 
       if image_checksum != device_checksum:
-        [found, located_image] = LocateOrCopyImage(options.chromeos_root,
-                                                   image,
-                                                   board=board)
+        [found, located_image] = LocateOrCopyImage(
+            options.chromeos_root, image, board=board)
 
         reimage = True
         l.LogOutput('Checksums do not match. Re-imaging...')
@@ -180,9 +192,8 @@ def DoImage(argv):
     if reimage:
       # If the device has /tmp mounted as noexec, image_to_live.sh can fail.
       command = 'mount -o remount,rw,exec /tmp'
-      cmd_executer.CrosRunCommand(command,
-                                  chromeos_root=options.chromeos_root,
-                                  machine=options.remote)
+      cmd_executer.CrosRunCommand(
+          command, chromeos_root=options.chromeos_root, machine=options.remote)
 
       real_src_dir = os.path.join(
           os.path.realpath(options.chromeos_root), 'src')
@@ -202,8 +213,13 @@ def DoImage(argv):
       # Check to see if cros flash will work for the remote machine.
       CheckForCrosFlash(options.chromeos_root, options.remote, log_level)
 
-      cros_flash_args = ['cros', 'flash', '--board=%s' % board,
-                         '--clobber-stateful', options.remote]
+      # Disable the annoying chromebook beeps after reboot.
+      DisableCrosBeeps(options.chromeos_root, options.remote, log_level)
+
+      cros_flash_args = [
+          'cros', 'flash',
+          '--board=%s' % board, '--clobber-stateful', options.remote
+      ]
       if local_image:
         cros_flash_args.append(chroot_image)
       else:
@@ -220,9 +236,8 @@ def DoImage(argv):
       while True:
         if log_level == 'quiet':
           l.LogOutput('CMD : %s' % command)
-        ret = cmd_executer.ChrootRunCommand(options.chromeos_root,
-                                            command,
-                                            command_timeout=1800)
+        ret = cmd_executer.ChrootRunCommand(
+            options.chromeos_root, command, command_timeout=1800)
         if ret == 0 or retries >= 2:
           break
         retries += 1
@@ -255,17 +270,15 @@ def DoImage(argv):
         if log_level == 'average':
           l.LogOutput('Verifying image.')
         command = 'echo %s > %s && chmod -w %s' % (image_checksum,
-                                                   checksum_file,
-                                                   checksum_file)
+                                                   checksum_file, checksum_file)
         ret = cmd_executer.CrosRunCommand(
             command,
             chromeos_root=options.chromeos_root,
             machine=options.remote)
         logger.GetLogger().LogFatalIf(ret, 'Writing checksum failed.')
 
-        successfully_imaged = VerifyChromeChecksum(options.chromeos_root,
-                                                   image, options.remote,
-                                                   log_level)
+        successfully_imaged = VerifyChromeChecksum(options.chromeos_root, image,
+                                                   options.remote, log_level)
         logger.GetLogger().LogFatalIf(not successfully_imaged,
                                       'Image verification failed!')
         TryRemountPartitionAsRW(options.chromeos_root, options.remote,
@@ -297,8 +310,7 @@ def LocateOrCopyImage(chromeos_root, image, board=None):
   images_list = glob.glob(images_glob)
   for potential_image in images_list:
     if filecmp.cmp(potential_image, image):
-      l.LogOutput('Found matching image %s in chromeos_root.' %
-                  potential_image)
+      l.LogOutput('Found matching image %s in chromeos_root.' % potential_image)
       return [True, potential_image]
   # We did not find an image. Copy it in the src dir and return the copied
   # file.
@@ -321,9 +333,9 @@ def GetImageMountCommand(chromeos_root, image, rootfs_mp, stateful_mp):
                    './mount_gpt_image.sh --from=%s --image=%s'
                    ' --safe --read_only'
                    ' --rootfs_mountpt=%s'
-                   ' --stateful_mountpt=%s' % (chromeos_root, image_dir,
-                                               image_file, rootfs_mp,
-                                               stateful_mp))
+                   ' --stateful_mountpt=%s' %
+                   (chromeos_root, image_dir, image_file, rootfs_mp,
+                    stateful_mp))
   return mount_command
 
 
@@ -351,12 +363,8 @@ def IsImageModdedForTest(chromeos_root, image, log_level):
   lsb_release_file = os.path.join(rootfs_mp, 'etc/lsb-release')
   lsb_release_contents = open(lsb_release_file).read()
   is_test_image = re.search('test', lsb_release_contents, re.IGNORECASE)
-  MountImage(chromeos_root,
-             image,
-             rootfs_mp,
-             stateful_mp,
-             log_level,
-             unmount=True)
+  MountImage(
+      chromeos_root, image, rootfs_mp, stateful_mp, log_level, unmount=True)
   return is_test_image
 
 
@@ -365,20 +373,14 @@ def VerifyChromeChecksum(chromeos_root, image, remote, log_level):
   rootfs_mp = tempfile.mkdtemp()
   stateful_mp = tempfile.mkdtemp()
   MountImage(chromeos_root, image, rootfs_mp, stateful_mp, log_level)
-  image_chrome_checksum = FileUtils().Md5File('%s/opt/google/chrome/chrome' %
-                                              rootfs_mp,
-                                              log_level=log_level)
-  MountImage(chromeos_root,
-             image,
-             rootfs_mp,
-             stateful_mp,
-             log_level,
-             unmount=True)
+  image_chrome_checksum = FileUtils().Md5File(
+      '%s/opt/google/chrome/chrome' % rootfs_mp, log_level=log_level)
+  MountImage(
+      chromeos_root, image, rootfs_mp, stateful_mp, log_level, unmount=True)
 
   command = 'md5sum /opt/google/chrome/chrome'
-  [_, o, _] = cmd_executer.CrosRunCommandWOutput(command,
-                                                 chromeos_root=chromeos_root,
-                                                 machine=remote)
+  [_, o, _] = cmd_executer.CrosRunCommandWOutput(
+      command, chromeos_root=chromeos_root, machine=remote)
   device_chrome_checksum = o.split()[0]
   if image_chrome_checksum.strip() == device_chrome_checksum.strip():
     return True
@@ -415,12 +417,11 @@ def EnsureMachineUp(chromeos_root, remote, log_level):
   while True:
     current_time = time.time()
     if current_time - start_time > timeout:
-      l.LogError('Timeout of %ss reached. Machine still not up. Aborting.' %
-                 timeout)
+      l.LogError(
+          'Timeout of %ss reached. Machine still not up. Aborting.' % timeout)
       return False
-    ret = cmd_executer.CrosRunCommand(command,
-                                      chromeos_root=chromeos_root,
-                                      machine=remote)
+    ret = cmd_executer.CrosRunCommand(
+        command, chromeos_root=chromeos_root, machine=remote)
     if not ret:
       return True
 

@@ -16,6 +16,7 @@
 
 package com.android.tradefed.testtype;
 
+import com.android.annotations.VisibleForTesting;
 import com.android.ddmlib.IDevice;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.config.OptionClass;
@@ -27,6 +28,7 @@ import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.targetprep.ITargetPreparer;
 import com.android.tradefed.util.IRunUtil;
 import com.android.tradefed.util.RunUtil;
+import com.android.tradefed.util.TimeUtil;
 
 import org.junit.Assert;
 
@@ -40,7 +42,7 @@ import java.util.concurrent.TimeUnit;
 @OptionClass(alias = "battery-checker")
 public class DeviceBatteryLevelChecker implements IDeviceTest, IRemoteTest {
 
-    ITestDevice mTestDevice = null;
+    private ITestDevice mTestDevice = null;
 
     /**
      * We use max-battery here to coincide with a {@link DeviceSelectionOptions} option of the same
@@ -77,6 +79,13 @@ public class DeviceBatteryLevelChecker implements IDeviceTest, IRemoteTest {
     @Option(name = "stop-logcat", description = "Whether to stop logcat during the recharge. "
             + "this option is enabled by default.")
     private boolean mStopLogcat = true;
+
+    @Option(
+        name = "max-run-time",
+        description = "The max run time the battery level checker can run before stopping.",
+        isTimeVal = true
+    )
+    private long mMaxRunTime = 30 * 60 * 1000L;
 
     Integer checkBatteryLevel(ITestDevice device) {
         try {
@@ -138,12 +147,19 @@ public class DeviceBatteryLevelChecker implements IDeviceTest, IRemoteTest {
         Long lastReportTime = System.currentTimeMillis();
         Integer newLevel = checkBatteryLevel(mTestDevice);
 
+        long startTime = System.currentTimeMillis();
         while (batteryLevel != null && batteryLevel < mResumeLevel) {
             if (System.currentTimeMillis() - lastReportTime > mLoggingPollTime * 60 * 1000) {
                 // Log the battery level status every mLoggingPollTime minutes
                 CLog.w("Battery level for device %s is currently %d", mTestDevice.getSerialNumber(),
                         newLevel);
                 lastReportTime = System.currentTimeMillis();
+            }
+            if (System.currentTimeMillis() - startTime > mMaxRunTime) {
+                CLog.w(
+                        "DeviceBatteryLevelChecker has been running for %s. terminating.",
+                        TimeUtil.formatElapsedTime(mMaxRunTime));
+                break;
             }
 
             getRunUtil().sleep((long) (mChargingPollTime * 60 * 1000));
@@ -179,9 +195,10 @@ public class DeviceBatteryLevelChecker implements IDeviceTest, IRemoteTest {
 
     /**
      * Get a RunUtil instance
-     * <p />
-     * Exposed for unit testing
+     *
+     * <p>Exposed for unit testing
      */
+    @VisibleForTesting
     IRunUtil getRunUtil() {
         return RunUtil.getDefault();
     }

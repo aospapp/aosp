@@ -17,16 +17,10 @@ package com.android.bluetooth.hfpclient.connserv;
 
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothHeadsetClient;
-import android.bluetooth.BluetoothHeadsetClientCall;
-import android.os.Bundle;
 import android.telecom.Conference;
 import android.telecom.Connection;
-import android.telecom.DisconnectCause;
 import android.telecom.PhoneAccountHandle;
 import android.util.Log;
-
-import java.util.List;
-import java.util.ArrayList;
 
 public class HfpClientConference extends Conference {
     private static final String TAG = "HfpClientConference";
@@ -34,15 +28,15 @@ public class HfpClientConference extends Conference {
     private BluetoothDevice mDevice;
     private BluetoothHeadsetClient mHeadsetProfile;
 
-    public HfpClientConference(PhoneAccountHandle handle,
-            BluetoothDevice device, BluetoothHeadsetClient client) {
+    public HfpClientConference(PhoneAccountHandle handle, BluetoothDevice device,
+            BluetoothHeadsetClient client) {
         super(handle);
         mDevice = device;
         mHeadsetProfile = client;
         boolean manage = HfpClientConnectionService.hasHfpClientEcc(client, device);
-        setConnectionCapabilities(Connection.CAPABILITY_SUPPORT_HOLD |
-                Connection.CAPABILITY_HOLD |
-                (manage ? Connection.CAPABILITY_MANAGE_CONFERENCE : 0));
+        setConnectionCapabilities(
+                Connection.CAPABILITY_SUPPORT_HOLD | Connection.CAPABILITY_HOLD | (manage
+                        ? Connection.CAPABILITY_MANAGE_CONFERENCE : 0));
         setActive();
     }
 
@@ -88,11 +82,11 @@ public class HfpClientConference extends Conference {
     @Override
     public void onConnectionAdded(Connection connection) {
         Log.d(TAG, "onConnectionAdded " + connection);
-        if (connection.getState() == Connection.STATE_HOLDING &&
-                getState() == Connection.STATE_ACTIVE) {
+        if (connection.getState() == Connection.STATE_HOLDING
+                && getState() == Connection.STATE_ACTIVE) {
             connection.onAnswer();
-        } else if (connection.getState() == Connection.STATE_ACTIVE &&
-                getState() == Connection.STATE_HOLDING) {
+        } else if (connection.getState() == Connection.STATE_ACTIVE
+                && getState() == Connection.STATE_HOLDING) {
             mHeadsetProfile.acceptCall(mDevice, BluetoothHeadsetClient.CALL_ACCEPT_NONE);
         }
     }

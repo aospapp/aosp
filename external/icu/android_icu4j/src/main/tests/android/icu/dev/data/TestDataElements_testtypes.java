@@ -9,7 +9,9 @@
  */
 package android.icu.dev.data;
 import java.util.ListResourceBundle;
+import android.icu.testsharding.MainTestShard;
 
+@MainTestShard
 public class TestDataElements_testtypes extends ListResourceBundle {
     /**
      * Overrides ListResourceBundle

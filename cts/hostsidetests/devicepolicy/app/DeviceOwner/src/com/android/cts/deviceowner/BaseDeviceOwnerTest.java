@@ -15,15 +15,11 @@
  */
 package com.android.cts.deviceowner;
 
-import android.app.admin.DeviceAdminReceiver;
+import android.app.Instrumentation;
 import android.app.admin.DevicePolicyManager;
 import android.content.ComponentName;
-import android.content.Context;
-import android.content.Intent;
-import android.net.Uri;
-import android.os.Process;
-import android.os.UserHandle;
-import android.support.v4.content.LocalBroadcastManager;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.uiautomator.UiDevice;
 import android.test.AndroidTestCase;
 
 /**
@@ -36,77 +32,31 @@ import android.test.AndroidTestCase;
  */
 public abstract class BaseDeviceOwnerTest extends AndroidTestCase {
 
-    final static String ACTION_USER_ADDED = "com.android.cts.deviceowner.action.USER_ADDED";
-    final static String ACTION_USER_REMOVED = "com.android.cts.deviceowner.action.USER_REMOVED";
-    final static String EXTRA_USER_HANDLE = "com.android.cts.deviceowner.extra.USER_HANDLE";
-    final static String ACTION_NETWORK_LOGS_AVAILABLE =
-            "com.android.cts.deviceowner.action.ACTION_NETWORK_LOGS_AVAILABLE";
-    final static String EXTRA_NETWORK_LOGS_BATCH_TOKEN =
-            "com.android.cts.deviceowner.extra.NETWORK_LOGS_BATCH_TOKEN";
-
-    public static class BasicAdminReceiver extends DeviceAdminReceiver {
-
-        public static ComponentName getComponentName(Context context) {
-            return new ComponentName(context, BasicAdminReceiver.class);
-        }
-
-        @Override
-        public String onChoosePrivateKeyAlias(Context context, Intent intent, int uid, Uri uri,
-                String suggestedAlias) {
-            if (uid != Process.myUid() || uri == null) {
-                return null;
-            }
-            return uri.getQueryParameter("alias");
-        }
-
-        @Override
-        public void onUserAdded(Context context, Intent intent, UserHandle userHandle) {
-            sendUserAddedOrRemovedBroadcast(context, ACTION_USER_ADDED, userHandle);
-        }
-
-        @Override
-        public void onUserRemoved(Context context, Intent intent, UserHandle userHandle) {
-            sendUserAddedOrRemovedBroadcast(context, ACTION_USER_REMOVED, userHandle);
-        }
-
-        @Override
-        public void onNetworkLogsAvailable(Context context, Intent intent, long batchToken,
-                int networkLogsCount) {
-            // send the broadcast, the rest of the test happens in NetworkLoggingTest
-            Intent batchIntent = new Intent(ACTION_NETWORK_LOGS_AVAILABLE);
-            batchIntent.putExtra(EXTRA_NETWORK_LOGS_BATCH_TOKEN, batchToken);
-            LocalBroadcastManager.getInstance(context).sendBroadcast(batchIntent);
-        }
-
-        private void sendUserAddedOrRemovedBroadcast(Context context, String action,
-                UserHandle userHandle) {
-            Intent intent = new Intent(action);
-            intent.putExtra(EXTRA_USER_HANDLE, userHandle);
-            LocalBroadcastManager.getInstance(context).sendBroadcast(intent);
-        }
-    }
-
-    public static final String PACKAGE_NAME = BaseDeviceOwnerTest.class.getPackage().getName();
-
     protected DevicePolicyManager mDevicePolicyManager;
-
+    protected Instrumentation mInstrumentation;
+    protected UiDevice mDevice;
     @Override
     protected void setUp() throws Exception {
         super.setUp();
 
-        mDevicePolicyManager = (DevicePolicyManager)
-                mContext.getSystemService(Context.DEVICE_POLICY_SERVICE);
-        assertDeviceOwner(mDevicePolicyManager);
+        mInstrumentation = InstrumentationRegistry.getInstrumentation();
+        mDevice = UiDevice.getInstance(mInstrumentation);
+        mDevicePolicyManager = mContext.getSystemService(DevicePolicyManager.class);
+        assertDeviceOwner();
     }
 
-    static void assertDeviceOwner(DevicePolicyManager dpm) {
-        assertNotNull(dpm);
-        assertTrue(dpm.isAdminActive(getWho()));
-        assertTrue(dpm.isDeviceOwnerApp(PACKAGE_NAME));
-        assertFalse(dpm.isManagedProfile(getWho()));
+    private void assertDeviceOwner() {
+        assertNotNull(mDevicePolicyManager);
+        assertTrue(mDevicePolicyManager.isAdminActive(getWho()));
+        assertTrue(mDevicePolicyManager.isDeviceOwnerApp(mContext.getPackageName()));
+        assertFalse(mDevicePolicyManager.isManagedProfile(getWho()));
     }
 
-    protected static ComponentName getWho() {
-        return new ComponentName(PACKAGE_NAME, BasicAdminReceiver.class.getName());
+    protected ComponentName getWho() {
+        return BasicAdminReceiver.getComponentName(mContext);
+    }
+
+    protected String executeShellCommand(String... command) throws Exception {
+        return mDevice.executeShellCommand(String.join(" ", command));
     }
 }

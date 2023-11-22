@@ -19,7 +19,7 @@ const wchar_t kScript2[] = L"fred = 8";
 
 class FXJSV8EmbedderTest : public JSEmbedderTest {
  public:
-  void ExecuteInCurrentContext(const CFX_WideString& script) {
+  void ExecuteInCurrentContext(const WideString& script) {
     FXJSErr error;
     int sts = engine()->Execute(script, &error);
     EXPECT_EQ(0, sts);
@@ -37,7 +37,7 @@ TEST_F(FXJSV8EmbedderTest, Getters) {
   v8::HandleScope handle_scope(isolate());
   v8::Context::Scope context_scope(GetV8Context());
 
-  ExecuteInCurrentContext(CFX_WideString(kScript1));
+  ExecuteInCurrentContext(WideString(kScript1));
   CheckAssignmentInCurrentContext(kExpected1);
 }
 
@@ -52,13 +52,13 @@ TEST_F(FXJSV8EmbedderTest, MultipleEngines) {
   engine2.InitializeEngine();
 
   v8::Context::Scope context_scope(GetV8Context());
-  ExecuteInCurrentContext(CFX_WideString(kScript0));
+  ExecuteInCurrentContext(WideString(kScript0));
   CheckAssignmentInCurrentContext(kExpected0);
 
   {
     v8::Local<v8::Context> context1 = engine1.NewLocalContext();
     v8::Context::Scope context_scope1(context1);
-    ExecuteInCurrentContext(CFX_WideString(kScript1));
+    ExecuteInCurrentContext(WideString(kScript1));
     CheckAssignmentInCurrentContext(kExpected1);
   }
 
@@ -67,7 +67,7 @@ TEST_F(FXJSV8EmbedderTest, MultipleEngines) {
   {
     v8::Local<v8::Context> context2 = engine2.NewLocalContext();
     v8::Context::Scope context_scope2(context2);
-    ExecuteInCurrentContext(CFX_WideString(kScript2));
+    ExecuteInCurrentContext(WideString(kScript2));
     CheckAssignmentInCurrentContext(kExpected2);
   }
 
@@ -98,9 +98,23 @@ TEST_F(FXJSV8EmbedderTest, NewNull) {
   EXPECT_FALSE(engine()->ToBoolean(nullz));
   EXPECT_EQ(0, engine()->ToInt32(nullz));
   EXPECT_EQ(0.0, engine()->ToDouble(nullz));
-  EXPECT_EQ(L"", engine()->ToWideString(nullz));
+  EXPECT_EQ(L"null", engine()->ToWideString(nullz));
   EXPECT_TRUE(engine()->ToObject(nullz).IsEmpty());
   EXPECT_TRUE(engine()->ToArray(nullz).IsEmpty());
+}
+
+TEST_F(FXJSV8EmbedderTest, NewUndefined) {
+  v8::Isolate::Scope isolate_scope(isolate());
+  v8::HandleScope handle_scope(isolate());
+  v8::Context::Scope context_scope(GetV8Context());
+
+  auto undef = engine()->NewUndefined();
+  EXPECT_FALSE(engine()->ToBoolean(undef));
+  EXPECT_EQ(0, engine()->ToInt32(undef));
+  EXPECT_TRUE(std::isnan(engine()->ToDouble(undef)));
+  EXPECT_EQ(L"undefined", engine()->ToWideString(undef));
+  EXPECT_TRUE(engine()->ToObject(undef).IsEmpty());
+  EXPECT_TRUE(engine()->ToArray(undef).IsEmpty());
 }
 
 TEST_F(FXJSV8EmbedderTest, NewBoolean) {
@@ -192,6 +206,7 @@ TEST_F(FXJSV8EmbedderTest, NewObject) {
   v8::Context::Scope context_scope(GetV8Context());
 
   auto object = engine()->NewFxDynamicObj(-1);
+  ASSERT_FALSE(object.IsEmpty());
   EXPECT_EQ(0u, engine()->GetObjectPropertyNames(object).size());
   EXPECT_FALSE(engine()->GetObjectProperty(object, L"clams").IsEmpty());
   EXPECT_TRUE(engine()->GetObjectProperty(object, L"clams")->IsUndefined());

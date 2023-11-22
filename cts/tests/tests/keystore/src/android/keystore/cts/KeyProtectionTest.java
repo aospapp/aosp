@@ -49,6 +49,7 @@ public class KeyProtectionTest extends TestCase {
         assertFalse(spec.isUserAuthenticationRequired());
         assertEquals(-1, spec.getUserAuthenticationValidityDurationSeconds());
         assertEquals(GateKeeper.INVALID_SECURE_USER_ID, spec.getBoundToSpecificSecureUserId());
+        assertFalse(spec.isUnlockedDeviceRequired());
     }
 
     public void testSettersReflectedInGetters() {
@@ -73,6 +74,7 @@ public class KeyProtectionTest extends TestCase {
                 .setUserAuthenticationRequired(true)
                 .setUserAuthenticationValidityDurationSeconds(123456)
                 .setBoundToSpecificSecureUserId(654321)
+                .setUnlockedDeviceRequired(true)
                 .build();
 
         assertEquals(
@@ -93,6 +95,7 @@ public class KeyProtectionTest extends TestCase {
         assertTrue(spec.isUserAuthenticationRequired());
         assertEquals(123456, spec.getUserAuthenticationValidityDurationSeconds());
         assertEquals(654321, spec.getBoundToSpecificSecureUserId());
+        assertTrue(spec.isUnlockedDeviceRequired());
     }
 
     public void testSetKeyValidityEndDateAppliesToBothEndDates() {

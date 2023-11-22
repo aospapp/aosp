@@ -30,11 +30,6 @@ class audio_CrasSanity(test.test):
              }
 
     def run_once(self):
-        boards_to_skip = ['x86-mario']
-        dut_board = utils.get_current_board()
-        if dut_board in boards_to_skip:
-            logging.info("Skipping test run on this board.")
-            return
         # Check for existing cras crashes which might occur during UI bring up.
         # TODO: (rohitbm) check if we need to reboot the DUT before the test
         #       start to verify cras crashes during boot.

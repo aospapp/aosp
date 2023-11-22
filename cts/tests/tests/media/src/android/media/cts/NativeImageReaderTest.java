@@ -16,6 +16,7 @@
 
 package android.media.cts;
 
+import android.platform.test.annotations.AppModeFull;
 import android.test.AndroidTestCase;
 import android.util.Log;
 import android.view.Surface;
@@ -23,6 +24,7 @@ import android.view.Surface;
 /**
  * Verification test for AImageReader.
  */
+@AppModeFull(reason = "TODO: evaluate and port to instant")
 public class NativeImageReaderTest extends AndroidTestCase {
     private static final String TAG = "NativeImageReaderTest";
     private static final boolean VERBOSE = Log.isLoggable(TAG, Log.VERBOSE);

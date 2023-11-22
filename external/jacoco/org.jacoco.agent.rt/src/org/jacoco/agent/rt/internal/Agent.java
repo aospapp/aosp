@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2009, 2017 Mountainminds GmbH & Co. KG and Contributors
+ * Copyright (c) 2009, 2018 Mountainminds GmbH & Co. KG and Contributors
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -45,8 +45,26 @@ public class Agent implements IAgent {
 	 * @return global instance
 	 */
 	public static synchronized Agent getInstance(final AgentOptions options) {
+		// BEGIN android-change
+		return getInstance(options, new RuntimeData());
+		// END android-change
+	}
+
+	// BEGIN android-change
+	/**
+	 * Returns a global instance which is already started, reusing an existing set of runtime
+	 * data. If the method is called the first time the instance is created with the given
+	 * options.
+	 * 
+	 * @param options
+	 *            options to configure the instance
+	 * @param data
+	 *            the runtime data to reuse
+	 * @return global instance
+	 */
+	public static synchronized Agent getInstance(final AgentOptions options, RuntimeData data) {
 		if (singleton == null) {
-			final Agent agent = new Agent(options, IExceptionLogger.SYSTEM_ERR);
+			final Agent agent = new Agent(options, IExceptionLogger.SYSTEM_ERR, data);
 			agent.startup();
 			Runtime.getRuntime().addShutdownHook(new Thread() {
 				@Override
@@ -58,18 +76,26 @@ public class Agent implements IAgent {
 		}
 		return singleton;
 	}
+	// END android-change
 
+	// BEGIN android-change
 	/**
-	 * Returns a global instance which is already started. If a agent has not
-	 * been initialized before this method will fail.
+	 * Returns a global instance which is already started. If an agent has not
+	 * been initialized then one will be created via {@link Offline#createAgent()}.
+	 * This will capture any data written via {@link Offline#getProbes} prior to
+	 * this call, but not subsequently.
 	 * 
 	 * @return global instance
 	 * @throws IllegalStateException
 	 *             if no Agent has been started yet
 	 */
+	// END android-change
 	public static synchronized Agent getInstance() throws IllegalStateException {
 		if (singleton == null) {
-			throw new IllegalStateException("JaCoCo agent not started.");
+			// BEGIN android-change
+			// throw new IllegalStateException("JaCoCo agent not started.");
+			singleton = Offline.createAgent();
+			// END android-change
 		}
 		return singleton;
 	}
@@ -93,10 +119,28 @@ public class Agent implements IAgent {
 	 *            logger used by this agent
 	 */
 	Agent(final AgentOptions options, final IExceptionLogger logger) {
+		// BEGIN android-change
+		this(options, logger, new RuntimeData());
+		// END android-change
+	}
+
+	// BEGIN android-change
+	/**
+	 * Creates a new agent with the given agent options, reusing the given runtime data.
+	 *
+	 * @param options
+	 *            agent options
+	 * @param logger
+	 *            logger used by this agent
+	 * @param data
+	 *            the runtime data to reuse
+	 */
+	private Agent(final AgentOptions options, final IExceptionLogger logger, RuntimeData data) {
 		this.options = options;
 		this.logger = logger;
-		this.data = new RuntimeData();
+		this.data = data;
 	}
+	// END android-change
 
 	/**
 	 * Returns the runtime data object created by this agent

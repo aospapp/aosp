@@ -23,25 +23,27 @@ import android.util.AttributeSet;
 import android.view.View;
 import android.widget.LinearLayout;
 import android.widget.TextView;
-
 import com.android.tv.MainActivity;
 import com.android.tv.R;
-import com.android.tv.data.Channel;
+import com.android.tv.data.api.Channel;
 
 public class InputBannerView extends LinearLayout implements TvTransitionManager.TransitionLayout {
     private final long mShowDurationMillis;
 
-    private final Runnable mHideRunnable = new Runnable() {
-        @Override
-        public void run() {
-            ((MainActivity) getContext()).getOverlayManager().hideOverlays(
-                    TvOverlayManager.FLAG_HIDE_OVERLAYS_KEEP_DIALOG
-                    | TvOverlayManager.FLAG_HIDE_OVERLAYS_KEEP_SIDE_PANELS
-                    | TvOverlayManager.FLAG_HIDE_OVERLAYS_KEEP_PROGRAM_GUIDE
-                    | TvOverlayManager.FLAG_HIDE_OVERLAYS_KEEP_MENU
-                    | TvOverlayManager.FLAG_HIDE_OVERLAYS_KEEP_FRAGMENT);
-        }
-    };
+    private final Runnable mHideRunnable =
+            new Runnable() {
+                @Override
+                public void run() {
+                    ((MainActivity) getContext())
+                            .getOverlayManager()
+                            .hideOverlays(
+                                    TvOverlayManager.FLAG_HIDE_OVERLAYS_KEEP_DIALOG
+                                            | TvOverlayManager.FLAG_HIDE_OVERLAYS_KEEP_SIDE_PANELS
+                                            | TvOverlayManager.FLAG_HIDE_OVERLAYS_KEEP_PROGRAM_GUIDE
+                                            | TvOverlayManager.FLAG_HIDE_OVERLAYS_KEEP_MENU
+                                            | TvOverlayManager.FLAG_HIDE_OVERLAYS_KEEP_FRAGMENT);
+                }
+            };
 
     private TextView mInputLabelTextView;
     private TextView mSecondaryInputLabelTextView;
@@ -56,8 +58,8 @@ public class InputBannerView extends LinearLayout implements TvTransitionManager
 
     public InputBannerView(Context context, AttributeSet attrs, int defStyle) {
         super(context, attrs, defStyle);
-        mShowDurationMillis = context.getResources().getInteger(
-                R.integer.select_input_show_duration);
+        mShowDurationMillis =
+                context.getResources().getInteger(R.integer.select_input_show_duration);
     }
 
     @Override
@@ -73,8 +75,8 @@ public class InputBannerView extends LinearLayout implements TvTransitionManager
         if (channel == null || !channel.isPassthrough()) {
             return;
         }
-        TvInputInfo input = mainActivity.getTvInputManagerHelper().getTvInputInfo(
-                channel.getInputId());
+        TvInputInfo input =
+                mainActivity.getTvInputManagerHelper().getTvInputInfo(channel.getInputId());
         CharSequence customLabel = input.loadCustomLabel(getContext());
         CharSequence label = input.loadLabel(getContext());
         if (TextUtils.isEmpty(customLabel) || customLabel.equals(label)) {

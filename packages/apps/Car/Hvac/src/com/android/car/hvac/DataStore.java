@@ -16,6 +16,7 @@
 package com.android.car.hvac;
 
 import android.os.SystemClock;
+import android.util.Log;
 import android.util.SparseArray;
 import android.util.SparseBooleanArray;
 import android.util.SparseIntArray;
@@ -35,6 +36,8 @@ public class DataStore {
 
     @GuardedBy("mTemperature")
     private SparseArray<Float> mTemperature = new SparseArray<Float>();
+    @GuardedBy("mTemperatureAvailable")
+    private SparseBooleanArray mTemperatureAvailable = new SparseBooleanArray();
     @GuardedBy("mFanSpeed")
     private Integer mFanSpeed = 0;
     @GuardedBy("mAirflow")
@@ -78,19 +81,27 @@ public class DataStore {
         }
     }
 
-    public void setTemperature(int zone, float temperature) {
+    public void setTemperature(int zone, float temperature, boolean available) {
         synchronized (mTemperature) {
-            mTemperature.put(zone, temperature);
-            mLastTemperatureSet.put(zone, SystemClock.uptimeMillis());
+            synchronized (mTemperatureAvailable) {
+                Log.d("HvacDataStore", "setTemperature(" + zone + ", " + temperature + ")");
+                mTemperature.put(zone, temperature);
+                mTemperatureAvailable.put(zone, available);
+                mLastTemperatureSet.put(zone, SystemClock.uptimeMillis());
+            }
         }
     }
 
-    public boolean shouldPropagateTempUpdate(int zone, float temperature) {
+    public boolean shouldPropagateTempUpdate(int zone, float temperature, boolean available) {
         synchronized (mTemperature) {
-            if (SystemClock.uptimeMillis() - mLastTemperatureSet.get(zone) < COALESCE_TIME_MS) {
-                return false;
+            synchronized (mTemperatureAvailable) {
+                if (SystemClock.uptimeMillis() - mLastTemperatureSet.get(zone) < COALESCE_TIME_MS) {
+                    if (available == mTemperatureAvailable.get(zone)) {
+                        return false;
+                    }
+                }
             }
-            mTemperature.put(zone, temperature);
+            setTemperature(zone, temperature, available);
         }
         return true;
     }

@@ -27,13 +27,13 @@
     <string name="menu_create_dir" msgid="2413624798689091042">"नया फ़ोल्डर"</string>
     <string name="menu_grid" msgid="1453636521731880680">"ग्रिड दृश्य"</string>
     <string name="menu_list" msgid="6714267452146410402">"सूची दृश्य"</string>
-    <string name="menu_search" msgid="1876699106790719849">"सर्च करें"</string>
+    <string name="menu_search" msgid="1876699106790719849">"खोजें"</string>
     <string name="menu_settings" msgid="6520844520117939047">"जगह सेटिंग"</string>
     <string name="menu_open" msgid="9092138100049759315">"खोलें"</string>
     <string name="menu_open_with" msgid="5507647065467520229">"इसमें खोलें"</string>
     <string name="menu_open_in_new_window" msgid="6686563636123311276">"नई विंडो में खोलें"</string>
     <string name="menu_save" msgid="5195367497138965168">"सेव करें"</string>
-    <string name="menu_share" msgid="4307140947108068356">"साझा करें"</string>
+    <string name="menu_share" msgid="4307140947108068356">"शेयर करें"</string>
     <string name="menu_delete" msgid="1022254131543256626">"मिटाएं"</string>
     <string name="menu_select_all" msgid="7600576812185570403">"सभी चुनें"</string>
     <string name="menu_copy" msgid="7404820171352314754">"इनकी कॉपी करें..."</string>
@@ -41,7 +41,7 @@
     <string name="menu_compress" msgid="37539111904724188">"कंप्रेस करें"</string>
     <string name="menu_extract" msgid="8171946945982532262">"यहां निकालें…"</string>
     <string name="menu_rename" msgid="1883113442688817554">"नाम बदलें"</string>
-    <string name="menu_inspector" msgid="8217713416277319588">"जानकारी पाएं"</string>
+    <string name="menu_inspect" msgid="7279855349299446224">"जानकारी पाएं"</string>
     <string name="menu_view_in_owner" msgid="7228948660557554770">"<xliff:g id="SOURCE">%1$s</xliff:g> में देखें"</string>
     <string name="menu_new_window" msgid="2947837751796109126">"नई विंडो"</string>
     <string name="menu_cut_to_clipboard" msgid="2878752142015026229">"काटें"</string>
@@ -57,21 +57,15 @@
     <string name="button_move" msgid="8596460499325291272">"ले जाएं"</string>
     <string name="button_dismiss" msgid="7235249361023803349">"खारिज करें"</string>
     <string name="button_retry" msgid="4011461781916631389">"फिर से कोशिश करें"</string>
+    <string name="button_clear" msgid="5412304437764369441">"साफ़ करें"</string>
+    <string name="button_show_provider" msgid="6905880493806292753">"प्रदाता में दिखाएं"</string>
     <string name="not_sorted" msgid="7813496644889115530">"क्रमबद्ध नहीं हैं"</string>
     <string name="sort_dimension_name" msgid="6325591541414177579">"नाम"</string>
     <string name="sort_dimension_summary" msgid="7724534446881397860">"सारांश"</string>
     <string name="sort_dimension_file_type" msgid="5779709622922085381">"प्रकार"</string>
     <string name="sort_dimension_size" msgid="2190547351159472884">"आकार"</string>
-    <string name="sort_dimension_date" msgid="4231005651895254033">"बदलनेे का समय"</string>
+    <string name="sort_dimension_date" msgid="4231005651895254033">"बदले जाने का समय"</string>
     <string name="directory_items" msgid="6645621978998614003">"आइटम की संख्या"</string>
-    <string name="handler_app_file_opens_with" msgid="2667097605117000751">"इस तरह की फ़ाइल इसमें खुलती है:"</string>
-    <string name="handler_app_belongs_to" msgid="5956928604521893459">"यह फ़ाइल इसकी है:"</string>
-    <string name="handler_app_button_info_1" msgid="4271199640671067569">"दूसरे ऐप्लिकेशन इस फ़ाइल प्रकार को खोल सकते हैं. साफ़ करें"</string>
-    <string name="handler_app_button_info_2" msgid="4299969771512815898">"डिफ़ॉल्ट रूप से."</string>
-    <string name="handler_app_clear" msgid="206579047716445033">"साफ़ करें"</string>
-    <string name="handler_app_show_in" msgid="7923573101129079048">"प्रदाता में दिखाएं"</string>
-    <string name="handler_app_not_selected" msgid="8178393676227130360">"नहीं चुना गया"</string>
-    <string name="handler_app_unknown" msgid="56574249066388341">"अज्ञात"</string>
     <string name="sort_direction_ascending" msgid="5882787683763248102">"बढ़ते क्रम में"</string>
     <string name="sort_direction_descending" msgid="1729187589765894076">"घटते क्रम में"</string>
     <string name="drawer_open" msgid="8071673398187261741">"रूट दिखाएं"</string>
@@ -90,8 +84,7 @@
     <string name="toast_no_application" msgid="7555319548595113121">"फ़ाइल नहीं खोली जा सकती"</string>
     <string name="toast_view_in_archives_unsupported" msgid="1923221390170964845">"संग्रह में मौजूद फ़ाइलें नहीं खोली जा सकतीं"</string>
     <string name="toast_failed_delete" msgid="3453846588205817591">"कुछ दस्तावेज़ों को हटाने में असमर्थ"</string>
-    <string name="file_inspector_load_error" msgid="1226344446677541109">"प्रॉपर्टी लोड नहीं हो सकीं"</string>
-    <string name="share_via" msgid="8725082736005677161">"इसके द्वारा साझा करें"</string>
+    <string name="share_via" msgid="8725082736005677161">"इसके ज़रिए शेयर करें"</string>
     <string name="copy_notification_title" msgid="52256435625098456">"फ़ाइलें कॉपी हो रही हैं"</string>
     <string name="compress_notification_title" msgid="6830195148113751021">"फ़ाइलें कंप्रेस करना"</string>
     <string name="extract_notification_title" msgid="5067393961754430469">"फ़ाइलें निकाली जा रही हैं"</string>
@@ -119,11 +112,11 @@
       <item quantity="other"><xliff:g id="COUNT_1">%1$d</xliff:g> आइटम मिटाए जा रहे हैं.</item>
     </plurals>
     <string name="undo" msgid="2902438994196400565">"पूर्ववत करें"</string>
-    <string name="copy_preparing" msgid="5326063807006898223">"कॉपी करने की तैयारी हो रही है…"</string>
-    <string name="compress_preparing" msgid="6650018601382062672">"कंप्रेस की तैयार हो रही है..."</string>
-    <string name="extract_preparing" msgid="58266275455027829">"निकालने की तैयारी हो रही है…"</string>
-    <string name="move_preparing" msgid="8742573245485449429">"ले जाने की तैयारी हो रही है…"</string>
-    <string name="delete_preparing" msgid="6513863752916028147">"हटाने के लिए तैयार हो रहा है…"</string>
+    <string name="copy_preparing" msgid="4759516490222449324">"तैयार किया जा रहा है..."</string>
+    <string name="compress_preparing" msgid="7401605598969019696">"तैयार किया जा रहा है..."</string>
+    <string name="extract_preparing" msgid="4796626960061745796">"तैयार किया जा रहा है..."</string>
+    <string name="move_preparing" msgid="6504239656430530761">"तैयार किया जा रहा है..."</string>
+    <string name="delete_preparing" msgid="7339349837842802508">"तैयार किया जा रहा है..."</string>
     <string name="delete_progress" msgid="2627631054702306423">"<xliff:g id="COUNT_0">%1$d</xliff:g> / <xliff:g id="TOTALCOUNT">%2$d</xliff:g>"</string>
     <plurals name="copy_error_notification_title" formatted="false" msgid="3188432450429390963">
       <item quantity="one"><xliff:g id="COUNT_1">%1$d</xliff:g> आइटम कॉपी नहीं किए जा सके</item>
@@ -179,7 +172,7 @@
     <string name="open_external_dialog_request" msgid="8173558471322861268">"<xliff:g id="APPNAME"><b>^1</b></xliff:g> को <xliff:g id="STORAGE"><i>^3</i></xliff:g> पर <xliff:g id="DIRECTORY"><i>^2</i></xliff:g> डिक्शनरी तक पहुंचने देना चाहते हैं?"</string>
     <string name="open_external_dialog_request_primary_volume" msgid="2240992164087948176">"<xliff:g id="APPNAME"><b>^1</b></xliff:g> को <xliff:g id="DIRECTORY"><i>^2</i></xliff:g> डिक्शनरी तक पहुंचने देना चाहते हैं?"</string>
     <string name="open_external_dialog_root_request" msgid="6776729293982633">"<xliff:g id="APPNAME"><b>^1</b></xliff:g> को <xliff:g id="STORAGE"><i>^2</i></xliff:g> पर मौजूद फ़ोटो और वीडियो के साथ, अपने डेटा तक पहुंचने देना चाहते हैं?"</string>
-    <string name="never_ask_again" msgid="525908236522201138">"फिर से ना पूछें"</string>
+    <string name="never_ask_again" msgid="525908236522201138">"फिर से न पूछें"</string>
     <string name="allow" msgid="1275746941353040309">"अनुमति दें"</string>
     <string name="deny" msgid="5127201668078153379">"अस्वीकार करें"</string>
     <plurals name="elements_selected" formatted="false" msgid="4448165978637163692">
@@ -213,5 +206,4 @@
     <string name="new_archive_file_name" msgid="1604650338077249838">"संग्रह<xliff:g id="EXTENSION">%s</xliff:g>"</string>
     <string name="overwrite_file_confirmation_message" msgid="2496109652768222716">"<xliff:g id="NAME">%1$s</xliff:g> को ओवरराइट करना चाहते हैं?"</string>
     <string name="continue_in_background" msgid="1974214559047793331">"बैकग्राउंड में जारी रखें"</string>
-    <string name="inspector_debug_section" msgid="3447621501565766900">"डीबग जानकारी (केवल डेवलपर)"</string>
 </resources>

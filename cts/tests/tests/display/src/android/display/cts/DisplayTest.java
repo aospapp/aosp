@@ -16,14 +16,16 @@
 
 package android.display.cts;
 
-import org.junit.Rule;
+import static org.junit.Assert.*;
 
 import android.app.Activity;
 import android.app.Instrumentation;
 import android.app.Presentation;
 import android.app.UiAutomation;
+import android.app.UiModeManager;
 import android.content.Context;
 import android.content.Intent;
+import android.content.res.Configuration;
 import android.graphics.Color;
 import android.graphics.PixelFormat;
 import android.graphics.Point;
@@ -35,6 +37,7 @@ import android.os.Looper;
 import android.os.ParcelFileDescriptor;
 import android.platform.test.annotations.Presubmit;
 import android.support.test.InstrumentationRegistry;
+import android.support.test.runner.AndroidJUnit4;
 import android.support.test.rule.ActivityTestRule;
 import android.test.InstrumentationTestCase;
 import android.util.DisplayMetrics;
@@ -50,7 +53,15 @@ import java.util.Scanner;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
-public class DisplayTest extends InstrumentationTestCase {
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+
+@RunWith(AndroidJUnit4.class)
+public class DisplayTest {
     // The CTS package brings up an overlay display on the target device (see AndroidTest.xml).
     // The overlay display parameters must match the ones defined there which are
     // 181x161/214 (wxh/dpi).  It only matters that these values are different from any real
@@ -69,6 +80,7 @@ public class DisplayTest extends InstrumentationTestCase {
 
     private DisplayManager mDisplayManager;
     private WindowManager mWindowManager;
+    private UiModeManager mUiModeManager;
     private Context mContext;
 
     // To test display mode switches.
@@ -81,17 +93,17 @@ public class DisplayTest extends InstrumentationTestCase {
             new ActivityTestRule<>(DisplayTestActivity.class,
                     false /* initialTouchMode */, false /* launchActivity */);
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
+    @Before
+    public void setUp() throws Exception {
         mScreenOnActivity = launchScreenOnActivity();
-        mContext = getInstrumentation().getContext();
+        mContext = InstrumentationRegistry.getInstrumentation().getContext();
         mDisplayManager = (DisplayManager)mContext.getSystemService(Context.DISPLAY_SERVICE);
         mWindowManager = (WindowManager)mContext.getSystemService(Context.WINDOW_SERVICE);
+        mUiModeManager = (UiModeManager)mContext.getSystemService(Context.UI_MODE_SERVICE);
     }
 
-    @Override
-    protected void tearDown() throws Exception {
+    @After
+    public void tearDown() throws Exception {
         if (mScreenOnActivity != null) {
             mScreenOnActivity.finish();
         }
@@ -100,20 +112,21 @@ public class DisplayTest extends InstrumentationTestCase {
     private void enableAppOps() {
         StringBuilder cmd = new StringBuilder();
         cmd.append("appops set ");
-        cmd.append(getInstrumentation().getContext().getPackageName());
+        cmd.append(InstrumentationRegistry.getInstrumentation().getContext().getPackageName());
         cmd.append(" android:system_alert_window allow");
-        getInstrumentation().getUiAutomation().executeShellCommand(cmd.toString());
+        InstrumentationRegistry.getInstrumentation().getUiAutomation()
+                .executeShellCommand(cmd.toString());
 
         StringBuilder query = new StringBuilder();
         query.append("appops get ");
-        query.append(getInstrumentation().getContext().getPackageName());
+        query.append(InstrumentationRegistry.getInstrumentation().getContext().getPackageName());
         query.append(" android:system_alert_window");
         String queryStr = query.toString();
 
         String result = "No operations.";
         while (result.contains("No operations")) {
-            ParcelFileDescriptor pfd = getInstrumentation().getUiAutomation().executeShellCommand(
-                    queryStr);
+            ParcelFileDescriptor pfd = InstrumentationRegistry.getInstrumentation()
+                    .getUiAutomation().executeShellCommand(queryStr);
             InputStream inputStream = new FileInputStream(pfd.getFileDescriptor());
             result = convertStreamToString(inputStream);
         }
@@ -143,6 +156,7 @@ public class DisplayTest extends InstrumentationTestCase {
     /**
      * Verify that the getDisplays method returns both a default and an overlay display.
      */
+    @Test
     public void testGetDisplays() {
         Display[] displays = mDisplayManager.getDisplays();
         assertNotNull(displays);
@@ -165,6 +179,7 @@ public class DisplayTest extends InstrumentationTestCase {
      * Verify that the WindowManager returns the default display.
      */
     @Presubmit
+    @Test
     public void testDefaultDisplay() {
         assertEquals(Display.DEFAULT_DISPLAY, mWindowManager.getDefaultDisplay().getDisplayId());
     }
@@ -172,6 +187,7 @@ public class DisplayTest extends InstrumentationTestCase {
     /**
      * Verify default display's HDR capability.
      */
+    @Test
     public void testDefaultDisplayHdrCapability() {
         Display display = mDisplayManager.getDisplay(Display.DEFAULT_DISPLAY);
         HdrCapabilities cap = display.getHdrCapabilities();
@@ -192,6 +208,7 @@ public class DisplayTest extends InstrumentationTestCase {
     /**
      * Verify that there is a secondary display.
      */
+    @Test
     public void testSecondaryDisplay() {
         Display display = getSecondaryDisplay(mDisplayManager.getDisplays());
         assertNotNull(display);
@@ -201,6 +218,7 @@ public class DisplayTest extends InstrumentationTestCase {
     /**
      * Test the properties of the secondary Display.
      */
+    @Test
     public void testGetDisplayAttrs() {
         Display display = getSecondaryDisplay(mDisplayManager.getDisplays());
 
@@ -226,6 +244,7 @@ public class DisplayTest extends InstrumentationTestCase {
     /**
      * Test that the getMetrics method fills in correct values.
      */
+    @Test
     public void testGetMetrics() {
         testGetMetrics(mDisplayManager);
     }
@@ -233,6 +252,7 @@ public class DisplayTest extends InstrumentationTestCase {
     /**
      * Tests getting metrics from the Activity context.
      */
+    @Test
     public void testActivityContextGetMetrics() {
         final Activity activity = launchActivity(mDisplayTestActivity);
         final DisplayManager dm =
@@ -260,13 +280,14 @@ public class DisplayTest extends InstrumentationTestCase {
                 && outMetrics.scaledDensity <= SCALE_DENSITY_UPPER_BOUND);
 
         assertEquals(SECONDARY_DISPLAY_DPI, outMetrics.densityDpi);
-        assertEquals((float)SECONDARY_DISPLAY_DPI, outMetrics.xdpi);
-        assertEquals((float)SECONDARY_DISPLAY_DPI, outMetrics.ydpi);
+        assertEquals((float)SECONDARY_DISPLAY_DPI, outMetrics.xdpi, 0.0001f);
+        assertEquals((float)SECONDARY_DISPLAY_DPI, outMetrics.ydpi, 0.0001f);
     }
 
     /**
      * Test that the getFlags method returns no flag bits set for the overlay display.
      */
+    @Test
     public void testFlags() {
         Display display = getSecondaryDisplay(mDisplayManager.getDisplays());
 
@@ -276,6 +297,7 @@ public class DisplayTest extends InstrumentationTestCase {
     /**
      * Tests that the mode-related attributes and methods work as expected.
      */
+    @Test
     public void testMode() {
         Display display = getSecondaryDisplay(mDisplayManager.getDisplays());
         assertEquals(2, display.getSupportedModes().length);
@@ -283,13 +305,20 @@ public class DisplayTest extends InstrumentationTestCase {
         assertEquals(display.getSupportedModes()[0], mode);
         assertEquals(SECONDARY_DISPLAY_WIDTH, mode.getPhysicalWidth());
         assertEquals(SECONDARY_DISPLAY_HEIGHT, mode.getPhysicalHeight());
-        assertEquals(display.getRefreshRate(), mode.getRefreshRate());
+        assertEquals(display.getRefreshRate(), mode.getRefreshRate(), 0.0001f);
     }
 
     /**
      * Tests that mode switch requests are correctly executed.
      */
+    @Test
     public void testModeSwitch() throws Exception {
+        // Standalone VR devices globally ignore SYSTEM_ALERT_WINDOW via AppOps.
+        // Skip this test, which depends on a Presentation SYSTEM_ALERT_WINDOW to pass.
+        if (mUiModeManager.getCurrentModeType() == Configuration.UI_MODE_TYPE_VR_HEADSET) {
+            return;
+        }
+
         enableAppOps();
         final Display display = getSecondaryDisplay(mDisplayManager.getDisplays());
         Display.Mode[] modes = display.getSupportedModes();
@@ -323,7 +352,8 @@ public class DisplayTest extends InstrumentationTestCase {
             @Override
             public void run() {
                 mPresentation = new TestPresentation(
-                        getInstrumentation().getContext(), display, newMode.getModeId());
+                        InstrumentationRegistry.getInstrumentation().getContext(),
+                        display, newMode.getModeId());
                 mPresentation.show();
                 presentationSignal.countDown();
             }
@@ -377,16 +407,72 @@ public class DisplayTest extends InstrumentationTestCase {
 
     private Activity launchScreenOnActivity() {
         Class clazz = ScreenOnActivity.class;
-        String targetPackage = getInstrumentation().getContext().getPackageName();
-        Instrumentation.ActivityResult result = new Instrumentation.ActivityResult(0, new Intent());
-        Instrumentation.ActivityMonitor monitor = new Instrumentation.ActivityMonitor(clazz.getName(), result, false);
-        getInstrumentation().addMonitor(monitor);
+        String targetPackage =
+                InstrumentationRegistry.getInstrumentation().getContext().getPackageName();
+        Instrumentation.ActivityResult result =
+                new Instrumentation.ActivityResult(0, new Intent());
+        Instrumentation.ActivityMonitor monitor =
+                new Instrumentation.ActivityMonitor(clazz.getName(), result, false);
+        InstrumentationRegistry.getInstrumentation().addMonitor(monitor);
         launchActivity(targetPackage, clazz, null);
         return monitor.waitForActivity();
     }
 
     private Activity launchActivity(ActivityTestRule activityRule) {
         final Activity activity = activityRule.launchActivity(null);
+        InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+        return activity;
+    }
+
+    /**
+     * Utility method for launching an activity. Copied from InstrumentationTestCase since
+     * InstrumentationRegistry does not provide these APIs anymore.
+     *
+     * <p>The {@link Intent} used to launch the Activity is:
+     *  action = {@link Intent#ACTION_MAIN}
+     *  extras = null, unless a custom bundle is provided here
+     * All other fields are null or empty.
+     *
+     * <p><b>NOTE:</b> The parameter <i>pkg</i> must refer to the package identifier of the
+     * package hosting the activity to be launched, which is specified in the AndroidManifest.xml
+     * file.  This is not necessarily the same as the java package name.
+     *
+     * @param pkg The package hosting the activity to be launched.
+     * @param activityCls The activity class to launch.
+     * @param extras Optional extra stuff to pass to the activity.
+     * @return The activity, or null if non launched.
+     */
+    private final <T extends Activity> T launchActivity(
+            String pkg,
+            Class<T> activityCls,
+            Bundle extras) {
+        Intent intent = new Intent(Intent.ACTION_MAIN);
+        if (extras != null) {
+            intent.putExtras(extras);
+        }
+        return launchActivityWithIntent(pkg, activityCls, intent);
+    }
+
+    /**
+     * Utility method for launching an activity with a specific Intent.
+     *
+     * <p><b>NOTE:</b> The parameter <i>pkg</i> must refer to the package identifier of the
+     * package hosting the activity to be launched, which is specified in the AndroidManifest.xml
+     * file.  This is not necessarily the same as the java package name.
+     *
+     * @param pkg The package hosting the activity to be launched.
+     * @param activityCls The activity class to launch.
+     * @param intent The intent to launch with
+     * @return The activity, or null if non launched.
+     */
+    @SuppressWarnings("unchecked")
+    private final <T extends Activity> T launchActivityWithIntent(
+            String pkg,
+            Class<T> activityCls,
+            Intent intent) {
+        intent.setClassName(pkg, activityCls.getName());
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        T activity = (T) InstrumentationRegistry.getInstrumentation().startActivitySync(intent);
         InstrumentationRegistry.getInstrumentation().waitForIdleSync();
         return activity;
     }

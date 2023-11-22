@@ -16,21 +16,20 @@
 
 package com.android.tv.recommendation;
 
-import static org.junit.Assert.assertTrue;
+import static com.google.common.truth.Truth.assertThat;
 
 import android.support.test.filters.SmallTest;
-
-import org.junit.Test;
-
+import android.support.test.runner.AndroidJUnit4;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
-/**
- * Unit tests for {@link RecentChannelEvaluator}.
- */
+/** Unit tests for {@link RecentChannelEvaluator}. */
 @SmallTest
+@RunWith(AndroidJUnit4.class)
 public class RecentChannelEvaluatorTest extends EvaluatorTestCase<RecentChannelEvaluator> {
     private static final int DEFAULT_NUMBER_OF_CHANNELS = 4;
     private static final long DEFAULT_WATCH_START_TIME_MS =
@@ -49,14 +48,16 @@ public class RecentChannelEvaluatorTest extends EvaluatorTestCase<RecentChannelE
         long channelId = addChannel().getId();
         notifyChannelAndWatchLogLoaded();
 
-        assertEqualScores(Recommender.Evaluator.NOT_RECOMMENDED,
-                mEvaluator.evaluateChannel(channelId));
+        assertEqualScores(
+                Recommender.Evaluator.NOT_RECOMMENDED, mEvaluator.evaluateChannel(channelId));
     }
 
     @Test
     public void testOneChannelWithRandomWatchLogs() {
         addChannel();
-        addRandomWatchLogs(DEFAULT_WATCH_START_TIME_MS, DEFAULT_WATCH_END_TIME_MS,
+        addRandomWatchLogs(
+                DEFAULT_WATCH_START_TIME_MS,
+                DEFAULT_WATCH_END_TIME_MS,
                 DEFAULT_MAX_WATCH_DURATION_MS);
         notifyChannelAndWatchLogLoaded();
 
@@ -70,15 +71,17 @@ public class RecentChannelEvaluatorTest extends EvaluatorTestCase<RecentChannelE
 
         List<Long> channelIdList = getChannelIdListSorted();
         for (long channelId : channelIdList) {
-            assertEqualScores(Recommender.Evaluator.NOT_RECOMMENDED,
-                    mEvaluator.evaluateChannel(channelId));
+            assertEqualScores(
+                    Recommender.Evaluator.NOT_RECOMMENDED, mEvaluator.evaluateChannel(channelId));
         }
     }
 
     @Test
     public void testMultiChannelsWithRandomWatchLogs() {
         addChannels(DEFAULT_NUMBER_OF_CHANNELS);
-        addRandomWatchLogs(DEFAULT_WATCH_START_TIME_MS, DEFAULT_WATCH_END_TIME_MS,
+        addRandomWatchLogs(
+                DEFAULT_WATCH_START_TIME_MS,
+                DEFAULT_WATCH_END_TIME_MS,
                 DEFAULT_MAX_WATCH_DURATION_MS);
         notifyChannelAndWatchLogLoaded();
 
@@ -103,7 +106,7 @@ public class RecentChannelEvaluatorTest extends EvaluatorTestCase<RecentChannelE
         double previousScore = Recommender.Evaluator.NOT_RECOMMENDED;
         for (long channelId : channelIdList) {
             double score = mEvaluator.evaluateChannel(channelId);
-            assertTrue(previousScore <= score);
+      assertThat(previousScore).isAtMost(score);
             previousScore = score;
         }
     }
@@ -111,7 +114,9 @@ public class RecentChannelEvaluatorTest extends EvaluatorTestCase<RecentChannelE
     @Test
     public void testScoreIncreasesWithNewWatchLog() {
         addChannels(DEFAULT_NUMBER_OF_CHANNELS);
-        addRandomWatchLogs(DEFAULT_WATCH_START_TIME_MS, DEFAULT_WATCH_END_TIME_MS,
+        addRandomWatchLogs(
+                DEFAULT_WATCH_START_TIME_MS,
+                DEFAULT_WATCH_END_TIME_MS,
                 DEFAULT_MAX_WATCH_DURATION_MS);
         notifyChannelAndWatchLogLoaded();
 
@@ -124,15 +129,17 @@ public class RecentChannelEvaluatorTest extends EvaluatorTestCase<RecentChannelE
             addWatchLog(channelId, latestWatchEndTimeMs, durationMs);
             latestWatchEndTimeMs += durationMs;
 
-            // Score must be increased because recentness of the log increases.
-            assertTrue(previousScore <= mEvaluator.evaluateChannel(channelId));
+      // Score must be increased because recentness of the log increases.
+      assertThat(previousScore).isAtMost(mEvaluator.evaluateChannel(channelId));
         }
     }
 
     @Test
     public void testScoreDecreasesWithIncrementOfWatchedLogUpdatedTime() {
         addChannels(DEFAULT_NUMBER_OF_CHANNELS);
-        addRandomWatchLogs(DEFAULT_WATCH_START_TIME_MS, DEFAULT_WATCH_END_TIME_MS,
+        addRandomWatchLogs(
+                DEFAULT_WATCH_START_TIME_MS,
+                DEFAULT_WATCH_END_TIME_MS,
                 DEFAULT_MAX_WATCH_DURATION_MS);
         notifyChannelAndWatchLogLoaded();
 
@@ -148,8 +155,8 @@ public class RecentChannelEvaluatorTest extends EvaluatorTestCase<RecentChannelE
         addWatchLog(newChannelId, latestWatchedEndTimeMs, TimeUnit.MINUTES.toMillis(10));
 
         for (long channelId : channelIdList) {
-            // Score must be decreased because LastWatchLogUpdateTime increases by new log.
-            assertTrue(mEvaluator.evaluateChannel(channelId) <= scores.get(channelId));
+      // Score must be decreased because LastWatchLogUpdateTime increases by new log.
+      assertThat(mEvaluator.evaluateChannel(channelId)).isAtMost(scores.get(channelId));
         }
     }
 }

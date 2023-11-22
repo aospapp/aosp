@@ -68,19 +68,6 @@ enum {
 };
 typedef uint8_t tNDEF_STATUS;
 
-#define HR_REC_TYPE_LEN 2        /* Handover Request Record Type     */
-#define HS_REC_TYPE_LEN 2        /* Handover Select Record Type      */
-#define HC_REC_TYPE_LEN 2        /* Handover Carrier recrod Type     */
-#define CR_REC_TYPE_LEN 2        /* Collision Resolution Record Type */
-#define AC_REC_TYPE_LEN 2        /* Alternative Carrier Record Type  */
-#define ERR_REC_TYPE_LEN 3       /* Error Record Type                */
-#define BT_OOB_REC_TYPE_LEN 32   /* Bluetooth OOB Data Type          */
-#define WIFI_WSC_REC_TYPE_LEN 23 /* Wifi WSC Data Type               */
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 /* Functions to parse a received NDEF Message
 */
 /*******************************************************************************
@@ -280,39 +267,6 @@ extern tNDEF_STATUS NDEF_MsgAddRec(uint8_t* p_msg, uint32_t max_size,
 
 /*******************************************************************************
 **
-** Function         NDEF_MsgInsertRec
-**
-** Description      This function inserts a record at a specific index into the
-**                  given NDEF message
-**
-** Returns          OK, or error if the record did not fit
-**                  *p_cur_size is updated
-**
-*******************************************************************************/
-extern tNDEF_STATUS NDEF_MsgInsertRec(uint8_t* p_msg, uint32_t max_size,
-                                      uint32_t* p_cur_size, int32_t index,
-                                      uint8_t tnf, uint8_t* p_type,
-                                      uint8_t type_len, uint8_t* p_id,
-                                      uint8_t id_len, uint8_t* p_payload,
-                                      uint32_t payload_len);
-
-/*******************************************************************************
-**
-** Function         NDEF_MsgAppendRec
-**
-** Description      This function adds NDEF records to the end of an NDEF
-**                  message.
-**
-** Returns          OK, or error if the record did not fit
-**                  *p_cur_size is updated
-**
-*******************************************************************************/
-extern tNDEF_STATUS NDEF_MsgAppendRec(uint8_t* p_msg, uint32_t max_size,
-                                      uint32_t* p_cur_size, uint8_t* p_new_rec,
-                                      uint32_t new_rec_len);
-
-/*******************************************************************************
-**
 ** Function         NDEF_MsgAppendPayload
 **
 ** Description      This function appends extra payload to a specific record in
@@ -403,9 +357,4 @@ extern tNDEF_STATUS NDEF_MsgRemoveRec(uint8_t* p_msg, uint32_t* p_cur_size,
 extern tNDEF_STATUS NDEF_MsgCopyAndDechunk(uint8_t* p_src, uint32_t src_len,
                                            uint8_t* p_dest,
                                            uint32_t* p_out_len);
-
-#ifdef __cplusplus
-}
-#endif
-
 #endif /* NDEF_UTILS_H */

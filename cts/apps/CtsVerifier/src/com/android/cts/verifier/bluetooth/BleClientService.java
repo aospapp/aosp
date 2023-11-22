@@ -148,8 +148,8 @@ public class BleClientService extends Service {
             "com.android.cts.verifier.bluetooth.BLE_CLIENT_ACTION_CLIENT_CONNECT";
     public static final String BLE_CLIENT_ACTION_CLIENT_CONNECT_SECURE =
             "com.android.cts.verifier.bluetooth.BLE_CLIENT_ACTION_CLIENT_CONNECT_SECURE";
-    public static final String BLE_CLIENT_ACTION_BLE_DISVOCER_SERVICE =
-            "com.android.cts.verifier.bluetooth.BLE_CLIENT_ACTION_BLE_DISVOCER_SERVICE";
+    public static final String BLE_CLIENT_ACTION_BLE_DISCOVER_SERVICE =
+            "com.android.cts.verifier.bluetooth.BLE_CLIENT_ACTION_BLE_DISCOVER_SERVICE";
     public static final String BLE_CLIENT_ACTION_REQUEST_MTU_23 =
             "com.android.cts.verifier.bluetooth.BLE_CLIENT_ACTION_REQUEST_MTU_23";
     public static final String BLE_CLIENT_ACTION_REQUEST_MTU_512 =
@@ -353,7 +353,7 @@ public class BleClientService extends Service {
                     mExecReliableWrite = ReliableWriteState.RELIABLE_WRITE_NONE;
                     startScan();
                     break;
-                case BLE_CLIENT_ACTION_BLE_DISVOCER_SERVICE:
+                case BLE_CLIENT_ACTION_BLE_DISCOVER_SERVICE:
                     if (mBluetoothGatt != null && mBleState == BluetoothProfile.STATE_CONNECTED) {
                         mBluetoothGatt.discoverServices();
                     } else {
@@ -770,13 +770,13 @@ public class BleClientService extends Service {
     }
 
     private void notifyReliableWriteCompleted() {
-        showMessage("Reliable write compelte");
+        showMessage("Reliable write complete");
         Intent intent = new Intent(BLE_RELIABLE_WRITE_COMPLETED);
         sendBroadcast(intent);
     }
 
     private void notifyReliableWriteBadRespCompleted(String err) {
-        showMessage("Reliable write(bad response) compelte");
+        showMessage("Reliable write(bad response) complete");
         Intent intent = new Intent(BLE_RELIABLE_WRITE_BAD_RESP_COMPLETED);
         if (err != null) {
             intent.putExtra(EXTRA_ERROR_MESSAGE, err);

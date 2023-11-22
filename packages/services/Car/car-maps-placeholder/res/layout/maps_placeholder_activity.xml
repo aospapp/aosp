@@ -24,5 +24,6 @@ limitations under the License.
         android:layout_width="@dimen/error_text_container_width"
         android:layout_height="wrap_content"
         android:text="@string/error_text"
-        style="@style/CarBody1.Light" />
+        android:textColor="@color/car_body1_light"
+        android:textAppearance="@style/TextAppearance.Car.Body1" />
 </FrameLayout>

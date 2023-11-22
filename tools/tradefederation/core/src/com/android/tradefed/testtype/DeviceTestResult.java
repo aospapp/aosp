@@ -16,6 +16,7 @@
 package com.android.tradefed.testtype;
 
 import com.android.tradefed.device.DeviceNotAvailableException;
+import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.result.JUnitToInvocationResultForwarder;
 import com.android.tradefed.testtype.MetricTestCase.LogHolder;
 import com.android.tradefed.util.StreamUtil;
@@ -30,7 +31,6 @@ import junit.framework.TestResult;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 /**
  * An specialization of {@link junit.framework.TestResult} that will abort when a
@@ -100,12 +100,12 @@ public class DeviceTestResult extends TestResult {
     /** {@inheritDoc} */
     @Override
     public void endTest(Test test) {
-        Map<String, String> metrics = new HashMap<>();
+        HashMap<String, Metric> metrics = new HashMap<>();
         if (test instanceof MetricTestCase) {
             MetricTestCase metricTest = (MetricTestCase) test;
             metrics.putAll(metricTest.mMetrics);
             // reset the metric for next test.
-            metricTest.mMetrics = new HashMap<String, String>();
+            metricTest.mMetrics = new HashMap<String, Metric>();
 
             // testLog the log files
             for (TestListener each : cloneListeners()) {

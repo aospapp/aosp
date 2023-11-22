@@ -12,171 +12,28 @@ else ?><?cs
 <?cs /if ?><?cs
 # END if/else devsite ?></title><?cs
   ####### If building devsite, add some meta data needed for when generating the top nav ######### ?><?cs
-if:devsite ?>
-  <meta name="top_category" value="<?cs
-      if:ndk ?>ndk<?cs
-      elif:(guide||develop||training||reference||tools||sdk||google||reference.gms||reference.gcm||samples) ?>develop<?cs
-      elif:(topic||libraries||instantapps||perf||arc) ?>develop<?cs
-      elif:(distribute||googleplay||essentials||users||engage||monetize||disttools||stories||analyze) ?>distribute<?cs
-      elif:(design||vision||material||patterns||devices||designdownloads) ?>design<?cs
-      elif:(about||versions||wear||tv||auto) ?>about<?cs
-      elif:wearpreview ?>about<?cs
-      elif:work ?>about<?cs
-      elif:preview ?>preview<?cs
-      else ?>none<?cs
-      /if ?>" /><?cs set:dac_subcategory_set = #1 ?>
-  <meta name="subcategory" value="<?cs
-      if:ndk ?><?cs
-        if:guide ?>guide<?cs
-        elif:samples ?>samples<?cs
-          if:(samplesDocPage&&!samplesProjectIndex) ?> samples-docpage<?cs /if ?><?cs
-        elif:reference ?>reference<?cs
-        elif:downloads ?>downloads<?cs
-        else ?>none<?cs set:dac_subcategory_set = #0 ?><?cs /if ?><?cs
-      else ?><?cs
-        if:(guide||develop||training||reference||tools||sdk||samples) ?><?cs
-          if:guide ?>guide<?cs
-          elif:training ?><?cs
-            if:page.trainingcourse ?>trainingcourse<?cs
-            else ?>training<?cs /if ?><?cs
-          elif:reference ?>reference<?cs
-          elif:samples ?>samples<?cs
-            if:(samplesDocPage&&!samplesProjectIndex) ?> samples-docpage<?cs /if ?><?cs
-          else ?>none<?cs set:dac_subcategory_set = #0 ?><?cs /if ?><?cs
-        elif:(google||reference.gms||reference.gcm) ?>google<?cs
-        elif:(topic||libraries||perf||arc) ?><?cs
-          if:libraries ?>libraries<?cs
-          elif:instantapps ?>instantapps<?cs
-          elif:perf ?>perf<?cs
-          elif:arc ?>arc<?cs
-          else ?>none<?cs set:dac_subcategory_set = #0 ?><?cs /if ?><?cs
-        elif:(distribute||googleplay||essentials||users||engage||monetize||disttools||stories||analyze) ?><?cs
-          if:googleplay ?>googleplay<?cs
-          elif:essentials ?>essentials<?cs
-          elif:users ?>users<?cs
-          elif:engage ?>engage<?cs
-          elif:monetize ?>monetize<?cs
-          elif:disttools ?>disttools<?cs
-          elif:stories ?>stories<?cs
-          elif:analyze ?>analyze<?cs
-          else ?>none<?cs set:dac_subcategory_set = #0 ?><?cs /if ?><?cs
-        elif:(about||versions||wear||tv||auto) ?>about<?cs
-        elif:preview ?>preview<?cs
-        elif:wearpreview ?>wear<?cs
-        elif:work ?>work<?cs
-        elif:design ?>design<?cs
-        elif:walkthru ?>walkthru<?cs
-        else ?>none<?cs set:dac_subcategory_set = #0 ?><?cs /if ?><?cs
+if:devsite ?><?cs
+  if:dac ?><?cs
+    # if this build set `library.root` then set a django variable to be used by the subsequent
+    # _reference-head-tags.html file for the book path (or ignored if its no longer needed)
+    ?><?cs
+    if:library.root ?>
+      {% setvar book_path %}/reference/<?cs var:library.root ?>/_book.yaml{% endsetvar %}<?cs
+    /if ?>
+    {% include "_shared/_reference-head-tags.html" %}
+    <meta name="body_class" value="api apilevel-<?cs var:class.since ?><?cs var:package.since ?>" /><?cs
+  else ?><?cs # If NOT dac... ?>
+    <meta name="hide_page_heading" value="true" />
+    <meta name="book_path" value="<?cs
+      if:book.path ?><?cs var:book.path ?><?cs
+      else ?>/_book.yaml<?cs
+      /if ?>" />
+    <meta name="project_path" value="<?cs
+      if:project.path ?><?cs var:project.path ?><?cs
+      else ?>/_project.yaml<?cs
       /if ?>" /><?cs
-      if:nonavpage ?>
-  <meta name="hide_toc" value='True' /><?cs
-      elif: !nonavpage && dac_subcategory_set && !tools && !sdk ?>
-  <meta name="book_path" value="<?cs
-        if:!dac ?><?cs
-          if:book.path ?><?cs var:book.path ?><?cs
-          else ?>/_book.yaml<?cs
-          /if ?>" /><?cs
-        else ?><?cs
-          if:ndk ?>/ndk<?cs
-            if:guide ?>/guides<?cs
-            elif:samples ?>/samples<?cs
-            elif:reference ?>/reference<?cs
-            elif:downloads ?>/downloads<?cs /if ?><?cs
-          elif:library.root ?>/reference/<?cs var:library.root ?><?cs
-          else ?><?cs
-            if:(guide||develop||training||reference||tools||sdk||samples) ?><?cs
-              if:guide ?>/guide<?cs
-              elif:training ?>/training<?cs
-              elif:reference ?>/reference<?cs
-              elif:samples ?>/samples<?cs /if ?><?cs
-            elif:(google||reference.gms||reference.gcm) ?>/google<?cs
-            elif:(topic||libraries||perf) ?>/topic<?cs
-              if:libraries ?>/libraries<?cs
-              elif:instantapps ?>/instant-apps<?cs
-              elif:perf ?>/performance<?cs
-              elif:arc ?>/arc<?cs /if ?><?cs
-            elif:(distribute||googleplay||essentials||users||engage||monetize||disttools||stories||analyze) ?>/distribute<?cs
-              if:googleplay ?>/googleplay<?cs
-              elif:essentials ?>/essentials<?cs
-              elif:users ?>/users<?cs
-              elif:engage ?>/engage<?cs
-              elif:monetize ?>/monetize<?cs
-              elif:disttools ?>/tools<?cs
-              elif:stories ?>/stories<?cs
-              elif:analyze ?>/analyze<?cs /if ?><?cs
-            elif:(about||versions||wear||tv||auto) ?>/about<?cs
-            elif:preview ?>/preview<?cs
-            elif:wearpreview ?>/wear/preview<?cs
-            elif:work ?>/work<?cs
-            elif:design ?>/design<?cs
-            elif:walkthru ?>/walkthru<?cs /if ?><?cs
-          /if ?>/_book.yaml" /><?cs
-        /if ?><?cs
-      /if ?>
-  <meta name="project_path" value="<?cs
-      if:!dac ?><?cs
-        if:project.path ?><?cs var:project.path ?><?cs
-        else ?>/_project.yaml<?cs
-        /if ?>" /><?cs
-      else ?><?cs
-        if:(guide||develop||training||reference||tools||sdk||samples) ?><?cs
-          if:guide ?>/guide<?cs
-          elif:training ?>/training<?cs
-          elif:reference ?>/reference<?cs
-          elif:samples ?>/samples<?cs /if ?><?cs
-        elif:(google||reference.gms||reference.gcm) ?>/google<?cs
-        elif:(topic||libraries) ?>/develop<?cs
-        elif:(distribute||googleplay||essentials||users||engage||monetize||disttools||stories||analyze) ?>/distribute<?cs
-          if:googleplay ?>/googleplay<?cs
-          elif:essentials ?>/essentials<?cs
-          elif:users ?>/users<?cs
-          elif:engage ?>/engage<?cs
-          elif:monetize ?>/monetize<?cs
-          elif:disttools ?>/tools<?cs
-          elif:stories ?>/stories<?cs
-          elif:analyze ?>/analyze<?cs
-          else ?><?cs /if ?><?cs
-        elif:(about||versions||wear||tv||auto) ?><?cs
-          if:versions ?>/about/versions<?cs
-          elif:wear ?>/wear<?cs
-          elif:tv ?>/tv<?cs
-          elif:auto ?>/auto<?cs
-          else ?>/about<?cs /if ?><?cs
-        elif:wearpreview ?>/wear/preview<?cs
-        elif:work ?>/work<?cs
-        elif:preview ?>/preview<?cs
-        elif:design ?>/design<?cs /if ?>/_project.yaml" /><?cs
-      /if ?><?cs
-      if:page.tags && page.tags != "" ?>
-  <meta name="keywords" value='<?cs var:page.tags ?>' /><?cs
-      /if ?><?cs
-      if:meta.tags && meta.tags != "" ?>
-  <meta name="meta_tags" value='<?cs var:meta.tags ?>' /><?cs
-      /if ?><?cs
-      if:fullpage ?>
-  <meta name="full_width" value="True" /><?cs
-      /if ?><?cs
-      if:page.landing ?>
-  <meta name="page_type" value="landing" /><?cs
-      /if ?><?cs
-      if:page.article ?>
-  <meta name="page_type" value="article" /><?cs
-      /if ?><?cs
-      if:page.image ?>
-  <meta name="image_path" value='<?cs var:page.image ?>' /><?cs
-      /if ?><?cs
-      if:excludeFromSuggestions ?>
-  <meta name="hide_from_search_suggest" value="true" /><?cs
-      /if ?><?cs
-      if:reference ?>
-  <meta name="body_class" value="api apilevel-<?cs var:class.since ?><?cs var:package.since ?>" /><?cs
-      /if ?><?cs
-      if:!dac ?>
-  <meta name="hide_page_heading" value="true" /><?cs
-      /if ?><?cs
-/if ?><?cs # END if/else devsite ?><?cs
-
-  if:!devsite ?>
+  /if ?><?cs # End if/else dac ?><?cs
+else ?><?cs # if NOT devsite... ?>
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1.0,minimum-scale=1.0,maximum-scale=1.0,user-scalable=no" />
 <meta content="IE=edge" http-equiv="X-UA-Compatible">

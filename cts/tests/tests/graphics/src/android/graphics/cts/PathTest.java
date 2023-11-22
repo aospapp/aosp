@@ -491,6 +491,36 @@ public class PathTest {
         assertTrue(path.approximate(0.25f).length > 20);
     }
 
+    /** This test just ensures the process doesn't crash. The actual output is not interesting
+     *  hence the lack of asserts, as the only behavior that's being asserted is that it
+     *  doesn't crash.
+     */
+    @Test
+    public void testUseAfterFinalize() throws Throwable {
+        PathAbuser pathAbuser = new PathAbuser();
+
+        // Basic test that we created a path successfully
+        assertTrue(pathAbuser.isEmpty());
+        addRectToPath(pathAbuser);
+        assertTrue(pathAbuser.isRect(null));
+        assertFalse(pathAbuser.isEmpty());
+
+        // Now use-after-finalize.
+        pathAbuser.destroy();
+        pathAbuser.isEmpty();
+        pathAbuser.isRect(null);
+        pathAbuser.destroy();
+        pathAbuser.isEmpty();
+        pathAbuser.isRect(null);
+        pathAbuser.destroy();
+    }
+
+    private static final class PathAbuser extends Path {
+        public void destroy() throws Throwable {
+            finalize();
+        }
+    }
+
     private static void verifyPathsAreEquivalent(Path actual, Path expected) {
         Bitmap actualBitmap = drawAndGetBitmap(actual);
         Bitmap expectedBitmap = drawAndGetBitmap(expected);

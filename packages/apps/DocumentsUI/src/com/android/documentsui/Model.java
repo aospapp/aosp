@@ -17,8 +17,8 @@
 package com.android.documentsui;
 
 import static com.android.documentsui.base.DocumentInfo.getCursorString;
-import static com.android.documentsui.base.Shared.DEBUG;
-import static com.android.documentsui.base.Shared.VERBOSE;
+import static com.android.documentsui.base.SharedMinimal.DEBUG;
+import static com.android.documentsui.base.SharedMinimal.VERBOSE;
 
 import android.annotation.IntDef;
 import android.app.AuthenticationRequiredException;

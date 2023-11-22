@@ -1,3 +1,0 @@
-ab /a/b
-cd /c/d
-e /e

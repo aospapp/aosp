@@ -48,11 +48,11 @@ from autotest_lib.server.cros.dynamic_suite import dynamic_suite
 
 dynamic_suite.reimage_and_run(
     builds={provision.CROS_VERSION_PREFIX: build}, board=board, name='bvt',
-    job=job, pool=pool, check_hosts=check_hosts, add_experimental=True, num=num,
+    job=job, pool=pool, check_hosts=check_hosts, add_experimental=True,
     devserver_url=devserver_url)
 
 This will -- at runtime -- find all control files that contain "bvt" in their
-"SUITE=" clause, schedule jobs to reimage |num| or less devices in the
+"SUITE=" clause, schedule jobs to reimage devices in the
 specified pool of the specified board with the specified build and, upon
 completion of those jobs, schedule and wait for jobs that run all the tests it
 discovered.
@@ -110,11 +110,10 @@ to complete.
 
 As an artifact of an old implementation, the number of machines to use
 is called the 'sharding_factor', and the default is defined in the [CROS]
-section of global_config.ini.  This can be overridden by passing a 'num=N'
-parameter to create_suite_job(), which is piped through to reimage_and_run()
-just like the 'build' and 'board' parameters are.  However, with provisioning,
-this machine accounting hasn't been implemented nor removed.  However, 'num' is
-still passed around, as it might be used one day.
+section of global_config.ini.
+
+There used to be a 'num' parameter to control the maximum number of
+machines, but it does not do anything any more.
 
 A test control file can specify a list of DEPENDENCIES, which are really just
 the set of labels a host needs to have in order for that test to be scheduled
@@ -210,6 +209,7 @@ class _SuiteSpec(object):
 
     _VERSION_PREFIXES = frozenset((
             provision.CROS_VERSION_PREFIX,
+            provision.CROS_ANDROID_VERSION_PREFIX,
             provision.ANDROID_BUILD_VERSION_PREFIX,
     ))
 
@@ -221,7 +221,6 @@ class _SuiteSpec(object):
             job=None,
             devserver_url=None,
             pool=None,
-            num=None,
             check_hosts=True,
             add_experimental=True,
             file_bugs=False,
@@ -239,7 +238,8 @@ class _SuiteSpec(object):
             run_prod_code=False,
             delay_minutes=0,
             job_keyvals=None,
-            test_args = None,
+            test_args=None,
+            child_dependencies=(),
             **dargs):
         """
         Vets arguments for reimage_and_run() and populates self with supplied
@@ -257,7 +257,6 @@ class _SuiteSpec(object):
 
         Currently supported optional args:
         @param pool: the pool of machines to use for scheduling purposes.
-        @param num: the maximum number of devices to reimage.
         @param check_hosts: require appropriate hosts to be available now.
         @param add_experimental: schedule experimental tests as well, or not.
         @param file_bugs: File bugs when tests in this suite fail.
@@ -300,6 +299,8 @@ class _SuiteSpec(object):
         @param job_keyvals: General job keyvals to be inserted into keyval file
         @param test_args: A dict of args passed all the way to each individual
                           test that will be actually ran.
+        @param child_dependencies: (optional) list of dependency strings
+                to be added as dependencies to child jobs.
         @param **dargs: these arguments will be ignored.  This allows us to
                         deprecate and remove arguments in ToT while not
                         breaking branch builds.
@@ -316,7 +317,6 @@ class _SuiteSpec(object):
         self.name = name
         self.job = job
         self.pool = ('pool:%s' % pool) if pool else pool
-        self.num = num
         self.check_hosts = check_hosts
         self.add_experimental = add_experimental
         self.file_bugs = file_bugs
@@ -333,6 +333,7 @@ class _SuiteSpec(object):
         self.delay_minutes = delay_minutes
         self.job_keyvals = job_keyvals
         self.test_args = test_args
+        self.child_dependencies = child_dependencies
 
         self._init_predicate(predicate)
         self._init_suite_dependencies(suite_dependencies)
@@ -417,6 +418,13 @@ class _SuiteSpec(object):
         )
 
 
+class _ProvisionSuiteSpec(_SuiteSpec):
+
+    def __init__(self, num_required, **kwargs):
+        self.num_required = num_required
+        super(_ProvisionSuiteSpec, self).__init__(**kwargs)
+
+
 def run_provision_suite(**dargs):
     """
     Run a provision suite.
@@ -432,7 +440,7 @@ def run_provision_suite(**dargs):
     @raises MalformedDependenciesException: if the dependency_info file for
                                             the required build fails to parse.
     """
-    spec = _SuiteSpec(**dargs)
+    spec = _ProvisionSuiteSpec(**dargs)
 
     afe = frontend_wrappers.RetryingAFE(timeout_min=30, delay_sec=10,
                                         user=spec.job.user, debug=False)
@@ -451,7 +459,7 @@ def run_provision_suite(**dargs):
             builds=spec.builds,
             board=spec.board,
             devserver=spec.devserver,
-            count=1,
+            num_required=spec.num_required,
             afe=afe,
             tko=tko,
             pool=spec.pool,
@@ -469,7 +477,9 @@ def run_provision_suite(**dargs):
             test_source_build=spec.test_source_build,
             run_prod_code=spec.run_prod_code,
             job_keyvals=spec.job_keyvals,
-            test_args=spec.test_args)
+            test_args=spec.test_args,
+            child_dependencies=spec.child_dependencies,
+    )
 
     _run_suite_with_spec(suite, spec)
 
@@ -519,6 +529,11 @@ def _perform_reimage_and_run(spec, afe, tko, suite_job_id=None):
     @param suite_job_id: Job id that will act as parent id to all sub jobs.
                          Default: None
     """
+    # We can't create the suite until the devserver has finished downloading
+    # control_files and test_suites packages so that we can get the control
+    # files to schedule.
+    if not spec.run_prod_code:
+        _stage_artifacts_for_build(spec.devserver, spec.test_source_build)
     suite = Suite.create_from_predicates(
             predicates=[spec.predicate],
             name=spec.name,
@@ -542,7 +557,9 @@ def _perform_reimage_and_run(spec, afe, tko, suite_job_id=None):
             test_source_build=spec.test_source_build,
             run_prod_code=spec.run_prod_code,
             job_keyvals=spec.job_keyvals,
-            test_args=spec.test_args)
+            test_args=spec.test_args,
+            child_dependencies=spec.child_dependencies,
+    )
     _run_suite_with_spec(suite, spec)
 
 
@@ -556,9 +573,6 @@ def _run_suite_with_spec(suite, spec):
     _run_suite(
         suite=suite,
         job=spec.job,
-        run_prod_code=spec.run_prod_code,
-        devserver=spec.devserver,
-        build=spec.test_source_build,
         delay_minutes=spec.delay_minutes,
         bug_template=spec.bug_template)
 
@@ -566,9 +580,6 @@ def _run_suite_with_spec(suite, spec):
 def _run_suite(
         suite,
         job,
-        run_prod_code,
-        devserver,
-        build,
         delay_minutes,
         bug_template):
     """
@@ -577,20 +588,11 @@ def _run_suite(
     @param suite: _BaseSuite instance.
     @param job: an instance of client.common_lib.base_job representing the
                 currently running suite job.
-    @param run_prod_code: whether to use prod test code.
-    @param devserver: devserver for staging artifacts.
-    @param build: the build to install e.g. 'x86-alex-release/R18-1655.0.0'
     @param delay_minutes: Delay the creation of test jobs for a given number
                           of minutes.
     @param bug_template: A template dictionary specifying the default bug
                          filing options for failures in this suite.
     """
-    # We can't do anything else until the devserver has finished downloading
-    # control_files and test_suites packages so that we can get the control
-    # files we should schedule.
-    if not run_prod_code:
-        _stage_artifacts_for_build(devserver, build)
-
     timestamp = datetime.datetime.now().strftime(time_utils.TIME_FMT)
     utils.write_keyval(
         job.resultdir,
@@ -608,8 +610,7 @@ def _run_suite(
 
     if suite.wait_for_results:
         logging.debug('Waiting on suite.')
-        reporter = suite.get_result_reporter(bug_template)
-        suite.wait(job.record_entry, reporter=reporter)
+        suite.wait(job.record_entry)
         logging.debug('Finished waiting on suite. '
                       'Returning from _perform_reimage_and_run.')
     else:

@@ -73,7 +73,14 @@ def build_router_proxy(test_name='', client_hostname=None, router_addr=None,
         raise error.TestError('Router at %s is not pingable.' %
                               router_hostname)
 
-    return LinuxRouter(hosts.create_host(router_hostname), test_name,
+    # Use CrosHost for all router hosts and avoid host detection.
+    # Host detection would use JetstreamHost for Whirlwind routers.
+    # JetstreamHost assumes ap-daemons are running.
+    # Testbed routers run the testbed-ap profile with no ap-daemons.
+    # TODO(ecgh): crbug.com/757075 Fix testbed-ap JetstreamHost detection.
+    return LinuxRouter(hosts.create_host(router_hostname,
+                                         host_class=hosts.CrosHost),
+                       test_name,
                        enable_avahi=enable_avahi)
 
 
@@ -255,6 +262,7 @@ class LinuxRouter(site_linux_system.LinuxSystem):
         else:
             interface = self.get_wlanif(
                 configuration.frequency, 'managed', configuration.min_streams)
+        phy_name = self.iw_runner.get_interface(interface).phy
 
         conf_file = self.HOSTAPD_CONF_FILE_PATTERN % interface
         log_file = self.HOSTAPD_LOG_FILE_PATTERN % interface
@@ -272,8 +280,7 @@ class LinuxRouter(site_linux_system.LinuxSystem):
 
         # Run hostapd.
         logging.info('Starting hostapd on %s(%s) channel=%s...',
-                     interface, self.iw_runner.get_interface(interface).phy,
-                     configuration.channel)
+                     interface, phy_name, configuration.channel)
         self.router.run('rm %s' % log_file, ignore_status=True)
         self.router.run('stop wpasupplicant', ignore_status=True)
         start_command = '%s -dd -t %s > %s 2> %s & echo $!' % (
@@ -317,6 +324,12 @@ class LinuxRouter(site_linux_system.LinuxSystem):
         else:
             raise error.TestFail('Timed out while waiting for hostapd '
                                  'to start.')
+
+        if configuration.frag_threshold:
+            threshold = self.iw_runner.get_fragmentation_threshold(phy_name)
+            if threshold != configuration.frag_threshold:
+                raise error.TestNAError('Router does not support setting '
+                                        'fragmentation threshold')
 
 
     def _kill_process_instance(self,
@@ -877,23 +890,6 @@ class LinuxRouter(site_linux_system.LinuxSystem):
                         (self.cmd_send_management_frame, interface, frame_type,
                          channel))
         self.release_interface(interface)
-
-
-    def setup_management_frame_interface(self, channel):
-        """
-        Setup interface for injecting management frames.
-
-        @param channel int channel to inject the frames.
-
-        @return string name of the interface.
-
-        """
-        frequency = hostap_config.HostapConfig.get_frequency_for_channel(
-                channel)
-        interface = self.get_wlanif(frequency, 'monitor')
-        self.router.run('%s link set %s up' % (self.cmd_ip, interface))
-        self.iw_runner.set_freq(interface, frequency)
-        return interface
 
 
     def send_management_frame(self, interface, frame_type, channel,

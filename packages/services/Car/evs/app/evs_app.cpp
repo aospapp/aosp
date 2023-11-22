@@ -50,7 +50,7 @@ static bool subscribeToVHal(sp<IVehicle> pVnet,
     SubscribeOptions optionsData[] = {
         {
             .propId = static_cast<int32_t>(propertyId),
-            .flags  = SubscribeFlags::DEFAULT
+            .flags  = SubscribeFlags::EVENTS_FROM_CAR
         },
     };
     hidl_vec <SubscribeOptions> options;
@@ -97,7 +97,10 @@ int main(int argc, char** argv)
 
     // Load our configuration information
     ConfigManager config;
-    config.initialize("/system/etc/automotive/evs/config.json");
+    if (!config.initialize("/system/etc/automotive/evs/config.json")) {
+        ALOGE("Missing or improper configuration for the EVS application.  Exiting.");
+        return 1;
+    }
 
     // Set thread pool size to one to avoid concurrent events from the HAL.
     // This pool will handle the EvsCameraStream callbacks.

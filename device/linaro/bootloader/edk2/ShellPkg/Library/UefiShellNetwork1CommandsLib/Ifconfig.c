@@ -2,7 +2,7 @@
   The implementation for Shell command ifconfig based on IP4Config2 protocol.
 
   (C) Copyright 2013-2015 Hewlett-Packard Development Company, L.P.<BR>
-  Copyright (c) 2006 - 2015, Intel Corporation. All rights reserved.<BR>
+  Copyright (c) 2006 - 2016, Intel Corporation. All rights reserved.<BR>
 
   This program and the accompanying materials
   are licensed and made available under the terms and conditions of the BSD License
@@ -130,6 +130,26 @@ VAR_CHECK_ITEM  mSetCheckList[] = {
 STATIC CONST CHAR16 PermanentString[10] = L"PERMANENT";
 
 /**
+  Free the ARG_LIST.
+
+  @param List Pointer to ARG_LIST to free.
+**/
+VOID
+FreeArgList (
+  ARG_LIST       *List
+)
+{
+  ARG_LIST       *Next;
+  while (List->Next != NULL) {
+    Next = List->Next;
+    FreePool (List);
+    List = Next;
+  }
+
+  FreePool (List);
+}
+
+/**
   Split a string with specified separator and save the substring to a list.
 
   @param[in]    String       The pointer of the input string.
@@ -157,14 +177,18 @@ SplitStrToList (
   // Copy the CONST string to a local copy.
   //
   Str = AllocateCopyPool (StrSize (String), String);
-  ASSERT (Str != NULL);
+  if (Str == NULL) {
+    return NULL;
+  }
   ArgStr  = Str;
 
   //
   // init a node for the list head.
   //
   ArgNode = (ARG_LIST *) AllocateZeroPool (sizeof (ARG_LIST));
-  ASSERT (ArgNode != NULL);
+  if (ArgNode == NULL) {
+    return NULL;
+  }
   ArgList = ArgNode;
 
   //
@@ -176,7 +200,14 @@ SplitStrToList (
       ArgNode->Arg  = ArgStr;
       ArgStr        = Str + 1;
       ArgNode->Next = (ARG_LIST *) AllocateZeroPool (sizeof (ARG_LIST));
-      ASSERT (ArgNode->Next != NULL);
+      if (ArgNode->Next == NULL) {
+        //
+        // Free the local copy of string stored in the first node
+        //
+        FreePool (ArgList->Arg);
+        FreeArgList (ArgList);
+        return NULL;
+      }
       ArgNode = ArgNode->Next;
     }
 
@@ -272,86 +303,6 @@ IfConfigManualAddressNotify (
 {
   *((BOOLEAN *) Context) = TRUE;
 }
-
-
-/**
-  Create an IP child, use it to start the auto configuration, then destroy it.
-
-  @param[in] Controller       The controller which has the service installed.
-  @param[in] Image            The image handle used to open service.
-
-  @retval EFI_SUCCESS         The configuration is done.
-**/
-EFI_STATUS
-EFIAPI
-IfConfigStartIp4(
-  IN  EFI_HANDLE            Controller,
-  IN  EFI_HANDLE            Image
-  )
-{
-  EFI_IP4_PROTOCOL              *Ip4;
-  EFI_HANDLE                    Ip4Handle;
-  EFI_IP4_CONFIG_DATA           Ip4ConfigData;
-  EFI_STATUS                    Status;
-
-  //
-  // Get the Ip4ServiceBinding Protocol
-  //
-  Ip4Handle     = NULL;
-  Ip4           = NULL;
-
-  Status = NetLibCreateServiceChild (
-             Controller,
-             Image,
-             &gEfiIp4ServiceBindingProtocolGuid,
-             &Ip4Handle
-             );
-
-  if (EFI_ERROR (Status)) {
-    return Status;
-  }
-
-  Status = gBS->OpenProtocol (
-                 Ip4Handle,
-                 &gEfiIp4ProtocolGuid,
-                 (VOID **) &Ip4,
-                 Controller,
-                 Image,
-                 EFI_OPEN_PROTOCOL_GET_PROTOCOL
-                 );
-
-  if (EFI_ERROR (Status)) {
-    goto ON_EXIT;
-  }
-
-  Ip4ConfigData.DefaultProtocol          = EFI_IP_PROTO_ICMP;
-  Ip4ConfigData.AcceptAnyProtocol        = FALSE;
-  Ip4ConfigData.AcceptIcmpErrors         = FALSE;
-  Ip4ConfigData.AcceptBroadcast          = FALSE;
-  Ip4ConfigData.AcceptPromiscuous        = FALSE;
-  Ip4ConfigData.UseDefaultAddress        = TRUE;
-  ZeroMem (&Ip4ConfigData.StationAddress, sizeof (EFI_IPv4_ADDRESS));
-  ZeroMem (&Ip4ConfigData.SubnetMask, sizeof (EFI_IPv4_ADDRESS));
-  Ip4ConfigData.TypeOfService            = 0;
-  Ip4ConfigData.TimeToLive               = 1;
-  Ip4ConfigData.DoNotFragment            = FALSE;
-  Ip4ConfigData.RawData                  = FALSE;
-  Ip4ConfigData.ReceiveTimeout           = 0;
-  Ip4ConfigData.TransmitTimeout          = 0;
-
-  Ip4->Configure (Ip4, &Ip4ConfigData);
-  
-ON_EXIT: 
-  NetLibDestroyServiceChild (
-    Controller,
-    Image,
-    &gEfiIp4ServiceBindingProtocolGuid,
-    Ip4Handle
-    );
-  
-  return Status;
-}
-
 
 /**
   Print MAC address.
@@ -790,6 +741,7 @@ IfConfigShowInterfaceInfo (
   The clean process of the ifconfig command to clear interface info.
 
   @param[in]   IfList    The pointer of IfList(interface list).
+  @param[in]   IfName    The pointer of interface name.
 
   @retval SHELL_SUCCESS  The ifconfig command clean processed successfully.
   @retval others         The ifconfig command clean process failed.
@@ -797,7 +749,8 @@ IfConfigShowInterfaceInfo (
 **/
 SHELL_STATUS
 IfConfigClearInterfaceInfo (
-  IN LIST_ENTRY    *IfList
+  IN LIST_ENTRY    *IfList,
+  IN CHAR16        *IfName
   )
 {
   EFI_STATUS                Status;  
@@ -806,8 +759,7 @@ IfConfigClearInterfaceInfo (
   LIST_ENTRY                *Next;
   IFCONFIG_INTERFACE_CB     *IfCb;
   EFI_IP4_CONFIG2_POLICY    Policy;
-
-  Policy = Ip4Config2PolicyDhcp;
+  
   Status = EFI_SUCCESS;
   ShellStatus = SHELL_SUCCESS;
 
@@ -817,9 +769,29 @@ IfConfigClearInterfaceInfo (
 
   //
   // Go through the interface list.
+  // If the interface name is specified, DHCP DORA process will be 
+  // triggered by the policy transition (static -> dhcp).
   //
   NET_LIST_FOR_EACH_SAFE (Entry, Next, IfList) {
     IfCb = NET_LIST_USER_STRUCT (Entry, IFCONFIG_INTERFACE_CB, Link);
+
+    if ((IfName != NULL) && (StrCmp (IfName, IfCb->IfInfo->Name) == 0)) {
+      Policy = Ip4Config2PolicyStatic;
+      
+      Status = IfCb->IfCfg->SetData (
+                              IfCb->IfCfg,
+                              Ip4Config2DataTypePolicy,
+                              sizeof (EFI_IP4_CONFIG2_POLICY),
+                              &Policy
+                              );
+      if (EFI_ERROR (Status)) {
+        ShellPrintHiiEx (-1, -1, NULL, STRING_TOKEN (STR_GEN_ERR_AD), gShellNetwork1HiiHandle, L"ifconfig");
+        ShellStatus = SHELL_ACCESS_DENIED;
+        break;
+      }  
+    }
+
+    Policy = Ip4Config2PolicyDhcp;
     
     Status = IfCb->IfCfg->SetData (
                             IfCb->IfCfg,
@@ -974,29 +946,20 @@ IfConfigSetInterfaceInfo (
     // Process valid variables.
     //
     if (StrCmp(VarArg->Arg, L"dhcp") == 0) {
-      if (IfCb->Policy == Ip4Config2PolicyDhcp) {
-        Status = IfConfigStartIp4 (IfCb->NicHandle, gImageHandle);
-        if (EFI_ERROR(Status)) {
-          ShellPrintHiiEx (-1, -1, NULL, STRING_TOKEN (STR_GEN_ERR_AD), gShellNetwork1HiiHandle, L"ifconfig");
-          ShellStatus = SHELL_ACCESS_DENIED;
-          goto ON_EXIT;
-        }
-      } else {
-        //
-        // Set dhcp config policy
-        //
-        Policy = Ip4Config2PolicyDhcp;
-        Status = IfCb->IfCfg->SetData (
-                                IfCb->IfCfg,
-                                Ip4Config2DataTypePolicy,
-                                sizeof (EFI_IP4_CONFIG2_POLICY),
-                                &Policy
-                                );
-        if (EFI_ERROR(Status)) {
-          ShellPrintHiiEx (-1, -1, NULL, STRING_TOKEN (STR_GEN_ERR_AD), gShellNetwork1HiiHandle, L"ifconfig");
-          ShellStatus = SHELL_ACCESS_DENIED;
-          goto ON_EXIT;
-        }
+      //
+      // Set dhcp config policy
+      //
+      Policy = Ip4Config2PolicyDhcp;
+      Status = IfCb->IfCfg->SetData (
+                              IfCb->IfCfg,
+                              Ip4Config2DataTypePolicy,
+                              sizeof (EFI_IP4_CONFIG2_POLICY),
+                              &Policy
+                              );
+      if (EFI_ERROR(Status)) {
+        ShellPrintHiiEx (-1, -1, NULL, STRING_TOKEN (STR_GEN_ERR_AD), gShellNetwork1HiiHandle, L"ifconfig");
+        ShellStatus = SHELL_ACCESS_DENIED;
+        goto ON_EXIT;
       }
       
       VarArg= VarArg->Next;    
@@ -1151,7 +1114,11 @@ IfConfigSetInterfaceInfo (
       }
 
       Dns   = AllocatePool (Index * sizeof (EFI_IPv4_ADDRESS));
-      ASSERT(Dns != NULL);
+      if (Dns == NULL) {
+        ShellPrintHiiEx (-1, -1, NULL, STRING_TOKEN (STR_GEN_OUT_MEM), gShellNetwork1HiiHandle, L"ifconfig");
+        ShellStatus = SHELL_OUT_OF_RESOURCES;
+        goto ON_EXIT;
+      }
       Tmp   = VarArg;
       Index = 0;
       while (Tmp != NULL) {
@@ -1232,7 +1199,7 @@ IfConfig (
     break;
 
   case IfConfigOpClear:
-    ShellStatus = IfConfigClearInterfaceInfo (&Private->IfList);
+    ShellStatus = IfConfigClearInterfaceInfo (&Private->IfList, Private->IfName);
     break;
 
   case IfConfigOpSet:
@@ -1261,8 +1228,6 @@ IfConfigCleanup (
   LIST_ENTRY                *Entry;
   LIST_ENTRY                *NextEntry;
   IFCONFIG_INTERFACE_CB     *IfCb;
-  ARG_LIST                  *ArgNode;
-  ARG_LIST                  *ArgHead;
 
   ASSERT (Private != NULL);
 
@@ -1270,15 +1235,7 @@ IfConfigCleanup (
   // Clean the list which save the set config Args.
   //
   if (Private->VarArg != NULL) {
-    ArgHead = Private->VarArg;
-
-    while (ArgHead->Next != NULL) {
-      ArgNode = ArgHead->Next;
-      FreePool (ArgHead);
-      ArgHead = ArgNode;
-    }
-
-    FreePool (ArgHead);
+    FreeArgList (Private->VarArg);
   }
 
   if (Private->IfName != NULL) {
@@ -1393,11 +1350,15 @@ ShellCommandRunIfconfig (
     ValueStr = ShellCommandLineGetValue (ParamPackage, L"-l");
     if (ValueStr != NULL) {
       Str = AllocateCopyPool (StrSize (ValueStr), ValueStr);
-      ASSERT (Str != NULL);
+      if (Str == NULL) {
+        ShellPrintHiiEx (-1, -1, NULL, STRING_TOKEN (STR_GEN_OUT_MEM), gShellNetwork1HiiHandle, L"ifconfig");
+        ShellStatus = SHELL_OUT_OF_RESOURCES;
+        goto ON_EXIT;
+      }
       Private->IfName = Str;
     }
   }
-  
+
   //
   // To get interface name for the clear option.
   //
@@ -1406,7 +1367,11 @@ ShellCommandRunIfconfig (
     ValueStr = ShellCommandLineGetValue (ParamPackage, L"-r");
     if (ValueStr != NULL) {
       Str = AllocateCopyPool (StrSize (ValueStr), ValueStr);
-      ASSERT (Str != NULL);
+      if (Str == NULL) {
+        ShellPrintHiiEx (-1, -1, NULL, STRING_TOKEN (STR_GEN_OUT_MEM), gShellNetwork1HiiHandle, L"ifconfig");
+        ShellStatus = SHELL_OUT_OF_RESOURCES;
+        goto ON_EXIT;
+      }
       Private->IfName = Str;
     }
   }
@@ -1425,8 +1390,12 @@ ShellCommandRunIfconfig (
     //
     // To split the configuration into multi-section.
     //
-    ArgList         = SplitStrToList (ValueStr, L' ');
-    ASSERT (ArgList != NULL);
+    ArgList = SplitStrToList (ValueStr, L' ');
+    if (ArgList == NULL) {
+      ShellPrintHiiEx (-1, -1, NULL, STRING_TOKEN (STR_GEN_OUT_MEM), gShellNetwork1HiiHandle, L"ifconfig");
+      ShellStatus = SHELL_OUT_OF_RESOURCES;
+      goto ON_EXIT;
+    }
 
     Private->OpCode = IfConfigOpSet;
     Private->IfName = ArgList->Arg;

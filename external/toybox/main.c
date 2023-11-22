@@ -6,7 +6,10 @@
 #include "toys.h"
 
 #ifndef TOYBOX_VERSION
-#define TOYBOX_VERSION "0.7.4"
+#ifndef TOYBOX_VENDOR
+#define TOYBOX_VENDOR ""
+#endif
+#define TOYBOX_VERSION "0.7.6"TOYBOX_VENDOR
 #endif
 
 // Populate toy_list[].
@@ -80,7 +83,7 @@ static void toy_singleinit(struct toy_list *which, char *argv[])
   toys.which = which;
   toys.argv = argv;
 
-  if (CFG_TOYBOX_I18N) setlocale(LC_ALL, "C"+!!(which->flags & TOYFLAG_LOCALE));
+  if (CFG_TOYBOX_I18N) setlocale(LC_CTYPE, "C.UTF-8");
 
   // Parse --help and --version for (almost) all commands
   if (CFG_TOYBOX_HELP_DASHDASH && !(which->flags & TOYFLAG_NOHELP) && argv[1]) {

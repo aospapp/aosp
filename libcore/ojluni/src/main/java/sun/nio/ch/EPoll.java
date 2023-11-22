@@ -111,4 +111,11 @@ class EPoll {
 
     static native int epollWait(int epfd, long pollAddress, int numfds)
         throws IOException;
+
+    // Android-removed: Code to load native libraries, doesn't make sense on Android.
+    /*
+    static {
+        IOUtil.load();
+    }
+    */
 }

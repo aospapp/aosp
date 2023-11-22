@@ -28,19 +28,24 @@ LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
 # Tag this module as a cts test artifact
 LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
 
-LOCAL_JAVA_LIBRARIES := android.test.mock legacy-android-test telephony-common
+LOCAL_JAVA_LIBRARIES := android.test.mock android.test.base.stubs android.test.runner.stubs telephony-common
+
+LOCAL_USE_AAPT2 := true
 
 LOCAL_STATIC_JAVA_LIBRARIES := \
-    android-support-v4 \
     compatibility-device-util \
     ctstestrunner \
     ub-uiautomator \
     junit
+
+LOCAL_STATIC_ANDROID_LIBRARIES := \
+    androidx.legacy_legacy-support-v4 
 
 LOCAL_JNI_SHARED_LIBRARIES := libcts_jni libnativehelper_compat_libc++
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
 LOCAL_PACKAGE_NAME := CtsProviderTestCases
+LOCAL_PRIVATE_PLATFORM_APIS := true
 
 include $(BUILD_CTS_PACKAGE)

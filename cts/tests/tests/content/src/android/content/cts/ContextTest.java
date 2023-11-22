@@ -17,7 +17,6 @@
 package android.content.cts;
 
 import android.content.Context;
-import android.content.cts.util.XmlUtils;
 import android.content.res.ColorStateList;
 import android.content.res.Resources.NotFoundException;
 import android.content.res.Resources.Theme;
@@ -25,12 +24,15 @@ import android.content.res.TypedArray;
 import android.content.res.XmlResourceParser;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
+import android.os.Handler;
+import android.os.Looper;
 import android.test.AndroidTestCase;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.util.Xml;
 import android.view.WindowManager;
 
+import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
 
 import java.io.File;
@@ -335,6 +337,21 @@ public class ContextTest extends AndroidTestCase {
         assertValidFile(longFile);
     }
 
+    public void testMainLooper() throws Exception {
+        final Thread mainThread = Looper.getMainLooper().getThread();
+        final Handler handler = new Handler(mContext.getMainLooper());
+        handler.post(() -> {
+            assertEquals(mainThread, Thread.currentThread());
+        });
+    }
+
+    public void testMainExecutor() throws Exception {
+        final Thread mainThread = Looper.getMainLooper().getThread();
+        mContext.getMainExecutor().execute(() -> {
+            assertEquals(mainThread, Thread.currentThread());
+        });
+    }
+
     private void assertValidFile(File file) throws Exception {
         Log.d(TAG, "Checking " + file);
         assertTrue("Failed to create " + file, file.createNewFile());
@@ -345,12 +362,31 @@ public class ContextTest extends AndroidTestCase {
         assertTrue("Failed to delete after stream " + file, file.delete());
     }
 
+    static void beginDocument(XmlPullParser parser, String firstElementName)
+            throws XmlPullParserException, IOException
+    {
+        int type;
+        while ((type=parser.next()) != parser.START_TAG
+                && type != parser.END_DOCUMENT) {
+            ;
+        }
+
+        if (type != parser.START_TAG) {
+            throw new XmlPullParserException("No start tag found");
+        }
+
+        if (!parser.getName().equals(firstElementName)) {
+            throw new XmlPullParserException("Unexpected start tag: found " + parser.getName() +
+                    ", expected " + firstElementName);
+        }
+    }
+
     private AttributeSet getAttributeSet(int resourceId) {
         final XmlResourceParser parser = getContext().getResources().getXml(
                 resourceId);
 
         try {
-            XmlUtils.beginDocument(parser, "RelativeLayout");
+            beginDocument(parser, "RelativeLayout");
         } catch (XmlPullParserException e) {
             e.printStackTrace();
         } catch (IOException e) {

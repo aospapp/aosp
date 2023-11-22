@@ -59,6 +59,7 @@ extern const char kPrefsP2PEnabled[];
 extern const char kPrefsP2PFirstAttemptTimestamp[];
 extern const char kPrefsP2PNumAttempts[];
 extern const char kPrefsPayloadAttemptNumber[];
+extern const char kPrefsPostInstallSucceeded[];
 extern const char kPrefsPreviousVersion[];
 extern const char kPrefsResumedUpdateFailures[];
 extern const char kPrefsRollbackVersion[];
@@ -96,6 +97,8 @@ extern const char kPayloadPropertyAuthorization[];
 extern const char kPayloadPropertyUserAgent[];
 extern const char kPayloadPropertyPowerwash[];
 extern const char kPayloadPropertyNetworkId[];
+extern const char kPayloadPropertySwitchSlotOnReboot[];
+extern const char kPayloadPropertyRunPostInstall[];
 
 // A download source is any combination of protocol and server (that's of
 // interest to us when looking at UMA metrics) using which we may download
@@ -173,6 +176,7 @@ const int kDownloadP2PLowSpeedTimeSeconds = 60;
 // succeeding. When using p2p, this is low in order to fail fast.
 const int kDownloadMaxRetryCount = 20;
 const int kDownloadMaxRetryCountOobeNotComplete = 3;
+const int kDownloadMaxRetryCountInteractive = 3;
 const int kDownloadP2PMaxRetryCount = 5;
 
 // The connect timeout, in seconds.

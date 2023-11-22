@@ -115,9 +115,10 @@ def manual_capture_request(
         #CONTRAST_CURVE mode
         if 0 in props["android.tonemap.availableToneMapModes"]:
             req["android.tonemap.mode"] = 0
-            req["android.tonemap.curveRed"] = [0.0,0.0, 1.0,1.0]
-            req["android.tonemap.curveGreen"] = [0.0,0.0, 1.0,1.0]
-            req["android.tonemap.curveBlue"] = [0.0,0.0, 1.0,1.0]
+            req["android.tonemap.curve"] = {
+                "red": [0.0,0.0, 1.0,1.0],
+                "green": [0.0,0.0, 1.0,1.0],
+                "blue": [0.0,0.0, 1.0,1.0]}
         #GAMMA_VALUE mode
         elif 3 in props["android.tonemap.availableToneMapModes"]:
             req["android.tonemap.mode"] = 3
@@ -228,12 +229,15 @@ def turn_slow_filters_off(props, req):
     set_filter_off_or_fast_if_possible(props, req,
         "android.colorCorrection.availableAberrationModes",
         "android.colorCorrection.aberrationMode")
-    if props.has_key("android.request.availableCharacteristicsKeys"):
-        hot_pixel_modes = 393217 in props["android.request.availableCharacteristicsKeys"]
-        edge_modes = 196610 in props["android.request.availableCharacteristicsKeys"]
-    if props.has_key("android.request.availableRequestKeys"):
-        hot_pixel_mode = 393216 in props["android.request.availableRequestKeys"]
-        edge_mode = 196608 in props["android.request.availableRequestKeys"]
+    if props.has_key("camera.characteristics.keys"):
+        chars_keys = props["camera.characteristics.keys"]
+        hot_pixel_modes = \
+                "android.hotPixel.availableHotPixelModes" in chars_keys
+        edge_modes = "android.edge.availableEdgeModes" in chars_keys
+    if props.has_key("camera.characteristics.requestKeys"):
+        req_keys = props["camera.characteristics.requestKeys"]
+        hot_pixel_mode = "android.hotPixel.mode" in req_keys
+        edge_mode = "android.edge.mode" in req_keys
     if hot_pixel_modes and hot_pixel_mode:
         set_filter_off_or_fast_if_possible(props, req,
             "android.hotPixel.availableHotPixelModes",
@@ -244,7 +248,7 @@ def turn_slow_filters_off(props, req):
             "android.edge.mode")
 
 def get_fastest_manual_capture_settings(props):
-    """Return a capture request and format spec for the fastest capture.
+    """Return a capture request and format spec for the fastest manual capture.
 
     Args:
         props: the object returned from its.device.get_camera_properties().
@@ -260,6 +264,26 @@ def get_fastest_manual_capture_settings(props):
     s = min(props['android.sensor.info.sensitivityRange'])
     e = min(props['android.sensor.info.exposureTimeRange'])
     req = manual_capture_request(s,e)
+
+    turn_slow_filters_off(props, req)
+
+    return req, out_spec
+
+def get_fastest_auto_capture_settings(props):
+    """Return a capture request and format spec for the fastest auto capture.
+
+    Args:
+        props: the object returned from its.device.get_camera_properties().
+
+    Returns:
+        Two values, the first is a capture request, and the second is an output
+        format specification, for the fastest possible (legal) capture that
+        can be performed on this device (with the smallest output size).
+    """
+    fmt = "yuv"
+    size = get_available_output_sizes(fmt, props)[-1]
+    out_spec = {"format":fmt, "width":size[0], "height":size[1]}
+    req = auto_capture_request()
 
     turn_slow_filters_off(props, req)
 
@@ -282,17 +306,17 @@ def get_smallest_yuv_format(props, match_ar=None):
     return fmt
 
 
-def get_largest_yuv_format(props):
-    """Return a capture request and format spec for the smallest yuv size.
+def get_largest_yuv_format(props, match_ar=None):
+    """Return a capture request and format spec for the largest yuv size.
 
     Args:
         props: the object returned from its.device.get_camera_properties().
 
     Returns:
-        fmt:    an output format specification, for the smallest possible yuv
+        fmt:    an output format specification, for the largest possible yuv
         format for this device.
     """
-    size = get_available_output_sizes("yuv", props)[0]
+    size = get_available_output_sizes("yuv", props, match_ar_size=match_ar)[0]
     fmt = {"format":"yuv", "width":size[0], "height":size[1]}
 
     return fmt

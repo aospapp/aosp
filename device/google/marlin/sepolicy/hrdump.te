@@ -9,6 +9,7 @@ allow htc_ramdump userdata_block_device:blk_file { read write open };
 allow htc_ramdump self:capability { fowner fsetid sys_rawio };
 
 set_prop(htc_ramdump, debug_prop)
+set_prop(htc_ramdump, vendor_ramdump_prop)
 
 allow htc_ramdump rootfs:file { r_file_perms };
 allow htc_ramdump misc_block_device:blk_file { rw_file_perms };
@@ -16,4 +17,7 @@ allow htc_ramdump ramdump_vendor_data_file:file { create_file_perms };
 allow htc_ramdump ramdump_vendor_data_file:dir { create_dir_perms };
 allow htc_ramdump block_device:dir { search };
 allow htc_ramdump ramdump_block_device:blk_file { open read };
+
+allow htc_ramdump proc_cmdline:file r_file_perms;
+r_dir_file(htc_ramdump, sysfs_dt_firmware_android)
 ')

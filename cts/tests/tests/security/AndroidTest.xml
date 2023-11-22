@@ -14,6 +14,7 @@
      limitations under the License.
 -->
 <configuration description="Config for CTS security test cases">
+    <option name="test-suite-tag" value="cts" />
     <option name="config-descriptor:metadata" key="component" value="security" />
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />
@@ -21,8 +22,9 @@
     </target_preparer>
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
         <option name="package" value="android.security.cts" />
-        <option name="runtime-hint" value="3m15s" />
+        <option name="runtime-hint" value="1h8m15s" />
         <!-- test-timeout unit is ms, value = 15 min -->
         <option name="test-timeout" value="900000" />
+        <option name="hidden-api-checks" value="false" />
     </test>
 </configuration>

@@ -22,20 +22,20 @@ import android.content.ComponentName;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.os.Bundle;
-import android.os.Handler;
 import android.os.IBinder;
-import android.support.v4.app.Fragment;
-import android.support.v4.app.FragmentActivity;
-import android.support.v4.app.FragmentManager;
-import android.support.v4.app.FragmentPagerAdapter;
-import android.support.v4.view.ViewPager;
-import android.text.TextUtils;
 import android.util.Log;
 import android.util.SparseArray;
+import android.view.InputDevice;
 import android.view.KeyEvent;
 import android.view.View;
+import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
-import android.widget.TextView;
+
+import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentActivity;
+import androidx.fragment.app.FragmentManager;
+import androidx.fragment.app.FragmentPagerAdapter;
+import androidx.viewpager.widget.ViewPager;
 
 import java.lang.reflect.InvocationTargetException;
 import java.util.HashMap;
@@ -44,19 +44,14 @@ public class MainClusterActivity extends FragmentActivity
         implements Listener {
     private static final String TAG = MainClusterActivity.class.getSimpleName();
 
-    private Button mNavButton;
-    private Button mPhoneButton;
-    private Button mCarInfoButton;
-    private Button mMusicButton;
-    private TextView mTextOverlay;
     private ViewPager mPager;
 
     private SampleClusterServiceImpl mService;
 
-    private final Handler mHandler = new Handler();
-
     private HashMap<Button, Facet<?>> mButtonToFacet = new HashMap<>();
     private SparseArray<Facet<?>> mOrderToFacet = new SparseArray<>();
+
+    private InputMethodManager mInputMethodManager;
 
     private final View.OnFocusChangeListener mFacetButtonFocusListener =
             new View.OnFocusChangeListener() {
@@ -72,6 +67,8 @@ public class MainClusterActivity extends FragmentActivity
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        mInputMethodManager = getSystemService(InputMethodManager.class);
 
         Intent intent = new Intent(this, SampleClusterServiceImpl.class);
         intent.setAction(LOCAL_BINDING_ACTION);
@@ -92,22 +89,15 @@ public class MainClusterActivity extends FragmentActivity
                     }
                 }, BIND_AUTO_CREATE);
 
-        mNavButton = findViewById(R.id.btn_nav);
-        mPhoneButton = findViewById(R.id.btn_phone);
-        mCarInfoButton = findViewById(R.id.btn_car_info);
-        mMusicButton = findViewById(R.id.btn_music);
-        mTextOverlay = findViewById(R.id.text_overlay);
-
         registerFacets(
-                new Facet<>(mNavButton, 0, NavigationFragment.class),
-                new Facet<>(mPhoneButton, 1, PhoneFragment.class),
-                new Facet<>(mMusicButton, 2, MusicFragment.class),
-                new Facet<>(mCarInfoButton, 3, CarInfoFragment.class));
+                new Facet<>(findViewById(R.id.btn_nav), 0, NavigationFragment.class),
+                new Facet<>(findViewById(R.id.btn_phone), 1, PhoneFragment.class),
+                new Facet<>(findViewById(R.id.btn_music), 2, MusicFragment.class),
+                new Facet<>(findViewById(R.id.btn_car_info), 3, CarInfoFragment.class));
 
-        mPager = (ViewPager) findViewById(R.id.pager);
+        mPager = findViewById(R.id.pager);
         mPager.setAdapter(new ClusterPageAdapter(getSupportFragmentManager()));
-
-        mNavButton.requestFocus();
+        mOrderToFacet.get(0).button.requestFocus();
     }
 
     @Override
@@ -119,47 +109,16 @@ public class MainClusterActivity extends FragmentActivity
     }
 
     @Override
-    public void onShowToast(String text) {
-        if (mTextOverlay.getVisibility() == View.VISIBLE) {
-            if (!TextUtils.isEmpty(mTextOverlay.getText())) {
-                mTextOverlay.setText(mTextOverlay.getText() + "\n" + text);
-            } else {
-                mTextOverlay.setText(text);
-            }
-        }
-
-        mTextOverlay.setVisibility(View.VISIBLE);
-
-        mHandler.removeCallbacksAndMessages(null);
-        mHandler.postDelayed(() -> {
-            mTextOverlay.setVisibility(View.GONE);
-            mTextOverlay.setText("");
-        }, 3000);
-    }
-
-    @Override
     public void onKeyEvent(KeyEvent event) {
         Log.i(TAG, "onKeyEvent, event: " + event);
-        dispatchKeyEvent(event);  // TODO: dispatch event doesn't work for some reason.
 
-        if (event.getAction() == KeyEvent.ACTION_DOWN) {
-            if (event.getKeyCode() == KeyEvent.KEYCODE_DPAD_RIGHT) {
-                int nextItem = (mPager.getCurrentItem() + 1) % mButtonToFacet.size();
-                mOrderToFacet.get(nextItem).button.requestFocus();
-            } else if (event.getKeyCode() == KeyEvent.KEYCODE_DPAD_LEFT) {
-                int nextItem = (mPager.getCurrentItem() - 1);
-                if (nextItem < 0) nextItem =  mButtonToFacet.size() - 1;
-                mOrderToFacet.get(nextItem).button.requestFocus();
-            }
-        }
+        // This is a hack. We use SOURCE_CLASS_POINTER here because this type of input is associated
+        // with the display. otherwise this event will be ignored in ViewRootImpl because injecting
+        // KeyEvent w/o activity being focused is useless.
+        event.setSource(event.getSource() | InputDevice.SOURCE_CLASS_POINTER);
+        mInputMethodManager.dispatchKeyEventFromInputMethod(getCurrentFocus(), event);
     }
 
-    @Override
-    public boolean dispatchKeyEvent(KeyEvent event) {
-        boolean consumed = super.dispatchKeyEvent(event);
-        Log.i(TAG, "dispatchKeyEvent, event: " + event + ", consumed: " + consumed);
-        return consumed;
-    }
 
     public class ClusterPageAdapter extends FragmentPagerAdapter {
         public ClusterPageAdapter(FragmentManager fm) {

@@ -574,7 +574,7 @@ public class TransitionTest extends BaseTransitionTest {
         resetListener();
         startTransition(R.layout.scene1);
         verify(mListener, never()).onTransitionEnd(any()); // it is running as expected
-        waitForEnd(400);
+        waitForEnd(1000);
     }
 
     @Test

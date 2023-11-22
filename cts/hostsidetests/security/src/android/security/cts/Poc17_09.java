@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2017 The Android Open Source Project
+ * Copyright (C) 2016 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,46 +22,34 @@ import android.platform.test.annotations.SecurityTest;
 public class Poc17_09 extends SecurityTestCase {
 
     /**
-     *  b/33039685
+     * b/63852675
      */
     @SecurityTest
-    public void testPocBug_33039685() throws Exception {
-        enableAdbRoot(getDevice());
-        if (containsDriver(getDevice(), "/sys/kernel/debug/pci-msm/")) {
-          AdbUtils.runPocNoOutput("Bug-33039685", getDevice(), 60);
-        }
+    public void testPocCve_2017_6983() throws Exception {
+      // Error code of 139 represents segmentation fault
+      assertFalse("Segfault found",
+        AdbUtils.runCommandGetExitCode("sqlite3 ':memory:' \"CREATE VIRTUAL TABLE a using fts3(b);"
+                                                          + "INSERT INTO a values(x'efbeaddeefbeadde');"
+                                                          + "SELECT optimize(b)  FROM a;\""
+                                      , getDevice()
+                                      )==139);
+      assertFalse("Segfault found",
+        AdbUtils.runCommandGetExitCode("sqlite3 ':memory:' \"CREATE VIRTUAL TABLE a using fts3(b);"
+                                                          + "INSERT INTO a values(x'efbeaddeefbeadde');"
+                                                          + "SELECT snippet(b)   FROM a;\""
+                                      , getDevice()
+                                      )==139);
+      assertFalse("Segfault found",
+        AdbUtils.runCommandGetExitCode("sqlite3 ':memory:' \"CREATE VIRTUAL TABLE a using fts3(b);"
+                                                          + "INSERT INTO a values(x'efbeaddeefbeadde');"
+                                                          + "SELECT offsets(b)   FROM a;\""
+                                      , getDevice()
+                                      )==139);
+      assertFalse("Segfault found",
+        AdbUtils.runCommandGetExitCode("sqlite3 ':memory:' \"CREATE VIRTUAL TABLE a using fts3(b);"
+                                                          + "INSERT INTO a values(x'efbeaddeefbeadde');"
+                                                          + "SELECT matchinfo(b) FROM a;\""
+                                      , getDevice()
+                                      )==139);
     }
-
-    /**
-     *  b/35676417
-     */
-    @SecurityTest
-    public void testPocBug_35676417() throws Exception {
-        enableAdbRoot(getDevice());
-        if (containsDriver(getDevice(), "/sys/devices/soc/7544000.qcom,sps-dma/driver_override")) {
-          AdbUtils.runPocNoOutput("Bug-35676417", getDevice(), 60);
-        }
-    }
-
-    /**
-     *  b/35644812
-     */
-    @SecurityTest
-    public void testPocBug_35644812() throws Exception {
-        enableAdbRoot(getDevice());
-        if (containsDriver(getDevice(), "/dev/sg0")) {
-          AdbUtils.runPocNoOutput("Bug-35644812", getDevice(), 60);
-        }
-    }
-
-    /*
-     * b/36492827
-     */
-    @SecurityTest
-    public void testPocBug_36492827() throws Exception {
-     enableAdbRoot(getDevice());
-      if (containsDriver(getDevice(), "/dev/v4l-subdev*")) {
-        AdbUtils.runPocNoOutput("Bug-36492827", getDevice(), 60);
-      }
-    }
-}
+ }

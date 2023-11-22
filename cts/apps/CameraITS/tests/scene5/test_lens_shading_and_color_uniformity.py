@@ -52,6 +52,8 @@ def main():
 
     with its.device.ItsSession() as cam:
         props = cam.get_camera_properties()
+        its.caps.skip_unless(its.caps.ae_lock(props) and
+                             its.caps.awb_lock(props))
         if its.caps.read_3a(props):
             # Converge 3A and get the estimates.
             sens, exp, gains, xform, focus = cam.do_3a(get_results=True,

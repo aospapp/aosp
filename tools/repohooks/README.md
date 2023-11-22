@@ -220,9 +220,15 @@ These are notes for people updating the `pre-upload.py` hook itself:
 * New hooks can be added in `rh/hooks.py`.  Be sure to keep the list up-to-date
   with the documentation in this file.
 
+### Warnings
+
+If the return code of a hook is 77, then it is assumed to be a warning.  The
+output will be printed to the terminal, but uploading will still be allowed
+without a bypass being required.
+
 ## TODO/Limitations
 
-* `pylint` should support per-repo pylintrc files.
+* `pylint` should support per-directory pylintrc files.
 * Some checkers operate on the files as they exist in the filesystem.  This is
   not easy to fix because the linters require not just the modified file but the
   entire repo in order to perform full checks.  e.g. `pylint` needs to know what

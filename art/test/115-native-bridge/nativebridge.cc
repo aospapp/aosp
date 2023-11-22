@@ -16,20 +16,21 @@
 
 // A simple implementation of the native-bridge interface.
 
-#include <algorithm>
 #include <dlfcn.h>
-#include <jni.h>
-#include <stdlib.h>
+#include <setjmp.h>
 #include <signal.h>
+#include <sys/stat.h>
+#include <unistd.h>
+
+#include <algorithm>
+#include <cstdio>
+#include <cstdlib>
 #include <vector>
 
-#include "stdio.h"
-#include "unistd.h"
-#include "sys/stat.h"
-#include "setjmp.h"
+#include <jni.h>
+#include <nativebridge/native_bridge.h>
 
 #include "base/macros.h"
-#include "nativebridge/native_bridge.h"
 
 struct NativeBridgeMethod {
   const char* name;
@@ -221,6 +222,22 @@ static jint trampoline_Java_Main_testSignal(JNIEnv*, jclass) {
 
   // Test sigill
   sigaction(SIGILL, &tmp, nullptr);
+  kill(getpid(), SIGILL);
+
+#if defined(__BIONIC__)
+  // Do the same again, but with sigaction64.
+  struct sigaction64 tmp2;
+  sigemptyset64(&tmp2.sa_mask);
+  tmp2.sa_sigaction = test_sigaction_handler;
+  tmp2.sa_restorer = nullptr;
+
+  sigaction64(SIGSEGV, &tmp2, nullptr);
+  sigaction64(SIGILL, &tmp2, nullptr);
+#endif
+
+  // Reraise SIGSEGV/SIGILL even on non-bionic, so that the expected output is
+  // the same.
+  raise_sigsegv();
   kill(getpid(), SIGILL);
 
   return 1234;

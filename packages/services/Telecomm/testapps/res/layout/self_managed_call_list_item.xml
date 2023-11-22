@@ -50,6 +50,11 @@
         <Button
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:text="Missed"
+            android:id="@+id/missedButton" />
+        <Button
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
             android:text="Disconnect"
             android:id="@+id/disconnectButton" />
     </LinearLayout>
@@ -67,5 +72,10 @@
             android:layout_height="wrap_content"
             android:text="Earpiece"
             android:id="@+id/earpieceButton" />
+        <CheckBox
+            android:id="@+id/holdable"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content" android:layout_weight="1"
+            android:text="Holdable"/>
     </LinearLayout>
 </LinearLayout>

@@ -92,6 +92,11 @@
 @r5 =>  ht
 @r6 =>  wd
 
+.equ    coeff_offset,   104
+.equ    ht_offset,      108
+.equ    wd_offset,      112
+
+
 .text
 .align 4
 
@@ -105,9 +110,11 @@
 ihevc_inter_pred_chroma_copy_w16out_a9q:
 
     stmfd       sp!, {r4-r12, r14}          @stack stores the values of the arguments
-    ldr         r12,[sp,#48]                @loads wd
+    vpush        {d8 - d15}
+
+    ldr         r12,[sp,#wd_offset]                @loads wd
     lsl         r12,r12,#1                  @2*wd
-    ldr         r7,[sp,#44]                 @loads ht
+    ldr         r7,[sp,#ht_offset]                 @loads ht
     cmp         r7,#0                       @ht condition(ht == 0)
     ble         end_loops                   @loop
     and         r8,r7,#3                    @check ht for mul of 2
@@ -162,6 +169,7 @@ end_inner_loop_wd_4:
 
 
 end_loops:
+    vpop         {d8 - d15}
     ldmfd       sp!,{r4-r12,r15}            @reload the registers from sp
 
 
@@ -316,6 +324,7 @@ core_loop_wd_8_ht_2:
     vst1.16     {d2,d3},[r10],r5            @vst1q_s16(pi2_dst_tmp, tmp)
     bgt         core_loop_wd_8_ht_2
 
+    vpop         {d8 - d15}
     ldmfd       sp!,{r4-r12,r15}            @reload the registers from sp
 
 

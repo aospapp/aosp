@@ -18,15 +18,24 @@ LOCAL_PATH := $(call my-dir)
 # TODO describe library here
 include $(CLEAR_VARS)
 LOCAL_MODULE := libnetd_test_dnsresponder
-LOCAL_CFLAGS := -Wall -Werror -Wunused-parameter
+LOCAL_CFLAGS := -Wall -Werror -Wunused-parameter -Wthread-safety
 # Bug: http://b/29823425 Disable -Wvarargs for Clang update to r271374
 LOCAL_CFLAGS += -Wno-varargs
 
 EXTRA_LDLIBS := -lpthread
-LOCAL_SHARED_LIBRARIES += libbase libbinder libcrypto liblog libnetd_client libssl
+LOCAL_SHARED_LIBRARIES += \
+    libbase \
+    libbinder \
+    libcrypto \
+    liblog \
+    libnetd_client \
+    libssl \
+    libnetdutils
 LOCAL_STATIC_LIBRARIES += libutils
 
-LOCAL_AIDL_INCLUDES += system/netd/server/binder
+LOCAL_AIDL_INCLUDES += \
+    frameworks/native/aidl/binder \
+    system/netd/server/binder
 
 LOCAL_C_INCLUDES += system/netd/include \
                     system/netd/server \

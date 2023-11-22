@@ -25,6 +25,8 @@ LOCAL_SRC_FILES := NativeCursorWindow.c
 
 LOCAL_C_INCLUDES := $(JNI_H_INCLUDE)
 
+LOCAL_CFLAGS := -Wall -Werror -Wno-pointer-arith -Wno-unused-parameter
+
 LOCAL_SHARED_LIBRARIES := libnativehelper_compat_libc++ liblog
 LOCAL_CXX_STL := libc++_static
 include $(BUILD_SHARED_LIBRARY)

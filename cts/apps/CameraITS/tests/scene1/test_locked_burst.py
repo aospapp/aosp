@@ -40,9 +40,11 @@ def main():
         props = cam.get_camera_properties()
         its.caps.skip_unless(its.caps.ae_lock(props) and
                              its.caps.awb_lock(props))
+        mono_camera = its.caps.mono_camera(props)
 
         # Converge 3A prior to capture.
-        cam.do_3a(do_af=True, lock_ae=True, lock_awb=True)
+        cam.do_3a(do_af=True, lock_ae=True, lock_awb=True,
+                  mono_camera=mono_camera)
 
         fmt = its.objects.get_largest_yuv_format(props)
 

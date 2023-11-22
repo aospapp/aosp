@@ -25,20 +25,12 @@ import android.printservice.PrinterDiscoverySession;
 import android.printservice.recommendation.RecommendationInfo;
 import android.util.ArrayMap;
 import android.util.ArraySet;
-import android.util.JsonReader;
-import android.util.JsonWriter;
 import android.util.Log;
 
 import com.android.bips.discovery.DiscoveredPrinter;
 import com.android.bips.discovery.Discovery;
-import com.android.bips.ipp.CapabilitiesCache;
 
-import java.io.File;
-import java.io.FileReader;
-import java.io.FileWriter;
-import java.io.IOException;
 import java.net.InetAddress;
-import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -54,20 +46,14 @@ class LocalDiscoverySession extends PrinterDiscoverySession implements Discovery
     private static final boolean DEBUG = false;
 
     // Printers are removed after not being seen for this long
-    static final long PRINTER_EXPIRATION_MILLIS = 3000;
-
-    private static final String KNOWN_GOOD_FILE = "knowngood.json";
-    private static final int KNOWN_GOOD_MAX = 50;
+    static final int PRINTER_EXPIRATION_MILLIS = 3000;
 
     private final BuiltInPrintService mPrintService;
-    private final CapabilitiesCache mCapabilitiesCache;
     private final Map<PrinterId, LocalPrinter> mPrinters = new HashMap<>();
-    private final Set<PrinterId> mPriorityIds = new HashSet<>();
     private final Set<PrinterId> mTrackingIds = new HashSet<>();
-    private final List<PrinterId> mKnownGood = new ArrayList<>();
-    private Runnable mExpirePrinters;
-
-    PrintManager mPrintManager;
+    private final LocalDiscoverySessionInfo mInfo;
+    private DelayedAction mExpirePrinters;
+    private PrintManager mPrintManager;
 
     /** Package names of all currently enabled print services beside this one */
     private ArraySet<String> mEnabledServices = new ArraySet<>();
@@ -84,21 +70,18 @@ class LocalDiscoverySession extends PrinterDiscoverySession implements Discovery
 
     LocalDiscoverySession(BuiltInPrintService service) {
         mPrintService = service;
-        mCapabilitiesCache = service.getCapabilitiesCache();
         mPrintManager = mPrintService.getSystemService(PrintManager.class);
-        loadKnownGood();
+        mInfo = new LocalDiscoverySessionInfo(service);
     }
 
     @Override
     public void onStartPrinterDiscovery(List<PrinterId> priorityList) {
         if (DEBUG) Log.d(TAG, "onStartPrinterDiscovery() " + priorityList);
 
-        // Replace priority IDs with the current list.
-        mPriorityIds.clear();
-        mPriorityIds.addAll(priorityList);
-
         // Mark all known printers as "not found". They may return shortly or may expire
-        mPrinters.values().forEach(LocalPrinter::notFound);
+        for (LocalPrinter printer : mPrinters.values()) {
+            printer.notFound();
+        }
         monitorExpiredPrinters();
 
         mPrintService.getDiscovery().start(this);
@@ -120,7 +103,7 @@ class LocalDiscoverySession extends PrinterDiscoverySession implements Discovery
         printManager.removePrintServiceRecommendationsChangeListener(this);
 
         if (mExpirePrinters != null) {
-            mPrintService.getMainHandler().removeCallbacks(mExpirePrinters);
+            mExpirePrinters.cancel();
             mExpirePrinters = null;
         }
     }
@@ -137,22 +120,26 @@ class LocalDiscoverySession extends PrinterDiscoverySession implements Discovery
         mTrackingIds.add(printerId);
 
         // We cannot track the printer yet; wait until it is discovered
-        if (localPrinter == null || !localPrinter.isFound()) return;
-
-        // Immediately request a refresh of capabilities
-        localPrinter.requestCapabilities();
+        if (localPrinter == null || !localPrinter.isFound()) {
+            return;
+        }
+        localPrinter.track();
     }
 
     @Override
     public void onStopPrinterStateTracking(PrinterId printerId) {
         if (DEBUG) Log.d(TAG, "onStopPrinterStateTracking() " + printerId.getLocalId());
+        LocalPrinter localPrinter = mPrinters.get(printerId);
+        if (localPrinter != null) {
+            localPrinter.stopTracking();
+        }
         mTrackingIds.remove(printerId);
     }
 
     @Override
     public void onDestroy() {
         if (DEBUG) Log.d(TAG, "onDestroy");
-        saveKnownGood();
+        mInfo.save();
     }
 
     /**
@@ -166,13 +153,14 @@ class LocalDiscoverySession extends PrinterDiscoverySession implements Discovery
             return;
         }
 
-        final PrinterId printerId = discoveredPrinter.getId(mPrintService);
-        LocalPrinter localPrinter = mPrinters.get(printerId);
-        if (localPrinter == null) {
-            localPrinter = new LocalPrinter(mPrintService, this, discoveredPrinter);
-            mPrinters.put(printerId, localPrinter);
+        PrinterId printerId = discoveredPrinter.getId(mPrintService);
+        LocalPrinter localPrinter = mPrinters.computeIfAbsent(printerId,
+                id -> new LocalPrinter(mPrintService, this, discoveredPrinter));
+
+        localPrinter.found(discoveredPrinter);
+        if (mTrackingIds.contains(printerId)) {
+            localPrinter.track();
         }
-        localPrinter.found();
     }
 
     /**
@@ -182,14 +170,13 @@ class LocalDiscoverySession extends PrinterDiscoverySession implements Discovery
     public void onPrinterLost(DiscoveredPrinter lostPrinter) {
         if (DEBUG) Log.d(TAG, "onPrinterLost() " + lostPrinter);
 
-        PrinterId printerId = lostPrinter.getId(mPrintService);
-        if (printerId.getLocalId().startsWith("ipp")) {
-            // Forget capabilities for network addresses (which are not globally unique)
-            mCapabilitiesCache.remove(lostPrinter.getUri());
-        }
+        mPrintService.getCapabilitiesCache().remove(lostPrinter.path);
 
+        PrinterId printerId = lostPrinter.getId(mPrintService);
         LocalPrinter localPrinter = mPrinters.get(printerId);
-        if (localPrinter == null) return;
+        if (localPrinter == null) {
+            return;
+        }
 
         localPrinter.notFound();
         handlePrinter(localPrinter);
@@ -198,29 +185,44 @@ class LocalDiscoverySession extends PrinterDiscoverySession implements Discovery
 
     private void monitorExpiredPrinters() {
         if (mExpirePrinters == null && !mPrinters.isEmpty()) {
-            mExpirePrinters = new ExpirePrinters();
-            mPrintService.getMainHandler().postDelayed(mExpirePrinters, PRINTER_EXPIRATION_MILLIS);
+            mExpirePrinters = mPrintService.delay(PRINTER_EXPIRATION_MILLIS, () -> {
+                mExpirePrinters = null;
+                boolean allFound = true;
+                List<PrinterId> idsToRemove = new ArrayList<>();
+
+                for (LocalPrinter localPrinter : mPrinters.values()) {
+                    if (localPrinter.isExpired()) {
+                        if (DEBUG) Log.d(TAG, "Expiring " + localPrinter);
+                        idsToRemove.add(localPrinter.getPrinterId());
+                    }
+                    if (!localPrinter.isFound()) {
+                        allFound = false;
+                    }
+                }
+                for (PrinterId id : idsToRemove) {
+                    mPrinters.remove(id);
+                }
+                removePrinters(idsToRemove);
+                if (!allFound) {
+                    monitorExpiredPrinters();
+                }
+            });
         }
     }
 
     /** A complete printer record is available */
     void handlePrinter(LocalPrinter localPrinter) {
-        if (localPrinter.getCapabilities() == null &&
-                !mKnownGood.contains(localPrinter.getPrinterId())) {
-            // Ignore printers that have no capabilities and are not known-good
+        if (DEBUG) Log.d(TAG, "handlePrinter record " + localPrinter);
+
+        boolean knownGood = mInfo.isKnownGood(localPrinter.getPrinterId());
+        PrinterInfo info = localPrinter.createPrinterInfo(knownGood);
+        if (info == null) {
             return;
         }
 
-        PrinterInfo info = localPrinter.createPrinterInfo();
-
-        mKnownGood.remove(localPrinter.getPrinterId());
-
-        if (info == null) return;
-
-        // Update known-good database with current results.
         if (info.getStatus() == PrinterInfo.STATUS_IDLE && localPrinter.getUuid() != null) {
             // Mark UUID-based printers with IDLE status as known-good
-            mKnownGood.add(0, localPrinter.getPrinterId());
+            mInfo.setKnownGood(localPrinter.getPrinterId());
         }
 
         for (PrinterInfo knownInfo : getPrinters()) {
@@ -231,8 +233,9 @@ class LocalDiscoverySession extends PrinterDiscoverySession implements Discovery
         }
 
         if (DEBUG) {
-            Log.d(TAG, "handlePrinter: reporting " + localPrinter +
-                    " caps=" + (info.getCapabilities() != null) + " status=" + info.getStatus());
+            Log.d(TAG, "handlePrinter: reporting " + localPrinter
+                    + " caps=" + (info.getCapabilities() != null) + " status=" + info.getStatus()
+                    + " summary=" + info.getDescription());
         }
 
         if (!isHandledByOtherService(localPrinter)) {
@@ -255,40 +258,6 @@ class LocalDiscoverySession extends PrinterDiscoverySession implements Discovery
     }
 
     /**
-     * Load "known good" printer IDs from storage, if possible
-     */
-    private void loadKnownGood() {
-        File file = new File(mPrintService.getCacheDir(), KNOWN_GOOD_FILE);
-        if (!file.exists()) return;
-        try (JsonReader reader = new JsonReader(new FileReader(file))) {
-            reader.beginArray();
-            while (reader.hasNext()) {
-                String localId = reader.nextString();
-                mKnownGood.add(mPrintService.generatePrinterId(localId));
-            }
-            reader.endArray();
-        } catch (IOException e) {
-            Log.w(TAG, "Failed to read known good list", e);
-        }
-    }
-
-    /**
-     * Save "known good" printer IDs to storage, if possible
-     */
-    private void saveKnownGood() {
-        File file = new File(mPrintService.getCacheDir(), KNOWN_GOOD_FILE);
-        try (JsonWriter writer = new JsonWriter(new FileWriter(file))) {
-            writer.beginArray();
-            for (int i = 0; i < Math.min(KNOWN_GOOD_MAX, mKnownGood.size()); i++) {
-                writer.value(mKnownGood.get(i).getLocalId());
-            }
-            writer.endArray();
-        } catch (IOException e) {
-            Log.w(TAG, "Failed to write known good list", e);
-        }
-    }
-
-    /**
      * Is this printer handled by another print service and should be suppressed?
      *
      * @param printer The printer that might need to be suppressed
@@ -297,7 +266,9 @@ class LocalDiscoverySession extends PrinterDiscoverySession implements Discovery
      */
     private boolean isHandledByOtherService(LocalPrinter printer) {
         InetAddress address = printer.getAddress();
-        if (address == null) return false;
+        if (address == null) {
+            return false;
+        }
 
         ArrayList<String> printerServices = mPrintersOfOtherService.get(printer.getAddress());
 
@@ -321,7 +292,8 @@ class LocalDiscoverySession extends PrinterDiscoverySession implements Discovery
         ArrayList<PrinterInfo> printersToAdd = new ArrayList<>();
         ArrayList<PrinterId> printersToRemove = new ArrayList<>();
         for (LocalPrinter printer : mPrinters.values()) {
-            PrinterInfo info = printer.createPrinterInfo();
+            boolean knownGood = mInfo.isKnownGood(printer.getPrinterId());
+            PrinterInfo info = printer.createPrinterInfo(knownGood);
 
             if (printer.getCapabilities() != null && printer.isFound()
                     && !isHandledByOtherService(printer) && info != null) {
@@ -381,29 +353,5 @@ class LocalDiscoverySession extends PrinterDiscoverySession implements Discovery
         }
 
         onPrintServicesStateUpdated();
-    }
-
-    /** A runnable that periodically removes expired printers, when any exist */
-    private class ExpirePrinters implements Runnable {
-        @Override
-        public void run() {
-            boolean allFound = true;
-            List<PrinterId> idsToRemove = new ArrayList<>();
-
-            for (LocalPrinter localPrinter : mPrinters.values()) {
-                if (localPrinter.isExpired()) {
-                    if (DEBUG) Log.d(TAG, "Expiring " + localPrinter);
-                    idsToRemove.add(localPrinter.getPrinterId());
-                }
-                if (!localPrinter.isFound()) allFound = false;
-            }
-            idsToRemove.forEach(mPrinters::remove);
-            removePrinters(idsToRemove);
-            if (!allFound) {
-                mPrintService.getMainHandler().postDelayed(this, PRINTER_EXPIRATION_MILLIS);
-            } else {
-                mExpirePrinters = null;
-            }
-        }
     }
 }

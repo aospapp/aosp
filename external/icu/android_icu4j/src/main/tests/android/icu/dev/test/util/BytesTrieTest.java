@@ -17,12 +17,17 @@ import java.nio.ByteBuffer;
 import java.util.NoSuchElementException;
 
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import android.icu.dev.test.TestFmwk;
 import android.icu.util.BytesTrie;
 import android.icu.util.BytesTrieBuilder;
 import android.icu.util.StringTrieBuilder;
+import android.icu.testsharding.MainTestShard;
 
+@MainTestShard
+@RunWith(JUnit4.class)
 public class BytesTrieTest extends TestFmwk {
     public BytesTrieTest() {}
 

@@ -20,18 +20,18 @@
 #include "nativehelper/jni_macros.h"
 
 #include "art_field-inl.h"
-#include "class_linker.h"
+#include "base/utils.h"
 #include "class_linker-inl.h"
+#include "class_linker.h"
 #include "common_throws.h"
-#include "dex_file-inl.h"
-#include "dex_file_annotations.h"
+#include "dex/dex_file-inl.h"
+#include "dex/dex_file_annotations.h"
 #include "jni_internal.h"
 #include "mirror/class-inl.h"
-#include "mirror/field.h"
+#include "mirror/field-inl.h"
 #include "native_util.h"
 #include "reflection-inl.h"
 #include "scoped_fast_native_object_access-inl.h"
-#include "utils.h"
 #include "well_known_classes.h"
 
 namespace art {
@@ -460,10 +460,10 @@ static jlong Field_getArtField(JNIEnv* env, jobject javaField) {
   return reinterpret_cast<jlong>(field);
 }
 
-static jobject Field_getNameInternal(JNIEnv* env, jobject javaField) {
+static jstring Field_getNameInternal(JNIEnv* env, jobject javaField) {
   ScopedFastNativeObjectAccess soa(env);
   ArtField* field = soa.Decode<mirror::Field>(javaField)->GetArtField();
-  return soa.AddLocalReference<jobject>(
+  return soa.AddLocalReference<jstring>(
       field->GetStringName(soa.Self(), true /* resolve */));
 }
 

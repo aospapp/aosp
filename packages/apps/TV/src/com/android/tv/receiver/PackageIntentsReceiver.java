@@ -21,24 +21,24 @@ import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
 import android.util.Log;
-
-import com.android.tv.TvApplication;
+import com.android.tv.Starter;
+import com.android.tv.TvFeatures;
+import com.android.tv.TvSingletons;
 import com.android.tv.util.Partner;
+import com.google.android.tv.partner.support.EpgContract;
 
-/**
- * A class for handling the broadcast intents from PackageManager.
- */
+/** A class for handling the broadcast intents from PackageManager. */
 public class PackageIntentsReceiver extends BroadcastReceiver {
     private static final String TAG = "PackageIntentsReceiver";
 
     @Override
     public void onReceive(Context context, Intent intent) {
-        if (!TvApplication.getSingletons(context).getTvInputManagerHelper().hasTvInputManager()) {
+        if (!TvSingletons.getSingletons(context).getTvInputManagerHelper().hasTvInputManager()) {
             Log.wtf(TAG, "Stopping because device does not have a TvInputManager");
             return;
         }
-        TvApplication.setCurrentRunningProcess(context, true);
-        ((TvApplication) context.getApplicationContext()).handleInputCountChanged();
+        Starter.start(context);
+        ((TvSingletons) context.getApplicationContext()).handleInputCountChanged();
 
         Uri uri = intent.getData();
         final String packageName = (uri != null ? uri.getSchemeSpecificPart() : null);

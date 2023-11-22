@@ -29,7 +29,7 @@ include $(BUILD_HOST_JAVA_LIBRARY)
 include $(CLEAR_VARS)
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
-LOCAL_SDK_VERSION := 8
+LOCAL_SDK_VERSION := 9
 LOCAL_MODULE := easymocklib
 
 include $(BUILD_STATIC_JAVA_LIBRARY)

@@ -5,20 +5,16 @@
 import logging, time, random
 
 from autotest_lib.client.common_lib import error
-from autotest_lib.client.common_lib.cros import tpm_utils
-from autotest_lib.server import test
-from autotest_lib.server import hosts
-from autotest_lib.server.cros.multimedia import remote_facade_factory
+from autotest_lib.server.cros.cfm import cfm_base_test
 
 CMD = "usb-devices | grep ^P:"
 FAILED_TEST_LIST = list()
 IDLE_TIME = 30
 LONG_TIMEOUT = 20
-MEETS_BETWEEN_REBOOT = 10
-SHORT_TIMEOUT = 5
+MEETS_BETWEEN_REBOOT = 5
 
 
-class enterprise_CFM_USBPeripheralRebootStress(test.test):
+class enterprise_CFM_USBPeripheralRebootStress(cfm_base_test.CfmBaseTest):
     """Stress test of USB devices in CfM mode by warm rebooting CfM
     multiple times with joining/leaving meetings ."""
     version = 1
@@ -49,7 +45,9 @@ class enterprise_CFM_USBPeripheralRebootStress(test.test):
         logging.info('Session name: %s', hangout_name)
         logging.info('Now joining session.........')
         self.cfm_facade.start_new_hangout_session(hangout_name)
-        time.sleep(random.randrange(1, LONG_TIMEOUT))
+        # Minimum sleep time of 3 secs is needed to allow Hangout app to
+        # stabilize after starting a session before getting peripheral info.
+        time.sleep(random.randrange(3, LONG_TIMEOUT))
         if not self._compare_cmd_output(original_list):
             raise error.TestFail(
                 'After joining meeting list of USB devices is not the same.')
@@ -62,7 +60,7 @@ class enterprise_CFM_USBPeripheralRebootStress(test.test):
         """Compare output of linux cmd."""
         only_in_original = []
         only_in_new = []
-        new_output = self.client.run(CMD).stdout.rstrip()
+        new_output = self._host.run(CMD).stdout.rstrip()
         new_list= new_output.splitlines()
         if not set(new_list) == set(original_list):
             only_in_original = list(set(original_list) - set(new_list))
@@ -78,61 +76,34 @@ class enterprise_CFM_USBPeripheralRebootStress(test.test):
         return set(new_list) == set(original_list)
 
 
-    def run_once(self, host, hangout, repeat):
-        """Main function to run autotest.
-
-        @param host: Host object representing the DUT.
-        @hangout: Name of meeting that DUT will join/leave.
-        @param repeat: Number of times CfM joins and leaves meeting.
+    def run_once(self, hangout, reboot_cycles):
         """
-        counter = 1
-        self.client = host
-        factory = remote_facade_factory.RemoteFacadeFactory(
-                host, no_chrome=True)
-        self.cfm_facade = factory.create_cfm_facade()
+        Main function to run autotest.
 
-        tpm_utils.ClearTPMOwnerRequest(self.client)
+        @hangout: Name of meeting that DUT will join/leave.
+        @param reboot_cycles: Number of times CfM reboots during the test.
+        """
 
-        if self.client.servo:
-            self.client.servo.switch_usbkey('dut')
-            self.client.servo.set('usb_mux_sel3', 'dut_sees_usbkey')
-            time.sleep(SHORT_TIMEOUT)
-            self.client.servo.set('dut_hub1_rst1', 'off')
-            time.sleep(SHORT_TIMEOUT)
-
-        try:
-            self.cfm_facade.enroll_device()
-            self.cfm_facade.restart_chrome_for_cfm()
-            self.cfm_facade.wait_for_telemetry_commands()
-            if not self.cfm_facade.is_oobe_start_page():
-                self.cfm_facade.wait_for_oobe_start_page()
-            self.cfm_facade.skip_oobe_screen()
-        except Exception as e:
-            raise error.TestFail(str(e))
-
-        usb_original_output = host.run(CMD).stdout.rstrip()
+        usb_original_output = self._host.run(CMD).stdout.rstrip()
         logging.info('The initial usb devices:\n %s', usb_original_output)
         usb_original_list = usb_original_output.splitlines()
 
-        while repeat > 0:
-            self.client.reboot()
+        logging.info("Performing in total %d reboot cycles...", reboot_cycles)
+        for cycle in range(reboot_cycles):
+            logging.info("Performing reboot cycle #%d.", cycle)
+            self._host.reboot()
             time.sleep(random.randrange(1, IDLE_TIME))
             self.cfm_facade.restart_chrome_for_cfm()
-            self.cfm_facade.wait_for_telemetry_commands()
+            self.cfm_facade.wait_for_hangouts_telemetry_commands()
             if not self._compare_cmd_output(usb_original_list):
                 raise error.TestFail(
                     "After reboot list of USB devices is not the same.")
 
-            for test in range(random.randrange(1, MEETS_BETWEEN_REBOOT)):
-                logging.info('Start meeting for loop: #%d', counter)
-                counter += 1
+            for attempt in range(random.randrange(1, MEETS_BETWEEN_REBOOT)):
+                logging.info('Join meeting for-loop: #%d', attempt)
                 self._run_hangout_session(hangout, usb_original_list)
                 if FAILED_TEST_LIST:
                      raise error.TestFail(
                          'Test failed because of following reasons: %s'
                          % ', '.join(map(str, FAILED_TEST_LIST)))
-                repeat -= 1
-                if repeat == 0:
-                   break
 
-        tpm_utils.ClearTPMOwnerRequest(self.client)

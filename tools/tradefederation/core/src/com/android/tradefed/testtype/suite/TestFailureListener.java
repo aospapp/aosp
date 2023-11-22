@@ -15,13 +15,15 @@
  */
 package com.android.tradefed.testtype.suite;
 
-import com.android.ddmlib.testrunner.TestIdentifier;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.log.ITestLogger;
 import com.android.tradefed.log.LogUtil.CLog;
+import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.result.InputStreamSource;
 import com.android.tradefed.result.LogDataType;
+import com.android.tradefed.result.TestDescription;
 import com.android.tradefed.util.IRunUtil;
 import com.android.tradefed.util.RunUtil;
 
@@ -45,24 +47,29 @@ public class TestFailureListener implements ITestInvocationListener {
     private static final long LOGCAT_CAPTURE_TIMEOUT = 2 * 60 * 1000;
 
     private List<ITestDevice> mListDevice;
-    private ITestInvocationListener mListener;
+    private ITestLogger mLogger;
+    // Settings for the whole invocation
     private boolean mBugReportOnFailure;
     private boolean mLogcatOnFailure;
     private boolean mScreenshotOnFailure;
     private boolean mRebootOnFailure;
+
+    // module specific values
+    private boolean mModuleBugReportOnFailure = true;
+    private boolean mModuleLogcatOnFailure = true;
+    private boolean mModuleScreenshotOnFailure = true;
+
     private int mMaxLogcatBytes;
-    private Map<TestIdentifier, Long> mTrackStartTime = new HashMap<>();
+    private Map<TestDescription, Long> mTrackStartTime = new HashMap<>();
     private List<Thread> mLogcatThreads = new ArrayList<>();
 
     public TestFailureListener(
-            ITestInvocationListener listener,
             List<ITestDevice> devices,
             boolean bugReportOnFailure,
             boolean logcatOnFailure,
             boolean screenshotOnFailure,
             boolean rebootOnFailure,
             int maxLogcatBytes) {
-        mListener = listener;
         mListDevice = devices;
         mBugReportOnFailure = bugReportOnFailure;
         mLogcatOnFailure = logcatOnFailure;
@@ -82,11 +89,9 @@ public class TestFailureListener implements ITestInvocationListener {
         }
     }
 
-    /**
-     * We override testStarted in order to track the start time.
-     */
+    /** We override testStarted in order to track the start time. */
     @Override
-    public void testStarted(TestIdentifier test) {
+    public void testStarted(TestDescription test) {
         if (mLogcatOnFailure) {
             try {
                 mTrackStartTime.put(test, mListDevice.get(0).getDeviceDate());
@@ -98,21 +103,17 @@ public class TestFailureListener implements ITestInvocationListener {
         }
     }
 
-    /**
-     * Make sure we clean the map when test end to avoid too much overhead.
-     */
+    /** Make sure we clean the map when test end to avoid too much overhead. */
     @Override
-    public void testEnded(TestIdentifier test, Map<String, String> testMetrics) {
+    public void testEnded(TestDescription test, HashMap<String, Metric> testMetrics) {
         if (mLogcatOnFailure) {
             mTrackStartTime.remove(test);
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
-    public void testFailed(TestIdentifier test, String trace) {
+    public void testFailed(TestDescription test, String trace) {
         CLog.i("FailureListener.testFailed %s %b %b %b", test.toString(), mBugReportOnFailure,
                 mLogcatOnFailure, mScreenshotOnFailure);
         for (ITestDevice device : mListDevice) {
@@ -121,12 +122,12 @@ public class TestFailureListener implements ITestInvocationListener {
     }
 
     /** Capture the appropriate logs for one device for one test failure. */
-    private void captureFailure(ITestDevice device, TestIdentifier test) {
+    private void captureFailure(ITestDevice device, TestDescription test) {
         String serial = device.getSerialNumber();
-        if (mScreenshotOnFailure) {
+        if (mScreenshotOnFailure && mModuleScreenshotOnFailure) {
             try {
                 try (InputStreamSource screenSource = device.getScreenshot()) {
-                    testLog(
+                    testLogForward(
                             String.format("%s-%s-screenshot", test.toString(), serial),
                             LogDataType.PNG,
                             screenSource);
@@ -136,34 +137,38 @@ public class TestFailureListener implements ITestInvocationListener {
                 CLog.e("Device %s became unavailable while capturing screenshot", serial);
             }
         }
-        if (mBugReportOnFailure) {
-            try (InputStreamSource bugSource = device.getBugreportz()) {
-                testLog(
-                        String.format("%s-%s-bugreport", test.toString(), serial),
-                        LogDataType.BUGREPORTZ,
-                        bugSource);
+        if (mBugReportOnFailure && mModuleBugReportOnFailure) {
+            if (!device.logBugreport(
+                    String.format("%s-%s-bugreport", test.toString(), serial), mLogger)) {
+                CLog.e("Failed to capture bugreport for %s failure on %s.", test, serial);
             }
         }
-        if (mLogcatOnFailure) {
+        if (mLogcatOnFailure && mModuleLogcatOnFailure) {
             Runnable captureLogcat =
                     new Runnable() {
                         @Override
                         public void run() {
-                            InputStreamSource logSource = null;
                             Long startTime = mTrackStartTime.remove(test);
                             if (startTime != null) {
-                                logSource = device.getLogcatSince(startTime);
+                                try (InputStreamSource logSource =
+                                        device.getLogcatSince(startTime)) {
+                                    testLogForward(
+                                            String.format("%s-%s-logcat", test.toString(), serial),
+                                            LogDataType.LOGCAT,
+                                            logSource);
+                                }
                             } else {
                                 // sleep 2s to ensure test failure stack trace makes it into the
                                 // logcat capture
                                 getRunUtil().sleep(2 * 1000);
-                                logSource = device.getLogcat(mMaxLogcatBytes);
+                                try (InputStreamSource logSource =
+                                        device.getLogcat(mMaxLogcatBytes)) {
+                                    testLogForward(
+                                            String.format("%s-%s-logcat", test.toString(), serial),
+                                            LogDataType.LOGCAT,
+                                            logSource);
+                                }
                             }
-                            testLog(
-                                    String.format("%s-%s-logcat", test.toString(), serial),
-                                    LogDataType.LOGCAT,
-                                    logSource);
-                            logSource.close();
                         }
                     };
             if (mRebootOnFailure) {
@@ -196,6 +201,10 @@ public class TestFailureListener implements ITestInvocationListener {
 
     /** Join on all the logcat capturing threads to ensure they terminate. */
     public void join() {
+        // Reset the module config to use the invocation settings by default.
+        mModuleBugReportOnFailure = true;
+        mModuleLogcatOnFailure = true;
+        mModuleScreenshotOnFailure = true;
         synchronized (mLogcatThreads) {
             for (Thread t : mLogcatThreads) {
                 if (!t.isAlive()) {
@@ -211,9 +220,18 @@ public class TestFailureListener implements ITestInvocationListener {
         }
     }
 
+    /**
+     * Forward the log to the logger, do not do it from whitin the #testLog callback as if
+     * TestFailureListener is part of the chain, it will results in an infinite loop.
+     */
+    public void testLogForward(
+            String dataName, LogDataType dataType, InputStreamSource dataStream) {
+        mLogger.testLog(dataName, dataType, dataStream);
+    }
+
     @Override
     public void testLog(String dataName, LogDataType dataType, InputStreamSource dataStream) {
-        mListener.testLog(dataName, dataType, dataStream);
+        // Explicitly do nothing on testLog
     }
 
     /**
@@ -222,5 +240,25 @@ public class TestFailureListener implements ITestInvocationListener {
     @VisibleForTesting
     IRunUtil getRunUtil() {
         return RunUtil.getDefault();
+    }
+
+    /**
+     * Allows to override the invocation settings of capture on failure by the module specific
+     * configurations.
+     *
+     * @param bugreportOnFailure true to capture a bugreport on test failure. False otherwise.
+     * @param logcatOnfailure true to capture a logcat on test failure. False otherwise.
+     * @param screenshotOnFailure true to capture a screenshot on failure. False otherwise.
+     */
+    public void applyModuleConfiguration(
+            boolean bugreportOnFailure, boolean logcatOnfailure, boolean screenshotOnFailure) {
+        mModuleBugReportOnFailure = bugreportOnFailure;
+        mModuleLogcatOnFailure = logcatOnfailure;
+        mModuleScreenshotOnFailure = screenshotOnFailure;
+    }
+
+    /** Sets where the logs should be saved. */
+    public void setLogger(ITestLogger logger) {
+        mLogger = logger;
     }
 }

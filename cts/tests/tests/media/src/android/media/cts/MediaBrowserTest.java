@@ -300,6 +300,24 @@ public class MediaBrowserTest extends InstrumentationTestCase {
                 mSubscriptionCallback.mLastOptions.getInt(MediaBrowser.EXTRA_PAGE_SIZE));
     }
 
+    public void testSubscriptionCallbackNotCalledAfterDisconnect() {
+        createMediaBrowser(TEST_BROWSER_SERVICE);
+        connectMediaBrowserService();
+        mMediaBrowser.subscribe(StubMediaBrowserService.MEDIA_ID_ROOT, mSubscriptionCallback);
+        mMediaBrowser.disconnect();
+        resetCallbacks();
+        StubMediaBrowserService.sInstance.notifyChildrenChanged(
+                StubMediaBrowserService.MEDIA_ID_ROOT);
+        try {
+            Thread.sleep(SLEEP_MS);
+        } catch (InterruptedException e) {
+            fail("Unexpected InterruptedException occurred.");
+        }
+        assertEquals(0, mSubscriptionCallback.mChildrenLoadedCount);
+        assertEquals(0, mSubscriptionCallback.mChildrenLoadedWithOptionCount);
+        assertNull(mSubscriptionCallback.mLastParentId);
+    }
+
     public void testUnsubscribeForMultipleSubscriptions() {
         createMediaBrowser(TEST_BROWSER_SERVICE);
         connectMediaBrowserService();
@@ -434,6 +452,21 @@ public class MediaBrowserTest extends InstrumentationTestCase {
         }.run();
 
         assertEquals(StubMediaBrowserService.MEDIA_ID_INVALID, mItemCallback.mLastErrorId);
+    }
+
+    public void testItemCallbackNotCalledAfterDisconnect() {
+        createMediaBrowser(TEST_BROWSER_SERVICE);
+        connectMediaBrowserService();
+        mMediaBrowser.getItem(StubMediaBrowserService.MEDIA_ID_CHILDREN[0], mItemCallback);
+        mMediaBrowser.disconnect();
+        resetCallbacks();
+        try {
+            Thread.sleep(SLEEP_MS);
+        } catch (InterruptedException e) {
+            fail("Unexpected InterruptedException occurred.");
+        }
+        assertNull(mItemCallback.mLastMediaItem);
+        assertNull(mItemCallback.mLastErrorId);
     }
 
     private void createMediaBrowser(final ComponentName component) {

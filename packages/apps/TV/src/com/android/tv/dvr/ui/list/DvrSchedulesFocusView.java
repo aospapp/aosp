@@ -23,12 +23,9 @@ import android.graphics.RectF;
 import android.text.TextUtils;
 import android.util.AttributeSet;
 import android.view.View;
-
 import com.android.tv.R;
 
-/**
- * A view used for focus in schedules list.
- */
+/** A view used for focus in schedules list. */
 public class DvrSchedulesFocusView extends View {
     private final Paint mPaint;
     private final RectF mRoundRectF = new RectF();
@@ -76,13 +73,11 @@ public class DvrSchedulesFocusView extends View {
 
     private int getRoundRectRadius() {
         if (TextUtils.equals(mViewTag, mHeaderFocusViewTag)) {
-            return getResources().getDimensionPixelSize(
-                    R.dimen.dvr_schedules_header_selector_radius);
+            return getResources()
+                    .getDimensionPixelSize(R.dimen.dvr_schedules_header_selector_radius);
         } else if (TextUtils.equals(mViewTag, mItemFocusViewTag)) {
             return getResources().getDimensionPixelSize(R.dimen.dvr_schedules_selector_radius);
         }
         return 0;
     }
 }
-
-

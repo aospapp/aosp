@@ -90,6 +90,34 @@ static void *eeDataGetEx(uint32_t name, uint32_t *offsetP, bool first, void *buf
     return (uint32_t*)data - 1;
 }
 
+uint32_t eeDataGetSize()
+{
+    return __eedata_end - __eedata_start;
+}
+
+uint32_t eeDataGetFree()
+{
+    uint32_t *p = __eedata_start;
+
+    //find the last incarnation of "name" in flash area
+    while (p < __eedata_end) {
+        uint32_t info = *p;
+        uint32_t name = info & EE_DATA_NAME_MAX;
+        uint32_t sz = info / (EE_DATA_NAME_MAX + 1);
+
+        //check for ending condition (name == max)
+        if (name == EE_DATA_NAME_MAX)
+            break;
+
+        p++;
+
+        //skip over to next data chunk header
+        p += (sz + 3) / 4;
+    }
+
+    return __eedata_end - p;
+}
+
 bool eeDataGet(uint32_t name, void *buf, uint32_t *szP)
 {
     uint32_t offset = 0;

@@ -67,6 +67,7 @@
     <string name="setup_work_device" msgid="6003988351437862369">"正在設定工作裝置…"</string>
     <string name="progress_data_process" msgid="1707745321954672971">"正在處理設定資料…"</string>
     <string name="progress_connect_to_wifi" msgid="472251154628863539">"正在連線至 Wi-Fi…"</string>
+    <string name="progress_connect_to_mobile_network" msgid="3852054186860657088">"正在連線至流動網絡…"</string>
     <string name="progress_download" msgid="3522436271691064624">"正在下載管理員應用程式…"</string>
     <string name="progress_install" msgid="2258045670385866183">"正在安裝管理員應用程式…"</string>
     <string name="progress_delete_non_required_apps" msgid="7633458399262691256">"正在移除非必要的系統應用程式…"</string>
@@ -106,8 +107,8 @@
     <string name="profile_owner_info_with_terms_headers" msgid="7373591910245655373">"您即將建立由您機構管理和監控的工作設定檔。受 <xliff:g id="TERMS_HEADERS">%1$s</xliff:g> 的條款約束。"</string>
     <string name="profile_owner_info_comp" msgid="9190421701126119142">"系統將會為您的工作應用程式建立設定檔。這個設定檔和裝置的其他設定將由您的機構管理和監控。受條款約束。"</string>
     <string name="profile_owner_info_with_terms_headers_comp" msgid="2012766614492554556">"系統將會為您的工作應用程式建立設定檔。這個設定檔和裝置的其他設定將由您的機構管理和監控。受 <xliff:g id="TERMS_HEADERS">%1$s</xliff:g> 的條款約束。"</string>
-    <string name="device_owner_info" msgid="2883639372446424007">"此裝置將由<xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g>負責管理並確保安全。受條款約束。<xliff:g id="VIEW_TERMS">%2$s</xliff:g>"</string>
-    <string name="device_owner_info_with_terms_headers" msgid="7333703548160002079">"此裝置將由<xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g>負責管理並確保安全。受 <xliff:g id="TERMS_HEADERS">%2$s</xliff:g> 的條款約束。<xliff:g id="VIEW_TERMS">%3$s</xliff:g>"</string>
+    <string name="device_owner_info" msgid="3716661456037934467">"此裝置將由<xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g>負責管理及監控，並確保其安全。須遵守條款。<xliff:g id="VIEW_TERMS">%2$s</xliff:g>"</string>
+    <string name="device_owner_info_with_terms_headers" msgid="1254243288669282977">"此裝置將由<xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g>負責管理及監控，並確保其安全。須遵守<xliff:g id="TERMS_HEADERS">%2$s</xliff:g>條款。<xliff:g id="VIEW_TERMS">%3$s</xliff:g>"</string>
     <string name="link_isnt_secure_and_cant_be_opened_until_device_setup_finished" msgid="1604497932637832657">"此連結不安全。裝置完成設定前，連結將無法開啟：<xliff:g id="LINK_RAW_TEST">%1$s</xliff:g>"</string>
     <string name="contact_device_provider" msgid="9100405424740726066">"如有問題，請聯絡您的<xliff:g id="ORGANIZATIONS_ADMIN">%1$s</xliff:g>。"</string>
     <string name="if_questions_contact_admin" msgid="6147462485780267795">"如有問題，請聯絡您的機構管理員"</string>
@@ -154,4 +155,7 @@
     <string name="join_many_items_last" msgid="7469666990442158802">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g>和<xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
     <string name="join_many_items_first" msgid="8365482726853276608">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g>、<xliff:g id="ALL_BUT_FIRST_AND_LAST_ITEM">%2$s</xliff:g>"</string>
     <string name="join_many_items_middle" msgid="8569294838319639963">"<xliff:g id="ADDED_ITEM">%1$s</xliff:g>、<xliff:g id="REST_OF_ITEMS">%2$s</xliff:g>"</string>
+    <string name="take_a_few_minutes" msgid="6282806501305322838">"此程序可能需時幾分鐘"</string>
+    <string name="work_profile_description" msgid="8524116010729569213">"您的工作應用程式會儲存在此設定檔中，並由您的機構管理"</string>
+    <string name="device_owner_description" msgid="168013145812679664">"此裝置將由您的機構負責管理，並確保其安全。"</string>
 </resources>

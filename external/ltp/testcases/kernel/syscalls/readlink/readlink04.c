@@ -39,6 +39,7 @@
 #include <errno.h>
 #include <string.h>
 #include "test.h"
+#include "safe_macros.h"
 
 char *TCID = "readlink04";
 int TST_TOTAL = 1;
@@ -122,8 +123,7 @@ static void setup(void)
 		tst_brkm(TBROK, cleanup, "getpwname() failed");
 
 	/* make the tmp directory belong to bin */
-	if (chown(tmp_dir, pwent->pw_uid, pwent->pw_gid) == -1)
-		tst_brkm(TBROK, cleanup, "chown() failed");
+	SAFE_CHOWN(cleanup, tmp_dir, pwent->pw_uid, pwent->pw_gid);
 
 	if (chmod(tmp_dir, 0711) != 0)
 		tst_brkm(TBROK|TERRNO, cleanup, "chmod(%s) failed", tmp_dir);
@@ -135,10 +135,7 @@ static void setup(void)
 	if (close(fd))
 		tst_brkm(TBROK|TERRNO, cleanup, "close(%s) failed", TESTFILE);
 
-	if (symlink(TESTFILE, SYMFILE) < 0) {
-		tst_brkm(TBROK|TERRNO, cleanup, "symlink(%s, %s) failed",
-		         TESTFILE, SYMFILE);
-	}
+	SAFE_SYMLINK(cleanup, TESTFILE, SYMFILE);
 
 	/* set up the expected return value from the readlink() call */
 	exp_val = strlen(TESTFILE);
@@ -150,14 +147,12 @@ static void setup(void)
 	if ((pwent = getpwnam("nobody")) == NULL)
 		tst_brkm(TBROK, cleanup, "getpwname() failed for nobody");
 
-	if (seteuid(pwent->pw_uid) == -1)
-		tst_brkm(TBROK, cleanup, "seteuid() failed for nobody");
+	SAFE_SETEUID(cleanup, pwent->pw_uid);
 }
 
 static void cleanup(void)
 {
-	if (seteuid(0) == -1)
-		tst_brkm(TBROK, NULL, "failed to set process id to root");
+	SAFE_SETEUID(NULL, 0);
 
 	tst_rmdir();
 }

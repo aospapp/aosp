@@ -2,7 +2,7 @@
   IpIo Library.
 
 (C) Copyright 2014 Hewlett-Packard Development Company, L.P.<BR>
-Copyright (c) 2005 - 2009, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2005 - 2016, Intel Corporation. All rights reserved.<BR>
 This program and the accompanying materials
 are licensed and made available under the terms and conditions of the BSD License
 which accompanies this distribution.  The full text of the license may be found at
@@ -1029,39 +1029,55 @@ IpIoListenHandlerDpc (
 
   if (IpIo->IpVersion == IP_VERSION_4) {
     if ((EFI_IP4 (RxData->Ip4RxData.Header->SourceAddress) != 0) &&
-      !NetIp4IsUnicast (EFI_NTOHL (((EFI_IP4_RECEIVE_DATA *) RxData)->Header->SourceAddress), 0)) {
-    //
-    // The source address is not zero and it's not a unicast IP address, discard it.
-    //
-    goto CleanUp;
-  }
+        (IpIo->SubnetMask != 0) &&
+        IP4_NET_EQUAL (IpIo->StationIp, EFI_NTOHL (((EFI_IP4_RECEIVE_DATA *) RxData)->Header->SourceAddress), IpIo->SubnetMask) &&
+        !NetIp4IsUnicast (EFI_NTOHL (((EFI_IP4_RECEIVE_DATA *) RxData)->Header->SourceAddress), IpIo->SubnetMask)) {
+      //
+      // The source address is not zero and it's not a unicast IP address, discard it.
+      //
+      goto CleanUp;
+    }
 
-  //
-  // Create a netbuffer representing IPv4 packet
-  //
-  Pkt = NetbufFromExt (
-          (NET_FRAGMENT *) RxData->Ip4RxData.FragmentTable,
-          RxData->Ip4RxData.FragmentCount,
-          0,
-          0,
-          IpIoExtFree,
-          RxData->Ip4RxData.RecycleSignal
-          );
-  if (NULL == Pkt) {
-    goto CleanUp;
-  }
+    if (RxData->Ip4RxData.DataLength == 0) {
+      //
+      // Discard zero length data payload packet.
+      //
+      goto CleanUp;
+    }
 
-  //
-  // Create a net session
-  //
-  Session.Source.Addr[0] = EFI_IP4 (RxData->Ip4RxData.Header->SourceAddress);
-  Session.Dest.Addr[0]   = EFI_IP4 (RxData->Ip4RxData.Header->DestinationAddress);
-  Session.IpHdr.Ip4Hdr   = RxData->Ip4RxData.Header;
-  Session.IpHdrLen       = RxData->Ip4RxData.HeaderLength;
-  Session.IpVersion      = IP_VERSION_4;
+    //
+    // Create a netbuffer representing IPv4 packet
+    //
+    Pkt = NetbufFromExt (
+            (NET_FRAGMENT *) RxData->Ip4RxData.FragmentTable,
+            RxData->Ip4RxData.FragmentCount,
+            0,
+            0,
+            IpIoExtFree,
+            RxData->Ip4RxData.RecycleSignal
+            );
+    if (NULL == Pkt) {
+      goto CleanUp;
+    }
+
+    //
+    // Create a net session
+    //
+    Session.Source.Addr[0] = EFI_IP4 (RxData->Ip4RxData.Header->SourceAddress);
+    Session.Dest.Addr[0]   = EFI_IP4 (RxData->Ip4RxData.Header->DestinationAddress);
+    Session.IpHdr.Ip4Hdr   = RxData->Ip4RxData.Header;
+    Session.IpHdrLen       = RxData->Ip4RxData.HeaderLength;
+    Session.IpVersion      = IP_VERSION_4;
   } else {
 
     if (!NetIp6IsValidUnicast(&RxData->Ip6RxData.Header->SourceAddress)) {
+      goto CleanUp;
+    }
+    
+    if (RxData->Ip6RxData.DataLength == 0) {
+      //
+      // Discard zero length data payload packet.
+      //
       goto CleanUp;
     }
     
@@ -1279,6 +1295,19 @@ IpIoOpen (
   // configure ip
   //
   if (IpVersion == IP_VERSION_4){
+    //
+    // RawData mode is no supported.
+    //
+    ASSERT (!OpenData->IpConfigData.Ip4CfgData.RawData);
+    if (OpenData->IpConfigData.Ip4CfgData.RawData) {
+      return EFI_UNSUPPORTED;
+    }
+
+    if (!OpenData->IpConfigData.Ip4CfgData.UseDefaultAddress) {
+      IpIo->StationIp = EFI_NTOHL (OpenData->IpConfigData.Ip4CfgData.StationAddress);
+      IpIo->SubnetMask = EFI_NTOHL (OpenData->IpConfigData.Ip4CfgData.SubnetMask);
+    }
+    
     Status = IpIo->Ip.Ip4->Configure (
                              IpIo->Ip.Ip4,
                              &OpenData->IpConfigData.Ip4CfgData
@@ -1417,7 +1446,7 @@ IpIoStop (
   }
 
   //
-  // All pending send tokens should be flushed by reseting the IP instances.
+  // All pending send tokens should be flushed by resetting the IP instances.
   //
   ASSERT (IsListEmpty (&IpIo->PendingSndList));
 

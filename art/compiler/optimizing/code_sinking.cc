@@ -16,6 +16,10 @@
 
 #include "code_sinking.h"
 
+#include "base/arena_bit_vector.h"
+#include "base/bit_vector-inl.h"
+#include "base/scoped_arena_allocator.h"
+#include "base/scoped_arena_containers.h"
 #include "common_dominator.h"
 #include "nodes.h"
 
@@ -30,7 +34,9 @@ void CodeSinking::Run() {
   // TODO(ngeoffray): we do not profile branches yet, so use throw instructions
   // as an indicator of an uncommon branch.
   for (HBasicBlock* exit_predecessor : exit->GetPredecessors()) {
-    if (exit_predecessor->GetLastInstruction()->IsThrow()) {
+    HInstruction* last = exit_predecessor->GetLastInstruction();
+    // Any predecessor of the exit that does not return, throws an exception.
+    if (!last->IsReturn() && !last->IsReturnVoid()) {
       SinkCodeToUncommonBranch(exit_predecessor);
     }
   }
@@ -63,6 +69,11 @@ static bool IsInterestingInstruction(HInstruction* instruction) {
 
     // A fence with "0" inputs is dead and should've been removed in a prior pass.
     DCHECK_NE(0u, ctor_fence->InputCount());
+
+    // TODO: this should be simplified to 'return true' since it's
+    // potentially pessimizing any code sinking for inlined constructors with final fields.
+    // TODO: double check that if the final field assignments are not moved,
+    // then the fence is not moved either.
 
     return ctor_fence->GetAssociatedAllocation() != nullptr;
   }
@@ -110,7 +121,7 @@ static bool IsInterestingInstruction(HInstruction* instruction) {
 static void AddInstruction(HInstruction* instruction,
                            const ArenaBitVector& processed_instructions,
                            const ArenaBitVector& discard_blocks,
-                           ArenaVector<HInstruction*>* worklist) {
+                           ScopedArenaVector<HInstruction*>* worklist) {
   // Add to the work list if the instruction is not in the list of blocks
   // to discard, hasn't been already processed and is of interest.
   if (!discard_blocks.IsBitSet(instruction->GetBlock()->GetBlockId()) &&
@@ -123,7 +134,7 @@ static void AddInstruction(HInstruction* instruction,
 static void AddInputs(HInstruction* instruction,
                       const ArenaBitVector& processed_instructions,
                       const ArenaBitVector& discard_blocks,
-                      ArenaVector<HInstruction*>* worklist) {
+                      ScopedArenaVector<HInstruction*>* worklist) {
   for (HInstruction* input : instruction->GetInputs()) {
     AddInstruction(input, processed_instructions, discard_blocks, worklist);
   }
@@ -132,7 +143,7 @@ static void AddInputs(HInstruction* instruction,
 static void AddInputs(HBasicBlock* block,
                       const ArenaBitVector& processed_instructions,
                       const ArenaBitVector& discard_blocks,
-                      ArenaVector<HInstruction*>* worklist) {
+                      ScopedArenaVector<HInstruction*>* worklist) {
   for (HInstructionIterator it(block->GetPhis()); !it.Done(); it.Advance()) {
     AddInputs(it.Current(), processed_instructions, discard_blocks, worklist);
   }
@@ -203,6 +214,11 @@ static HInstruction* FindIdealPosition(HInstruction* instruction,
     DCHECK(target_block != nullptr);
   }
 
+  // Bail if the instruction can throw and we are about to move into a catch block.
+  if (instruction->CanThrow() && target_block->GetTryCatchInformation() != nullptr) {
+    return nullptr;
+  }
+
   // Find insertion position. No need to filter anymore, as we have found a
   // target block.
   HInstruction* insert_pos = nullptr;
@@ -237,17 +253,19 @@ static HInstruction* FindIdealPosition(HInstruction* instruction,
 
 
 void CodeSinking::SinkCodeToUncommonBranch(HBasicBlock* end_block) {
-  // Local allocator to discard data structures created below at the end of
-  // this optimization.
-  ArenaAllocator allocator(graph_->GetArena()->GetArenaPool());
+  // Local allocator to discard data structures created below at the end of this optimization.
+  ScopedArenaAllocator allocator(graph_->GetArenaStack());
 
   size_t number_of_instructions = graph_->GetCurrentInstructionId();
-  ArenaVector<HInstruction*> worklist(allocator.Adapter(kArenaAllocMisc));
+  ScopedArenaVector<HInstruction*> worklist(allocator.Adapter(kArenaAllocMisc));
   ArenaBitVector processed_instructions(&allocator, number_of_instructions, /* expandable */ false);
+  processed_instructions.ClearAllBits();
   ArenaBitVector post_dominated(&allocator, graph_->GetBlocks().size(), /* expandable */ false);
+  post_dominated.ClearAllBits();
   ArenaBitVector instructions_that_can_move(
       &allocator, number_of_instructions, /* expandable */ false);
-  ArenaVector<HInstruction*> move_in_order(allocator.Adapter(kArenaAllocMisc));
+  instructions_that_can_move.ClearAllBits();
+  ScopedArenaVector<HInstruction*> move_in_order(allocator.Adapter(kArenaAllocMisc));
 
   // Step (1): Visit post order to get a subset of blocks post dominated by `end_block`.
   // TODO(ngeoffray): Getting the full set of post-dominated shoud be done by
@@ -414,7 +432,7 @@ void CodeSinking::SinkCodeToUncommonBranch(HBasicBlock* end_block) {
     if (!post_dominated.IsBitSet(position->GetBlock()->GetBlockId())) {
       continue;
     }
-    MaybeRecordStat(MethodCompilationStat::kInstructionSunk);
+    MaybeRecordStat(stats_, MethodCompilationStat::kInstructionSunk);
     instruction->MoveBefore(position, /* ensure_safety */ false);
   }
 }

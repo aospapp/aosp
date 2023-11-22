@@ -19,18 +19,13 @@ package com.android.tv.dvr.ui;
 import android.app.Activity;
 import android.os.Bundle;
 import android.support.v17.leanback.app.GuidedStepFragment;
-
 import com.android.tv.R;
 
 public class DvrSeriesScheduledDialogActivity extends Activity {
-    /**
-     * Name of series recording id added to the Intent.
-     */
+    /** Name of series recording id added to the Intent. */
     public static final String SERIES_RECORDING_ID = "series_recording_id";
 
-    /**
-     * Name of flag to check if the dialog should show view schedule option.
-     */
+    /** Name of flag to check if the dialog should show view schedule option. */
     public static final String SHOW_VIEW_SCHEDULE_OPTION = "show_view_schedule_option";
 
     @Override
@@ -41,8 +36,8 @@ public class DvrSeriesScheduledDialogActivity extends Activity {
             DvrSeriesScheduledFragment dvrSeriesScheduledFragment =
                     new DvrSeriesScheduledFragment();
             dvrSeriesScheduledFragment.setArguments(getIntent().getExtras());
-            GuidedStepFragment.addAsRoot(this, dvrSeriesScheduledFragment,
-                    R.id.halfsized_dialog_host);
+            GuidedStepFragment.addAsRoot(
+                    this, dvrSeriesScheduledFragment, R.id.halfsized_dialog_host);
         }
     }
 }

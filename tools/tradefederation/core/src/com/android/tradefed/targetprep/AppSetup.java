@@ -37,11 +37,11 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * A {@link ITargetPreparer} that installs an apk and its tests.
- * <p/>
- * Requires 'aapt' on PATH when --uninstall is set
+ *
+ * <p>Requires 'aapt' on PATH when --uninstall is set
  */
-@OptionClass(alias="app-setup")
-public class AppSetup implements ITargetPreparer, ITargetCleaner {
+@OptionClass(alias = "app-setup")
+public class AppSetup extends BaseTargetPreparer implements ITargetCleaner {
 
     @Option(name="reboot", description="reboot device after running tests.")
     private boolean mReboot = true;

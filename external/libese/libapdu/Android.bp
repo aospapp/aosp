@@ -33,5 +33,5 @@ cc_library_static {
     srcs: [
         "apdu.cpp",
     ],
-    export_include_dirs = ["include"],
+    export_include_dirs: ["include"],
 }

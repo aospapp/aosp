@@ -1,3 +1,0 @@
-# Ignore personality-8 denials.
-dontaudit domain kernel:system module_request;
-

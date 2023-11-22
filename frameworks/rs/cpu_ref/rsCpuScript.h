@@ -194,6 +194,16 @@ inline bool is_force_recompile() {
   }
 }
 
+inline std::string getVndkSysLibPath() {
+  char buf[PROP_VALUE_MAX];
+  android::renderscript::property_get("ro.vndk.version", buf, "");
+  std::string versionStr = buf;
+  if (versionStr != "" && versionStr != "current") {
+    return SYSLIBPATH_VNDK "-" + versionStr;
+  }
+  return SYSLIBPATH_VNDK;
+}
+
 }  // anonymous namespace
 
 #endif  // RSD_CPU_SCRIPT_H

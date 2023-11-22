@@ -19,26 +19,24 @@ package com.android.tv.data;
 import android.content.pm.ResolveInfo;
 import android.media.tv.TvInputInfo;
 import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.util.Pair;
-
 import com.android.tv.testing.ComparatorTester;
+import com.android.tv.testing.utils.TestUtils;
 import com.android.tv.util.SetupUtils;
-import com.android.tv.util.TestUtils;
 import com.android.tv.util.TvInputManagerHelper;
-
+import java.util.Comparator;
+import java.util.LinkedHashMap;
 import org.junit.Test;
+import org.junit.runner.RunWith;
 import org.mockito.Matchers;
 import org.mockito.Mockito;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 
-import java.util.Comparator;
-import java.util.LinkedHashMap;
-
-/**
- * Test for {@link TvInputNewComparator}
- */
+/** Test for {@link TvInputNewComparator} */
 @SmallTest
+@RunWith(AndroidJUnit4.class)
 public class TvInputNewComparatorTest {
     @Test
     public void testComparator() throws Exception {
@@ -51,45 +49,48 @@ public class TvInputNewComparatorTest {
         inputIdToNewInput.put("3_old_input", new Pair<>(false, true));
 
         SetupUtils setupUtils = Mockito.mock(SetupUtils.class);
-        Mockito.when(setupUtils.isNewInput(Matchers.anyString())).thenAnswer(
-                new Answer<Boolean>() {
-                    @Override
-                    public Boolean answer(InvocationOnMock invocation) throws Throwable {
-                        String inputId = (String) invocation.getArguments()[0];
-                        return inputIdToNewInput.get(inputId).first;
-                    }
-                }
-        );
-        Mockito.when(setupUtils.isSetupDone(Matchers.anyString())).thenAnswer(
-                new Answer<Boolean>() {
-                    @Override
-                    public Boolean answer(InvocationOnMock invocation) throws Throwable {
-                        String inputId = (String) invocation.getArguments()[0];
-                        return inputIdToNewInput.get(inputId).second;
-                    }
-                }
-        );
+        Mockito.when(setupUtils.isNewInput(Matchers.anyString()))
+                .thenAnswer(
+                        new Answer<Boolean>() {
+                            @Override
+                            public Boolean answer(InvocationOnMock invocation) throws Throwable {
+                                String inputId = (String) invocation.getArguments()[0];
+                                return inputIdToNewInput.get(inputId).first;
+                            }
+                        });
+        Mockito.when(setupUtils.isSetupDone(Matchers.anyString()))
+                .thenAnswer(
+                        new Answer<Boolean>() {
+                            @Override
+                            public Boolean answer(InvocationOnMock invocation) throws Throwable {
+                                String inputId = (String) invocation.getArguments()[0];
+                                return inputIdToNewInput.get(inputId).second;
+                            }
+                        });
         TvInputManagerHelper inputManager = Mockito.mock(TvInputManagerHelper.class);
-        Mockito.when(inputManager.getDefaultTvInputInfoComparator()).thenReturn(
-                new Comparator<TvInputInfo>() {
-                    @Override
-                    public int compare(TvInputInfo lhs, TvInputInfo rhs) {
-                        return lhs.getId().compareTo(rhs.getId());
-                    }
-                }
-        );
+        Mockito.when(inputManager.getDefaultTvInputInfoComparator())
+                .thenReturn(
+                        new Comparator<TvInputInfo>() {
+                            @Override
+                            public int compare(TvInputInfo lhs, TvInputInfo rhs) {
+                                return lhs.getId().compareTo(rhs.getId());
+                            }
+                        });
         TvInputNewComparator comparator = new TvInputNewComparator(setupUtils, inputManager);
         ComparatorTester<TvInputInfo> comparatorTester =
                 ComparatorTester.withoutEqualsTest(comparator);
         ResolveInfo resolveInfo = TestUtils.createResolveInfo("test", "test");
         for (String id : inputIdToNewInput.keySet()) {
             // Put mock resolveInfo to prevent NPE in {@link TvInputInfo#toString}
-            TvInputInfo info1 = TestUtils.createTvInputInfo(
-                    resolveInfo, id, "test1", TvInputInfo.TYPE_TUNER, false);
-            TvInputInfo info2 = TestUtils.createTvInputInfo(
-                    resolveInfo, id, "test2", TvInputInfo.TYPE_DISPLAY_PORT, true);
-            TvInputInfo info3 = TestUtils.createTvInputInfo(
-                    resolveInfo, id, "test", TvInputInfo.TYPE_HDMI, true);
+            TvInputInfo info1 =
+                    TestUtils.createTvInputInfo(
+                            resolveInfo, id, "test1", TvInputInfo.TYPE_TUNER, false);
+            TvInputInfo info2 =
+                    TestUtils.createTvInputInfo(
+                            resolveInfo, id, "test2", TvInputInfo.TYPE_DISPLAY_PORT, true);
+            TvInputInfo info3 =
+                    TestUtils.createTvInputInfo(
+                            resolveInfo, id, "test", TvInputInfo.TYPE_HDMI, true);
             comparatorTester.addComparableGroup(info1, info2, info3);
         }
         comparatorTester.test();

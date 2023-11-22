@@ -17,6 +17,7 @@
 package com.android.server.telecom.testapps;
 
 import android.telecom.CallAudioState;
+import android.telecom.Connection;
 import android.telecom.DisconnectCause;
 import android.telecom.PhoneAccountHandle;
 import android.util.Log;
@@ -24,6 +25,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.BaseAdapter;
+import android.widget.CheckBox;
 import android.widget.TextView;
 
 import com.android.server.telecom.testapps.R;
@@ -60,8 +62,18 @@ public class SelfManagedCallListAdapter extends BaseAdapter {
     };
 
     /**
-     * Listener used to handle tap of the "held" button for a connection.
+     * Listener used to handle tap of the "missed" button for a connection.
      */
+    private View.OnClickListener mMissedListener = new View.OnClickListener() {
+        @Override
+        public void onClick(View v) {
+            View parent = (View) v.getParent().getParent();
+            SelfManagedConnection connection = (SelfManagedConnection) parent.getTag();
+            connection.setConnectionDisconnected(DisconnectCause.MISSED);
+            SelfManagedCallList.getInstance().removeConnection(connection);
+        }
+    };
+
     private View.OnClickListener mHeldListener = new View.OnClickListener() {
         @Override
         public void onClick(View v) {
@@ -88,6 +100,22 @@ public class SelfManagedCallListAdapter extends BaseAdapter {
             View parent = (View) v.getParent().getParent();
             SelfManagedConnection connection = (SelfManagedConnection) parent.getTag();
             connection.setAudioRoute(CallAudioState.ROUTE_EARPIECE);
+            notifyDataSetChanged();
+        }
+    };
+
+    private View.OnClickListener mHoldableListener = new View.OnClickListener() {
+        @Override
+        public void onClick (View v) {
+            View parent = (View) v.getParent().getParent();
+            SelfManagedConnection connection = (SelfManagedConnection) parent.getTag();
+            int capabilities = connection.getConnectionCapabilities();
+            if ((capabilities & Connection.CAPABILITY_HOLD) == Connection.CAPABILITY_HOLD) {
+                capabilities &= ~(Connection.CAPABILITY_HOLD | Connection.CAPABILITY_SUPPORT_HOLD);
+            } else {
+                capabilities |= (Connection.CAPABILITY_HOLD | Connection.CAPABILITY_SUPPORT_HOLD);
+            }
+            connection.setConnectionCapabilities(capabilities);
             notifyDataSetChanged();
         }
     };
@@ -165,7 +193,8 @@ public class SelfManagedCallListAdapter extends BaseAdapter {
         }
         setInfoForRow(result, phoneAccountHandle.getId(), connection.getAddress().toString(),
                 android.telecom.Connection.stateToString(connection.getState()), audioRoute,
-                callType);
+                callType, connection.getState() == android.telecom.Connection.STATE_RINGING, 
+                connection.isHoldable());
         result.setTag(connection);
         return result;
     }
@@ -177,7 +206,8 @@ public class SelfManagedCallListAdapter extends BaseAdapter {
     }
 
     private void setInfoForRow(View view, String accountName, String number,
-                               String status, String audioRoute, String callType) {
+                               String status, String audioRoute, String callType,
+            boolean isRinging, boolean isHoldable) {
 
         TextView numberTextView = (TextView) view.findViewById(R.id.phoneNumber);
         TextView statusTextView = (TextView) view.findViewById(R.id.callState);
@@ -191,6 +221,14 @@ public class SelfManagedCallListAdapter extends BaseAdapter {
         speakerButton.setOnClickListener(mSpeakerListener);
         View earpieceButton = view.findViewById(R.id.earpieceButton);
         earpieceButton.setOnClickListener(mEarpieceListener);
+        View missedButton = view.findViewById(R.id.missedButton);
+        missedButton.setOnClickListener(mMissedListener);
+        missedButton.setVisibility(isRinging ? View.VISIBLE : View.GONE);
+        setHeldButton.setVisibility(!isRinging ? View.VISIBLE : View.GONE);
+        disconnectButton.setVisibility(!isRinging ? View.VISIBLE : View.GONE);
+        CheckBox holdableCheckbox = view.findViewById(R.id.holdable);
+        holdableCheckbox.setOnClickListener(mHoldableListener);
+        holdableCheckbox.setChecked(isHoldable);
         numberTextView.setText(accountName + " - " + number + " (" + audioRoute + ")");
         statusTextView.setText(callType + " - Status: " + status);
     }

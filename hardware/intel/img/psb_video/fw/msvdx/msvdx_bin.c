@@ -52,7 +52,6 @@ struct msvdx_fw {
 int main()
 {
     unsigned long i = 0;
-    unsigned long lseek;
     FILE *ptr = NULL;
     FILE *fp_ll_dma = NULL;
     struct msvdx_fw fw;

@@ -23,15 +23,12 @@ import android.media.tv.TvInputInfo;
 import android.net.Uri;
 import android.os.Bundle;
 import android.view.KeyEvent;
-
-import com.android.tv.data.Channel;
+import com.android.tv.data.ChannelImpl;
 import com.android.tv.ui.SelectInputView;
 import com.android.tv.ui.SelectInputView.OnInputSelectedCallback;
 import com.android.tv.util.Utils;
 
-/**
- * An activity to select input.
- */
+/** An activity to select input. */
 public class SelectInputActivity extends Activity {
     private SelectInputView mSelectInputView;
 
@@ -41,30 +38,37 @@ public class SelectInputActivity extends Activity {
         ((TvApplication) getApplicationContext()).setSelectInputActivity(this);
         setContentView(R.layout.activity_select_input);
         mSelectInputView = (SelectInputView) findViewById(R.id.scene_transition_common);
-        mSelectInputView.setOnInputSelectedCallback(new OnInputSelectedCallback() {
-            @Override
-            public void onTunerInputSelected() {
-                startTvWithChannel(TvContract.Channels.CONTENT_URI);
-            }
+        mSelectInputView.setOnInputSelectedCallback(
+                new OnInputSelectedCallback() {
+                    @Override
+                    public void onTunerInputSelected() {
+                        startTvWithChannel(TvContract.Channels.CONTENT_URI);
+                    }
 
-            @Override
-            public void onPassthroughInputSelected(TvInputInfo input) {
-                startTvWithChannel(TvContract.buildChannelUriForPassthroughInput(input.getId()));
-            }
+                    @Override
+                    public void onPassthroughInputSelected(TvInputInfo input) {
+                        startTvWithChannel(
+                                TvContract.buildChannelUriForPassthroughInput(input.getId()));
+                    }
 
-            private void startTvWithChannel(Uri channelUri) {
-                Intent intent = new Intent(Intent.ACTION_VIEW, channelUri,
-                        SelectInputActivity.this, MainActivity.class);
-                intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                startActivity(intent);
-                finish();
-            }
-        });
+                    private void startTvWithChannel(Uri channelUri) {
+                        Intent intent =
+                                new Intent(
+                                        Intent.ACTION_VIEW,
+                                        channelUri,
+                                        SelectInputActivity.this,
+                                        MainActivity.class);
+                        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                        startActivity(intent);
+                        finish();
+                    }
+                });
         String channelUriString = Utils.getLastWatchedChannelUri(this);
         if (channelUriString != null) {
             Uri channelUri = Uri.parse(channelUriString);
             if (TvContract.isChannelUriForPassthroughInput(channelUri)) {
-                mSelectInputView.setCurrentChannel(Channel.createPassthroughChannel(channelUri));
+                mSelectInputView.setCurrentChannel(
+                        ChannelImpl.createPassthroughChannel(channelUri));
             }
             // No need to set the tuner channel because it's the default selection.
         }

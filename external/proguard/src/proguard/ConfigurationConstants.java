@@ -35,6 +35,8 @@ class ConfigurationConstants
     public static final String INJARS_OPTION       = "-injars";
     public static final String OUTJARS_OPTION      = "-outjars";
     public static final String LIBRARYJARS_OPTION  = "-libraryjars";
+    // Android-added: Add -systemjars option.
+    public static final String SYSTEMJARS_OPTION   = "-systemjars";
     public static final String RESOURCEJARS_OPTION = "-resourcejars";
 
     public static final String KEEP_OPTION                           = "-keep";

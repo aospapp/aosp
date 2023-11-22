@@ -63,8 +63,32 @@ TEST(record_cmd, system_wide_option) {
   TEST_IN_ROOT(ASSERT_TRUE(RunRecordCmd({"-a"})));
 }
 
+void CheckEventType(const std::string& record_file, const std::string event_type,
+                    uint64_t sample_period, uint64_t sample_freq) {
+  const EventType* type = FindEventTypeByName(event_type);
+  ASSERT_TRUE(type != nullptr);
+  std::unique_ptr<RecordFileReader> reader = RecordFileReader::CreateInstance(record_file);
+  ASSERT_TRUE(reader);
+  std::vector<EventAttrWithId> attrs = reader->AttrSection();
+  for (auto& attr : attrs) {
+    if (attr.attr->type == type->type && attr.attr->config == type->config) {
+      if (attr.attr->freq == 0) {
+        ASSERT_EQ(sample_period, attr.attr->sample_period);
+        ASSERT_EQ(sample_freq, 0u);
+      } else {
+        ASSERT_EQ(sample_period, 0u);
+        ASSERT_EQ(sample_freq, attr.attr->sample_freq);
+      }
+      return;
+    }
+  }
+  FAIL();
+}
+
 TEST(record_cmd, sample_period_option) {
-  ASSERT_TRUE(RunRecordCmd({"-c", "100000"}));
+  TemporaryFile tmpfile;
+  ASSERT_TRUE(RunRecordCmd({"-c", "100000"}, tmpfile.path));
+  CheckEventType(tmpfile.path, "cpu-cycles", 100000u, 0);
 }
 
 TEST(record_cmd, event_option) {
@@ -72,8 +96,20 @@ TEST(record_cmd, event_option) {
 }
 
 TEST(record_cmd, freq_option) {
-  ASSERT_TRUE(RunRecordCmd({"-f", "99"}));
-  ASSERT_TRUE(RunRecordCmd({"-F", "99"}));
+  TemporaryFile tmpfile;
+  ASSERT_TRUE(RunRecordCmd({"-f", "99"}, tmpfile.path));
+  CheckEventType(tmpfile.path, "cpu-cycles", 0, 99u);
+  ASSERT_TRUE(RunRecordCmd({"-e", "cpu-clock", "-f", "99"}, tmpfile.path));
+  CheckEventType(tmpfile.path, "cpu-clock", 0, 99u);
+  ASSERT_TRUE(RunRecordCmd({"-f", std::to_string(UINT_MAX)}));
+}
+
+TEST(record_cmd, multiple_freq_or_sample_period_option) {
+  TemporaryFile tmpfile;
+  ASSERT_TRUE(RunRecordCmd({"-f", "99", "-e", "cpu-cycles", "-c", "1000000", "-e",
+                            "cpu-clock"}, tmpfile.path));
+  CheckEventType(tmpfile.path, "cpu-cycles", 0, 99u);
+  CheckEventType(tmpfile.path, "cpu-clock", 1000000u, 0u);
 }
 
 TEST(record_cmd, output_file_option) {
@@ -205,16 +241,16 @@ TEST(record_cmd, no_unwind_option) {
   ASSERT_FALSE(RunRecordCmd({"--no-unwind"}));
 }
 
-TEST(record_cmd, post_unwind_option) {
+TEST(record_cmd, no_post_unwind_option) {
   OMIT_TEST_ON_NON_NATIVE_ABIS();
   ASSERT_TRUE(IsDwarfCallChainSamplingSupported());
   std::vector<std::unique_ptr<Workload>> workloads;
   CreateProcesses(1, &workloads);
   std::string pid = std::to_string(workloads[0]->GetPid());
-  ASSERT_TRUE(RunRecordCmd({"-p", pid, "--call-graph", "dwarf", "--post-unwind"}));
-  ASSERT_FALSE(RunRecordCmd({"--post-unwind"}));
+  ASSERT_TRUE(RunRecordCmd({"-p", pid, "--call-graph", "dwarf", "--no-post-unwind"}));
+  ASSERT_FALSE(RunRecordCmd({"--no-post-unwind"}));
   ASSERT_FALSE(
-      RunRecordCmd({"--call-graph", "dwarf", "--no-unwind", "--post-unwind"}));
+      RunRecordCmd({"--call-graph", "dwarf", "--no-unwind", "--no-post-unwind"}));
 }
 
 TEST(record_cmd, existing_processes) {
@@ -444,10 +480,15 @@ TEST(record_cmd, record_meta_info_feature) {
   TemporaryFile tmpfile;
   ASSERT_TRUE(RunRecordCmd({}, tmpfile.path));
   std::unique_ptr<RecordFileReader> reader = RecordFileReader::CreateInstance(tmpfile.path);
-  ASSERT_TRUE(reader != nullptr);
+  ASSERT_TRUE(reader);
   std::unordered_map<std::string, std::string> info_map;
   ASSERT_TRUE(reader->ReadMetaInfoFeature(&info_map));
   ASSERT_NE(info_map.find("simpleperf_version"), info_map.end());
+  ASSERT_NE(info_map.find("timestamp"), info_map.end());
+#if defined(__ANDROID__)
+  ASSERT_NE(info_map.find("product_props"), info_map.end());
+  ASSERT_NE(info_map.find("android_version"), info_map.end());
+#endif
 }
 
 // See http://b/63135835.
@@ -461,33 +502,70 @@ TEST(record_cmd, cpu_clock_for_a_long_time) {
 }
 
 TEST(record_cmd, dump_regs_for_tracepoint_events) {
+  TEST_REQUIRE_HOST_ROOT();
   OMIT_TEST_ON_NON_NATIVE_ABIS();
   // Check if the kernel can dump registers for tracepoint events.
   // If not, probably a kernel patch below is missing:
   // "5b09a094f2 arm64: perf: Fix callchain parse error with kernel tracepoint events"
-  std::vector<std::unique_ptr<Workload>> workloads;
-  CreateProcesses(1, &workloads);
-  std::string pid = std::to_string(workloads[0]->GetPid());
-  TemporaryFile tmpfile;
-  ASSERT_TRUE(RecordCmd()->Run({"-o", tmpfile.path, "-p", pid, "-e", "sched:sched_switch",
-                                "-g", "--no-unwind", "--duration", "1"}));
+  ASSERT_TRUE(IsDumpingRegsForTracepointEventsSupported());
+}
 
-  // If the kernel patch is missing, all regs dumped in sample records are zero.
+TEST(record_cmd, trace_offcpu_option) {
+  // On linux host, we need root privilege to read tracepoint events.
+  TEST_REQUIRE_HOST_ROOT();
+  OMIT_TEST_ON_NON_NATIVE_ABIS();
+  TemporaryFile tmpfile;
+  ASSERT_TRUE(RunRecordCmd({"--trace-offcpu", "-f", "1000"}, tmpfile.path));
   std::unique_ptr<RecordFileReader> reader = RecordFileReader::CreateInstance(tmpfile.path);
-  CHECK(reader != nullptr);
-  std::unique_ptr<Record> r;
-  bool regs_all_zero = true;
-  while (reader->ReadRecord(r) && r && regs_all_zero) {
-    if (r->type() != PERF_RECORD_SAMPLE) {
-      continue;
-    }
-    SampleRecord* s = static_cast<SampleRecord*>(r.get());
-    for (size_t i = 0; i < s->regs_user_data.reg_nr; ++i) {
-      if (s->regs_user_data.regs[i] != 0u) {
-        regs_all_zero = false;
-        break;
-      }
-    }
+  ASSERT_TRUE(reader);
+  std::unordered_map<std::string, std::string> info_map;
+  ASSERT_TRUE(reader->ReadMetaInfoFeature(&info_map));
+  ASSERT_EQ(info_map["trace_offcpu"], "true");
+  CheckEventType(tmpfile.path, "sched:sched_switch", 1u, 0u);
+}
+
+TEST(record_cmd, exit_with_parent_option) {
+  ASSERT_TRUE(RunRecordCmd({"--exit-with-parent"}));
+}
+
+TEST(record_cmd, clockid_option) {
+  if (!IsSettingClockIdSupported()) {
+    ASSERT_FALSE(RunRecordCmd({"--clockid", "monotonic"}));
+  } else {
+    TemporaryFile tmpfile;
+    ASSERT_TRUE(RunRecordCmd({"--clockid", "monotonic"}, tmpfile.path));
+    std::unique_ptr<RecordFileReader> reader = RecordFileReader::CreateInstance(tmpfile.path);
+    ASSERT_TRUE(reader);
+    std::unordered_map<std::string, std::string> info_map;
+    ASSERT_TRUE(reader->ReadMetaInfoFeature(&info_map));
+    ASSERT_EQ(info_map["clockid"], "monotonic");
   }
-  ASSERT_FALSE(regs_all_zero);
+}
+
+TEST(record_cmd, generate_samples_by_hw_counters) {
+  std::vector<std::string> events = {"cpu-cycles", "instructions"};
+  for (auto& event : events) {
+    TemporaryFile tmpfile;
+    ASSERT_TRUE(RecordCmd()->Run({"-e", event, "-o", tmpfile.path, "sleep", "1"}));
+    std::unique_ptr<RecordFileReader> reader = RecordFileReader::CreateInstance(tmpfile.path);
+    ASSERT_TRUE(reader);
+    bool has_sample = false;
+    ASSERT_TRUE(reader->ReadDataSection([&](std::unique_ptr<Record> r) {
+      if (r->type() == PERF_RECORD_SAMPLE) {
+        has_sample = true;
+      }
+      return true;
+    }));
+    ASSERT_TRUE(has_sample);
+  }
+}
+
+TEST(record_cmd, callchain_joiner_options) {
+  ASSERT_TRUE(RunRecordCmd({"--no-callchain-joiner"}));
+  ASSERT_TRUE(RunRecordCmd({"--callchain-joiner-min-matching-nodes", "2"}));
+}
+
+TEST(record_cmd, dashdash) {
+  TemporaryFile tmpfile;
+  ASSERT_TRUE(RecordCmd()->Run({"-o", tmpfile.path, "--", "sleep", "1"}));
 }

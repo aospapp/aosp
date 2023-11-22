@@ -28,7 +28,7 @@ class audio_AudioVolume(audio_test.AudioTest):
     DELAY_AFTER_BINDING = 0.5
 
     def run_once(self, host, source_id, sink_id, recorder_id, volume_spec,
-                 golden_file, switch_hsp=False):
+                 golden_file, cfm_speaker=False, switch_hsp=False):
         """Running audio volume test.
 
         @param host: device under test CrosHost
@@ -47,10 +47,13 @@ class audio_AudioVolume(audio_test.AudioTest):
         @param golden_file: A test file defined in audio_test_data.
         @param switch_hsp: Run a recording process on Cros device. This is
                            to trigger Cros switching from A2DP to HSP.
+        @param cfm_speaker: whether cfm_speaker's audio is tested which is an
+            external USB speaker on CFM (ChromeBox For Meetings) devices.
 
         """
         if (source_id == chameleon_audio_ids.CrosIds.SPEAKER and
-            not audio_test_utils.has_internal_speaker(host)):
+            (not cfm_speaker and
+            not audio_test_utils.has_internal_speaker(host))):
             return
 
         chameleon_board = host.chameleon
@@ -93,7 +96,11 @@ class audio_AudioVolume(audio_test.AudioTest):
             audio_test_utils.dump_cros_audio_logs(
                     host, audio_facade, self.resultsdir, 'after_binding')
 
-            audio_test_utils.check_output_port(audio_facade, source.port_id)
+            if not cfm_speaker:
+                audio_test_utils.check_output_port(audio_facade, source.port_id)
+            else:
+                audio_test_utils.check_audio_nodes(audio_facade,
+                                                   (['USB'], None))
 
             if switch_hsp:
                 audio_test_utils.switch_to_hsp(audio_facade)

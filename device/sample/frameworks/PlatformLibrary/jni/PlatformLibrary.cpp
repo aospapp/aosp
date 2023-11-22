@@ -250,7 +250,7 @@ static int registerMethods(JNIEnv* env) {
 /*
  * This is called by the VM when the shared library is first loaded.
  */
-jint JNI_OnLoad(JavaVM* vm, void* reserved) {
+jint JNI_OnLoad(JavaVM* vm, void* /*reserved*/) {
     JNIEnv* env = NULL;
     jint result = -1;
 

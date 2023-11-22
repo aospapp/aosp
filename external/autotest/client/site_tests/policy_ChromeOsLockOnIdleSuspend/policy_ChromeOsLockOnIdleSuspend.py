@@ -6,8 +6,8 @@ import logging
 
 from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
-from autotest_lib.client.cros import power_status
 from autotest_lib.client.cros.enterprise import enterprise_policy_base
+from autotest_lib.client.cros.power import power_status
 
 
 class policy_ChromeOsLockOnIdleSuspend(
@@ -84,11 +84,18 @@ class policy_ChromeOsLockOnIdleSuspend(
 
     def _is_screen_locked(self):
         """Return true if login status indicates that screen is locked."""
-        login_status = utils.wait_for_value(
-            lambda: self.cr.login_status['isScreenLocked'],
-                    expected_value=True,
-                    timeout_sec=self.IDLE_ACTION_DELAY)
-        return login_status
+        def _get_screen_locked():
+            """Return isScreenLocked property, if defined."""
+            login_status = self.cr.login_status
+            if (isinstance(login_status, dict) and
+                'isScreenLocked' in login_status):
+                return self.cr.login_status['isScreenLocked']
+            else:
+                logging.debug('login_status: %s', login_status)
+                return None
+
+        return utils.wait_for_value(_get_screen_locked, expected_value=True,
+                                    timeout_sec=self.IDLE_ACTION_DELAY)
 
 
     def _test_require_password_to_wake(self, policy_value):
@@ -99,9 +106,12 @@ class policy_ChromeOsLockOnIdleSuspend(
         @raises: TestFail if behavior is incorrect.
 
         """
-        # Screen shall be locked if the policy is True, else unlocked.
         screen_is_locked = self._is_screen_locked()
-        if policy_value == True:
+        if screen_is_locked is None:
+            raise error.TestError('Could not determine screen state!')
+
+        # Screen shall be locked if the policy is True, else unlocked.
+        if policy_value:
             if not screen_is_locked:
                 raise error.TestFail('Screen should be locked.')
         else:
@@ -109,7 +119,7 @@ class policy_ChromeOsLockOnIdleSuspend(
                 raise error.TestFail('Screen should be unlocked.')
 
 
-    def run_test_case(self, case):
+    def run_once(self, case):
         """
         Setup and run the test configured for the specified test case.
 
@@ -117,5 +127,6 @@ class policy_ChromeOsLockOnIdleSuspend(
 
         """
         case_value = self.TEST_CASES[case]
-        self.setup_case(self.POLICY_NAME, case_value, self.SUPPORTING_POLICIES)
+        self.SUPPORTING_POLICIES[self.POLICY_NAME] = case_value
+        self.setup_case(user_policies=self.SUPPORTING_POLICIES)
         self._test_require_password_to_wake(case_value)

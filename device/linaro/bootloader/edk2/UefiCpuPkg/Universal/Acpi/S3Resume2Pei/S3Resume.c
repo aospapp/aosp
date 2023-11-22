@@ -1,10 +1,10 @@
 /** @file
   This module produces the EFI_PEI_S3_RESUME2_PPI.
   This module works with StandAloneBootScriptExecutor to S3 resume to OS.
-  This module will excute the boot script saved during last boot and after that,
+  This module will execute the boot script saved during last boot and after that,
   control is passed to OS waking up handler.
 
-  Copyright (c) 2006 - 2015, Intel Corporation. All rights reserved.<BR>
+  Copyright (c) 2006 - 2016, Intel Corporation. All rights reserved.<BR>
 
   This program and the accompanying materials
   are licensed and made available under the terms and conditions
@@ -294,7 +294,7 @@ WriteToOsS3PerformanceData (
   UINT64                                        Freq;
 
   //
-  // Retrive time stamp count as early as possilbe
+  // Retrieve time stamp count as early as possible
   //
   Ticker = GetPerformanceCounter ();
 
@@ -515,6 +515,13 @@ S3ResumeBootOs (
     // Switch to native waking vector
     //
     TempStackTop = (UINTN)&TempStack + sizeof(TempStack);
+    DEBUG ((
+      DEBUG_INFO,
+      "%a() Stack Base: 0x%x, Stack Size: 0x%x\n",
+      __FUNCTION__,
+      TempStackTop,
+      sizeof (TempStack)
+      ));
     if ((Facs->Version == EFI_ACPI_4_0_FIRMWARE_ACPI_CONTROL_STRUCTURE_VERSION) &&
         ((Facs->Flags & EFI_ACPI_4_0_64BIT_WAKE_SUPPORTED_F) != 0) &&
         ((Facs->Flags & EFI_ACPI_4_0_OSPM_64BIT_WAKE__F) != 0)) {
@@ -612,12 +619,12 @@ RestoreS3PageTables (
     // NOTE: We have to ASSUME the page table generation format, because we do not know whole page table information.
     // The whole page table is too large to be saved in SMRAM.
     //
-    // The assumption is : whole page table is allocated in CONTINOUS memory and CR3 points to TOP page.
+    // The assumption is : whole page table is allocated in CONTINUOUS memory and CR3 points to TOP page.
     //
     DEBUG ((EFI_D_ERROR, "S3NvsPageTableAddress - %x (%x)\n", (UINTN)S3NvsPageTableAddress, (UINTN)Build4GPageTableOnly));
 
     //
-    // By architecture only one PageMapLevel4 exists - so lets allocate storgage for it.
+    // By architecture only one PageMapLevel4 exists - so lets allocate storage for it.
     //
     PageMap = (PAGE_MAP_AND_DIRECTORY_POINTER *)S3NvsPageTableAddress;
     S3NvsPageTableAddress += SIZE_4KB;
@@ -819,10 +826,16 @@ S3ResumeExecuteBootScript (
     //
     IdtDescriptor = (IA32_DESCRIPTOR *) (UINTN) (AcpiS3Context->IdtrProfile);
     //
-    // Make sure the newly allcated IDT align with 16-bytes
+    // Make sure the newly allocated IDT align with 16-bytes
     // 
     IdtBuffer = AllocatePages (EFI_SIZE_TO_PAGES((IdtDescriptor->Limit + 1) + 16));
-    ASSERT (IdtBuffer != NULL);
+    if (IdtBuffer == NULL) {
+      REPORT_STATUS_CODE (
+        EFI_ERROR_CODE | EFI_ERROR_MAJOR,
+        (EFI_SOFTWARE_PEI_MODULE | EFI_SW_PEI_EC_S3_RESUME_FAILED)
+        );
+      ASSERT (FALSE);
+    }
     //
     // Additional 16 bytes allocated to save IA32 IDT descriptor and Pei Service Table Pointer
     // IA32 IDT descriptor will be used to setup IA32 IDT table for 32-bit Framework Boot Script code
@@ -852,7 +865,13 @@ S3ResumeExecuteBootScript (
   // Prepare data for return back
   //
   PeiS3ResumeState = AllocatePool (sizeof(*PeiS3ResumeState));
-  ASSERT (PeiS3ResumeState != NULL);
+  if (PeiS3ResumeState == NULL) {
+    REPORT_STATUS_CODE (
+      EFI_ERROR_CODE | EFI_ERROR_MAJOR,
+      (EFI_SOFTWARE_PEI_MODULE | EFI_SW_PEI_EC_S3_RESUME_FAILED)
+      );
+    ASSERT (FALSE);
+  }
   DEBUG (( EFI_D_ERROR, "PeiS3ResumeState - %x\r\n", PeiS3ResumeState));
   PeiS3ResumeState->ReturnCs           = 0x10;
   PeiS3ResumeState->ReturnEntryPoint   = (EFI_PHYSICAL_ADDRESS)(UINTN)S3ResumeBootOs;

@@ -15,17 +15,16 @@
 # limitations under the License.
 #
 
+import datetime
 import logging
 import os
 
 from vts.runners.host import asserts
-from vts.runners.host import base_test
-from vts.runners.host import const
 from vts.runners.host import test_runner
-from vts.utils.python.controllers import android_device
+from vts.testcases.template.cts_test import cts_test
 
 
-class HidlTraceRecorder(base_test.BaseTestClass):
+class HidlTraceRecorder(cts_test.CtsTest):
     """A HIDL HAL API trace recorder.
 
     This class uses an apk which is packaged as part of VTS. It uses to test the
@@ -35,27 +34,34 @@ class HidlTraceRecorder(base_test.BaseTestClass):
     VTS.
     """
 
-    CTS_TESTS = [
-        {"apk": "CtsAccelerationTestCases.apk",
-         "package": "android.acceleration.cts",
-         "runner": "android.support.test.runner.AndroidJUnitRunner"},
-        # TODO(yim): reenable once tests in that apk are no more flaky.
-        # {"apk": "CtsSensorTestCases.apk",
-        #  "package": "android.hardware.sensor.cts",
-        #  "runner": "android.support.test.runner.AndroidJUnitRunner"},
-        ]
-    TMP_DIR = "/data/local/tmp"
+    REMOTE_PROFILINT_TRACE_PATH = "/google/data/rw/teams/android-vts/cts-traces"
 
-    def setUpClass(self):
-        self.dut = self.registerController(android_device)[0]
+    def RunTestCase(self, test_case):
+        '''Runs a test_case.
 
-    def testRunCtsSensorTestCases(self):
-        """Runs all test cases in CtsSensorTestCases.apk."""
-        for cts_test in self.CTS_TESTS:
-          logging.info("Run %s", cts_test["apk"])
-          self.dut.adb.shell(
-              "am instrument -w -r %s/%s" % (cts_test["package"],
-                                             cts_test["runner"]))
+        Args:
+            test_case: a cts test config.
+        '''
+        # before running the cts test module enable profiling.
+        self.profiling.EnableVTSProfiling(
+            self.dut.shell.one, hal_instrumentation_lib_path="")
+        self.dut.stop()  # stop framework
+        self.dut.start()  # start framework
+
+        profiling_trace_path = os.path.join(
+            self.REMOTE_PROFILINT_TRACE_PATH,
+            datetime.datetime.now().strftime("%Y%m%d"),
+            self.GetTestName(test_case))
+        if not os.path.exists(profiling_trace_path):
+            os.makedirs(profiling_trace_path)
+
+        logging.info("Run %s", self.GetTestName(test_case))
+        self.dut.adb.shell("am instrument -w -r %s/%s" % (test_case["package"],
+                                                          test_case["runner"]))
+
+        # after running the cts test module, copy trace files and disable profiling.
+        self.profiling.GetTraceFiles(self.dut, profiling_trace_path)
+        self.profiling.DisableVTSProfiling(self.dut.shell.one)
 
 if __name__ == "__main__":
     test_runner.main()

@@ -32,7 +32,7 @@
 
 #include <libavb/libavb.h>
 
-#include "libavb_atx/avb_atx_types.h"
+#include "avb_atx_types.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -59,6 +59,13 @@ struct AvbAtxOps {
    */
   AvbIOResult (*read_permanent_attributes_hash)(
       AvbAtxOps* atx_ops, uint8_t hash[AVB_SHA256_DIGEST_SIZE]);
+
+  /* Provides the key version of a key used during verification. This may be
+   * useful for managing the minimum key version.
+   */
+  void (*set_key_version)(AvbAtxOps* atx_ops,
+                          size_t rollback_index_location,
+                          uint64_t key_version);
 };
 
 #ifdef __cplusplus

@@ -15,41 +15,35 @@
  */
 package com.android.tradefed.result;
 
-import com.android.ddmlib.testrunner.ITestRunListener;
-import com.android.ddmlib.testrunner.TestIdentifier;
 import com.android.tradefed.command.ICommandScheduler;
 import com.android.tradefed.invoker.IInvocationContext;
 import com.android.tradefed.log.ITestLogger;
 import com.android.tradefed.testtype.suite.ITestSuite;
 
-import java.util.Map;
-
 /**
  * Listener for test results from the test invocation.
- * <p/>
- * A test invocation can itself include multiple test runs, so the sequence of calls will be
+ *
+ * <p>A test invocation can itself include multiple test runs, so the sequence of calls will be
+ *
  * <ul>
- * <li>invocationStarted(BuildInfo)</li>
- * <li>testRunStarted</li>
- * <li>testStarted</li>
- * <li>[testFailed]</li>
- * <li>testEnded</li>
- * <li>...</li>
- * <li>testRunEnded</li>
- * <li>...</li>
- * <li>testRunStarted</li>
- * <li>...</li>
- * <li>testRunEnded</li>
- * <li>[invocationFailed]</li>
- * <li>[testLog+]</li>
- * <li>invocationEnded</li>
- * <li>getSummary</li>
+ *   <li>invocationStarted(BuildInfo)
+ *   <li>testRunStarted
+ *   <li>testStarted
+ *   <li>[testFailed]
+ *   <li>testEnded
+ *   <li>...
+ *   <li>testRunEnded
+ *   <li>...
+ *   <li>testRunStarted
+ *   <li>...
+ *   <li>testRunEnded
+ *   <li>[invocationFailed]
+ *   <li>[testLog+]
+ *   <li>invocationEnded
+ *   <li>getSummary
  * </ul>
- * <p/>
- * Note that this is re-using the {@link com.android.ddmlib.testrunner.ITestRunListener}
- * because it's a generic interface. The results being reported are not necessarily device specific.
  */
-public interface ITestInvocationListener extends ITestRunListener, ITestLogger {
+public interface ITestInvocationListener extends ITestLogger, ITestLifeCycleReceiver {
 
     /**
      * Reports the start of the test invocation.
@@ -106,69 +100,4 @@ public interface ITestInvocationListener extends ITestRunListener, ITestLogger {
 
     /** Reports the end of a module run. */
     public default void testModuleEnded() {}
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    default public void testEnded(TestIdentifier test, Map<String, String> testMetrics) { }
-
-    /** {@inheritDoc} */
-    @Override
-    public default void testEnded(
-            TestIdentifier test, long endTime, Map<String, String> testMetrics) {
-        testEnded(test, testMetrics);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public default void testFailed(TestIdentifier test, String trace) {}
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    default public void testAssumptionFailure(TestIdentifier test, String trace) { }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    default public void testIgnored(TestIdentifier test) { }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    default public void testRunEnded(long elapsedTimeMillis, Map<String, String> runMetrics) { }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    default public void testRunFailed(String errorMessage) { }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    default public void testRunStarted(String runName, int testCount) { }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    default public void testRunStopped(long elapsedTime) { }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    default public void testStarted(TestIdentifier test) { }
-
-    /** {@inheritDoc} */
-    @Override
-    default void testStarted(TestIdentifier test, long startTime) {
-        testStarted(test);
-    }
 }

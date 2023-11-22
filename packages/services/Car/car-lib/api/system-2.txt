@@ -586,11 +586,11 @@ package android.car.hardware.hvac {
     method public void setFloatProperty(int, int, float) throws android.car.CarNotConnectedException;
     method public void setIntProperty(int, int, int) throws android.car.CarNotConnectedException;
     method public synchronized void unregisterCallback(android.car.hardware.hvac.CarHvacManager.CarHvacEventCallback);
-    field public static final int FAN_POSITION_DEFROST = 4; // 0x4
-    field public static final int FAN_POSITION_DEFROST_AND_FLOOR = 5; // 0x5
-    field public static final int FAN_POSITION_FACE = 1; // 0x1
-    field public static final int FAN_POSITION_FACE_AND_FLOOR = 3; // 0x3
-    field public static final int FAN_POSITION_FLOOR = 2; // 0x2
+    field public static final int FAN_DIRECTION_DEFROST = 4; // 0x4
+    field public static final int FAN_DIRECTION_DEFROST_AND_FLOOR = 5; // 0x5
+    field public static final int FAN_DIRECTION_FACE = 1; // 0x1
+    field public static final int FAN_DIRECTION_FACE_AND_FLOOR = 3; // 0x3
+    field public static final int FAN_DIRECTION_FLOOR = 2; // 0x2
     field public static final int ID_MIRROR_DEFROSTER_ON = 1; // 0x1
     field public static final int ID_OUTSIDE_AIR_TEMP = 3; // 0x3
     field public static final int ID_STEERING_WHEEL_TEMP = 2; // 0x2
@@ -600,8 +600,8 @@ package android.car.hardware.hvac {
     field public static final int ID_ZONED_AIR_RECIRCULATION_ON = 16395; // 0x400b
     field public static final int ID_ZONED_AUTOMATIC_MODE_ON = 16394; // 0x400a
     field public static final int ID_ZONED_DUAL_ZONE_ON = 16397; // 0x400d
-    field public static final int ID_ZONED_FAN_POSITION = 16391; // 0x4007
-    field public static final int ID_ZONED_FAN_POSITION_AVAILABLE = 16390; // 0x4006
+    field public static final int ID_ZONED_FAN_DIRECTION = 16391; // 0x4007
+    field public static final int ID_ZONED_FAN_DIRECTION_AVAILABLE = 16390; // 0x4006
     field public static final int ID_ZONED_FAN_SPEED_RPM = 16389; // 0x4005
     field public static final int ID_ZONED_FAN_SPEED_SETPOINT = 16388; // 0x4004
     field public static final int ID_ZONED_HVAC_POWER_ON = 16387; // 0x4003

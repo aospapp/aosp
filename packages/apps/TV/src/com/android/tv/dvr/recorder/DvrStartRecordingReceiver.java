@@ -21,18 +21,16 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.Build;
 import android.support.annotation.RequiresApi;
+import com.android.tv.Starter;
+import com.android.tv.TvSingletons;
 
-import com.android.tv.TvApplication;
-
-/**
- * Signals the DVR to start recording shows <i>soon</i>.
- */
+/** Signals the DVR to start recording shows <i>soon</i>. */
 @RequiresApi(Build.VERSION_CODES.N)
 public class DvrStartRecordingReceiver extends BroadcastReceiver {
     @Override
     public void onReceive(Context context, Intent intent) {
-        TvApplication.setCurrentRunningProcess(context, true);
-        RecordingScheduler scheduler = TvApplication.getSingletons(context).getRecordingScheduler();
+        Starter.start(context);
+        RecordingScheduler scheduler = TvSingletons.getSingletons(context).getRecordingScheduler();
         if (scheduler != null) {
             scheduler.updateAndStartServiceIfNeeded();
         }

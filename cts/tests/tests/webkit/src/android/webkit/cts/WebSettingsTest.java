@@ -19,11 +19,16 @@ import android.content.Context;
 import android.graphics.Bitmap;
 import android.net.http.SslError;
 import android.os.Build;
+import android.os.Message;
 import android.test.ActivityInstrumentationTestCase2;
+import android.util.Base64;
 import android.util.Log;
 import android.webkit.ConsoleMessage;
 import android.webkit.SslErrorHandler;
+import android.webkit.WebChromeClient;
 import android.webkit.WebIconDatabase;
+import android.webkit.WebResourceResponse;
+import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
 import android.webkit.WebSettings.TextSize;
 import android.webkit.WebStorage;
@@ -35,8 +40,12 @@ import android.webkit.cts.WebViewOnUiThread.WaitForProgressClient;
 import com.android.compatibility.common.util.NullWebViewUtils;
 import com.android.compatibility.common.util.PollingCheck;
 
+import java.io.ByteArrayInputStream;
 import java.io.FileOutputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.Locale;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -404,26 +413,38 @@ public class WebSettingsTest extends ActivityInstrumentationTestCase2<WebViewCts
             return;
         }
         mSettings.setJavaScriptEnabled(true);
+        mSettings.setSupportMultipleWindows(true);
+        startWebServer();
+
+        final WebView childWebView = mOnUiThread.createWebView();
+        final CountDownLatch latch = new CountDownLatch(1);
+        mOnUiThread.setWebChromeClient(new WebChromeClient() {
+            @Override
+            public boolean onCreateWindow(
+                WebView view, boolean isDialog, boolean isUserGesture, Message resultMsg) {
+                WebView.WebViewTransport transport = (WebView.WebViewTransport) resultMsg.obj;
+                transport.setWebView(childWebView);
+                resultMsg.sendToTarget();
+                latch.countDown();
+                return true;
+            }
+        });
 
         mSettings.setJavaScriptCanOpenWindowsAutomatically(false);
         assertFalse(mSettings.getJavaScriptCanOpenWindowsAutomatically());
-        loadAssetUrl(TestHtmlConstants.POPUP_URL);
+        mOnUiThread.loadUrl(mWebServer.getAssetUrl(TestHtmlConstants.POPUP_URL));
         new PollingCheck(WEBVIEW_TIMEOUT) {
             @Override
             protected boolean check() {
                 return "Popup blocked".equals(mOnUiThread.getTitle());
             }
         }.run();
+        assertEquals(1, latch.getCount());
 
         mSettings.setJavaScriptCanOpenWindowsAutomatically(true);
         assertTrue(mSettings.getJavaScriptCanOpenWindowsAutomatically());
-        loadAssetUrl(TestHtmlConstants.POPUP_URL);
-        new PollingCheck(WEBVIEW_TIMEOUT) {
-            @Override
-            protected boolean check() {
-                return "Popup allowed".equals(mOnUiThread.getTitle());
-            }
-        }.run();
+        mOnUiThread.loadUrl(mWebServer.getAssetUrl(TestHtmlConstants.POPUP_URL));
+        assertTrue(latch.await(WEBVIEW_TIMEOUT, TimeUnit.MILLISECONDS));
     }
 
     public void testAccessJavaScriptEnabled() throws Exception {
@@ -944,61 +965,77 @@ public class WebSettingsTest extends ActivityInstrumentationTestCase2<WebViewCts
         if (!NullWebViewUtils.isWebViewAvailable()) {
             return;
         }
-        final class SslWebViewClient extends WaitForLoadedClient {
-            public SslWebViewClient() {
+
+        final String INSECURE_BASE_URL = "http://www.example.com/";
+        final String INSECURE_JS_URL = INSECURE_BASE_URL + "insecure.js";
+        final String INSECURE_IMG_URL = INSECURE_BASE_URL + "insecure.png";
+        final String SECURE_URL = "/secure.html";
+        final String JS_HTML = "<script src=\"" + INSECURE_JS_URL + "\"></script>";
+        final String IMG_HTML = "<img src=\"" + INSECURE_IMG_URL + "\" />";
+        final String SECURE_HTML = "<body>" + IMG_HTML + " " + JS_HTML + "</body>";
+        final String JS_CONTENT = "window.loaded_js = 42;";
+        final String IMG_CONTENT = "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+
+        final class InterceptClient extends WaitForLoadedClient {
+            public int mInsecureJsCounter;
+            public int mInsecureImgCounter;
+
+            public InterceptClient() {
                 super(mOnUiThread);
             }
+
             @Override
-            public void onReceivedSslError(WebView view,
-                    SslErrorHandler handler, SslError error) {
+            public void onReceivedSslError(WebView view, SslErrorHandler handler, SslError error) {
                 handler.proceed();
+            }
+
+            @Override
+            public WebResourceResponse shouldInterceptRequest(
+                    WebView view, WebResourceRequest request) {
+                if (request.getUrl().toString().equals(INSECURE_JS_URL)) {
+                    mInsecureJsCounter++;
+                    return new WebResourceResponse("text/javascript", "utf-8",
+                        new ByteArrayInputStream(JS_CONTENT.getBytes(StandardCharsets.UTF_8)));
+                } else if (request.getUrl().toString().equals(INSECURE_IMG_URL)) {
+                    mInsecureImgCounter++;
+                    return new WebResourceResponse("image/gif", "utf-8",
+                        new ByteArrayInputStream(Base64.decode(IMG_CONTENT, Base64.DEFAULT)));
+                }
+
+                if (request.getUrl().toString().startsWith(INSECURE_BASE_URL)) {
+                    return new WebResourceResponse("text/html", "UTF-8", null);
+                }
+                return null;
             }
         }
 
+        InterceptClient interceptClient = new InterceptClient();
+        mOnUiThread.setWebViewClient(interceptClient);
         mSettings.setJavaScriptEnabled(true);
         TestWebServer httpsServer = null;
-        TestWebServer httpServer = null;
         try {
             httpsServer = new TestWebServer(true);
-            httpServer = new TestWebServer(false);
-            final String JS_URL = "/insecure.js";
-            final String IMG_URL = "/insecure.png";
-            final String SECURE_URL = "/secure.html";
-            final String JS_HTML = "<script src=\"" + httpServer.getResponseUrl(JS_URL) +
-                "\"></script>";
-            final String IMG_HTML = "<img src=\"" + httpServer.getResponseUrl(IMG_URL) + "\" />";
-            final String SECURE_HTML = "<body>" + IMG_HTML + " " + JS_HTML + "</body>";
-            httpServer.setResponse(JS_URL, "window.loaded_js = 42;", null);
-            httpServer.setResponseBase64(IMG_URL,
-                    "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7",
-                    null);
             String secureUrl = httpsServer.setResponse(SECURE_URL, SECURE_HTML, null);
-
             mOnUiThread.clearSslPreferences();
-
-            mOnUiThread.setWebViewClient(new SslWebViewClient());
 
             mSettings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
             mOnUiThread.loadUrlAndWaitForCompletion(secureUrl);
             assertEquals(1, httpsServer.getRequestCount(SECURE_URL));
-            assertEquals(0, httpServer.getRequestCount(JS_URL));
-            assertEquals(0, httpServer.getRequestCount(IMG_URL));
+            assertEquals(0, interceptClient.mInsecureJsCounter);
+            assertEquals(0, interceptClient.mInsecureImgCounter);
 
             mSettings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
             mOnUiThread.loadUrlAndWaitForCompletion(secureUrl);
             assertEquals(2, httpsServer.getRequestCount(SECURE_URL));
-            assertEquals(1, httpServer.getRequestCount(JS_URL));
-            assertEquals(1, httpServer.getRequestCount(IMG_URL));
+            assertEquals(1, interceptClient.mInsecureJsCounter);
+            assertEquals(1, interceptClient.mInsecureImgCounter);
 
             mSettings.setMixedContentMode(WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE);
             mOnUiThread.loadUrlAndWaitForCompletion(secureUrl);
             assertEquals(3, httpsServer.getRequestCount(SECURE_URL));
-            assertEquals(1, httpServer.getRequestCount(JS_URL));
-            assertEquals(2, httpServer.getRequestCount(IMG_URL));
+            assertEquals(1, interceptClient.mInsecureJsCounter);
+            assertEquals(2, interceptClient.mInsecureImgCounter);
         } finally {
-            if (httpServer != null) {
-                httpServer.shutdown();
-            }
             if (httpsServer != null) {
                 httpsServer.shutdown();
             }
@@ -1009,7 +1046,6 @@ public class WebSettingsTest extends ActivityInstrumentationTestCase2<WebViewCts
         if (!NullWebViewUtils.isWebViewAvailable()) {
             return;
         }
-        assertFalse(mSettings.getSafeBrowsingEnabled());
         mSettings.setSafeBrowsingEnabled(false);
         assertFalse(mSettings.getSafeBrowsingEnabled());
     }

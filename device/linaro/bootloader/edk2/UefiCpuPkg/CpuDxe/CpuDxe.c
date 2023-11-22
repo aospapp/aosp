@@ -1,7 +1,7 @@
 /** @file
-  CPU DXE Module.
+  CPU DXE Module to produce CPU ARCH Protocol.
 
-  Copyright (c) 2008 - 2013, Intel Corporation. All rights reserved.<BR>
+  Copyright (c) 2008 - 2016, Intel Corporation. All rights reserved.<BR>
   This program and the accompanying materials
   are licensed and made available under the terms and conditions of the BSD License
   which accompanies this distribution.  The full text of the license may be found at
@@ -313,6 +313,21 @@ CpuGetTimerValue (
   return EFI_SUCCESS;
 }
 
+/**
+  A minimal wrapper function that allows MtrrSetAllMtrrs() to be passed to
+  EFI_MP_SERVICES_PROTOCOL.StartupAllAPs() as Procedure.
+
+  @param[in] Buffer  Pointer to an MTRR_SETTINGS object, to be passed to
+                     MtrrSetAllMtrrs().
+**/
+VOID
+EFIAPI
+SetMtrrsFromBuffer (
+  IN VOID *Buffer
+  )
+{
+  MtrrSetAllMtrrs (Buffer);
+}
 
 /**
   Implementation of SetMemoryAttributes() service of CPU Architecture Protocol.
@@ -422,7 +437,7 @@ CpuSetMemoryAttributes (
       MpStatus = MpService->StartupAllAPs (
                               MpService,          // This
                               SetMtrrsFromBuffer, // Procedure
-                              TRUE,               // SingleThread
+                              FALSE,              // SingleThread
                               NULL,               // WaitEvent
                               0,                  // TimeoutInMicrosecsond
                               &MtrrSettings,      // ProcedureArgument

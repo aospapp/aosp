@@ -32,8 +32,8 @@
 
 package com.android.bluetooth.opp;
 
-import android.provider.BaseColumns;
 import android.net.Uri;
+import android.provider.BaseColumns;
 
 /**
  * Exposes constants used to interact with the Bluetooth Share manager's content
@@ -60,13 +60,15 @@ public final class BluetoothShare implements BaseColumns {
      * transfer complete. The request detail could be retrieved by app * as _ID
      * is specified in the intent's data.
      */
-    public static final String TRANSFER_COMPLETED_ACTION = "android.btopp.intent.action.TRANSFER_COMPLETE";
+    public static final String TRANSFER_COMPLETED_ACTION =
+            "android.btopp.intent.action.TRANSFER_COMPLETE";
 
     /**
      * This is sent by the Bluetooth Share component to indicate there is an
      * incoming file request timeout and need update UI.
      */
-    public static final String USER_CONFIRMATION_TIMEOUT_ACTION = "android.btopp.intent.action.USER_CONFIRMATION_TIMEOUT";
+    public static final String USER_CONFIRMATION_TIMEOUT_ACTION =
+            "android.btopp.intent.action.USER_CONFIRMATION_TIMEOUT";
 
     /**
      * The name of the column containing the URI of the file being

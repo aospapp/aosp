@@ -30,7 +30,7 @@ class BluetoothPbapObexTransport implements ObexTransport {
 
     private BluetoothSocket mSocket = null;
 
-    public BluetoothPbapObexTransport(BluetoothSocket rfs) {
+    BluetoothPbapObexTransport(BluetoothSocket rfs) {
         super();
         mSocket = rfs;
     }

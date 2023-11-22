@@ -20,6 +20,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.PrintStream;
 import java.lang.reflect.Method;
+import java.lang.reflect.InvocationTargetException;
 
 import android.content.pm.PackageManager;
 
@@ -55,14 +56,53 @@ public class JvmtiRunTestBasedTest extends JvmtiTestBase {
                 PackageManager.GET_META_DATA).metaData.getInt("android.jvmti.cts.run_test_nr");
     }
 
+    // Some tests are very sensitive to state of the thread they are running on. To support this we
+    // can have tests run on newly created threads. This defaults to false.
+    protected boolean needNewThread() throws Exception {
+        return mActivity
+            .getPackageManager()
+            .getApplicationInfo(mActivity.getPackageName(), PackageManager.GET_META_DATA)
+            .metaData
+            .getBoolean("android.jvmti.cts.needs_new_thread", /*defaultValue*/false);
+    }
+
     @Test
     public void testRunTest() throws Exception {
         final int nr = getTestNumber();
 
         // Load the test class.
         Class<?> testClass = Class.forName("art.Test" + nr);
-        Method runMethod = testClass.getDeclaredMethod("run");
-        runMethod.invoke(null);
+        final Method runMethod = testClass.getDeclaredMethod("run");
+        if (needNewThread()) {
+          // Make sure the thread the test is running on has the right name. Some tests are
+          // sensitive to this. Ideally we would also avoid having a try-catch too but that is more
+          // trouble than it's worth.
+          final Throwable[] final_throw = new Throwable[] { null };
+          Thread main_thread = new Thread(
+              () -> {
+                try {
+                  runMethod.invoke(null);
+                } catch (IllegalArgumentException e) {
+                  throw new Error("Exception thrown", e);
+                } catch (InvocationTargetException e) {
+                  throw new Error("Exception thrown", e);
+                } catch (NullPointerException e) {
+                  throw new Error("Exception thrown", e);
+                } catch (IllegalAccessException e) {
+                  throw new Error("Exception thrown", e);
+                }
+              }, "main");
+          main_thread.setUncaughtExceptionHandler((thread, e) -> { final_throw[0] = e; });
+
+          main_thread.start();
+          main_thread.join();
+
+          if (final_throw[0] != null) {
+            throw new InvocationTargetException(final_throw[0], "Remote exception occurred.");
+          }
+        } else {
+          runMethod.invoke(null);
+        }
 
         // Load the expected txt file.
         InputStream expectedStream = getClass().getClassLoader()

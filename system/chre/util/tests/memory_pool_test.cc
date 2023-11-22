@@ -9,10 +9,15 @@ using chre::MemoryPool;
 
 TEST(MemoryPool, ExhaustPool) {
   MemoryPool<int, 3> memoryPool;
-  ASSERT_NE(memoryPool.allocate(), nullptr);
-  ASSERT_NE(memoryPool.allocate(), nullptr);
-  ASSERT_NE(memoryPool.allocate(), nullptr);
-  ASSERT_EQ(memoryPool.allocate(), nullptr);
+  EXPECT_EQ(memoryPool.getFreeBlockCount(), 3);
+  EXPECT_NE(memoryPool.allocate(), nullptr);
+  EXPECT_EQ(memoryPool.getFreeBlockCount(), 2);
+  EXPECT_NE(memoryPool.allocate(), nullptr);
+  EXPECT_EQ(memoryPool.getFreeBlockCount(), 1);
+  EXPECT_NE(memoryPool.allocate(), nullptr);
+  EXPECT_EQ(memoryPool.getFreeBlockCount(), 0);
+  EXPECT_EQ(memoryPool.allocate(), nullptr);
+  EXPECT_EQ(memoryPool.getFreeBlockCount(), 0);
 }
 
 TEST(MemoryPool, ExhaustPoolThenDeallocateOneAndAllocateOne) {
@@ -31,11 +36,12 @@ TEST(MemoryPool, ExhaustPoolThenDeallocateOneAndAllocateOne) {
 
   // Free one element and then allocate another.
   memoryPool.deallocate(element1);
+  EXPECT_EQ(memoryPool.getFreeBlockCount(), 1);
   element1 = memoryPool.allocate();
-  ASSERT_NE(element1, nullptr);
+  EXPECT_NE(element1, nullptr);
 
   // Ensure that the pool remains exhausted.
-  ASSERT_EQ(memoryPool.allocate(), nullptr);
+  EXPECT_EQ(memoryPool.allocate(), nullptr);
 
   // Perform another simple assignment. There is a hope that this can crash if
   // the pointer returned is very bad (like nullptr).
@@ -43,9 +49,9 @@ TEST(MemoryPool, ExhaustPoolThenDeallocateOneAndAllocateOne) {
 
   // Verify that the values stored were not corrupted by the deallocate
   // allocate cycle.
-  ASSERT_EQ(*element1, 0xfade);
-  ASSERT_EQ(*element2, 0xbeef);
-  ASSERT_EQ(*element3, 0xface);
+  EXPECT_EQ(*element1, 0xfade);
+  EXPECT_EQ(*element2, 0xbeef);
+  EXPECT_EQ(*element3, 0xface);
 }
 
 /*
@@ -89,7 +95,7 @@ TEST(MemoryPool, ExhaustPoolThenRandomDeallocate) {
       size_t deallocateIndex = distribution(randomGenerator);
 
       // Verify the expected value and free the allocation.
-      ASSERT_EQ(*allocations[deallocateIndex].allocation,
+      EXPECT_EQ(*allocations[deallocateIndex].allocation,
                 allocations[deallocateIndex].expectedValue);
       memoryPool.deallocate(allocations[deallocateIndex].allocation);
 

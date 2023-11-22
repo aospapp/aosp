@@ -14,6 +14,7 @@
      limitations under the License.
 -->
 <configuration description="Config for CTS JDWP test cases">
+    <option name="test-suite-tag" value="cts" />
     <option name="config-descriptor:metadata" key="component" value="art" />
     <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
         <option name="run-command" value="mkdir -p /data/local/tmp/ctsjdwp/java.io.tmpdir" />
@@ -35,8 +36,12 @@
         <option name="dalvik-arg" value="-Djpda.settings.verbose=false" />
         <option name="dalvik-arg" value="-Djpda.settings.timeout=10000" />
         <option name="dalvik-arg" value="-Djpda.settings.waitingTime=10000" />
-        <option name="dalvik-arg" value="-Djpda.settings.debuggeeJavaPath='dalvikvm|#ABI#| -XXlib:libart.so -Xcompiler-option --debuggable -Xusejit:true'" />
+        <option name="dalvik-arg-adbconnection" value="-Djpda.settings.debuggeeAgentArgument=-agentpath:" />
+        <option name="dalvik-arg-adbconnection" value="-Djpda.settings.debuggeeAgentName=libjdwp.so" />
+        <option name="dalvik-arg-adbconnection" value="-Djpda.settings.debuggeeJavaPath='dalvikvm|#ABI#| -XXlib:libart.so -Xplugin:libopenjdkjvmti.so -Xcompiler-option --debuggable -Xusejit:true'" />
+        <option name="dalvik-arg-internal" value="-Djpda.settings.debuggeeJavaPath='dalvikvm|#ABI#| -XjdwpProvider:internal -XXlib:libart.so -Xcompiler-option --debuggable -Xusejit:true'" />
         <option name="known-failures" value="/expectations/jdwp-known-failures.txt" />
+        <option name="known-failures-adbconnection" value="/expectations/external_oj_libjdwp_art_failures.txt" />
         <option name="runtime-hint" value="16m" />
 
         <!-- Temporary work around to avoid running android.test.AndroidTestCase. -->

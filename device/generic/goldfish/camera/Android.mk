@@ -30,6 +30,9 @@ emulator_camera_shared_libraries := \
     liblog \
     libutils \
     libcutils \
+    libEGL \
+    libGLESv1_CM \
+    libGLESv2 \
     libui \
     libdl \
     libjpeg \
@@ -59,6 +62,7 @@ emulator_camera_src := \
 		EmulatedQemuCameraDevice.cpp \
 		EmulatedFakeCamera.cpp \
 		EmulatedFakeCameraDevice.cpp \
+		EmulatedFakeRotatingCameraDevice.cpp \
 		Converters.cpp \
 		PreviewWindow.cpp \
 		CallbackNotifier.cpp \
@@ -72,6 +76,8 @@ emulator_camera_src := \
 		fake-pipeline2/JpegCompressor.cpp \
 	EmulatedCamera3.cpp \
 		EmulatedFakeCamera3.cpp \
+		EmulatedQemuCamera3.cpp \
+		qemu-pipeline3/QemuSensor.cpp \
 	Exif.cpp \
 	Thumbnail.cpp \
 	WorkerThread.cpp \

@@ -49,6 +49,7 @@ import java.util.ArrayList;
 import java.util.List;
 import libcore.io.Libcore;
 
+import dalvik.annotation.optimization.ReachabilitySensitive;
 import dalvik.system.BlockGuard;
 import dalvik.system.CloseGuard;
 import sun.misc.Cleaner;
@@ -64,7 +65,12 @@ public class FileChannelImpl
     private final FileDispatcher nd;
 
     // File descriptor
-    // Android-changed: make public.
+    // Android-added: @ReachabilitySensitive
+    // If this were reclaimed while we're in an operation on fd, the associated Stream
+    // could be finalized, closing the fd while still in use. This is not the case upstream,
+    // since there the Stream is accessible from the FileDescriptor.
+    // Android-changed: make public. Used by NioUtils.getFD(), and possibly others.
+    @ReachabilitySensitive
     public final FileDescriptor fd;
 
     // File access mode (immutable)
@@ -85,7 +91,8 @@ public class FileChannelImpl
     // Lock for operations involving position and size
     private final Object positionLock = new Object();
 
-    // Android-changed: Add CloseGuard support.
+    // Android-added: CloseGuard support.
+    @ReachabilitySensitive
     private final CloseGuard guard = CloseGuard.get();
 
     private FileChannelImpl(FileDescriptor fd, String path, boolean readable,
@@ -98,7 +105,7 @@ public class FileChannelImpl
         this.parent = parent;
         this.path = path;
         this.nd = new FileDispatcherImpl(append);
-        // Android-changed: Add CloseGuard support.
+        // Android-added: CloseGuard support.
         if (fd != null && fd.valid()) {
             guard.open("close");
         }
@@ -129,7 +136,7 @@ public class FileChannelImpl
     // -- Standard channel operations --
 
     protected void implCloseChannel() throws IOException {
-        // Android-changed: Add CloseGuard support.
+        // Android-added: CloseGuard support.
         guard.close();
         // Release and invalidate any locks that we still hold
         if (fileLockTable != null) {

@@ -18,15 +18,21 @@ package com.android.cts.webkit;
 
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
+import android.net.http.SslError;
+import android.os.Handler;
+import android.os.HandlerThread;
+import android.os.Looper;
 import android.os.StrictMode;
 import android.test.ActivityInstrumentationTestCase2;
 import android.test.UiThreadTest;
 import android.util.Log;
 import android.webkit.CookieManager;
 import android.webkit.CookieSyncManager;
+import android.webkit.SslErrorHandler;
 import android.webkit.WebView;
 import android.webkit.cts.CtsTestServer;
 import android.webkit.cts.WebViewOnUiThread;
+import android.webkit.cts.WebViewOnUiThread.WaitForLoadedClient;
 import android.webkit.WebView;
 
 import com.android.compatibility.common.util.NullWebViewUtils;
@@ -48,6 +54,7 @@ public class WebViewDeviceSideStartupTest
         extends ActivityInstrumentationTestCase2<WebViewStartupCtsActivity> {
 
     private static final String TAG = WebViewDeviceSideStartupTest.class.getSimpleName();
+    private static final long TEST_TIMEOUT_MS = 3000;
 
     private WebViewStartupCtsActivity mActivity;
 
@@ -63,7 +70,8 @@ public class WebViewDeviceSideStartupTest
 
     @UiThreadTest
     public void testCookieManagerBlockingUiThread() throws Throwable {
-        CtsTestServer server = new CtsTestServer(mActivity, false);
+        // Instant app can only have https connection.
+        CtsTestServer server = new CtsTestServer(mActivity, true);
         final String url = server.getCookieUrl("death.html");
 
         Thread background = new Thread(new Runnable() {
@@ -91,7 +99,15 @@ public class WebViewDeviceSideStartupTest
 
         // Now create WebView and test that setting the cookie beforehand really worked.
         mActivity.createAndAttachWebView();
+        WebView webView = mActivity.getWebView();
         WebViewOnUiThread onUiThread = new WebViewOnUiThread(this, mActivity.getWebView());
+        webView.setWebViewClient(new WaitForLoadedClient(onUiThread) {
+            @Override
+            public void onReceivedSslError(WebView view, SslErrorHandler handler, SslError error) {
+                // Not intended to verify server certificate, ignore the error.
+                if (error.getPrimaryError() == SslError.SSL_IDMISMATCH) handler.proceed();
+            }
+        });
         onUiThread.loadUrlAndWaitForCompletion(url);
         assertEquals("1|count=41", onUiThread.getTitle()); // outgoing cookie
         CookieManager cookieManager = CookieManager.getInstance();
@@ -198,5 +214,68 @@ public class WebViewDeviceSideStartupTest
         WebViewOnUiThread onUiThread = new WebViewOnUiThread(this, mActivity.getWebView());
         onUiThread.loadUrlAndWaitForCompletion("about:blank");
         onUiThread.loadUrlAndWaitForCompletion("");
+    }
+
+    @UiThreadTest
+    public void testGetWebViewLooperOnUiThread() {
+        PackageManager pm = mActivity.getPackageManager();
+        if (!pm.hasSystemFeature(PackageManager.FEATURE_WEBVIEW)) return;
+
+        createAndCheckWebViewLooper();
+    }
+
+    /**
+     * Ensure that a WebView created on the UI thread returns that thread as its creator thread.
+     * This ensures WebView.getWebViewLooper() is not implemented as 'return Looper.myLooper();'.
+     */
+    public void testGetWebViewLooperCreatedOnUiThreadFromInstrThread() {
+        PackageManager pm = mActivity.getPackageManager();
+        if (!pm.hasSystemFeature(PackageManager.FEATURE_WEBVIEW)) return;
+
+        WebView[] webviewHolder = new WebView[1];
+        // Create the WebView on the UI thread and then ensure webview.getWebViewLooper() returns
+        // the UI thread.
+        getInstrumentation().runOnMainSync(new Runnable() {
+            @Override
+            public void run() {
+                webviewHolder[0] = createAndCheckWebViewLooper();
+            }
+        });
+        assertEquals(Looper.getMainLooper(), webviewHolder[0].getWebViewLooper());
+    }
+
+    /**
+     * Ensure that a WebView created on a background thread returns that thread as its creator
+     * thread.
+     * This ensures WebView.getWebViewLooper() is not bound to the UI thread regardless of the
+     * thread it is created on..
+     */
+    public void testGetWebViewLooperCreatedOnBackgroundThreadFromInstThread()
+            throws InterruptedException {
+        PackageManager pm = mActivity.getPackageManager();
+        if (!pm.hasSystemFeature(PackageManager.FEATURE_WEBVIEW)) return;
+
+        // Create a WebView on a background thread, check it from the UI thread
+        final WebView webviewHolder[] = new WebView[1];
+
+        // Use a HandlerThread, because such a thread owns a Looper.
+        HandlerThread backgroundThread = new HandlerThread("WebViewLooperCtsHandlerThread");
+        backgroundThread.start();
+        new Handler(backgroundThread.getLooper()).post(new Runnable() {
+            @Override
+            public void run() {
+                webviewHolder[0] = createAndCheckWebViewLooper();
+            }
+        });
+        backgroundThread.join(TEST_TIMEOUT_MS);
+        assertEquals(backgroundThread.getLooper(), webviewHolder[0].getWebViewLooper());
+    }
+
+    private WebView createAndCheckWebViewLooper() {
+        // Ensure we are running this on a thread with a Looper - otherwise there's no point.
+        assertNotNull(Looper.myLooper());
+        WebView webview = new WebView(mActivity);
+        assertEquals(Looper.myLooper(), webview.getWebViewLooper());
+        return webview;
     }
 }

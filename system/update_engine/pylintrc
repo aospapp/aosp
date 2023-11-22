@@ -149,7 +149,7 @@ ignore-mixin-members=yes
 # (useful for modules/projects where namespaces are manipulated during runtime
 # and thus existing member attributes cannot be deduced by static analysis. It
 # supports qualified module names, as well as Unix pattern matching.
-ignored-modules=
+ignored-modules=update_payload.update_metadata_pb2
 
 # List of classes names for which member attributes should not be checked
 # (useful for classes with attributes dynamically set). This supports can work
@@ -263,7 +263,7 @@ required-attributes=
 bad-functions=map,filter,input,apply,reduce
 
 # Good variable names which should always be accepted, separated by a comma
-good-names=i,j,k,ex,x,_
+good-names=i,j,k,ex,x,_,main
 
 # Bad variable names which should always be refused, separated by a comma
 bad-names=foo,bar,baz,toto,tutu,tata

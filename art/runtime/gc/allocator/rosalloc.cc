@@ -16,20 +16,21 @@
 
 #include "rosalloc.h"
 
-#include <map>
 #include <list>
+#include <map>
 #include <sstream>
 #include <vector>
 
 #include "android-base/stringprintf.h"
 
+#include "base/logging.h"  // For VLOG
 #include "base/memory_tool.h"
 #include "base/mutex-inl.h"
 #include "gc/space/memory_tool_settings.h"
 #include "mem_map.h"
 #include "mirror/class-inl.h"
-#include "mirror/object.h"
 #include "mirror/object-inl.h"
+#include "mirror/object.h"
 #include "thread-current-inl.h"
 #include "thread_list.h"
 

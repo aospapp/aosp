@@ -2,5 +2,10 @@
     <uses-policies>
         <reset-password />
         <limit-password />
+        <expire-password />
+        <wipe-data />
+        <watch-login />
+        <disable-keyguard-features />
+        <force-lock />
     </uses-policies>
 </device-admin>

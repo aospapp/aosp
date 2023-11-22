@@ -25,8 +25,7 @@ import subprocess
 import hashlib
 import numpy
 import string
-
-CMD_DELAY = 1  # seconds
+import unicodedata
 
 
 class ItsSession(object):
@@ -118,10 +117,10 @@ class ItsSession(object):
             try:
                 socket_lock.bind((ItsSession.IPADDR, ItsSession.LOCK_PORT))
                 break
-            except socket.error:
+            except socket.error or socket.timeout:
                 if i == NUM_RETRIES - 1:
                     raise its.error.Error(self.device_id,
-                                          "acquiring socket lock timed out")
+                                          "socket lock returns error")
                 else:
                     time.sleep(RETRY_WAIT_TIME_SEC)
 
@@ -203,11 +202,7 @@ class ItsSession(object):
 
         # TODO: Figure out why "--user 0" is needed, and fix the problem.
         _run('%s shell am force-stop --user 0 %s' % (self.adb, self.PACKAGE))
-        _run(('%s shell am start --user 0 '
-              'com.android.cts.verifier/.camera.its.ItsTestActivity '
-              '--activity-brought-to-front') % self.adb)
-        time.sleep(CMD_DELAY)
-        _run(('%s shell am startservice --user 0 -t text/plain '
+        _run(('%s shell am start-foreground-service --user 0 -t text/plain '
               '-a %s') % (self.adb, self.INTENT_START))
 
         # Wait until the socket is ready to accept a connection.
@@ -221,7 +216,7 @@ class ItsSession(object):
                 break
         proc.kill()
 
-    def __init__(self):
+    def __enter__(self):
         # Initialize device id and adb command.
         self.device_id = get_device_id()
         self.adb = "adb -s " + self.device_id
@@ -231,16 +226,12 @@ class ItsSession(object):
 
         self.__close_camera()
         self.__open_camera()
-
-    def __del__(self):
-        if hasattr(self, 'sock') and self.sock:
-            self.__close_camera()
-            self.sock.close()
-
-    def __enter__(self):
         return self
 
     def __exit__(self, type, value, traceback):
+        if hasattr(self, 'sock') and self.sock:
+            self.__close_camera()
+            self.sock.close()
         return False
 
     def __read_response_from_socket(self):
@@ -308,6 +299,20 @@ class ItsSession(object):
         data,_ = self.__read_response_from_socket()
         if data['tag'] != 'vibrationStarted':
             raise its.error.Error('Invalid command response')
+
+    def get_sensors(self):
+        """Get all sensors on the device.
+
+        Returns:
+            A Python dictionary that returns keys and booleans for each sensor.
+        """
+        cmd = {}
+        cmd["cmdName"] = "checkSensorExistence"
+        self.sock.send(json.dumps(cmd) + "\n")
+        data,_ = self.__read_response_from_socket()
+        if data['tag'] != 'sensorExistence':
+            raise its.error.Error('Invalid command response')
+        return data['objValue']
 
     def start_sensor_events(self):
         """Start collecting sensor events on the device.
@@ -385,13 +390,33 @@ class ItsSession(object):
         self.props = data['objValue']['cameraProperties']
         return data['objValue']['cameraProperties']
 
+    def get_camera_properties_by_id(self, camera_id):
+        """Get the camera properties object for device with camera_id
+
+        Args:
+            camera_id: The ID string of the camera
+
+        Returns:
+            The Python dictionary object for the CameraProperties object. Empty
+            if no such device exists.
+
+        """
+        cmd = {}
+        cmd["cmdName"] = "getCameraPropertiesById"
+        cmd["cameraId"] = camera_id
+        self.sock.send(json.dumps(cmd) + "\n")
+        data,_ = self.__read_response_from_socket()
+        if data['tag'] != 'cameraProperties':
+            raise its.error.Error('Invalid command response')
+        return data['objValue']['cameraProperties']
+
     def do_3a(self, regions_ae=[[0,0,1,1,1]],
                     regions_awb=[[0,0,1,1,1]],
                     regions_af=[[0,0,1,1,1]],
                     do_ae=True, do_awb=True, do_af=True,
                     lock_ae=False, lock_awb=False,
                     get_results=False,
-                    ev_comp=0):
+                    ev_comp=0, mono_camera=False):
         """Perform a 3A operation on the device.
 
         Triggers some or all of AE, AWB, and AF, and returns once they have
@@ -411,6 +436,7 @@ class ItsSession(object):
             lock_awb: Request AWB lock after convergence, and wait for it.
             get_results: Return the 3A results from this function.
             ev_comp: An EV compensation value to use when running AE.
+            mono_camera: Boolean for monochrome camera.
 
         Region format in args:
             Arguments are lists of weighted regions; each weighted region is a
@@ -471,8 +497,9 @@ class ItsSession(object):
                 raise its.error.Error('Invalid command response')
         if converged and not get_results:
             return None,None,None,None,None
-        if (do_ae and ae_sens == None or do_awb and awb_gains == None
+        if (do_ae and ae_sens == None or (not mono_camera and do_awb and awb_gains == None)
                 or do_af and af_dist == None or not converged):
+
             raise its.error.Error('3A failed to converge')
         return ae_sens, ae_exp, awb_gains, awb_transform, af_dist
 
@@ -496,6 +523,17 @@ class ItsSession(object):
         format(s) of the captured image. The formats may be "yuv", "jpeg",
         "dng", "raw", "raw10", "raw12", or "rawStats". The default is a YUV420
         frame ("yuv") corresponding to a full sensor frame.
+
+        Optionally the out_surfaces field can specify physical camera id(s) if the
+        current camera device is a logical multi-camera. The physical camera id
+        must refer to a physical camera backing this logical camera device. And
+        only "yuv", "raw", "raw10", "raw12" support the physical camera id field.
+
+        Currently only 2 physical streams with the same format are supported, one
+        from each physical camera:
+        - yuv physical streams of the same size.
+        - raw physical streams with the same or different sizes, depending on
+          device capability. (Different physical cameras may have different raw sizes).
 
         Note that one or more surfaces can be specified, allowing a capture to
         request images back in multiple formats (e.g.) raw+yuv, raw+jpeg,
@@ -658,14 +696,36 @@ class ItsSession(object):
             cmd["outputSurfaces"] = [{"format": "yuv",
                                       "width" : max_yuv_size[0],
                                       "height": max_yuv_size[1]}]
+
+        # Figure out requested physical camera ids, physical and logical
+        # streams.
+        physical_cam_ids = {}
+        physical_buffers = {}
+        physical_cam_format = None
+        logical_cam_formats = []
+        for i,s in enumerate(cmd["outputSurfaces"]):
+            if "format" in s and s["format"] in ["yuv", "raw", "raw10", "raw12"]:
+                if "physicalCamera" in s:
+                    if physical_cam_format is not None and s["format"] != physical_cam_format:
+                        raise its.error.Error('ITS does not support capturing multiple ' +
+                                              'physical formats yet')
+                    physical_cam_ids[i] = s["physicalCamera"]
+                    physical_buffers[s["physicalCamera"]] = []
+                    physical_cam_format = s["format"]
+                else:
+                    logical_cam_formats.append(s["format"])
+            else:
+                logical_cam_formats.append(s["format"])
+
         ncap = len(cmd["captureRequests"])
         nsurf = 1 if out_surfaces is None else len(cmd["outputSurfaces"])
         # Only allow yuv output to multiple targets
-        yuv_surfaces = [s for s in cmd["outputSurfaces"] if s["format"]=="yuv"]
-        n_yuv = len(yuv_surfaces)
+        logical_yuv_surfaces = [s for s in cmd["outputSurfaces"] if s["format"]=="yuv"\
+                        and "physicalCamera" not in s]
+        n_yuv = len(logical_yuv_surfaces)
         # Compute the buffer size of YUV targets
         yuv_maxsize_1d = 0
-        for s in yuv_surfaces:
+        for s in logical_yuv_surfaces:
             if not ("width" in s and "height" in s):
                 if self.props is None:
                     raise its.error.Error('Camera props are unavailable')
@@ -676,14 +736,14 @@ class ItsSession(object):
         yuv_sizes = [c["width"]*c["height"]*3/2
                      if "width" in c and "height" in c
                      else yuv_maxsize_1d
-                     for c in yuv_surfaces]
+                     for c in logical_yuv_surfaces]
         # Currently we don't pass enough metadta from ItsService to distinguish
         # different yuv stream of same buffer size
         if len(yuv_sizes) != len(set(yuv_sizes)):
             raise its.error.Error(
                     'ITS does not support yuv outputs of same buffer size')
-        if len(formats) > len(set(formats)):
-            if n_yuv != len(formats) - len(set(formats)) + 1:
+        if len(logical_cam_formats) > len(set(logical_cam_formats)):
+          if n_yuv != len(logical_cam_formats) - len(set(logical_cam_formats)) + 1:
                 raise its.error.Error('Duplicate format requested')
 
         raw_formats = 0;
@@ -722,6 +782,7 @@ class ItsSession(object):
                 "rawStats":[], "dng":[], "jpeg":[]}
         yuv_bufs = {size:[] for size in yuv_sizes}
         mds = []
+        physical_mds = []
         widths = None
         heights = None
         while nbufs < ncap*nsurf or len(mds) < ncap:
@@ -738,12 +799,18 @@ class ItsSession(object):
                 nbufs += 1
             elif jsonObj['tag'] == 'captureResults':
                 mds.append(jsonObj['objValue']['captureResult'])
+                physical_mds.append(jsonObj['objValue']['physicalResults'])
                 outputs = jsonObj['objValue']['outputs']
                 widths = [out['width'] for out in outputs]
                 heights = [out['height'] for out in outputs]
             else:
-                # Just ignore other tags
-                None
+                tagString = unicodedata.normalize('NFKD', jsonObj['tag']).encode('ascii', 'ignore');
+                for x in ['rawImage', 'raw10Image', 'raw12Image', 'yuvImage']:
+                    if (tagString.startswith(x)):
+                        physicalId = jsonObj['tag'][len(x):];
+                        if physicalId in physical_cam_ids.values():
+                            physical_buffers[physicalId].append(buf)
+                            nbufs += 1
         rets = []
         for j,fmt in enumerate(formats):
             objs = []
@@ -752,8 +819,17 @@ class ItsSession(object):
                 obj["width"] = widths[j]
                 obj["height"] = heights[j]
                 obj["format"] = fmt
-                obj["metadata"] = mds[i]
-                if fmt == 'yuv':
+                if j in physical_cam_ids:
+                    for physical_md in physical_mds[i]:
+                        if physical_cam_ids[j] in physical_md:
+                            obj["metadata"] = physical_md[physical_cam_ids[j]]
+                            break
+                else:
+                    obj["metadata"] = mds[i]
+
+                if j in physical_cam_ids:
+                    obj["data"] = physical_buffers[physical_cam_ids[j]][i]
+                elif fmt == 'yuv':
                     buf_size = widths[j] * heights[j] * 3 / 2
                     obj["data"] = yuv_bufs[buf_size][i]
                 else:
@@ -825,11 +901,13 @@ def report_result(device_id, camera_id, results):
     Returns:
         Nothing.
     """
+    ACTIVITY_START_WAIT = 1.5 # seconds
     adb = "adb -s " + device_id
 
-    # Start ItsTestActivity to prevent flaky
+    # Start ItsTestActivity to receive test results
     cmd = "%s shell am start %s --activity-brought-to-front" % (adb, ItsSession.ITS_TEST_ACTIVITY)
     _run(cmd)
+    time.sleep(ACTIVITY_START_WAIT)
 
     # Validate/process results argument
     for scene in results:
@@ -855,6 +933,20 @@ def report_result(device_id, camera_id, results):
             ItsSession.EXTRA_RESULTS, json_results)
     if len(cmd) > 4095:
         print "ITS command string might be too long! len:", len(cmd)
+    _run(cmd)
+
+def adb_log(device_id, msg):
+    """Send a log message to adb logcat
+
+    Args:
+        device_id: The ID string of the adb device
+        msg: the message string to be send to logcat
+
+    Returns:
+        Nothing.
+    """
+    adb = "adb -s " + device_id
+    cmd = "%s shell log -p i -t \"ItsTestHost\" %s" % (adb, msg)
     _run(cmd)
 
 def get_device_fingerprint(device_id):

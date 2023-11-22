@@ -8,22 +8,27 @@
  *******************************************************************************
  */
 
-/** 
+/**
  * Port From:   ICU4C v2.1 : Collate/CollationTurkishTest
  * Source File: $ICU4CRoot/source/test/intltest/trcoll.cpp
  **/
- 
+
 package android.icu.dev.test.collator;
- 
+
 import java.util.Locale;
 
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import android.icu.dev.test.TestFmwk;
 import android.icu.text.CollationKey;
 import android.icu.text.Collator;
- 
+import android.icu.testsharding.MainTestShard;
+
+@MainTestShard
+@RunWith(JUnit4.class)
 public class CollationTurkishTest extends TestFmwk{
     private static char[][] testSourceCases = {
         {0x73, 0x0327},
@@ -67,18 +72,18 @@ public class CollationTurkishTest extends TestFmwk{
         -1,
         1
     };
-    
+
     private Collator myCollation = null;
-    
+
     public CollationTurkishTest() {
 
     }
-    
+
     @Before
     public void init()throws Exception{
         myCollation = Collator.getInstance(new Locale("tr", ""));
     }
-    
+
     @Test
     public void TestTertiary() {
         int i = 0;
@@ -87,7 +92,7 @@ public class CollationTurkishTest extends TestFmwk{
             doTest(testSourceCases[i], testTargetCases[i], results[i]);
         }
     }
-    
+
     @Test
     public void TestPrimary() {
         int i;
@@ -96,8 +101,8 @@ public class CollationTurkishTest extends TestFmwk{
             doTest(testSourceCases[i], testTargetCases[i], results[i]);
         }
     }
-    
-    
+
+
     // main test routine, tests rules specific to turkish locale
     private void doTest(char[] source, char[] target, int result) {
         String s = new String(source);
@@ -108,9 +113,9 @@ public class CollationTurkishTest extends TestFmwk{
         sortKey2 = myCollation.getCollationKey(t);
         int keyResult = sortKey1.compareTo(sortKey2);
         reportCResult(s, t, sortKey1, sortKey2, compareResult, keyResult, compareResult, result);
-        
+
     }
-    
+
     private void reportCResult( String source, String target, CollationKey sourceKey, CollationKey targetKey,
                                 int compareResult, int keyResult, int incResult, int expectedResult ) {
         if (expectedResult < -1 || expectedResult > 1) {
@@ -123,13 +128,13 @@ public class CollationTurkishTest extends TestFmwk{
         boolean ok3 = (incResult == expectedResult);
 
         if (ok1 && ok2 && ok3 && !isVerbose()) {
-            return;    
+            return;
         } else {
             String msg1 = ok1? "Ok: compare(\"" : "FAIL: compare(\"";
             String msg2 = "\", \"";
             String msg3 = "\") returned ";
             String msg4 = "; expected ";
-            
+
             String sExpect = new String("");
             String sResult = new String("");
             sResult = CollationTest.appendCompareResult(compareResult, sResult);
@@ -139,7 +144,7 @@ public class CollationTurkishTest extends TestFmwk{
             } else {
                 errln(msg1 + source + msg2 + target + msg3 + sResult + msg4 + sExpect);
             }
-            
+
             msg1 = ok2 ? "Ok: key(\"" : "FAIL: key(\"";
             msg2 = "\").compareTo(key(\"";
             msg3 = "\")) returned ";
@@ -152,7 +157,7 @@ public class CollationTurkishTest extends TestFmwk{
                 msg2 = " vs. ";
                 errln(msg1 + CollationTest.prettify(sourceKey) + msg2 + CollationTest.prettify(targetKey));
             }
-            
+
             msg1 = ok3 ? "Ok: incCompare(\"" : "FAIL: incCompare(\"";
             msg2 = "\", \"";
             msg3 = "\") returned ";
@@ -163,7 +168,7 @@ public class CollationTurkishTest extends TestFmwk{
                 logln(msg1 + source + msg2 + target + msg3 + sResult);
             } else {
                 errln(msg1 + source + msg2 + target + msg3 + sResult + msg4 + sExpect);
-            }                
+            }
         }
     }
 }

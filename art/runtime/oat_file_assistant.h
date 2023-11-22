@@ -23,12 +23,12 @@
 #include <string>
 
 #include "arch/instruction_set.h"
+#include "base/os.h"
 #include "base/scoped_flock.h"
 #include "base/unix_file/fd_file.h"
 #include "compiler_filter.h"
 #include "class_loader_context.h"
 #include "oat_file.h"
-#include "os.h"
 
 namespace art {
 
@@ -119,9 +119,24 @@ class OatFileAssistant {
   //
   // load_executable should be true if the caller intends to try and load
   // executable code for this dex location.
+  //
+  // only_load_system_executable should be true if the caller intends to have
+  // only oat files from /system loaded executable.
   OatFileAssistant(const char* dex_location,
                    const InstructionSet isa,
-                   bool load_executable);
+                   bool load_executable,
+                   bool only_load_system_executable = false);
+
+  // Similar to this(const char*, const InstructionSet, bool), however, if a valid zip_fd is
+  // provided, vdex, oat, and zip files will be read from vdex_fd, oat_fd and zip_fd respectively.
+  // Otherwise, dex_location will be used to construct necessary filenames.
+  OatFileAssistant(const char* dex_location,
+                   const InstructionSet isa,
+                   bool load_executable,
+                   bool only_load_system_executable,
+                   int vdex_fd,
+                   int oat_fd,
+                   int zip_fd);
 
   ~OatFileAssistant();
 
@@ -210,6 +225,20 @@ class OatFileAssistant {
   // Returns a human readable description of the status of the code for the
   // dex file. The returned description is for debugging purposes only.
   std::string GetStatusDump();
+
+  // Computes the optimization status of the given dex file. The result is
+  // returned via the two output parameters.
+  //   - out_compilation_filter: the level of optimizations (compiler filter)
+  //   - out_compilation_reason: the optimization reason. The reason might
+  //        be "unknown" if the compiler artifacts were not annotated during optimizations.
+  //
+  // This method will try to mimic the runtime effect of loading the dex file.
+  // For example, if there is no usable oat file, the compiler filter will be set
+  // to "run-from-apk".
+  static void GetOptimizationStatus(const std::string& filename,
+                                    InstructionSet isa,
+                                    std::string* out_compilation_filter,
+                                    std::string* out_compilation_reason);
 
   // Open and returns an image space associated with the oat file.
   static std::unique_ptr<gc::space::ImageSpace> OpenImageSpace(const OatFile* oat_file);
@@ -349,7 +378,11 @@ class OatFileAssistant {
 
     // Clear any cached information and switch to getting info about the oat
     // file with the given filename.
-    void Reset(const std::string& filename);
+    void Reset(const std::string& filename,
+               bool use_fd,
+               int zip_fd = -1,
+               int vdex_fd = -1,
+               int oat_fd = -1);
 
     // Release the loaded oat file for runtime use.
     // Returns null if the oat file hasn't been loaded or is out of date.
@@ -386,6 +419,11 @@ class OatFileAssistant {
     bool filename_provided_ = false;
     std::string filename_;
 
+    int zip_fd_ = -1;
+    int oat_fd_ = -1;
+    int vdex_fd_ = -1;
+    bool use_fd_ = false;
+
     bool load_attempted_ = false;
     std::unique_ptr<OatFile> file_;
 
@@ -414,6 +452,12 @@ class OatFileAssistant {
 
   // Return info for the best oat file.
   OatFileInfo& GetBestInfo();
+
+  // Returns true when vdex/oat/odex files should be read from file descriptors.
+  // The method checks the value of zip_fd_, and if the value is valid, returns
+  // true. This is required to have a deterministic behavior around how different
+  // files are being read.
+  bool UseFdToReadFiles();
 
   // Returns true if the dex checksums in the given vdex file are up to date
   // with respect to the dex location. If the dex checksums are not up to
@@ -462,10 +506,16 @@ class OatFileAssistant {
 
   // In a properly constructed OatFileAssistant object, isa_ should be either
   // the 32 or 64 bit variant for the current device.
-  const InstructionSet isa_ = kNone;
+  const InstructionSet isa_ = InstructionSet::kNone;
 
   // Whether we will attempt to load oat files executable.
   bool load_executable_ = false;
+
+  // Whether only oat files on /system are loaded executable.
+  const bool only_load_system_executable_ = false;
+  // Whether the potential zip file only contains uncompressed dex.
+  // Will be set during GetRequiredDexChecksums.
+  bool zip_file_only_contains_uncompressed_dex_ = true;
 
   // Cached value of the required dex checksums.
   // This should be accessed only by the GetRequiredDexChecksums() method.
@@ -476,6 +526,9 @@ class OatFileAssistant {
 
   OatFileInfo odex_;
   OatFileInfo oat_;
+
+  // File descriptor corresponding to apk, dex file, or zip.
+  int zip_fd_;
 
   // Cached value of the image info.
   // Use the GetImageInfo method rather than accessing these directly.

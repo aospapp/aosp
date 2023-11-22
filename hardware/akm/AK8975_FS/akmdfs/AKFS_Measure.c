@@ -16,6 +16,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+#include <inttypes.h>
+
 #ifdef WIN32
 #include "AK8975_LinuxDriver.h"
 #else
@@ -207,7 +210,8 @@ int16 AKFS_GetInterval(
 		AKMERROR;
 		return AKM_FAIL;
 	}
-	AKMDATA(AKMDATA_GETINTERVAL,"delay[A,M,O]=%lld,%lld,%lld\n",
+	AKMDATA(AKMDATA_GETINTERVAL,
+		"delay[A,M,O]=%" PRIi64 ",%" PRIi64 ",%" PRIi64 "\n",
 		delay[0], delay[1], delay[2]);
 
 	/* update */

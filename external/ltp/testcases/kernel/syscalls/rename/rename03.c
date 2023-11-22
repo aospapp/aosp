@@ -69,6 +69,7 @@
 #include <errno.h>
 
 #include "test.h"
+#include "safe_macros.h"
 
 void setup();
 void setup2();
@@ -129,11 +130,7 @@ int main(int ac, char **av)
 				continue;
 			}
 
-			if (stat(TC[i].name2, &buf2) == -1) {
-				tst_brkm(TBROK, cleanup, "stat of %s "
-					 "failed", TC[i].desc);
-
-			}
+			SAFE_STAT(cleanup, TC[i].name2, &buf2);
 
 			/*
 			 * verify the new file or directory is the
@@ -163,15 +160,10 @@ int main(int ac, char **av)
 		/* reset things in case we are looping */
 
 		/* unlink the new file */
-		if (unlink(mname) == -1) {
-			tst_brkm(TBROK, cleanup, "unlink() failed");
-		}
+		SAFE_UNLINK(cleanup, mname);
 
 		/* remove the new directory */
-		if (rmdir(mdir) == -1) {
-			tst_brkm(TBROK, cleanup, "Couldn't remove directory %s",
-				 mdir);
-		}
+		SAFE_RMDIR(cleanup, mdir);
 	}
 
 	cleanup();
@@ -205,11 +197,7 @@ void setup2(void)
 {
 	SAFE_TOUCH(cleanup, fname, 0700, NULL);
 
-	if (stat(fname, &buf1) == -1) {
-		tst_brkm(TBROK, cleanup, "failed to stat file %s"
-			 "in rename()", fname);
-
-	}
+	SAFE_STAT(cleanup, fname, &buf1);
 
 	/* save original file's dev and ino */
 	f_olddev = buf1.st_dev;
@@ -218,22 +206,14 @@ void setup2(void)
 	SAFE_TOUCH(cleanup, mname, 0700, NULL);
 
 	/* create "old" directory */
-	if (mkdir(fdir, 00770) == -1) {
-		tst_brkm(TBROK, cleanup, "Could not create directory %s", fdir);
-	}
-	if (stat(fdir, &buf1) == -1) {
-		tst_brkm(TBROK, cleanup, "failed to stat directory %s"
-			 "in rename()", fdir);
-
-	}
+	SAFE_MKDIR(cleanup, fdir, 00770);
+	SAFE_STAT(cleanup, fdir, &buf1);
 
 	d_olddev = buf1.st_dev;
 	d_oldino = buf1.st_ino;
 
 	/* create another directory */
-	if (mkdir(mdir, 00770) == -1) {
-		tst_brkm(TBROK, cleanup, "Could not create directory %s", mdir);
-	}
+	SAFE_MKDIR(cleanup, mdir, 00770);
 }
 
 /*

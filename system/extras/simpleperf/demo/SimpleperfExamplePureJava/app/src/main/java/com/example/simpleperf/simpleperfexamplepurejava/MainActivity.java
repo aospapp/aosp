@@ -15,7 +15,6 @@ public class MainActivity extends AppCompatActivity {
 
     void createBusyThread() {
         new Thread(new Runnable() {
-
             volatile int i = 0;
 
             @Override
@@ -28,6 +27,6 @@ public class MainActivity extends AppCompatActivity {
             private int callFunction(int a) {
                 return a+1;
             }
-        }).start();
+        }, "BusyThread").start();
     }
 }

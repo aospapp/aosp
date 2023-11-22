@@ -127,7 +127,6 @@ bool SystemTimerBase::setInternal(uint64_t delayNs) {
   if (ret != 0) {
     LOGE("Couldn't set timer: %s", strerror(errno));
   } else {
-    LOGD("Set timer to expire in %.f ms", (delayNs / 1000000.0));
     success = true;
   }
 

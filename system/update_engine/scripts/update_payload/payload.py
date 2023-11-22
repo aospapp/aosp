@@ -9,12 +9,12 @@ from __future__ import print_function
 import hashlib
 import struct
 
-import applier
-import block_tracer
-import checker
-import common
-from error import PayloadError
-import update_metadata_pb2
+from update_payload import applier
+from update_payload import block_tracer
+from update_payload import checker
+from update_payload import common
+from update_payload import update_metadata_pb2
+from update_payload.error import PayloadError
 
 
 #
@@ -101,13 +101,15 @@ class Payload(object):
             hasher=hasher)
 
 
-  def __init__(self, payload_file):
+  def __init__(self, payload_file, payload_file_offset=0):
     """Initialize the payload object.
 
     Args:
       payload_file: update payload file object open for reading
+      payload_file_offset: the offset of the actual payload
     """
     self.payload_file = payload_file
+    self.payload_file_offset = payload_file_offset
     self.manifest_hasher = None
     self.is_init = False
     self.header = None
@@ -159,7 +161,8 @@ class Payload(object):
 
     return common.Read(
         self.payload_file, self.header.metadata_signature_len,
-        offset=self.header.size + self.header.manifest_len)
+        offset=self.payload_file_offset + self.header.size +
+        self.header.manifest_len)
 
   def ReadDataBlob(self, offset, length):
     """Reads and returns a single data blob from the update payload.
@@ -175,7 +178,8 @@ class Payload(object):
       PayloadError if a read error occurred.
     """
     return common.Read(self.payload_file, length,
-                       offset=self.data_offset + offset)
+                       offset=self.payload_file_offset + self.data_offset +
+                       offset)
 
   def Init(self):
     """Initializes the payload object.
@@ -189,11 +193,10 @@ class Payload(object):
     if self.is_init:
       raise PayloadError('payload object already initialized')
 
-    # Initialize hash context.
-    # pylint: disable=E1101
     self.manifest_hasher = hashlib.sha256()
 
     # Read the file header.
+    self.payload_file.seek(self.payload_file_offset)
     self.header = self._ReadHeader()
 
     # Read the manifest.
@@ -215,6 +218,7 @@ class Payload(object):
   def Describe(self):
     """Emits the payload embedded description data to standard output."""
     def _DescribeImageInfo(description, image_info):
+      """Display info about the image."""
       def _DisplayIndentedValue(name, value):
         print('  {:<14} {}'.format(name+':', value))
 
@@ -231,11 +235,9 @@ class Payload(object):
         _DisplayIndentedValue('Build version', image_info.build_version)
 
     if self.manifest.HasField('old_image_info'):
-      # pylint: disable=E1101
       _DescribeImageInfo('Old Image', self.manifest.old_image_info)
 
     if self.manifest.HasField('new_image_info'):
-      # pylint: disable=E1101
       _DescribeImageInfo('New Image', self.manifest.new_image_info)
 
   def _AssertInit(self):
@@ -245,7 +247,7 @@ class Payload(object):
 
   def ResetFile(self):
     """Resets the offset of the payload file to right past the manifest."""
-    self.payload_file.seek(self.data_offset)
+    self.payload_file.seek(self.payload_file_offset + self.data_offset)
 
   def IsDelta(self):
     """Returns True iff the payload appears to be a delta."""
@@ -293,7 +295,7 @@ class Payload(object):
 
   def Apply(self, new_kernel_part, new_rootfs_part, old_kernel_part=None,
             old_rootfs_part=None, bsdiff_in_place=True, bspatch_path=None,
-            truncate_to_expected_size=True):
+            puffpatch_path=None, truncate_to_expected_size=True):
     """Applies the update payload.
 
     Args:
@@ -303,6 +305,7 @@ class Payload(object):
       old_rootfs_part: name of source rootfs partition file (optional)
       bsdiff_in_place: whether to perform BSDIFF operations in-place (optional)
       bspatch_path: path to the bspatch binary (optional)
+      puffpatch_path: path to the puffpatch binary (optional)
       truncate_to_expected_size: whether to truncate the resulting partitions
                                  to their expected sizes, as specified in the
                                  payload (optional)
@@ -315,6 +318,7 @@ class Payload(object):
     # Create a short-lived payload applier object and run it.
     helper = applier.PayloadApplier(
         self, bsdiff_in_place=bsdiff_in_place, bspatch_path=bspatch_path,
+        puffpatch_path=puffpatch_path,
         truncate_to_expected_size=truncate_to_expected_size)
     helper.Run(new_kernel_part, new_rootfs_part,
                old_kernel_part=old_kernel_part,

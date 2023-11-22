@@ -100,7 +100,7 @@
     <string name="labelCFU" msgid="8147177368148660600">"常に転送"</string>
     <string name="messageCFU" msgid="3560082430662923687">"常にこの番号を使用"</string>
     <string name="sum_cfu_enabled_indicator" msgid="4014187342724130197">"電話をすべて転送する"</string>
-    <string name="sum_cfu_enabled" msgid="2450052502198827927">"電話をすべて<xliff:g id="PHONENUMBER">{0}</xliff:g>￼に転送する"</string>
+    <string name="sum_cfu_enabled" msgid="2450052502198827927">"電話をすべて<xliff:g id="PHONENUMBER">{0}</xliff:g>に転送する"</string>
     <string name="sum_cfu_enabled_no_number" msgid="6591985777096823616">"番号が利用できません"</string>
     <string name="sum_cfu_disabled" msgid="8384177689501334080">"OFF"</string>
     <string name="labelCFB" msgid="6139853033106283172">"通話中の着信時"</string>
@@ -127,9 +127,10 @@
     <string name="reverting_settings" msgid="4752151682666912828">"設定を元に戻しています..."</string>
     <string name="response_error" msgid="6674110501330139405">"ネットワークから予期しない応答が返されました。"</string>
     <string name="exception_error" msgid="7027667130619518211">"ネットワークまたはSIMカードのエラーです。"</string>
-    <string name="stk_cc_ss_to_dial_error" msgid="2816779198916570502">"SSリクエストはDIALリクエストに変更されました。"</string>
-    <string name="stk_cc_ss_to_ussd_error" msgid="7490626178582654236">"SSリクエストはUSSDリクエストに変更されました。"</string>
-    <string name="stk_cc_ss_to_ss_error" msgid="5057846756489053759">"SSリクエストは新しいSSリクエストに変更されました。"</string>
+    <string name="stk_cc_ss_to_dial_error" msgid="4440038807310535377">"SS リクエストは通常の通話に変更されました"</string>
+    <string name="stk_cc_ss_to_ussd_error" msgid="6095812685884176176">"SS リクエストは USSD リクエストに変更されました"</string>
+    <string name="stk_cc_ss_to_ss_error" msgid="7920654012697945858">"新しい SS リクエストに変更されました"</string>
+    <string name="stk_cc_ss_to_dial_video_error" msgid="3873905132181743781">"SS リクエストはビデオハングアウトに変更されました"</string>
     <string name="fdn_check_failure" msgid="18200614306525434">"電話アプリの発信番号制限設定がONになっているため、通話関連の機能の一部を使用できません。"</string>
     <string name="radio_off_error" msgid="2304459933248513376">"これらの設定を表示するには無線通信をONにしてください。"</string>
     <string name="close_dialog" msgid="2365884406356986917">"OK"</string>
@@ -158,16 +159,16 @@
     <string name="vm_change_pin_error_invalid" msgid="3972205462701668653">"新しい PIN に無効な文字が含まれています。"</string>
     <string name="vm_change_pin_error_system_error" msgid="6610603326230000207">"PIN を変更できませんでした"</string>
     <string name="vvm_unsupported_message_format" msgid="11795090778411977">"サポートされていないメッセージ タイプです。<xliff:g id="NUMBER">%s</xliff:g> 宛に電話をかけてメッセージをお聞きください。"</string>
-    <string name="mobile_networks" msgid="5540397602919106177">"モバイルネットワーク設定"</string>
     <string name="network_settings_title" msgid="514120489499925574">"モバイル ネットワーク"</string>
     <string name="label_available" msgid="1181658289009300430">"利用可能なネットワーク"</string>
     <string name="load_networks_progress" msgid="5230707536168902952">"検索中..."</string>
     <string name="empty_networks_list" msgid="4249426905018815316">"ネットワークが見つかりません。"</string>
-    <string name="network_query_error" msgid="6828516148953325006">"ネットワークの検索中にエラーが発生しました。"</string>
+    <string name="network_query_error" msgid="8466081377231178298">"ネットワークが見つかりませんでした。もう一度お試しください。"</string>
     <string name="register_on_network" msgid="9055203954040805084">"<xliff:g id="NETWORK">%s</xliff:g>に登録中..."</string>
     <string name="not_allowed" msgid="5613353860205691579">"お使いのSIMカードではこのネットワークに接続できません。"</string>
     <string name="connect_later" msgid="2308119155752343975">"現在このネットワークに接続できません。しばらくしてからもう一度お試しください。"</string>
     <string name="registration_done" msgid="495135664535876612">"ネットワークに登録されました。"</string>
+    <string name="already_auto" msgid="6067116884321285507">"すでに自動選択が適用されています。"</string>
     <string name="select_automatically" msgid="1046727200631770962">"ネットワークを自動的に選択"</string>
     <string name="network_select_title" msgid="7733107364757544558">"ネットワーク"</string>
     <string name="register_automatically" msgid="6017849844573519637">"自動登録..."</string>
@@ -175,6 +176,36 @@
     <string name="preferred_network_mode_summary" msgid="1434820673166126609">"ネットワーク動作モードの変更"</string>
     <string name="preferred_network_mode_dialogtitle" msgid="4048082093347807230">"優先ネットワークタイプ"</string>
     <string name="forbidden_network" msgid="4384929668343563440">"（禁止）"</string>
+    <string name="choose_network_title" msgid="4023911977543009350">"ネットワークを選択"</string>
+    <string name="network_disconnected" msgid="2227251609006103194">"未接続"</string>
+    <string name="network_connected" msgid="1288589103624338857">"接続中"</string>
+    <string name="network_connecting" msgid="4927203097283533783">"接続処理中..."</string>
+    <string name="network_could_not_connect" msgid="8254009365807767243">"接続できませんでした"</string>
+  <string-array name="preferred_network_mode_choices">
+    <item msgid="3628460389382468528">"GSM / WCDMA を優先"</item>
+    <item msgid="8442633436636425221">"GSM のみ"</item>
+    <item msgid="2032314385791760810">"WCDMA のみ"</item>
+    <item msgid="6334554401059422303">"GSM / WCDMA 自動"</item>
+    <item msgid="1462198368200398663">"CDMA / EV-DO 自動"</item>
+    <item msgid="3611460019185359968">"CDMA（EV-DO 非準拠）"</item>
+    <item msgid="545430093607698090">"EV-DOのみ"</item>
+    <item msgid="4286774020869405140">"CDMA / EV-DO / GSM / WCDMA"</item>
+    <item msgid="4006002265696868538">"CDMA+LTE / EV-DO"</item>
+    <item msgid="8973936140318359205">"GSM / WCDMA / LTE"</item>
+    <item msgid="3471059554252610472">"グローバル"</item>
+    <item msgid="2882615514545171802">"LTE"</item>
+    <item msgid="8076204422288290116">"LTE / WCDMA"</item>
+    <item msgid="3982984144824159726">"TDSCDMA のみ"</item>
+    <item msgid="3686191974505922271">"TDSCDMA / WCDMA"</item>
+    <item msgid="7135671700201836475">"LTE / TDSCDMA"</item>
+    <item msgid="3736619459066330755">"TDSCDMA / GSM"</item>
+    <item msgid="4778666570887216861">"LTE / TDSCDMA / GSM"</item>
+    <item msgid="2952322596201849456">"TDSCDMA / GSM / WCDMA"</item>
+    <item msgid="115984258536697617">"LTE / TDSCDMA / WCDMA"</item>
+    <item msgid="7957991936217192636">"LTE / TDSCDMA / GSM / WCDMA"</item>
+    <item msgid="2828588917858484655">"TDSCDMA / CDMA / EV-DO / GSM / WCDMA"</item>
+    <item msgid="4989979948139945854">"LTE / TDSCDMA / CDMA / EV-DO / GSM / WCDMA"</item>
+  </string-array>
     <string name="preferred_network_mode_wcdma_perf_summary" msgid="8521677230113533809">"優先ネットワークモード: WCDMA優先"</string>
     <string name="preferred_network_mode_gsm_only_summary" msgid="3352445413437453511">"優先ネットワークモード: GSMのみ"</string>
     <string name="preferred_network_mode_wcdma_only_summary" msgid="2836897236221063413">"優先ネットワークモード: WCDMAのみ"</string>
@@ -192,21 +223,15 @@
     <string name="preferred_network_mode_lte_gsm_umts_summary" msgid="633315028976225026">"推奨ネットワークモード: LTE/GSM/UMTS"</string>
     <string name="preferred_network_mode_lte_cdma_summary" msgid="3722647806454528426">"優先ネットワークモード: LTE/CDMA"</string>
     <string name="preferred_network_mode_tdscdma_summary" msgid="8021016193718678775">"優先ネットワークモード: TDSCDMA"</string>
-  <string-array name="preferred_network_mode_choices">
-    <item msgid="7886739962255042385">"LTE/WCDMA"</item>
-    <item msgid="577652050447385699">"LTE"</item>
-    <item msgid="6813597571293773656">"グローバル"</item>
-    <item msgid="127064712132619032">"GSM/WCDMA/LTE"</item>
-    <item msgid="1126767511633425977">"CDMA+LTE/EV-DO"</item>
-    <item msgid="6389676313771670660">"CDMA/EV-DO/GSM/WCDMA"</item>
-    <item msgid="545430093607698090">"EV-DOのみ"</item>
-    <item msgid="1508557726283094448">"CDMA（EV-DO非準拠）"</item>
-    <item msgid="4341433122263841224">"CDMA/EV-DO自動"</item>
-    <item msgid="5958053792390386668">"GSM/WCDMA自動"</item>
-    <item msgid="7913148405605373434">"WCDMAのみ"</item>
-    <item msgid="1524224863879435516">"GSMのみ"</item>
-    <item msgid="3817924849415716259">"GSM/WCDMAを優先"</item>
-  </string-array>
+    <string name="preferred_network_mode_tdscdma_wcdma_summary" msgid="2405154895437348623">"優先ネットワーク モード: TDSCDMA / WCDMA"</string>
+    <string name="preferred_network_mode_lte_tdscdma_summary" msgid="2104702896644235637">"優先ネットワーク モード: LTE / TDSCDMA"</string>
+    <string name="preferred_network_mode_tdscdma_gsm_summary" msgid="4893784445338396204">"優先ネットワーク モード: TDSCDMA / GSM"</string>
+    <string name="preferred_network_mode_lte_tdscdma_gsm_summary" msgid="1815169717046729757">"優先ネットワーク モード: LTE / GSM / TDSCDMA"</string>
+    <string name="preferred_network_mode_tdscdma_gsm_wcdma_summary" msgid="2195358773359424099">"優先ネットワーク モード: TDSCDMA / GSM / WCDMA"</string>
+    <string name="preferred_network_mode_lte_tdscdma_wcdma_summary" msgid="1181424059695667803">"優先ネットワーク モード: LTE / TDSCDMA / WCDMA"</string>
+    <string name="preferred_network_mode_lte_tdscdma_gsm_wcdma_summary" msgid="2526539326505354382">"優先ネットワーク モード: LTE / TDSCDMA / GSM / WCDMA"</string>
+    <string name="preferred_network_mode_tdscdma_cdma_evdo_gsm_wcdma_summary" msgid="8195248059196614939">"優先ネットワーク モード: TDSCDMA / CDMA / EV-DO / GSM / WCDMA"</string>
+    <string name="preferred_network_mode_lte_tdscdma_cdma_evdo_gsm_wcdma_summary" msgid="5596733053095592791">"優先ネットワーク モード: LTE / TDSCDMA / CDMA / EV-DO / GSM / WCDMA"</string>
     <string name="call_category" msgid="5863978196309462052">"通話"</string>
     <string name="network_operator_category" msgid="4830701959205735636">"ネットワーク"</string>
     <string name="enhanced_4g_lte_mode_title" msgid="522191650223239171">"4G LTE拡張モード"</string>
@@ -218,14 +243,16 @@
     <string name="roaming" msgid="7894878421600247140">"ローミング"</string>
     <string name="roaming_enable" msgid="7331106985174381987">"ローミング時にデータサービスに接続する"</string>
     <string name="roaming_disable" msgid="1843417228755568110">"ローミング時にデータサービスに接続する"</string>
-    <string name="roaming_reenable_message" msgid="8913735676127858115">"データローミングをOFFにしてホームネットワークを離れたため、データ接続が切断されました。"</string>
+    <string name="roaming_reenable_message" msgid="6843814381576397939">"データ ローミングが OFF になっています。タップして ON にしてください。"</string>
+    <string name="roaming_notification_title" msgid="4749053220884743110">"モバイルデータ通信が切断されました"</string>
     <string name="roaming_warning" msgid="1603164667540144353">"高額な通信料が発生することがあります。"</string>
+    <string name="roaming_check_price_warning" msgid="7497570906830902550">"価格設定については、ネットワーク プロバイダにお問い合わせください。"</string>
     <string name="roaming_alert_title" msgid="3654815360303826008">"データ ローミングを許可しますか？"</string>
-    <string name="data_usage_title" msgid="8759619109516889802">"データ使用量"</string>
-    <string name="data_usage_template" msgid="8526428824844656364">"<xliff:g id="ID_2">%2$s</xliff:g> のモバイルデータ使用量: <xliff:g id="ID_1">%1$s</xliff:g>"</string>
+    <string name="data_usage_title" msgid="4042209259808900283">"アプリのデータ使用量"</string>
+    <string name="data_usage_template" msgid="8526428824844656364">"<xliff:g id="ID_2">%2$s</xliff:g>のモバイルデータ使用量: <xliff:g id="ID_1">%1$s</xliff:g>"</string>
     <string name="advanced_options_title" msgid="8074895510265488035">"詳細設定"</string>
     <string name="carrier_settings_euicc" msgid="6714062862127226405">"携帯通信会社"</string>
-    <string name="keywords_carrier_settings_euicc" msgid="783429609643157743">"携帯通信会社、esim、sim、euicc"</string>
+    <string name="keywords_carrier_settings_euicc" msgid="6861505396475991277">"携帯通信会社, eSIM, SIM, eUICC, 携帯通信会社を切り替える, 携帯通信会社を追加"</string>
     <string name="carrier_settings_euicc_summary" msgid="5115001942761995457">"<xliff:g id="CARRIER_NAME">%1$s</xliff:g> — <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
     <string name="mobile_data_settings_title" msgid="4661165467914727157">"モバイルデータ"</string>
     <string name="mobile_data_settings_summary" msgid="5087255915840576895">"モバイル ネットワーク経由でデータにアクセス"</string>
@@ -399,7 +426,7 @@
     <string name="deleting_fdn_contact" msgid="5669163206349319969">"発信番号制限を削除しています..."</string>
     <string name="fdn_contact_deleted" msgid="7154162327112259569">"発信番号制限を削除しました。"</string>
     <string name="pin2_invalid" msgid="5470854099230755944">"発信番号制限は更新されませんでした。入力したPINは正しくありません。"</string>
-    <string name="fdn_invalid_number" msgid="8602417141715473998">"電話番号が空白になっているか、20 桁を超えているため、FDN を更新できませんでした。"</string>
+    <string name="fdn_invalid_number" msgid="2062898833049589309">"FDN は更新されませんでした。20 桁を超える番号は指定できません。"</string>
     <string name="pin2_or_fdn_invalid" msgid="6025144083384701197">"発信番号制限は更新されませんでした。PIN2が正しくないか、電話番号が拒否されました。"</string>
     <string name="fdn_failed" msgid="540018079008319747">"発信番号制限操作に失敗しました。"</string>
     <string name="simContacts_emptyLoading" msgid="2203331234764498011">"SIMカードから読み取り中..."</string>
@@ -482,6 +509,7 @@
     <string name="radio_off_during_emergency_call" msgid="2535800034010306830">"緊急通報中に機内モードに切り替えることはできません。"</string>
     <string name="dial_emergency_error" msgid="1509085166367420355">"発信できません。<xliff:g id="NON_EMERGENCY_NUMBER">%s</xliff:g>は緊急通報番号ではありません。"</string>
     <string name="dial_emergency_empty_error" msgid="9130194953830414638">"発信できません。緊急通報番号におかけください。"</string>
+    <string name="dial_emergency_calling_not_available" msgid="5675557523782491826">"緊急通報はご利用いただけません"</string>
     <string name="dialerKeyboardHintText" msgid="9192914825413747792">"キーボードで番号を入力してください"</string>
     <string name="onscreenHoldText" msgid="2285258239691145872">"保留"</string>
     <string name="onscreenEndCallText" msgid="4403855834875398585">"終了"</string>
@@ -502,6 +530,9 @@
     <string name="failedToImportSingleContactMsg" msgid="415399285420353917">"連絡先をインポートできませんでした"</string>
     <string name="hac_mode_title" msgid="8740268574688743289">"補聴機能"</string>
     <string name="hac_mode_summary" msgid="6833851160514929341">"補聴機能の互換をON"</string>
+    <string name="rtt_mode_title" msgid="6954652435543570121">"リアルタイム テキスト（RTT）通話"</string>
+    <string name="rtt_mode_summary" msgid="5146344277246544580">"音声通話中のメッセージ送信を許可する"</string>
+    <string name="rtt_mode_more_information" msgid="6080420780730383030">"RTT は、聴覚障害や言語障害があるなど、音声だけではコミュニケーションを取ることが困難なユーザーをサポートする機能です。&lt;br&gt; &lt;a href=<xliff:g id="URL">http://support.google.com/mobile?p=telephony_rtt</xliff:g>&gt;詳細&lt;/a&gt;\n       &lt;br&gt;&lt;br&gt; - RTT 通話は文字に変換して保存されます\n       &lt;br&gt; - RTT はビデオ通話ではご利用いただけません"</string>
   <string-array name="tty_mode_entries">
     <item msgid="512950011423868021">"TTY OFF"</item>
     <item msgid="3971695875449640648">"TTY フル"</item>
@@ -613,4 +644,107 @@
     <string name="mobile_data_activate_diag_message" msgid="8216154678758451453">"場合によっては、<xliff:g id="PROVIDER_NAME">%s</xliff:g> を通じてデータを追加する必要があります"</string>
     <string name="mobile_data_activate_button" msgid="3682400969184405446">"データを追加"</string>
     <string name="mobile_data_activate_cancel_button" msgid="1708022171547398765">"キャンセル"</string>
+    <string name="clh_card_title_call_ended_txt" msgid="4072101334811753823">"通話が終了した"</string>
+    <string name="clh_callFailed_powerOff_txt" msgid="3773036949107147708">"無線通信が OFF になっている"</string>
+    <string name="clh_callFailed_simError_txt" msgid="757650590524277969">"SIM カードがない、または SIM カードのエラー"</string>
+    <string name="clh_incall_error_out_of_service_txt" msgid="3974373603657193827">"モバイル ネットワークを利用できない"</string>
+    <string name="clh_callFailed_unassigned_number_txt" msgid="7635996793232604064">"未割り当ての番号"</string>
+    <string name="clh_callFailed_no_route_to_destination_txt" msgid="8561586745288855167">"宛先に転送できない"</string>
+    <string name="clh_callFailed_channel_unacceptable_txt" msgid="8048626924246611459">"許可されないチャンネル"</string>
+    <string name="clh_callFailed_operator_determined_barring_txt" msgid="6889705714244076823">"指定した通信事業者が禁止している"</string>
+    <string name="clh_callFailed_normal_call_clearing_txt" msgid="2810975267106345820">"通常の通話を終了している"</string>
+    <string name="clh_callFailed_user_busy_txt" msgid="2736095995784746915">"ユーザーが取り込み中"</string>
+    <string name="clh_callFailed_no_user_responding_txt" msgid="1421543095873040084">"ユーザーから応答がない"</string>
+    <string name="clh_callFailed_user_alerting_txt" msgid="6606245970376797447">"ユーザーへの警告、回答なし"</string>
+    <string name="clh_callFailed_call_rejected_txt" msgid="8001665478195793223">"通話が拒否された"</string>
+    <string name="clh_callFailed_number_changed_txt" msgid="5127909898925154242">"番号が変更されている"</string>
+    <string name="clh_callFailed_pre_emption_txt" msgid="6864702416751338567">"一時的に中断"</string>
+    <string name="clh_callFailed_non_selected_user_clearing_txt" msgid="8725898326616836656">"未選択のユーザーをクリアしている"</string>
+    <string name="clh_callFailed_destination_out_of_order_txt" msgid="6626355413556362437">"宛先が応答できない状態"</string>
+    <string name="clh_callFailed_invalid_number_format_txt" msgid="6987646655639655370">"無効な番号形式（番号が不完全）"</string>
+    <string name="clh_callFailed_facility_rejected_txt" msgid="4539787567476563415">"サービスが拒否された"</string>
+    <string name="clh_callFailed_response_to_STATUS_ENQUIRY_txt" msgid="178503536263624366">"状態の照会に対する回答"</string>
+    <string name="clh_callFailed_normal_unspecified_txt" msgid="2777574148560245427">"通常、詳細不明"</string>
+    <string name="clh_callFailed_no_circuit_available_txt" msgid="2894749820848784700">"利用できる回線 / チャンネルがない"</string>
+    <string name="clh_callFailed_network_out_of_order_txt" msgid="807472585030492179">"ネットワークが動作していない"</string>
+    <string name="clh_callFailed_temporary_failure_txt" msgid="1985847623937655151">"一時的なエラー"</string>
+    <string name="clh_callFailed_switching_equipment_congestion_txt" msgid="465517139462928431">"機器の切り替え時の混雑"</string>
+    <string name="clh_callFailed_access_information_discarded_txt" msgid="132851305339579892">"アクセス情報が破棄された"</string>
+    <string name="clh_callFailed_requested_circuit_txt" msgid="2316345471851443847">"リクエストした回線 / チャンネルを利用できない"</string>
+    <string name="clh_callFailed_resources_unavailable_unspecified_txt" msgid="4460267429142724322">"リソースを利用できない、詳細不明"</string>
+    <string name="clh_callFailed_quality_of_service_unavailable_txt" msgid="7315823047206338755">"サービスの品質を確認できない"</string>
+    <string name="clh_callFailed_requested_facility_not_subscribed_txt" msgid="1688438372518949530">"リクエストしたサービスに登録していない"</string>
+    <string name="clh_callFailed_incoming_calls_barred_within_the_CUG_txt" msgid="3922231620226043342">"着信通話が CUG 内で禁止されている"</string>
+    <string name="clh_callFailed_bearer_capability_not_authorized_txt" msgid="6515594235334537340">"ベアラー サービスが承認されていない"</string>
+    <string name="clh_callFailed_bearer_capability_not_presently_available_txt" msgid="8013567156449692135">"現在ベアラー サービスを利用できない"</string>
+    <string name="clh_callFailed_service_or_option_not_available_unspecified_txt" msgid="8663374141880847414">"サービスまたはオプションを利用できない、詳細不明"</string>
+    <string name="clh_callFailed_bearer_service_not_implemented_txt" msgid="2772484977847973583">"ベアラー サービスが実装されていない"</string>
+    <string name="clh_callFailed_ACM_equal_to_or_greater_than_ACMmax_txt" msgid="2192709279981159761">"ACM の値が ACMmax の値以上になっている"</string>
+    <string name="clh_callFailed_requested_facility_not_implemented_txt" msgid="406404292085779118">"リクエストしたサービスが実装されていない"</string>
+    <string name="clh_callFailed_only_restricted_digital_information_bearer_capability_is_available_txt" msgid="4817899794531157207">"制限付きのデジタル情報ベアラー機能のみ利用可能"</string>
+    <string name="clh_callFailed_service_or_option_not_implemented_unspecified_txt" msgid="2968655784896862505">"サービスまたはオプションが実装されていない、詳細不明"</string>
+    <string name="clh_callFailed_invalid_transaction_identifier_value_txt" msgid="3843478518660918642">"無効なトランザクション ID"</string>
+    <string name="clh_callFailed_user_not_member_of_CUG_txt" msgid="8462852903153938988">"ユーザーが CUG のメンバーではない"</string>
+    <string name="clh_callFailed_incompatible_destination_txt" msgid="2580750652910253219">"対応していない宛先"</string>
+    <string name="clh_callFailed_invalid_transit_network_selection_txt" msgid="6589916900457111005">"無効なトランジット ネットワークの選択"</string>
+    <string name="clh_callFailed_semantically_incorrect_message_txt" msgid="2329284157442218683">"意味的に正しくないメッセージ"</string>
+    <string name="clh_callFailed_invalid_mandatory_information_txt" msgid="9081556111928912676">"無効な必須情報"</string>
+    <string name="clh_callFailed_message_type_non_existent_or_not_implemented_txt" msgid="2641350895896546715">"メッセージの種類が存在しないか、実装されていない"</string>
+    <string name="clh_callFailed_message_type_not_compatible_with_protocol_state_txt" msgid="6598180735494982466">"メッセージの種類がプロトコルの状態に対応していない"</string>
+    <string name="clh_callFailed_information_element_non_existent_or_not_implemented_txt" msgid="4725610801664706983">"情報エレメントが存在しないか、実装されていない"</string>
+    <string name="clh_callFailed_conditional_IE_error_txt" msgid="9140031076499566143">"条件付きの IE エラー"</string>
+    <string name="clh_callFailed_message_not_compatible_with_protocol_state_txt" msgid="6586005128633024271">"メッセージがプロトコルの状態に対応していない"</string>
+    <string name="clh_callFailed_recovery_on_timer_expiry_txt" msgid="3680765722923600294">"タイマー期限の復元"</string>
+    <string name="clh_callFailed_protocol_Error_unspecified_txt" msgid="8294907817156524790">"プロトコル エラー、詳細不明"</string>
+    <string name="clh_callFailed_interworking_unspecified_txt" msgid="8838850798491763729">"相互作用中、詳細未定"</string>
+    <string name="labelCallBarring" msgid="3452870940716226978">"通話制限"</string>
+    <string name="sum_call_barring_enabled" msgid="6804489690436703488">"ON"</string>
+    <string name="sum_call_barring_disabled" msgid="5900772179198857783">"OFF"</string>
+    <string name="call_barring_baoc" msgid="1199843944333106035">"すべての発信"</string>
+    <string name="call_barring_baoc_enabled" msgid="8112118391869380361">"発信ブロックをすべて無効にしますか？"</string>
+    <string name="call_barring_baoc_disabled" msgid="7806697133004697974">"すべての発信をブロックしますか？"</string>
+    <string name="call_barring_baoic" msgid="3162154267825211826">"国際電話の発信"</string>
+    <string name="call_barring_baoic_enabled" msgid="2634377543147258105">"国際電話の発信ブロックを無効にしますか？"</string>
+    <string name="call_barring_baoic_disabled" msgid="5817895648306183464">"国際電話の発信をブロックしますか？"</string>
+    <string name="call_barring_baoicr" msgid="8951699885885742076">"国際ローミングの発信"</string>
+    <string name="call_barring_baoicr_enabled" msgid="2519630715322138317">"国際ローミングの発信ブロックを無効にしますか？"</string>
+    <string name="call_barring_baoicr_disabled" msgid="5831267468931377699">"国際ローミングの発信をブロックしますか？"</string>
+    <string name="call_barring_baic" msgid="5272726081458339912">"すべての着信"</string>
+    <string name="call_barring_baic_enabled" msgid="2457134916223203380">"着信ブロックをすべて無効にしますか？"</string>
+    <string name="call_barring_baic_disabled" msgid="6945604947500275636">"すべての着信をブロックしますか？"</string>
+    <string name="call_barring_baicr" msgid="5728784220691481693">"国際ローミングの着信"</string>
+    <string name="call_barring_baicr_enabled" msgid="6533336994391716127">"国際ローミングの着信ブロックをすべて無効にしますか？"</string>
+    <string name="call_barring_baicr_disabled" msgid="6746329853943256566">"国際ローミングの着信をブロックしますか？"</string>
+    <string name="call_barring_deactivate_all" msgid="5269788384941003415">"すべて無効にする"</string>
+    <string name="call_barring_deactivate_all_description" msgid="4972365443287257704">"通話制限設定をすべて無効にする"</string>
+    <string name="call_barring_deactivate_success" msgid="8014685598632000936">"通話制限が無効になりました"</string>
+    <string name="call_barring_change_pwd" msgid="6887420609726284232">"パスワードを変更"</string>
+    <string name="call_barring_change_pwd_description" msgid="5505087790260233953">"通話制限パスワードを変更"</string>
+    <string name="call_barring_change_pwd_description_disabled" msgid="7630770327645349957">"通話制限パスワードを変更できません。"</string>
+    <string name="call_barring_pwd_not_match" msgid="6716711689350314525">"パスワードが一致しません"</string>
+    <string name="call_barring_right_pwd_number" msgid="2902966502520410446">"4 桁の数字のパスワードを入力"</string>
+    <string name="call_barring_change_pwd_success" msgid="3278310763742760321">"パスワードが変更されました"</string>
+    <string name="call_barring_old_pwd" msgid="6080515987320238522">"古いパスワード"</string>
+    <string name="call_barring_new_pwd" msgid="7048532299150269547">"新しいパスワード"</string>
+    <string name="call_barring_confirm_pwd" msgid="1947167278466285411">"パスワードを確認"</string>
+    <string name="messageCallBarring" msgid="2412123220272136055">"パスワードを入力"</string>
+    <string name="call_barring_settings" msgid="80766145008623645">"通話制限設定"</string>
+    <string name="call_barring_deactivate_all_no_password" msgid="920902774366557311">"通話制限設定をすべて無効にしますか？"</string>
+    <string name="supp_service_notification_call_deflected" msgid="9195460512875330926">"通話が転送されました。"</string>
+    <string name="supp_service_notification_call_forwarded" msgid="7818548630812124053">"通話が転送されました。"</string>
+    <string name="supp_service_notification_call_waiting" msgid="789154111899572489">"応答保留中です。"</string>
+    <string name="supp_service_clir_suppression_rejected" msgid="1581851661582189045">"電話番号をブロックできませんでした。"</string>
+    <string name="supp_service_closed_user_group_call" msgid="5761735840904590950">"非公開ユーザー グループの通話。"</string>
+    <string name="supp_service_incoming_calls_barred" msgid="3248813207307882723">"通話の着信が制限されています。"</string>
+    <string name="supp_service_outgoing_calls_barred" msgid="1962644621292054081">"通話の発信が制限されています。"</string>
+    <string name="supp_service_call_forwarding_active" msgid="1253134771682248735">"電話の転送が有効になっています。"</string>
+    <string name="supp_service_additional_call_forwarded" msgid="5228624725214727315">"この他の着信を転送しました。"</string>
+    <string name="supp_service_additional_ect_connected" msgid="6396964292513707102">"別の電話番号に電話を転送しました。"</string>
+    <string name="supp_service_additional_ect_connecting" msgid="5443373059716058480">"別の電話番号に電話を転送しています。"</string>
+    <string name="supp_service_call_on_hold" msgid="1478976782361795422">"通話保留中。"</string>
+    <string name="supp_service_call_resumed" msgid="1656475289958070674">"通話が再開されました。"</string>
+    <string name="supp_service_deflected_call" msgid="138970419873492166">"電話が転送されてきました。"</string>
+    <string name="supp_service_forwarded_call" msgid="4509980341645679803">"転送されてきた電話。"</string>
+    <string name="supp_service_conference_call" msgid="4448616364004466832">"グループ通話に参加しようとしています。"</string>
+    <string name="supp_service_held_call_released" msgid="2030677825038709779">"通話の保留が解除されました。"</string>
 </resources>

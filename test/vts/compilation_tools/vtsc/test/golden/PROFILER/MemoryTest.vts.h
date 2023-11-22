@@ -10,6 +10,10 @@
 
 #include <android/hardware/tests/memory/1.0/IMemoryTest.h>
 #include <android/hidl/base/1.0/types.h>
+#include <android/hidl/memory/block/1.0/types.h>
+#include <android/hidl/memory/block/1.0/types.vts.h>
+#include <android/hidl/memory/token/1.0/IMemoryToken.h>
+#include <android/hidl/memory/token/1.0/MemoryToken.vts.h>
 
 
 using namespace android::hardware::tests::memory::V1_0;

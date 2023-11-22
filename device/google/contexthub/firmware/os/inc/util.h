@@ -36,7 +36,7 @@
  */
 #define C_STATIC_ASSERT(name, condition) \
     static const char __attribute__((used, section(".static_assert"))) \
-    static_assert_check_ ## name [(condition) ? 0 : -1]
+    static_assert_check_ ## name [(condition) ? 0 : -1] = {}
 
 #define unlikely(x) (x)
 #define likely(x) (x)

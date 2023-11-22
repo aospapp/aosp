@@ -25,6 +25,7 @@ import android.media.MediaScannerConnection;
 import android.media.MediaScannerConnection.MediaScannerConnectionClient;
 import android.net.Uri;
 import android.os.IBinder;
+import android.platform.test.annotations.AppModeFull;
 import android.test.AndroidTestCase;
 
 import com.android.compatibility.common.util.FileCopyHelper;
@@ -34,6 +35,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 
+@AppModeFull(reason = "TODO: evaluate and port to instant")
 public class MediaScannerConnectionTest extends AndroidTestCase {
 
     private static final String MEDIA_TYPE = "audio/mpeg";

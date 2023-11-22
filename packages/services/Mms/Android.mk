@@ -20,9 +20,11 @@ LOCAL_PATH:= $(call my-dir)
 include $(CLEAR_VARS)
 
 LOCAL_PACKAGE_NAME := MmsService
+LOCAL_PRIVATE_PLATFORM_APIS := true
 LOCAL_PRIVILEGED_MODULE := true
 
 LOCAL_JAVA_LIBRARIES := telephony-common okhttp
+LOCAL_STATIC_JAVA_LIBRARIES := services.net
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 

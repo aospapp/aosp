@@ -164,5 +164,26 @@ class CstructTest(unittest.TestCase):
     self.assertEqual(len(TestStructA) + len(Nested), d.offset("byte3"))
     self.assertRaises(KeyError, t.offset, "word1")
 
+  def testDefinitionFieldMismatch(self):
+    cstruct.Struct("TestA", "=BI", "byte1 int2")
+    cstruct.Struct("TestA", "=BxxxxxIx", "byte1 int2")
+    with self.assertRaises(ValueError):
+      cstruct.Struct("TestA", "=B", "byte1 int2")
+    with self.assertRaises(ValueError):
+      cstruct.Struct("TestA", "=BI", "byte1")
+
+    Nested = cstruct.Struct("Nested", "!II", "int1 int2")
+    cstruct.Struct("TestB", "=BSI", "byte1 nest2 int3", [Nested])
+    cstruct.Struct("TestB", "=BxSxIx", "byte1 nest2 int3", [Nested])
+    with self.assertRaises(ValueError):
+      cstruct.Struct("TestB", "=BSI", "byte1 int3", [Nested])
+    with self.assertRaises(ValueError):
+      cstruct.Struct("TestB", "=BSI", "byte1 nest2", [Nested])
+
+    cstruct.Struct("TestC", "=BSSI", "byte1 nest2 nest3 int4", [Nested, Nested])
+    with self.assertRaises(ValueError):
+      cstruct.Struct("TestC", "=BSSI", "byte1 nest2 int4", [Nested, Nested])
+
+
 if __name__ == "__main__":
   unittest.main()

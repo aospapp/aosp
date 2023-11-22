@@ -15,7 +15,9 @@ def GetDataFromLogs(testcase, data_type, log_lines):
             etc. See above for complete list.).
     @param log_lines: log_file to be parsed.
 
-    @return A list of data_type from javascript log.
+    @return A list of data_type from javascript log. If the data_type is not
+        supported for the given type of data (i.e. the underlying helper raises
+        NotImplementedError), an empty list is returned.
     """
     helper = cfm_jmidata_v3_helper.JMIDataV3Helper(log_lines)
     data_type_to_func_map = {
@@ -53,7 +55,17 @@ def GetDataFromLogs(testcase, data_type, log_lines):
         'renderer_cpu_percent': helper.GetRendererCpuPercentage,
     }
 
-
-    data_array = data_type_to_func_map[data_type]()
+    try:
+        data_array = data_type_to_func_map[data_type]()
+    except NotImplementedError as e:
+        logging.warning('data_type "%s" is not implemented in helper %s, '
+                        'returning empty data set',
+                        data_type,
+                        helper,
+                        exc_info = True)
+        data_array = [0]
     logging.info('Data Type: %s, Data Array: %s', data_type, str(data_array))
-    return data_array
+    # Ensure we always return at least one element, or perf uploads will be
+    # sad.
+    return data_array or [0]
+

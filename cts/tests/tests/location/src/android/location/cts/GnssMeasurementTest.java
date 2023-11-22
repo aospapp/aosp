@@ -82,6 +82,7 @@ public class GnssMeasurementTest extends GnssTestCase {
         parcel.setDataPosition(0);
         GnssMeasurement newMeasurement = GnssMeasurement.CREATOR.createFromParcel(parcel);
         verifyTestValues(newMeasurement);
+        parcel.recycle();
     }
 
     public void testSet() {

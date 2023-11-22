@@ -2,6 +2,7 @@
 cscope.*
 *.swp
 *.patch
+*~
 .project
 .cproject
 
@@ -10,6 +11,16 @@ build/
 
 # Ignore build products from tools
 tools/**/*.o
-tools/fip_create/fip_create
+tools/fip_create/
+tools/fiptool/fiptool
+tools/fiptool/fiptool.exe
 tools/cert_create/src/*.o
+tools/cert_create/src/**/*.o
 tools/cert_create/cert_create
+tools/cert_create/cert_create.exe
+
+# GNU GLOBAL files
+GPATH
+GRTAGS
+GSYMS
+GTAGS

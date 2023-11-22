@@ -19,17 +19,11 @@ package com.android.tv.settings.accessories;
 import android.app.Activity;
 import android.app.FragmentManager;
 import android.bluetooth.BluetoothDevice;
-import android.content.ComponentName;
 import android.content.Intent;
-import android.content.ServiceConnection;
-import android.content.pm.ResolveInfo;
 import android.hardware.input.InputManager;
 import android.os.Bundle;
 import android.os.Handler;
-import android.os.IBinder;
 import android.os.Message;
-import android.os.Messenger;
-import android.os.RemoteException;
 import android.os.SystemClock;
 import android.support.annotation.NonNull;
 import android.transition.TransitionManager;
@@ -109,41 +103,6 @@ public class AddAccessoryActivity extends Activity implements BluetoothDevicePai
     private boolean mHwKeyDidSelect;
     private boolean mNoInputMode;
 
-    private static final String GAMEPAD_PAIRING_SERVICE =
-            "com.google.android.settings.accessories.GamepadPairingService";
-    private static final String GAMEPAD_PAIRING_PACKAGE =
-            "com.google.android.tv.remotepairing";
-    /* Keep in sync with GamepadPairingService */
-    private static final int GAMEPAD_MESSAGE_START_PAIRING = 1;
-    private static final int GAMEPAD_MESSAGE_STOP_PAIRING = 2;
-    private static final int GAMEPAD_MESSAGE_PAUSE_PAIRING = 3;
-    private static final int GAMEPAD_MESSAGE_RESUME_PAIRING = 4;
-    private final List<Message> mGamepadMessageQueue = new ArrayList<>();
-    private Messenger mGamepadService;
-    private ServiceConnection mGamepadServiceConn;
-
-    private class GamepadServiceConnection implements ServiceConnection {
-        @Override
-        public void onServiceConnected(ComponentName name, IBinder service) {
-            Log.d(TAG, "Gamepad Service Connected");
-            mGamepadService = new Messenger(service);
-            for (Message message : mGamepadMessageQueue) {
-                try {
-                    mGamepadService.send(message);
-                } catch (RemoteException e) {
-                    Log.e(TAG, "Remote exception sending message " + message + " " + e);
-                }
-            }
-            mGamepadMessageQueue.clear();
-        }
-
-        @Override
-        public void onServiceDisconnected(ComponentName name) {
-            Log.d(TAG, "Gamepad Service Disconnected");
-            mGamepadService = null;
-        }
-    };
-
     // Internal message handler
     private final MessageHandler mMsgHandler = new MessageHandler();
 
@@ -218,29 +177,13 @@ public class AddAccessoryActivity extends Activity implements BluetoothDevicePai
 
     private final Handler mAutoExitHandler = new Handler();
 
-    private final Runnable mAutoExitRunnable = new Runnable() {
-        @Override
-        public void run() {
-            finish();
-        }
-    };
+    private final Runnable mAutoExitRunnable = this::finish;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
         setContentView(R.layout.lb_dialog_fragment);
-
-        Intent intent = new Intent();
-        intent.setAction(GAMEPAD_PAIRING_SERVICE);
-        intent.setPackage(GAMEPAD_PAIRING_PACKAGE);
-        if (serviceIntentIsHandled(intent)) {
-            // Don't auto-start the service. If it's not running we don't need to pause it.
-            mGamepadServiceConn = new GamepadServiceConnection();
-            bindService(intent, mGamepadServiceConn, BIND_ADJUST_WITH_ACTIVITY);
-        }
-
-        pauseGamepadPairingService();
 
         mMsgHandler.setActivity(this);
 
@@ -342,11 +285,6 @@ public class AddAccessoryActivity extends Activity implements BluetoothDevicePai
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        resumeGamepadPairingService();
-        if (mGamepadServiceConn != null) {
-            unbindService(mGamepadServiceConn);
-            mGamepadServiceConn = null;
-        }
         stopBluetoothPairer();
         mMsgHandler.removeCallbacksAndMessages(null);
     }
@@ -379,47 +317,6 @@ public class AddAccessoryActivity extends Activity implements BluetoothDevicePai
         }
     }
 
-    private boolean serviceIntentIsHandled(Intent intent) {
-        List<ResolveInfo> matches = getPackageManager().queryIntentServices(intent, 0);
-        if (matches != null) {
-            for (ResolveInfo info : matches) {
-                if (info.serviceInfo != null && info.serviceInfo.enabled) {
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-
-    private void pauseGamepadPairingService() {
-        final Message m = Message.obtain(null, GAMEPAD_MESSAGE_PAUSE_PAIRING);
-        if (mGamepadService != null) {
-            try {
-                mGamepadService.send(m);
-            } catch (RemoteException e) {
-                Log.e(TAG, "Remote exception sending message " + m + " " + e);
-            }
-        } else {
-            Log.d(TAG, "Queueing pause message");
-            mGamepadMessageQueue.add(m);
-        }
-    }
-
-    private void resumeGamepadPairingService() {
-        final Message m = Message.obtain(null, GAMEPAD_MESSAGE_RESUME_PAIRING);
-        if (mGamepadService != null) {
-            try {
-                mGamepadService.send(m);
-            } catch (RemoteException e) {
-                Log.e(TAG, "Remote exception sending message " + m + " " + e);
-            }
-        } else {
-            Log.d(TAG, "Queueing resume message");
-            mGamepadMessageQueue.add(m);
-        }
-    }
-
-
     public void onActionClicked(String address) {
         cancelPairingCountdown();
         if (!mDone) {
@@ -428,7 +325,7 @@ public class AddAccessoryActivity extends Activity implements BluetoothDevicePai
     }
 
     // Events related to a device HW key
-    protected void onHwKeyEvent(boolean keyDown) {
+    private void onHwKeyEvent(boolean keyDown) {
         if (!mHwKeyDown) {
             // HW key was in UP state before
             if (keyDown) {
@@ -496,7 +393,7 @@ public class AddAccessoryActivity extends Activity implements BluetoothDevicePai
            }
         }
 
-        TransitionManager.beginDelayedTransition((ViewGroup) findViewById(R.id.content_frame));
+        TransitionManager.beginDelayedTransition(findViewById(R.id.content_frame));
 
         rearrangeViews();
     }
@@ -673,9 +570,7 @@ public class AddAccessoryActivity extends Activity implements BluetoothDevicePai
         }
 
         mBluetoothDevices.clear();
-        for (BluetoothDevice device : mBluetoothPairer.getAvailableDevices()) {
-            mBluetoothDevices.add(device);
-        }
+        mBluetoothDevices.addAll(mBluetoothPairer.getAvailableDevices());
 
         cancelTimeout();
 

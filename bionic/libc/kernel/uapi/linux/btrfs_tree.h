@@ -18,6 +18,8 @@
  ****************************************************************************/
 #ifndef _BTRFS_CTREE_H_
 #define _BTRFS_CTREE_H_
+#include <linux/btrfs.h>
+#include <linux/types.h>
 #define BTRFS_ROOT_TREE_OBJECTID 1ULL
 #define BTRFS_EXTENT_TREE_OBJECTID 2ULL
 #define BTRFS_CHUNK_TREE_OBJECTID 3ULL
@@ -318,6 +320,7 @@ struct btrfs_balance_item {
 #define BTRFS_FILE_EXTENT_INLINE 0
 #define BTRFS_FILE_EXTENT_REG 1
 #define BTRFS_FILE_EXTENT_PREALLOC 2
+#define BTRFS_FILE_EXTENT_TYPES 2
 struct btrfs_file_extent_item {
   __le64 generation;
   __le64 ram_bytes;

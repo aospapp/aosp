@@ -15,7 +15,11 @@
 -->
 
 <resources>
-    <string-array name="additional_cbs_channels_strings" translatable="false">
+    <!-- Whether to enable CMAS settings (United States) -->
+    <!-- No need to show this for Chilean users -->
+    <bool name="show_cmas_settings">false</bool>
+
+    <string-array name="public_safety_messages_channels_range_strings" translatable="false">
         <!-- Channel 919 and 921 are required by Chile -->
         <item>0x0397:type=other, emergency=false</item>
         <item>0x0399:type=other, emergency=false</item>

@@ -12,13 +12,13 @@
     <orderEntry type="jdk" jdkName="1.8" jdkType="JavaSDK" />
     <orderEntry type="sourceFolder" forTests="false" />
     <orderEntry type="module-library">
-      <library name="asm-5.2">
+      <library name="asm-6.0">
         <CLASSES>
-          <root url="jar://$MODULE_DIR$/../../../prebuilts/misc/common/asm/asm-5.2.jar!/" />
+          <root url="jar://$MODULE_DIR$/../../../prebuilts/misc/common/asm/asm-6.0.jar!/" />
         </CLASSES>
         <JAVADOC />
         <SOURCES>
-          <root url="jar://$MODULE_DIR$/../../../prebuilts/misc/common/asm/src.zip!/" />
+          <root url="jar://$MODULE_DIR$/../../../prebuilts/misc/common/asm/src-6.0.zip!/" />
         </SOURCES>
       </library>
     </orderEntry>

@@ -32,8 +32,8 @@
  * the log levels Error, Warning, Informational, and Debug, respectively.
  */
 
-#include "chre/util/log_common.h"
 #include "chre/target_platform/log.h"
+#include "chre/util/log_common.h"
 
 /*
  * Log errors if the platform does not supply logging macros.
@@ -87,6 +87,6 @@
 /**
  * Logs an out of memory error with file and line number.
  */
-#define LOG_OOM() LOGE("Out of memory at %s:%d", __FILE__, __LINE__)
+#define LOG_OOM() LOGE("OOM at %s:%d", CHRE_FILENAME, __LINE__)
 
 #endif  // CHRE_PLATFORM_LOG_H_

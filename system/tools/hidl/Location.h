@@ -17,68 +17,67 @@
 #ifndef LOCATION_H_
 #define LOCATION_H_
 
-#include <iostream>
 #include <stdint.h>
+#include <ostream>
 #include <string>
 
 // Mimics for yy::location and yy::position
 namespace android {
 
 struct Position {
-    Position(std::string f, size_t l, size_t c)
-            : mFilename(f), mLine(l), mColumn(c) {}
-    inline const std::string &filename() const { return mFilename; }
-    inline size_t line() const { return mLine; }
-    inline size_t column() const { return mColumn; }
+    Position() = default;
+    Position(std::string filename, size_t line, size_t column);
 
-private:
+    const std::string& filename() const;
+
+    size_t line() const;
+    size_t column() const;
+
+    static bool inSameFile(const Position& lhs, const Position& rhs);
+
+    // Precondition: inSameFile()
+    bool operator<(const Position& pos) const;
+
+   private:
     // File name to which this position refers.
-    const std::string mFilename;
+    std::string mFilename;
     // Current line number.
-    const size_t mLine;
+    size_t mLine;
     // Current column number.
-    const size_t mColumn;
+    size_t mColumn;
 };
 
-inline std::ostream& operator<< (std::ostream& ostr, const Position& pos) {
-    if (!pos.filename().empty()) {
-        ostr << pos.filename() << ":";
-    }
-    return ostr << pos.line() << "." << pos.column();
-}
+std::ostream& operator<<(std::ostream& ostr, const Position& pos);
 
 struct Location {
-    Location (Position begin, Position end)
-            : mBegin(begin), mEnd(end) {}
-    inline const Position &begin() const { return mBegin; }
-    inline const Position &end() const { return mEnd; }
+    Location() = default;
+    Location(const Position& begin, const Position& end);
 
-    inline static Location startOf(const std::string &path) {
-        return Location(Position(path, 1, 1), Position(path, 1, 1));
-    }
+    void setLocation(const Position& begin, const Position& end);
 
-private:
+    bool isValid() const;
+    const Position& begin() const;
+    const Position& end() const;
+
+    static Location startOf(const std::string& path);
+
+    static bool inSameFile(const Location& lhs, const Location& rhs);
+    static bool intersect(const Location& lhs, const Location& rhs);
+
+    // Precondition: inSameFile() && !intersect()
+    bool operator<(const Location& loc) const;
+
+   private:
+    bool mIsValid = false;
+
     // Beginning of the located region.
-    const Position mBegin;
+    Position mBegin;
     // End of the located region.
-    const Position mEnd;
+    Position mEnd;
 };
 
-inline std::ostream& operator<< (std::ostream& ostr, const Location& loc) {
-    Position last = Position(loc.end().filename(),
-            loc.end().line(),
-            std::max<size_t>(1u, loc.end().column() - 1));
-    ostr << loc.begin();
-    if (loc.begin().filename() != last.filename()) {
-        ostr << "-" << last;
-    } else if (loc.begin().line() != last.line()) {
-        ostr << "-" << last.line()  << "." << last.column();
-    } else if (loc.begin().column() != last.column()) {
-        ostr << "-" << last.column();
-    }
-    return ostr;
-}
+std::ostream& operator<<(std::ostream& ostr, const Location& loc);
 
 } // namespace android
 
-#endif
+#endif  // LOCATION_H_

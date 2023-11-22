@@ -37,9 +37,14 @@
     <string name="callFailed_simError" msgid="3307159523385380486">"Geen simkaart of fout met simkaart"</string>
     <string name="callFailed_outOfService" msgid="4535901975891969115">"Mobiel netwerk niet beschikbaar"</string>
     <string name="callFailed_fdn_only" msgid="1720606112619022283">"Uitgaande oproepen worden beperkt door FDN."</string>
-    <string name="callFailed_dialToUssd" msgid="2093563828737170617">"DIAL-verzoek is gewijzigd in USSD-verzoek."</string>
-    <string name="callFailed_dialToSs" msgid="3144952834772702469">"DIAL-verzoek is gewijzigd in SS-verzoek."</string>
-    <string name="callFailed_dialToDial" msgid="1143052062100334634">"DIAL-verzoek is gewijzigd in DIAL met ander nummer."</string>
+    <string name="callFailed_dialToUssd" msgid="2433610980015734954">"Oproep gewijzigd in USSD-verzoek"</string>
+    <string name="callFailed_dialToSs" msgid="1932708241240329683">"Oproep gewijzigd in SS-verzoek"</string>
+    <string name="callFailed_dialToDial" msgid="4383070508519313539">"Gewijzigd in ander nummer"</string>
+    <string name="callFailed_dialToDialVideo" msgid="5132568145494398814">"Gewijzigd in videogesprek"</string>
+    <string name="callFailed_dialVideoToSs" msgid="4775276313558039477">"Videogesprek gewijzigd in SS-verzoek"</string>
+    <string name="callFailed_dialVideoToUssd" msgid="3075648968404725328">"Videogesprek gewijzigd in USSD-verzoek"</string>
+    <string name="callFailed_dialVideoToDial" msgid="7758276428184272770">"Gewijzigd in normale oproep"</string>
+    <string name="callFailed_dialVideoToDialVideo" msgid="5451053686606499859">"Gewijzigd in ander nummer"</string>
     <string name="callFailed_cb_enabled" msgid="4745550615395092407">"Uitgaande oproepen zijn niet mogelijk als de functie voor oproepen blokkeren is ingeschakeld."</string>
     <string name="callFailed_dsac_restricted" msgid="4087941056515103695">"Alle oproepen worden beperkt door toegangsbeheer."</string>
     <string name="callFailed_dsac_restricted_emergency" msgid="9031535611092828510">"Noodoproepen worden beperkt door toegangsbeheer."</string>

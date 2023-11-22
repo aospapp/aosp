@@ -37,16 +37,6 @@
 
     <uses-sdk android:minSdkVersion="19"/>
 
-    <protected-broadcast android:name="com.android.ims.ACTION_RCS_SERVICE_AVAILABLE" />
-    <protected-broadcast android:name="com.android.ims.ACTION_RCS_SERVICE_UNAVAILABLE" />
-    <protected-broadcast android:name="com.android.ims.ACTION_RCS_SERVICE_DIED" />
-    <protected-broadcast android:name="com.android.ims.ACTION_PRESENCE_CHANGED" />
-    <protected-broadcast android:name="com.android.ims.ACTION_PUBLISH_STATUS_CHANGED" />
-    <protected-broadcast android:name="com.android.service.ims.presence.retry" />
-    <protected-broadcast android:name="com.android.service.ims.presence.task.timeout" />
-    <protected-broadcast android:name="com.android.service.ims.presence.ims-feature-status-changed" />
-    <protected-broadcast android:name="com.android.service.ims.presence.retry.publish" />
-
     <permission
         android:name="com.android.ims.rcs.permission.STATUS_CHANGED"
         android:protectionLevel="signatureOrSystem" />
@@ -83,12 +73,13 @@
             </intent-filter>
         </receiver>
 
+        <!-- Receives the following explicit intents:
+            - com.android.service.ims.presence.retry
+            - com.android.service.ims.presence.task.timeout
+            - com.android.service.ims.presence.retry.publish -->
         <receiver android:name="com.android.service.ims.presence.AlarmBroadcastReceiver"
             android:permission="com.android.ims.permission.PRESENCE_ACCESS"
-             androidprv:systemUserOnly="true">
-            <intent-filter>
-                <action android:name="com.android.service.ims.presence.retry" />
-            </intent-filter>
+            androidprv:systemUserOnly="true">
         </receiver>
     </application>
 </manifest>

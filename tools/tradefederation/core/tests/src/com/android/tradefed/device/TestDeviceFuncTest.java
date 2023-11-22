@@ -15,7 +15,12 @@
  */
 package com.android.tradefed.device;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import com.android.ddmlib.IDevice;
 import com.android.ddmlib.Log;
@@ -510,7 +515,7 @@ public class TestDeviceFuncTest implements IDeviceTest {
             Log.i(LOG_TAG, "Fastboot not enabled skipping testExecuteFastbootCommand_deviceInAdb");
             return;
         }
-        int origTimeout = mTestDevice.getCommandTimeout();
+        long origTimeout = mTestDevice.getCommandTimeout();
         try {
             assertEquals(TestDeviceState.ONLINE, mMonitor.getDeviceState());
             // reset operation timeout to small value to make test run quicker
@@ -709,10 +714,9 @@ public class TestDeviceFuncTest implements IDeviceTest {
         }
         // sleep a small amount of time to ensure last log message makes it into capture
         RunUtil.getDefault().sleep(500);
-        InputStreamSource source = getDevice().getLogcatDump();
-        assertNotNull(source);
         File tmpTxtFile = FileUtil.createTempFile("logcat", ".txt");
-        try {
+        try (InputStreamSource source = getDevice().getLogcatDump()) {
+            assertNotNull(source);
             FileUtil.writeToFile(source.createInputStream(), tmpTxtFile);
             CLog.i("Created file at %s", tmpTxtFile.getAbsolutePath());
             // Check we have at least our 100 lines.
@@ -724,7 +728,6 @@ public class TestDeviceFuncTest implements IDeviceTest {
                     s.contains("testGetLogcat_size log dump 99"));
         } finally {
             FileUtil.deleteFile(tmpTxtFile);
-            source.close();
         }
     }
 
@@ -762,9 +765,9 @@ public class TestDeviceFuncTest implements IDeviceTest {
     /** Test that {@link TestDevice#getProperty(String)} works after a reboot. */
     @Test
     public void testGetProperty() throws Exception {
-        assertNotNull(getDevice().getProperty("ro.hardware"));
+        assertNotNull(getDevice().getProperty(DeviceProperties.BOARD));
         getDevice().rebootUntilOnline();
-        assertNotNull(getDevice().getProperty("ro.hardware"));
+        assertNotNull(getDevice().getProperty(DeviceProperties.BOARD));
     }
 
     /** Test that {@link TestDevice#getProperty(String)} works for volatile properties. */

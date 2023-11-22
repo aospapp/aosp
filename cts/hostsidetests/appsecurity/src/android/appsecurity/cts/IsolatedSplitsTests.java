@@ -15,10 +15,12 @@
  */
 package android.appsecurity.cts;
 
+import android.platform.test.annotations.AppModeFull;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.testtype.DeviceTestCase;
 import com.android.tradefed.testtype.IBuildReceiver;
 
+@AppModeFull // TODO: Needs porting to instant
 public class IsolatedSplitsTests extends DeviceTestCase implements IBuildReceiver {
     private static final String PKG = "com.android.cts.isolatedsplitapp";
     private static final String TEST_CLASS = PKG + ".SplitAppTest";

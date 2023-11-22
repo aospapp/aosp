@@ -76,7 +76,7 @@ public class TestSensorOperation extends SensorOperation {
      */
     public interface Executor {
         void execute(TestSensorManager sensorManager, TestSensorEventListener listener)
-                throws InterruptedException;
+                throws Exception;
     }
 
     /**
@@ -124,7 +124,7 @@ public class TestSensorOperation extends SensorOperation {
      * Collect the specified number of events from the sensor and run all enabled verifications.
      */
     @Override
-    public void execute(ISensorTestNode parent) throws InterruptedException {
+    public void execute(ISensorTestNode parent) throws Exception {
         getStats().addValue("sensor_name", mEnvironment.getSensor().getName());
         TestSensorEventListener listener = new TestSensorEventListener(mEnvironment, mHandler);
 

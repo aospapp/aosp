@@ -1,15 +1,9 @@
-This is libevent-2.0.22-stable from http://libevent.org/.
+This is libevent-2.1.8-stable from http://libevent.org/.
 
 No changes were made apart from the following:
 
 * copied LICENSE to NOTICE
 * added empty MODULE_LICENSE_BSD_LIKE
-* Removed directories:
-  - WIN32-Code
-  - compat
-  - m4
-  - sample
-  - test
 * added Android.mk
 * added CleanSpec.mk
 * added missing include of event-internal.h to buffer.c

@@ -22,17 +22,18 @@ import android.graphics.drawable.Drawable;
 import android.os.SystemClock;
 import android.support.annotation.Nullable;
 import android.support.v4.view.ViewCompat;
+import android.telephony.PhoneNumberUtils;
 import android.text.TextUtils;
 import android.view.View;
 import android.view.accessibility.AccessibilityEvent;
 import android.widget.Chronometer;
 import android.widget.ImageView;
+import android.widget.Space;
 import android.widget.TextView;
 import android.widget.ViewAnimator;
-import com.android.contacts.common.compat.PhoneNumberUtilsCompat;
-import com.android.contacts.common.lettertiles.LetterTileDrawable;
 import com.android.dialer.common.Assert;
 import com.android.dialer.common.LogUtil;
+import com.android.dialer.lettertile.LetterTileDrawable;
 import com.android.dialer.util.DrawableConverter;
 import com.android.incallui.incall.protocol.ContactPhotoType;
 import com.android.incallui.incall.protocol.PrimaryCallState;
@@ -73,15 +74,21 @@ public class ContactGridManager {
   private final ViewAnimator bottomTextSwitcher;
   private final TextView bottomTextView;
   private final Chronometer bottomTimerView;
+  private final Space topRowSpace;
   private int avatarSize;
   private boolean hideAvatar;
   private boolean showAnonymousAvatar;
   private boolean middleRowVisible = true;
   private boolean isTimerStarted;
 
-  private PrimaryInfo primaryInfo = PrimaryInfo.createEmptyPrimaryInfo();
-  private PrimaryCallState primaryCallState = PrimaryCallState.createEmptyPrimaryCallState();
+  // Row in emergency call: This phone's number: +1 (650) 253-0000
+  private final TextView deviceNumberTextView;
+  private final View deviceNumberDivider;
+
+  private PrimaryInfo primaryInfo = PrimaryInfo.empty();
+  private PrimaryCallState primaryCallState = PrimaryCallState.empty();
   private final LetterTileDrawable letterTile;
+  private boolean isInMultiWindowMode;
 
   public ContactGridManager(
       View view, @Nullable ImageView avatarImageView, int avatarSize, boolean showAnonymousAvatar) {
@@ -102,10 +109,14 @@ public class ContactGridManager {
     bottomTextSwitcher = view.findViewById(R.id.contactgrid_bottom_text_switcher);
     bottomTextView = view.findViewById(R.id.contactgrid_bottom_text);
     bottomTimerView = view.findViewById(R.id.contactgrid_bottom_timer);
+    topRowSpace = view.findViewById(R.id.contactgrid_top_row_space);
 
     contactGridLayout = (View) contactNameTextView.getParent();
     letterTile = new LetterTileDrawable(context.getResources());
     isTimerStarted = false;
+
+    deviceNumberTextView = view.findViewById(R.id.contactgrid_device_number_text);
+    deviceNumberDivider = view.findViewById(R.id.contactgrid_location_divider);
   }
 
   public void show() {
@@ -145,6 +156,7 @@ public class ContactGridManager {
     this.primaryInfo = primaryInfo;
     updatePrimaryNameAndPhoto();
     updateBottomRow();
+    updateDeviceNumberRow();
   }
 
   public void setCallState(PrimaryCallState primaryCallState) {
@@ -152,6 +164,7 @@ public class ContactGridManager {
     updatePrimaryNameAndPhoto();
     updateBottomRow();
     updateTopRow();
+    updateDeviceNumberRow();
   }
 
   public void dispatchPopulateAccessibilityEvent(AccessibilityEvent event) {
@@ -169,6 +182,14 @@ public class ContactGridManager {
     this.avatarSize = avatarSize;
     this.showAnonymousAvatar = showAnonymousAvatar;
     updatePrimaryNameAndPhoto();
+  }
+
+  public void onMultiWindowModeChanged(boolean isInMultiWindowMode) {
+    if (this.isInMultiWindowMode == isInMultiWindowMode) {
+      return;
+    }
+    this.isInMultiWindowMode = isInMultiWindowMode;
+    updateDeviceNumberRow();
   }
 
   private void dispatchPopulateAccessibilityEvent(AccessibilityEvent event, View view) {
@@ -192,7 +213,7 @@ public class ContactGridManager {
     }
 
     boolean hasPhoto =
-        primaryInfo.photo != null && primaryInfo.photoType == ContactPhotoType.CONTACT;
+        primaryInfo.photo() != null && primaryInfo.photoType() == ContactPhotoType.CONTACT;
     if (!hasPhoto && !showAnonymousAvatar) {
       avatarImageView.setVisibility(View.GONE);
       return false;
@@ -227,9 +248,16 @@ public class ContactGridManager {
 
     if (info.icon == null) {
       connectionIconImageView.setVisibility(View.GONE);
+      topRowSpace.setVisibility(View.GONE);
     } else {
       connectionIconImageView.setVisibility(View.VISIBLE);
       connectionIconImageView.setImageDrawable(info.icon);
+      if (statusTextView.getVisibility() == View.VISIBLE
+          && !TextUtils.isEmpty(statusTextView.getText())) {
+        topRowSpace.setVisibility(View.VISIBLE);
+      } else {
+        topRowSpace.setVisibility(View.GONE);
+      }
     }
   }
 
@@ -243,17 +271,17 @@ public class ContactGridManager {
    * </ul>
    */
   private void updatePrimaryNameAndPhoto() {
-    if (TextUtils.isEmpty(primaryInfo.name)) {
+    if (TextUtils.isEmpty(primaryInfo.name())) {
       contactNameTextView.setText(null);
     } else {
       contactNameTextView.setText(
-          primaryInfo.nameIsNumber
-              ? PhoneNumberUtilsCompat.createTtsSpannable(primaryInfo.name)
-              : primaryInfo.name);
+          primaryInfo.nameIsNumber()
+              ? PhoneNumberUtils.createTtsSpannable(primaryInfo.name())
+              : primaryInfo.name());
 
       // Set direction of the name field
       int nameDirection = View.TEXT_DIRECTION_INHERIT;
-      if (primaryInfo.nameIsNumber) {
+      if (primaryInfo.nameIsNumber()) {
         nameDirection = View.TEXT_DIRECTION_LTR;
       }
       contactNameTextView.setTextDirection(nameDirection);
@@ -264,24 +292,24 @@ public class ContactGridManager {
         avatarImageView.setVisibility(View.GONE);
       } else if (avatarSize > 0 && updateAvatarVisibility()) {
         boolean hasPhoto =
-            primaryInfo.photo != null && primaryInfo.photoType == ContactPhotoType.CONTACT;
+            primaryInfo.photo() != null && primaryInfo.photoType() == ContactPhotoType.CONTACT;
         // Contact has a photo, don't render a letter tile.
         if (hasPhoto) {
           avatarImageView.setBackground(
               DrawableConverter.getRoundedDrawable(
-                  context, primaryInfo.photo, avatarSize, avatarSize));
+                  context, primaryInfo.photo(), avatarSize, avatarSize));
           // Contact has a name, that isn't a number.
         } else {
           letterTile.setCanonicalDialerLetterTileDetails(
-              primaryInfo.name,
-              primaryInfo.contactInfoLookupKey,
+              primaryInfo.name(),
+              primaryInfo.contactInfoLookupKey(),
               LetterTileDrawable.SHAPE_CIRCLE,
               LetterTileDrawable.getContactTypeFromPrimitives(
-                  primaryCallState.isVoiceMailNumber,
-                  primaryInfo.isSpam,
-                  primaryCallState.isBusinessNumber,
-                  primaryInfo.numberPresentation,
-                  primaryCallState.isConference));
+                  primaryCallState.isVoiceMailNumber(),
+                  primaryInfo.isSpam(),
+                  primaryCallState.isBusinessNumber(),
+                  primaryInfo.numberPresentation(),
+                  primaryCallState.isConference()));
           // By invalidating the avatarImageView we force a redraw of the letter tile.
           // This is required to properly display the updated letter tile iconography based on the
           // contact type, because the background drawable reference cached in the view, and the
@@ -311,6 +339,7 @@ public class ContactGridManager {
     workIconImageView.setVisibility(info.isWorkIconVisible ? View.VISIBLE : View.GONE);
     if (hdIconImageView.getVisibility() == View.GONE) {
       if (info.isHdAttemptingIconVisible) {
+        hdIconImageView.setImageResource(R.drawable.asd_hd_icon);
         hdIconImageView.setVisibility(View.VISIBLE);
         hdIconImageView.setActivated(false);
         Drawable drawableCurrent = hdIconImageView.getDrawable().getCurrent();
@@ -318,6 +347,7 @@ public class ContactGridManager {
           ((Animatable) drawableCurrent).start();
         }
       } else if (info.isHdIconVisible) {
+        hdIconImageView.setImageResource(R.drawable.asd_hd_icon);
         hdIconImageView.setVisibility(View.VISIBLE);
         hdIconImageView.setActivated(true);
       }
@@ -345,12 +375,13 @@ public class ContactGridManager {
     } else {
       forwardIconImageView.setVisibility(View.GONE);
       forwardedNumberView.setVisibility(View.GONE);
+      bottomTextSwitcher.setVisibility(View.VISIBLE);
     }
 
     if (info.isTimerVisible) {
       bottomTextSwitcher.setDisplayedChild(1);
       bottomTimerView.setBase(
-          primaryCallState.connectTimeMillis
+          primaryCallState.connectTimeMillis()
               - System.currentTimeMillis()
               + SystemClock.elapsedRealtime());
       if (!isTimerStarted) {
@@ -365,6 +396,26 @@ public class ContactGridManager {
       bottomTextSwitcher.setDisplayedChild(0);
       bottomTimerView.stop();
       isTimerStarted = false;
+    }
+  }
+
+  private void updateDeviceNumberRow() {
+    // It might not be available, e.g. in video call.
+    if (deviceNumberTextView == null) {
+      return;
+    }
+    if (isInMultiWindowMode || TextUtils.isEmpty(primaryCallState.callbackNumber())) {
+      deviceNumberTextView.setVisibility(View.GONE);
+      deviceNumberDivider.setVisibility(View.GONE);
+      return;
+    }
+    // This is used for carriers like Project Fi to show the callback number for emergency calls.
+    deviceNumberTextView.setText(
+        context.getString(
+            R.string.contact_grid_callback_number, primaryCallState.callbackNumber()));
+    deviceNumberTextView.setVisibility(View.VISIBLE);
+    if (primaryInfo.shouldShowLocation()) {
+      deviceNumberDivider.setVisibility(View.VISIBLE);
     }
   }
 }

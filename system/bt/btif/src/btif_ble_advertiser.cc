@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2016 Google Inc.
+ *  Copyright 2016 Google Inc.
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -95,7 +95,7 @@ class BleAdvertiserInterfaceImpl : public BleAdvertiserInterface {
   void RegisterAdvertiser(IdStatusCallback cb) override {
     do_in_bta_thread(
         FROM_HERE, Bind(&BleAdvertisingManager::RegisterAdvertiser,
-                        base::Unretained(BleAdvertisingManager::Get()),
+                        BleAdvertisingManager::Get(),
                         Bind(&BleAdvertiserInterfaceImpl::RegisterAdvertiserCb,
                              base::Unretained(this), cb)));
   }
@@ -115,33 +115,35 @@ class BleAdvertiserInterfaceImpl : public BleAdvertiserInterface {
   }
 
   void GetOwnAddress(uint8_t advertiser_id, GetAddressCallback cb) override {
+    if (!BleAdvertisingManager::IsInitialized()) return;
     do_in_bta_thread(FROM_HERE,
                      Bind(&BleAdvertisingManager::GetOwnAddress,
-                          base::Unretained(BleAdvertisingManager::Get()),
-                          advertiser_id, jni_thread_wrapper(FROM_HERE, cb)));
+                          BleAdvertisingManager::Get(), advertiser_id,
+                          jni_thread_wrapper(FROM_HERE, cb)));
   }
 
   void SetParameters(uint8_t advertiser_id, AdvertiseParameters params,
                      ParametersCallback cb) override {
     VLOG(1) << __func__;
 
+    if (!BleAdvertisingManager::IsInitialized()) return;
     tBTM_BLE_ADV_PARAMS* p_params = new tBTM_BLE_ADV_PARAMS;
     parseParams(p_params, params);
 
-    do_in_bta_thread(
-        FROM_HERE,
-        Bind(&BleAdvertisingManager::SetParameters,
-             base::Unretained(BleAdvertisingManager::Get()), advertiser_id,
-             base::Owned(p_params), jni_thread_wrapper(FROM_HERE, cb)));
+    do_in_bta_thread(FROM_HERE, Bind(&BleAdvertisingManager::SetParameters,
+                                     BleAdvertisingManager::Get(),
+                                     advertiser_id, base::Owned(p_params),
+                                     jni_thread_wrapper(FROM_HERE, cb)));
   }
 
   void SetData(int advertiser_id, bool set_scan_rsp, vector<uint8_t> data,
                StatusCallback cb) override {
+    if (!BleAdvertisingManager::IsInitialized()) return;
     do_in_bta_thread(
         FROM_HERE,
-        Bind(&BleAdvertisingManager::SetData,
-             base::Unretained(BleAdvertisingManager::Get()), advertiser_id,
-             set_scan_rsp, std::move(data), jni_thread_wrapper(FROM_HERE, cb)));
+        Bind(&BleAdvertisingManager::SetData, BleAdvertisingManager::Get(),
+             advertiser_id, set_scan_rsp, std::move(data),
+             jni_thread_wrapper(FROM_HERE, cb)));
   }
 
   void Enable(uint8_t advertiser_id, bool enable, StatusCallback cb,
@@ -150,11 +152,11 @@ class BleAdvertiserInterfaceImpl : public BleAdvertiserInterface {
     VLOG(1) << __func__ << " advertiser_id: " << +advertiser_id
             << " ,enable: " << enable;
 
+    if (!BleAdvertisingManager::IsInitialized()) return;
     do_in_bta_thread(
         FROM_HERE,
-        Bind(&BleAdvertisingManager::Enable,
-             base::Unretained(BleAdvertisingManager::Get()), advertiser_id,
-             enable, jni_thread_wrapper(FROM_HERE, cb), duration,
+        Bind(&BleAdvertisingManager::Enable, BleAdvertisingManager::Get(),
+             advertiser_id, enable, jni_thread_wrapper(FROM_HERE, cb), duration,
              maxExtAdvEvents, jni_thread_wrapper(FROM_HERE, timeout_cb)));
   }
 
@@ -165,13 +167,14 @@ class BleAdvertiserInterfaceImpl : public BleAdvertiserInterface {
                         MultiAdvCb timeout_cb) override {
     VLOG(1) << __func__;
 
+    if (!BleAdvertisingManager::IsInitialized()) return;
     tBTM_BLE_ADV_PARAMS* p_params = new tBTM_BLE_ADV_PARAMS;
     parseParams(p_params, params);
 
     do_in_bta_thread(
         FROM_HERE,
         Bind(&BleAdvertisingManager::StartAdvertising,
-             base::Unretained(BleAdvertisingManager::Get()), advertiser_id,
+             BleAdvertisingManager::Get(), advertiser_id,
              jni_thread_wrapper(FROM_HERE, cb), base::Owned(p_params),
              std::move(advertise_data), std::move(scan_response_data),
              timeout_s * 100, jni_thread_wrapper(FROM_HERE, timeout_cb)));
@@ -187,6 +190,7 @@ class BleAdvertiserInterfaceImpl : public BleAdvertiserInterface {
                            IdStatusCallback timeout_cb) override {
     VLOG(1) << __func__;
 
+    if (!BleAdvertisingManager::IsInitialized()) return;
     tBTM_BLE_ADV_PARAMS* p_params = new tBTM_BLE_ADV_PARAMS;
     parseParams(p_params, params);
 
@@ -196,11 +200,11 @@ class BleAdvertiserInterfaceImpl : public BleAdvertiserInterface {
     do_in_bta_thread(
         FROM_HERE,
         Bind(&BleAdvertisingManager::StartAdvertisingSet,
-             base::Unretained(BleAdvertisingManager::Get()),
-             jni_thread_wrapper(FROM_HERE, cb), base::Owned(p_params),
-             std::move(advertise_data), std::move(scan_response_data),
-             base::Owned(p_periodic_params), std::move(periodic_data), duration,
-             maxExtAdvEvents, jni_thread_wrapper(FROM_HERE, timeout_cb)));
+             BleAdvertisingManager::Get(), jni_thread_wrapper(FROM_HERE, cb),
+             base::Owned(p_params), std::move(advertise_data),
+             std::move(scan_response_data), base::Owned(p_periodic_params),
+             std::move(periodic_data), duration, maxExtAdvEvents,
+             jni_thread_wrapper(FROM_HERE, timeout_cb)));
   }
 
   void SetPeriodicAdvertisingParameters(
@@ -208,13 +212,14 @@ class BleAdvertiserInterfaceImpl : public BleAdvertiserInterface {
       StatusCallback cb) override {
     VLOG(1) << __func__ << " advertiser_id: " << +advertiser_id;
 
+    if (!BleAdvertisingManager::IsInitialized()) return;
     tBLE_PERIODIC_ADV_PARAMS* p_periodic_params = new tBLE_PERIODIC_ADV_PARAMS;
     parsePeriodicParams(p_periodic_params, periodic_params);
 
     do_in_bta_thread(
         FROM_HERE,
         Bind(&BleAdvertisingManager::SetPeriodicAdvertisingParameters,
-             base::Unretained(BleAdvertisingManager::Get()), advertiser_id,
+             BleAdvertisingManager::Get(), advertiser_id,
              base::Owned(p_periodic_params),
              jni_thread_wrapper(FROM_HERE, cb)));
   }
@@ -223,11 +228,11 @@ class BleAdvertiserInterfaceImpl : public BleAdvertiserInterface {
                                   StatusCallback cb) override {
     VLOG(1) << __func__ << " advertiser_id: " << +advertiser_id;
 
-    do_in_bta_thread(
-        FROM_HERE,
-        Bind(&BleAdvertisingManager::SetPeriodicAdvertisingData,
-             base::Unretained(BleAdvertisingManager::Get()), advertiser_id,
-             std::move(data), jni_thread_wrapper(FROM_HERE, cb)));
+    if (!BleAdvertisingManager::IsInitialized()) return;
+    do_in_bta_thread(FROM_HERE,
+                     Bind(&BleAdvertisingManager::SetPeriodicAdvertisingData,
+                          BleAdvertisingManager::Get(), advertiser_id,
+                          std::move(data), jni_thread_wrapper(FROM_HERE, cb)));
   }
 
   void SetPeriodicAdvertisingEnable(int advertiser_id, bool enable,
@@ -235,11 +240,11 @@ class BleAdvertiserInterfaceImpl : public BleAdvertiserInterface {
     VLOG(1) << __func__ << " advertiser_id: " << +advertiser_id
             << " ,enable: " << enable;
 
-    do_in_bta_thread(
-        FROM_HERE,
-        Bind(&BleAdvertisingManager::SetPeriodicAdvertisingEnable,
-             base::Unretained(BleAdvertisingManager::Get()), advertiser_id,
-             enable, jni_thread_wrapper(FROM_HERE, cb)));
+    if (!BleAdvertisingManager::IsInitialized()) return;
+    do_in_bta_thread(FROM_HERE,
+                     Bind(&BleAdvertisingManager::SetPeriodicAdvertisingEnable,
+                          BleAdvertisingManager::Get(), advertiser_id, enable,
+                          jni_thread_wrapper(FROM_HERE, cb)));
   }
 };
 

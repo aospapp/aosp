@@ -17,11 +17,9 @@
 package com.android.tv.analytics;
 
 import com.android.tv.TimeShiftManager;
-import com.android.tv.data.Channel;
+import com.android.tv.data.api.Channel;
 
-/**
- * Interface for sending user activity for analysis.
- */
+/** Interface for sending user activity for analysis. */
 public interface Tracker {
 
     /**
@@ -45,9 +43,7 @@ public interface Tracker {
      */
     void sendConfigurationInfo(ConfigurationInfo info);
 
-    /**
-     * Sends tracking information for starting the MainActivity.
-     */
+    /** Sends tracking information for starting the MainActivity. */
     void sendMainStart();
 
     /**
@@ -55,11 +51,9 @@ public interface Tracker {
      *
      * @param durationMs The time main activity was "started" in milliseconds.
      */
-    void sendMainStop( long durationMs);
+    void sendMainStop(long durationMs);
 
-    /**
-     * Sets the screen name and sends a ScreenView hit.
-     */
+    /** Sets the screen name and sends a ScreenView hit. */
     void sendScreenView(String screenName);
 
     /**
@@ -86,19 +80,13 @@ public interface Tracker {
      */
     void sendChannelViewStop(Channel channel, long durationMs);
 
-    /**
-     * Sends tracking information for pressing channel up.
-     */
+    /** Sends tracking information for pressing channel up. */
     void sendChannelUp();
 
-    /**
-     * Sends tracking information for pressing channel down.
-     */
+    /** Sends tracking information for pressing channel down. */
     void sendChannelDown();
 
-    /**
-     * Sends tracking information for showing the main menu.
-     */
+    /** Sends tracking information for showing the main menu. */
     void sendShowMenu();
 
     /**
@@ -126,14 +114,10 @@ public interface Tracker {
      */
     void sendMenuClicked(int labelResId);
 
-    /**
-     * Sends tracking information for showing the Electronic Program Guide (EPG).
-     */
+    /** Sends tracking information for showing the Electronic Program Guide (EPG). */
     void sendShowEpg();
 
-    /**
-     * Sends tracking information for clicking an Electronic Program Guide (EPG) item.
-     */
+    /** Sends tracking information for clicking an Electronic Program Guide (EPG) item. */
     void sendEpgItemClicked();
 
     /**
@@ -143,9 +127,7 @@ public interface Tracker {
      */
     void sendHideEpg(long durationMs);
 
-    /**
-     * Sends tracking information for showing the channel switch view.
-     */
+    /** Sends tracking information for showing the channel switch view. */
     void sendShowChannelSwitch();
 
     /**
@@ -155,9 +137,7 @@ public interface Tracker {
      */
     void sendHideChannelSwitch(long durationMs);
 
-    /**
-     * Sends tracking for each channel number or delimiter pressed.
-     */
+    /** Sends tracking for each channel number or delimiter pressed. */
     void sendChannelNumberInput();
 
     /**
@@ -167,19 +147,13 @@ public interface Tracker {
      */
     void sendChannelInputNavigated();
 
-    /**
-     * Sends tracking for channel clicked.
-     */
+    /** Sends tracking for channel clicked. */
     void sendChannelNumberItemClicked();
 
-    /**
-     * Sends tracking for channel chosen (tuned) because the channel switch view timed out.
-     */
+    /** Sends tracking for channel chosen (tuned) because the channel switch view timed out. */
     void sendChannelNumberItemChosenByTimeout();
 
-    /**
-     * Sends tracking for the reason video is unavailable on a channel.
-     */
+    /** Sends tracking for the reason video is unavailable on a channel. */
     void sendChannelVideoUnavailable(Channel channel, int reason);
 
     /**
@@ -191,6 +165,7 @@ public interface Tracker {
 
     /**
      * Sends tracking for input a connection failure.
+     *
      * <p><strong>WARNING</strong> callers must ensure no PII is included in the inputId.
      *
      * @param inputId the input the failure happened on
@@ -199,15 +174,14 @@ public interface Tracker {
 
     /**
      * Sends tracking for input disconnected.
+     *
      * <p><strong>WARNING</strong> callers must ensure no PII is included in the inputId.
      *
      * @param inputId the input the failure happened on
      */
     void sendInputDisconnected(String inputId);
 
-    /**
-     * Sends tracking information for showing the input selection view.
-     */
+    /** Sends tracking information for showing the input selection view. */
     void sendShowInputSelection();
 
     /**

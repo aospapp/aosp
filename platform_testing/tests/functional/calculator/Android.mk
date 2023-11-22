@@ -23,10 +23,10 @@ LOCAL_STATIC_JAVA_LIBRARIES := \
     launcher-helper-lib \
     metrics-helper-lib \
     ub-uiautomator \
-    services.core
 
-LOCAL_JAVA_LIBRARIES := legacy-android-test
+LOCAL_JAVA_LIBRARIES := android.test.base
 
 #LOCAL_SDK_VERSION := current
+LOCAL_PRIVATE_PLATFORM_APIS := true
 
 include $(BUILD_PACKAGE)

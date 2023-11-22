@@ -131,6 +131,7 @@ class graphics_GLBench(graphics_utils.GraphicsTest):
 
     cmd = '%s %s' % (exefile, options)
     summary = None
+    pc_error_reason = None
     try:
       if hasty:
         # On BVT the test will not monitor thermals so we will not verify its
@@ -155,7 +156,8 @@ class graphics_GLBench(graphics_utils.GraphicsTest):
                               stdout_tee=utils.TEE_TO_LOGS,
                               stderr_tee=utils.TEE_TO_LOGS).stdout
           if not pc.verify_is_valid():
-            raise error.TestFail('Failed: %s' % pc.get_error_reason())
+            # Defer error handling until after perf report.
+            pc_error_reason = pc.get_error_reason()
     except error.CmdError:
       raise error.TestFail('Failed: CmdError running %s' % cmd)
     except error.CmdTimeoutError:
@@ -287,3 +289,5 @@ class graphics_GLBench(graphics_utils.GraphicsTest):
     if not test_ended_normal:
       raise error.TestFail(
           'Failed: No end marker. Presumed crash/missing images.')
+    if pc_error_reason:
+      raise error.TestFail('Failed: %s' % pc_error_reason)

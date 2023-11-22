@@ -27,7 +27,7 @@
 
 #include <stdint.h>
 #include <sys/types.h>
-#include "calibration/magnetometer/mag_cal.h"
+#include "common/math/kasa.h"
 #include "common/math/mat.h"
 
 #ifdef __cplusplus
@@ -127,6 +127,25 @@ struct AccelCalAlgo {
   struct KasaFit akf;
 };
 
+// AccelCal algorithm parameters (see the AccelCal for details).
+struct AccelCalParameters {
+  // t0  -> Sets the time how long the accel has to be still in ns.
+  // n_s -> Defines the minimum number of samples for the stillness.
+  // th  -> Sets the threshold for the stillness VAR in (g rms)^2.
+  // fx,fxb,fy,fyb,fz,fzb,fle -> Defines how many counts of data in the
+  //                             sphere cap (Bucket) is needed to reach full.
+  uint32_t t0;
+  uint32_t n_s;
+  uint32_t fx;
+  uint32_t fxb;
+  uint32_t fy;
+  uint32_t fyb;
+  uint32_t fz;
+  uint32_t fzb;
+  uint32_t fle;
+  float th;
+};
+
 // Complete accel calibration struct.
 struct AccelCal {
   struct AccelCalAlgo ac1[ACCEL_CAL_NUM_TEMP_WINDOWS];
@@ -163,15 +182,15 @@ void accelCalRun(struct AccelCal *acc, uint64_t sample_time_nanos, float x,
                  float y, float z, float temp);
 
 /* This function initializes the accCalRun data struct.
- * t0     -> Sets the time how long the accel has to be still in ns.
- * n_s    -> Defines the minimum number of samples for the stillness.
- * th     -> Sets the threshold for the stillness VAR in (g rms)^2.
- * fx,fxb,fy,fyb,fz,fzb,fle -> Defines how many counts of data in the
- *                             sphere cap (Bucket) is needed to reach full.
+ * [parameters]:
+ *   t0     -> Sets the time how long the accel has to be still in ns.
+ *   n_s    -> Defines the minimum number of samples for the stillness.
+ *   th     -> Sets the threshold for the stillness VAR in (g rms)^2.
+ *   fx,fxb,fy,fyb,fz,fzb,fle -> Defines how many counts of data in the
+ *                               sphere cap (Bucket) is needed to reach full.
  */
-void accelCalInit(struct AccelCal *acc, uint32_t t0, uint32_t n_s, float th,
-                  uint32_t fx, uint32_t fxb, uint32_t fy, uint32_t fyb,
-                  uint32_t fz, uint32_t fzb, uint32_t fle);
+void accelCalInit(struct AccelCal *acc,
+                  const struct AccelCalParameters *parameters);
 
 void accelCalDestroy(struct AccelCal *acc);
 
@@ -181,6 +200,9 @@ bool accelCalUpdateBias(struct AccelCal *acc, float *x, float *y, float *z);
 void accelCalBiasSet(struct AccelCal *acc, float x, float y, float z);
 
 void accelCalBiasRemove(struct AccelCal *acc, float *x, float *y, float *z);
+
+// Returns true when a new accel calibration is available.
+bool accelCalNewBiasAvailable(struct AccelCal *acc);
 
 #ifdef ACCEL_CAL_DBG_ENABLED
 void accelCalDebPrint(struct AccelCal *acc, float temp);

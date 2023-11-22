@@ -19,7 +19,6 @@ import android.icu.util.ULocale.Category;
 /**
  * A class for accessing miscellaneous data in the locale bundles
  * @author ram
- * @hide Only a subset of ICU is exposed in Android
  */
 public final class LocaleData {
 
@@ -38,6 +37,7 @@ public final class LocaleData {
      * Corresponds to the 'main' (aka 'standard') CLDR exemplars in
      * <a href="http://www.unicode.org/reports/tr35/tr35-general.html#Character_Elements">
      *   http://www.unicode.org/reports/tr35/tr35-general.html#Character_Elements</a>.
+     * @hide unsupported on Android
      */
     public static final int ES_STANDARD = 0;
 
@@ -46,6 +46,7 @@ public final class LocaleData {
      * Corresponds to the 'auxiliary' CLDR exemplars in
      * <a href="http://www.unicode.org/reports/tr35/tr35-general.html#Character_Elements">
      *   http://www.unicode.org/reports/tr35/tr35-general.html#Character_Elements</a>.
+     * @hide unsupported on Android
      */
     public static final int ES_AUXILIARY = 1;
 
@@ -54,6 +55,7 @@ public final class LocaleData {
      * Corresponds to the 'index' CLDR exemplars in
      * <a href="http://www.unicode.org/reports/tr35/tr35-general.html#Character_Elements">
      *   http://www.unicode.org/reports/tr35/tr35-general.html#Character_Elements</a>.
+     * @hide unsupported on Android
      */
     public static final int ES_INDEX = 2;
 
@@ -64,6 +66,7 @@ public final class LocaleData {
      *   http://www.unicode.org/reports/tr35/tr35-general.html#Character_Elements</a>.
      * Note: This type is no longer supported.
      * @deprecated ICU 51
+     * @hide original deprecated declaration
      */
     @Deprecated
     public static final int ES_CURRENCY = 3;
@@ -73,12 +76,14 @@ public final class LocaleData {
      * <a href="http://www.unicode.org/reports/tr35/tr35-general.html#Character_Elements">
      *   http://www.unicode.org/reports/tr35/tr35-general.html#Character_Elements</a>.
      * EXType for {@link #getExemplarSet(int, int)}.
+     * @hide unsupported on Android
      */
     public static final int ES_PUNCTUATION = 4;
 
     /**
      * Count of EXTypes for {@link #getExemplarSet(int, int)}.
      * @deprecated ICU 58 The numeric value may change over time, see ICU ticket #12420.
+     * @hide original deprecated declaration
      */
     @Deprecated
     public static final int ES_COUNT = 5;
@@ -106,6 +111,7 @@ public final class LocaleData {
     /**
      * Count of delimiter types for {@link #getDelimiter(int)}.
      * @deprecated ICU 58 The numeric value may change over time, see ICU ticket #12420.
+     * @hide original deprecated declaration
      */
     @Deprecated
     public static final int DELIMITER_COUNT = 4;
@@ -130,6 +136,7 @@ public final class LocaleData {
      *                  IGNORE_SPACE bit is always set, regardless of the
      *                  value of 'options'.
      * @return          The set of exemplar characters for the given locale.
+     * @hide unsupported on Android
      */
     public static UnicodeSet getExemplarSet(ULocale locale, int options) {
         return LocaleData.getInstance(locale).getExemplarSet(options, ES_STANDARD);
@@ -151,6 +158,7 @@ public final class LocaleData {
      *                  value of 'options'.
      * @param extype    The type of exemplar character set to retrieve.
      * @return          The set of exemplar characters for the given locale.
+     * @hide unsupported on Android
      */
     public static UnicodeSet getExemplarSet(ULocale locale, int options, int extype) {
         return LocaleData.getInstance(locale).getExemplarSet(options, extype);
@@ -174,6 +182,7 @@ public final class LocaleData {
      *                  then null is returned if {@link #getNoSubstitute()} is true, otherwise the
      *                  root value is returned (which may be UnicodeSet.EMPTY).
      * @exception       RuntimeException if the extype is invalid.
+     * @hide unsupported on Android
      */
     public UnicodeSet getExemplarSet(int options, int extype) {
         String [] exemplarSetTypes = {
@@ -394,6 +403,7 @@ public final class LocaleData {
     /**
      * Returns LocaleDisplayPattern for this locale, e.g., {0}({1})
      * @return locale display pattern as a String.
+     * @hide unsupported on Android
      */
     public String getLocaleDisplayPattern() {
         ICUResourceBundle locDispBundle = (ICUResourceBundle) langBundle.get(LOCALE_DISPLAY_PATTERN);
@@ -404,6 +414,7 @@ public final class LocaleData {
     /**
      * Returns LocaleDisplaySeparator for this locale.
      * @return locale display separator as a char.
+     * @hide unsupported on Android
      */
     public String getLocaleSeparator() {
         String sub0 = "{0}";

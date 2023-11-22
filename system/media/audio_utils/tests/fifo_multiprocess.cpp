@@ -14,12 +14,15 @@
  * limitations under the License.
  */
 
-#include <new>
+#include <errno.h>
 #include <stdio.h>
+#include <string>
 #include <sys/mman.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
+
+#include <new>
 
 #include <audio_utils/fifo.h>
 #include <cutils/ashmem.h>

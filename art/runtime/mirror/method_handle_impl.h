@@ -21,8 +21,8 @@
 #include "art_method.h"
 #include "class.h"
 #include "gc_root.h"
-#include "object.h"
 #include "method_type.h"
+#include "object.h"
 
 namespace art {
 
@@ -48,6 +48,8 @@ class MANAGED MethodHandle : public Object {
     kInvokeInterface,
     kInvokeTransform,
     kInvokeCallSiteTransform,
+    kInvokeVarHandle,
+    kInvokeVarHandleExact,
     kInstanceGet,
     kInstancePut,
     kStaticGet,
@@ -55,7 +57,7 @@ class MANAGED MethodHandle : public Object {
     kLastValidKind = kStaticPut,
     kFirstAccessorKind = kInstanceGet,
     kLastAccessorKind = kStaticPut,
-    kLastInvokeKind = kInvokeCallSiteTransform
+    kLastInvokeKind = kInvokeVarHandleExact
   };
 
   Kind GetHandleKind() REQUIRES_SHARED(Locks::mutator_lock_) {
@@ -80,6 +82,10 @@ class MANAGED MethodHandle : public Object {
   }
 
   ALWAYS_INLINE ObjPtr<mirror::Class> GetTargetClass() REQUIRES_SHARED(Locks::mutator_lock_);
+
+  // Gets the return type for a named invoke method, or nullptr if the invoke method is not
+  // supported.
+  static const char* GetReturnTypeDescriptor(const char* invoke_method_name);
 
   static mirror::Class* StaticClass() REQUIRES_SHARED(Locks::mutator_lock_);
 

@@ -64,6 +64,10 @@ cc_library_shared {
         "-Werror",
     ],
 
+    sanitize: {
+        integer_overflow: true,
+        blacklist: "libexif_blacklist.txt",
+    },
 }
 
 // WARNING: this makefile builds a shared library. Do not ever make it build

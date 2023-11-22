@@ -15,7 +15,8 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="android.media.cts">
+    package="android.media.cts"
+    android:targetSandboxVersion="2">
 
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE"/>
@@ -30,7 +31,7 @@
     <uses-permission android:name="android.permission.SET_VOLUME_KEY_LONG_PRESS_LISTENER" />
     <uses-permission android:name="android.permission.SET_MEDIA_KEY_LISTENER" />
 
-    <application>
+    <application android:networkSecurityConfig="@xml/network_security_config">
         <uses-library android:name="android.test.runner" />
         <uses-library android:name="org.apache.http.legacy" android:required="false" />
 
@@ -87,6 +88,7 @@
                 <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
             </intent-filter>
         </activity>
+        <activity android:name="android.media.cts.MockActivity" />
         <service android:name="android.media.cts.RemoteVirtualDisplayService"
             android:process=":remoteService" >
             <intent-filter>
@@ -97,6 +99,20 @@
             <intent-filter>
                 <action android:name="android.media.browse.MediaBrowserService" />
             </intent-filter>
+        </service>
+        <!-- Keep the test services synced together with the TestUtils.java -->
+        <service android:name="android.media.cts.MockMediaSessionService2">
+            <intent-filter>
+                <action android:name="android.media.MediaSessionService2" />
+            </intent-filter>
+            <meta-data android:name="android.media.session" android:value="TestSession" />
+        </service>
+        <!-- Keep the test services synced together with the MockMediaLibraryService -->
+        <service android:name="android.media.cts.MockMediaLibraryService2">
+            <intent-filter>
+                <action android:name="android.media.MediaLibraryService2" />
+            </intent-filter>
+            <meta-data android:name="android.media.session" android:value="TestLibrary" />
         </service>
     </application>
 

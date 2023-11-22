@@ -1,6 +1,7 @@
 // Copyright (c) 2012 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+// Note: ported from Chromium commit head: 2de6929
 
 #include <string.h>
 
@@ -44,14 +45,14 @@ H264Picture::H264Picture()
   memset(&ref_pic_marking, 0, sizeof(ref_pic_marking));
 }
 
-H264Picture::~H264Picture() {}
+H264Picture::~H264Picture() = default;
 
 V4L2H264Picture* H264Picture::AsV4L2H264Picture() {
   return nullptr;
 }
 
 H264DPB::H264DPB() : max_num_pics_(0) {}
-H264DPB::~H264DPB() {}
+H264DPB::~H264DPB() = default;
 
 void H264DPB::Clear() {
   pics_.clear();

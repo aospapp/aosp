@@ -23,10 +23,14 @@ import java.util.regex.Matcher;
 import android.icu.text.UTF16;
 import android.icu.text.UnicodeSet;
 import android.icu.text.UnicodeSetIterator;
+import android.icu.testsharding.MainTestShard;
 
 /**
  * Utilities that ought to be on collections, but aren't
+ *
+ * @internal CLDR
  */
+@MainTestShard
 public final class CollectionUtilities {
 
     /**

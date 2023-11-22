@@ -10,7 +10,6 @@
 int mmap_test(int test_runs, unsigned long long alloc_size) {
     void *buf;
     int ret = -1;
-    int rc;
     int i;
     struct timeval begin_time, end_time, elapsed_time;
     struct timeval total_time_mmap, total_time_munmap, total_time_in, total_time_out;
@@ -43,8 +42,8 @@ int mmap_test(int test_runs, unsigned long long alloc_size) {
 
     ret = 0;
     goto end;
-err:
-    munmap(buf, alloc_size);
+// err:
+    munmap(buf, alloc_size); // unreached?
 end:
 err_map:
     return ret;

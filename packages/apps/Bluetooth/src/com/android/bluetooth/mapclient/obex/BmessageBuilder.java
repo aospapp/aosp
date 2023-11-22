@@ -22,35 +22,36 @@ import com.android.vcard.VCardEntry.NameData;
 import com.android.vcard.VCardEntry.PhoneData;
 
 import java.util.List;
+
 /* BMessage as defined by MAP_SPEC_V101 Section 3.1.3 Message format (x-bt/message) */
 class BmessageBuilder {
-    private final static String CRLF = "\r\n";
-    private final static String BMSG_BEGIN = "BEGIN:BMSG";
-    private final static String BMSG_VERSION = "VERSION:1.0";
-    private final static String BMSG_STATUS = "STATUS:";
-    private final static String BMSG_TYPE = "TYPE:";
-    private final static String BMSG_FOLDER = "FOLDER:";
-    private final static String BMSG_END = "END:BMSG";
+    private static final String CRLF = "\r\n";
+    private static final String BMSG_BEGIN = "BEGIN:BMSG";
+    private static final String BMSG_VERSION = "VERSION:1.0";
+    private static final String BMSG_STATUS = "STATUS:";
+    private static final String BMSG_TYPE = "TYPE:";
+    private static final String BMSG_FOLDER = "FOLDER:";
+    private static final String BMSG_END = "END:BMSG";
 
-    private final static String BENV_BEGIN = "BEGIN:BENV";
-    private final static String BENV_END = "END:BENV";
+    private static final String BENV_BEGIN = "BEGIN:BENV";
+    private static final String BENV_END = "END:BENV";
 
-    private final static String BBODY_BEGIN = "BEGIN:BBODY";
-    private final static String BBODY_ENCODING = "ENCODING:";
-    private final static String BBODY_CHARSET = "CHARSET:";
-    private final static String BBODY_LANGUAGE = "LANGUAGE:";
-    private final static String BBODY_LENGTH = "LENGTH:";
-    private final static String BBODY_END = "END:BBODY";
+    private static final String BBODY_BEGIN = "BEGIN:BBODY";
+    private static final String BBODY_ENCODING = "ENCODING:";
+    private static final String BBODY_CHARSET = "CHARSET:";
+    private static final String BBODY_LANGUAGE = "LANGUAGE:";
+    private static final String BBODY_LENGTH = "LENGTH:";
+    private static final String BBODY_END = "END:BBODY";
 
-    private final static String MSG_BEGIN = "BEGIN:MSG";
-    private final static String MSG_END = "END:MSG";
+    private static final String MSG_BEGIN = "BEGIN:MSG";
+    private static final String MSG_END = "END:MSG";
 
-    private final static String VCARD_BEGIN = "BEGIN:VCARD";
-    private final static String VCARD_VERSION = "VERSION:2.1";
-    private final static String VCARD_N = "N:";
-    private final static String VCARD_EMAIL = "EMAIL:";
-    private final static String VCARD_TEL = "TEL:";
-    private final static String VCARD_END = "END:VCARD";
+    private static final String VCARD_BEGIN = "BEGIN:VCARD";
+    private static final String VCARD_VERSION = "VERSION:2.1";
+    private static final String VCARD_N = "N:";
+    private static final String VCARD_EMAIL = "EMAIL:";
+    private static final String VCARD_TEL = "TEL:";
+    private static final String VCARD_END = "END:VCARD";
 
     private final StringBuilder mBmsg;
 
@@ -58,7 +59,7 @@ class BmessageBuilder {
         mBmsg = new StringBuilder();
     }
 
-    static public String createBmessage(Bmessage bmsg) {
+    public static String createBmessage(Bmessage bmsg) {
         BmessageBuilder b = new BmessageBuilder();
 
         b.build(bmsg);

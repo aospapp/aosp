@@ -24,37 +24,46 @@ from time import sleep
 
 from android import Screen, System, Workload
 
+import pandas as pd
+
 class SystemUi(Workload):
     """
     Android SystemUi jank test workload
     """
 
-    package = 'com.android.systemui'
+    # Packages required by this workload
+    packages = [
+        Workload.WorkloadPackage("android.platform.systemui.tests.jank",
+                                 "data/app/UbSystemUiJankTests/UbSystemUiJankTests.apk",
+                                 "platform_testing/tests/jank/UbSystemUiJankTests")
+    ]
 
     # Instrumentation required to run tests
-    test_package = 'android.platform.systemui.tests.jank'
+    test_package = packages[0].package_name
 
-    testOpenAllAppsContainer = "LauncherJankTests#testOpenAllAppsContainer"
-    testAllAppsContainerSwipe = "LauncherJankTests#testAllAppsContainerSwipe"
-    testHomeScreenSwipe = "LauncherJankTests#testHomeScreenSwipe"
-    testWidgetsContainerFling = "LauncherJankTests#testWidgetsContainerFling"
-    testSettingsFling = "SettingsJankTests#testSettingsFling"
-    testRecentAppsFling = "SystemUiJankTests#testRecentAppsFling"
-    testRecentAppsDismiss = "SystemUiJankTests#testRecentAppsDismiss"
-    testNotificationListPull = "SystemUiJankTests#testNotificationListPull"
-    testNotificationListPull_manyNotifications = "SystemUiJankTests#testNotificationListPull_manyNotifications"
-    testQuickSettingsPull = "SystemUiJankTests#testQuickSettingsPull"
-    testUnlock = "SystemUiJankTests#testUnlock"
-    testExpandGroup = "SystemUiJankTests#testExpandGroup"
-    testClearAll = "SystemUiJankTests#testClearAll"
-    testChangeBrightness = "SystemUiJankTests#testChangeBrightness"
-    testNotificationAppear = "SystemUiJankTests#testNotificationAppear"
-    testCameraFromLockscreen = "SystemUiJankTests#testCameraFromLockscreen"
-    testAmbientWakeUp = "SystemUiJankTests#testAmbientWakeUp"
-    testGoToFullShade = "SystemUiJankTests#testGoToFullShade"
-    testInlineReply = "SystemUiJankTests#testInlineReply"
-    testPinAppearance = "SystemUiJankTests#testPinAppearance"
-    testLaunchSettings = "SystemUiJankTests#testLaunchSettings"
+    test_list = \
+    ["LauncherJankTests#testOpenAllAppsContainer",
+    "LauncherJankTests#testAllAppsContainerSwipe",
+    "LauncherJankTests#testHomeScreenSwipe",
+    "LauncherJankTests#testWidgetsContainerFling",
+    "SettingsJankTests#testSettingsFling",
+    "SystemUiJankTests#testRecentAppsFling",
+    "SystemUiJankTests#testRecentAppsDismiss",
+    "SystemUiJankTests#testNotificationListPull",
+    "SystemUiJankTests#testNotificationListPull_manyNotifications",
+    "SystemUiJankTests#testNotificationListScroll",
+    "SystemUiJankTests#testQuickSettingsPull",
+    "SystemUiJankTests#testUnlock",
+    "SystemUiJankTests#testExpandGroup",
+    "SystemUiJankTests#testClearAll",
+    "SystemUiJankTests#testChangeBrightness",
+    "SystemUiJankTests#testNotificationAppear",
+    "SystemUiJankTests#testCameraFromLockscreen",
+    "SystemUiJankTests#testAmbientWakeUp",
+    "SystemUiJankTests#testGoToFullShade",
+    "SystemUiJankTests#testInlineReply",
+    "SystemUiJankTests#testPinAppearance",
+    "SystemUiJankTests#testLaunchSettings"]
 
     def __init__(self, test_env):
         super(SystemUi, self).__init__(test_env)
@@ -64,9 +73,14 @@ class SystemUi(Workload):
         # Set of output data reported by SystemUi
         self.db_file = None
 
-    def run(self, out_dir, test_name, iterations, collect='gfxinfo'):
+    def get_test_list(self):
+        return SystemUi.test_list
+
+    def run(self, out_dir, test_name, iterations, collect=''):
         """
         Run single SystemUi jank test workload.
+        Performance statistics are stored in self.results, and can be retrieved after
+        the fact by calling SystemUi.get_results()
 
         :param out_dir: Path to experiment directory where to store results.
         :type out_dir: str
@@ -94,11 +108,13 @@ class SystemUi(Workload):
         self.out_dir = out_dir
         self.collect = collect
 
+        # Filter out test overhead
+        filter_prop = System.get_boolean_property(self._target, 'debug.hwui.filter_test_overhead')
+        if not filter_prop:
+            System.set_property(self._target, 'debug.hwui.filter_test_overhead', 'true', restart=True)
+
         # Unlock device screen (assume no password required)
         Screen.unlock(self._target)
-
-        # Close and clear application
-        System.force_stop(self._target, self.package, clear=True)
 
         # Set airplane mode
         System.set_airplane_mode(self._target, on=True)
@@ -109,9 +125,8 @@ class SystemUi(Workload):
         # Force screen in PORTRAIT mode
         Screen.set_orientation(self._target, portrait=True)
 
-        # Reset frame statistics
-        System.gfxinfo_reset(self._target, self.package)
-        sleep(1)
+        # Delete old test results
+        self._target.remove('/sdcard/results.log')
 
         # Clear logcat
         os.system(self._adb('logcat -c'));
@@ -133,6 +148,9 @@ class SystemUi(Workload):
 
         command = "nohup am instrument -e iterations {} -e class {}{} -w {}".format(
             iterations, self.test_package, activity, self.test_package)
+
+        print "command: {}".format(command)
+
         self._target.background(command)
 
         logcat = Popen(logcat_cmd, shell=True, stdout=PIPE)
@@ -153,6 +171,9 @@ class SystemUi(Workload):
                 break
 
         sleep(5)
+        self._target.pull('/sdcard/results.log', os.path.join(out_dir, 'results.log'))
+        self._target.remove('/sdcard/results.log')
+        self.results = self.get_results(out_dir)
 
         # Go back to home screen
         System.home(self._target)
@@ -161,3 +182,29 @@ class SystemUi(Workload):
         Screen.set_orientation(self._target, auto=True)
         System.set_airplane_mode(self._target, on=False)
         Screen.set_brightness(self._target, auto=True)
+
+
+    @staticmethod
+    def get_results(out_dir):
+        """
+        Parse SystemUi test output log and return a pandas dataframe of test results.
+
+        :param out_dir: Output directory for a run of the SystemUi workload.
+        :type out_dir: str
+        """
+        path = os.path.join(out_dir, 'results.log')
+        with open(path, "r") as f:
+            lines = f.readlines()
+        data = {}
+        for line in lines:
+            key, val = str.split(line)
+            if key == 'Result':
+                key = 'test-name'
+            elif key.startswith('gfx-'):
+                key = key[4:]
+                val = float(val)
+            else:
+                raise ValueError('Unrecognized line in results file')
+            data[key] = val
+        columns, values = zip(*((k,v) for k,v in data.iteritems()))
+        return pd.DataFrame([values], columns=columns)

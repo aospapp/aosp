@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2009-2012 Broadcom Corporation
+ *  Copyright 2009-2012 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -473,12 +473,9 @@ void bta_hh_co_send_hid_info(btif_hh_device_t* p_dev, const char* dev_name,
   // Create and send hid descriptor to kernel
   memset(&ev, 0, sizeof(ev));
   ev.type = UHID_CREATE;
-  strncpy((char*)ev.u.create.name, dev_name, sizeof(ev.u.create.name) - 1);
-  snprintf((char*)ev.u.create.uniq, sizeof(ev.u.create.uniq),
-           "%2.2X:%2.2X:%2.2X:%2.2X:%2.2X:%2.2X", p_dev->bd_addr.address[5],
-           p_dev->bd_addr.address[4], p_dev->bd_addr.address[3],
-           p_dev->bd_addr.address[2], p_dev->bd_addr.address[1],
-           p_dev->bd_addr.address[0]);
+  strlcpy((char*)ev.u.create.name, dev_name, sizeof(ev.u.create.name));
+  snprintf((char*)ev.u.create.uniq, sizeof(ev.u.create.uniq), "%s",
+           p_dev->bd_addr.ToString().c_str());
   ev.u.create.rd_size = dscp_len;
   ev.u.create.rd_data = p_dscp;
   ev.u.create.bus = BUS_BLUETOOTH;
@@ -565,7 +562,7 @@ tBTA_HH_RPT_CACHE_ENTRY* bta_hh_le_co_cache_load(const RawAddress& remote_bda,
   const char* bdstr = addrstr.c_str();
 
   size_t len = btif_config_get_bin_length(bdstr, "HidReport");
-  if (!p_num_rpt && len < sizeof(tBTA_HH_RPT_CACHE_ENTRY)) return NULL;
+  if (!p_num_rpt || len < sizeof(tBTA_HH_RPT_CACHE_ENTRY)) return NULL;
 
   if (len > sizeof(sReportCache)) len = sizeof(sReportCache);
   btif_config_get_bin(bdstr, "HidReport", (uint8_t*)sReportCache, &len);

@@ -340,6 +340,14 @@ static void* load_system_driver(const char* kind) {
                     result = std::string("/vendor/lib/egl/lib") + kind + "_emulation.so";
 #endif
                     return result;
+                case 2:
+                    // Use guest side swiftshader library
+#if defined(__LP64__)
+                    result = std::string("/vendor/lib64/egl/lib") + kind + "_swiftshader.so";
+#else
+                    result = std::string("/vendor/lib/egl/lib") + kind + "_swiftshader.so";
+#endif
+                    return result;
                 default:
                     // Not in emulator, or use other guest-side implementation
                     break;
@@ -389,7 +397,7 @@ static void* load_system_driver(const char* kind) {
         static bool find(std::string& result,
                 const std::string& pattern, const char* const search, bool exact) {
             if (exact) {
-                std::string absolutePath = std::string(search) + "/" + pattern;
+                std::string absolutePath = std::string(search) + "/" + pattern + ".so";
                 if (!access(absolutePath.c_str(), R_OK)) {
                     result = absolutePath;
                     return true;
@@ -399,9 +407,8 @@ static void* load_system_driver(const char* kind) {
 
             DIR* d = opendir(search);
             if (d != NULL) {
-                struct dirent cur;
                 struct dirent* e;
-                while (readdir_r(d, &cur, &e) == 0 && e) {
+                while ((e = readdir(d)) != NULL) {
                     if (e->d_type == DT_DIR) {
                         continue;
                     }

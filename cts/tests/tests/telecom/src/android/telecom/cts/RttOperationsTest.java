@@ -34,11 +34,23 @@ public class RttOperationsTest extends BaseTelecomTestWithMockServices {
     };
     private static final int RTT_FAILURE_REASON = 2;
 
+    private boolean mInitialRttMode;
+
     @Override
     protected void setUp() throws Exception {
         super.setUp();
         if (mShouldTestTelecom) {
             setupConnectionService(null, FLAG_REGISTER | FLAG_ENABLE);
+            mInitialRttMode = getRttMasterSwitch();
+            setRttMasterSwitch(false);
+        }
+    }
+
+    @Override
+    protected void tearDown() throws Exception {
+        super.tearDown();
+        if (mShouldTestTelecom) {
+            setRttMasterSwitch(mInitialRttMode);
         }
     }
 
@@ -60,6 +72,7 @@ public class RttOperationsTest extends BaseTelecomTestWithMockServices {
             return;
         }
 
+        setRttMasterSwitch(true);
         placeRttCall(true);
         final MockConnection connection = verifyConnectionForIncomingCall();
         final MockInCallService inCallService = mInCallCallbacks.getService();
@@ -85,6 +98,8 @@ public class RttOperationsTest extends BaseTelecomTestWithMockServices {
         startRttCounter.waitForCount(1, TestUtils.WAIT_FOR_STATE_CHANGE_TIMEOUT_MS);
 
         connection.setRttTextStream((Connection.RttTextStream) startRttCounter.getArgs(0)[0]);
+        connection.setConnectionProperties(
+                connection.getConnectionProperties() | Connection.PROPERTY_IS_RTT);
         connection.sendRttInitiationSuccess();
         TestUtils.waitOnAllHandlers(getInstrumentation());
         verifyRttEnabled(call, connection);
@@ -176,6 +191,8 @@ public class RttOperationsTest extends BaseTelecomTestWithMockServices {
                 connection.getInvokeCounter(MockConnection.ON_STOP_RTT);
         call.stopRtt();
         stopRttCounter.waitForCount(1, TestUtils.WAIT_FOR_STATE_CHANGE_TIMEOUT_MS);
+        connection.setConnectionProperties(
+                connection.getConnectionProperties() & ~Connection.PROPERTY_IS_RTT);
         TestUtils.waitOnAllHandlers(getInstrumentation());
         verifyRttDisabled(call);
     }
@@ -196,6 +213,8 @@ public class RttOperationsTest extends BaseTelecomTestWithMockServices {
                 connection.getInvokeCounter(MockConnection.ON_STOP_RTT);
         call.stopRtt();
         stopRttCounter.waitForCount(1, TestUtils.WAIT_FOR_STATE_CHANGE_TIMEOUT_MS);
+        connection.setConnectionProperties(
+                connection.getConnectionProperties() & ~Connection.PROPERTY_IS_RTT);
         TestUtils.waitOnAllHandlers(getInstrumentation());
         verifyRttDisabled(call);
     }
@@ -215,6 +234,25 @@ public class RttOperationsTest extends BaseTelecomTestWithMockServices {
         assertNotNull(inCallSideRtt);
 
         verifyRttPipeIntegrity(inCallSideRtt, connectionSideRtt);
+        verifyRttPipeReadBlocking(connectionSideRtt);
+    }
+
+    private void verifyRttPipeReadBlocking(Connection.RttTextStream connectionSide) {
+        // Make sure that nothing gets read from the pipe
+        boolean[] flag = new boolean[1];
+        flag[0] = false;
+        Thread t = new Thread(() -> {
+            try {
+                connectionSide.read();
+                flag[0] = true;
+            } catch (Exception e) {
+                // do nothing
+            }
+        });
+        t.start();
+        sleep(500);
+        t.interrupt();
+        assertFalse(flag[0]);
     }
 
     private void verifyRttPipeIntegrity(Call.RttCall inCallSide, Connection.RttTextStream
@@ -273,6 +311,7 @@ public class RttOperationsTest extends BaseTelecomTestWithMockServices {
 
         }
     }
+
     private void placeRttCall(boolean incoming) {
         Bundle extras = new Bundle();
         extras.putBoolean(TelecomManager.EXTRA_START_CALL_WITH_RTT, true);
@@ -282,6 +321,21 @@ public class RttOperationsTest extends BaseTelecomTestWithMockServices {
             Bundle outgoingCallExtras = new Bundle();
             outgoingCallExtras.putParcelable(TelecomManager.EXTRA_OUTGOING_CALL_EXTRAS, extras);
             placeAndVerifyCall(outgoingCallExtras);
+        }
+    }
+
+    private void setRttMasterSwitch(boolean on) throws Exception {
+        TestUtils.executeShellCommand(getInstrumentation(),
+                "settings put system rtt_calling_mode " + (on ? 1 : 0));
+    }
+
+    private boolean getRttMasterSwitch() throws Exception {
+        try {
+            return Integer.valueOf(TestUtils.executeShellCommand(
+                    getInstrumentation(), "settings get system rtt_calling_mode")) == 1;
+        } catch (NumberFormatException e) {
+            // If the setting hasn't been set yet, assume it's off
+            return false;
         }
     }
 }

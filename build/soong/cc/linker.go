@@ -18,6 +18,7 @@ import (
 	"android/soong/android"
 	"fmt"
 
+	"github.com/google/blueprint"
 	"github.com/google/blueprint/proptools"
 )
 
@@ -42,10 +43,6 @@ type BaseLinkerProperties struct {
 
 	// list of module-specific flags that will be used for all link steps
 	Ldflags []string `android:"arch_variant"`
-
-	// don't insert default compiler flags into asflags, cflags,
-	// cppflags, conlyflags, ldflags, or include_dirs
-	No_default_compiler_flags *bool
 
 	// list of system libraries that will be dynamically linked to
 	// shared library and executable modules.  If unset, generally defaults to libc,
@@ -93,8 +90,15 @@ type BaseLinkerProperties struct {
 			// list of shared libs that should not be used to build
 			// the vendor variant of the C/C++ module.
 			Exclude_shared_libs []string
+
+			// list of static libs that should not be used to build
+			// the vendor variant of the C/C++ module.
+			Exclude_static_libs []string
 		}
 	}
+
+	// make android::build:GetBuildNumber() available containing the build ID.
+	Use_version_lib *bool `android:"arch_variant"`
 }
 
 func NewBaseLinker() *baseLinker {
@@ -136,9 +140,16 @@ func (linker *baseLinker) linkerDeps(ctx BaseModuleContext, deps Deps) Deps {
 	deps.ReexportSharedLibHeaders = append(deps.ReexportSharedLibHeaders, linker.Properties.Export_shared_lib_headers...)
 	deps.ReexportGeneratedHeaders = append(deps.ReexportGeneratedHeaders, linker.Properties.Export_generated_headers...)
 
-	if ctx.vndk() {
+	if Bool(linker.Properties.Use_version_lib) {
+		deps.WholeStaticLibs = append(deps.WholeStaticLibs, "libbuildversion")
+	}
+
+	if ctx.useVndk() {
 		deps.SharedLibs = removeListFromList(deps.SharedLibs, linker.Properties.Target.Vendor.Exclude_shared_libs)
 		deps.ReexportSharedLibHeaders = removeListFromList(deps.ReexportSharedLibHeaders, linker.Properties.Target.Vendor.Exclude_shared_libs)
+		deps.StaticLibs = removeListFromList(deps.StaticLibs, linker.Properties.Target.Vendor.Exclude_static_libs)
+		deps.ReexportStaticLibHeaders = removeListFromList(deps.ReexportStaticLibHeaders, linker.Properties.Target.Vendor.Exclude_static_libs)
+		deps.WholeStaticLibs = removeListFromList(deps.WholeStaticLibs, linker.Properties.Target.Vendor.Exclude_static_libs)
 	}
 
 	if ctx.ModuleName() != "libcompiler_rt-extras" {
@@ -178,7 +189,7 @@ func (linker *baseLinker) linkerDeps(ctx BaseModuleContext, deps Deps) Deps {
 			}
 
 			deps.LateSharedLibs = append(deps.LateSharedLibs, systemSharedLibs...)
-		} else if ctx.sdk() || ctx.vndk() {
+		} else if ctx.useSdk() || ctx.useVndk() {
 			deps.LateSharedLibs = append(deps.LateSharedLibs, "libc", "libm", "libdl")
 		}
 	}
@@ -193,26 +204,43 @@ func (linker *baseLinker) linkerDeps(ctx BaseModuleContext, deps Deps) Deps {
 func (linker *baseLinker) linkerFlags(ctx ModuleContext, flags Flags) Flags {
 	toolchain := ctx.toolchain()
 
-	if !ctx.noDefaultCompilerFlags() {
-		if Bool(linker.Properties.Allow_undefined_symbols) {
-			if ctx.Darwin() {
-				// darwin defaults to treating undefined symbols as errors
-				flags.LdFlags = append(flags.LdFlags, "-Wl,-undefined,dynamic_lookup")
+	hod := "Host"
+	if ctx.Os().Class == android.Device {
+		hod = "Device"
+	}
+
+	flags.LdFlags = append(flags.LdFlags, fmt.Sprintf("${config.%sGlobalLdflags}", hod))
+	if Bool(linker.Properties.Allow_undefined_symbols) {
+		if ctx.Darwin() {
+			// darwin defaults to treating undefined symbols as errors
+			flags.LdFlags = append(flags.LdFlags, "-Wl,-undefined,dynamic_lookup")
+		}
+	} else if !ctx.Darwin() {
+		flags.LdFlags = append(flags.LdFlags, "-Wl,--no-undefined")
+	}
+
+	if flags.Clang {
+		flags.LdFlags = append(flags.LdFlags, toolchain.ClangLdflags())
+	} else {
+		flags.LdFlags = append(flags.LdFlags, toolchain.Ldflags())
+	}
+
+	if !ctx.toolchain().Bionic() {
+		CheckBadHostLdlibs(ctx, "host_ldlibs", linker.Properties.Host_ldlibs)
+
+		flags.LdFlags = append(flags.LdFlags, linker.Properties.Host_ldlibs...)
+
+		if !ctx.Windows() {
+			// Add -ldl, -lpthread, -lm and -lrt to host builds to match the default behavior of device
+			// builds
+			flags.LdFlags = append(flags.LdFlags,
+				"-ldl",
+				"-lpthread",
+				"-lm",
+			)
+			if !ctx.Darwin() {
+				flags.LdFlags = append(flags.LdFlags, "-lrt")
 			}
-		} else if !ctx.Darwin() {
-			flags.LdFlags = append(flags.LdFlags, "-Wl,--no-undefined")
-		}
-
-		if flags.Clang {
-			flags.LdFlags = append(flags.LdFlags, toolchain.ClangLdflags())
-		} else {
-			flags.LdFlags = append(flags.LdFlags, toolchain.Ldflags())
-		}
-
-		if !ctx.toolchain().Bionic() {
-			CheckBadHostLdlibs(ctx, "host_ldlibs", linker.Properties.Host_ldlibs)
-
-			flags.LdFlags = append(flags.LdFlags, linker.Properties.Host_ldlibs...)
 		}
 	}
 
@@ -226,9 +254,19 @@ func (linker *baseLinker) linkerFlags(ctx ModuleContext, flags Flags) Flags {
 			rpath_prefix = "@loader_path/"
 		}
 
-		for _, rpath := range linker.dynamicProperties.RunPaths {
-			flags.LdFlags = append(flags.LdFlags, "-Wl,-rpath,"+rpath_prefix+rpath)
+		if !ctx.static() {
+			for _, rpath := range linker.dynamicProperties.RunPaths {
+				flags.LdFlags = append(flags.LdFlags, "-Wl,-rpath,"+rpath_prefix+rpath)
+			}
 		}
+	}
+
+	if ctx.useSdk() && (ctx.Arch().ArchType != android.Mips && ctx.Arch().ArchType != android.Mips64) {
+		// The bionic linker now has support gnu style hashes (which are much faster!), but shipping
+		// to older devices requires the old style hash. Fortunately, we can build with both and
+		// it'll work anywhere.
+		// This is not currently supported on MIPS architectures.
+		flags.LdFlags = append(flags.LdFlags, "-Wl,--hash-style=both")
 	}
 
 	if flags.Clang {
@@ -247,4 +285,32 @@ func (linker *baseLinker) linkerFlags(ctx ModuleContext, flags Flags) Flags {
 func (linker *baseLinker) link(ctx ModuleContext,
 	flags Flags, deps PathDeps, objs Objects) android.Path {
 	panic(fmt.Errorf("baseLinker doesn't know how to link"))
+}
+
+// Injecting version symbols
+// Some host modules want a version number, but we don't want to rebuild it every time.  Optionally add a step
+// after linking that injects a constant placeholder with the current version number.
+
+func init() {
+	pctx.HostBinToolVariable("symbolInjectCmd", "symbol_inject")
+}
+
+var injectVersionSymbol = pctx.AndroidStaticRule("injectVersionSymbol",
+	blueprint.RuleParams{
+		Command: "$symbolInjectCmd -i $in -o $out -s soong_build_number " +
+			"-from 'SOONG BUILD NUMBER PLACEHOLDER' -v $buildNumberFromFile",
+		CommandDeps: []string{"$symbolInjectCmd"},
+	},
+	"buildNumberFromFile")
+
+func (linker *baseLinker) injectVersionSymbol(ctx ModuleContext, in android.Path, out android.WritablePath) {
+	ctx.Build(pctx, android.BuildParams{
+		Rule:        injectVersionSymbol,
+		Description: "inject version symbol",
+		Input:       in,
+		Output:      out,
+		Args: map[string]string{
+			"buildNumberFromFile": ctx.Config().BuildNumberFromFile(),
+		},
+	})
 }

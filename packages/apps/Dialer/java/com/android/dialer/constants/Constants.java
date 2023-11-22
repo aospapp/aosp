@@ -16,6 +16,7 @@
 
 package com.android.dialer.constants;
 
+import android.content.Context;
 import android.support.annotation.NonNull;
 import com.android.dialer.common.Assert;
 import com.android.dialer.proguard.UsedByReflection;
@@ -55,6 +56,17 @@ public abstract class Constants {
 
   @NonNull
   public abstract String getAnnotatedCallLogProviderAuthority();
+
+  @NonNull
+  public abstract String getPhoneLookupHistoryProviderAuthority();
+
+  @NonNull
+  public abstract String getPreferredSimFallbackProviderAuthority();
+
+  public abstract String getUserAgent(Context context);
+
+  @NonNull
+  public abstract String getSettingsActivity();
 
   protected Constants() {}
 }

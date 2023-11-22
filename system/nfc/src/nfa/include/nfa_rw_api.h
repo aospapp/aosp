@@ -31,12 +31,9 @@
 **  Constants and data types
 *****************************************************************************/
 enum {
-  NFA_RW_PRES_CHK_DEFAULT,    /* The default behavior             */
-  NFA_RW_PRES_CHK_I_BLOCK,    /* Empty I Block                    */
-  NFA_RW_PRES_CHK_RESET,      /* Deactivate to Sleep; Re-activate */
-  NFA_RW_PRES_CHK_RB_CH0,     /* ReadBinary on Channel 0          */
-  NFA_RW_PRES_CHK_RB_CH3,     /* ReadBinary on Channel 3          */
-  NFA_RW_PRES_CHK_ISO_DEP_NAK /* presence check command ISO-DEP
+  NFA_RW_PRES_CHK_DEFAULT,        /* The default behavior             */
+  NFA_RW_PRES_CHK_I_BLOCK,        /* Empty I Block                    */
+  NFA_RW_PRES_CHK_ISO_DEP_NAK = 5 /* presence check command ISO-DEP
                                  NAK as per NCI2.0                */
 };
 typedef uint8_t tNFA_RW_PRES_CHK_OPTION;
@@ -54,9 +51,6 @@ typedef struct {
 /*****************************************************************************
 **  External Function Declarations
 *****************************************************************************/
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 /*******************************************************************************
 **
@@ -747,9 +741,5 @@ extern tNFA_STATUS NFA_RwI93GetSysInfo(uint8_t* p_uid);
 *******************************************************************************/
 extern tNFA_STATUS NFA_RwI93GetMultiBlockSecurityStatus(
     uint8_t first_block_number, uint16_t number_blocks);
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif /* NFA_RW_API_H */

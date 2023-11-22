@@ -674,7 +674,6 @@ public class MediaDrmMockTest extends AndroidTestCase {
                                     Log.d(TAG,"testEventNoSessionNoData.onEvent");
                                     assertTrue(md == mMediaDrm);
                                     assertTrue(event == 2);
-                                    assertTrue(extra == 456);
                                     assertTrue(sessionId == null);
                                     assertTrue(data == null);
                                     mGotEvent = true;
@@ -753,7 +752,6 @@ public class MediaDrmMockTest extends AndroidTestCase {
                                     Log.d(TAG,"testEventWithSessoinAndData.onEvent");
                                     assertTrue(md == mMediaDrm);
                                     assertTrue(event == 1);
-                                    assertTrue(extra == 123);
                                     assertTrue(Arrays.equals(sessionId, expected_sessionId));
                                     assertTrue(Arrays.equals(data, expected_data));
                                     mGotEvent = true;

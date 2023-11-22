@@ -2,7 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import logging, os, re, utils
+import logging, os, re
 
 from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error

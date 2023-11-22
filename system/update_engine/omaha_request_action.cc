@@ -21,6 +21,7 @@
 #include <map>
 #include <sstream>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <base/bind.h>
@@ -31,6 +32,7 @@
 #include <base/strings/string_util.h>
 #include <base/strings/stringprintf.h>
 #include <base/time/time.h>
+#include <brillo/key_value_store.h>
 #include <expat.h>
 #include <metrics/metrics_library.h>
 
@@ -42,7 +44,7 @@
 #include "update_engine/common/prefs_interface.h"
 #include "update_engine/common/utils.h"
 #include "update_engine/connection_manager_interface.h"
-#include "update_engine/metrics.h"
+#include "update_engine/metrics_reporter_interface.h"
 #include "update_engine/metrics_utils.h"
 #include "update_engine/omaha_request_params.h"
 #include "update_engine/p2p_manager.h"
@@ -207,7 +209,16 @@ string GetCohortArgXml(PrefsInterface* prefs,
 struct OmahaAppData {
   string id;
   string version;
+  string product_components;
 };
+
+bool IsValidComponentID(const string& id) {
+  for (char c : id) {
+    if (!isalnum(c) && c != '-' && c != '_' && c != '.')
+      return false;
+  }
+  return true;
+}
 
 // Returns an XML that corresponds to the entire <app> node of the Omaha
 // request based on the given parameters.
@@ -225,10 +236,10 @@ string GetAppXml(const OmahaEvent* event,
                                system_state->prefs());
   string app_versions;
 
-  // If we are upgrading to a more stable channel and we are allowed to do
+  // If we are downgrading to a more stable channel and we are allowed to do
   // powerwash, then pass 0.0.0.0 as the version. This is needed to get the
   // highest-versioned payload on the destination channel.
-  if (params->to_more_stable_channel() && params->is_powerwash_allowed()) {
+  if (params->ShouldPowerwash()) {
     LOG(INFO) << "Passing OS version as 0.0.0.0 as we are set to powerwash "
               << "on downgrading to the version in the more stable channel";
     app_versions = "version=\"0.0.0.0\" from_version=\"" +
@@ -266,8 +277,9 @@ string GetAppXml(const OmahaEvent* event,
 
   string fingerprint_arg;
   if (!params->os_build_fingerprint().empty()) {
-    fingerprint_arg =
-        "fingerprint=\"" + XmlEncodeWithDefault(params->os_build_fingerprint(), "") + "\" ";
+    fingerprint_arg = "fingerprint=\"" +
+                      XmlEncodeWithDefault(params->os_build_fingerprint(), "") +
+                      "\" ";
   }
 
   string buildtype_arg;
@@ -276,11 +288,39 @@ string GetAppXml(const OmahaEvent* event,
                     XmlEncodeWithDefault(params->os_build_type(), "") + "\" ";
   }
 
+  string product_components_args;
+  if (!params->ShouldPowerwash() && !app_data.product_components.empty()) {
+    brillo::KeyValueStore store;
+    if (store.LoadFromString(app_data.product_components)) {
+      for (const string& key : store.GetKeys()) {
+        if (!IsValidComponentID(key)) {
+          LOG(ERROR) << "Invalid component id: " << key;
+          continue;
+        }
+        string version;
+        if (!store.GetString(key, &version)) {
+          LOG(ERROR) << "Failed to get version for " << key
+                     << " in product_components.";
+          continue;
+        }
+        product_components_args +=
+            base::StringPrintf("_%s.version=\"%s\" ",
+                               key.c_str(),
+                               XmlEncodeWithDefault(version, "").c_str());
+      }
+    } else {
+      LOG(ERROR) << "Failed to parse product_components:\n"
+                 << app_data.product_components;
+    }
+  }
+
+  // clang-format off
   string app_xml = "    <app "
       "appid=\"" + XmlEncodeWithDefault(app_data.id, "") + "\" " +
       app_cohort_args +
       app_versions +
       app_channels +
+      product_components_args +
       fingerprint_arg +
       buildtype_arg +
       "lang=\"" + XmlEncodeWithDefault(params->app_lang(), "en-US") + "\" " +
@@ -293,7 +333,7 @@ string GetAppXml(const OmahaEvent* event,
       ">\n" +
          app_body +
       "    </app>\n";
-
+  // clang-format on
   return app_xml;
 }
 
@@ -319,8 +359,10 @@ string GetRequestXml(const OmahaEvent* event,
                      int install_date_in_days,
                      SystemState* system_state) {
   string os_xml = GetOsXml(params);
-  OmahaAppData product_app = {.id = params->GetAppId(),
-                              .version = params->app_version()};
+  OmahaAppData product_app = {
+      .id = params->GetAppId(),
+      .version = params->app_version(),
+      .product_components = params->product_components()};
   string app_xml = GetAppXml(event,
                              params,
                              product_app,
@@ -380,22 +422,23 @@ struct OmahaParserData {
   string current_path;
 
   // These are the values extracted from the XML.
-  string app_cohort;
-  string app_cohorthint;
-  string app_cohortname;
-  bool app_cohort_set = false;
-  bool app_cohorthint_set = false;
-  bool app_cohortname_set = false;
   string updatecheck_poll_interval;
   map<string, string> updatecheck_attrs;
   string daystart_elapsed_days;
   string daystart_elapsed_seconds;
 
   struct App {
+    string id;
     vector<string> url_codebase;
     string manifest_version;
     map<string, string> action_postinstall_attrs;
     string updatecheck_status;
+    string cohort;
+    string cohorthint;
+    string cohortname;
+    bool cohort_set = false;
+    bool cohorthint_set = false;
+    bool cohortname_set = false;
 
     struct Package {
       string name;
@@ -429,19 +472,23 @@ void ParserHandlerStart(void* user_data, const XML_Char* element,
   }
 
   if (data->current_path == "/response/app") {
-    data->apps.emplace_back();
+    OmahaParserData::App app;
+    if (attrs.find("appid") != attrs.end()) {
+      app.id = attrs["appid"];
+    }
     if (attrs.find("cohort") != attrs.end()) {
-      data->app_cohort_set = true;
-      data->app_cohort = attrs["cohort"];
+      app.cohort_set = true;
+      app.cohort = attrs["cohort"];
     }
     if (attrs.find("cohorthint") != attrs.end()) {
-      data->app_cohorthint_set = true;
-      data->app_cohorthint = attrs["cohorthint"];
+      app.cohorthint_set = true;
+      app.cohorthint = attrs["cohorthint"];
     }
     if (attrs.find("cohortname") != attrs.end()) {
-      data->app_cohortname_set = true;
-      data->app_cohortname = attrs["cohortname"];
+      app.cohortname_set = true;
+      app.cohortname = attrs["cohortname"];
     }
+    data->apps.push_back(std::move(app));
   } else if (data->current_path == "/response/app/updatecheck") {
     if (!data->apps.empty())
       data->apps.back().updatecheck_status = attrs["status"];
@@ -621,6 +668,11 @@ bool OmahaRequestAction::ShouldPing() const {
     if (powerwash_count > 0) {
       LOG(INFO) << "Not sending ping with a=-1 r=-1 to omaha because "
                 << "powerwash_count is " << powerwash_count;
+      return false;
+    }
+    if (system_state_->hardware()->GetFirstActiveOmahaPingSent()) {
+      LOG(INFO) << "Not sending ping with a=-1 r=-1 to omaha because "
+                << "the first_active_omaha_ping_sent is true";
       return false;
     }
     return true;
@@ -919,12 +971,17 @@ bool OmahaRequestAction::ParseResponse(OmahaParserData* parser_data,
   }
 
   // We persist the cohorts sent by omaha even if the status is "noupdate".
-  if (parser_data->app_cohort_set)
-    PersistCohortData(kPrefsOmahaCohort, parser_data->app_cohort);
-  if (parser_data->app_cohorthint_set)
-    PersistCohortData(kPrefsOmahaCohortHint, parser_data->app_cohorthint);
-  if (parser_data->app_cohortname_set)
-    PersistCohortData(kPrefsOmahaCohortName, parser_data->app_cohortname);
+  for (const auto& app : parser_data->apps) {
+    if (app.id == params_->GetAppId()) {
+      if (app.cohort_set)
+        PersistCohortData(kPrefsOmahaCohort, app.cohort);
+      if (app.cohorthint_set)
+        PersistCohortData(kPrefsOmahaCohortHint, app.cohorthint);
+      if (app.cohortname_set)
+        PersistCohortData(kPrefsOmahaCohortName, app.cohortname);
+      break;
+    }
+  }
 
   // Parse the updatecheck attributes.
   PersistEolStatus(parser_data->updatecheck_attrs);
@@ -983,10 +1040,18 @@ bool OmahaRequestAction::ParseParams(OmahaParserData* parser_data,
                                      ScopedActionCompleter* completer) {
   map<string, string> attrs;
   for (auto& app : parser_data->apps) {
-    if (!app.manifest_version.empty() && output_object->version.empty())
+    if (app.id == params_->GetAppId()) {
+      // this is the app (potentially the only app)
       output_object->version = app.manifest_version;
-    if (!app.action_postinstall_attrs.empty() && attrs.empty())
+    } else if (!params_->system_app_id().empty() &&
+               app.id == params_->system_app_id()) {
+      // this is the system app (this check is intentionally skipped if there is
+      // no system_app_id set)
+      output_object->system_version = app.manifest_version;
+    }
+    if (!app.action_postinstall_attrs.empty() && attrs.empty()) {
       attrs = app.action_postinstall_attrs;
+    }
   }
   if (output_object->version.empty()) {
     LOG(ERROR) << "Omaha Response does not have version in manifest!";
@@ -1086,6 +1151,16 @@ void OmahaRequestAction::TransferComplete(HttpFetcher *fetcher,
   // response, but log the error if it didn't.
   LOG_IF(ERROR, !UpdateLastPingDays(&parser_data, system_state_->prefs()))
       << "Failed to update the last ping day preferences!";
+
+  // Sets first_active_omaha_ping_sent to true (vpd in CrOS). We only do this if
+  // we have got a response from omaha and if its value has never been set to
+  // true before. Failure of this function should be ignored. There should be no
+  // need to check if a=-1 has been sent because older devices have already sent
+  // their a=-1 in the past and we have to set first_active_omaha_ping_sent for
+  // future checks.
+  if (!system_state_->hardware()->GetFirstActiveOmahaPingSent()) {
+    system_state_->hardware()->SetFirstActiveOmahaPingSent();
+  }
 
   if (!HasOutputPipe()) {
     // Just set success to whether or not the http transfer succeeded,
@@ -1503,12 +1578,9 @@ bool OmahaRequestAction::PersistInstallDate(
   if (!prefs->SetInt64(kPrefsInstallDateDays, install_date_days))
     return false;
 
-  string metric_name = metrics::kMetricInstallDateProvisioningSource;
-  system_state->metrics_lib()->SendEnumToUMA(
-      metric_name,
+  system_state->metrics_reporter()->ReportInstallDateProvisioningSource(
       static_cast<int>(source),  // Sample.
       kProvisionedMax);          // Maximum.
-
   return true;
 }
 
@@ -1594,8 +1666,8 @@ void OmahaRequestAction::ActionCompleted(ErrorCode code) {
     break;
   }
 
-  metrics::ReportUpdateCheckMetrics(system_state_,
-                                    result, reaction, download_error_code);
+  system_state_->metrics_reporter()->ReportUpdateCheckMetrics(
+      system_state_, result, reaction, download_error_code);
 }
 
 bool OmahaRequestAction::ShouldIgnoreUpdate(

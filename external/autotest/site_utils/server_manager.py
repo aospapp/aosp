@@ -6,11 +6,10 @@
 (defined in global config section AUTOTEST_SERVER_DB).
 
 create(hostname, role=None, note=None)
-    Create a server with given role, with status backup.
+    Create a server with given role, with status primary.
 
 delete(hostname)
-    Delete a server from the database. If the server is in primary status, its
-    roles will be replaced by a backup server first.
+    Delete a server from the database.
 
 modify(hostname, role=None, status=None, note=None, delete=False,
        attribute=None, value=None)
@@ -109,14 +108,9 @@ def _delete_role(server, role, action=False):
     server_manager_actions.try_execute(server, [role], enable=False,
                                        post_change=True, do_action=action)
 
-    # If the server is in status primary and has no role, change its status to
-    # backup.
     if (not server.get_role_names() and
         server.status == server_models.Server.STATUS.PRIMARY):
-        print ('Server %s has no role, change its status from primary to backup'
-               % server.hostname)
-        server.status = server_models.Server.STATUS.BACKUP
-        server.save()
+        print ('Server %s has no role.')
 
     print 'Role %s is deleted from server %s.' % (role, server.hostname)
 
@@ -144,8 +138,8 @@ def _change_status(server, status, action):
 
     # Abort the action if the server's status will be changed to primary and
     # the Autotest instance already has another server running an unique role.
-    # For example, a scheduler server is already running, and a backup server
-    # with role scheduler should not be changed to status primary.
+    # For example, a scheduler server is already running, and a repair_required
+    # server with role scheduler should not be changed to status primary.
     unique_roles = server.roles.filter(
             role__in=server_models.ServerRole.ROLES_REQUIRE_UNIQUE_INSTANCE)
     if unique_roles and status == server_models.Server.STATUS.PRIMARY:
@@ -190,9 +184,7 @@ def _change_status(server, status, action):
 def create(hostname, role=None, note=None):
     """Create a new server.
 
-    The status of new server will always be backup, user need to call
-    atest server modify hostname --status primary
-    to set the server's status to primary.
+    The status of new server will always be primary.
 
     @param hostname: hostname of the server.
     @param role: role of the new server, default to None.
@@ -202,7 +194,7 @@ def create(hostname, role=None, note=None):
     """
     server_models.validate(hostname=hostname, role=role)
     server = server_models.Server.objects.create(
-            hostname=hostname, status=server_models.Server.STATUS.BACKUP,
+            hostname=hostname, status=server_models.Server.STATUS.PRIMARY,
             note=note, date_created=datetime.datetime.now())
     server_models.ServerRole.objects.create(server=server, role=role)
     return server
@@ -217,7 +209,7 @@ def delete(hostname, server=None):
                    injected by the verify_server_exists decorator.
 
     @raise ServerActionError: If delete server action failed, e.g., server is
-            not found in database or server is primary but no backup is found.
+            not found in database.
     """
     print 'Deleting server %s from server database.' % hostname
 

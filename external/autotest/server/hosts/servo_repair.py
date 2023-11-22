@@ -322,6 +322,28 @@ class _ServoRebootRepair(repair.RebootRepair):
         return 'Wait for update, then reboot servo host.'
 
 
+class _DutRebootRepair(hosts.RepairAction):
+    """
+    Reboot DUT to recover some servo controls depending on EC console.
+
+    Some servo controls, like lid_open, requires communicating with DUT through
+    EC UART console. Failure of this kinds of controls can be recovered by
+    rebooting the DUT.
+    """
+
+    def repair(self, host):
+        host.get_servo().get_power_state_controller().reset()
+        # Get the lid_open value which requires EC console.
+        lid_open = host.get_servo().get('lid_open')
+        if lid_open != 'yes' and lid_open != 'not_applicable':
+            raise hosts.AutoservVerifyError(
+                    'Still fail to contact EC console after rebooting DUT')
+
+    @property
+    def description(self):
+        return 'Reset the DUT via servo'
+
+
 def create_servo_repair_strategy():
     """
     Return a `RepairStrategy` for a `ServoHost`.
@@ -346,10 +368,11 @@ def create_servo_repair_strategy():
         # ServoInstallRepair rather than add a verifier.
     ]
 
-    servod_deps = ['job', 'servod', 'pwr_button', 'lid_open']
+    servod_deps = ['job', 'servod', 'pwr_button']
     repair_actions = [
         (repair.RPMCycleRepair, 'rpm', [], ['servo_ssh']),
         (_RestartServod, 'restart', ['servo_ssh'], config + servod_deps),
-        (_ServoRebootRepair, 'reboot', ['servo_ssh'], servod_deps),
+        (_ServoRebootRepair, 'servo_reboot', ['servo_ssh'], servod_deps),
+        (_DutRebootRepair, 'dut_reboot', ['servod'], ['lid_open']),
     ]
     return hosts.RepairStrategy(verify_dag, repair_actions)

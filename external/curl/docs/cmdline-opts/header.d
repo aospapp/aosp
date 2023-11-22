@@ -1,10 +1,9 @@
 Long: header
 Short: H
-Arg: <header>
-Help: Pass custom header LINE to server
+Arg: <header/@file>
+Help: Pass custom header(s) to server
 Protocols: HTTP
 ---
-
 Extra header to include in the request when sending HTTP to a server. You may
 specify any number of extra headers. Note that if you should add a custom
 header that has the same name as one of the internal ones curl would use, your
@@ -21,6 +20,10 @@ end-of-line marker, you should thus \fBnot\fP add that as a part of the header
 content: do not add newlines or carriage returns, they will only mess things up
 for you.
 
+Starting in 7.55.0, this option can take an argument in @filename style, which
+then adds a header for each line in the input file. Using @- will make curl
+read the header file from stdin.
+
 See also the --user-agent and --referer options.
 
 Starting in 7.37.0, you need --proxy-header to send custom headers intended
@@ -31,9 +34,8 @@ Example:
  curl -H "X-First-Name: Joe" http://example.com/
 
 \fBWARNING\fP: headers set with this option will be set in all requests - even
-after redirects are followed, like when told with \fB-L, --location\fP. This
-can lead to the header being sent to other hosts than the original host, so
-sensitive headers should be used with caution combined with following
-redirects.
+after redirects are followed, like when told with --location. This can lead to
+the header being sent to other hosts than the original host, so sensitive
+headers should be used with caution combined with following redirects.
 
 This option can be used multiple times to add/replace/remove multiple headers.

@@ -23,7 +23,6 @@
 #include "wificond/client_interface_impl.h"
 
 using android::binder::Status;
-using android::net::wifi::IANQPDoneCallback;
 using android::net::wifi::IWifiScannerImpl;
 using std::vector;
 
@@ -35,16 +34,6 @@ ClientInterfaceBinder::ClientInterfaceBinder(ClientInterfaceImpl* impl)
 }
 
 ClientInterfaceBinder::~ClientInterfaceBinder() {
-}
-
-Status ClientInterfaceBinder::enableSupplicant(bool* success) {
-  *success = impl_ && impl_->EnableSupplicant();
-  return Status::ok();
-}
-
-Status ClientInterfaceBinder::disableSupplicant(bool* success) {
-  *success = impl_ && impl_->DisableSupplicant();
-  return Status::ok();
 }
 
 Status ClientInterfaceBinder::getPacketCounters(
@@ -91,15 +80,9 @@ Status ClientInterfaceBinder::getWifiScannerImpl(
   return Status::ok();
 }
 
-Status ClientInterfaceBinder::requestANQP(
-    const vector<uint8_t>& bssid,
-    const sp<IANQPDoneCallback>& callback,
-    bool* out_success) {
-  if (impl_ == nullptr) {
-    *out_success = false;
-    return Status::ok();
-  }
-  *out_success = impl_->requestANQP(bssid, callback);
+
+Status ClientInterfaceBinder::setMacAddress(const vector<uint8_t>& mac, bool* success) {
+  *success = impl_ && impl_->SetMacAddress(mac);
   return Status::ok();
 }
 

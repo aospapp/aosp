@@ -51,12 +51,17 @@ LOCAL_STATIC_JAVA_LIBRARIES := \
     ctstestrunner \
     ctstestserver \
     junit \
-    legacy-android-test \
     ndkaudio \
-    testng
+    testng \
+    truth-prebuilt \
+    mockito-target-minus-junit4 \
+    androidx.heifwriter_heifwriter \
+    androidx.media_media \
 
 LOCAL_JNI_SHARED_LIBRARIES := \
     libaudio_jni \
+    libc++ \
+    libctscodecutils_jni \
     libctsimagereader_jni \
     libctsmediadrm_jni \
     libctsmediacodec_jni \
@@ -66,18 +71,23 @@ LOCAL_JNI_SHARED_LIBRARIES := \
 # do not compress VP9 video files
 LOCAL_AAPT_FLAGS := -0 .vp9
 LOCAL_AAPT_FLAGS += -0 .ts
+LOCAL_AAPT_FLAGS += -0 .heic
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
 LOCAL_PACKAGE_NAME := CtsMediaTestCases
 
-# uncomment when b/13249737 is fixed
+# This test uses private APIs
 #LOCAL_SDK_VERSION := current
+LOCAL_PRIVATE_PLATFORM_APIS := true
 
-LOCAL_JAVA_LIBRARIES += android.test.runner org.apache.http.legacy
+LOCAL_JAVA_LIBRARIES += \
+    org.apache.http.legacy \
+    android.test.base.stubs \
+    android.test.runner.stubs
 
 # Tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
+LOCAL_COMPATIBILITY_SUITE := cts vts general-tests cts_instant
 
 include $(BUILD_CTS_PACKAGE)
 

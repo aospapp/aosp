@@ -60,7 +60,7 @@ LOCAL_SRC_FILES := \
 
 LOCAL_STATIC_LIBRARIES := libgtest_host
 
-LOCAL_SHARED_LIBRARIES := libLLVM libbcinfo libspirit
+LOCAL_SHARED_LIBRARIES := libLLVM_android libbcinfo libspirit
 
 LOCAL_C_INCLUDES := \
   $(LLVM_ROOT_PATH)/include \
@@ -100,6 +100,7 @@ LOCAL_SHARED_LIBRARIES := libspirit
 LOCAL_MODULE := Builtin_test
 LOCAL_MULTILIB := first
 LOCAL_MODULE_TAGS := tests
+LOCAL_CFLAGS := -Wall -Werror
 
 LOCAL_MODULE_CLASS := NATIVE_TESTS
 
@@ -140,7 +141,7 @@ ifeq (true, $(FORCE_RS2SPIRV_DEBUG_BUILD))
   LOCAL_CFLAGS += -O0 -DRS2SPIRV_DEBUG=1
 endif
 
-LOCAL_SHARED_LIBRARIES := libLLVM libbcinfo libSPIRV libspirit
+LOCAL_SHARED_LIBRARIES := libLLVM_android libbcinfo libSPIRV libspirit
 
 include $(LLVM_ROOT_PATH)/llvm.mk
 include $(LLVM_HOST_BUILD_MK)
@@ -168,7 +169,7 @@ LOCAL_C_INCLUDES := \
 LOCAL_MODULE := rs2spirv
 LOCAL_MODULE_CLASS := EXECUTABLES
 
-LOCAL_SHARED_LIBRARIES += libLLVM libbcinfo libSPIRV libspirit
+LOCAL_SHARED_LIBRARIES += libLLVM_android libbcinfo libSPIRV libspirit
 
 LOCAL_CFLAGS += $(TOOL_CFLAGS) \
   -D_SPIRV_LLVM_API \

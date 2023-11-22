@@ -1,8 +1,8 @@
 /** @file
   Trace reporting for the Dp utility.
 
-  Copyright (c) 2009 - 2013, Intel Corporation. All rights reserved.
-  (C) Copyright 2015 Hewlett Packard Enterprise Development LP<BR>
+  Copyright (c) 2009 - 2016, Intel Corporation. All rights reserved.
+  (C) Copyright 2015-2016 Hewlett Packard Enterprise Development LP<BR>
   This program and the accompanying materials
   are licensed and made available under the terms and conditions of the BSD License
   which accompanies this distribution.  The full text of the license may be found at
@@ -136,8 +136,11 @@ GatherStatistics(
   @param[in]    Limit       The number of records to print.  Zero is ALL.
   @param[in]    ExcludeFlag TRUE to exclude individual Cumulative items from display.
   
+  @retval EFI_SUCCESS           The operation was successful.
+  @retval EFI_ABORTED           The user aborts the operation.
+  @return Others                from a call to gBS->LocateHandleBuffer().
 **/
-VOID
+EFI_STATUS
 DumpAllTrace(
   IN UINTN             Limit,
   IN BOOLEAN           ExcludeFlag
@@ -153,8 +156,7 @@ DumpAllTrace(
   UINTN                     TIndex;
 
   EFI_HANDLE                *HandleBuffer;
-  UINTN                     Size;
-  EFI_HANDLE                TempHandle;
+  UINTN                     HandleCount;
   EFI_STATUS                Status;
   EFI_STRING                StringPtrUnknown;
 
@@ -166,17 +168,7 @@ DumpAllTrace(
 
   // Get Handle information
   //
-  Size = 0;
-  HandleBuffer = &TempHandle;
-  Status  = gBS->LocateHandle (AllHandles, NULL, NULL, &Size, &TempHandle);
-  if (Status == EFI_BUFFER_TOO_SMALL) {
-    HandleBuffer = AllocatePool (Size);
-    ASSERT (HandleBuffer != NULL);
-    if (HandleBuffer == NULL) {
-      return;
-    }
-    Status  = gBS->LocateHandle (AllHandles, NULL, NULL, &Size, HandleBuffer);
-  }
+  Status  = gBS->LocateHandleBuffer (AllHandles, NULL, NULL, &HandleCount, &HandleBuffer);
   if (EFI_ERROR (Status)) {
     ShellPrintHiiEx (-1, -1, NULL, STRING_TOKEN (STR_DP_HANDLES_ERROR), gDpHiiHandle, Status);
   }
@@ -228,11 +220,11 @@ DumpAllTrace(
       ++Count;    // Count the number of records printed
 
       // If Handle is non-zero, see if we can determine a name for the driver
-      AsciiStrToUnicodeStr (Measurement.Module, mGaugeString); // Use Module by default
-      AsciiStrToUnicodeStr (Measurement.Token, mUnicodeToken);
+      AsciiStrToUnicodeStrS (Measurement.Module, mGaugeString, ARRAY_SIZE (mGaugeString)); // Use Module by default
+      AsciiStrToUnicodeStrS (Measurement.Token, mUnicodeToken, ARRAY_SIZE (mUnicodeToken));
       if (Measurement.Handle != NULL) {
         // See if the Handle is in the HandleBuffer
-        for (TIndex = 0; TIndex < (Size / sizeof(HandleBuffer[0])); TIndex++) {
+        for (TIndex = 0; TIndex < HandleCount; TIndex++) {
           if (Measurement.Handle == HandleBuffer[TIndex]) {
             DpGetNameFromHandle (HandleBuffer[TIndex]);
             break;
@@ -268,12 +260,18 @@ DumpAllTrace(
           ElapsedTime
         );
       }
+      if (ShellGetExecutionBreakFlag ()) {
+        Status = EFI_ABORTED;
+        break;
+      }
     }
   }
-  if (HandleBuffer != &TempHandle) {
+  if (HandleBuffer != NULL) {
     FreePool (HandleBuffer);
   }
   SHELL_FREE_NON_NULL (IncFlag);
+
+  return Status;
 }
 
 /** 
@@ -292,9 +290,11 @@ DumpAllTrace(
   
   @param[in]    Limit       The number of records to print.  Zero is ALL.
   @param[in]    ExcludeFlag TRUE to exclude individual Cumulative items from display.
-  
+
+  @retval EFI_SUCCESS           The operation was successful.
+  @retval EFI_ABORTED           The user aborts the operation.
 **/
-VOID
+EFI_STATUS
 DumpRawTrace(
   IN UINTN          Limit,
   IN BOOLEAN        ExcludeFlag
@@ -309,6 +309,9 @@ DumpRawTrace(
 
   EFI_STRING    StringPtr;
   EFI_STRING    StringPtrUnknown;
+  EFI_STATUS    Status;
+
+  Status = EFI_SUCCESS;
 
   StringPtrUnknown = HiiGetString (gDpHiiHandle, STRING_TOKEN (STR_ALIT_UNKNOWN), NULL);  
   StringPtr = HiiGetString (gDpHiiHandle, STRING_TOKEN (STR_DP_SECTION_RAWTRACE), NULL);
@@ -372,7 +375,12 @@ DumpRawTrace(
         Measurement.Module
       );
     }
+    if (ShellGetExecutionBreakFlag ()) {
+      Status = EFI_ABORTED;
+      break;
+    }
   }
+  return Status;
 }
 
 /** 
@@ -521,7 +529,9 @@ ProcessPhases(
   
   @param[in]    ExcludeFlag   TRUE to exclude individual Cumulative items from display.
   
-  @return       Status from a call to gBS->LocateHandle().
+  @retval EFI_SUCCESS             The operation was successful.
+  @retval EFI_ABORTED             The user aborts the operation.
+  @return Others                  from a call to gBS->LocateHandleBuffer().
 **/
 EFI_STATUS
 ProcessHandles(
@@ -536,8 +546,7 @@ ProcessHandles(
   UINTN                     Index;
   UINTN                     LogEntryKey;
   UINTN                     Count;
-  UINTN                     Size;
-  EFI_HANDLE                TempHandle;
+  UINTN                     HandleCount;
   EFI_STATUS                Status;
   EFI_STRING                StringPtrUnknown;
 
@@ -548,17 +557,7 @@ ProcessHandles(
   FreePool (StringPtr);
   FreePool (StringPtrUnknown);
 
-  Size = 0;
-  HandleBuffer = &TempHandle;
-  Status  = gBS->LocateHandle (AllHandles, NULL, NULL, &Size, &TempHandle);
-  if (Status == EFI_BUFFER_TOO_SMALL) {
-    HandleBuffer = AllocatePool (Size);
-    ASSERT (HandleBuffer != NULL);
-    if (HandleBuffer == NULL) {
-      return Status;
-    }
-    Status  = gBS->LocateHandle (AllHandles, NULL, NULL, &Size, HandleBuffer);
-  }
+  Status = gBS->LocateHandleBuffer (AllHandles, NULL, NULL, &HandleCount, &HandleBuffer);
   if (EFI_ERROR (Status)) {
     ShellPrintHiiEx (-1, -1, NULL, STRING_TOKEN (STR_DP_HANDLES_ERROR), gDpHiiHandle, Status);
   }
@@ -596,9 +595,9 @@ ProcessHandles(
         continue;
       }
       mGaugeString[0] = 0;    // Empty driver name by default
-      AsciiStrToUnicodeStr (Measurement.Token, mUnicodeToken);
+      AsciiStrToUnicodeStrS (Measurement.Token, mUnicodeToken, ARRAY_SIZE (mUnicodeToken));
       // See if the Handle is in the HandleBuffer
-      for (Index = 0; Index < (Size / sizeof(HandleBuffer[0])); Index++) {
+      for (Index = 0; Index < HandleCount; Index++) {
         if (Measurement.Handle == HandleBuffer[Index]) {
           DpGetNameFromHandle (HandleBuffer[Index]); // Name is put into mGaugeString
           break;
@@ -628,9 +627,13 @@ ProcessHandles(
           );
         }
       }
+      if (ShellGetExecutionBreakFlag ()) {
+        Status = EFI_ABORTED;
+        break;
+      }
     }
   }
-  if (HandleBuffer != &TempHandle) {
+  if (HandleBuffer != NULL) {
     FreePool (HandleBuffer);
   }
   return Status;
@@ -641,8 +644,10 @@ ProcessHandles(
   
   Only prints complete PEIM records
   
+  @retval EFI_SUCCESS           The operation was successful.
+  @retval EFI_ABORTED           The user aborts the operation.
 **/
-VOID
+EFI_STATUS
 ProcessPeims(
   VOID
 )
@@ -654,6 +659,9 @@ ProcessPeims(
   UINTN                     LogEntryKey;
   UINTN                     TIndex;
   EFI_STRING                StringPtrUnknown;
+  EFI_STATUS                Status;
+
+  Status = EFI_SUCCESS;
 
   StringPtrUnknown = HiiGetString (gDpHiiHandle, STRING_TOKEN (STR_ALIT_UNKNOWN), NULL);  
   StringPtr = HiiGetString (gDpHiiHandle, STRING_TOKEN (STR_DP_SECTION_PEIMS), NULL);
@@ -707,7 +715,12 @@ ProcessPeims(
         );
       }
     }
+    if (ShellGetExecutionBreakFlag ()) {
+      Status = EFI_ABORTED;
+      break;
+    }
   }
+  return Status;
 }
 
 /** 
@@ -718,8 +731,10 @@ ProcessPeims(
   Increment TIndex for every record, even skipped ones, so that we have an
   indication of every measurement record taken.
   
+  @retval EFI_SUCCESS           The operation was successful.
+  @retval EFI_ABORTED           The user aborts the operation.
 **/
-VOID
+EFI_STATUS
 ProcessGlobal(
   VOID
 )
@@ -731,6 +746,9 @@ ProcessGlobal(
   UINTN                     LogEntryKey;
   UINTN                     Index;        // Index, or number, of the measurement record being processed
   EFI_STRING                StringPtrUnknown;
+  EFI_STATUS                Status;
+
+  Status = EFI_SUCCESS;
 
   StringPtrUnknown = HiiGetString (gDpHiiHandle, STRING_TOKEN (STR_ALIT_UNKNOWN), NULL);  
   StringPtr = HiiGetString (gDpHiiHandle, STRING_TOKEN (STR_DP_SECTION_GENERAL), NULL);
@@ -758,8 +776,8 @@ ProcessGlobal(
                           &Measurement.EndTimeStamp,
                           &Measurement.Identifier)) != 0)
   {
-    AsciiStrToUnicodeStr (Measurement.Module, mGaugeString);
-    AsciiStrToUnicodeStr (Measurement.Token, mUnicodeToken);
+    AsciiStrToUnicodeStrS (Measurement.Module, mGaugeString, ARRAY_SIZE (mGaugeString));
+    AsciiStrToUnicodeStrS (Measurement.Token, mUnicodeToken, ARRAY_SIZE (mUnicodeToken));
     mGaugeString[25] = 0;
     mUnicodeToken[31] = 0;
     if ( ! ( IsPhase( &Measurement)  ||
@@ -788,8 +806,13 @@ ProcessGlobal(
         }
       }
     }
+    if (ShellGetExecutionBreakFlag ()) {
+      Status = EFI_ABORTED;
+      break;
+    }
     Index++;
   }
+  return Status;
 }
 
 /** 

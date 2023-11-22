@@ -4,33 +4,22 @@
  *	Purpose: setting an acl on a file a verifies that the accesses are right
  */
 
-#if defined (DOS) || defined (WIN32)
-/* If Dos, Windows or Win32 */
-#define DOSorWIN32
-#endif
-
-#ifndef DOSorWIN32
 #include <sys/param.h>
-#endif
 
 #include <stdlib.h>
 #include <sys/types.h>
-#ifdef DOSorWIN32
-#include <time.h>
-#else
 #include <sys/time.h>
-#endif
 #include <sys/stat.h>
 #include <stdio.h>
 #include <string.h>
-//#include "../tests.h"
 #include <dirent.h>
 #include <unistd.h>
 #include <errno.h>
 
-#include <config.h>
+#include "config.h"
+#include "tst_res_flags.h"
 
-#ifdef HAVE_SYS_ACL_H
+#ifdef HAVE_LIBACL
 
 #include <sys/acl.h>
 
@@ -376,13 +365,10 @@ int main(int argc, char *argv[])
 	showstats();
 	return 1;
 }
-
 #else
-
 int main(void)
 {
 	printf("The acl library was missing upon compilation.\n");
-	return 0;
+	return TCONF;
 }
-
-#endif /* HAVE_SYS_ACL_H */
+#endif /* HAVE_LIBACL */

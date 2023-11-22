@@ -29,9 +29,9 @@ unittest is off and the test videos should be as short as possible.
 # A list of test cases. Each entry consists of the following parts:
 #   [download_path, width, height, frame_num, fragment_num, MediaCodecProfile]
 test_cases = [
-    ['video_VDASanity/bear_profile1.vp9', 320, 240, 30, 30, 12],
-    ['video_VDASanity/bear_profile2.vp9', 320, 240, 30, 30, 12],
-    ['video_VDASanity/bear_profile3.vp9', 320, 240, 30, 30, 12],
+    ['video_VDASanity/bear_profile1.vp9', 320, 180, 30, 30, 12],
+    ['video_VDASanity/bear_profile2.vp9', 320, 180, 30, 30, 12],
+    ['video_VDASanity/bear_profile3.vp9', 320, 180, 30, 30, 12],
 ]
 
 job.run_test('video_VDASanity', test_cases=test_cases, tag='vp9')

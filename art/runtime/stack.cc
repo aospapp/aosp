@@ -23,6 +23,7 @@
 #include "base/callee_save_type.h"
 #include "base/enums.h"
 #include "base/hex_dump.h"
+#include "dex/dex_file_types.h"
 #include "entrypoints/entrypoint_utils-inl.h"
 #include "entrypoints/runtime_asm_entrypoints.h"
 #include "gc/space/image_space.h"
@@ -120,7 +121,7 @@ uint32_t StackVisitor::GetDexPc(bool abort_on_failure) const {
       return GetCurrentInlineInfo(GetCurrentOatQuickMethodHeader(), cur_quick_frame_pc_).
           GetDexPcAtDepth(encoding.inline_info.encoding, depth_in_stack_map);
     } else if (cur_oat_quick_method_header_ == nullptr) {
-      return DexFile::kDexNoIndex;
+      return dex::kDexNoIndex;
     } else {
       return cur_oat_quick_method_header_->ToDexPc(
           GetMethod(), cur_quick_frame_pc_, abort_on_failure);
@@ -153,13 +154,13 @@ mirror::Object* StackVisitor::GetThisObject() const {
       return cur_shadow_frame_->GetVRegReference(0);
     }
   } else {
-    const DexFile::CodeItem* code_item = m->GetCodeItem();
-    if (code_item == nullptr) {
+    CodeItemDataAccessor accessor(m->DexInstructionData());
+    if (!accessor.HasCodeItem()) {
       UNIMPLEMENTED(ERROR) << "Failed to determine this object of abstract or proxy method: "
           << ArtMethod::PrettyMethod(m);
       return nullptr;
     } else {
-      uint16_t reg = code_item->registers_size_ - code_item->ins_size_;
+      uint16_t reg = accessor.RegistersSize() - accessor.InsSize();
       uint32_t value = 0;
       bool success = GetVReg(m, reg, kReferenceVReg, &value);
       // We currently always guarantee the `this` object is live throughout the method.
@@ -222,11 +223,11 @@ bool StackVisitor::GetVReg(ArtMethod* m, uint16_t vreg, VRegKind kind, uint32_t*
 bool StackVisitor::GetVRegFromOptimizedCode(ArtMethod* m, uint16_t vreg, VRegKind kind,
                                             uint32_t* val) const {
   DCHECK_EQ(m, GetMethod());
-  const DexFile::CodeItem* code_item = m->GetCodeItem();
-  DCHECK(code_item != nullptr) << m->PrettyMethod();  // Can't be null or how would we compile
-                                                      // its instructions?
-  uint16_t number_of_dex_registers = code_item->registers_size_;
-  DCHECK_LT(vreg, code_item->registers_size_);
+  // Can't be null or how would we compile its instructions?
+  DCHECK(m->GetCodeItem() != nullptr) << m->PrettyMethod();
+  CodeItemDataAccessor accessor(m->DexInstructionData());
+  uint16_t number_of_dex_registers = accessor.RegistersSize();
+  DCHECK_LT(vreg, number_of_dex_registers);
   const OatQuickMethodHeader* method_header = GetCurrentOatQuickMethodHeader();
   CodeInfo code_info = method_header->GetOptimizedCodeInfo();
   CodeInfoEncoding encoding = code_info.ExtractEncoding();
@@ -394,8 +395,8 @@ bool StackVisitor::SetVReg(ArtMethod* m,
                            uint16_t vreg,
                            uint32_t new_value,
                            VRegKind kind) {
-  const DexFile::CodeItem* code_item = m->GetCodeItem();
-  if (code_item == nullptr) {
+  CodeItemDataAccessor accessor(m->DexInstructionData());
+  if (!accessor.HasCodeItem()) {
     return false;
   }
   ShadowFrame* shadow_frame = GetCurrentShadowFrame();
@@ -403,7 +404,7 @@ bool StackVisitor::SetVReg(ArtMethod* m,
     // This is a compiled frame: we must prepare and update a shadow frame that will
     // be executed by the interpreter after deoptimization of the stack.
     const size_t frame_id = GetFrameId();
-    const uint16_t num_regs = code_item->registers_size_;
+    const uint16_t num_regs = accessor.RegistersSize();
     shadow_frame = thread_->FindOrCreateDebuggerShadowFrame(frame_id, num_regs, m, GetDexPc());
     CHECK(shadow_frame != nullptr);
     // Remember the vreg has been set for debugging and must not be overwritten by the
@@ -431,15 +432,15 @@ bool StackVisitor::SetVRegPair(ArtMethod* m,
     LOG(FATAL) << "Expected long or double: kind_lo=" << kind_lo << ", kind_hi=" << kind_hi;
     UNREACHABLE();
   }
-  const DexFile::CodeItem* code_item = m->GetCodeItem();
-  if (code_item == nullptr) {
+  CodeItemDataAccessor accessor(m->DexInstructionData());
+  if (!accessor.HasCodeItem()) {
     return false;
   }
   ShadowFrame* shadow_frame = GetCurrentShadowFrame();
   if (shadow_frame == nullptr) {
     // This is a compiled frame: we must prepare for deoptimization (see SetVRegFromDebugger).
     const size_t frame_id = GetFrameId();
-    const uint16_t num_regs = code_item->registers_size_;
+    const uint16_t num_regs = accessor.RegistersSize();
     shadow_frame = thread_->FindOrCreateDebuggerShadowFrame(frame_id, num_regs, m, GetDexPc());
     CHECK(shadow_frame != nullptr);
     // Remember the vreg pair has been set for debugging and must not be overwritten by the
@@ -734,12 +735,19 @@ QuickMethodFrameInfo StackVisitor::GetCurrentQuickFrameInfo() const {
     return runtime->GetCalleeSaveMethodFrameInfo(CalleeSaveType::kSaveRefsAndArgs);
   }
 
-  // The only remaining case is if the method is native and uses the generic JNI stub.
+  // The only remaining case is if the method is native and uses the generic JNI stub,
+  // called either directly or through some (resolution, instrumentation) trampoline.
   DCHECK(method->IsNative());
-  ClassLinker* class_linker = runtime->GetClassLinker();
-  const void* entry_point = runtime->GetInstrumentation()->GetQuickCodeFor(method,
-                                                                           kRuntimePointerSize);
-  DCHECK(class_linker->IsQuickGenericJniStub(entry_point)) << method->PrettyMethod();
+  if (kIsDebugBuild) {
+    ClassLinker* class_linker = runtime->GetClassLinker();
+    const void* entry_point = runtime->GetInstrumentation()->GetQuickCodeFor(method,
+                                                                             kRuntimePointerSize);
+    CHECK(class_linker->IsQuickGenericJniStub(entry_point) ||
+          // The current entrypoint (after filtering out trampolines) may have changed
+          // from GenericJNI to JIT-compiled stub since we have entered this frame.
+          (runtime->GetJit() != nullptr &&
+           runtime->GetJit()->GetCodeCache()->ContainsPc(entry_point))) << method->PrettyMethod();
+  }
   // Generic JNI frame.
   uint32_t handle_refs = GetNumberOfReferenceArgsWithoutReceiver(method) + 1;
   size_t scope_size = HandleScope::SizeOf(handle_refs);
@@ -775,8 +783,48 @@ void StackVisitor::WalkStack(bool include_transitions) {
       // Can't be both a shadow and a quick fragment.
       DCHECK(current_fragment->GetTopShadowFrame() == nullptr);
       ArtMethod* method = *cur_quick_frame_;
+      DCHECK(method != nullptr);
+      bool header_retrieved = false;
+      if (method->IsNative()) {
+        // We do not have a PC for the first frame, so we cannot simply use
+        // ArtMethod::GetOatQuickMethodHeader() as we're unable to distinguish there
+        // between GenericJNI frame and JIT-compiled JNI stub; the entrypoint may have
+        // changed since the frame was entered. The top quick frame tag indicates
+        // GenericJNI here, otherwise it's either AOT-compiled or JNI-compiled JNI stub.
+        if (UNLIKELY(current_fragment->GetTopQuickFrameTag())) {
+          // The generic JNI does not have any method header.
+          cur_oat_quick_method_header_ = nullptr;
+        } else {
+          const void* existing_entry_point = method->GetEntryPointFromQuickCompiledCode();
+          CHECK(existing_entry_point != nullptr);
+          Runtime* runtime = Runtime::Current();
+          ClassLinker* class_linker = runtime->GetClassLinker();
+          // Check whether we can quickly get the header from the current entrypoint.
+          if (!class_linker->IsQuickGenericJniStub(existing_entry_point) &&
+              !class_linker->IsQuickResolutionStub(existing_entry_point) &&
+              existing_entry_point != GetQuickInstrumentationEntryPoint()) {
+            cur_oat_quick_method_header_ =
+                OatQuickMethodHeader::FromEntryPoint(existing_entry_point);
+          } else {
+            const void* code = method->GetOatMethodQuickCode(class_linker->GetImagePointerSize());
+            if (code != nullptr) {
+              cur_oat_quick_method_header_ = OatQuickMethodHeader::FromEntryPoint(code);
+            } else {
+              // This must be a JITted JNI stub frame.
+              CHECK(runtime->GetJit() != nullptr);
+              code = runtime->GetJit()->GetCodeCache()->GetJniStubCode(method);
+              CHECK(code != nullptr) << method->PrettyMethod();
+              cur_oat_quick_method_header_ = OatQuickMethodHeader::FromCodePointer(code);
+            }
+          }
+        }
+        header_retrieved = true;
+      }
       while (method != nullptr) {
-        cur_oat_quick_method_header_ = method->GetOatQuickMethodHeader(cur_quick_frame_pc_);
+        if (!header_retrieved) {
+          cur_oat_quick_method_header_ = method->GetOatQuickMethodHeader(cur_quick_frame_pc_);
+        }
+        header_retrieved = false;  // Force header retrieval in next iteration.
         SanityCheckFrame();
 
         if ((walk_kind_ == StackWalkKind::kIncludeInlinedFrames)

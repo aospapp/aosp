@@ -24,6 +24,7 @@ import android.net.Uri;
 import android.os.Handler;
 import android.os.IDeviceIdleController;
 import android.os.IMaintenanceActivityListener;
+import android.os.Looper;
 import android.os.Message;
 import android.os.RemoteException;
 import android.os.ServiceManager;
@@ -35,7 +36,9 @@ import com.android.internal.annotations.GuardedBy;
 import com.android.internal.annotations.VisibleForTesting;
 
 import java.io.PrintWriter;
-import java.util.Calendar;
+import java.lang.RuntimeException;
+import java.util.Map;
+import java.util.HashMap;
 
 import static android.car.settings.GarageModeSettingsObserver.GARAGE_MODE_ENABLED_URI;
 import static android.car.settings.GarageModeSettingsObserver.GARAGE_MODE_MAINTENANCE_WINDOW_URI;
@@ -83,10 +86,6 @@ public class GarageModeService implements CarServiceBase,
     @GuardedBy("this")
     private GarageModePolicy mPolicy;
     @GuardedBy("this")
-    private int mWakeUpHour = 0;
-    @GuardedBy("this")
-    private int mWakeUpMin = 0;
-    @GuardedBy("this")
     private boolean mGarageModeEnabled;
 
 
@@ -94,9 +93,13 @@ public class GarageModeService implements CarServiceBase,
     private final GarageModeSettingsObserver mContentObserver;
 
     private DeviceIdleControllerWrapper mDeviceIdleController;
-    private final GarageModeHandler mHandler = new GarageModeHandler();
+    private final GarageModeHandler mHandler;
 
     private class GarageModeHandler extends Handler {
+        public GarageModeHandler(Looper looper) {
+            super(looper);
+        }
+
         @Override
         public void handleMessage(Message msg) {
             switch (msg.what) {
@@ -112,14 +115,15 @@ public class GarageModeService implements CarServiceBase,
     }
 
     public GarageModeService(Context context, CarPowerManagementService powerManagementService) {
-        this(context, powerManagementService, null);
+        this(context, powerManagementService, null, Looper.myLooper());
     }
 
     @VisibleForTesting
     protected GarageModeService(Context context, CarPowerManagementService powerManagementService,
-            DeviceIdleControllerWrapper deviceIdleController) {
+            DeviceIdleControllerWrapper deviceIdleController, Looper looper) {
         mContext = context;
         mPowerManagementService = powerManagementService;
+        mHandler = new GarageModeHandler(looper);
         if (deviceIdleController == null) {
             mDeviceIdleController = new DefaultDeviceIdleController();
         } else {
@@ -135,20 +139,30 @@ public class GarageModeService implements CarServiceBase,
 
     @Override
     public void init() {
+        init(mContext.getResources().getStringArray(R.array.config_garageModeCadence),
+                PreferenceManager.getDefaultSharedPreferences(
+                        mContext.createDeviceProtectedStorageContext()));
+    }
+
+    @VisibleForTesting
+    protected void init(String[] policyArray, SharedPreferences prefs) {
         logd("init GarageMode");
-        mSharedPreferences = PreferenceManager.getDefaultSharedPreferences(
-                mContext.createDeviceProtectedStorageContext());
+        mSharedPreferences = prefs;
         final int index = mSharedPreferences.getInt(KEY_GARAGE_MODE_INDEX, 0);
         synchronized (this) {
             mMaintenanceActive = mDeviceIdleController.startTracking(this);
             mGarageModeIndex = index;
-            readPolicyLocked();
+            readPolicyLocked(policyArray);
             readFromSettingsLocked(CarSettings.Global.KEY_GARAGE_MODE_MAINTENANCE_WINDOW,
                     CarSettings.Global.KEY_GARAGE_MODE_ENABLED,
                     CarSettings.Global.KEY_GARAGE_MODE_WAKE_UP_TIME);
         }
         mContentObserver.register();
         mPowerManagementService.registerPowerEventProcessingHandler(this);
+    }
+
+    public boolean isInGarageMode() {
+        return mInGarageMode;
     }
 
     @Override
@@ -162,7 +176,6 @@ public class GarageModeService implements CarServiceBase,
     public void dump(PrintWriter writer) {
         writer.println("mGarageModeIndex: " + mGarageModeIndex);
         writer.println("inGarageMode? " + mInGarageMode);
-        writer.println("GarageModeTime: " + mWakeUpHour + ":" + mWakeUpMin);
         writer.println("GarageModeEnabled " + mGarageModeEnabled);
         writer.println("GarageModeTimeWindow " + mMaintenanceWindow + " ms");
     }
@@ -204,7 +217,7 @@ public class GarageModeService implements CarServiceBase,
             if (!mGarageModeEnabled) {
                 return 0;
             }
-            return mPolicy.getNextWakeUpTime(mGarageModeIndex, mWakeUpHour, mWakeUpMin);
+            return mPolicy.getNextWakeUpTime(mGarageModeIndex);
         }
     }
 
@@ -228,10 +241,10 @@ public class GarageModeService implements CarServiceBase,
         }
     }
 
-    private void readPolicyLocked() {
+    @GuardedBy("this")
+    private void readPolicyLocked(String[] policyArray) {
         logd("readPolicy");
-        // TODO: define a xml schema for policy and read it from system dir. bug: 32096969
-        mPolicy = new DefaultGarageModePolicy();
+        mPolicy = new GarageModePolicy(policyArray);
     }
 
     private void writeToPref(int index) {
@@ -264,24 +277,15 @@ public class GarageModeService implements CarServiceBase,
         }
     }
 
-    public abstract static class GarageModePolicy {
-        abstract public int getNextWakeUpTime(int index, int hour, int min);
-        /**
-         * Returns number of seconds between now to 1am {@param numDays} days later.
-         */
-        public static int nextWakeUpSeconds(int numDays, int hour, int min) {
-            // TODO: Should select a random time within a window. bug: 32096386
-            // This is to avoid all cars update at the same time.
-            Calendar next = Calendar.getInstance();
-            next.add(Calendar.DATE, numDays);
-            next.set(Calendar.HOUR_OF_DAY, hour);
-            next.set(Calendar.MINUTE, min);
-            next.set(Calendar.SECOND, 0);
+    static final class WakeupTime {
+        int mWakeupTime;
+        int mNumAttempts;
 
-            Calendar now = Calendar.getInstance();
-            return (next.get(Calendar.MILLISECOND) - now.get(Calendar.MILLISECOND)) / 1000;
+        WakeupTime(int wakeupTime, int numAttempts) {
+            mWakeupTime = wakeupTime;
+            mNumAttempts = numAttempts;
         }
-    }
+    };
 
     /**
      * Default garage mode policy.
@@ -289,25 +293,87 @@ public class GarageModeService implements CarServiceBase,
      * The first wake up time is set to be 1am the next day. And it keeps waking up every day for a
      * week. After that, wake up every 7 days for a month, and wake up every 30 days thereafter.
      */
-    private static class DefaultGarageModePolicy extends GarageModePolicy {
-        private static final int COL_INDEX = 0;
-        private static final int COL_WAKEUP_TIME = 1;
+    @VisibleForTesting
+    static final class GarageModePolicy {
+        private static final Map<String, Integer> TIME_UNITS_LOOKUP;
+        static {
+            TIME_UNITS_LOOKUP = new HashMap<String, Integer>();
+            TIME_UNITS_LOOKUP.put("m", 60);
+            TIME_UNITS_LOOKUP.put("h", 3600);
+            TIME_UNITS_LOOKUP.put("d", 86400);
+        }
+        protected WakeupTime[] mWakeupTime;
 
-        private static final int[][] WAKE_UP_TIME = new int[][] {
-                {7 /*index <= 7*/, 1 /* wake up the next day */},
-                {11 /* 7 < index <= 11 */, 7 /* wake up the next week */},
-                {Integer.MAX_VALUE /* index > 11 */, 30 /* wake up the next month */}
-        };
+        public GarageModePolicy(String[] policy) {
+            if (policy == null || policy.length == 0) {
+                throw new RuntimeException("Must include valid policy.");
+            }
 
-        @Override
-        public int getNextWakeUpTime(int index, int hour, int min) {
-            for (int i = 0; i < WAKE_UP_TIME.length; i++) {
-                if (index <= WAKE_UP_TIME[i][COL_INDEX]) {
-                    return nextWakeUpSeconds(WAKE_UP_TIME[i][COL_WAKEUP_TIME], hour, min);
+            WakeupTime[] parsedWakeupTime = new WakeupTime[policy.length];
+            for (int i = 0; i < policy.length; i++) {
+                String[] splitString = policy[i].split(",");
+                if (splitString.length != 2) {
+                    throw new RuntimeException("Bad policy format: " + policy[i]);
+                }
+
+                int wakeupTimeMs = 0;
+                int numAttempts = 0;
+                String wakeupTime = splitString[0];
+                if (wakeupTime.isEmpty()) {
+                    throw new RuntimeException("Missing wakeup time: " + policy[i]);
+                }
+                String wakeupTimeValue = wakeupTime.substring(0, wakeupTime.length() - 1);
+
+                if (wakeupTimeValue.isEmpty()) {
+                    throw new RuntimeException("Missing wakeup time value: " + wakeupTime);
+                }
+                try {
+                    int timeCount = Integer.parseInt(wakeupTimeValue);
+                    if (timeCount <= 0) {
+                        throw new RuntimeException("Wakeup time must be > 0: " + timeCount);
+                    }
+
+                    // Last character indicates minutes, hours, or days.
+                    Integer multiplier = TIME_UNITS_LOOKUP.get(
+                            wakeupTime.substring(wakeupTime.length() - 1));
+                    if (multiplier == null) {
+                        throw new RuntimeException("Bad wakeup time units: " + wakeupTime);
+                    }
+
+                    wakeupTimeMs = timeCount * multiplier;
+                } catch (NumberFormatException e) {
+                    throw new RuntimeException("Bad wakeup time value: " + wakeupTimeValue);
+                }
+                try {
+                    numAttempts = Integer.parseInt(splitString[1]);
+                    if (numAttempts <= 0) {
+                        throw new RuntimeException(
+                            "Number of attempts must be > 0: " + numAttempts);
+                    }
+                } catch (NumberFormatException e) {
+                    throw new RuntimeException("Bad number of attempts: " + splitString[1]);
+                }
+
+                parsedWakeupTime[i] = new WakeupTime(wakeupTimeMs, numAttempts);
+            }
+            mWakeupTime = parsedWakeupTime;
+        }
+
+        public int getNextWakeUpTime(int index) {
+            if (mWakeupTime == null) {
+                Log.e(TAG, "Could not parse policy.");
+                return 0;
+            }
+
+            for (int i = 0; i < mWakeupTime.length; i++) {
+                if (index < mWakeupTime[i].mNumAttempts) {
+                    return mWakeupTime[i].mWakeupTime;
+                } else {
+                    index -= mWakeupTime[i].mNumAttempts;
                 }
             }
 
-            Log.w(TAG, "Integer.MAX number of wake ups... How long have we been sleeping? ");
+            Log.w(TAG, "No more garage mode wake ups scheduled; been sleeping too long.");
             return 0;
         }
     }
@@ -357,19 +423,13 @@ public class GarageModeService implements CarServiceBase,
         }
     }
 
+    @GuardedBy("this")
     private void readFromSettingsLocked(String... keys) {
         for (String key : keys) {
             switch (key) {
                 case CarSettings.Global.KEY_GARAGE_MODE_ENABLED:
                     mGarageModeEnabled =
                             Settings.Global.getInt(mContext.getContentResolver(), key, 1) == 1;
-                    break;
-                case CarSettings.Global.KEY_GARAGE_MODE_WAKE_UP_TIME:
-                    int time[] = CarApiUtil.decodeGarageTimeSetting(
-                            Settings.Global.getString(mContext.getContentResolver(),
-                                    CarSettings.Global.KEY_GARAGE_MODE_WAKE_UP_TIME));
-                    mWakeUpHour = time[0];
-                    mWakeUpMin = time[1];
                     break;
                 case CarSettings.Global.KEY_GARAGE_MODE_MAINTENANCE_WINDOW:
                     mMaintenanceWindow = Settings.Global.getInt(
@@ -393,8 +453,8 @@ public class GarageModeService implements CarServiceBase,
                 readFromSettingsLocked(CarSettings.Global.KEY_GARAGE_MODE_MAINTENANCE_WINDOW);
             }
             logd(String.format(
-                    "onSettingsChanged %s. enabled: %s, wakeUpTime: %d:%d, windowSize: %d",
-                    uri, mGarageModeEnabled, mWakeUpHour, mWakeUpMin, mMaintenanceWindow));
+                    "onSettingsChanged %s. enabled: %s, windowSize: %d",
+                    uri, mGarageModeEnabled, mMaintenanceWindow));
         }
     }
 }

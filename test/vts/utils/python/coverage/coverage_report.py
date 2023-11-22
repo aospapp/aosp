@@ -30,30 +30,37 @@ import os
 from vts.utils.python.coverage import gcda_parser
 from vts.utils.python.coverage import gcno_parser
 
+GEN_TAG = "/gen/"
 
-def GenerateLineCoverageVector(src_file_name, gcno_file_summary):
-    """Returns a list of invocation counts for each line in the file.
+def GenerateLineCoverageVector(gcno_file_summary, exclude_paths, coverage_dict):
+    """Process the gcno_file_summary and update the coverage dictionary.
 
-    Parses the GCNO and GCDA file specified to calculate the number of times
-    each line in the source file specified by src_file_name was executed.
+    Create a coverage vector for each source file contained in gcno_file_summary
+    and update the corresponding item in coverage_dict.
 
     Args:
-        src_file_name: string, the source file name.
         gcno_file_summary: FileSummary object after gcno and gcda files have
                            been parsed.
-
-    Returns:
-        A list of non-negative integers or -1 representing the number of times
-        the i-th line was executed. -1 indicates a line that is not executable.
+        exclude_paths: a list of paths should be ignored in the coverage report.
+        coverage_dict: a dictionary for each source file and its corresponding
+                       coverage vector.
     """
-    src_lines_counts = []
-    covered_line_count = 0
     for ident in gcno_file_summary.functions:
         func = gcno_file_summary.functions[ident]
-        if not src_file_name == func.src_file_name:
-            logging.warn("GenerateLineCoverageVector: \"%s\" file is skipped \"%s\"",
-                         func.src_file_name, src_file_name)
+        file_name = func.src_file_name
+        if GEN_TAG in file_name:
+            logging.debug("Skip generated source file %s.", file_name)
             continue
+        skip_file = False
+        for path in exclude_paths:
+            if file_name.startswith(path):
+                skip_file = True
+                break
+        if skip_file:
+            logging.debug("Skip excluded source file %s.", file_name)
+            continue
+
+        src_lines_counts = coverage_dict[file_name] if file_name in coverage_dict else []
         for block in func.blocks:
             for line in block.lines:
                 if line > len(src_lines_counts):
@@ -62,11 +69,7 @@ def GenerateLineCoverageVector(src_file_name, gcno_file_summary):
                 if src_lines_counts[line - 1] < 0:
                     src_lines_counts[line - 1] = 0
                 src_lines_counts[line - 1] += block.count
-                if block.count > 0:
-                    covered_line_count += 1
-    logging.info("GenerateLineCoverageVector: file %s: %s lines covered",
-                 src_file_name, str(covered_line_count))
-    return src_lines_counts
+        coverage_dict[file_name] = src_lines_counts
 
 
 def GetCoverageStats(src_lines_counts):

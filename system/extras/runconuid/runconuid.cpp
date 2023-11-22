@@ -28,12 +28,16 @@ with the specified group membership.
 )";
 
 #include <assert.h>
+#include <errno.h>
 #include <grp.h>
 #include <pwd.h>
 #include <selinux/selinux.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <signal.h>
+#include <string.h>
+#include <sys/capability.h>
+#include <sys/prctl.h>
 #include <sys/ptrace.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -53,8 +57,15 @@ static char** child_argv = nullptr;
 }
 
 void do_child(void) {
+
   if (context && setexeccon(context) < 0) {
     perror_exit("Setting context to failed");
+  }
+
+  // Disregard ambient capability failures, we may just be on a kernel
+  // that does not support them.
+  for (int i = 0; i < 64; ++i) {
+      prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, i, 0, 0);
   }
 
   if (ngroups && setgroups(ngroups, groups) < 0) {

@@ -23,16 +23,15 @@ import android.content.Context;
  * launched.
  *
  * <p>Expected usage is:
+ *
  * <pre>{@code
- *     if (MY_FEATURE.isEnabled(context) {
- *         showNewCoolUi();
- *     } else{
- *         showOldBoringUi();
- *     }
+ * if (MY_FEATURE.isEnabled(context) {
+ *     showNewCoolUi();
+ * } else{
+ *     showOldBoringUi();
+ * }
  * }</pre>
  */
 public interface Feature {
     boolean isEnabled(Context context);
-
-
 }

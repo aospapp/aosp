@@ -12,7 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "fixed_argv.h"
 #include "frontend_action_factory.h"
+
+#include <header_abi_util.h>
 
 #include <clang/Frontend/FrontendActions.h>
 #include <clang/Tooling/CommonOptionsParser.h>
@@ -48,6 +51,14 @@ static llvm::cl::opt<bool> no_filter(
     "no-filter", llvm::cl::desc("Do not filter any abi"), llvm::cl::Optional,
     llvm::cl::cat(header_checker_category));
 
+static llvm::cl::opt<abi_util::TextFormatIR> text_format(
+    "text-format", llvm::cl::desc("Specify text format of abi dump"),
+    llvm::cl::values(clEnumValN(abi_util::TextFormatIR::ProtobufTextFormat,
+                                "ProtobufTextFormat", "ProtobufTextFormat"),
+                     clEnumValEnd),
+    llvm::cl::init(abi_util::TextFormatIR::ProtobufTextFormat),
+    llvm::cl::cat(header_checker_category));
+
 // Hide irrelevant command line options defined in LLVM libraries.
 static void HideIrrelevantCommandLineOptions() {
   llvm::StringMap<llvm::cl::Option *> &map = llvm::cl::getRegisteredOptions();
@@ -62,26 +73,29 @@ static void HideIrrelevantCommandLineOptions() {
   }
 }
 
+
 int main(int argc, const char **argv) {
   HideIrrelevantCommandLineOptions();
 
-  // FIXME: Clang FORTIFY requires a version of clang at least as new as
-  // clang-3688880 (r285906). Since external/clang is currently r275480, we need
-  // to disable FORTIFY for this tool to function correctly.
-  std::vector<const char *> fixedArgv(argv, argv + argc);
-  fixedArgv.push_back("-U_FORTIFY_SOURCE");
-  int fixedArgc = fixedArgv.size();
+  // Tweak argc and argv to workaround clang version mismatches.
+  FixedArgv fixed_argv(argc, argv);
+  FixedArgvRegistry::Apply(fixed_argv);
 
   // Create compilation database from command line arguments after "--".
-  std::unique_ptr<clang::tooling::CompilationDatabase> compilations(
-      clang::tooling::FixedCompilationDatabase::loadFromCommandLine(
-          fixedArgc, fixedArgv.data()));
+  std::unique_ptr<clang::tooling::CompilationDatabase> compilations;
+
+  {
+    // loadFromCommandLine() may alter argc and argv, thus access fixed_argv
+    // through FixedArgvAccess.
+    FixedArgvAccess raw(fixed_argv);
+    compilations.reset(
+        clang::tooling::FixedCompilationDatabase::loadFromCommandLine(
+            raw.argc_, raw.argv_));
+  }
 
   // Parse the command line options.
-  // Note that loadFromCommandLine may alter fixedArgc, so we can't use
-  // fixedArgv.size() here.
-  llvm::cl::ParseCommandLineOptions(fixedArgc, fixedArgv.data(),
-      "header-checker");
+  llvm::cl::ParseCommandLineOptions(
+      fixed_argv.GetArgc(), fixed_argv.GetArgv(), "header-checker");
 
   // Input header file existential check.
   if (!llvm::sys::fs::exists(header_file)) {
@@ -96,8 +110,10 @@ int main(int argc, const char **argv) {
     ::exit(1);
   }
 
-  if (no_filter) {
-    static_cast<std::vector<std::string> &>(exported_header_dirs).clear();
+  std::set<std::string> exported_headers;
+  if (!no_filter) {
+    exported_headers =
+        abi_util::CollectAllExportedHeaders(exported_header_dirs);
   }
 
   // Initialize clang tools and run front-end action.
@@ -105,7 +121,8 @@ int main(int argc, const char **argv) {
 
   clang::tooling::ClangTool tool(*compilations, header_files);
   std::unique_ptr<clang::tooling::FrontendActionFactory> factory(
-      new HeaderCheckerFrontendActionFactory(out_dump, exported_header_dirs));
+      new HeaderCheckerFrontendActionFactory(out_dump, exported_headers,
+                                             text_format));
 
   return tool.run(factory.get());
 }

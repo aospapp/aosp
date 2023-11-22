@@ -8,25 +8,15 @@ cc_binary_host {
         "libLLVMSupport",
     ],
 
-    host_ldlibs: ["-lm"],
+    tidy_checks: [
+        "-google-runtime-member-string-references",
+    ],
     target: {
         windows: {
             host_ldlibs: [
                 "-limagehlp",
                 "-lpsapi",
                 "-lversion",
-            ],
-        },
-        darwin: {
-            host_ldlibs: [
-                "-lpthread",
-                "-ldl",
-            ],
-        },
-        linux: {
-            host_ldlibs: [
-                "-lpthread",
-                "-ldl",
             ],
         },
     },

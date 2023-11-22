@@ -47,6 +47,7 @@
 #include "QCameraCommon.h"
 #include "QCamera3VendorTags.h"
 #include "QCameraDualCamSettings.h"
+#include "QCamera3HdrPlusListenerThread.h"
 
 #include "EaselManagerClient.h"
 #include "HdrPlusClient.h"
@@ -484,6 +485,7 @@ private:
     int32_t getReprocessibleOutputStreamId(uint32_t &id);
     int32_t handleCameraDeviceError(bool stopChannelImmediately = false);
 
+    bool isEISEnabled(const CameraMetadata& meta);
     bool isOnEncoder(const cam_dimension_t max_viewfinder_size,
             uint32_t width, uint32_t height);
     void hdrPlusPerfLock(mm_camera_super_buf_t *metadata_buf);
@@ -543,6 +545,7 @@ private:
     metadata_buffer_t* mParameters;
     metadata_buffer_t* mPrevParameters;
     CameraMetadata mCurJpegMeta;
+    cam_is_type_t m_ISTypeVideo;
     bool m_bIsVideo;
     bool m_bIs4KVideo;
     bool m_bEisSupportedSize;
@@ -596,6 +599,7 @@ private:
         uint8_t capture_intent;
         uint8_t fwkCacMode;
         uint8_t hybrid_ae_enable;
+        uint8_t motion_detection_enable;
         /* DevCamDebug metadata PendingRequestInfo */
         uint8_t DevCamDebug_meta_enable;
         /* DevCamDebug metadata end */
@@ -609,6 +613,7 @@ private:
         uint8_t requestedLensShadingMapMode; // Lens shading map mode for this request.
         uint8_t requestedFaceDetectMode; // Face detect mode for this request.
         bool partialResultDropped; // Whether partial metadata is dropped.
+        uint8_t requestedOisDataMode; // OIS data mode for this request.
     } PendingRequestInfo;
     typedef struct {
         uint32_t frame_number;
@@ -700,6 +705,8 @@ private:
     uint8_t mLastRequestedLensShadingMapMode;
     // Last face detect mode framework requsted.
     uint8_t mLastRequestedFaceDetectMode;
+    // Last OIS data mode framework requested.
+    uint8_t mLastRequestedOisDataMode;
 
     cam_feature_mask_t mCurrFeatureState;
     /* Ldaf calibration data */
@@ -850,6 +857,9 @@ private:
     // Easel manager client callbacks.
     void onEaselFatalError(std::string errMsg);
 
+    // Clean up and wait for Easel error future.
+    void cleanupEaselErrorFuture();
+
     // HDR+ client callbacks.
     void onOpened(std::unique_ptr<HdrPlusClient> client) override;
     void onOpenFailed(status_t err) override;
@@ -893,7 +903,23 @@ private:
 
     int32_t mSceneDistance;
 
+    std::mutex mEaselErrorFutureLock;
     std::future<void> mEaselErrorFuture;
+
+    // Thread to handle callbacks from HDR+ client. Protected by gHdrPlusClientLock.
+    sp<QCamera3HdrPlusListenerThread> mQCamera3HdrPlusListenerThread;
+
+    // Read sensor calibration XML file for lens calibration fields. On failure to read
+    // the file, leaves passed-in values unchanged and returns false.
+    static bool readSensorCalibration(int activeArrayWidth,
+            float poseRotation[4], float poseTranslation[3],
+            float cameraIntrinsics[5], float radialDistortion[6]);
+
+    // Parse a string of form " [ x; y; z ...]" into a floating-point array.
+    // Returns false on parse error
+    static bool parseStringArray(const char *str, float *dest, int count);
+
+    float mLastFocusDistance;
 };
 
 }; // namespace qcamera

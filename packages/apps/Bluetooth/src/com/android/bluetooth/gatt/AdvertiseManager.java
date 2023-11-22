@@ -25,19 +25,14 @@ import android.os.HandlerThread;
 import android.os.IBinder;
 import android.os.IInterface;
 import android.os.Looper;
-import android.os.Message;
 import android.os.RemoteException;
 import android.util.Log;
-import com.android.bluetooth.Utils;
+
 import com.android.bluetooth.btservice.AdapterService;
+
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Manages Bluetooth LE advertising operations and interacts with bluedroid stack. TODO: add tests.
@@ -58,7 +53,9 @@ class AdvertiseManager {
      * Constructor of {@link AdvertiseManager}.
      */
     AdvertiseManager(GattService service, AdapterService adapterService) {
-        if (DBG) Log.d(TAG, "advertise manager created");
+        if (DBG) {
+            Log.d(TAG, "advertise manager created");
+        }
         mService = service;
         mAdapterService = adapterService;
     }
@@ -74,7 +71,9 @@ class AdvertiseManager {
     }
 
     void cleanup() {
-        if (DBG) Log.d(TAG, "cleanup()");
+        if (DBG) {
+            Log.d(TAG, "cleanup()");
+        }
         cleanupNative();
         mAdvertisers.clear();
         sTempRegistrationId = -1;
@@ -110,23 +109,25 @@ class AdvertiseManager {
     }
 
     class AdvertisingSetDeathRecipient implements IBinder.DeathRecipient {
-        IAdvertisingSetCallback callback;
+        public IAdvertisingSetCallback callback;
 
-        public AdvertisingSetDeathRecipient(IAdvertisingSetCallback callback) {
+        AdvertisingSetDeathRecipient(IAdvertisingSetCallback callback) {
             this.callback = callback;
         }
 
         @Override
         public void binderDied() {
-            if (DBG) Log.d(TAG, "Binder is dead - unregistering advertising set");
+            if (DBG) {
+                Log.d(TAG, "Binder is dead - unregistering advertising set");
+            }
             stopAdvertisingSet(callback);
         }
     }
 
-    Map.Entry<IBinder, AdvertiserInfo> findAdvertiser(int advertiser_id) {
+    Map.Entry<IBinder, AdvertiserInfo> findAdvertiser(int advertiserId) {
         Map.Entry<IBinder, AdvertiserInfo> entry = null;
         for (Map.Entry<IBinder, AdvertiserInfo> e : mAdvertisers.entrySet()) {
-            if (e.getValue().id == advertiser_id) {
+            if (e.getValue().id == advertiserId) {
                 entry = e;
                 break;
             }
@@ -134,50 +135,51 @@ class AdvertiseManager {
         return entry;
     }
 
-    void onAdvertisingSetStarted(int reg_id, int advertiser_id, int tx_power, int status)
+    void onAdvertisingSetStarted(int regId, int advertiserId, int txPower, int status)
             throws Exception {
         if (DBG) {
-            Log.d(TAG, "onAdvertisingSetStarted() - reg_id=" + reg_id + ", advertiser_id="
-                            + advertiser_id + ", status=" + status);
+            Log.d(TAG,
+                    "onAdvertisingSetStarted() - regId=" + regId + ", advertiserId=" + advertiserId
+                            + ", status=" + status);
         }
 
-        Map.Entry<IBinder, AdvertiserInfo> entry = findAdvertiser(reg_id);
+        Map.Entry<IBinder, AdvertiserInfo> entry = findAdvertiser(regId);
 
         if (entry == null) {
-            Log.i(TAG, "onAdvertisingSetStarted() - no callback found for reg_id " + reg_id);
+            Log.i(TAG, "onAdvertisingSetStarted() - no callback found for regId " + regId);
             // Advertising set was stopped before it was properly registered.
-            stopAdvertisingSetNative(advertiser_id);
+            stopAdvertisingSetNative(advertiserId);
             return;
         }
 
         IAdvertisingSetCallback callback = entry.getValue().callback;
         if (status == 0) {
             entry.setValue(
-                    new AdvertiserInfo(advertiser_id, entry.getValue().deathRecipient, callback));
+                    new AdvertiserInfo(advertiserId, entry.getValue().deathRecipient, callback));
         } else {
             IBinder binder = entry.getKey();
             binder.unlinkToDeath(entry.getValue().deathRecipient, 0);
             mAdvertisers.remove(binder);
         }
 
-        callback.onAdvertisingSetStarted(advertiser_id, tx_power, status);
+        callback.onAdvertisingSetStarted(advertiserId, txPower, status);
     }
 
-    void onAdvertisingEnabled(int advertiser_id, boolean enable, int status) throws Exception {
+    void onAdvertisingEnabled(int advertiserId, boolean enable, int status) throws Exception {
         if (DBG) {
-            Log.d(TAG, "onAdvertisingSetEnabled() - advertiser_id=" + advertiser_id + ", enable="
-                            + enable + ", status=" + status);
+            Log.d(TAG, "onAdvertisingSetEnabled() - advertiserId=" + advertiserId + ", enable="
+                    + enable + ", status=" + status);
         }
 
-        Map.Entry<IBinder, AdvertiserInfo> entry = findAdvertiser(advertiser_id);
+        Map.Entry<IBinder, AdvertiserInfo> entry = findAdvertiser(advertiserId);
         if (entry == null) {
-            Log.i(TAG, "onAdvertisingSetEnable() - no callback found for advertiser_id "
-                            + advertiser_id);
+            Log.i(TAG, "onAdvertisingSetEnable() - no callback found for advertiserId "
+                    + advertiserId);
             return;
         }
 
         IAdvertisingSetCallback callback = entry.getValue().callback;
-        callback.onAdvertisingEnabled(advertiser_id, enable, status);
+        callback.onAdvertisingEnabled(advertiserId, enable, status);
     }
 
     void startAdvertisingSet(AdvertisingSetParameters parameters, AdvertiseData advertiseData,
@@ -193,30 +195,34 @@ class AdvertiseManager {
         }
 
         String deviceName = AdapterService.getAdapterService().getName();
-        byte[] adv_data = AdvertiseHelper.advertiseDataToBytes(advertiseData, deviceName);
-        byte[] scan_response = AdvertiseHelper.advertiseDataToBytes(scanResponse, deviceName);
-        byte[] periodic_data = AdvertiseHelper.advertiseDataToBytes(periodicData, deviceName);
+        byte[] advDataBytes = AdvertiseHelper.advertiseDataToBytes(advertiseData, deviceName);
+        byte[] scanResponseBytes = AdvertiseHelper.advertiseDataToBytes(scanResponse, deviceName);
+        byte[] periodicDataBytes = AdvertiseHelper.advertiseDataToBytes(periodicData, deviceName);
 
-        int cb_id = --sTempRegistrationId;
-        mAdvertisers.put(binder, new AdvertiserInfo(cb_id, deathRecipient, callback));
+        int cbId = --sTempRegistrationId;
+        mAdvertisers.put(binder, new AdvertiserInfo(cbId, deathRecipient, callback));
 
-        if (DBG) Log.d(TAG, "startAdvertisingSet() - reg_id=" + cb_id + ", callback: " + binder);
-        startAdvertisingSetNative(parameters, adv_data, scan_response, periodicParameters,
-                periodic_data, duration, maxExtAdvEvents, cb_id);
+        if (DBG) {
+            Log.d(TAG, "startAdvertisingSet() - reg_id=" + cbId + ", callback: " + binder);
+        }
+        startAdvertisingSetNative(parameters, advDataBytes, scanResponseBytes, periodicParameters,
+                periodicDataBytes, duration, maxExtAdvEvents, cbId);
     }
 
-    void onOwnAddressRead(int advertiser_id, int addressType, String address)
+    void onOwnAddressRead(int advertiserId, int addressType, String address)
             throws RemoteException {
-        if (DBG) Log.d(TAG, "onOwnAddressRead() advertiser_id=" + advertiser_id);
+        if (DBG) {
+            Log.d(TAG, "onOwnAddressRead() advertiserId=" + advertiserId);
+        }
 
-        Map.Entry<IBinder, AdvertiserInfo> entry = findAdvertiser(advertiser_id);
+        Map.Entry<IBinder, AdvertiserInfo> entry = findAdvertiser(advertiserId);
         if (entry == null) {
-            Log.i(TAG, "onOwnAddressRead() - bad advertiser_id " + advertiser_id);
+            Log.i(TAG, "onOwnAddressRead() - bad advertiserId " + advertiserId);
             return;
         }
 
         IAdvertisingSetCallback callback = entry.getValue().callback;
-        callback.onOwnAddressRead(advertiser_id, addressType, address);
+        callback.onOwnAddressRead(advertiserId, addressType, address);
     }
 
     void getOwnAddress(int advertiserId) {
@@ -225,7 +231,9 @@ class AdvertiseManager {
 
     void stopAdvertisingSet(IAdvertisingSetCallback callback) {
         IBinder binder = toBinder(callback);
-        if (DBG) Log.d(TAG, "stopAdvertisingSet() " + binder);
+        if (DBG) {
+            Log.d(TAG, "stopAdvertisingSet() " + binder);
+        }
 
         AdvertiserInfo adv = mAdvertisers.remove(binder);
         if (adv == null) {
@@ -233,19 +241,19 @@ class AdvertiseManager {
             return;
         }
 
-        Integer advertiser_id = adv.id;
+        Integer advertiserId = adv.id;
         binder.unlinkToDeath(adv.deathRecipient, 0);
 
-        if (advertiser_id < 0) {
+        if (advertiserId < 0) {
             Log.i(TAG, "stopAdvertisingSet() - advertiser not finished registration yet");
             // Advertiser will be freed once initiated in onAdvertisingSetStarted()
             return;
         }
 
-        stopAdvertisingSetNative(advertiser_id);
+        stopAdvertisingSetNative(advertiserId);
 
         try {
-            callback.onAdvertisingSetStopped(advertiser_id);
+            callback.onAdvertisingSetStopped(advertiserId);
         } catch (RemoteException e) {
             Log.i(TAG, "error sending onAdvertisingSetStopped callback", e);
         }
@@ -257,154 +265,168 @@ class AdvertiseManager {
 
     void setAdvertisingData(int advertiserId, AdvertiseData data) {
         String deviceName = AdapterService.getAdapterService().getName();
-        setAdvertisingDataNative(
-                advertiserId, AdvertiseHelper.advertiseDataToBytes(data, deviceName));
+        setAdvertisingDataNative(advertiserId,
+                AdvertiseHelper.advertiseDataToBytes(data, deviceName));
     }
 
     void setScanResponseData(int advertiserId, AdvertiseData data) {
         String deviceName = AdapterService.getAdapterService().getName();
-        setScanResponseDataNative(
-                advertiserId, AdvertiseHelper.advertiseDataToBytes(data, deviceName));
+        setScanResponseDataNative(advertiserId,
+                AdvertiseHelper.advertiseDataToBytes(data, deviceName));
     }
 
     void setAdvertisingParameters(int advertiserId, AdvertisingSetParameters parameters) {
         setAdvertisingParametersNative(advertiserId, parameters);
     }
 
-    void setPeriodicAdvertisingParameters(
-            int advertiserId, PeriodicAdvertisingParameters parameters) {
+    void setPeriodicAdvertisingParameters(int advertiserId,
+            PeriodicAdvertisingParameters parameters) {
         setPeriodicAdvertisingParametersNative(advertiserId, parameters);
     }
 
     void setPeriodicAdvertisingData(int advertiserId, AdvertiseData data) {
         String deviceName = AdapterService.getAdapterService().getName();
-        setPeriodicAdvertisingDataNative(
-                advertiserId, AdvertiseHelper.advertiseDataToBytes(data, deviceName));
+        setPeriodicAdvertisingDataNative(advertiserId,
+                AdvertiseHelper.advertiseDataToBytes(data, deviceName));
     }
 
     void setPeriodicAdvertisingEnable(int advertiserId, boolean enable) {
         setPeriodicAdvertisingEnableNative(advertiserId, enable);
     }
 
-    void onAdvertisingDataSet(int advertiser_id, int status) throws Exception {
+    void onAdvertisingDataSet(int advertiserId, int status) throws Exception {
         if (DBG) {
             Log.d(TAG,
-                    "onAdvertisingDataSet() advertiser_id=" + advertiser_id + ", status=" + status);
+                    "onAdvertisingDataSet() advertiserId=" + advertiserId + ", status=" + status);
         }
 
-        Map.Entry<IBinder, AdvertiserInfo> entry = findAdvertiser(advertiser_id);
+        Map.Entry<IBinder, AdvertiserInfo> entry = findAdvertiser(advertiserId);
         if (entry == null) {
-            Log.i(TAG, "onAdvertisingDataSet() - bad advertiser_id " + advertiser_id);
+            Log.i(TAG, "onAdvertisingDataSet() - bad advertiserId " + advertiserId);
             return;
         }
 
         IAdvertisingSetCallback callback = entry.getValue().callback;
-        callback.onAdvertisingDataSet(advertiser_id, status);
+        callback.onAdvertisingDataSet(advertiserId, status);
     }
 
-    void onScanResponseDataSet(int advertiser_id, int status) throws Exception {
-        if (DBG)
-            Log.d(TAG, "onScanResponseDataSet() advertiser_id=" + advertiser_id + ", status="
-                            + status);
+    void onScanResponseDataSet(int advertiserId, int status) throws Exception {
+        if (DBG) {
+            Log.d(TAG,
+                    "onScanResponseDataSet() advertiserId=" + advertiserId + ", status=" + status);
+        }
 
-        Map.Entry<IBinder, AdvertiserInfo> entry = findAdvertiser(advertiser_id);
+        Map.Entry<IBinder, AdvertiserInfo> entry = findAdvertiser(advertiserId);
         if (entry == null) {
-            Log.i(TAG, "onScanResponseDataSet() - bad advertiser_id " + advertiser_id);
+            Log.i(TAG, "onScanResponseDataSet() - bad advertiserId " + advertiserId);
             return;
         }
 
         IAdvertisingSetCallback callback = entry.getValue().callback;
-        callback.onScanResponseDataSet(advertiser_id, status);
+        callback.onScanResponseDataSet(advertiserId, status);
     }
 
-    void onAdvertisingParametersUpdated(int advertiser_id, int tx_power, int status)
+    void onAdvertisingParametersUpdated(int advertiserId, int txPower, int status)
             throws Exception {
         if (DBG) {
-            Log.d(TAG, "onAdvertisingParametersUpdated() advertiser_id=" + advertiser_id
-                            + ", tx_power=" + tx_power + ", status=" + status);
+            Log.d(TAG,
+                    "onAdvertisingParametersUpdated() advertiserId=" + advertiserId + ", txPower="
+                            + txPower + ", status=" + status);
         }
 
-        Map.Entry<IBinder, AdvertiserInfo> entry = findAdvertiser(advertiser_id);
+        Map.Entry<IBinder, AdvertiserInfo> entry = findAdvertiser(advertiserId);
         if (entry == null) {
-            Log.i(TAG, "onAdvertisingParametersUpdated() - bad advertiser_id " + advertiser_id);
+            Log.i(TAG, "onAdvertisingParametersUpdated() - bad advertiserId " + advertiserId);
             return;
         }
 
         IAdvertisingSetCallback callback = entry.getValue().callback;
-        callback.onAdvertisingParametersUpdated(advertiser_id, tx_power, status);
+        callback.onAdvertisingParametersUpdated(advertiserId, txPower, status);
     }
 
-    void onPeriodicAdvertisingParametersUpdated(int advertiser_id, int status) throws Exception {
+    void onPeriodicAdvertisingParametersUpdated(int advertiserId, int status) throws Exception {
         if (DBG) {
-            Log.d(TAG, "onPeriodicAdvertisingParametersUpdated() advertiser_id=" + advertiser_id
-                            + ", status=" + status);
+            Log.d(TAG, "onPeriodicAdvertisingParametersUpdated() advertiserId=" + advertiserId
+                    + ", status=" + status);
         }
 
-        Map.Entry<IBinder, AdvertiserInfo> entry = findAdvertiser(advertiser_id);
+        Map.Entry<IBinder, AdvertiserInfo> entry = findAdvertiser(advertiserId);
         if (entry == null) {
-            Log.i(TAG, "onPeriodicAdvertisingParametersUpdated() - bad advertiser_id "
-                            + advertiser_id);
+            Log.i(TAG,
+                    "onPeriodicAdvertisingParametersUpdated() - bad advertiserId " + advertiserId);
             return;
         }
 
         IAdvertisingSetCallback callback = entry.getValue().callback;
-        callback.onPeriodicAdvertisingParametersUpdated(advertiser_id, status);
+        callback.onPeriodicAdvertisingParametersUpdated(advertiserId, status);
     }
 
-    void onPeriodicAdvertisingDataSet(int advertiser_id, int status) throws Exception {
+    void onPeriodicAdvertisingDataSet(int advertiserId, int status) throws Exception {
         if (DBG) {
-            Log.d(TAG, "onPeriodicAdvertisingDataSet() advertiser_id=" + advertiser_id + ", status="
-                            + status);
+            Log.d(TAG, "onPeriodicAdvertisingDataSet() advertiserId=" + advertiserId + ", status="
+                    + status);
         }
 
-        Map.Entry<IBinder, AdvertiserInfo> entry = findAdvertiser(advertiser_id);
+        Map.Entry<IBinder, AdvertiserInfo> entry = findAdvertiser(advertiserId);
         if (entry == null) {
-            Log.i(TAG, "onPeriodicAdvertisingDataSet() - bad advertiser_id " + advertiser_id);
+            Log.i(TAG, "onPeriodicAdvertisingDataSet() - bad advertiserId " + advertiserId);
             return;
         }
 
         IAdvertisingSetCallback callback = entry.getValue().callback;
-        callback.onPeriodicAdvertisingDataSet(advertiser_id, status);
+        callback.onPeriodicAdvertisingDataSet(advertiserId, status);
     }
 
-    void onPeriodicAdvertisingEnabled(int advertiser_id, boolean enable, int status)
+    void onPeriodicAdvertisingEnabled(int advertiserId, boolean enable, int status)
             throws Exception {
         if (DBG) {
-            Log.d(TAG, "onPeriodicAdvertisingEnabled() advertiser_id=" + advertiser_id + ", status="
-                            + status);
+            Log.d(TAG, "onPeriodicAdvertisingEnabled() advertiserId=" + advertiserId + ", status="
+                    + status);
         }
 
-        Map.Entry<IBinder, AdvertiserInfo> entry = findAdvertiser(advertiser_id);
+        Map.Entry<IBinder, AdvertiserInfo> entry = findAdvertiser(advertiserId);
         if (entry == null) {
-            Log.i(TAG, "onAdvertisingSetEnable() - bad advertiser_id " + advertiser_id);
+            Log.i(TAG, "onAdvertisingSetEnable() - bad advertiserId " + advertiserId);
             return;
         }
 
         IAdvertisingSetCallback callback = entry.getValue().callback;
-        callback.onPeriodicAdvertisingEnabled(advertiser_id, enable, status);
+        callback.onPeriodicAdvertisingEnabled(advertiserId, enable, status);
     }
 
     static {
         classInitNative();
     }
 
-    private native static void classInitNative();
+    private static native void classInitNative();
+
     private native void initializeNative();
+
     private native void cleanupNative();
+
     private native void startAdvertisingSetNative(AdvertisingSetParameters parameters,
             byte[] advertiseData, byte[] scanResponse,
             PeriodicAdvertisingParameters periodicParameters, byte[] periodicData, int duration,
-            int maxExtAdvEvents, int reg_id);
+            int maxExtAdvEvents, int regId);
+
     private native void getOwnAddressNative(int advertiserId);
-    private native void stopAdvertisingSetNative(int advertiser_id);
-    private native void enableAdvertisingSetNative(
-            int advertiserId, boolean enable, int duration, int maxExtAdvEvents);
+
+    private native void stopAdvertisingSetNative(int advertiserId);
+
+    private native void enableAdvertisingSetNative(int advertiserId, boolean enable, int duration,
+            int maxExtAdvEvents);
+
     private native void setAdvertisingDataNative(int advertiserId, byte[] data);
+
     private native void setScanResponseDataNative(int advertiserId, byte[] data);
-    private native void setAdvertisingParametersNative(
-            int advertiserId, AdvertisingSetParameters parameters);
-    private native void setPeriodicAdvertisingParametersNative(
-            int advertiserId, PeriodicAdvertisingParameters parameters);
+
+    private native void setAdvertisingParametersNative(int advertiserId,
+            AdvertisingSetParameters parameters);
+
+    private native void setPeriodicAdvertisingParametersNative(int advertiserId,
+            PeriodicAdvertisingParameters parameters);
+
     private native void setPeriodicAdvertisingDataNative(int advertiserId, byte[] data);
+
     private native void setPeriodicAdvertisingEnableNative(int advertiserId, boolean enable);
 }

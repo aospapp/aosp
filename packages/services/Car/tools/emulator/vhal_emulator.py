@@ -204,9 +204,10 @@ class Vhal:
         cmd.msg_type = VehicleHalProto_pb2.GET_PROPERTY_ALL_CMD
         self._txCmd(cmd)
 
-    def setProperty(self, prop, area_id, value):
+    def setProperty(self, prop, area_id, value, status=VehicleHalProto_pb2.AVAILABLE):
         """
-            Sends a setProperty command for the specified property ID, area ID, and value.
+            Sends a setProperty command for the specified property ID, area ID, value and status.
+              If Status is not specified, automatically send AVAILABLE as the default.
               This function chooses the proper value field to populate based on the config for the
               property.  It is the caller's responsibility to ensure the value data is the proper
               type.
@@ -217,6 +218,7 @@ class Vhal:
         propValue.prop = prop
         # Insert value into the proper area
         propValue.area_id = area_id
+        propValue.status = status;
         # Determine the value_type and populate the correct value field in protoBuf
         try:
             valType = self._propToType[prop]
@@ -238,7 +240,7 @@ class Vhal:
             propValue.int32_values.extend(value)
         elif valType in self._types.TYPE_FLOATS:
             propValue.float_values.extend(value)
-        elif valType in self._types.TYPE_COMPLEX:
+        elif valType in self._types.TYPE_MIXED:
             propValue.string_value = \
                 getByAttributeOrKey(value, 'string_value', '')
             propValue.bytes_value = \

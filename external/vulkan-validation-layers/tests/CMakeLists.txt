@@ -1,5 +1,33 @@
 cmake_minimum_required(VERSION 2.8.11)
 
+if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
+    add_definitions(-DVK_USE_PLATFORM_WIN32_KHR -DWIN32_LEAN_AND_MEAN)
+    # Workaround for TR1 deprecation in Visual Studio 15.5 until Google Test is updated
+    add_definitions(-D_SILENCE_TR1_NAMESPACE_DEPRECATION_WARNING)
+    set(DisplayServer Win32)
+elseif(CMAKE_SYSTEM_NAME STREQUAL "Android")
+    add_definitions(-DVK_USE_PLATFORM_ANDROID_KHR)
+elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    if (BUILD_WSI_XCB_SUPPORT)
+        add_definitions(-DVK_USE_PLATFORM_XCB_KHR)
+    endif()
+
+    if (BUILD_WSI_XLIB_SUPPORT)
+       add_definitions(-DVK_USE_PLATFORM_XLIB_KHR)
+    endif()
+
+    if (BUILD_WSI_WAYLAND_SUPPORT)
+       add_definitions(-DVK_USE_PLATFORM_WAYLAND_KHR)
+    endif()
+
+    if (BUILD_WSI_MIR_SUPPORT)
+        add_definitions(-DVK_USE_PLATFORM_MIR_KHR)
+        include_directories(${MIR_INCLUDE_DIR})
+    endif()
+else()
+    message(FATAL_ERROR "Unsupported Platform!")
+endif()
+
 # On Windows, we must pair Debug and Release appropriately
 if (WIN32)
    # For Windows, since 32-bit and 64-bit items can co-exist, we build each in its own build directory.
@@ -10,11 +38,7 @@ if (WIN32)
    else ()
       set (BUILDTGT_DIR build32)
    endif()
-else()
-    include (FindPkgConfig)
-    if (BUILD_WSI_XCB_SUPPORT)
-        find_package(XCB REQUIRED)
-    endif()
+   file(COPY vk_layer_validation_tests.vcxproj.user DESTINATION ${CMAKE_BINARY_DIR}/tests)
 endif()
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake")
@@ -41,11 +65,15 @@ set(COMMON_CPP
    )
 
 include_directories(
-    "${PROJECT_SOURCE_DIR}/tests/gtest-1.7.0/include"
-    "${PROJECT_SOURCE_DIR}/icd/common"
-    "${PROJECT_SOURCE_DIR}/layers"
+    ${PROJECT_SOURCE_DIR}/tests
+    ${PROJECT_SOURCE_DIR}/tests/gtest-1.7.0/include
+    ${PROJECT_SOURCE_DIR}/icd/common
+    ${PROJECT_SOURCE_DIR}/layers
     ${GLSLANG_SPIRV_INCLUDE_DIR}
     ${LIBGLM_INCLUDE_DIR}
+    ${CMAKE_CURRENT_BINARY_DIR}
+    ${CMAKE_BINARY_DIR}
+    ${PROJECT_BINARY_DIR}
     )
 
 if (NOT WIN32)
@@ -69,13 +97,14 @@ else()
             COMMAND ${CMAKE_COMMAND} -E copy_if_different ${VALIDATE_DOC} vkvalidatelayerdoc.ps1
             VERBATIM
             )
+        set_target_properties(binary-dir-symlinks PROPERTIES FOLDER ${LVL_TARGET_FOLDER})
     endif()
 endif()
 
 if(WIN32)
-   set (LIBVK "vulkan-${MAJOR}")
+   set (LIBVK "${API_LOWERCASE}-${MAJOR}")
 elseif(UNIX)
-   set (LIBVK "vulkan")
+   set (LIBVK "${API_LOWERCASE}")
 else()
 endif()
 
@@ -84,7 +113,7 @@ set_target_properties(vk_layer_validation_tests
    PROPERTIES
    COMPILE_DEFINITIONS "GTEST_LINKED_AS_SHARED_LIBRARY=1")
 if(NOT WIN32)
-    if (BUILD_WSI_XCB_SUPPORT AND BUILD_WSI_XLIB_SUPPORT)
+    if (BUILD_WSI_XCB_SUPPORT OR BUILD_WSI_XLIB_SUPPORT)
         target_link_libraries(vk_layer_validation_tests ${LIBVK} ${XCB_LIBRARIES} ${X11_LIBRARIES} gtest gtest_main VkLayer_utils ${GLSLANG_LIBRARIES})
     else()
         target_link_libraries(vk_layer_validation_tests ${LIBVK} gtest gtest_main VkLayer_utils ${GLSLANG_LIBRARIES})
@@ -92,6 +121,21 @@ if(NOT WIN32)
 endif()
 if(WIN32)
    target_link_libraries(vk_layer_validation_tests ${LIBVK} gtest gtest_main VkLayer_utils ${GLSLANG_LIBRARIES})
+endif()
+add_dependencies(vk_layer_validation_tests
+   VkLayer_core_validation
+   VkLayer_object_tracker
+   VkLayer_threading
+   VkLayer_unique_objects
+   VkLayer_parameter_validation
+)
+
+if (WIN32)
+    # For Windows, copy necessary gtest DLLs to the right spot for the vk_layer_tests...
+    FILE(TO_NATIVE_PATH ${CMAKE_CURRENT_BINARY_DIR}/gtest-1.7.0/$<CONFIGURATION>/*.dll SRC_GTEST_DLLS)
+    FILE(TO_NATIVE_PATH ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIGURATION> DST_GTEST_DLLS)
+    add_custom_command(TARGET vk_layer_validation_tests POST_BUILD
+        COMMAND xcopy /Y /I ${SRC_GTEST_DLLS} ${DST_GTEST_DLLS})
 endif()
 
 add_executable(vk_loader_validation_tests loader_validation_tests.cpp ${COMMON_CPP})

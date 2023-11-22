@@ -20,11 +20,33 @@
     <string name="launcher_settings_app_name" msgid="5782771766725939392">"設定"</string>
     <string name="launcher_network_app_name" msgid="5107150533945388559">"網絡"</string>
     <string name="launcher_restricted_profile_app_name" msgid="671448012575234643">"限制存取的個人檔案"</string>
+    <string name="header_category_suggestions" msgid="6732367439328586933">"建議"</string>
+    <string name="header_category_quick_settings" msgid="6626141045575946920">"快速設定"</string>
+    <string name="header_category_general_settings" msgid="1208946854116876918">"一般設定"</string>
+    <string name="dismiss_suggestion" msgid="8288127823132069828">"關閉此建議"</string>
+    <string name="hotwording_title" msgid="1984130766527626626">"偵測「Ok Google」啟動字詞"</string>
+    <string name="hotwording_summary" msgid="2863751845299261441">"隨時與「Google 助理」交談"</string>
     <string name="header_category_device" msgid="4855983928659541345">"裝置"</string>
     <string name="header_category_preferences" msgid="175105555164713972">"偏好設定"</string>
     <string name="header_category_accessories" msgid="823295909353025991">"遙控器和配件"</string>
     <string name="header_category_personal" msgid="8893959635328775096">"個人"</string>
-    <string name="accounts_category_title" msgid="7591072907146317425">"帳戶"</string>
+    <string name="connect_to_network" msgid="2209125715907353369">"連線至網絡"</string>
+    <string name="add_an_account" msgid="1123478843971990449">"新增帳戶"</string>
+    <string name="accounts_category_title" msgid="7839427428921349418">"帳戶和登入"</string>
+    <string name="accounts_category_summary_no_account" msgid="5739678666463033824">"沒有任何帳戶"</string>
+    <plurals name="accounts_category_summary" formatted="false" msgid="3864659911073569648">
+      <item quantity="other"><xliff:g id="ACCOUNTS_NUMBER_1">%1$d</xliff:g> 個帳戶</item>
+      <item quantity="one"><xliff:g id="ACCOUNTS_NUMBER_0">%1$d</xliff:g> 個帳戶</item>
+    </plurals>
+    <string name="connectivity_network_category_title" msgid="6005656364481347542">"網絡和互聯網"</string>
+    <string name="applications_category_title" msgid="3552921143969612110">"應用程式"</string>
+    <string name="device_pref_category_title" msgid="5264163316572335776">"裝置偏好設定"</string>
+    <string name="remotes_and_accessories_category_title" msgid="2729050422677319645">"遙控器和配件"</string>
+    <string name="remotes_and_accessories_category_summary_no_bluetooth_device" msgid="3967545806275801632">"沒有連接的藍牙裝置"</string>
+    <plurals name="remotes_and_accessories_category_summary" formatted="false" msgid="2004733390509722820">
+      <item quantity="other"><xliff:g id="ACCESSORIES_NUMBER_1">%1$d</xliff:g> 個配件</item>
+      <item quantity="one"><xliff:g id="ACCESSORIES_NUMBER_0">%1$d</xliff:g> 個配件</item>
+    </plurals>
     <string name="add_account" msgid="4098060223200619258">"新增帳戶"</string>
     <string name="account_header_remove_account" msgid="3288957118207682685">"移除帳戶"</string>
     <string name="account_sync" msgid="773808124331714965">"選擇已同步的應用程式"</string>
@@ -40,27 +62,47 @@
 %1$s</xliff:g>"</string>
     <string name="sync_failed" msgid="5514824149810480551">"同步失敗"</string>
     <string name="sync_active" msgid="6891115263481154378">"同步啟用中"</string>
-    <string name="connectivity_network" msgid="8321537111272398501">"網絡"</string>
     <string name="connectivity_wifi" msgid="489974791299647708">"Wi-Fi"</string>
     <string name="connectivity_ethernet" msgid="2182407318634700320">"以太網"</string>
+    <string name="connectivity_summary_ethernet_connected" msgid="2015335020646410586">"已連接以太網"</string>
+    <string name="connectivity_summary_no_network_connected" msgid="5187378791046457432">"沒有連接任何網絡"</string>
+    <string name="connectivity_summary_wifi_disabled" msgid="6904637079319724455">"Wi-Fi 已關閉"</string>
     <string name="wifi_setting_always_scan" msgid="8883713018717323351">"可隨時掃描"</string>
     <string name="wifi_setting_always_scan_context" msgid="398651204440349752">"允許 Google 的位置資訊服務和其他應用程式掃描網絡 (即使 Wi-Fi 已關閉)"</string>
     <string name="wifi_setting_enable_wifi" msgid="9214100840401870408">"Wi-Fi"</string>
+    <string name="connectivity_hint_message" msgid="1314202316675864203">"連線至網絡"</string>
+    <string name="apps_recently_used_category_title" msgid="5254492409677346900">"最近開啟的應用程式"</string>
+    <string name="apps_see_all_apps" msgid="5546179088197139203">"查看所有應用程式"</string>
+    <string name="apps_permissions_category_title" msgid="4476837368840442313">"權限"</string>
+    <string name="all_apps_title" msgid="5330174847732759402">"所有應用程式"</string>
+    <string name="all_apps_show_system_apps" msgid="4648447904721171884">"顯示系統應用程式"</string>
+    <string name="all_apps_installed" msgid="54800379871111518">"已安裝的應用程式"</string>
+    <string name="all_apps_other" msgid="8297097642727891911">"系統應用程式"</string>
+    <string name="all_apps_disabled" msgid="2016067533586741345">"已停用的應用程式"</string>
     <string name="device_daydream" msgid="3354366974209179614">"螢幕保護程式"</string>
     <string name="device_display" msgid="101455384386372747">"顯示"</string>
     <string name="device_sound" msgid="9214182566287657481">"音效"</string>
     <string name="device_surround_sound" msgid="6272196310566546860">"環迴音響"</string>
     <string name="device_sound_effects" msgid="7793281745920228622">"系統音效"</string>
-    <string name="device_apps" msgid="9180435229638772838">"應用程式"</string>
-    <string name="device_storage_reset" msgid="1425978936501134425">"儲存空間與重設"</string>
+    <string name="device_apps" msgid="1971794537385509294">"應用程式"</string>
+    <string name="device_storage" msgid="5536683600091277826">"儲存設備"</string>
+    <string name="device_reset" msgid="1885840356489458285">"重設"</string>
     <string name="device_backup_restore" msgid="5627523987587511884">"備份與還原"</string>
-    <string name="device_reset" msgid="2827002349560023125">"恢復原廠設定"</string>
+    <string name="device_factory_reset" msgid="6537106927211842545">"回復原廠設定"</string>
     <string name="device_calibration" msgid="8632962533376605191">"校正"</string>
+    <string name="surround_sound_select_formats" msgid="6329868407147678259">"選取格式"</string>
+    <string name="surround_sound_category_title" msgid="1331285587464316534">"環迴音效"</string>
+    <string name="surround_sound_format_ac3" msgid="1482464022424295698">"AC3 (Dolby Digital)"</string>
+    <string name="surround_sound_format_e_ac3" msgid="4406523828595644068">"E-AC3 (Dolby Digital Plus/DD+)"</string>
+    <string name="surround_sound_format_dts" msgid="1730946367570023539">"DTS"</string>
+    <string name="surround_sound_format_dts_hd" msgid="3324695734675414927">"DTS-HD"</string>
+    <string name="surround_sound_format_iec61937" msgid="1610948713240264858">"IEC61937"</string>
+    <string name="surround_sound_auto_info" msgid="4957977219847012992">"請注意：如果您的裝置未正確報告支援的格式，[自動] 選項可能無法運作。"</string>
+    <string name="surround_sound_auto_summary" msgid="175387511376834034">"自動：使用裝置報告的支援格式 (建議)"</string>
+    <string name="surround_sound_none_summary" msgid="4295042972785042496">"無：一律不使用環迴音效"</string>
+    <string name="surround_sound_manual_summary" msgid="9208540024024014501">"手動：選取要使用的格式"</string>
     <string name="device_storage_clear_cache_title" msgid="3365635664766067643">"清除快取資料？"</string>
     <string name="device_storage_clear_cache_message" msgid="6495570470005696210">"這會清除所有應用程式的快取資料。"</string>
-    <string name="apps_downloaded" msgid="4222190849854323480">"已下載的應用程式"</string>
-    <string name="apps_system" msgid="2499191125802829425">"系統應用程式"</string>
-    <string name="apps_running" msgid="6430310491739956228">"執行中的應用程式"</string>
     <string name="accessories_add" msgid="1347802656349218830">"新增配件"</string>
     <string name="accessory_state_pairing" msgid="7501989679637780963">"正在配對…"</string>
     <string name="accessory_state_connecting" msgid="8777884957977608529">"正在連線…"</string>
@@ -91,12 +133,16 @@
     <string name="system_date_time" msgid="8898457978560618950">"日期和時間"</string>
     <string name="system_language" msgid="2337138146114609247">"語言"</string>
     <string name="system_keyboard" msgid="7680159735294672514">"鍵盤"</string>
+    <string name="system_keyboard_autofill" msgid="5787948036400896834">"鍵盤和自動填入"</string>
+    <string name="system_autofill" msgid="8647914463541617409">"自動填入"</string>
     <string name="system_home" msgid="2858989138172296012">"主畫面"</string>
     <string name="system_search" msgid="2837264654143247611">"搜尋"</string>
     <string name="system_google" msgid="8560404305602209622">"Google"</string>
     <string name="system_security" msgid="8230080273993484407">"安全和限制"</string>
     <string name="system_speech" msgid="8128688499687306982">"語音"</string>
     <string name="system_inputs" msgid="2413907183796651102">"輸入"</string>
+    <string name="system_inputs_devices" msgid="8700905419497948327">"輸入和裝置"</string>
+    <string name="system_home_theater_control" msgid="2053198603790384368">"家庭影院控制"</string>
     <string name="system_accessibility" msgid="6215431399759498005">"協助工具"</string>
     <string name="system_developer_options" msgid="3237985523474863638">"開發人員選項"</string>
     <string name="accessibility_none" msgid="3441648940134070004">"無"</string>
@@ -143,14 +189,11 @@
     <string name="imei_information_title" msgid="5208860549282877136">"IMEI 資料"</string>
     <string name="status_bt_address" msgid="1571721865060122393">"藍牙位址"</string>
     <string name="status_up_time" msgid="1674116490191446110">"開機時間"</string>
-    <string name="status_wimax_mac_address" msgid="1102907383444152052">"4G MAC 位址"</string>
     <string name="legal_information" msgid="2346024659831852038">"法律資訊"</string>
     <string name="copyright_title" msgid="5564228453228549353">"版權"</string>
     <string name="license_title" msgid="4482927105870812604">"授權"</string>
     <string name="terms_title" msgid="8480859222932736291">"條款及細則"</string>
     <string name="webview_license_title" msgid="8843666223583780825">"WebView 系統授權"</string>
-    <string name="wallpaper_attributions" msgid="8622098625739634898">"桌布"</string>
-    <string name="wallpaper_attributions_values" msgid="1565931506291182879">"衛星影像供應商：\n©2014 CNES / Astrium, DigitalGlobe, Bluesky"</string>
   <string-array name="wifi_signal_strength">
     <item msgid="6926038943588801452">"差"</item>
     <item msgid="5986166866411161790">"一般"</item>
@@ -168,10 +211,8 @@
     <string name="wifi_setting_see_all" msgid="3217814666041974878">"顯示全部"</string>
     <string name="wifi_setting_see_fewer" msgid="5958876323942699235">"顯示較少"</string>
     <string name="wifi_setting_available_networks" msgid="6713791371350513043">"可用的網絡"</string>
-    <string name="wifi_setting_other_options_wps" msgid="2320322351779996152">"透過 WPS 連線"</string>
     <string name="wifi_setting_other_options_add_network" msgid="2791106243851894788">"新增網絡"</string>
     <string name="security_type" msgid="524443802004143058">"安全性類型"</string>
-    <string name="wps_network" msgid="1052148085426051873">"透過 WPS 連線"</string>
     <string name="other_network" msgid="3539704463099544488">"其他網絡…"</string>
     <string name="skip_network" msgid="6380260543776712357">"略過"</string>
     <string name="wifi_security_type_none" msgid="6622722325237471927">"無"</string>
@@ -206,6 +247,8 @@
     <string name="wifi_forget_network" msgid="7302755141573045803">"刪除網絡"</string>
     <string name="wifi_forget_network_description" msgid="3328285160018330334">"用於連接此網絡的資料將被清除，包括已儲存的密碼"</string>
     <string name="wifi_action_ok" msgid="5932500664228395779">"確定"</string>
+    <string name="wifi_setup_action_dont_change_network" msgid="5136210803832000656">"繼續"</string>
+    <string name="wifi_setup_action_change_network" msgid="4320731433166354508">"變更網絡"</string>
     <string name="wifi_action_change_network" msgid="5196215981075986148">"變更"</string>
     <string name="wifi_action_dont_change_network" msgid="1449920958930251977">"不要變更"</string>
     <string name="wifi_action_advanced_yes" msgid="8586473568311558982">"確定"</string>
@@ -234,6 +277,11 @@
     <string name="proxy_port_description" msgid="6791098212244367568">"請輸入有效的連接埠。\n例子：<xliff:g id="ID_1">8080</xliff:g>"</string>
     <string name="proxy_exclusionlist_description" msgid="6020640103462473072">"請輸入以半形逗號分隔的排除網域清單，或留空欄位。\n例子：<xliff:g id="ID_1">example.com,mycomp.test.com,localhost</xliff:g>"</string>
     <string name="proxy_hostname_description" msgid="5824391500254472447">"請輸入有效的主機名稱。\n例子：<xliff:g id="ID_1">proxy.example.com</xliff:g>"</string>
+    <string name="title_wifi_eap_method" msgid="3723583936041145157">"選擇 <xliff:g id="SSID">%1$s</xliff:g> 的 EAP 方法"</string>
+    <string name="title_wifi_phase2_authentication" msgid="8292177518924013886">"選擇 <xliff:g id="SSID">%1$s</xliff:g> 的 phase2 驗證"</string>
+    <string name="title_wifi_identity" msgid="6154397685951091638">"輸入 <xliff:g id="SSID">%1$s</xliff:g> 的身分"</string>
+    <string name="title_wifi_anonymous_identity" msgid="4530402657655491360">"輸入 <xliff:g id="SSID">%1$s</xliff:g> 的匿名身分"</string>
+    <string name="wifi_setup_summary_title_connected" msgid="3349953509191969645">"您已連線至 <xliff:g id="SSID">%1$s</xliff:g>"</string>
     <string name="wifi_summary_title_connected" msgid="8329216588732277139">"已連接網絡"</string>
     <string name="wifi_summary_title_not_connected" msgid="3799548944869386251">"未連接網絡"</string>
     <string name="wifi_summary_description_connected_to_wifi_network" msgid="7583498018733069053">"已連接 <xliff:g id="SSID">%1$s</xliff:g>。要連接至其他網絡嗎？"</string>
@@ -317,15 +365,6 @@
     <string name="system_package" msgid="9200255718634512790">"無法在外部媒體上安裝系統更新。"</string>
     <string name="move_error_device_admin" msgid="2060627704270836951">"無法在外部媒體上安裝「裝置管理員」。"</string>
     <string name="learn_more_action" msgid="7015991954404958779">"瞭解詳情"</string>
-    <string name="wifi_wps_retry_scan" msgid="6171190323753080808">"重試"</string>
-    <string name="wifi_wps_title" msgid="1872305810119408482">"正在搜尋 WPS 路由器…"</string>
-    <string name="wifi_wps_instructions" msgid="3618110962669110034">"在路由器按下「Wi-Fi 保護設定」按鈕。\n該按鈕可能標示為「WPS」或左側標有此符號。"</string>
-    <string name="wifi_wps_onstart_pin" msgid="594985182235834825">"請在 Wi-Fi 路由器中輸入 PIN <xliff:g id="NUMBER">%1$s</xliff:g>"</string>
-    <string name="wifi_wps_onstart_pin_description" msgid="4206001352944024353">"輸入 PIN 後，設定需時最多 2 分鐘"</string>
-    <string name="wifi_wps_failed_generic" msgid="8934636373182298397">"未能找到 Wi-Fi 路由器"</string>
-    <string name="wifi_wps_failed_wep" msgid="9158670824165143348">"不支援 Wi-Fi 路由器安全設定 (WEP)"</string>
-    <string name="wifi_wps_failed_tkip" msgid="1712545345594227319">"不支援 Wi-Fi 路由器安全設定 (TKIP)"</string>
-    <string name="wifi_wps_failed_overlap" msgid="3091222818050940041">"另一個 WPS 工作階段正在執行中，請在數分鐘後再試。"</string>
     <string name="system_date" msgid="2767108116769558081">"日期"</string>
     <string name="system_time" msgid="6726022312605226285">"時間"</string>
     <string name="system_set_date" msgid="2437586307768561116">"設定日期"</string>
@@ -417,7 +456,7 @@
     <string name="system_accessibility_service_off_confirm_desc" msgid="6714782635926048678">"若選取 [確定]，「<xliff:g id="SERVICE">%1$s</xliff:g>」就會關閉。"</string>
     <string name="system_accessibility_tts_output" msgid="8905477795536714590">"文字轉語音"</string>
     <string name="system_accessibility_tts_engine_config" msgid="5331139536083054552">"引擎配置"</string>
-    <string name="system_speak_passwords" msgid="5264650214879185873">"朗讀密碼"</string>
+    <string name="system_speak_passwords" msgid="5264650214879185873">"讀出密碼"</string>
     <string name="system_preferred_engine" msgid="8258210139854655567">"首選引擎"</string>
     <string name="system_speech_rate" msgid="8099856582088545576">"語音速率"</string>
     <string name="system_play_sample" msgid="7187293932891811148">"播放範例"</string>
@@ -519,9 +558,14 @@
     <string name="tts_rate_normal" msgid="362011908545519639">"正常"</string>
     <string name="tts_rate_fast" msgid="3792863158623953072">"快"</string>
     <string name="tts_rate_very_fast" msgid="5876670536911919074">"極快"</string>
+    <string name="title_settings" msgid="5433841477518010243">"<xliff:g id="NAME">%1$s</xliff:g> 設定"</string>
     <string name="title_current_keyboard" msgid="4259032357469819835">"目前的鍵盤"</string>
     <string name="title_configure" msgid="6929522003149212388">"設定"</string>
     <string name="desc_configure_keyboard" msgid="7187242843867404657">"鍵盤選項"</string>
+    <string name="title_current_autofill_service" msgid="6055852915343152350">"目前的自動填入服務"</string>
+    <string name="title_select_autofill_service" msgid="2515782066694197988">"選取自動填入服務"</string>
+    <string name="autofill_none" msgid="2426888642367790651">"不用了"</string>
+    <string name="autofill_confirmation_message" msgid="9068009043054751287">"&lt;b&gt;請確定您信任此應用程式&lt;/b&gt; &lt;br/&gt; &lt;br/&gt; &lt;xliff:g id=app_name example=「密碼服務」&gt;%1$s&lt;/xliff:g&gt;應用程式會根據您畫面上的內容判斷可自動填入的資料。"</string>
     <string name="computing_size" msgid="2955133568424704042">"正在計算..."</string>
     <string name="title_select_wifi_network" msgid="1038871400014761952">"選取 Wi-Fi 網絡"</string>
     <string name="accessories_wifi_display_rename_device" msgid="7416728299196887186">"重新命名"</string>
@@ -645,7 +689,7 @@
     <string name="confirm_factory_reset_description" msgid="1049842658625287303">"您要清除所有個人資訊和已下載的應用程式嗎？您無法復原這項操作！"</string>
     <string name="confirm_factory_reset_device" msgid="8923287482399582268">"全部清除"</string>
     <string name="select_device_name_title" msgid="5165800500130943604">"為 <xliff:g id="DEVICEMODEL">%1$s</xliff:g> 選擇名稱"</string>
-    <string name="select_device_name_description" msgid="6890879006777364213">"為您的 <xliff:g id="DEVICEMODEL">%1$s</xliff:g> 命名，以便從其他裝置投放內容或與其他裝置連線時識別此裝置。"</string>
+    <string name="select_device_name_description" msgid="4939767901420114190">"為裝置命名，以便從其他裝置投放內容或與其他裝置連接時識別此裝置。"</string>
   <string-array name="rooms">
     <item msgid="9056203990862307284">"Android TV"</item>
     <item msgid="7449352861592960712">"客廳電視"</item>
@@ -655,11 +699,13 @@
     <string name="custom_room" msgid="8655516733933892458">"輸入自訂名稱…"</string>
     <string name="device_rename_title" msgid="2629557295786267185">"重新命名此 <xliff:g id="DEVICEMODEL">%1$s</xliff:g>"</string>
     <string name="device_rename_description" msgid="2461752788563877107">"此 <xliff:g id="DEVICEMODEL">%1$s</xliff:g> 目前命名為「<xliff:g id="DEVICENAME">%2$s</xliff:g>」"</string>
+    <string name="device_name_suggestion_title" msgid="2312205155408810120">"設定裝置名稱"</string>
+    <string name="device_name_suggestion_summary" msgid="5657494684788779371">"投放您手機上的相片、影片以及其他內容時使用此名稱"</string>
     <string name="change_setting" msgid="2047402388786162246">"變更"</string>
     <string name="keep_settings" msgid="6798327196645732517">"不要變更"</string>
     <string name="apps_permissions" msgid="1283592091618660965">"權限"</string>
     <string name="device_apps_permissions" msgid="2966387603529725982">"應用程式權限"</string>
-    <string name="app_permissions_group_summary" msgid="7906834786705287901">"已允許 <xliff:g id="COUNT_0">%d</xliff:g> 個應用程式 (共 <xliff:g id="COUNT_1">%d</xliff:g> 個)"</string>
+    <string name="app_permissions_group_summary" msgid="7906834786705287901">"已允許 <xliff:g id="COUNT_0">%1$d</xliff:g> 個應用程式 (共 <xliff:g id="COUNT_1">%2$d</xliff:g> 個)"</string>
     <string name="bluetooth_permission_request" msgid="6649813878683015301">"藍牙權限要求"</string>
     <string name="security_patch" msgid="2131617390189164481">"Android 安全性修補程式級別"</string>
     <string name="choose_application" msgid="5662960665577780353">"選擇應用程式"</string>
@@ -672,6 +718,29 @@
     <string name="manage_keyboards" msgid="1905379263117016795">"管理鍵盤"</string>
     <string name="app_permission_summary_allowed" msgid="1618833359547333078">"允許"</string>
     <string name="app_permission_summary_not_allowed" msgid="3667663331476577913">"不允許"</string>
-    <string name="usage_access" msgid="1914242907684452328">"使用記錄存取權"</string>
+    <string name="usage_access" msgid="1914242907684452328">"使用情況存取權"</string>
     <string name="usage_access_description" msgid="6290001769893747651">"使用記錄存取權允許應用程式追蹤您正在使用的其他應用程式、使用頻率、流動服務供應商、語言設定和其他詳情。"</string>
+    <string name="high_power_apps" msgid="7796096221999495077">"電量優化"</string>
+    <string name="high_power_apps_description" msgid="1990016812115792282">"優化應用程式的使用電量"</string>
+    <string name="high_power_apps_empty" msgid="1355906551507153470">"沒有應用程式需要優化"</string>
+    <string name="high_power_on" msgid="7725180078784796673">"沒有優化"</string>
+    <string name="high_power_off" msgid="308272752152871252">"優化電量使用"</string>
+    <string name="high_power_system" msgid="7815843517656137656">"無法優化電量"</string>
+    <string name="manage_notification_access_title" msgid="2051765294087620434">"通知權限"</string>
+    <string name="no_notification_listeners" msgid="4583789599075326886">"沒有任何已安裝的應用程式要求通知存取權。"</string>
+    <string name="notification_listener_security_warning_summary" msgid="3647205635922300578">"這些應用程式將可讀取所有通知，包括聯絡人姓名和您收到的訊息文字等個人資料，還能關閉通知或觸發通知中的動作按鈕。"</string>
+    <string name="system_alert_window_settings" msgid="2069031369694448339">"顯示在其他應用程式上層"</string>
+    <string name="permit_draw_overlay" msgid="2400084757761408906">"允許顯示在其他應用程式上層"</string>
+    <string name="allow_overlay_description" msgid="1946279120428813474">"允許應用程式在您目前使用的其他應用程式上層顯示內容，因此可能會干擾您使用這些應用程式，或變更它們的顯示或運作方式。"</string>
+    <string name="write_system_settings" msgid="2730923656857824907">"修改系統設定"</string>
+    <string name="write_settings_title" msgid="8750406725746598710">"可修改系統設定"</string>
+    <string name="write_settings_description" msgid="2765037074460395437">"此權限可讓應用程式修改系統設定。"</string>
+    <string name="write_settings_on" msgid="3312616037931341656">"是"</string>
+    <string name="write_settings_off" msgid="6219072254626503312">"否"</string>
+    <string name="picture_in_picture_title" msgid="7738692876349058">"畫中畫"</string>
+    <string name="picture_in_picture_app_detail_switch" msgid="8063965798321494391">"允許畫中畫"</string>
+    <string name="picture_in_picture_empty_text" msgid="5592688180792300051">"沒有已安裝的應用程式支援畫中畫"</string>
+    <string name="picture_in_picture_app_detail_summary" msgid="3478182415601436326">"允許應用程式在開啟時或您離開後 (例如繼續觀看影片) 建立畫中畫視窗。該視窗會在您目前使用的其他應用程式上層顯示。"</string>
+    <string name="special_access" msgid="3513811566600299998">"特別應用程式權限"</string>
+    <string name="string_concat" msgid="5897947064488902904">"<xliff:g id="PART1">%1s</xliff:g>，<xliff:g id="PART2">%2s</xliff:g>"</string>
 </resources>

@@ -15,16 +15,22 @@
  */
 package com.android.tradefed.testtype.suite;
 
-import com.android.ddmlib.testrunner.TestIdentifier;
 import com.android.tradefed.build.IBuildInfo;
+import com.android.tradefed.config.Configuration;
 import com.android.tradefed.config.ConfigurationException;
 import com.android.tradefed.config.ConfigurationFactory;
+import com.android.tradefed.config.DeviceConfigurationHolder;
 import com.android.tradefed.config.IConfiguration;
+import com.android.tradefed.config.IDeviceConfiguration;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.invoker.IInvocationContext;
 import com.android.tradefed.invoker.InvocationContext;
 import com.android.tradefed.log.LogUtil.CLog;
+import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
+import com.android.tradefed.result.ILogSaver;
 import com.android.tradefed.result.ITestInvocationListener;
+import com.android.tradefed.result.TestDescription;
+import com.android.tradefed.targetprep.ITargetPreparer;
 
 import org.easymock.EasyMock;
 import org.junit.Before;
@@ -33,8 +39,9 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 import java.util.ArrayList;
-import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 
 /** Unit tests for {@link ITestSuite} when used with multiple devices. */
 @RunWith(JUnit4.class)
@@ -42,6 +49,8 @@ public class ITestSuiteMultiTest {
 
     private static final String EMPTY_CONFIG = "empty";
     private static final String TEST_CONFIG_NAME = "test";
+    private static final String DEVICE_NAME_1 = "device1";
+    private static final String DEVICE_NAME_2 = "device2";
 
     private ITestSuite mTestSuite;
     private ITestInvocationListener mMockListener;
@@ -51,13 +60,19 @@ public class ITestSuiteMultiTest {
     private ITestDevice mMockDevice2;
     private IBuildInfo mMockBuildInfo2;
 
+    private ITargetPreparer mMockTargetPrep;
+    private IConfiguration mStubMainConfiguration;
+    private ILogSaver mMockLogSaver;
+
     static class TestSuiteMultiDeviceImpl extends ITestSuite {
         private int mNumTests = 1;
+        private ITargetPreparer mPreparer;
 
         public TestSuiteMultiDeviceImpl() {}
 
-        public TestSuiteMultiDeviceImpl(int numTests) {
+        public TestSuiteMultiDeviceImpl(int numTests, ITargetPreparer targetPrep) {
             mNumTests = numTests;
+            mPreparer = targetPrep;
         }
 
         @Override
@@ -68,6 +83,15 @@ public class ITestSuiteMultiTest {
                     IConfiguration extraConfig =
                             ConfigurationFactory.getInstance()
                                     .createConfigurationFromArgs(new String[] {EMPTY_CONFIG});
+                    List<IDeviceConfiguration> deviceConfigs = new ArrayList<>();
+                    deviceConfigs.add(new DeviceConfigurationHolder(DEVICE_NAME_1));
+
+                    IDeviceConfiguration holder2 = new DeviceConfigurationHolder(DEVICE_NAME_2);
+                    deviceConfigs.add(holder2);
+                    holder2.addSpecificConfig(mPreparer);
+
+                    extraConfig.setDeviceConfigList(deviceConfigs);
+
                     MultiDeviceStubTest test = new MultiDeviceStubTest();
                     test.setExceptedDevice(2);
                     extraConfig.setTest(test);
@@ -83,7 +107,10 @@ public class ITestSuiteMultiTest {
 
     @Before
     public void setUp() {
-        mTestSuite = new TestSuiteMultiDeviceImpl(2);
+        mMockTargetPrep = EasyMock.createMock(ITargetPreparer.class);
+
+        mTestSuite = new TestSuiteMultiDeviceImpl(2, mMockTargetPrep);
+
         mMockListener = EasyMock.createMock(ITestInvocationListener.class);
         // 2 devices and 2 builds
         mMockDevice1 = EasyMock.createMock(ITestDevice.class);
@@ -92,6 +119,11 @@ public class ITestSuiteMultiTest {
         mMockDevice2 = EasyMock.createMock(ITestDevice.class);
         EasyMock.expect(mMockDevice2.getSerialNumber()).andStubReturn("SERIAL2");
         mMockBuildInfo2 = EasyMock.createMock(IBuildInfo.class);
+        mMockLogSaver = EasyMock.createMock(ILogSaver.class);
+        mStubMainConfiguration = new Configuration("stub", "stub");
+        mStubMainConfiguration.setLogSaver(mMockLogSaver);
+
+        mTestSuite.setConfiguration(mStubMainConfiguration);
     }
 
     /**
@@ -104,29 +136,46 @@ public class ITestSuiteMultiTest {
         mTestSuite.setBuild(mMockBuildInfo1);
 
         mContext = new InvocationContext();
-        mContext.addAllocatedDevice("device1", mMockDevice1);
-        mContext.addDeviceBuildInfo("device1", mMockBuildInfo1);
-        mContext.addAllocatedDevice("device2", mMockDevice2);
-        mContext.addDeviceBuildInfo("device2", mMockBuildInfo2);
+        mContext.addAllocatedDevice(DEVICE_NAME_1, mMockDevice1);
+        mContext.addDeviceBuildInfo(DEVICE_NAME_1, mMockBuildInfo1);
+        mContext.addAllocatedDevice(DEVICE_NAME_2, mMockDevice2);
+        mContext.addDeviceBuildInfo(DEVICE_NAME_2, mMockBuildInfo2);
         mTestSuite.setInvocationContext(mContext);
+        mTestSuite.setDeviceInfos(mContext.getDeviceBuildMap());
 
         mTestSuite.setSystemStatusChecker(new ArrayList<>());
         mMockListener.testModuleStarted(EasyMock.anyObject());
         mMockListener.testRunStarted("test1", 2);
-        TestIdentifier test1 =
-                new TestIdentifier(MultiDeviceStubTest.class.getSimpleName(), "test0");
+        TestDescription test1 =
+                new TestDescription(MultiDeviceStubTest.class.getSimpleName(), "test0");
         mMockListener.testStarted(test1, 0l);
-        mMockListener.testEnded(test1, 5l, Collections.emptyMap());
-        TestIdentifier test2 =
-                new TestIdentifier(MultiDeviceStubTest.class.getSimpleName(), "test1");
+        mMockListener.testEnded(test1, 5l, new HashMap<String, Metric>());
+        TestDescription test2 =
+                new TestDescription(MultiDeviceStubTest.class.getSimpleName(), "test1");
         mMockListener.testStarted(test2, 0l);
-        mMockListener.testEnded(test2, 5l, Collections.emptyMap());
-        mMockListener.testRunEnded(EasyMock.anyLong(), EasyMock.anyObject());
+        mMockListener.testEnded(test2, 5l, new HashMap<String, Metric>());
+        mMockListener.testRunEnded(
+                EasyMock.anyLong(), (HashMap<String, Metric>) EasyMock.anyObject());
         mMockListener.testModuleEnded();
+
+        // Target preparation is triggered against the preparer in the second device.
+        EasyMock.expect(mMockTargetPrep.isDisabled()).andReturn(false);
+        mMockTargetPrep.setUp(mMockDevice2, mMockBuildInfo2);
+
         EasyMock.replay(
-                mMockListener, mMockBuildInfo1, mMockBuildInfo2, mMockDevice1, mMockDevice2);
+                mMockListener,
+                mMockBuildInfo1,
+                mMockBuildInfo2,
+                mMockDevice1,
+                mMockDevice2,
+                mMockTargetPrep);
         mTestSuite.run(mMockListener);
         EasyMock.verify(
-                mMockListener, mMockBuildInfo1, mMockBuildInfo2, mMockDevice1, mMockDevice2);
+                mMockListener,
+                mMockBuildInfo1,
+                mMockBuildInfo2,
+                mMockDevice1,
+                mMockDevice2,
+                mMockTargetPrep);
     }
 }

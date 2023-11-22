@@ -16,10 +16,12 @@ import org.junit.Test;
 
 import android.icu.dev.test.duration.LanguageTestFmwk;
 import android.icu.impl.duration.TimeUnitConstants;
+import android.icu.testsharding.MainTestShard;
 
 /**
  * Test cases for hi
  */
+@MainTestShard
 public class Test_hi extends LanguageTestFmwk implements TimeUnitConstants {
   public Test_hi() {
     super("hi", false);

@@ -14,17 +14,17 @@
  * limitations under the License.
  */
 
+#define LOG_TAG "DnsTlsTransport"
+//#define LOG_NDEBUG 0
+
 #include "dns/DnsTlsTransport.h"
 
 #include <arpa/inet.h>
 #include <arpa/nameser.h>
-#include <errno.h>
-#include <openssl/err.h>
-#include <openssl/ssl.h>
-#include <stdlib.h>
 
-#define LOG_TAG "DnsTlsTransport"
-#define DBG 0
+#include "dns/DnsTlsServer.h"
+#include "dns/DnsTlsSocketFactory.h"
+#include "dns/IDnsTlsSocketFactory.h"
 
 #include "log/log.h"
 #include "Fwmark.h"
@@ -32,325 +32,124 @@
 #include "NetdConstants.h"
 #include "Permission.h"
 
-
 namespace android {
 namespace net {
 
-namespace {
+std::future<DnsTlsTransport::Result> DnsTlsTransport::query(const netdutils::Slice query) {
+    std::lock_guard<std::mutex> guard(mLock);
 
-bool setNonBlocking(int fd, bool enabled) {
-    int flags = fcntl(fd, F_GETFL);
-    if (flags < 0) return false;
+    auto record = mQueries.recordQuery(query);
+    if (!record) {
+        return std::async(std::launch::deferred, []{
+            return (Result) { .code = Response::internal_error };
+        });
+    }
 
-    if (enabled) {
-        flags |= O_NONBLOCK;
+    if (!mSocket) {
+        ALOGV("No socket for query.  Opening socket and sending.");
+        doConnect();
     } else {
-        flags &= ~O_NONBLOCK;
+        sendQuery(record->query);
     }
-    return (fcntl(fd, F_SETFL, flags) == 0);
+
+    return std::move(record->result);
 }
 
-int waitForReading(int fd) {
-    fd_set fds;
-    FD_ZERO(&fds);
-    FD_SET(fd, &fds);
-    const int ret = TEMP_FAILURE_RETRY(select(fd + 1, &fds, nullptr, nullptr, nullptr));
-    if (DBG && ret <= 0) {
-        ALOGD("select");
+bool DnsTlsTransport::sendQuery(const DnsTlsQueryMap::Query q) {
+    // Strip off the ID number and send the new ID instead.
+    bool sent = mSocket->query(q.newId, netdutils::drop(q.query, 2));
+    if (sent) {
+        mQueries.markTried(q.newId);
     }
-    return ret;
+    return sent;
 }
 
-int waitForWriting(int fd) {
-    fd_set fds;
-    FD_ZERO(&fds);
-    FD_SET(fd, &fds);
-    const int ret = TEMP_FAILURE_RETRY(select(fd + 1, nullptr, &fds, nullptr, nullptr));
-    if (DBG && ret <= 0) {
-        ALOGD("select");
-    }
-    return ret;
-}
+void DnsTlsTransport::doConnect() {
+    ALOGV("Constructing new socket");
+    mSocket = mFactory->createDnsTlsSocket(mServer, mMark, this, &mCache);
 
-}  // namespace
-
-android::base::unique_fd DnsTlsTransport::makeConnectedSocket() const {
-    android::base::unique_fd fd;
-    int type = SOCK_NONBLOCK | SOCK_CLOEXEC;
-    switch (mProtocol) {
-        case IPPROTO_TCP:
-            type |= SOCK_STREAM;
-            break;
-        default:
-            errno = EPROTONOSUPPORT;
-            return fd;
-    }
-
-    fd.reset(socket(mAddr.ss_family, type, mProtocol));
-    if (fd.get() == -1) {
-        return fd;
-    }
-
-    const socklen_t len = sizeof(mMark);
-    if (setsockopt(fd.get(), SOL_SOCKET, SO_MARK, &mMark, len) == -1) {
-        fd.reset();
-    } else if (connect(fd.get(),
-            reinterpret_cast<const struct sockaddr *>(&mAddr), sizeof(mAddr)) != 0
-        && errno != EINPROGRESS) {
-        fd.reset();
-    }
-
-    return fd;
-}
-
-bool getSPKIDigest(const X509* cert, std::vector<uint8_t>* out) {
-    int spki_len = i2d_X509_PUBKEY(X509_get_X509_PUBKEY(cert), NULL);
-    unsigned char spki[spki_len];
-    unsigned char* temp = spki;
-    if (spki_len != i2d_X509_PUBKEY(X509_get_X509_PUBKEY(cert), &temp)) {
-        ALOGW("SPKI length mismatch");
-        return false;
-    }
-    out->resize(SHA256_SIZE);
-    unsigned int digest_len = 0;
-    int ret = EVP_Digest(spki, spki_len, out->data(), &digest_len, EVP_sha256(), NULL);
-    if (ret != 1) {
-        ALOGW("Server cert digest extraction failed");
-        return false;
-    }
-    if (digest_len != out->size()) {
-        ALOGW("Wrong digest length: %d", digest_len);
-        return false;
-    }
-    return true;
-}
-
-SSL* DnsTlsTransport::sslConnect(int fd) {
-    if (fd < 0) {
-        ALOGD("%u makeConnectedSocket() failed with: %s", mMark, strerror(errno));
-        return nullptr;
-    }
-
-    // Set up TLS context.
-    bssl::UniquePtr<SSL_CTX> ssl_ctx(SSL_CTX_new(TLS_method()));
-    if (!SSL_CTX_set_max_proto_version(ssl_ctx.get(), TLS1_3_VERSION) ||
-        !SSL_CTX_set_min_proto_version(ssl_ctx.get(), TLS1_1_VERSION)) {
-        ALOGD("failed to min/max TLS versions");
-        return nullptr;
-    }
-
-    bssl::UniquePtr<SSL> ssl(SSL_new(ssl_ctx.get()));
-    bssl::UniquePtr<BIO> bio(BIO_new_socket(fd, BIO_CLOSE));
-    SSL_set_bio(ssl.get(), bio.get(), bio.get());
-    bio.release();
-
-    if (!setNonBlocking(fd, false)) {
-        ALOGE("Failed to disable nonblocking status on DNS-over-TLS fd");
-        return nullptr;
-    }
-
-    for (;;) {
-        if (DBG) {
-            ALOGD("%u Calling SSL_connect", mMark);
-        }
-        int ret = SSL_connect(ssl.get());
-        if (DBG) {
-            ALOGD("%u SSL_connect returned %d", mMark, ret);
-        }
-        if (ret == 1) break;  // SSL handshake complete;
-
-        const int ssl_err = SSL_get_error(ssl.get(), ret);
-        switch (ssl_err) {
-            case SSL_ERROR_WANT_READ:
-                if (waitForReading(fd) != 1) {
-                    ALOGW("SSL_connect read error");
-                    return nullptr;
-                }
+    if (mSocket) {
+        auto queries = mQueries.getAll();
+        ALOGV("Initialization succeeded.  Reissuing %zu queries.", queries.size());
+        for(auto& q : queries) {
+            if (!sendQuery(q)) {
                 break;
-            case SSL_ERROR_WANT_WRITE:
-                if (waitForWriting(fd) != 1) {
-                    ALOGW("SSL_connect write error");
-                    return nullptr;
-                }
-                break;
-            default:
-                ALOGW("SSL_connect error %d, errno=%d", ssl_err, errno);
-                return nullptr;
-        }
-    }
-
-    if (!mFingerprints.empty()) {
-        if (DBG) {
-            ALOGD("Checking DNS over TLS fingerprint");
-        }
-        // TODO: Follow the cert chain and check all the way up.
-        bssl::UniquePtr<X509> cert(SSL_get_peer_certificate(ssl.get()));
-        if (!cert) {
-            ALOGW("Server has null certificate");
-            return nullptr;
-        }
-        std::vector<uint8_t> digest;
-        if (!getSPKIDigest(cert.get(), &digest)) {
-            ALOGE("Digest computation failed");
-            return nullptr;
-        }
-
-        if (mFingerprints.count(digest) == 0) {
-            ALOGW("No matching fingerprint");
-            return nullptr;
-        }
-        if (DBG) {
-            ALOGD("DNS over TLS fingerprint is correct");
-        }
-    }
-
-    if (DBG) {
-        ALOGD("%u handshake complete", mMark);
-    }
-    return ssl.release();
-}
-
-bool DnsTlsTransport::sslWrite(int fd, SSL *ssl, const uint8_t *buffer, int len) {
-    if (DBG) {
-        ALOGD("%u Writing %d bytes", mMark, len);
-    }
-    for (;;) {
-        int ret = SSL_write(ssl, buffer, len);
-        if (ret == len) break;  // SSL write complete;
-
-        if (ret < 1) {
-            const int ssl_err = SSL_get_error(ssl, ret);
-            switch (ssl_err) {
-                case SSL_ERROR_WANT_WRITE:
-                    if (waitForWriting(fd) != 1) {
-                        if (DBG) {
-                            ALOGW("SSL_write error");
-                        }
-                        return false;
-                    }
-                    continue;
-                case 0:
-                    break;  // SSL write complete;
-                default:
-                    if (DBG) {
-                        ALOGW("SSL_write error %d", ssl_err);
-                    }
-                    return false;
             }
         }
+    } else {
+        ALOGV("Initialization failed.");
+        mSocket.reset();
+        ALOGV("Failing all pending queries.");
+        mQueries.clear();
     }
-    if (DBG) {
-        ALOGD("%u Wrote %d bytes", mMark, len);
-    }
-    return true;
 }
 
-// Read exactly len bytes into buffer or fail
-bool DnsTlsTransport::sslRead(int fd, SSL *ssl, uint8_t *buffer, int len) {
-    int remaining = len;
-    while (remaining > 0) {
-        int ret = SSL_read(ssl, buffer + (len - remaining), remaining);
-        if (ret == 0) {
-            ALOGE("SSL socket closed with %i of %i bytes remaining", remaining, len);
-            return false;
-        }
-
-        if (ret < 0) {
-            const int ssl_err = SSL_get_error(ssl, ret);
-            if (ssl_err == SSL_ERROR_WANT_READ) {
-                if (waitForReading(fd) != 1) {
-                    if (DBG) {
-                        ALOGW("SSL_read error");
-                    }
-                    return false;
-                }
-                continue;
-            } else {
-                if (DBG) {
-                    ALOGW("SSL_read error %d", ssl_err);
-                }
-                return false;
-            }
-        }
-
-        remaining -= ret;
-    }
-    return true;
+void DnsTlsTransport::onResponse(std::vector<uint8_t> response) {
+    mQueries.onResponse(std::move(response));
 }
 
-DnsTlsTransport::Response DnsTlsTransport::doQuery(const uint8_t *query, size_t qlen,
-        uint8_t *response, size_t limit, int *resplen) {
-    *resplen = 0;  // Zero indicates an error.
-
-    if (DBG) {
-        ALOGD("%u connecting TCP socket", mMark);
+void DnsTlsTransport::onClosed() {
+    std::lock_guard<std::mutex> guard(mLock);
+    if (mClosing) {
+        return;
     }
-    android::base::unique_fd fd(makeConnectedSocket());
-    if (DBG) {
-        ALOGD("%u connecting SSL", mMark);
+    // Move remaining operations to a new thread.
+    // This is necessary because
+    // 1. onClosed is currently running on a thread that blocks mSocket's destructor
+    // 2. doReconnect will call that destructor
+    if (mReconnectThread) {
+        // Complete cleanup of a previous reconnect thread, if present.
+        mReconnectThread->join();
+        // Joining a thread that is trying to acquire mLock, while holding mLock,
+        // looks like it risks a deadlock.  However, a deadlock will not occur because
+        // once onClosed is called, it cannot be called again until after doReconnect
+        // acquires mLock.
     }
-    bssl::UniquePtr<SSL> ssl(sslConnect(fd));
-    if (ssl == nullptr) {
-        if (DBG) {
-            ALOGW("%u SSL connection failed", mMark);
-        }
-        return Response::network_error;
-    }
-
-    uint8_t queryHeader[2];
-    queryHeader[0] = qlen >> 8;
-    queryHeader[1] = qlen;
-    if (!sslWrite(fd.get(), ssl.get(), queryHeader, 2)) {
-        return Response::network_error;
-    }
-    if (!sslWrite(fd.get(), ssl.get(), query, qlen)) {
-        return Response::network_error;
-    }
-    if (DBG) {
-        ALOGD("%u SSL_write complete", mMark);
-    }
-
-    uint8_t responseHeader[2];
-    if (!sslRead(fd.get(), ssl.get(), responseHeader, 2)) {
-        if (DBG) {
-            ALOGW("%u Failed to read 2-byte length header", mMark);
-        }
-        return Response::network_error;
-    }
-    const uint16_t responseSize = (responseHeader[0] << 8) | responseHeader[1];
-    if (DBG) {
-        ALOGD("%u Expecting response of size %i", mMark, responseSize);
-    }
-    if (responseSize > limit) {
-        ALOGE("%u Response doesn't fit in output buffer: %i", mMark, responseSize);
-        return Response::limit_error;
-    }
-    if (!sslRead(fd.get(), ssl.get(), response, responseSize)) {
-        if (DBG) {
-            ALOGW("%u Failed to read %i bytes", mMark, responseSize);
-        }
-        return Response::network_error;
-    }
-    if (DBG) {
-        ALOGD("%u SSL_read complete", mMark);
-    }
-
-    if (response[0] != query[0] || response[1] != query[1]) {
-        ALOGE("reply query ID != query ID");
-        return Response::internal_error;
-    }
-
-    SSL_shutdown(ssl.get());
-
-    *resplen = responseSize;
-    return Response::success;
+    mReconnectThread.reset(new std::thread(&DnsTlsTransport::doReconnect, this));
 }
 
-bool validateDnsTlsServer(unsigned netid, const struct sockaddr_storage& ss,
-        const std::set<std::vector<uint8_t>>& fingerprints) {
-    if (DBG) {
-        ALOGD("Beginning validation on %u", netid);
+void DnsTlsTransport::doReconnect() {
+    std::lock_guard<std::mutex> guard(mLock);
+    if (mClosing) {
+        return;
     }
+    mQueries.cleanup();
+    if (!mQueries.empty()) {
+        ALOGV("Fast reconnect to retry remaining queries");
+        doConnect();
+    } else {
+        ALOGV("No pending queries.  Going idle.");
+        mSocket.reset();
+    }
+}
+
+DnsTlsTransport::~DnsTlsTransport() {
+    ALOGV("Destructor");
+    {
+        std::lock_guard<std::mutex> guard(mLock);
+        ALOGV("Locked destruction procedure");
+        mQueries.clear();
+        mClosing = true;
+    }
+    // It's possible that a reconnect thread was spawned and waiting for mLock.
+    // It's safe for that thread to run now because mClosing is true (and mQueries is empty),
+    // but we need to wait for it to finish before allowing destruction to proceed.
+    if (mReconnectThread) {
+        ALOGV("Waiting for reconnect thread to terminate");
+        mReconnectThread->join();
+        mReconnectThread.reset();
+    }
+    // Ensure that the socket is destroyed, and can clean up its callback threads,
+    // before any of this object's fields become invalid.
+    mSocket.reset();
+    ALOGV("Destructor completed");
+}
+
+// static
+// TODO: Use this function to preheat the session cache.
+// That may require moving it to DnsTlsDispatcher.
+bool DnsTlsTransport::validate(const DnsTlsServer& server, unsigned netid) {
+    ALOGV("Beginning validation on %u", netid);
     // Generate "<random>-dnsotls-ds.metric.gstatic.com", which we will lookup through |ss| in
     // order to prove that it is actually a working DNS over TLS server.
     static const char kDnsSafeChars[] =
@@ -381,9 +180,6 @@ bool validateDnsTlsServer(unsigned netid, const struct sockaddr_storage& ss,
     };
     const int qlen = ARRAY_SIZE(query);
 
-    const int kRecvBufSize = 4 * 1024;
-    uint8_t recvbuf[kRecvBufSize];
-
     // At validation time, we only know the netId, so we have to guess/compute the
     // corresponding socket mark.
     Fwmark fwmark;
@@ -392,20 +188,18 @@ bool validateDnsTlsServer(unsigned netid, const struct sockaddr_storage& ss,
     fwmark.protectedFromVpn = true;
     fwmark.netId = netid;
     unsigned mark = fwmark.intValue;
-    DnsTlsTransport xport(mark, IPPROTO_TCP, ss, fingerprints);
     int replylen = 0;
-    xport.doQuery(query, qlen, recvbuf, kRecvBufSize, &replylen);
-    if (replylen == 0) {
-        if (DBG) {
-            ALOGD("doQuery failed");
-        }
+    DnsTlsSocketFactory factory;
+    DnsTlsTransport transport(server, mark, &factory);
+    auto r = transport.query(Slice(query, qlen)).get();
+    if (r.code != Response::success) {
+        ALOGV("query failed");
         return false;
     }
 
-    if (replylen < NS_HFIXEDSZ) {
-        if (DBG) {
-            ALOGW("short response: %d", replylen);
-        }
+    const std::vector<uint8_t>& recvbuf = r.response;
+    if (recvbuf.size() < NS_HFIXEDSZ) {
+        ALOGW("short response: %d", replylen);
         return false;
     }
 
@@ -416,9 +210,7 @@ bool validateDnsTlsServer(unsigned netid, const struct sockaddr_storage& ss,
     }
 
     const int ancount = (recvbuf[6] << 8) | recvbuf[7];
-    if (DBG) {
-        ALOGD("%u answer count: %d", netid, ancount);
-    }
+    ALOGV("%u answer count: %d", netid, ancount);
 
     // TODO: Further validate the response contents (check for valid AAAA record, ...).
     // Note that currently, integration tests rely on this function accepting a
@@ -431,5 +223,5 @@ bool validateDnsTlsServer(unsigned netid, const struct sockaddr_storage& ss,
     return true;
 }
 
-}  // namespace net
-}  // namespace android
+}  // end of namespace net
+}  // end of namespace android

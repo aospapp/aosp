@@ -17,6 +17,7 @@
 package com.android.tv.settings.about;
 
 import android.content.Context;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.PowerManager;
 import android.support.annotation.Keep;
@@ -94,13 +95,21 @@ public class RebootConfirmFragment extends GuidedStepFragment {
     @Override
     public void onGuidedActionClicked(GuidedAction action) {
         if (action.getId() == GuidedAction.ACTION_ID_OK) {
-            PowerManager pm =
+            final boolean toSafeMode = getArguments().getBoolean(ARG_SAFE_MODE, false);
+            final PowerManager pm =
                     (PowerManager) getActivity().getSystemService(Context.POWER_SERVICE);
-            if (getArguments().getBoolean(ARG_SAFE_MODE, false)) {
-                pm.rebootSafeMode();
-            } else {
-                pm.reboot(null);
-            }
+
+            new AsyncTask<Void, Void, Void>() {
+                @Override
+                protected Void doInBackground(Void... params) {
+                    if (toSafeMode) {
+                        pm.rebootSafeMode();
+                    } else {
+                        pm.reboot(null);
+                    }
+                    return null;
+                }
+            }.execute();
         } else {
             getFragmentManager().popBackStack();
         }

@@ -16,8 +16,11 @@ cc_library_static {
 
     cflags: [
         "-std=c99",
+        "-Wall",
+        "-Werror",
         "-Wno-missing-field-initializers",
         "-Wno-sign-compare",
+        "-Wno-unused-function",
         "-Wno-unused-parameter",
     ],
 }

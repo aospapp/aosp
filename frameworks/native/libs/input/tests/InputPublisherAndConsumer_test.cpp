@@ -36,7 +36,7 @@ protected:
     PreallocatedInputEventFactory mEventFactory;
 
     virtual void SetUp() {
-        status_t result = InputChannel::openInputChannelPair(String8("channel name"),
+        status_t result = InputChannel::openInputChannelPair("channel name",
                 serverChannel, clientChannel);
 
         mPublisher = new InputPublisher(serverChannel);
@@ -89,8 +89,9 @@ void InputPublisherAndConsumerTest::PublishAndConsumeKeyEvent() {
 
     uint32_t consumeSeq;
     InputEvent* event;
+    int32_t displayId;
     status = mConsumer->consume(&mEventFactory, true /*consumeBatches*/, -1, &consumeSeq, &event,
-            0);
+            &displayId);
     ASSERT_EQ(OK, status)
             << "consumer consume should return OK";
 
@@ -133,7 +134,7 @@ void InputPublisherAndConsumerTest::PublishAndConsumeMotionEvent() {
     const uint32_t seq = 15;
     const int32_t deviceId = 1;
     const int32_t source = AINPUT_SOURCE_TOUCHSCREEN;
-    const int32_t displayId = 0;
+    int32_t displayId = 0;
     const int32_t action = AMOTION_EVENT_ACTION_MOVE;
     const int32_t actionButton = 0;
     const int32_t flags = AMOTION_EVENT_FLAG_WINDOW_IS_OBSCURED;
@@ -176,7 +177,7 @@ void InputPublisherAndConsumerTest::PublishAndConsumeMotionEvent() {
     uint32_t consumeSeq;
     InputEvent* event;
     status = mConsumer->consume(&mEventFactory, true /*consumeBatches*/, -1, &consumeSeq, &event,
-            0);
+            &displayId);
     ASSERT_EQ(OK, status)
             << "consumer consume should return OK";
 
@@ -253,11 +254,15 @@ TEST_F(InputPublisherAndConsumerTest, PublishMotionEvent_EndToEnd) {
     ASSERT_NO_FATAL_FAILURE(PublishAndConsumeMotionEvent());
 }
 
-TEST_F(InputPublisherAndConsumerTest, PublishMotionEvent_WhenPointerCountLessThan1_ReturnsError) {
+TEST_F(InputPublisherAndConsumerTest, PublishMotionEvent_WhenSequenceNumberIsZero_ReturnsError) {
     status_t status;
-    const size_t pointerCount = 0;
+    const size_t pointerCount = 1;
     PointerProperties pointerProperties[pointerCount];
     PointerCoords pointerCoords[pointerCount];
+    for (size_t i = 0; i < pointerCount; i++) {
+        pointerProperties[i].clear();
+        pointerCoords[i].clear();
+    }
 
     status = mPublisher->publishMotionEvent(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             pointerCount, pointerProperties, pointerCoords);
@@ -265,7 +270,20 @@ TEST_F(InputPublisherAndConsumerTest, PublishMotionEvent_WhenPointerCountLessTha
             << "publisher publishMotionEvent should return BAD_VALUE";
 }
 
-TEST_F(InputPublisherAndConsumerTest, PublishMotionEvent_WhenPointerCountGreaterThanMax_ReturnsError) {
+TEST_F(InputPublisherAndConsumerTest, PublishMotionEvent_WhenPointerCountLessThan1_ReturnsError) {
+    status_t status;
+    const size_t pointerCount = 0;
+    PointerProperties pointerProperties[pointerCount];
+    PointerCoords pointerCoords[pointerCount];
+
+    status = mPublisher->publishMotionEvent(1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            pointerCount, pointerProperties, pointerCoords);
+    ASSERT_EQ(BAD_VALUE, status)
+            << "publisher publishMotionEvent should return BAD_VALUE";
+}
+
+TEST_F(InputPublisherAndConsumerTest,
+        PublishMotionEvent_WhenPointerCountGreaterThanMax_ReturnsError) {
     status_t status;
     const size_t pointerCount = MAX_POINTERS + 1;
     PointerProperties pointerProperties[pointerCount];
@@ -275,7 +293,7 @@ TEST_F(InputPublisherAndConsumerTest, PublishMotionEvent_WhenPointerCountGreater
         pointerCoords[i].clear();
     }
 
-    status = mPublisher->publishMotionEvent(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    status = mPublisher->publishMotionEvent(1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             pointerCount, pointerProperties, pointerCoords);
     ASSERT_EQ(BAD_VALUE, status)
             << "publisher publishMotionEvent should return BAD_VALUE";

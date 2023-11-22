@@ -17,7 +17,8 @@
 package com.android.cts.verifier.audio.peripheralprofile;
 
 import android.os.Environment;
-import android.support.annotation.Nullable;
+import androidx.annotation.Nullable;
+import android.util.Log;
 import android.util.Xml;
 
 import org.xml.sax.Attributes;
@@ -40,35 +41,40 @@ import javax.xml.parsers.SAXParser;
 import javax.xml.parsers.SAXParserFactory;
 
 public class ProfileManager {
+    private static final String TAG = "ProfileManager";
+    private static final boolean DEBUG = false;
+
     private static final String mBuiltInprofiles =
-            "<?xml version='1.0' encoding='UTF-8' standalone='yes' ?>" +
-            "<ProfileList Version=\"1.0.0\">" +
-              "<PeripheralProfile ProfileName=\"Headset\" ProfileDescription=\"Microsoft LX-3000\" ProductName=\"USB-Audio - Microsoft LifeChat LX-3000\">" +
-                "<OutputDevInfo ChanCounts=\"2\" ChanPosMasks=\"12\" ChanIndexMasks=\"3\" Encodings=\"2\" SampleRates=\"44100,48000\" />" +
-                "<InputDevInfo ChanCounts=\"1,2\" ChanPosMasks=\"12,16\" ChanIndexMasks=\"1\" Encodings=\"2\" SampleRates=\"44100,48000\" />" +
-                "<ButtonInfo HasBtnA=\"0\" HasBtnB=\"1\" HasBtnC=\"1\" HasBtnD=\"0\" />" +
-            "</PeripheralProfile>" +
+        "<?xml version='1.0' encoding='UTF-8' standalone='yes' ?>" +
+        "<ProfileList Version=\"1.0.0\">" +
             "<PeripheralProfile ProfileName=\"Audio Interface\" ProfileDescription=\"Presonus AudioVox 44VSL\" ProductName=\"USB-Audio - AudioBox 44 VSL\">" +
-              "<OutputDevInfo ChanCounts=\"2,4\" ChanPosMasks=\"12\" ChanIndexMasks=\"15\" Encodings=\"4\" SampleRates=\"44100,48000,88200,96000\" />" +
-              "<InputDevInfo ChanCounts=\"1,2,4\" ChanPosMasks=\"12,16\" ChanIndexMasks=\"15\" Encodings=\"4\" SampleRates=\"44100,48000,88200,96000\" />" +
+                "<OutputDevInfo ChanCounts=\"2,4\" ChanPosMasks=\"12\" ChanIndexMasks=\"15\" Encodings=\"4\" SampleRates=\"44100,48000,88200,96000\" />" +
+                "<InputDevInfo ChanCounts=\"1,2,4\" ChanPosMasks=\"12,16\" ChanIndexMasks=\"15\" Encodings=\"4\" SampleRates=\"44100,48000,88200,96000\" />" +
             "</PeripheralProfile>" +
             "<PeripheralProfile ProfileName=\"AudioBox 22VSL\" ProfileDescription=\"Presonus AudioBox 22VSL\" ProductName=\"USB-Audio - AudioBox 22 VSL\">" +
-              "<OutputDevInfo ChanCounts=\"2\" ChanPosMasks=\"12\" ChanIndexMasks=\"3\" Encodings=\"4\" SampleRates=\"44100,48000,88200,96000\" />" +
-              "<InputDevInfo ChanCounts=\"1,2\" ChanPosMasks=\"12,16\" ChanIndexMasks=\"3\" Encodings=\"4\" SampleRates=\"44100,48000,88200,96000\" />" +
+                "<OutputDevInfo ChanCounts=\"2\" ChanPosMasks=\"12\" ChanIndexMasks=\"3\" Encodings=\"4\" SampleRates=\"44100,48000,88200,96000\" />" +
+                "<InputDevInfo ChanCounts=\"1,2\" ChanPosMasks=\"12,16\" ChanIndexMasks=\"3\" Encodings=\"4\" SampleRates=\"44100,48000,88200,96000\" />" +
             "</PeripheralProfile>" +
             "<PeripheralProfile ProfileName=\"AudioBox USB\" ProfileDescription=\"Presonus AudioBox USB\" ProductName=\"USB-Audio - AudioBox USB\">" +
-              "<OutputDevInfo ChanCounts=\"2\" ChanPosMasks=\"12\" ChanIndexMasks=\"3\" Encodings=\"4\" SampleRates=\"44100,48000\" />" +
-              "<InputDevInfo ChanCounts=\"1,2\" ChanPosMasks=\"12,16\" ChanIndexMasks=\"3\" Encodings=\"4\" SampleRates=\"44100,48000\" />" +
+                "<OutputDevInfo ChanCounts=\"2\" ChanPosMasks=\"12\" ChanIndexMasks=\"3\" Encodings=\"4\" SampleRates=\"44100,48000\" />" +
+                "<InputDevInfo ChanCounts=\"1,2\" ChanPosMasks=\"12,16\" ChanIndexMasks=\"3\" Encodings=\"4\" SampleRates=\"44100,48000\" />" +
             "</PeripheralProfile>" +
-            "<PeripheralProfile ProfileName=\"gen1-headset\" ProfileDescription=\"Reference USB Headset\" ProductName=\"USB-Audio - Skylab\">" +
-            "<OutputDevInfo ChanCounts=\"2\" ChanPosMasks=\"12\" ChanIndexMasks=\"3\" Encodings=\"2,4\" SampleRates=\"8000,16000,32000,44100,48000\" />" +
-            "<InputDevInfo ChanCounts=\"1,2\" ChanPosMasks=\"12,16\" ChanIndexMasks=\"1\" Encodings=\"2\" SampleRates=\"8000,16000,32000,44100,48000\" />" +
-            "<ButtonInfo HasBtnA=\"1\" HasBtnB=\"1\" HasBtnC=\"1\" HasBtnD=\"1\" />" +
-          "</PeripheralProfile>" +
-          "<PeripheralProfile ProfileName=\"mir\" ProfileDescription=\"Reference USB Dongle\" ProductName=\"USB-Audio - USB Audio\">" +
-            "<OutputDevInfo ChanCounts=\"2\" ChanPosMasks=\"12\" ChanIndexMasks=\"3\" Encodings=\"4\" SampleRates=\"48000\" />" +
-          "</PeripheralProfile>" +
-          "</ProfileList>";
+            "<PeripheralProfile ProfileName=\"Pixel USB-C Dongle + Wired Analog Headset\" ProfileDescription=\"Reference USB Dongle\" ProductName=\"USB-Audio - USB-C to 3.5mm-Headphone Adapte\">" +
+                "<OutputDevInfo ChanCounts=\"2\" ChanPosMasks=\"12\" ChanIndexMasks=\"3\" Encodings=\"4\" SampleRates=\"48000\" />" +
+                "<InputDevInfo ChanCounts=\"1,2\" ChanPosMasks=\"12,16\" ChanIndexMasks=\"3\" Encodings=\"4\" SampleRates=\"48000\" />" +
+                "<ButtonInfo HasBtnA=\"1\" HasBtnB=\"1\" HasBtnC=\"1\" />" +
+            "</PeripheralProfile>" +
+            "<PeripheralProfile ProfileName=\"HTC Dongle\" ProfileDescription=\"Type-C to 3.5mm Headphone\" ProductName=\"USB-Audio - HTC Type-C to 3.5mm Headphone J\">" +
+                "<OutputDevInfo ChanCounts=\"2\" ChanPosMasks=\"12\" ChanIndexMasks=\"3\" Encodings=\"4\" SampleRates=\"48000\" />" +
+                "<InputDevInfo ChanCounts=\"1,2\" ChanPosMasks=\"12,16\" ChanIndexMasks=\"3\" Encodings=\"4\" SampleRates=\"48000\"/>" +
+                "<ButtonInfo HasBtnA=\"1\" HasBtnB=\"1\" HasBtnC=\"1\" />" +
+            "</PeripheralProfile>" +
+            "<PeripheralProfile ProfileName=\"JBL Reflect Aware\" ProfileDescription=\"JBL Reflect Aware\" ProductName=\"USB-Audio - JBL Reflect Aware\">" +
+                "<OutputDevInfo ChanCounts=\"2\" ChanPosMasks=\"12\" ChanIndexMasks=\"3\" Encodings=\"2\" SampleRates=\"44100,48000\" />" +
+                "<InputDevInfo ChanCounts=\"1\" ChanPosMasks=\"16\" ChanIndexMasks=\"1\" Encodings=\"2\" SampleRates=\"44100,48000\" />" +
+                "<ButtonInfo HasBtnA=\"1\" HasBtnB=\"1\" HasBtnC=\"1\" />" +
+            "</PeripheralProfile>" +
+        "</ProfileList>";
 
     // XML Tags and Attributes
     private final static String kTag_ProfileList = "ProfileList";

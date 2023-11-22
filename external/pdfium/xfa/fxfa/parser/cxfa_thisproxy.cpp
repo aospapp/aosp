@@ -4,25 +4,19 @@
 
 // Original code copyright 2014 Foxit Software Inc. http://www.foxitsoftware.com
 
-#include "xfa/fxfa/parser/xfa_object.h"
+#include "xfa/fxfa/parser/cxfa_thisproxy.h"
+
+#include "fxjs/xfa/cjx_object.h"
+#include "third_party/base/ptr_util.h"
+#include "xfa/fxfa/parser/cxfa_node.h"
 
 CXFA_ThisProxy::CXFA_ThisProxy(CXFA_Node* pThisNode, CXFA_Node* pScriptNode)
     : CXFA_Object(pThisNode->GetDocument(),
                   XFA_ObjectType::VariablesThis,
                   XFA_Element::Unknown,
-                  CFX_WideStringC()),
-      m_pThisNode(nullptr),
-      m_pScriptNode(nullptr) {
-  m_pThisNode = pThisNode;
-  m_pScriptNode = pScriptNode;
-}
+                  WideStringView(),
+                  pdfium::MakeUnique<CJX_Object>(this)),
+      m_pThisNode(pThisNode),
+      m_pScriptNode(pScriptNode) {}
 
 CXFA_ThisProxy::~CXFA_ThisProxy() {}
-
-CXFA_Node* CXFA_ThisProxy::GetThisNode() const {
-  return m_pThisNode;
-}
-
-CXFA_Node* CXFA_ThisProxy::GetScriptNode() const {
-  return m_pScriptNode;
-}

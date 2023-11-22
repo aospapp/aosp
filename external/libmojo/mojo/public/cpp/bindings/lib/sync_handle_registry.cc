@@ -13,7 +13,7 @@
 namespace mojo {
 namespace {
 
-base::LazyInstance<base::ThreadLocalPointer<SyncHandleRegistry>>
+base::LazyInstance<base::ThreadLocalPointer<SyncHandleRegistry>>::Leaky
     g_current_sync_handle_watcher = LAZY_INSTANCE_INITIALIZER;
 
 }  // namespace
@@ -34,7 +34,7 @@ bool SyncHandleRegistry::RegisterHandle(const Handle& handle,
                                         const HandleCallback& callback) {
   DCHECK(thread_checker_.CalledOnValidThread());
 
-  if (ContainsKey(handles_, handle))
+  if (base::ContainsKey(handles_, handle))
     return false;
 
   MojoResult result = MojoAddHandle(wait_set_handle_.get().value(),
@@ -48,7 +48,7 @@ bool SyncHandleRegistry::RegisterHandle(const Handle& handle,
 
 void SyncHandleRegistry::UnregisterHandle(const Handle& handle) {
   DCHECK(thread_checker_.CalledOnValidThread());
-  if (!ContainsKey(handles_, handle))
+  if (!base::ContainsKey(handles_, handle))
     return;
 
   MojoResult result =
@@ -107,6 +107,19 @@ SyncHandleRegistry::SyncHandleRegistry() {
 
 SyncHandleRegistry::~SyncHandleRegistry() {
   DCHECK(thread_checker_.CalledOnValidThread());
+
+  // This object may be destructed after the thread local storage slot used by
+  // |g_current_sync_handle_watcher| is reset during thread shutdown.
+  // For example, another slot in the thread local storage holds a referrence to
+  // this object, and that slot is cleaned up after
+  // |g_current_sync_handle_watcher|.
+  if (!g_current_sync_handle_watcher.Pointer()->Get())
+    return;
+
+  // If this breaks, it is likely that the global variable is bulit into and
+  // accessed from multiple modules.
+  DCHECK_EQ(this, g_current_sync_handle_watcher.Pointer()->Get());
+
   g_current_sync_handle_watcher.Pointer()->Set(nullptr);
 }
 

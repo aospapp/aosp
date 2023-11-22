@@ -8,7 +8,6 @@ cc_binary_host {
         "libLLVMSupport",
     ],
 
-    host_ldlibs: ["-lm"],
     target: {
         windows: {
             enabled: false,
@@ -17,18 +16,6 @@ cc_binary_host {
         // modules that are used to build llvm-tblgen
         host: {
             enabled: true,
-        },
-        darwin: {
-            host_ldlibs: [
-                "-lpthread",
-                "-ldl",
-            ],
-        },
-        linux: {
-            host_ldlibs: [
-                "-lpthread",
-                "-ldl",
-            ],
         },
     },
 }

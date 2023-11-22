@@ -17,21 +17,29 @@
 LOCAL_PATH := $(call my-dir)
 
 #
-# To update:
+# To sync with upstream:
 #
 
+#  # Update.
 #  git remote add toybox https://github.com/landley/toybox.git
 #  git fetch toybox
 #  git merge toybox/master
+
+#  # Regenerate generated files.
+#  make
+
+#  # Make any necessary Android.mk changes and rebuild.
 #  mm -j32
-#  # (Make any necessary Android.mk changes and test the new toybox.)
-#  repo upload .
+
+#  # Run tests.
+#  ./run-tests-on-android.sh
+#  # Run a single test.
+#  ./run-tests-on-android.sh wc
+
+#  # Upload changes.
+#  git commit -a --amend
 #  git push aosp HEAD:refs/for/master  # Push to gerrit for review.
 #  git push aosp HEAD:master  # Push directly, avoiding gerrit.
-#
-#  # Now commit any necessary Android.mk changes like normal:
-#  repo start post-sync .
-#  git commit -a
 
 
 #
@@ -58,7 +66,6 @@ common_SRC_FILES := \
     lib/xwrap.c \
     main.c \
     toys/android/getenforce.c \
-    toys/android/getprop.c \
     toys/android/load_policy.c \
     toys/android/log.c \
     toys/android/restorecon.c \
@@ -122,6 +129,7 @@ common_SRC_FILES := \
     toys/other/realpath.c \
     toys/other/rev.c \
     toys/other/rmmod.c \
+    toys/other/setfattr.c \
     toys/other/setsid.c \
     toys/other/stat.c \
     toys/other/swapoff.c \
@@ -141,12 +149,13 @@ common_SRC_FILES := \
     toys/pending/dd.c \
     toys/pending/diff.c \
     toys/pending/expr.c \
+    toys/pending/fmt.c \
     toys/pending/getfattr.c \
     toys/pending/gzip.c \
     toys/pending/lsof.c \
     toys/pending/modprobe.c \
     toys/pending/more.c \
-    toys/pending/setfattr.c \
+    toys/pending/stty.c \
     toys/pending/tar.c \
     toys/pending/tr.c \
     toys/pending/traceroute.c \
@@ -211,8 +220,9 @@ common_SRC_FILES := \
     toys/posix/xargs.c \
 
 common_CFLAGS := \
-    -std=c99 \
+    -std=gnu11 \
     -Os \
+    -Wall -Werror \
     -Wno-char-subscripts \
     -Wno-gnu-variable-sized-type-not-at-end \
     -Wno-missing-field-initializers \
@@ -224,13 +234,9 @@ common_CFLAGS := \
     -ffunction-sections -fdata-sections \
     -fno-asynchronous-unwind-tables \
 
-toybox_upstream_version := $(shell sed 's/#define.*TOYBOX_VERSION.*"\(.*\)"/\1/p;d' $(LOCAL_PATH)/main.c)
-
-toybox_version := $(toybox_upstream_version)-android
-
 toybox_libraries := liblog libselinux libcutils libcrypto libz
 
-common_CFLAGS += -DTOYBOX_VERSION=\"$(toybox_version)\"
+common_CFLAGS += -DTOYBOX_VENDOR=\"-android\"
 
 # not usable on Android?: freeramdisk fsfreeze install makedevs nbd-client
 #                         partprobe pivot_root pwdx rev rfkill vconfig
@@ -274,9 +280,9 @@ ALL_TOOLS := \
     file \
     find \
     flock \
+    fmt \
     free \
     getenforce \
-    getprop \
     groups \
     gunzip \
     gzip \
@@ -355,6 +361,7 @@ ALL_TOOLS := \
     stat \
     stop \
     strings \
+    stty \
     swapoff \
     swapon \
     sync \
@@ -415,7 +422,7 @@ LOCAL_VENDOR_MODULE := true
 LOCAL_SRC_FILES := $(common_SRC_FILES)
 LOCAL_CFLAGS := $(common_CFLAGS)
 LOCAL_STATIC_LIBRARIES := libcutils libcrypto libz
-LOCAL_SHARED_LIBRARIES := libselinux_vendor liblog
+LOCAL_SHARED_LIBRARIES := libselinux liblog
 LOCAL_MODULE_TAGS := optional
 LOCAL_POST_INSTALL_CMD := $(hide) $(foreach t,$(ALL_TOOLS),ln -sf ${LOCAL_MODULE} $(TARGET_OUT_VENDOR_EXECUTABLES)/$(t);)
 include $(BUILD_EXECUTABLE)

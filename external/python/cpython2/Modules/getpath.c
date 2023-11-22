@@ -104,6 +104,14 @@
 #define LANDMARK "os.py"
 #endif
 
+#ifndef INTERNALDIR
+#define INTERNALDIR "internal"
+#endif
+
+#ifndef STDLIBDIR
+#define STDLIBDIR "stdlib"
+#endif
+
 static char prefix[MAXPATHLEN+1];
 static char exec_prefix[MAXPATHLEN+1];
 static char progpath[MAXPATHLEN+1];
@@ -255,8 +263,11 @@ search_for_prefix(char *argv0_path, char *home)
         return 1;
     }
 
-    /* Check to see if argv[0] is in the build directory */
+    // GOOGLE(nanzhang): Always set prefix with hermetic executable full path.
     strcpy(prefix, argv0_path);
+    return 1;
+
+    /* Check to see if argv[0] is in the build directory */
     joinpath(prefix, "Modules/Setup");
     if (isfile(prefix)) {
         /* Check VPATH to see if argv0_path is in the build directory. */
@@ -314,10 +325,13 @@ search_for_exec_prefix(char *argv0_path, char *home)
         return 1;
     }
 
+    // GOOGLE(nanzhang): Always set exec_prefix with hermetic executable full path.
+    strcpy(exec_prefix, argv0_path);
+    return 1;
+
     /* Check to see if argv[0] is in the build directory. "pybuilddir.txt"
        is written by setup.py and contains the relative path to the location
        of shared library modules. */
-    strcpy(exec_prefix, argv0_path);
     joinpath(exec_prefix, "pybuilddir.txt");
     if (isfile(exec_prefix)) {
       FILE *f = fopen(exec_prefix, "r");
@@ -363,19 +377,62 @@ static void
 calculate_path(void)
 {
     extern char *Py_GetProgramName(void);
-
     static char delimiter[2] = {DELIM, '\0'};
     static char separator[2] = {SEP, '\0'};
     char *pythonpath = PYTHONPATH;
-    char *rtpypath = Py_GETENV("PYTHONPATH");
     char *home = Py_GetPythonHome();
-    char *path = getenv("PATH");
+    // We have overrided argv[0] using the full path to the hermetic Python
+    // launcher itself. And then Py_SetProgramName(argv[0]) was invoked at
+    // launcher_main.cpp. The launcher_main.cpp has guaranteed that
+    // strlen(Py_GetProgramName()) must not exceed MAXPATHLEN.
     char *prog = Py_GetProgramName();
     char argv0_path[MAXPATHLEN+1];
-    char zip_path[MAXPATHLEN+1];
-    int pfound, efound; /* 1 if found; -1 if found build directory */
     char *buf;
     size_t bufsz;
+
+    strncpy(progpath, prog, MAXPATHLEN);
+    progpath[MAXPATHLEN] = '\0' /* In case of no NUL-termination. */;
+    strncpy(argv0_path, prog, MAXPATHLEN);
+    argv0_path[MAXPATHLEN] = '\0' /* In case of no NUL-termination. */;
+
+    // We don't reduce the path of prefix, and exec_prefix.
+    search_for_prefix(argv0_path, home);
+    search_for_exec_prefix(argv0_path, home);
+
+    // Calculate size of return buffer.
+    bufsz = strlen(prog) + 1 + sizeof(INTERNALDIR) /* 1 is for SEP */;
+    bufsz += strlen(prog) + 1 + sizeof(INTERNALDIR) + 1 + sizeof(STDLIBDIR) /* 1 is for SEP */;
+
+    /* This is the only malloc call in this file */
+    buf = (char *)PyMem_Malloc(bufsz);
+
+    if (buf == NULL) {
+        /* We can't exit, so print a warning and limp along */
+        fprintf(stderr, "Not enough memory for dynamic PYTHONPATH.\n");
+        fprintf(stderr, "Using default static PYTHONPATH.\n");
+        exit(1);
+    } else {
+        buf[0] = '\0';
+        strcat(buf, prefix);
+        strcat(buf, separator);
+        strcat(buf, INTERNALDIR);
+        strcat(buf, delimiter);
+
+        strcat(buf, prefix);
+        strcat(buf, separator);
+        strcat(buf, INTERNALDIR);
+        strcat(buf, separator);
+        strcat(buf, STDLIBDIR);
+
+        module_search_path = buf;
+    }
+    // GOOGLE(nanzhang): Don't need all the code below for embedded Python launcher.
+    return;
+
+    char *path = getenv("PATH");
+    char *rtpypath = Py_GETENV("PYTHONPATH");
+    char zip_path[MAXPATHLEN+1];
+    int pfound, efound; /* 1 if found; -1 if found build directory */
     size_t prefixsz;
     char *defpath = pythonpath;
 #ifdef WITH_NEXT_FRAMEWORK

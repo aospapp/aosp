@@ -17,33 +17,37 @@
 package com.android.tv.menu;
 
 import android.content.Context;
-
 import com.android.tv.R;
 import com.android.tv.menu.ItemListRowView.ItemListAdapter;
 
 /**
- * A menu item which is used to represents the list of the items.
- * A list will be displayed by a HorizontalGridView with cards, so an adapter
- * for the GridView is necessary.
+ * A menu item which is used to represents the list of the items. A list will be displayed by a
+ * HorizontalGridView with cards, so an adapter for the GridView is necessary.
  */
 @SuppressWarnings("rawtypes")
 public class ItemListRow extends MenuRow {
     private ItemListAdapter mAdapter;
 
-    public ItemListRow(Context context, Menu menu, int titleResId, int itemHeightResId,
+    public ItemListRow(
+            Context context,
+            Menu menu,
+            int titleResId,
+            int itemHeightResId,
             ItemListAdapter adapter) {
         this(context, menu, context.getString(titleResId), itemHeightResId, adapter);
     }
 
-    public ItemListRow(Context context, Menu menu, String title, int itemHeightResId,
+    public ItemListRow(
+            Context context,
+            Menu menu,
+            String title,
+            int itemHeightResId,
             ItemListAdapter adapter) {
         super(context, menu, title, itemHeightResId);
         mAdapter = adapter;
     }
 
-    /**
-     * Returns the adapter.
-     */
+    /** Returns the adapter. */
     public ItemListAdapter<?> getAdapter() {
         return mAdapter;
     }

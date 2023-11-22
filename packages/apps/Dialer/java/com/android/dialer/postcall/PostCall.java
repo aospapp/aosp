@@ -36,6 +36,7 @@ import com.android.dialer.enrichedcall.EnrichedCallManager;
 import com.android.dialer.logging.DialerImpression;
 import com.android.dialer.logging.Logger;
 import com.android.dialer.performancereport.PerformanceReport;
+import com.android.dialer.storage.StorageComponent;
 import com.android.dialer.util.DialerUtils;
 import com.android.dialer.util.IntentUtil;
 
@@ -46,6 +47,7 @@ public class PostCall {
   private static final String KEY_POST_CALL_CALL_CONNECT_TIME = "post_call_call_connect_time";
   private static final String KEY_POST_CALL_CALL_NUMBER = "post_call_call_number";
   private static final String KEY_POST_CALL_MESSAGE_SENT = "post_call_message_sent";
+  private static final String KEY_POST_CALL_DISCONNECT_PRESSED = "post_call_disconnect_pressed";
 
   private static Snackbar activeSnackbar;
 
@@ -79,7 +81,7 @@ public class PostCall {
         LogUtil.sanitizePhoneNumber(getPhoneNumber(activity)),
         capabilities);
 
-    boolean isRcsPostCall = capabilities != null && capabilities.supportsPostCall();
+    boolean isRcsPostCall = capabilities != null && capabilities.isPostCallCapable();
     String actionText =
         isRcsPostCall
             ? activity.getString(R.string.post_call_add_message)
@@ -102,7 +104,8 @@ public class PostCall {
                 activity.getResources().getColor(R.color.dialer_snackbar_action_text_color));
     activeSnackbar.show();
     Logger.get(activity).logImpression(DialerImpression.Type.POST_CALL_PROMPT_USER_TO_SEND_MESSAGE);
-    DialerUtils.getDefaultSharedPreferenceForDeviceProtectedStorageContext(activity)
+    StorageComponent.get(activity)
+        .unencryptedSharedPrefs()
         .edit()
         .remove(KEY_POST_CALL_CALL_DISCONNECT_TIME)
         .apply();
@@ -140,14 +143,24 @@ public class PostCall {
     activeSnackbar.show();
     Logger.get(activity)
         .logImpression(DialerImpression.Type.POST_CALL_PROMPT_USER_TO_VIEW_SENT_MESSAGE);
-    DialerUtils.getDefaultSharedPreferenceForDeviceProtectedStorageContext(activity)
+    StorageComponent.get(activity)
+        .unencryptedSharedPrefs()
         .edit()
         .remove(KEY_POST_CALL_MESSAGE_SENT)
         .apply();
   }
 
+  public static void onDisconnectPressed(Context context) {
+    StorageComponent.get(context)
+        .unencryptedSharedPrefs()
+        .edit()
+        .putBoolean(KEY_POST_CALL_DISCONNECT_PRESSED, true)
+        .apply();
+  }
+
   public static void onCallDisconnected(Context context, String number, long callConnectedMillis) {
-    DialerUtils.getDefaultSharedPreferenceForDeviceProtectedStorageContext(context)
+    StorageComponent.get(context)
+        .unencryptedSharedPrefs()
         .edit()
         .putLong(KEY_POST_CALL_CALL_CONNECT_TIME, callConnectedMillis)
         .putLong(KEY_POST_CALL_CALL_DISCONNECT_TIME, System.currentTimeMillis())
@@ -156,7 +169,8 @@ public class PostCall {
   }
 
   public static void onMessageSent(Context context, String number) {
-    DialerUtils.getDefaultSharedPreferenceForDeviceProtectedStorageContext(context)
+    StorageComponent.get(context)
+        .unencryptedSharedPrefs()
         .edit()
         .putString(KEY_POST_CALL_CALL_NUMBER, number)
         .putBoolean(KEY_POST_CALL_MESSAGE_SENT, true)
@@ -169,7 +183,8 @@ public class PostCall {
    */
   public static void restartPerformanceRecordingIfARecentCallExist(Context context) {
     long disconnectTimeMillis =
-        DialerUtils.getDefaultSharedPreferenceForDeviceProtectedStorageContext(context)
+        StorageComponent.get(context)
+            .unencryptedSharedPrefs()
             .getLong(PostCall.KEY_POST_CALL_CALL_DISCONNECT_TIME, -1);
     if (disconnectTimeMillis != -1 && PerformanceReport.isRecording()) {
       PerformanceReport.startRecording();
@@ -179,23 +194,26 @@ public class PostCall {
   private static void clear(Context context) {
     activeSnackbar = null;
 
-    DialerUtils.getDefaultSharedPreferenceForDeviceProtectedStorageContext(context)
+    StorageComponent.get(context)
+        .unencryptedSharedPrefs()
         .edit()
         .remove(KEY_POST_CALL_CALL_DISCONNECT_TIME)
         .remove(KEY_POST_CALL_CALL_NUMBER)
         .remove(KEY_POST_CALL_MESSAGE_SENT)
         .remove(KEY_POST_CALL_CALL_CONNECT_TIME)
+        .remove(KEY_POST_CALL_DISCONNECT_PRESSED)
         .apply();
   }
 
   private static boolean shouldPromptUserToSendMessage(Context context) {
-    SharedPreferences manager =
-        DialerUtils.getDefaultSharedPreferenceForDeviceProtectedStorageContext(context);
+    SharedPreferences manager = StorageComponent.get(context).unencryptedSharedPrefs();
     long disconnectTimeMillis = manager.getLong(KEY_POST_CALL_CALL_DISCONNECT_TIME, -1);
     long connectTimeMillis = manager.getLong(KEY_POST_CALL_CALL_CONNECT_TIME, -1);
 
     long timeSinceDisconnect = System.currentTimeMillis() - disconnectTimeMillis;
     long callDurationMillis = disconnectTimeMillis - connectTimeMillis;
+
+    boolean callDisconnectedByUser = manager.getBoolean(KEY_POST_CALL_DISCONNECT_PRESSED, false);
 
     ConfigProvider binding = ConfigProviderBindings.get(context);
     return disconnectTimeMillis != -1
@@ -204,17 +222,20 @@ public class PostCall {
         && binding.getLong("postcall_last_call_threshold", 30_000) > timeSinceDisconnect
         && (connectTimeMillis == 0
             || binding.getLong("postcall_call_duration_threshold", 35_000) > callDurationMillis)
-        && getPhoneNumber(context) != null;
+        && getPhoneNumber(context) != null
+        && callDisconnectedByUser;
   }
 
   private static boolean shouldPromptUserToViewSentMessage(Context context) {
-    return DialerUtils.getDefaultSharedPreferenceForDeviceProtectedStorageContext(context)
+    return StorageComponent.get(context)
+        .unencryptedSharedPrefs()
         .getBoolean(KEY_POST_CALL_MESSAGE_SENT, false);
   }
 
   @Nullable
   private static String getPhoneNumber(Context context) {
-    return DialerUtils.getDefaultSharedPreferenceForDeviceProtectedStorageContext(context)
+    return StorageComponent.get(context)
+        .unencryptedSharedPrefs()
         .getString(KEY_POST_CALL_CALL_NUMBER, null);
   }
 

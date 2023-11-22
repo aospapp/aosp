@@ -101,16 +101,6 @@ class VtscTester(unittest.TestCase):
                     os.path.join(self._temp_dir, component_name + ".vts"),
                     "%s.driver.cpp" % component_name,
                     file_type="SOURCE")
-        # Tests for conventional Hals.
-        for package_path, component_name in zip(
-            ["camera/2.1", "bluetooth/1.0", "bluetooth/1.0", "wifi/1.0"], [
-                "CameraHalV2", "BluetoothHalV1",
-                "BluetoothHalV1bt_interface_t", "WifiHalV1"
-            ]):
-            self.RunTest("DRIVER",
-                         "test/vts/specification/hal/conventional/%s/%s.vts" %
-                         (package_path,
-                          component_name), "%s.driver.cpp" % component_name)
         # Tests for shared libraries.
         for component_name in ["libcV1"]:
             self.RunTest("DRIVER",

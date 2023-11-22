@@ -20,19 +20,22 @@
 
 struct _ExifData;
 typedef struct _ExifData ExifData;
+#undef TRUE
+#undef FALSE
+#include <CameraParameters.h>
+#include <CameraMetadata.h>
+using ::android::hardware::camera::common::V1_0::helper::CameraParameters;
+using ::android::hardware::camera::common::V1_0::helper::Size;
 
-// CameraParameters is now declared in a HAL name space,
-// ::android::hardware::camera::common::V1_0::helper. So remember to include
-// its declaration in <CameraParameters.h> before this header.
+using ::android::hardware::camera::common::V1_0::helper::CameraMetadata;
 
 namespace android {
-
-//class CameraParameters;
-
 /* Create an EXIF data structure based on camera parameters. This includes
  * things like GPS information that has been set by the camera client.
+ * First for Camera HAL1 and the second for Camera HAL3.
  */
 ExifData* createExifData(const CameraParameters& parameters);
+ExifData* createExifData(const CameraMetadata& params, int width, int height);
 
 /* Free EXIF data created in the createExifData call */
 void freeExifData(ExifData* exifData);

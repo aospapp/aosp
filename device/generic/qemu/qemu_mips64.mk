@@ -13,6 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+PRODUCT_COPY_FILES += \
+    prebuilts/qemu-kernel/mips64/3.18/kernel-qemu2:kernel-ranchu
+
 $(call inherit-product, $(LOCAL_PATH)/qemu_base.mk)
 
 # Overrides

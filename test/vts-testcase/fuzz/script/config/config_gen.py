@@ -18,6 +18,7 @@ import os
 import sys
 
 from importlib import import_module
+from xml.etree import ElementTree
 
 
 class FuzzerType(object):
@@ -54,25 +55,49 @@ class ConfigGen(object):
         self._utils = import_module('build_rule_gen_utils')
         self._vts_spec_parser = vts_spec_parser.VtsSpecParser()
 
+    def _GetPlansFromConfig(self, xml_file_path):
+        """Gets plan names from a module config.
+
+        Args:
+            xml_file_path: string, path to the XML file.
+
+        Returns:
+            list of strings, the plans that the module belongs to.
+        """
+        root = ElementTree.parse(xml_file_path).getroot()
+        plans = [e.attrib["value"] for e in root.iterfind("option") if
+                 e.get("name", "") == "config-descriptor:metadata" and
+                 e.get("key", "") == "plan" and
+                 "value" in e.attrib]
+        return plans
+
     def UpdateFuzzerConfigs(self):
         """Updates build rules for fuzzers.
 
         Updates fuzzer configs for each pair of (hal_name, hal_version).
         """
         config_dir = os.path.join(self._project_path, 'config')
-        self._utils.RemoveFilesInDirIf(
-            config_dir, lambda x: x == 'AndroidTest.xml' or 'Android.mk')
+        old_config = dict()
 
-        self.UpdateFuzzerConfigsForType(FuzzerType.FUNC_FUZZER)
-        self.UpdateFuzzerConfigsForType(FuzzerType.IFACE_FUZZER)
+        for base_dir, dirs, files, in os.walk(config_dir):
+            for file_name in files:
+                file_path = os.path.join(base_dir, file_name)
+                if file_name == 'AndroidTest.xml':
+                    old_config[file_path] = self._GetPlansFromConfig(file_path)
+                if file_name in ('AndroidTest.xml', 'Android.mk'):
+                    os.remove(file_path)
 
-    def UpdateFuzzerConfigsForType(self, fuzzer_type):
+        self.UpdateFuzzerConfigsForType(FuzzerType.IFACE_FUZZER, old_config)
+
+    def UpdateFuzzerConfigsForType(self, fuzzer_type, old_config):
         """Updates build rules for fuzzers.
 
         Updates fuzzer configs for given fuzzer type.
 
         Args:
             fuzzer_type: FuzzerType, type of fuzzer.
+            old_config: dict. The key is the path to the old XML. The value is
+                the list of the plans the module belongs to.
         """
         mk_template_path = os.path.join(self._template_dir, 'template.mk')
         xml_template_path = os.path.join(self._template_dir, 'template.xml')
@@ -91,11 +116,23 @@ class ConfigGen(object):
                 self._utils.HalVerDir(hal_version), fuzzer_type_subdir)
             mk_file_path = os.path.join(config_dir, 'Android.mk')
             xml_file_path = os.path.join(config_dir, 'AndroidTest.xml')
-            mk_string = self._FillOutTemplate(hal_name, hal_version,
-                                              fuzzer_type, mk_template)
 
-            xml_string = self._FillOutTemplate(hal_name, hal_version,
-                                               fuzzer_type, xml_template)
+            plan = 'vts-staging-fuzz'
+            if xml_file_path in old_config:
+                old_plans = old_config[xml_file_path]
+                if old_plans:
+                    plan = old_plans[0]
+                else:
+                    print('WARNING: No plan name in %s' % xml_file_path)
+                if len(old_plans) > 1:
+                    print('WARNING: More than one plan name in %s' %
+                          xml_file_path)
+
+            mk_string = self._FillOutTemplate(
+                hal_name, hal_version, fuzzer_type, plan, mk_template)
+
+            xml_string = self._FillOutTemplate(
+                hal_name, hal_version, fuzzer_type, plan, xml_template)
 
             self._utils.WriteBuildRule(mk_file_path, mk_string)
             self._utils.WriteBuildRule(xml_file_path, xml_string)
@@ -147,13 +184,15 @@ class ConfigGen(object):
             test_type = 'IfaceFuzzer'
         return test_type
 
-    def _FillOutTemplate(self, hal_name, hal_version, fuzzer_type, template):
+    def _FillOutTemplate(self, hal_name, hal_version, fuzzer_type, plan,
+                         template):
         """Returns build rules in string form by filling out given template.
 
         Args:
             hal_name: string, name of the hal, e.g. 'vibrator'.
             hal_version: string, version of the hal, e.g '7.4'
             fuzzer_type: FuzzerType, type of fuzzer.
+            plan: string, name of the plan, e.g. 'vts-staging-fuzz'
             template: string, build rule template to fill out.
 
         Returns:
@@ -168,6 +207,7 @@ class ConfigGen(object):
                                 self._FuzzerTypeCamel(fuzzer_type))
         config = config.replace('{TEST_TYPE_UNDERSCORE}',
                                 self._FuzzerTypeUnderscore(fuzzer_type))
+        config = config.replace('{PLAN}', plan)
         return config
 
     def _IsTestable(self, hal_name, hal_version):

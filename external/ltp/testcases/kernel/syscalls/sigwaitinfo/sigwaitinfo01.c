@@ -26,7 +26,7 @@
 #include "../utils/include_j_h.h"
 #include "../utils/common_j_h.c"
 #include <limits.h>
-#include "linux_syscall_numbers.h"
+#include "lapi/syscalls.h"
 
 #define SUCCEED_OR_DIE(syscall, message, ...)				 \
 	(errno = 0,							 \
@@ -249,6 +249,7 @@ void test_masked_matching_rt(swi_func sigwaitinfo, int signo)
 	sigset_t sigs, oldmask;
 	siginfo_t si;
 	pid_t child[2];
+	int status;
 
 	signo = SIGRTMIN + 1;
 
@@ -267,6 +268,10 @@ void test_masked_matching_rt(swi_func sigwaitinfo, int signo)
 	/* Run a child that will wake us up */
 	child[0] = create_sig_proc(0, signo, 1);
 	child[1] = create_sig_proc(0, signo + 1, 1);
+
+	/* Ensure that the signals have been sent */
+	waitpid(child[0], &status, 0);
+	waitpid(child[1], &status, 0);
 
 	TEST(sigwaitinfo(&sigs, &si, NULL));
 	REPORT_SUCCESS_COND(signo, 0, si.si_pid == child[0]
@@ -358,8 +363,27 @@ void test_bad_address(swi_func sigwaitinfo, int signo)
 
 void test_bad_address2(swi_func sigwaitinfo, int signo)
 {
-	TEST(sigwaitinfo((void *)1, NULL, NULL));
-	REPORT_SUCCESS(-1, EFAULT);
+	pid_t pid;
+	int status;
+
+	switch (pid = fork()) {
+	case -1:
+		tst_brkm(TBROK | TERRNO, NULL, "fork() failed");
+	case 0:
+		signal(SIGSEGV, SIG_DFL);
+		TEST(sigwaitinfo((void *)1, NULL, NULL));
+
+		_exit(0);
+		break;
+	default:
+		break;
+	}
+
+	SUCCEED_OR_DIE(waitpid, "waitpid failed", pid, &status, 0);
+	if (WIFSIGNALED(status) && WTERMSIG(status) == SIGSEGV)
+		tst_resm(TPASS, "Test passed");
+	else
+		tst_resm(TFAIL, "Unrecognised child exit code");
 }
 
 void test_bad_address3(swi_func sigwaitinfo, int signo)

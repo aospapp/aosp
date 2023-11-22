@@ -105,5 +105,5 @@
     <string name="clear_all_message" msgid="1548432000373861295">"Kas kustutada kogu teave ja kõik kontaktid?"</string>
     <string name="emergency_info_footer" msgid="8751758742506410146">"Meditsiinilise teabe ja hädaolukorra kontaktide lisamine aitab päästetöötajaid hädaolukorras.\n\nIgaüks saab lugeda teie lukustuskuval olevat teavet ja helistada teie kontaktidele, puudutades kontakti nime ning avamata teie telefoni."</string>
     <string name="settings_suggestion_title" msgid="2503369576806243476">"Hädaabiteabe lisamine"</string>
-    <string name="settings_suggestion_body" msgid="6623265155762787567">"Aidake päästjatel leida tähtsat teavet"</string>
+    <string name="settings_suggestion_body" msgid="5559349261345837716">"Lubage abipakkujatel teie teavet näha"</string>
 </resources>

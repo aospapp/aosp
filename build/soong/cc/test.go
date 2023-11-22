@@ -43,43 +43,43 @@ type TestBinaryProperties struct {
 
 	// list of compatibility suites (for example "cts", "vts") that the module should be
 	// installed into.
-	Test_suites []string
+	Test_suites []string `android:"arch_variant"`
 }
 
 func init() {
-	android.RegisterModuleType("cc_test", testFactory)
-	android.RegisterModuleType("cc_test_library", testLibraryFactory)
-	android.RegisterModuleType("cc_benchmark", benchmarkFactory)
-	android.RegisterModuleType("cc_test_host", testHostFactory)
-	android.RegisterModuleType("cc_benchmark_host", benchmarkHostFactory)
+	android.RegisterModuleType("cc_test", TestFactory)
+	android.RegisterModuleType("cc_test_library", TestLibraryFactory)
+	android.RegisterModuleType("cc_benchmark", BenchmarkFactory)
+	android.RegisterModuleType("cc_test_host", TestHostFactory)
+	android.RegisterModuleType("cc_benchmark_host", BenchmarkHostFactory)
 }
 
 // Module factory for tests
-func testFactory() android.Module {
+func TestFactory() android.Module {
 	module := NewTest(android.HostAndDeviceSupported)
 	return module.Init()
 }
 
 // Module factory for test libraries
-func testLibraryFactory() android.Module {
+func TestLibraryFactory() android.Module {
 	module := NewTestLibrary(android.HostAndDeviceSupported)
 	return module.Init()
 }
 
 // Module factory for benchmarks
-func benchmarkFactory() android.Module {
+func BenchmarkFactory() android.Module {
 	module := NewBenchmark(android.HostAndDeviceSupported)
 	return module.Init()
 }
 
 // Module factory for host tests
-func testHostFactory() android.Module {
+func TestHostFactory() android.Module {
 	module := NewTest(android.HostSupported)
 	return module.Init()
 }
 
 // Module factory for host benchmarks
-func benchmarkHostFactory() android.Module {
+func BenchmarkHostFactory() android.Module {
 	module := NewBenchmark(android.HostSupported)
 	return module.Init()
 }
@@ -100,7 +100,7 @@ func (test *testBinary) srcs() []string {
 
 func (test *testBinary) setSrc(name, src string) {
 	test.baseCompiler.Properties.Srcs = []string{src}
-	test.binaryDecorator.Properties.Stem = name
+	test.binaryDecorator.Properties.Stem = StringPtr(name)
 }
 
 var _ testPerSrc = (*testBinary)(nil)
@@ -145,10 +145,8 @@ func (test *testDecorator) linkerFlags(ctx ModuleContext, flags Flags) Flags {
 			flags.CFlags = append(flags.CFlags, "-DGTEST_OS_WINDOWS")
 		case android.Linux:
 			flags.CFlags = append(flags.CFlags, "-DGTEST_OS_LINUX")
-			flags.LdFlags = append(flags.LdFlags, "-lpthread")
 		case android.Darwin:
 			flags.CFlags = append(flags.CFlags, "-DGTEST_OS_MAC")
-			flags.LdFlags = append(flags.LdFlags, "-lpthread")
 		}
 	} else {
 		flags.CFlags = append(flags.CFlags, "-DGTEST_OS_LINUX_ANDROID")
@@ -159,15 +157,8 @@ func (test *testDecorator) linkerFlags(ctx ModuleContext, flags Flags) Flags {
 
 func (test *testDecorator) linkerDeps(ctx BaseModuleContext, deps Deps) Deps {
 	if test.gtest() {
-		if ctx.sdk() && ctx.Device() {
-			switch ctx.selectedStl() {
-			case "ndk_libc++_shared", "ndk_libc++_static":
-				deps.StaticLibs = append(deps.StaticLibs, "libgtest_main_ndk_libcxx", "libgtest_ndk_libcxx")
-			case "ndk_libgnustl_static":
-				deps.StaticLibs = append(deps.StaticLibs, "libgtest_main_ndk_gnustl", "libgtest_ndk_gnustl")
-			default:
-				deps.StaticLibs = append(deps.StaticLibs, "libgtest_main_ndk", "libgtest_ndk")
-			}
+		if ctx.useSdk() && ctx.Device() {
+			deps.StaticLibs = append(deps.StaticLibs, "libgtest_main_ndk_c++", "libgtest_ndk_c++")
 		} else {
 			deps.StaticLibs = append(deps.StaticLibs, "libgtest_main", "libgtest")
 		}
@@ -177,11 +168,16 @@ func (test *testDecorator) linkerDeps(ctx BaseModuleContext, deps Deps) Deps {
 }
 
 func (test *testDecorator) linkerInit(ctx BaseModuleContext, linker *baseLinker) {
+	// add ../../lib[64] to rpath so that out/host/linux-x86/nativetest/<test dir>/<test> can
+	// find out/host/linux-x86/lib[64]/library.so
 	runpath := "../../lib"
 	if ctx.toolchain().Is64Bit() {
 		runpath += "64"
 	}
 	linker.dynamicProperties.RunPaths = append(linker.dynamicProperties.RunPaths, runpath)
+
+	// add "" to rpath so that test binaries can find libraries in their own test directory
+	linker.dynamicProperties.RunPaths = append(linker.dynamicProperties.RunPaths, "")
 }
 
 func (test *testDecorator) linkerProps() []interface{} {
@@ -233,7 +229,7 @@ func (test *testBinary) install(ctx ModuleContext, file android.Path) {
 
 	if !Bool(test.Properties.No_named_install_directory) {
 		test.binaryDecorator.baseInstaller.relative = ctx.ModuleName()
-	} else if test.binaryDecorator.baseInstaller.Properties.Relative_install_path == "" {
+	} else if String(test.binaryDecorator.baseInstaller.Properties.Relative_install_path) == "" {
 		ctx.PropertyErrorf("no_named_install_directory", "Module install directory may only be disabled if relative_install_path is set")
 	}
 
@@ -337,8 +333,8 @@ func (benchmark *benchmarkDecorator) linkerDeps(ctx DepsContext, deps Deps) Deps
 
 func (benchmark *benchmarkDecorator) install(ctx ModuleContext, file android.Path) {
 	benchmark.data = ctx.ExpandSources(benchmark.Properties.Data, nil)
-	benchmark.binaryDecorator.baseInstaller.dir = filepath.Join("nativetest", ctx.ModuleName())
-	benchmark.binaryDecorator.baseInstaller.dir64 = filepath.Join("nativetest64", ctx.ModuleName())
+	benchmark.binaryDecorator.baseInstaller.dir = filepath.Join("benchmarktest", ctx.ModuleName())
+	benchmark.binaryDecorator.baseInstaller.dir64 = filepath.Join("benchmarktest64", ctx.ModuleName())
 	benchmark.binaryDecorator.baseInstaller.install(ctx, file)
 }
 
@@ -355,7 +351,7 @@ func NewBenchmark(hod android.HostOrDeviceSupported) *Module {
 
 	module, binary := NewBinary(hod)
 	module.multilib = android.MultilibBoth
-	binary.baseInstaller = NewTestInstaller()
+	binary.baseInstaller = NewBaseInstaller("benchmarktest", "benchmarktest64", InstallInData)
 
 	benchmark := &benchmarkDecorator{
 		binaryDecorator: binary,

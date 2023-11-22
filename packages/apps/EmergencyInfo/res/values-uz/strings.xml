@@ -105,5 +105,5 @@
     <string name="clear_all_message" msgid="1548432000373861295">"Barcha kontaktlar va ma’lumotlar o‘chirib tashlansinmi?"</string>
     <string name="emergency_info_footer" msgid="8751758742506410146">"Tibbiy axborot va favqulodda kontaktlar kiritish favqulodda holatlarda birinchi javob beruvchi uchun yordam beradi.\n\nIstalgan kishi bu ma’lumotlarni telefonni qulfdan chiqarmasdan ekran qulfidan o‘qiy oladi hamda kontaktlaringizdagi ismlarning ustiga bosish orqali ularga qo‘ng‘iroq qila oladi."</string>
     <string name="settings_suggestion_title" msgid="2503369576806243476">"Favqulodda axborot qo‘shish"</string>
-    <string name="settings_suggestion_body" msgid="6623265155762787567">"Birinchi javob beruvchi muhim ma’lumotlarni topishiga yordam bering"</string>
+    <string name="settings_suggestion_body" msgid="5559349261345837716">"Birinchi yordam uchun ma’lumotlaringizni taqdim eting"</string>
 </resources>

@@ -16,21 +16,23 @@
 
 #include "profile_saver.h"
 
-#include <sys/resource.h>
-#include <sys/types.h>
-#include <sys/stat.h>
 #include <fcntl.h>
+#include <sys/resource.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
 #include "android-base/strings.h"
 
 #include "art_method-inl.h"
 #include "base/enums.h"
+#include "base/logging.h"  // For VLOG.
 #include "base/scoped_arena_containers.h"
 #include "base/stl_util.h"
 #include "base/systrace.h"
 #include "base/time_utils.h"
 #include "class_table-inl.h"
 #include "compiler_filter.h"
+#include "dex/dex_file_loader.h"
 #include "dex_reference_collection.h"
 #include "gc/collector_type.h"
 #include "gc/gc_cause.h"
@@ -124,6 +126,11 @@ void ProfileSaver::Run() {
   }
   FetchAndCacheResolvedClassesAndMethods(/*startup*/ true);
 
+
+  // When we save without waiting for JIT notifications we use a simple
+  // exponential back off policy bounded by max_wait_without_jit.
+  uint32_t max_wait_without_jit = options_.GetMinSavePeriodMs() * 16;
+  uint64_t cur_wait_without_jit = options_.GetMinSavePeriodMs();
   // Loop for the profiled methods.
   while (!ShuttingDown(self)) {
     uint64_t sleep_start = NanoTime();
@@ -131,7 +138,14 @@ void ProfileSaver::Run() {
       uint64_t sleep_time = 0;
       {
         MutexLock mu(self, wait_lock_);
-        period_condition_.Wait(self);
+        if (options_.GetWaitForJitNotificationsToSave()) {
+          period_condition_.Wait(self);
+        } else {
+          period_condition_.TimedWait(self, cur_wait_without_jit, 0);
+          if (cur_wait_without_jit < max_wait_without_jit) {
+            cur_wait_without_jit *= 2;
+          }
+        }
         sleep_time = NanoTime() - sleep_start;
       }
       // Check if the thread was woken up for shutdown.
@@ -349,15 +363,15 @@ static void SampleClassesAndExecutedMethods(pthread_t profiler_pthread,
           // Mark startup methods as hot if they have more than hot_method_sample_threshold
           // samples. This means they will get compiled by the compiler driver.
           if (method.GetProfilingInfo(kRuntimePointerSize) != nullptr ||
-              (method.GetAccessFlags() & kAccPreviouslyWarm) != 0 ||
+              method.PreviouslyWarm() ||
               counter >= hot_method_sample_threshold) {
             hot_methods->AddReference(method.GetDexFile(), method.GetDexMethodIndex());
           } else if (counter != 0) {
             sampled_methods->AddReference(method.GetDexFile(), method.GetDexMethodIndex());
           }
         } else {
-          CHECK_EQ(method.GetCounter(), 0u) << method.PrettyMethod()
-              << " access_flags=" << method.GetAccessFlags();
+          // We do not record native methods. Once we AOT-compile the app, all native
+          // methods shall have their thunks compiled.
         }
       }
     }
@@ -414,7 +428,8 @@ void ProfileSaver::FetchAndCacheResolvedClassesAndMethods(bool startup) {
     const std::set<std::string>& locations = it.second;
     for (const auto& pair : hot_methods.GetMap()) {
       const DexFile* const dex_file = pair.first;
-      if (locations.find(dex_file->GetBaseLocation()) != locations.end()) {
+      const std::string base_location = DexFileLoader::GetBaseLocation(dex_file->GetLocation());
+      if (locations.find(base_location) != locations.end()) {
         const MethodReferenceCollection::IndexVector& indices = pair.second;
         uint8_t flags = Hotness::kFlagHot;
         flags |= startup ? Hotness::kFlagStartup : Hotness::kFlagPostStartup;
@@ -427,7 +442,8 @@ void ProfileSaver::FetchAndCacheResolvedClassesAndMethods(bool startup) {
     }
     for (const auto& pair : sampled_methods.GetMap()) {
       const DexFile* const dex_file = pair.first;
-      if (locations.find(dex_file->GetBaseLocation()) != locations.end()) {
+      const std::string base_location = DexFileLoader::GetBaseLocation(dex_file->GetLocation());
+      if (locations.find(base_location) != locations.end()) {
         const MethodReferenceCollection::IndexVector& indices = pair.second;
         cached_info->AddMethodsForDex(startup ? Hotness::kFlagStartup : Hotness::kFlagPostStartup,
                                       dex_file,
@@ -437,14 +453,15 @@ void ProfileSaver::FetchAndCacheResolvedClassesAndMethods(bool startup) {
     }
     for (const auto& pair : resolved_classes.GetMap()) {
       const DexFile* const dex_file = pair.first;
-      if (locations.find(dex_file->GetBaseLocation()) != locations.end()) {
+      const std::string base_location = DexFileLoader::GetBaseLocation(dex_file->GetLocation());
+      if (locations.find(base_location) != locations.end()) {
         const TypeReferenceCollection::IndexVector& classes = pair.second;
         VLOG(profiler) << "Added " << classes.size() << " classes for location "
-                       << dex_file->GetBaseLocation()
+                       << base_location
                        << " (" << dex_file->GetLocation() << ")";
         cached_info->AddClassesForDex(dex_file, classes.begin(), classes.end());
       } else {
-        VLOG(profiler) << "Location not found " << dex_file->GetBaseLocation()
+        VLOG(profiler) << "Location not found " << base_location
                        << " (" << dex_file->GetLocation() << ")";
       }
     }
@@ -506,10 +523,24 @@ bool ProfileSaver::ProcessProfilingInfo(bool force_save, /*out*/uint16_t* number
       uint64_t last_save_number_of_methods = info.GetNumberOfMethods();
       uint64_t last_save_number_of_classes = info.GetNumberOfResolvedClasses();
 
-      info.AddMethods(profile_methods);
+      // Try to add the method data. Note this may fail is the profile loaded from disk contains
+      // outdated data (e.g. the previous profiled dex files might have been updated).
+      // If this happens we clear the profile data and for the save to ensure the file is cleared.
+      if (!info.AddMethods(profile_methods,
+              ProfileCompilationInfo::MethodHotness::kFlagPostStartup)) {
+        LOG(WARNING) << "Could not add methods to the existing profiler. "
+            << "Clearing the profile data.";
+        info.ClearData();
+        force_save = true;
+      }
+
       auto profile_cache_it = profile_cache_.find(filename);
       if (profile_cache_it != profile_cache_.end()) {
-        info.MergeWith(*(profile_cache_it->second));
+        if (!info.MergeWith(*(profile_cache_it->second))) {
+          LOG(WARNING) << "Could not merge the profile. Clearing the profile data.";
+          info.ClearData();
+          force_save = true;
+        }
       }
 
       int64_t delta_number_of_methods =
@@ -587,7 +618,13 @@ void* ProfileSaver::RunProfileSaverThread(void* arg) {
   return nullptr;
 }
 
-static bool ShouldProfileLocation(const std::string& location) {
+static bool ShouldProfileLocation(const std::string& location, bool profile_aot_code) {
+  if (profile_aot_code) {
+    // If we have to profile all the code, irrespective of its compilation state, return true
+    // right away.
+    return true;
+  }
+
   OatFileManager& oat_manager = Runtime::Current()->GetOatFileManager();
   const OatFile* oat_file = oat_manager.FindOpenedOatFileFromDexLocation(location);
   if (oat_file == nullptr) {
@@ -619,7 +656,7 @@ void ProfileSaver::Start(const ProfileSaverOptions& options,
 
   std::vector<std::string> code_paths_to_profile;
   for (const std::string& location : code_paths) {
-    if (ShouldProfileLocation(location))  {
+    if (ShouldProfileLocation(location, options.GetProfileAOTCode()))  {
       code_paths_to_profile.push_back(location);
     }
   }

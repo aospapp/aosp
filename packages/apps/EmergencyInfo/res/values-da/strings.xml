@@ -105,5 +105,5 @@
     <string name="clear_all_message" msgid="1548432000373861295">"Vil du rydde alle oplysninger og kontaktpersoner?"</string>
     <string name="emergency_info_footer" msgid="8751758742506410146">"Hvis du tilføjer helbredsoplysninger og kontaktpersoner til brug i nødsituationer, kan det hjælpe førstehjælpsydere i en nødsituation.\n\nAlle kan få adgang til disse oplysninger på din låseskærm og ringe til dine kontaktpersoner ved at trykke på deres navne uden at låse telefonen op."</string>
     <string name="settings_suggestion_title" msgid="2503369576806243476">"Tilføj info til nødsituationer"</string>
-    <string name="settings_suggestion_body" msgid="6623265155762787567">"Hjælp førstehjælpsydere med at finde vigtige oplysninger"</string>
+    <string name="settings_suggestion_body" msgid="5559349261345837716">"Lad førstehjælpsydere se dine oplysninger"</string>
 </resources>

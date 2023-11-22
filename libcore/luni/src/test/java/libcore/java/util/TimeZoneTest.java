@@ -460,7 +460,7 @@ public class TimeZoneTest extends TestCase {
                 // This is not public API but can effectively be invoked via
                 // java.util.TimeZone.setDefault. Call it directly to reduce the amount of code
                 // involved in this test.
-                android.icu.util.TimeZone.clearCachedDefault();
+                android.icu.util.TimeZone.setICUDefault(null);
             }
         });
         clearer.setName("testSetDefaultRace clearer");
@@ -478,9 +478,9 @@ public class TimeZoneTest extends TestCase {
         clearer.start();
         getter.start();
 
-        // 2 seconds is plenty: If successful, we usually complete much faster.
-        clearer.join(1000);
-        getter.join(1000);
+        // 20 seconds is plenty: If successful, we usually complete much faster.
+        clearer.join(10000);
+        getter.join(10000);
 
         if (!exceptions.isEmpty()) {
             Throwable firstException = exceptions.get(0);

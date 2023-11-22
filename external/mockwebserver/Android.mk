@@ -21,8 +21,10 @@ include $(CLEAR_VARS)
 LOCAL_SRC_FILES := $(mockwebserver_src_files)
 LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE := mockwebserver
-LOCAL_JAVA_LIBRARIES := core-oj core-libart
-LOCAL_NO_STANDARD_LIBRARIES := true
+# Some tests (CtsVerifier, etc) that are built with SDK are using this library,
+# thus this lib should be built with public APIs. Since this lib is not specific
+# to Android, core_current which is a core-Java subset of Android SDK is used.
+LOCAL_SDK_VERSION := core_current
 LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
 include $(BUILD_STATIC_JAVA_LIBRARY)
 

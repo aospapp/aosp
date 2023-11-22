@@ -52,6 +52,7 @@
     <item msgid="375085478373011304">"VPN ja rakendused"</item>
     <item msgid="692322974985472861">"WiFi"</item>
   </string-array>
+    <string name="certificate_capabilities_warning" msgid="4158609401937799110">"Märkus. Selle sertifikaadi väljastaja võib kontrollida kogu selle seadme kaudu toimuvat liiklust."</string>
     <string name="wifi_title" msgid="8475811746333426489">"WiFi profiil"</string>
     <string name="wifi_detail_title" msgid="3627332137252994395">"Üksuse %s üksikasjad"</string>
     <string name="wifi_detail_label" msgid="3032151019356747583">"Üksikasjad"</string>

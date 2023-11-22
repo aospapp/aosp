@@ -155,12 +155,15 @@ class firmware_ECThermal(FirmwareTest):
 
 
     def cleanup(self):
-        if self.check_ec_capability(['thermal']):
-            self.enable_auto_fan_control()
-        if self._has_temp_metrics:
-            logging.info('Starting temp_metrics')
-            self.faft_client.system.run_shell_command('start temp_metrics')
-        self.ec.send_command("chan 0xffffffff")
+        try:
+            if self.check_ec_capability(['thermal']):
+                self.enable_auto_fan_control()
+            if self._has_temp_metrics:
+                logging.info('Starting temp_metrics')
+                self.faft_client.system.run_shell_command('start temp_metrics')
+            self.ec.send_command("chan 0xffffffff")
+        except Exception as e:
+            logging.error("Caught exception: %s", str(e))
         super(firmware_ECThermal, self).cleanup()
 
 

@@ -31,7 +31,7 @@ import java.util.Map.Entry;
  * A {@link ITargetPreparer} which creates and pushes a simple key/value config file to the device.
  */
 @OptionClass(alias = "key-value-config")
-public class KeyValueConfigPreparer implements ITargetPreparer {
+public class KeyValueConfigPreparer extends BaseTargetPreparer {
 
     @Option(name = "path", description = "The path of the config file on the device",
             mandatory = true)

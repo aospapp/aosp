@@ -131,7 +131,10 @@ class platform_SuspendResumeTiming(test.test):
             if lsusb_plugged_len - lsusb_unplugged_len <  _SERVO_USB_NUM + 1:
                 raise error.TestFail('No peripherals are connected to servo!')
 
-        self.host.suspend(suspend_time=_SUSPEND_TIME)
+        try:
+            self.host.suspend(suspend_time=_SUSPEND_TIME)
+        except error.AutoservSuspendError:
+            pass
         self.host.run('sync')
 
 

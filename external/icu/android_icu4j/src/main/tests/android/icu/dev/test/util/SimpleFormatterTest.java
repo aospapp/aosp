@@ -10,12 +10,17 @@
 package android.icu.dev.test.util;
 
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import android.icu.dev.test.TestFmwk;
 import android.icu.text.MessageFormat;
 import android.icu.text.SimpleFormatter;
 import android.icu.util.ULocale;
+import android.icu.testsharding.MainTestShard;
 
+@MainTestShard
+@RunWith(JUnit4.class)
 public class SimpleFormatterTest extends TestFmwk {
 
     /**
@@ -24,9 +29,9 @@ public class SimpleFormatterTest extends TestFmwk {
      public SimpleFormatterTest()
      {
      }
-       
+
      // public methods -----------------------------------------------
-     
+
      @Test
      public void TestWithNoArguments() {
          SimpleFormatter fmt = SimpleFormatter.compile("This doesn''t have templates '{0}");
@@ -103,7 +108,7 @@ public class SimpleFormatterTest extends TestFmwk {
                  SimpleFormatter.compile(
                          "Templates {1}{2} and {3} are here.").getTextWithNoArguments());
      }
-     
+
      @Test
      public void TestTooFewArgumentValues() {
          SimpleFormatter fmt = SimpleFormatter.compile(
@@ -129,7 +134,7 @@ public class SimpleFormatterTest extends TestFmwk {
              // Expected
          }
      }
-     
+
      @Test
      public void TestWithArguments() {
          SimpleFormatter fmt = SimpleFormatter.compile(
@@ -137,12 +142,12 @@ public class SimpleFormatterTest extends TestFmwk {
          assertEquals(
                  "getArgumentLimit",
                  5,
-                 fmt.getArgumentLimit()); 
+                 fmt.getArgumentLimit());
          assertEquals(
                  "toString",
                  "Templates {2}{1} and {4} are out of order.",
                  fmt.toString());
-        int[] offsets = new int[6]; 
+        int[] offsets = new int[6];
         assertEquals(
                  "format",
                  "123456: Templates frogtommy and {0} are out of order.",
@@ -150,11 +155,11 @@ public class SimpleFormatterTest extends TestFmwk {
                          new StringBuilder("123456: "),
                          offsets,
                          "freddy", "tommy", "frog", "leg", "{0}").toString());
-         
+
          int[] expectedOffsets = {-1, 22, 18, -1, 32, -1};
          verifyOffsets(expectedOffsets, offsets);
      }
-     
+
      @Test
      public void TestFormatUseAppendToAsArgument() {
          SimpleFormatter fmt = SimpleFormatter.compile(
@@ -167,7 +172,7 @@ public class SimpleFormatterTest extends TestFmwk {
              // expected.
          }
      }
-     
+
      @Test
      public void TestFormatReplaceNoOptimization() {
          SimpleFormatter fmt = SimpleFormatter.compile("{2}, {0}, {1} and {3}");
@@ -180,12 +185,12 @@ public class SimpleFormatterTest extends TestFmwk {
                          result,
                          offsets,
                          result, "freddy", "frog", "by").toString());
-         
+
          int[] expectedOffsets = {6, 16, 0, 27};
          verifyOffsets(expectedOffsets, offsets);
      }
-     
-     
+
+
      @Test
      public void TestFormatReplaceNoOptimizationLeadingText() {
          SimpleFormatter fmt = SimpleFormatter.compile("boo {2}, {0}, {1} and {3}");
@@ -198,11 +203,11 @@ public class SimpleFormatterTest extends TestFmwk {
                          result,
                          offsets,
                          "freddy", "frog", result, "by").toString());
-         
+
          int[] expectedOffsets = {14, 22, 4, 31};
          verifyOffsets(expectedOffsets, offsets);
      }
-     
+
      @Test
      public void TestFormatReplaceOptimization() {
          SimpleFormatter fmt = SimpleFormatter.compile("{2}, {0}, {1} and {3}");
@@ -215,11 +220,11 @@ public class SimpleFormatterTest extends TestFmwk {
                          result,
                          offsets,
                          "freddy", "frog", result, "by").toString());
-         
+
          int[] expectedOffsets = {10, 18, 0, 27};
-         verifyOffsets(expectedOffsets, offsets);  
+         verifyOffsets(expectedOffsets, offsets);
      }
-     
+
      @Test
      public void TestFormatReplaceOptimizationNoOffsets() {
          SimpleFormatter fmt = SimpleFormatter.compile("{2}, {0}, {1} and {3}");
@@ -231,9 +236,9 @@ public class SimpleFormatterTest extends TestFmwk {
                          result,
                          null,
                          "freddy", "frog", result, "by").toString());
-         
+
      }
-     
+
      @Test
      public void TestFormatReplaceNoOptimizationNoOffsets() {
          SimpleFormatter fmt = SimpleFormatter.compile(
@@ -244,7 +249,7 @@ public class SimpleFormatterTest extends TestFmwk {
                  "Arguments previous: and frog",
                  fmt.formatAndReplace(result, null, result, "frog").toString());
      }
-     
+
      @Test
      public void TestFormatReplaceNoOptimizationLeadingArgumentUsedTwice() {
          SimpleFormatter fmt = SimpleFormatter.compile(
@@ -277,7 +282,7 @@ public class SimpleFormatterTest extends TestFmwk {
              if (expected[i] != actual[i]) {
                  errln("Expected "+expected[i]+", got " + actual[i]);
              }
-         } 
+         }
      }
-     
+
 }

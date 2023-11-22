@@ -23,6 +23,7 @@
 #include <gtest/gtest.h>
 
 #include "update_engine/common/constants.h"
+#include "update_engine/common/fake_prefs.h"
 #include "update_engine/common/test_utils.h"
 #include "update_engine/fake_system_state.h"
 
@@ -36,13 +37,21 @@ class ImagePropertiesTest : public ::testing::Test {
   void SetUp() override {
     // Create a uniquely named test directory.
     ASSERT_TRUE(tempdir_.CreateUniqueTempDir());
-    osrelease_dir_ = tempdir_.path().Append("etc/os-release.d");
+    osrelease_dir_ = tempdir_.GetPath().Append("etc/os-release.d");
     EXPECT_TRUE(base::CreateDirectory(osrelease_dir_));
-    test::SetImagePropertiesRootPrefix(tempdir_.path().value().c_str());
+    test::SetImagePropertiesRootPrefix(tempdir_.GetPath().value().c_str());
   }
 
   void WriteOsRelease(const string& key, const string& value) {
     ASSERT_TRUE(WriteFileString(osrelease_dir_.Append(key).value(), value));
+  }
+
+  void WriteChannel(const string& channel) {
+    string misc(2080, '\0');
+    misc += channel;
+    misc.resize(4096);
+    ASSERT_TRUE(
+        WriteFileString(tempdir_.GetPath().Append("misc").value(), misc));
   }
 
   FakeSystemState fake_system_state_;
@@ -85,6 +94,30 @@ TEST_F(ImagePropertiesTest, IDInvalidPrefixTest) {
   props = LoadImageProperties(&fake_system_state_);
   EXPECT_EQ("abc:def", props.product_id);
   EXPECT_EQ("bar", props.system_id);
+}
+
+TEST_F(ImagePropertiesTest, LoadChannelTest) {
+  WriteChannel("unittest-channel");
+  ImageProperties props = LoadImageProperties(&fake_system_state_);
+  EXPECT_EQ("unittest-channel", props.current_channel);
+}
+
+TEST_F(ImagePropertiesTest, DefaultStableChannelTest) {
+  WriteChannel("");
+  ImageProperties props = LoadImageProperties(&fake_system_state_);
+  EXPECT_EQ("stable-channel", props.current_channel);
+}
+
+TEST_F(ImagePropertiesTest, StoreLoadMutableChannelTest) {
+  FakePrefs prefs;
+  fake_system_state_.set_prefs(&prefs);
+  WriteChannel("previous-channel");
+  MutableImageProperties props;
+  props.target_channel = "new-channel";
+  EXPECT_TRUE(StoreMutableImageProperties(&fake_system_state_, props));
+  MutableImageProperties loaded_props =
+      LoadMutableImageProperties(&fake_system_state_);
+  EXPECT_EQ(props.target_channel, loaded_props.target_channel);
 }
 
 }  // namespace chromeos_update_engine

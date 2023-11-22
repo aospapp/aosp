@@ -227,6 +227,9 @@ public class SlowCRTest extends TestCase {
     public void testSlowBasic() {
         checkEq(ZERO.sqrt(), ZERO, "sqrt(0)");
         checkEq(ZERO.abs(), ZERO, "abs(0)");
+        for (int i = 100; i >= -2900; --i) {
+            check(CR.PI.compareTo(CR.atan_PI, i) == 0, "pi(" + i + ")");
+        }
         Random r = new Random();  // Random seed!
         for (int i = 0; i < NRANDOM; ++i) {
             double d = Math.exp(10.0 * r.nextDouble() - 1.0);

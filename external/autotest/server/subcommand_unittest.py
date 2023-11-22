@@ -19,7 +19,6 @@ def _create_subcommand(func, args):
             self.debug = None
             self.pid = None
             self.returncode = None
-            self.lambda_function = lambda: func(*args)
 
     return wrapper(func, args)
 
@@ -384,41 +383,41 @@ class test_parallel_simple(unittest.TestCase):
         self.god.check_playback()
 
 
-    def _setup_many(self, count, log):
+    def test_default_subdirs_constructor(self):
         func = self.god.create_mock_function('func')
-
-        args = []
-        cmds = []
-        for i in xrange(count):
-            arg = i + 1
-            args.append(arg)
-
-            if log:
-                subdir = str(arg)
-            else:
-                subdir = None
-
-            cmd = object()
-            cmds.append(cmd)
-
-            (subcommand.subcommand.expect_call(func, [arg], subdir)
-                    .and_return(cmd))
-
-        subcommand.parallel.expect_call(cmds, None, return_results=False)
-        return func, args
-
-
-    def test_passthrough(self):
-        func, args = self._setup_many(4, True)
+        args = range(4)
+        for arg in args:
+            subcommand.subcommand.expect_call(
+                    func, [arg], str(arg)).and_return(arg)
+        subcommand.parallel.expect_call(args, None, return_results=False)
 
         subcommand.parallel_simple(func, args)
         self.god.check_playback()
 
 
-    def test_nolog(self):
-        func, args = self._setup_many(3, False)
+    def test_nolog_skips_subdirs(self):
+        func = self.god.create_mock_function('func')
+        args = range(3)
+        for arg in args:
+            subcommand.subcommand.expect_call(
+                    func, [arg], None).and_return(arg)
+        subcommand.parallel.expect_call(args, None, return_results=False)
 
         subcommand.parallel_simple(func, args, log=False)
+        self.god.check_playback()
+
+
+    def test_custom_subdirs_constructor(self):
+        func = self.god.create_mock_function('func')
+        args = range(7)
+        subdirs = ['subdir%s' % arg for arg in args]
+        for arg, subdir in zip(args, subdirs):
+            subcommand.subcommand.expect_call(
+                    func, [arg], subdir).and_return(arg)
+        subcommand.parallel.expect_call(args, None, return_results=False)
+
+        subcommand.parallel_simple(
+                func, args, subdir_name_constructor=lambda x: 'subdir%s' % x)
         self.god.check_playback()
 
 

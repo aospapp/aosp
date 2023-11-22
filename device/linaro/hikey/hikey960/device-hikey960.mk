@@ -14,8 +14,8 @@
 # limitations under the License.
 #
 
-PRODUCT_COPY_FILES +=	device/linaro/hikey-kernel/Image.gz-hikey960:kernel \
-			device/linaro/hikey-kernel/hi3660-hikey960.dtb:hi3660-hikey960.dtb
+PRODUCT_COPY_FILES +=	$(TARGET_PREBUILT_KERNEL):kernel \
+			$(TARGET_PREBUILT_DTB):hi3660-hikey960.dtb
 
 PRODUCT_COPY_FILES +=	$(LOCAL_PATH)/fstab.hikey960:root/fstab.hikey960 \
 			device/linaro/hikey/init.common.rc:root/init.hikey960.rc \
@@ -26,12 +26,19 @@ PRODUCT_COPY_FILES +=	$(LOCAL_PATH)/fstab.hikey960:root/fstab.hikey960 \
 			frameworks/native/data/etc/android.hardware.vulkan.level-0.xml:system/etc/permissions/android.hardware.vulkan.level.xml \
 			frameworks/native/data/etc/android.hardware.vulkan.version-1_0_3.xml:system/etc/permissions/android.hardware.vulkan.version.xml
 
+# Copy hifi firmware
+PRODUCT_COPY_FILES += \
+	device/linaro/hikey/hifi/firmware/hifi-hikey960.img:system/etc/firmware/hifi/hifi.img
+
+
 # Build HiKey960 HDMI audio HAL. Experimental only may not work. FIXME
 PRODUCT_PACKAGES += audio.primary.hikey960
 
 PRODUCT_PACKAGES += gralloc.hikey960
 
 PRODUCT_PACKAGES += power.hikey960
+
+PRODUCT_PACKAGES += sensors.hikey960
 
 # Include vendor binaries
 $(call inherit-product-if-exists, vendor/linaro/hikey960/device-vendor.mk)

@@ -15,4 +15,5 @@ limitations under the License.
 -->
 <resources>
     <dimen name="manual_tuner_container_height">368dp</dimen>
+    <dimen name="car_radio_controls_fab_size">100dp</dimen>
 </resources>

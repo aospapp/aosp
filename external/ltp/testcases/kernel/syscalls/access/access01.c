@@ -315,6 +315,8 @@ static void setup(void)
 {
 	struct passwd *pw;
 
+	umask(0022);
+
 	pw = SAFE_GETPWNAM("nobody");
 
 	uid = pw->pw_uid;
@@ -357,7 +359,6 @@ static void setup(void)
 }
 
 static struct tst_test test = {
-	.tid = "access01",
 	.needs_tmpdir = 1,
 	.needs_root = 1,
 	.forks_child = 1,

@@ -25,6 +25,7 @@ LOCAL_SRC_FILES := $(call all-java-files-under, src) \
 LOCAL_STATIC_JAVA_LIBRARIES += android-support-v4
 
 LOCAL_PACKAGE_NAME := RsNbody
+LOCAL_SDK_VERSION := current
 LOCAL_RENDERSCRIPT_TARGET_API := 23
 
 LOCAL_RENDERSCRIPT_CC := $(LLVM_RS_CC)

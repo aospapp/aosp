@@ -14,18 +14,25 @@
  * limitations under the License.
  */
 
+#ifndef FARF_MEDIUM
+#define FARF_MEDIUM 1
+#endif
+
 #include "ash/debug.h"
-#include "qurt.h"
+#include "HAP_farf.h"
+#include "timer.h"
 
 #include "chre/core/event_loop_manager.h"
 #include "chre/core/host_comms_manager.h"
-#include "chre/platform/memory.h"
+#include "chre/platform/fatal_error.h"
 #include "chre/platform/log.h"
+#include "chre/platform/memory.h"
 #include "chre/platform/system_time.h"
+#include "chre/platform/system_timer.h"
 #include "chre/platform/shared/host_protocol_chre.h"
-#include "chre/platform/shared/platform_log.h"
 #include "chre/platform/slpi/fastrpc.h"
 #include "chre/platform/slpi/power_control_util.h"
+#include "chre/platform/slpi/nanoapp_load_manager.h"
 #include "chre/platform/slpi/system_time.h"
 #include "chre/util/fixed_size_blocking_queue.h"
 #include "chre/util/macros.h"
@@ -43,6 +50,10 @@ namespace {
 
 constexpr size_t kOutboundQueueSize = 32;
 
+//! The last time a time sync request message has been sent.
+//! TODO: Make this a member of HostLinkBase
+Nanoseconds gLastTimeSyncRequestNanos(0);
+
 //! Used to pass the client ID through the user data pointer in deferCallback
 union HostClientIdCallbackData {
   uint16_t hostClientId;
@@ -55,7 +66,8 @@ struct LoadNanoappCallbackData {
   uint64_t appId;
   uint32_t transactionId;
   uint16_t hostClientId;
-  UniquePtr<Nanoapp> nanoapp = MakeUnique<Nanoapp>();
+  UniquePtr<Nanoapp> nanoapp;
+  uint32_t fragmentId;
 };
 
 struct NanoappListData {
@@ -67,7 +79,6 @@ struct NanoappListData {
 enum class PendingMessageType {
   Shutdown,
   NanoappMessageToHost,
-  LogMessage,
   HubInfoResponse,
   NanoappListResponse,
   LoadNanoappResponse,
@@ -75,6 +86,8 @@ enum class PendingMessageType {
   DebugDumpData,
   DebugDumpResponse,
   TimeSyncRequest,
+  LowPowerMicAccessRequest,
+  LowPowerMicAccessRelease,
 };
 
 struct PendingMessage {
@@ -235,7 +248,7 @@ void constructNanoappListCallback(uint16_t /*eventType*/, void *deferCbData) {
   const EventLoop& eventLoop = EventLoopManagerSingleton::get()->getEventLoop();
   size_t expectedNanoappCount = eventLoop.getNanoappCount();
   if (!cbData.nanoappEntries.reserve(expectedNanoappCount)) {
-    LOGE("Couldn't reserve space for list of nanoapp offsets");
+    LOG_OOM();
   } else {
     constexpr size_t kFixedOverhead  = 48;
     constexpr size_t kPerNanoappSize = 32;
@@ -251,13 +264,14 @@ void constructNanoappListCallback(uint16_t /*eventType*/, void *deferCbData) {
 void finishLoadingNanoappCallback(uint16_t /*eventType*/, void *data) {
   auto msgBuilder = [](FlatBufferBuilder& builder, void *cookie) {
     auto *cbData = static_cast<LoadNanoappCallbackData *>(cookie);
+
     EventLoop& eventLoop = EventLoopManagerSingleton::get()->getEventLoop();
-    bool startedSuccessfully = (cbData->nanoapp->isLoaded()) ?
-        eventLoop.startNanoapp(cbData->nanoapp) : false;
+    bool success =
+        cbData->nanoapp->isLoaded() && eventLoop.startNanoapp(cbData->nanoapp);
 
     HostProtocolChre::encodeLoadNanoappResponse(
         builder, cbData->hostClientId, cbData->transactionId,
-        startedSuccessfully);
+        success, cbData->fragmentId);
   };
 
   // Re-wrap the callback data struct, so it is destructed and freed, ensuring
@@ -313,26 +327,13 @@ int generateMessageToHost(const MessageToHost *msgToHost, unsigned char *buffer,
   return result;
 }
 
-int generateLogMessage(unsigned char *buffer, size_t bufferSize,
-                       unsigned int *messageLen) {
-  FlatBufferBuilder builder;
-  PlatformLogSingleton::get()->flushLogBuffer([](const char *logBuffer,
-                                                 size_t size,
-                                                 void *context) {
-    auto *contextBuilder = static_cast<FlatBufferBuilder *>(context);
-    HostProtocolChre::encodeLogMessages(*contextBuilder, logBuffer, size);
-  }, &builder);
-
-  return copyToHostBuffer(builder, buffer, bufferSize, messageLen);
-}
-
 int generateHubInfoResponse(uint16_t hostClientId, unsigned char *buffer,
                             size_t bufferSize, unsigned int *messageLen) {
   constexpr size_t kInitialBufferSize = 192;
 
   constexpr char kHubName[] = "CHRE on SLPI";
   constexpr char kVendor[] = "Google";
-  constexpr char kToolchain[] = "Hexagon Tools 8.0 (clang "
+  constexpr char kToolchain[] = "Hexagon Tools 8.x (clang "
     STRINGIFY(__clang_major__) "."
     STRINGIFY(__clang_minor__) "."
     STRINGIFY(__clang_patchlevel__) ")";
@@ -381,13 +382,13 @@ void sendDebugDumpData(uint16_t hostClientId, const char *debugStr,
         builder, data->hostClientId, data->debugStr, data->debugStrSize);
   };
 
-  constexpr size_t kInitialSize = 48;
+  constexpr size_t kFixedSizePortion = 52;
   DebugDumpMessageData data;
   data.hostClientId = hostClientId;
   data.debugStr     = debugStr;
   data.debugStrSize = debugStrSize;
-  buildAndEnqueueMessage(PendingMessageType::DebugDumpData, kInitialSize,
-                         msgBuilder, &data);
+  buildAndEnqueueMessage(PendingMessageType::DebugDumpData,
+                         kFixedSizePortion + debugStrSize, msgBuilder, &data);
 }
 
 void sendDebugDumpResponse(DebugDumpCallbackData *data) {
@@ -418,6 +419,73 @@ void onDebugDumpDataReady(void *cookie, const char *debugStr,
 
     // This needs to persist across multiple calls
     memoryFree(cbData);
+  }
+}
+
+void sendFragmentResponse(
+    uint16_t hostClientId, uint32_t transactionId, uint32_t fragmentId,
+    bool success) {
+  struct FragmentedLoadInfoResponse {
+    uint16_t hostClientId;
+    uint32_t transactionId;
+    uint32_t fragmentId;
+    bool success;
+  };
+
+  auto msgBuilder = [](FlatBufferBuilder& builder, void *cookie) {
+    auto *cbData = static_cast<FragmentedLoadInfoResponse *>(cookie);
+    HostProtocolChre::encodeLoadNanoappResponse(
+        builder, cbData->hostClientId, cbData->transactionId,
+        cbData->success, cbData->fragmentId);
+  };
+
+  FragmentedLoadInfoResponse response = {
+    .hostClientId = hostClientId,
+    .transactionId = transactionId,
+    .fragmentId = fragmentId,
+    .success = success,
+  };
+  constexpr size_t kInitialBufferSize = 48;
+  buildAndEnqueueMessage(PendingMessageType::LoadNanoappResponse,
+                         kInitialBufferSize, msgBuilder, &response);
+}
+
+/**
+ * Sends a request to the host for a time sync message.
+ */
+void sendTimeSyncRequest() {
+  auto msgBuilder = [](FlatBufferBuilder& builder, void *cookie) {
+    HostProtocolChre::encodeTimeSyncRequest(builder);
+  };
+
+  constexpr size_t kInitialSize = 52;
+  buildAndEnqueueMessage(PendingMessageType::TimeSyncRequest, kInitialSize,
+                         msgBuilder, nullptr);
+
+  gLastTimeSyncRequestNanos = SystemTime::getMonotonicTime();
+}
+
+void setTimeSyncRequestTimer(Nanoseconds delay) {
+  static SystemTimer sTimeSyncRequestTimer;
+  static bool sTimeSyncRequestTimerInitialized = false;
+
+  // Check for timer init since this method might be called before CHRE
+  // init is called.
+  if (!sTimeSyncRequestTimerInitialized) {
+    if (!sTimeSyncRequestTimer.init()) {
+      FATAL_ERROR("Failed to initialize time sync request timer.");
+    } else {
+      sTimeSyncRequestTimerInitialized = true;
+    }
+  }
+  if (sTimeSyncRequestTimer.isActive()) {
+    sTimeSyncRequestTimer.cancel();
+  }
+  auto callback = [](void* /* data */) {
+    sendTimeSyncRequest();
+  };
+  if (!sTimeSyncRequestTimer.set(callback, nullptr /* data */, delay)) {
+    LOGE("Failed to set time sync request timer.");
   }
 }
 
@@ -457,10 +525,6 @@ extern "C" int chre_slpi_get_message_to_host(
                                        bufferSize, messageLen);
         break;
 
-      case PendingMessageType::LogMessage:
-        result = generateLogMessage(buffer, bufferSize, messageLen);
-        break;
-
       case PendingMessageType::HubInfoResponse:
         result = generateHubInfoResponse(pendingMsg.data.hostClientId, buffer,
                                          bufferSize, messageLen);
@@ -472,6 +536,8 @@ extern "C" int chre_slpi_get_message_to_host(
       case PendingMessageType::DebugDumpData:
       case PendingMessageType::DebugDumpResponse:
       case PendingMessageType::TimeSyncRequest:
+      case PendingMessageType::LowPowerMicAccessRequest:
+      case PendingMessageType::LowPowerMicAccessRelease:
         result = generateMessageFromBuilder(pendingMsg.data.builder,
                                             buffer, bufferSize, messageLen);
         break;
@@ -481,11 +547,12 @@ extern "C" int chre_slpi_get_message_to_host(
     }
   }
 
-  FARF(MEDIUM, "Returning message to host (result %d length %u)",
-       result, *messageLen);
-
-  // Opportunistically send a time sync message
-  requestTimeSyncIfStale();
+  // Opportunistically send a time sync message (1 hour period threshold)
+  constexpr Seconds kOpportunisticTimeSyncPeriod = Seconds(60 * 60 * 1);
+  if (SystemTime::getMonotonicTime() >
+      gLastTimeSyncRequestNanos + kOpportunisticTimeSyncPeriod) {
+    sendTimeSyncRequest();
+  }
 
   return result;
 }
@@ -532,8 +599,8 @@ void HostLink::flushMessagesSentByNanoapp(uint64_t /*appId*/) {
 
   // One extra sleep to try to ensure that any messages popped just before
   // checking empty() are fully processed before we return
-  constexpr qurt_timer_duration_t kFinalDelayUsec = 10000;
-  qurt_timer_sleep(kFinalDelayUsec);
+  constexpr time_timetick_type kFinalDelayUsec = 10000;
+  timer_sleep(kFinalDelayUsec, T_USEC, true /* non_deferrable */);
 }
 
 bool HostLink::sendMessage(const MessageToHost *message) {
@@ -545,9 +612,9 @@ bool HostLinkBase::flushOutboundQueue() {
   // This function is used in preFatalError() so it must never call FATAL_ERROR
   int waitCount = 5;
 
-  FARF(LOW, "Draining message queue");
+  FARF(MEDIUM, "Draining message queue");
   while (!gOutboundQueue.empty() && waitCount-- > 0) {
-    qurt_timer_sleep(kPollingIntervalUsec);
+    timer_sleep(kPollingIntervalUsec, T_USEC, true /* non_deferrable */);
   }
 
   return (waitCount >= 0);
@@ -563,7 +630,7 @@ void HostLinkBase::shutdown() {
   FARF(MEDIUM, "Shutting down host link");
   while (!enqueueMessage(PendingMessage(PendingMessageType::Shutdown))
          && --retryCount > 0) {
-    qurt_timer_sleep(kPollingIntervalUsec);
+    timer_sleep(kPollingIntervalUsec, T_USEC, true /* non_deferrable */);
   }
 
   if (retryCount <= 0) {
@@ -581,23 +648,24 @@ void HostLinkBase::shutdown() {
   }
 }
 
-void sendTimeSyncRequest() {
+void sendAudioRequest() {
   auto msgBuilder = [](FlatBufferBuilder& builder, void *cookie) {
-    HostProtocolChre::encodeTimeSyncRequest(builder);
+    HostProtocolChre::encodeLowPowerMicAccessRequest(builder);
   };
 
-  constexpr size_t kInitialSize = 52;
-  buildAndEnqueueMessage(PendingMessageType::TimeSyncRequest, kInitialSize,
-                         msgBuilder, nullptr);
-  updateLastTimeSyncRequest();
+  constexpr size_t kInitialSize = 32;
+  buildAndEnqueueMessage(PendingMessageType::LowPowerMicAccessRequest,
+                         kInitialSize, msgBuilder, nullptr);
 }
 
-void requestHostLinkLogBufferFlush() {
-  if (!enqueueMessage(PendingMessage(PendingMessageType::LogMessage))) {
-    // Use FARF as there is a problem sending logs to the host.
-    FARF(ERROR, "Failed to enqueue log flush");
-    CHRE_ASSERT(false);
-  }
+void sendAudioRelease() {
+  auto msgBuilder = [](FlatBufferBuilder& builder, void *cookie) {
+    HostProtocolChre::encodeLowPowerMicAccessRelease(builder);
+  };
+
+  constexpr size_t kInitialSize = 32;
+  buildAndEnqueueMessage(PendingMessageType::LowPowerMicAccessRelease,
+                         kInitialSize, msgBuilder, nullptr);
 }
 
 void HostMessageHandlers::handleNanoappMessage(
@@ -631,29 +699,53 @@ void HostMessageHandlers::handleNanoappListRequest(uint16_t hostClientId) {
 
 void HostMessageHandlers::handleLoadNanoappRequest(
     uint16_t hostClientId, uint32_t transactionId, uint64_t appId,
-    uint32_t appVersion, uint32_t targetApiVersion, const void *appBinary,
-    size_t appBinaryLen) {
-  auto cbData = MakeUnique<LoadNanoappCallbackData>();
+    uint32_t appVersion, uint32_t targetApiVersion, const void *buffer,
+    size_t bufferLen, uint32_t fragmentId, size_t appBinaryLen) {
+  static NanoappLoadManager sLoadManager;
 
-  LOGD("Got load nanoapp request (txnId %" PRIu32 ") for appId 0x%016" PRIx64
-       " version 0x%" PRIx32 " target API version 0x%08" PRIx32 " size %zu",
-       transactionId, appId, appVersion, targetApiVersion, appBinaryLen);
-  if (cbData.isNull() || cbData->nanoapp.isNull()) {
-    LOGE("Couldn't allocate load nanoapp callback data");
+  LOGD("Got load nanoapp request (client %" PRIu16 " txnId %" PRIu32
+       " fragment %" PRIu32 ") for appId 0x%016" PRIx64 " version 0x%"
+       PRIx32 " target API version 0x%08" PRIx32 " size %zu",
+       hostClientId, transactionId, fragmentId, appId, appVersion,
+       targetApiVersion, bufferLen);
+
+  bool success = true;
+  if (fragmentId == 0 || fragmentId == 1) { // first fragment
+    if (sLoadManager.hasPendingLoadTransaction()) {
+      FragmentedLoadInfo info = sLoadManager.getTransactionInfo();
+      sendFragmentResponse(
+          info.hostClientId, info.transactionId, 0 /* fragmentId */,
+          false /* success */);
+      sLoadManager.markFailure();
+    }
+
+    size_t totalAppBinaryLen = (fragmentId == 0) ? bufferLen : appBinaryLen;
+    success = sLoadManager.prepareForLoad(
+        hostClientId, transactionId, appId, appVersion, totalAppBinaryLen);
+  }
+  success &= sLoadManager.copyNanoappFragment(
+      hostClientId, transactionId, (fragmentId == 0) ? 1 : fragmentId, buffer,
+      bufferLen);
+
+  if (!sLoadManager.isLoadComplete()) {
+    sendFragmentResponse(hostClientId, transactionId, fragmentId, success);
   } else {
-    cbData->transactionId = transactionId;
-    cbData->hostClientId  = hostClientId;
-    cbData->appId = appId;
-
-    // Note that if this fails, we'll generate the error response in
-    // the normal deferred callback
-    cbData->nanoapp->loadFromBuffer(appId, appVersion, appBinary, appBinaryLen);
-    if (!EventLoopManagerSingleton::get()->deferCallback(
-            SystemCallbackType::FinishLoadingNanoapp, cbData.get(),
-            finishLoadingNanoappCallback)) {
-      LOGE("Couldn't post callback to finish loading nanoapp");
+    UniquePtr<Nanoapp> nanoapp = sLoadManager.releaseNanoapp();
+    auto cbData = MakeUnique<LoadNanoappCallbackData>();
+    if (cbData.isNull()) {
+      LOG_OOM();
     } else {
-      cbData.release();
+      cbData->transactionId = transactionId;
+      cbData->hostClientId  = hostClientId;
+      cbData->appId = appId;
+      cbData->fragmentId = fragmentId;
+      cbData->nanoapp = std::move(nanoapp);
+
+      // Note that if this fails, we'll generate the error response in
+      // the normal deferred callback
+      EventLoopManagerSingleton::get()->deferCallback(
+          SystemCallbackType::FinishLoadingNanoapp, cbData.release(),
+          finishLoadingNanoappCallback);
     }
   }
 }
@@ -672,17 +764,18 @@ void HostMessageHandlers::handleUnloadNanoappRequest(
     cbData->hostClientId = hostClientId;
     cbData->allowSystemNanoappUnload = allowSystemNanoappUnload;
 
-    if (!EventLoopManagerSingleton::get()->deferCallback(
-            SystemCallbackType::HandleUnloadNanoapp, cbData,
-            handleUnloadNanoappCallback)) {
-      LOGE("Couldn't post callback to unload nanoapp");
-      memoryFree(cbData);
-    }
+    EventLoopManagerSingleton::get()->deferCallback(
+        SystemCallbackType::HandleUnloadNanoapp, cbData,
+        handleUnloadNanoappCallback);
   }
 }
 
 void HostMessageHandlers::handleTimeSyncMessage(int64_t offset) {
   setEstimatedHostTimeOffset(offset);
+
+  // Schedule a time sync request since offset may drift
+  constexpr Seconds kClockDriftTimeSyncPeriod = Seconds(60 * 60 * 6); // 6 hours
+  setTimeSyncRequestTimer(kClockDriftTimeSyncPeriod);
 }
 
 void HostMessageHandlers::handleDebugDumpRequest(uint16_t hostClientId) {

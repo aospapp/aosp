@@ -17,10 +17,12 @@
 #ifndef ART_RUNTIME_GC_ACCOUNTING_CARD_TABLE_INL_H_
 #define ART_RUNTIME_GC_ACCOUNTING_CARD_TABLE_INL_H_
 
-#include "atomic.h"
-#include "base/bit_utils.h"
-#include "base/logging.h"
 #include "card_table.h"
+
+#include <android-base/logging.h>
+
+#include "base/atomic.h"
+#include "base/bit_utils.h"
 #include "mem_map.h"
 #include "space_bitmap.h"
 
@@ -31,7 +33,7 @@ namespace accounting {
 static inline bool byte_cas(uint8_t old_value, uint8_t new_value, uint8_t* address) {
 #if defined(__i386__) || defined(__x86_64__)
   Atomic<uint8_t>* byte_atomic = reinterpret_cast<Atomic<uint8_t>*>(address);
-  return byte_atomic->CompareExchangeWeakRelaxed(old_value, new_value);
+  return byte_atomic->CompareAndSetWeakRelaxed(old_value, new_value);
 #else
   // Little endian means most significant byte is on the left.
   const size_t shift_in_bytes = reinterpret_cast<uintptr_t>(address) % sizeof(uintptr_t);
@@ -45,7 +47,7 @@ static inline bool byte_cas(uint8_t old_value, uint8_t new_value, uint8_t* addre
       ~(static_cast<uintptr_t>(0xFF) << shift_in_bits);
   const uintptr_t old_word = cur_word | (static_cast<uintptr_t>(old_value) << shift_in_bits);
   const uintptr_t new_word = cur_word | (static_cast<uintptr_t>(new_value) << shift_in_bits);
-  return word_atomic->CompareExchangeWeakRelaxed(old_word, new_word);
+  return word_atomic->CompareAndSetWeakRelaxed(old_word, new_word);
 #endif
 }
 
@@ -193,7 +195,7 @@ inline void CardTable::ModifyCardsAtomic(uint8_t* scan_begin,
         new_bytes[i] = visitor(expected_bytes[i]);
       }
       Atomic<uintptr_t>* atomic_word = reinterpret_cast<Atomic<uintptr_t>*>(word_cur);
-      if (LIKELY(atomic_word->CompareExchangeWeakRelaxed(expected_word, new_word))) {
+      if (LIKELY(atomic_word->CompareAndSetWeakRelaxed(expected_word, new_word))) {
         for (size_t i = 0; i < sizeof(uintptr_t); ++i) {
           const uint8_t expected_byte = expected_bytes[i];
           const uint8_t new_byte = new_bytes[i];

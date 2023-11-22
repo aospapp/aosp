@@ -28,7 +28,7 @@
         android:paddingStart="@dimen/activity_horizontal_margin"
         android:paddingTop="@dimen/activity_vertical_margin">
 
-        <com.example.android.autofillframework.app.NavigationItem
+        <com.example.android.autofill.app.NavigationItem
             android:id="@+id/standardViewSignInButton"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -37,7 +37,7 @@
             app:itemLogo="@drawable/ic_edittexts_logo_24dp"
             app:labelText="@string/navigation_button_edittext_login_label" />
 
-        <com.example.android.autofillframework.app.NavigationItem
+        <com.example.android.autofill.app.NavigationItem
             android:id="@+id/standardLoginWithAutoCompleteButton"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -46,7 +46,7 @@
             app:itemLogo="@drawable/ic_autocomplete_logo_24dp"
             app:labelText="@string/navigation_button_autocomplete_login_label" />
 
-        <com.example.android.autofillframework.app.NavigationItem
+        <com.example.android.autofill.app.NavigationItem
             android:id="@+id/virtualViewSignInButton"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -55,7 +55,7 @@
             app:itemLogo="@drawable/ic_custom_virtual_logo_24dp"
             app:labelText="@string/navigation_button_custom_virtual_view_login_label" />
 
-        <com.example.android.autofillframework.app.NavigationItem
+        <com.example.android.autofill.app.NavigationItem
             android:id="@+id/webviewSignInButton"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -64,7 +64,7 @@
             app:itemLogo="@drawable/ic_web_black_24dp"
             app:labelText="@string/navigation_button_web_view_login_label" />
 
-        <com.example.android.autofillframework.app.NavigationItem
+        <com.example.android.autofill.app.NavigationItem
             android:id="@+id/creditCardSpinnersButton"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -73,7 +73,7 @@
             app:itemLogo="@drawable/ic_spinners_logo_24dp"
             app:labelText="@string/navigation_button_spinners_credit_card_label" />
 
-        <com.example.android.autofillframework.app.NavigationItem
+        <com.example.android.autofill.app.NavigationItem
             android:id="@+id/creditCardCompoundViewButton"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -82,7 +82,7 @@
             app:itemLogo="@drawable/ic_view_module_black_24dp"
             app:labelText="@string/navigation_button_compound_view_credit_card_label" />
 
-        <com.example.android.autofillframework.app.NavigationItem
+        <com.example.android.autofill.app.NavigationItem
             android:id="@+id/creditCardDatePickerButton"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -91,7 +91,7 @@
             app:itemLogo="@drawable/ic_view_module_black_24dp"
             app:labelText="@string/navigation_button_date_picker_credit_card_label" />
 
-        <com.example.android.autofillframework.app.NavigationItem
+        <com.example.android.autofill.app.NavigationItem
             android:id="@+id/emailComposeButton"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -100,7 +100,7 @@
             app:itemLogo="@drawable/ic_email_black_24dp"
             app:labelText="@string/navigation_button_email_compose_label" />
 
-        <com.example.android.autofillframework.app.NavigationItem
+        <com.example.android.autofill.app.NavigationItem
             android:id="@+id/multiplePartitionsButton"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -109,7 +109,7 @@
             app:itemLogo="@drawable/ic_custom_virtual_logo_24dp"
             app:labelText="@string/navigation_button_multiple_partitions_label" />
 
-        <com.example.android.autofillframework.app.NavigationItem
+        <com.example.android.autofill.app.NavigationItem
             android:id="@+id/creditCardButton"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -118,7 +118,7 @@
             app:itemLogo="@drawable/ic_spinners_logo_24dp"
             app:labelText="@string/navigation_button_credit_card_label" />
 
-        <com.example.android.autofillframework.app.NavigationItem
+        <com.example.android.autofill.app.NavigationItem
             android:id="@+id/creditCardAntiPatternButton"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

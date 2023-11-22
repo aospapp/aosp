@@ -17,14 +17,9 @@
 from builtins import str
 
 import logging
-import random
 import re
 import shellescape
-import socket
-import time
 
-from acts.controllers.utils_lib import host_utils
-from acts.controllers.utils_lib.ssh import connection
 from acts.libs.proc import job
 
 DEFAULT_ADB_TIMEOUT = 60
@@ -32,6 +27,9 @@ DEFAULT_ADB_PULL_TIMEOUT = 180
 # Uses a regex to be backwards compatible with previous versions of ADB
 # (N and above add the serial to the error msg).
 DEVICE_NOT_FOUND_REGEX = re.compile('^error: device (?:\'.*?\' )?not found')
+DEVICE_OFFLINE_REGEX = re.compile('^error: device offline')
+ROOT_USER_ID = '0'
+SHELL_USER_ID = '2000'
 
 
 def parsing_parcel_output(output):
@@ -80,7 +78,7 @@ class AdbProxy(object):
         Args:
             serial: str serial number of Android device from `adb devices`
             ssh_connection: SshConnection instance if the Android device is
-                            conected to a remote host that we can reach via SSH.
+                            connected to a remote host that we can reach via SSH.
         """
         self.serial = serial
         adb_path = self._exec_cmd("which adb")
@@ -107,6 +105,47 @@ class AdbProxy(object):
         self.adb_str = " ".join(adb_cmd)
         self._ssh_connection = ssh_connection
 
+    def get_user_id(self):
+        """Returns the adb user. Either 2000 (shell) or 0 (root)."""
+        return self.shell('id -u')
+
+    def is_root(self, user_id=None):
+        """Checks if the user is root.
+
+        Args:
+            user_id: if supplied, the id to check against.
+        Returns:
+            True if the user is root. False otherwise.
+        """
+        if not user_id:
+            user_id = self.get_user_id()
+        return user_id == ROOT_USER_ID
+
+    def ensure_root(self):
+        """Ensures the user is root after making this call.
+
+        Note that this will still fail if the device is a user build, as root
+        is not accessible from a user build.
+
+        Returns:
+            False if the device is a user build. True otherwise.
+        """
+        self.ensure_user(ROOT_USER_ID)
+        return self.is_root()
+
+    def ensure_user(self, user_id=SHELL_USER_ID):
+        """Ensures the user is set to the given user.
+
+        Args:
+            user_id: The id of the user.
+        """
+        if self.is_root(user_id):
+            self.root()
+        else:
+            self.unroot()
+        self.wait_for_device()
+        return self.get_user_id() == user_id
+
     def _exec_cmd(self, cmd, ignore_status=False, timeout=DEFAULT_ADB_TIMEOUT):
         """Executes adb commands in a new shell.
 
@@ -124,8 +163,8 @@ class AdbProxy(object):
         result = job.run(cmd, ignore_status=True, timeout=timeout)
         ret, out, err = result.exit_status, result.stdout, result.stderr
 
-        logging.debug("cmd: %s, stdout: %s, stderr: %s, ret: %s", cmd, out,
-                      err, ret)
+        if DEVICE_OFFLINE_REGEX.match(err):
+            raise AdbError(cmd=cmd, stdout=out, stderr=err, ret_code=ret)
         if "Result: Parcel" in out:
             return parsing_parcel_output(out)
         if ignore_status:
@@ -139,14 +178,14 @@ class AdbProxy(object):
         return self._exec_cmd(' '.join((self.adb_str, name, arg_str)),
                               **kwargs)
 
-    def _exec_cmd_nb(self, cmd):
+    def _exec_cmd_nb(self, cmd, **kwargs):
         """Executes adb commands in a new shell, non blocking.
 
         Args:
             cmds: A string that is the adb command to execute.
 
         """
-        job.run_async(cmd)
+        return job.run_async(cmd, **kwargs)
 
     def _exec_adb_cmd_nb(self, name, arg_str, **kwargs):
         return self._exec_cmd_nb(' '.join((self.adb_str, name, arg_str)),
@@ -158,6 +197,9 @@ class AdbProxy(object):
         Args:
             host_port: Port number to use on localhost
             device_port: Port number to use on the android device.
+
+        Returns:
+            The command output for the forward command.
         """
         if self._ssh_connection:
             # We have to hop through a remote host first.
@@ -168,7 +210,7 @@ class AdbProxy(object):
             self._ssh_connection.create_ssh_tunnel(
                 remote_port, local_port=host_port)
             host_port = remote_port
-        self.forward("tcp:%d tcp:%d" % (host_port, device_port))
+        return self.forward("tcp:%d tcp:%d" % (host_port, device_port))
 
     def remove_tcp_forward(self, host_port):
         """Stop tcp forwarding a port from localhost to this android device.

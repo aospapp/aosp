@@ -14,7 +14,8 @@
      limitations under the License.
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="android.fragment.cts">
+    package="android.fragment.cts"
+    android:targetSandboxVersion="2">
 
     <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
 
@@ -29,7 +30,7 @@
         </activity>
         <activity android:name=".LoaderActivity"/>
         <activity android:name=".NewIntentActivity" android:launchMode="singleInstance" />
-        <activity android:name=".NonConfigOnStopActivity"/>
+        <activity android:name=".ConfigOnStopActivity"/>
     </application>
 
     <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"

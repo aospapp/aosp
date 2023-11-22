@@ -35,8 +35,8 @@ import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.Shadows;
 import org.robolectric.annotation.Config;
-import org.robolectric.res.builder.RobolectricPackageManager;
 import org.robolectric.shadows.ShadowApplication;
+import org.robolectric.shadows.ShadowPackageManager;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -49,6 +49,7 @@ import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.robolectric.Shadows.shadowOf;
 
 @RunWith(RobolectricTestRunner.class)
 @Config(manifest=TestingConstants.MANIFEST, sdk=23)
@@ -67,7 +68,6 @@ public class AppStateUsageStatsBridgeTest {
     private AppStateUsageStatsBridge mBridge;
     private ArrayList<ApplicationsState.AppEntry> mApps;
     private HashMap<String, UsageStats> mUsageStats;
-    private RobolectricPackageManager mPm;
 
     @Before
     public void setUp() {
@@ -83,7 +83,6 @@ public class AppStateUsageStatsBridgeTest {
 
         // Set up our mock usage stats service.
         ShadowApplication app = Shadows.shadowOf(RuntimeEnvironment.application);
-        mPm = RuntimeEnvironment.getRobolectricPackageManager();
         app.setSystemService(Context.USAGE_STATS_SERVICE, mUsageStatsManager);
 
         // Set up the AppStateUsageStatsBridge with a fake clock for us to manipulate the time.
@@ -401,7 +400,10 @@ public class AppStateUsageStatsBridgeTest {
         PackageInfo testPackage = new PackageInfo();
         testPackage.packageName = packageName;
         testPackage.firstInstallTime = installTime;
-        mPm.addPackage(testPackage);
+
+        ShadowPackageManager spm = shadowOf(RuntimeEnvironment.application.getPackageManager());
+        spm.addPackage(testPackage);
+
         ApplicationsState.AppEntry app = mock(ApplicationsState.AppEntry.class);
         ApplicationInfo info = mock(ApplicationInfo.class);
         info.packageName = packageName;

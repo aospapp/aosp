@@ -117,7 +117,7 @@ func (defaultable *DefaultableModuleBase) applyDefaults(ctx TopDownMutatorContex
 	}
 }
 
-func registerDefaultsPreArchMutators(ctx RegisterMutatorsContext) {
+func RegisterDefaultsPreArchMutators(ctx RegisterMutatorsContext) {
 	ctx.BottomUp("defaults_deps", defaultsDepsMutator).Parallel()
 	ctx.TopDown("defaults", defaultsMutator).Parallel()
 }
@@ -131,7 +131,7 @@ func defaultsDepsMutator(ctx BottomUpMutatorContext) {
 func defaultsMutator(ctx TopDownMutatorContext) {
 	if defaultable, ok := ctx.Module().(Defaultable); ok && len(defaultable.defaults().Defaults) > 0 {
 		var defaultsList []Defaults
-		ctx.WalkDeps(func(module, parent blueprint.Module) bool {
+		ctx.WalkDeps(func(module, parent Module) bool {
 			if ctx.OtherModuleDependencyTag(module) == DefaultsDepTag {
 				if defaults, ok := module.(Defaults); ok {
 					defaultsList = append(defaultsList, defaults)

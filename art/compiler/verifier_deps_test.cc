@@ -21,10 +21,10 @@
 #include "class_linker.h"
 #include "common_compiler_test.h"
 #include "compiler_callbacks.h"
+#include "dex/dex_file-inl.h"
+#include "dex/dex_file_types.h"
 #include "dex/verification_results.h"
 #include "dex/verified_method.h"
-#include "dex_file.h"
-#include "dex_file_types.h"
 #include "driver/compiler_driver-inl.h"
 #include "driver/compiler_options.h"
 #include "handle_scope-inl.h"
@@ -41,7 +41,7 @@ namespace verifier {
 
 class VerifierDepsCompilerCallbacks : public CompilerCallbacks {
  public:
-  explicit VerifierDepsCompilerCallbacks()
+  VerifierDepsCompilerCallbacks()
       : CompilerCallbacks(CompilerCallbacks::CallbackMode::kCompileApp),
         deps_(nullptr) {}
 
@@ -97,7 +97,7 @@ class VerifierDepsTest : public CommonCompilerTest {
     callbacks_->SetVerifierDeps(nullptr);
     // Clear entries in the verification results to avoid hitting a DCHECK that
     // we always succeed inserting a new entry after verifying.
-    AtomicDexRefMap<const VerifiedMethod*>* map =
+    AtomicDexRefMap<MethodReference, const VerifiedMethod*>* map =
         &compiler_driver_->GetVerificationResults()->atomic_verified_methods_;
     map->Visit([](const DexFileReference& ref ATTRIBUTE_UNUSED, const VerifiedMethod* method) {
       delete method;
@@ -158,11 +158,10 @@ class VerifierDepsTest : public CommonCompilerTest {
     while (it.HasNextDirectMethod()) {
       ArtMethod* resolved_method =
           class_linker_->ResolveMethod<ClassLinker::ResolveMode::kNoChecks>(
-              *primary_dex_file_,
               it.GetMemberIndex(),
               dex_cache_handle,
               class_loader_handle,
-              nullptr,
+              /* referrer */ nullptr,
               it.GetMethodInvokeType(*class_def));
       CHECK(resolved_method != nullptr);
       if (method_name == resolved_method->GetName()) {
@@ -238,9 +237,9 @@ class VerifierDepsTest : public CommonCompilerTest {
           CHECK(soa.Self()->IsExceptionPending());
           soa.Self()->ClearException();
         } else if (unverified_classes.find(class_def.class_idx_) == unverified_classes.end()) {
-          ASSERT_EQ(cls->GetStatus(), mirror::Class::kStatusVerified);
+          ASSERT_EQ(cls->GetStatus(), ClassStatus::kVerified);
         } else {
-          ASSERT_LT(cls->GetStatus(), mirror::Class::kStatusVerified);
+          ASSERT_LT(cls->GetStatus(), ClassStatus::kVerified);
         }
       }
     }
@@ -624,7 +623,7 @@ TEST_F(VerifierDepsTest, ConstClass_Resolved) {
 }
 
 TEST_F(VerifierDepsTest, ConstClass_Unresolved) {
-  ASSERT_TRUE(VerifyMethod("ConstClass_Unresolved"));
+  ASSERT_FALSE(VerifyMethod("ConstClass_Unresolved"));
   ASSERT_TRUE(HasClass("LUnresolvedClass;", false));
 }
 
@@ -634,7 +633,7 @@ TEST_F(VerifierDepsTest, CheckCast_Resolved) {
 }
 
 TEST_F(VerifierDepsTest, CheckCast_Unresolved) {
-  ASSERT_TRUE(VerifyMethod("CheckCast_Unresolved"));
+  ASSERT_FALSE(VerifyMethod("CheckCast_Unresolved"));
   ASSERT_TRUE(HasClass("LUnresolvedClass;", false));
 }
 
@@ -644,7 +643,7 @@ TEST_F(VerifierDepsTest, InstanceOf_Resolved) {
 }
 
 TEST_F(VerifierDepsTest, InstanceOf_Unresolved) {
-  ASSERT_TRUE(VerifyMethod("InstanceOf_Unresolved"));
+  ASSERT_FALSE(VerifyMethod("InstanceOf_Unresolved"));
   ASSERT_TRUE(HasClass("LUnresolvedClass;", false));
 }
 
@@ -654,12 +653,12 @@ TEST_F(VerifierDepsTest, NewInstance_Resolved) {
 }
 
 TEST_F(VerifierDepsTest, NewInstance_Unresolved) {
-  ASSERT_TRUE(VerifyMethod("NewInstance_Unresolved"));
+  ASSERT_FALSE(VerifyMethod("NewInstance_Unresolved"));
   ASSERT_TRUE(HasClass("LUnresolvedClass;", false));
 }
 
 TEST_F(VerifierDepsTest, NewArray_Unresolved) {
-  ASSERT_TRUE(VerifyMethod("NewArray_Unresolved"));
+  ASSERT_FALSE(VerifyMethod("NewArray_Unresolved"));
   ASSERT_TRUE(HasClass("[LUnresolvedClass;", false));
 }
 

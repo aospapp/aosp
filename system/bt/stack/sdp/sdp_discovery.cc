@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 1999-2012 Broadcom Corporation
+ *  Copyright 1999-2012 Broadcom Corporation
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -33,8 +33,11 @@
 #include "hcidefs.h"
 #include "hcimsgs.h"
 #include "l2cdefs.h"
+#include "log/log.h"
 #include "sdp_api.h"
 #include "sdpint.h"
+
+using bluetooth::Uuid;
 
 #ifndef SDP_DEBUG_RAW
 #define SDP_DEBUG_RAW false
@@ -43,9 +46,12 @@
 /******************************************************************************/
 /*            L O C A L    F U N C T I O N     P R O T O T Y P E S            */
 /******************************************************************************/
-static void process_service_search_rsp(tCONN_CB* p_ccb, uint8_t* p_reply);
-static void process_service_attr_rsp(tCONN_CB* p_ccb, uint8_t* p_reply);
-static void process_service_search_attr_rsp(tCONN_CB* p_ccb, uint8_t* p_reply);
+static void process_service_search_rsp(tCONN_CB* p_ccb, uint8_t* p_reply,
+                                       uint8_t* p_reply_end);
+static void process_service_attr_rsp(tCONN_CB* p_ccb, uint8_t* p_reply,
+                                     uint8_t* p_reply_end);
+static void process_service_search_attr_rsp(tCONN_CB* p_ccb, uint8_t* p_reply,
+                                            uint8_t* p_reply_end);
 static uint8_t* save_attr_seq(tCONN_CB* p_ccb, uint8_t* p, uint8_t* p_msg_end);
 static tSDP_DISC_REC* add_record(tSDP_DISCOVERY_DB* p_db,
                                  const RawAddress& p_bda);
@@ -68,7 +74,7 @@ static uint8_t* add_attr(uint8_t* p, tSDP_DISCOVERY_DB* p_db,
  *
  ******************************************************************************/
 static uint8_t* sdpu_build_uuid_seq(uint8_t* p_out, uint16_t num_uuids,
-                                    tSDP_UUID* p_uuid_list) {
+                                    Uuid* p_uuid_list) {
   uint16_t xx;
   uint8_t* p_len;
 
@@ -81,18 +87,19 @@ static uint8_t* sdpu_build_uuid_seq(uint8_t* p_out, uint16_t num_uuids,
 
   /* Now, loop through and put in all the UUID(s) */
   for (xx = 0; xx < num_uuids; xx++, p_uuid_list++) {
-    if (p_uuid_list->len == LEN_UUID_16) {
+    int len = p_uuid_list->GetShortestRepresentationSize();
+    if (len == Uuid::kNumBytes16) {
       UINT8_TO_BE_STREAM(p_out, (UUID_DESC_TYPE << 3) | SIZE_TWO_BYTES);
-      UINT16_TO_BE_STREAM(p_out, p_uuid_list->uu.uuid16);
-    } else if (p_uuid_list->len == LEN_UUID_32) {
+      UINT16_TO_BE_STREAM(p_out, p_uuid_list->As16Bit());
+    } else if (len == Uuid::kNumBytes32) {
       UINT8_TO_BE_STREAM(p_out, (UUID_DESC_TYPE << 3) | SIZE_FOUR_BYTES);
-      UINT32_TO_BE_STREAM(p_out, p_uuid_list->uu.uuid32);
-    } else if (p_uuid_list->len == LEN_UUID_128) {
+      UINT32_TO_BE_STREAM(p_out, p_uuid_list->As32Bit());
+    } else if (len == Uuid::kNumBytes128) {
       UINT8_TO_BE_STREAM(p_out, (UUID_DESC_TYPE << 3) | SIZE_SIXTEEN_BYTES);
-      ARRAY_TO_BE_STREAM(p_out, p_uuid_list->uu.uuid128, p_uuid_list->len);
+      ARRAY_TO_BE_STREAM(p_out, p_uuid_list->To128BitBE(),
+                         (int)Uuid::kNumBytes128);
     } else {
-      SDP_TRACE_ERROR("SDP: Passed UUID has invalid length %x",
-                      p_uuid_list->len);
+      DCHECK(0) << "SDP: Passed UUID has invalid length " << len;
     }
   }
 
@@ -187,7 +194,7 @@ void sdp_disc_connected(tCONN_CB* p_ccb) {
   if (p_ccb->is_attr_search) {
     p_ccb->disc_state = SDP_DISC_WAIT_SEARCH_ATTR;
 
-    process_service_search_attr_rsp(p_ccb, NULL);
+    process_service_search_attr_rsp(p_ccb, NULL, NULL);
   } else {
     /* First step is to get a list of the handles from the server. */
     /* We are not searching for a specific attribute, so we will   */
@@ -221,6 +228,7 @@ void sdp_disc_server_rsp(tCONN_CB* p_ccb, BT_HDR* p_msg) {
 
   /* Got a reply!! Check what we got back */
   p = (uint8_t*)(p_msg + 1) + p_msg->offset;
+  uint8_t* p_end = p + p_msg->len;
 
   BE_STREAM_TO_UINT8(rsp_pdu, p);
 
@@ -229,21 +237,21 @@ void sdp_disc_server_rsp(tCONN_CB* p_ccb, BT_HDR* p_msg) {
   switch (rsp_pdu) {
     case SDP_PDU_SERVICE_SEARCH_RSP:
       if (p_ccb->disc_state == SDP_DISC_WAIT_HANDLES) {
-        process_service_search_rsp(p_ccb, p);
+        process_service_search_rsp(p_ccb, p, p_end);
         invalid_pdu = false;
       }
       break;
 
     case SDP_PDU_SERVICE_ATTR_RSP:
       if (p_ccb->disc_state == SDP_DISC_WAIT_ATTR) {
-        process_service_attr_rsp(p_ccb, p);
+        process_service_attr_rsp(p_ccb, p, p_end);
         invalid_pdu = false;
       }
       break;
 
     case SDP_PDU_SERVICE_SEARCH_ATTR_RSP:
       if (p_ccb->disc_state == SDP_DISC_WAIT_SEARCH_ATTR) {
-        process_service_search_attr_rsp(p_ccb, p);
+        process_service_search_attr_rsp(p_ccb, p, p_end);
         invalid_pdu = false;
       }
       break;
@@ -266,7 +274,8 @@ void sdp_disc_server_rsp(tCONN_CB* p_ccb, BT_HDR* p_msg) {
  * Returns          void
  *
  ******************************************************************************/
-static void process_service_search_rsp(tCONN_CB* p_ccb, uint8_t* p_reply) {
+static void process_service_search_rsp(tCONN_CB* p_ccb, uint8_t* p_reply,
+                                       uint8_t* p_reply_end) {
   uint16_t xx;
   uint16_t total, cur_handles, orig;
   uint8_t cont_len;
@@ -298,6 +307,11 @@ static void process_service_search_rsp(tCONN_CB* p_ccb, uint8_t* p_reply) {
       sdp_disconnect(p_ccb, SDP_INVALID_CONT_STATE);
       return;
     }
+    if (p_reply + cont_len > p_reply_end) {
+      android_errorWriteLog(0x534e4554, "68161546");
+      sdp_disconnect(p_ccb, SDP_INVALID_CONT_STATE);
+      return;
+    }
     /* stay in the same state */
     sdp_snd_service_search_req(p_ccb, cont_len, p_reply);
   } else {
@@ -305,7 +319,7 @@ static void process_service_search_rsp(tCONN_CB* p_ccb, uint8_t* p_reply) {
     p_ccb->disc_state = SDP_DISC_WAIT_ATTR;
 
     /* Kick off the first attribute request */
-    process_service_attr_rsp(p_ccb, NULL);
+    process_service_attr_rsp(p_ccb, NULL, NULL);
   }
 }
 
@@ -321,7 +335,7 @@ static void process_service_search_rsp(tCONN_CB* p_ccb, uint8_t* p_reply) {
  ******************************************************************************/
 #if (SDP_RAW_DATA_INCLUDED == TRUE)
 static void sdp_copy_raw_data(tCONN_CB* p_ccb, bool offset) {
-  unsigned int cpy_len;
+  unsigned int cpy_len, rem_len;
   uint32_t list_len;
   uint8_t* p;
   uint8_t type;
@@ -346,8 +360,13 @@ static void sdp_copy_raw_data(tCONN_CB* p_ccb, bool offset) {
       type = *p++;
       p = sdpu_get_len_from_type(p, type, &list_len);
     }
-    if (list_len && list_len < cpy_len) {
+    if (list_len < cpy_len) {
       cpy_len = list_len;
+    }
+    rem_len = SDP_MAX_LIST_BYTE_COUNT - (unsigned int)(p - &p_ccb->rsp_list[0]);
+    if (cpy_len > rem_len) {
+      SDP_TRACE_WARNING("rem_len :%d less than cpy_len:%d", rem_len, cpy_len);
+      cpy_len = rem_len;
     }
     SDP_TRACE_WARNING(
         "%s: list_len:%d cpy_len:%d p:%p p_ccb:%p p_db:%p raw_size:%d "
@@ -370,7 +389,8 @@ static void sdp_copy_raw_data(tCONN_CB* p_ccb, bool offset) {
  * Returns          void
  *
  ******************************************************************************/
-static void process_service_attr_rsp(tCONN_CB* p_ccb, uint8_t* p_reply) {
+static void process_service_attr_rsp(tCONN_CB* p_ccb, uint8_t* p_reply,
+                                     uint8_t* p_reply_end) {
   uint8_t *p_start, *p_param_len;
   uint16_t param_len, list_byte_count;
   bool cont_request_needed = false;
@@ -469,8 +489,12 @@ static void process_service_attr_rsp(tCONN_CB* p_ccb, uint8_t* p_reply) {
 
     /* Was this a continuation request ? */
     if (cont_request_needed) {
-      memcpy(p, p_reply, *p_reply + 1);
-      p += *p_reply + 1;
+      if ((p_reply + *p_reply + 1) <= p_reply_end) {
+        memcpy(p, p_reply, *p_reply + 1);
+        p += *p_reply + 1;
+      } else {
+        android_errorWriteLog(0x534e4554, "68161546");
+      }
     } else
       UINT8_TO_BE_STREAM(p, 0);
 
@@ -502,7 +526,8 @@ static void process_service_attr_rsp(tCONN_CB* p_ccb, uint8_t* p_reply) {
  * Returns          void
  *
  ******************************************************************************/
-static void process_service_search_attr_rsp(tCONN_CB* p_ccb, uint8_t* p_reply) {
+static void process_service_search_attr_rsp(tCONN_CB* p_ccb, uint8_t* p_reply,
+                                            uint8_t* p_reply_end) {
   uint8_t *p, *p_start, *p_end, *p_param_len;
   uint8_t type;
   uint32_t seq_len;
@@ -514,6 +539,13 @@ static void process_service_search_attr_rsp(tCONN_CB* p_ccb, uint8_t* p_reply) {
 #endif
   /* If p_reply is NULL, we were called for the initial read */
   if (p_reply) {
+    if (p_reply + 4 /* transaction ID and length */ + sizeof(lists_byte_count) >
+        p_reply_end) {
+      android_errorWriteLog(0x534e4554, "79884292");
+      sdp_disconnect(p_ccb, SDP_INVALID_PDU_SIZE);
+      return;
+    }
+
 #if (SDP_DEBUG_RAW == TRUE)
     SDP_TRACE_WARNING("ID & len: 0x%02x-%02x-%02x-%02x", p_reply[0], p_reply[1],
                       p_reply[2], p_reply[3]);
@@ -537,6 +569,13 @@ static void process_service_search_attr_rsp(tCONN_CB* p_ccb, uint8_t* p_reply) {
     SDP_TRACE_WARNING("list_len: %d, list_byte_count: %d", p_ccb->list_len,
                       lists_byte_count);
 #endif
+
+    if (p_reply + lists_byte_count + 1 /* continuation */ > p_reply_end) {
+      android_errorWriteLog(0x534e4554, "79884292");
+      sdp_disconnect(p_ccb, SDP_INVALID_PDU_SIZE);
+      return;
+    }
+
     if (p_ccb->rsp_list == NULL)
       p_ccb->rsp_list = (uint8_t*)osi_malloc(SDP_MAX_LIST_BYTE_COUNT);
     memcpy(&p_ccb->rsp_list[p_ccb->list_len], p_reply, lists_byte_count);
@@ -599,8 +638,12 @@ static void process_service_search_attr_rsp(tCONN_CB* p_ccb, uint8_t* p_reply) {
 
     /* No continuation for first request */
     if (p_reply) {
-      memcpy(p, p_reply, *p_reply + 1);
-      p += *p_reply + 1;
+      if ((p_reply + *p_reply + 1) <= p_reply_end) {
+        memcpy(p, p_reply, *p_reply + 1);
+        p += *p_reply + 1;
+      } else {
+        android_errorWriteLog(0x534e4554, "68161546");
+      }
     } else
       UINT8_TO_BE_STREAM(p, 0);
 
@@ -874,12 +917,12 @@ static uint8_t* add_attr(uint8_t* p, tSDP_DISCOVERY_DB* p_db,
                   (p_attr->attr_len_type & ~SDP_DISC_ATTR_LEN_MASK) | 2;
               p += 2;
               BE_STREAM_TO_UINT16(p_attr->attr_value.v.u16, p);
-              p += MAX_UUID_SIZE - 4;
+              p += Uuid::kNumBytes128 - 4;
             } else {
               p_attr->attr_len_type =
                   (p_attr->attr_len_type & ~SDP_DISC_ATTR_LEN_MASK) | 4;
               BE_STREAM_TO_UINT32(p_attr->attr_value.v.u32, p);
-              p += MAX_UUID_SIZE - 4;
+              p += Uuid::kNumBytes128 - 4;
             }
           } else {
             BE_STREAM_TO_ARRAY(p, p_attr->attr_value.v.array,

@@ -14,7 +14,7 @@ from devlib.module import get_module
 from devlib.platform import Platform
 from devlib.exception import TargetError, TargetNotRespondingError, TimeoutError
 from devlib.utils.ssh import SshConnection
-from devlib.utils.android import AdbConnection, AndroidProperties, adb_command, adb_disconnect
+from devlib.utils.android import AdbConnection, AndroidProperties, LogcatMonitor, adb_command, adb_disconnect
 from devlib.utils.misc import memoized, isiterable, convert_new_lines, merge_lists
 from devlib.utils.misc import ABI_MAP, get_cpu_name, ranges_to_list, escape_double_quotes
 from devlib.utils.types import integer, boolean, bitmask, identifier, caseless_string
@@ -30,6 +30,8 @@ DEFAULT_SHELL_PROMPT = re.compile(r'^.*(shell|root)@.*:/\S* [#$] ',
 KVERSION_REGEX =re.compile(
     r'(?P<version>\d+)(\.(?P<major>\d+)(\.(?P<minor>\d+)(-rc(?P<rc>\d+))?)?)?(.*-g(?P<sha1>[0-9a-fA-F]{7,}))?'
 )
+
+GOOGLE_DNS_SERVER_ADDRESS = '8.8.8.8'
 
 
 class Target(object):
@@ -102,6 +104,10 @@ class Target(object):
         return None
 
     @property
+    def supported_abi(self):
+        return [self.abi]
+
+    @property
     @memoized
     def cpuinfo(self):
         return Cpuinfo(self.execute('cat /proc/cpuinfo'))
@@ -145,6 +151,12 @@ class Target(object):
         else:
             return None
 
+    @property
+    def shutils(self):
+        if self._shutils is None:
+            self._setup_shutils()
+        return self._shutils
+
     def __init__(self,
                  connection_settings=None,
                  platform=None,
@@ -185,6 +197,7 @@ class Target(object):
         self._installed_modules = {}
         self._cache = {}
         self._connections = {}
+        self._shutils = None
         self.busybox = None
 
         if load_default_modules:
@@ -204,7 +217,9 @@ class Target(object):
         tid = id(threading.current_thread())
         self._connections[tid] = self.get_connection(timeout=timeout)
         self._resolve_paths()
-        self.busybox = self.get_installed('busybox')
+        self.execute('mkdir -p {}'.format(self.working_directory))
+        self.execute('mkdir -p {}'.format(self.executables_directory))
+        self.busybox = self.install(os.path.join(PACKAGE_BIN_DIRECTORY, self.abi, 'busybox'))
         self.platform.update_from_target(self)
         self._update_modules('connected')
         if self.platform.big_core and self.load_default_modules:
@@ -221,24 +236,7 @@ class Target(object):
         return self.conn_cls(timeout=timeout, **self.connection_settings)  # pylint: disable=not-callable
 
     def setup(self, executables=None):
-        self.execute('mkdir -p {}'.format(self.working_directory))
-        self.execute('mkdir -p {}'.format(self.executables_directory))
-        self.busybox = self.install(os.path.join(PACKAGE_BIN_DIRECTORY, self.abi, 'busybox'))
-
-        # Setup shutils script for the target
-        shutils_ifile = os.path.join(PACKAGE_BIN_DIRECTORY, 'scripts', 'shutils.in')
-        shutils_ofile = os.path.join(PACKAGE_BIN_DIRECTORY, 'scripts', 'shutils')
-        shell_path = '/bin/sh'
-        if self.os == 'android':
-            shell_path = '/system/bin/sh'
-        with open(shutils_ifile) as fh:
-            lines = fh.readlines()
-        with open(shutils_ofile, 'w') as ofile:
-            for line in lines:
-                line = line.replace("__DEVLIB_SHELL__", shell_path)
-                line = line.replace("__DEVLIB_BUSYBOX__", self.busybox)
-                ofile.write(line)
-        self.shutils = self.install(os.path.join(PACKAGE_BIN_DIRECTORY, 'scripts', 'shutils'))
+        self._setup_shutils()
 
         for host_exe in (executables or []):  # pylint: disable=superfluous-parens
             self.install(host_exe)
@@ -350,6 +348,38 @@ class Target(object):
         if in_directory:
             command = 'cd {} && {}'.format(in_directory, command)
         return self.execute(command, as_root=as_root, timeout=timeout)
+
+    def background_invoke(self, binary, args=None, in_directory=None,
+                          on_cpus=None, as_root=False):
+        """
+        Executes the specified binary as a background task under the
+        specified conditions.
+
+        :binary: binary to execute. Must be present and executable on the device.
+        :args: arguments to be passed to the binary. The can be either a list or
+               a string.
+        :in_directory:  execute the binary in the  specified directory. This must
+                        be an absolute path.
+        :on_cpus:  taskset the binary to these CPUs. This may be a single ``int`` (in which
+                   case, it will be interpreted as the mask), a list of ``ints``, in which
+                   case this will be interpreted as the list of cpus, or string, which
+                   will be interpreted as a comma-separated list of cpu ranges, e.g.
+                   ``"0,4-7"``.
+        :as_root: Specify whether the command should be run as root
+
+        :returns: the subprocess instance handling that command
+        """
+        command = binary
+        if args:
+            if isiterable(args):
+                args = ' '.join(args)
+            command = '{} {}'.format(command, args)
+        if on_cpus:
+            on_cpus = bitmask(on_cpus)
+            command = '{} taskset 0x{:x} {}'.format(self.busybox, on_cpus, command)
+        if in_directory:
+            command = 'cd {} && {}'.format(in_directory, command)
+        return self.background(command, as_root=as_root)
 
     def kick_off(self, command, as_root=False):
         raise NotImplementedError()
@@ -584,7 +614,38 @@ class Target(object):
         timeout = duration + 10
         self.execute('sleep {}'.format(duration), timeout=timeout)
 
+    def read_tree_values_flat(self, path, depth=1, check_exit_code=True):
+        command = 'read_tree_values {} {}'.format(path, depth)
+        output = self._execute_util(command, as_root=self.is_rooted,
+                                    check_exit_code=check_exit_code)
+        result = {}
+        for entry in output.strip().split('\n'):
+            if ':' not in entry:
+                continue
+            path, value = entry.strip().split(':', 1)
+            result[path] = value
+        return result
+
+    def read_tree_values(self, path, depth=1, dictcls=dict, check_exit_code=True):
+	value_map = self.read_tree_values_flat(path, depth, check_exit_code)
+	return _build_path_tree(value_map, path, self.path.sep, dictcls)
+
     # internal methods
+
+    def _setup_shutils(self):
+        shutils_ifile = os.path.join(PACKAGE_BIN_DIRECTORY, 'scripts', 'shutils.in')
+        shutils_ofile = os.path.join(PACKAGE_BIN_DIRECTORY, 'scripts', 'shutils')
+        shell_path = '/bin/sh'
+        if self.os == 'android':
+            shell_path = '/system/bin/sh'
+        with open(shutils_ifile) as fh:
+            lines = fh.readlines()
+        with open(shutils_ofile, 'w') as ofile:
+            for line in lines:
+                line = line.replace("__DEVLIB_SHELL__", shell_path)
+                line = line.replace("__DEVLIB_BUSYBOX__", self.busybox)
+                ofile.write(line)
+        self._shutils = self.install(os.path.join(PACKAGE_BIN_DIRECTORY, 'scripts', 'shutils'))
 
     def _execute_util(self, command, timeout=None, check_exit_code=True, as_root=False):
         command = '{} {}'.format(self.shutils, command)
@@ -642,6 +703,44 @@ class Target(object):
     def _resolve_paths(self):
         raise NotImplementedError()
 
+    def is_network_connected(self):
+        self.logger.debug('Checking for internet connectivity...')
+
+        timeout_s = 5
+        # It would be nice to use busybox for this, but that means we'd need
+        # root (ping is usually setuid so it can open raw sockets to send ICMP)
+        command = 'ping -q -c 1 -w {} {} 2>&1'.format(timeout_s,
+                                                      GOOGLE_DNS_SERVER_ADDRESS)
+
+        # We'll use our own retrying mechanism (rather than just using ping's -c
+        # to send multiple packets) so that we don't slow things down in the
+        # 'good' case where the first packet gets echoed really quickly.
+        attempts = 5
+        for _ in range(attempts):
+            try:
+                self.execute(command)
+                return True
+            except TargetError as e:
+                err = str(e).lower()
+                if '100% packet loss' in err:
+                    # We sent a packet but got no response.
+                    # Try again - we don't want this to fail just because of a
+                    # transient drop in connection quality.
+                    self.logger.debug('No ping response from {} after {}s'
+                                      .format(GOOGLE_DNS_SERVER_ADDRESS, timeout_s))
+                    continue
+                elif 'network is unreachable' in err:
+                    # No internet connection at all, we can fail straight away
+                    self.logger.debug('Network unreachable')
+                    return False
+                else:
+                    # Something else went wrong, we don't know what, raise an
+                    # error.
+                    raise
+
+        self.logger.debug('Failed to ping {} after {} attempts'.format(
+            GOOGLE_DNS_SERVER_ADDRESS, attempts))
+        return False
 
 class LinuxTarget(Target):
 
@@ -798,6 +897,30 @@ class AndroidTarget(Target):
 
     @property
     @memoized
+    def supported_abi(self):
+        props = self.getprop()
+        result = [props['ro.product.cpu.abi']]
+        if 'ro.product.cpu.abi2' in props:
+            result.append(props['ro.product.cpu.abi2'])
+        if 'ro.product.cpu.abilist' in props:
+            for abi in props['ro.product.cpu.abilist'].split(','):
+                if abi not in result:
+                    result.append(abi)
+
+        mapped_result = []
+        for supported_abi in result:
+            for abi, architectures in ABI_MAP.iteritems():
+                found = False
+                if supported_abi in architectures and abi not in mapped_result:
+                    mapped_result.append(abi)
+                    found = True
+                    break
+            if not found and supported_abi not in mapped_result:
+                mapped_result.append(supported_abi)
+        return mapped_result
+
+    @property
+    @memoized
     def os_version(self):
         os_version = {}
         for k, v in self.getprop().iteritems():
@@ -867,6 +990,7 @@ class AndroidTarget(Target):
                                             shell_prompt=shell_prompt,
                                             conn_cls=conn_cls)
         self.package_data_directory = package_data_directory
+        self.clear_logcat_lock = threading.Lock()
 
     def reset(self, fastboot=False):  # pylint: disable=arguments-differ
         try:
@@ -877,8 +1001,16 @@ class AndroidTarget(Target):
             pass
         self._connected_as_root = None
 
-    def connect(self, timeout=10, check_boot_completed=True):  # pylint: disable=arguments-differ
+    def wait_boot_complete(self, timeout=10):
         start = time.time()
+        boot_completed = boolean(self.getprop('sys.boot_completed'))
+        while not boot_completed and timeout >= time.time() - start:
+            time.sleep(5)
+            boot_completed = boolean(self.getprop('sys.boot_completed'))
+        if not boot_completed:
+            raise TargetError('Connected but Android did not fully boot.')
+
+    def connect(self, timeout=10, check_boot_completed=True):  # pylint: disable=arguments-differ
         device = self.connection_settings.get('device')
         if device and ':' in device:
             # ADB does not automatically remove a network device from it's
@@ -890,12 +1022,7 @@ class AndroidTarget(Target):
         super(AndroidTarget, self).connect(timeout=timeout)
 
         if check_boot_completed:
-            boot_completed = boolean(self.getprop('sys.boot_completed'))
-            while not boot_completed and timeout >= time.time() - start:
-                time.sleep(5)
-                boot_completed = boolean(self.getprop('sys.boot_completed'))
-            if not boot_completed:
-                raise TargetError('Connected but Android did not fully boot.')
+            self.wait_boot_complete(timeout)
 
     def setup(self, executables=None):
         super(AndroidTarget, self).setup(executables)
@@ -948,11 +1075,12 @@ class AndroidTarget(Target):
             self.uninstall_executable(name)
 
     def get_pids_of(self, process_name):
-        result = self.execute('ps {}'.format(process_name[-15:]), check_exit_code=False).strip()
-        if result and 'not found' not in result:
-            return [int(x.split()[1]) for x in result.split('\n')[1:]]
-        else:
-            return []
+        result = []
+        search_term = process_name[-15:]
+        for entry in self.ps():
+            if search_term in entry.name:
+                result.append(entry.pid)
+        return result
 
     def ps(self, **kwargs):
         lines = iter(convert_new_lines(self.execute('ps')).split('\n'))
@@ -960,8 +1088,12 @@ class AndroidTarget(Target):
         result = []
         for line in lines:
             parts = line.split(None, 8)
-            if parts:
-                result.append(PsEntry(*(parts[0:1] + map(int, parts[1:5]) + parts[5:])))
+            if not parts:
+                continue
+            if len(parts) == 8:
+                # wchan was blank; insert an empty field where it should be.
+                parts.insert(5, '')
+            result.append(PsEntry(*(parts[0:1] + map(int, parts[1:5]) + parts[5:])))
         if not kwargs:
             return result
         else:
@@ -998,20 +1130,25 @@ class AndroidTarget(Target):
 
     # Android-specific
 
-    def swipe_to_unlock(self, direction="horizontal"):
+    def swipe_to_unlock(self, direction="diagonal"):
         width, height = self.screen_resolution
         command = 'input swipe {} {} {} {}'
-        if direction == "horizontal":
-            swipe_heigh = height * 2 // 3
+        if direction == "diagonal":
             start = 100
             stop = width - start
-            self.execute(command.format(start, swipe_heigh, stop, swipe_heigh))
-        if direction == "vertical":
-            swipe_middle = height / 2
-            swipe_heigh = height * 2 // 3
-            self.execute(command.format(swipe_middle, swipe_heigh, swipe_middle, 0))
+            swipe_height = height * 2 // 3
+            self.execute(command.format(start, swipe_height, stop, 0))
+        elif direction == "horizontal":
+            swipe_height = height * 2 // 3
+            start = 100
+            stop = width - start
+            self.execute(command.format(start, swipe_height, stop, swipe_height))
+        elif direction == "vertical":
+            swipe_middle = width / 2
+            swipe_height = height * 2 // 3
+            self.execute(command.format(swipe_middle, swipe_height, swipe_middle, 0))
         else:
-            raise DeviceError("Invalid swipe direction: {}".format(self.swipe_to_unlock))
+            raise TargetError("Invalid swipe direction: {}".format(direction))
 
     def getprop(self, prop=None):
         props = AndroidProperties(self.execute('getprop'))
@@ -1086,7 +1223,17 @@ class AndroidTarget(Target):
         adb_command(self.adb_name, command, timeout=timeout)
 
     def clear_logcat(self):
-        adb_command(self.adb_name, 'logcat -c', timeout=30)
+        with self.clear_logcat_lock:
+            adb_command(self.adb_name, 'logcat -c', timeout=30)
+
+    def get_logcat_monitor(self, regexps=None):
+        return LogcatMonitor(self, regexps)
+
+    def adb_kill_server(self, timeout=30):
+        adb_command(self.adb_name, 'kill-server', timeout)
+
+    def adb_wait_for_device(self, timeout=30):
+        adb_command(self.adb_name, 'wait-for-device', timeout)
 
     def adb_reboot_bootloader(self, timeout=30):
         adb_command(self.adb_name, 'reboot-bootloader', timeout)
@@ -1116,6 +1263,71 @@ class AndroidTarget(Target):
     def ensure_screen_is_off(self):
         if self.is_screen_on():
             self.execute('input keyevent 26')
+
+    def set_auto_brightness(self, auto_brightness):
+        cmd = 'settings put system screen_brightness_mode {}'
+        self.execute(cmd.format(int(boolean(auto_brightness))))
+
+    def get_auto_brightness(self):
+        cmd = 'settings get system screen_brightness_mode'
+        return boolean(self.execute(cmd).strip())
+
+    def set_brightness(self, value):
+        if not 0 <= value <= 255:
+            msg = 'Invalid brightness "{}"; Must be between 0 and 255'
+            raise ValueError(msg.format(value))
+        self.set_auto_brightness(False)
+        cmd = 'settings put system screen_brightness {}'
+        self.execute(cmd.format(int(value)))
+
+    def get_brightness(self):
+        cmd = 'settings get system screen_brightness'
+        return integer(self.execute(cmd).strip())
+
+    def get_airplane_mode(self):
+        cmd = 'settings get global airplane_mode_on'
+        return boolean(self.execute(cmd).strip())
+
+    def set_airplane_mode(self, mode):
+        root_required = self.get_sdk_version() > 23
+        if root_required and not self.is_rooted:
+            raise TargetError('Root is required to toggle airplane mode on Android 7+')
+        mode = int(boolean(mode))
+        cmd = 'settings put global airplane_mode_on {}'
+        self.execute(cmd.format(mode))
+        self.execute('am broadcast -a android.intent.action.AIRPLANE_MODE '
+                     '--ez state {}'.format(mode), as_root=root_required)
+
+    def get_auto_rotation(self):
+        cmd = 'settings get system accelerometer_rotation'
+        return boolean(self.execute(cmd).strip())
+
+    def set_auto_rotation(self, autorotate):
+        cmd = 'settings put system accelerometer_rotation {}'
+        self.execute(cmd.format(int(boolean(autorotate))))
+
+    def set_natural_rotation(self):
+        self.set_rotation(0)
+
+    def set_left_rotation(self):
+        self.set_rotation(1)
+
+    def set_inverted_rotation(self):
+        self.set_rotation(2)
+
+    def set_right_rotation(self):
+        self.set_rotation(3)
+
+    def get_rotation(self):
+        cmd = 'settings get system user_rotation'
+        return int(self.execute(cmd).strip())
+
+    def set_rotation(self, rotation):
+        if not 0 <= rotation <= 3:
+            raise ValueError('Rotation value must be between 0 and 3')
+        self.set_auto_rotation(False)
+        cmd = 'settings put system user_rotation {}'
+        self.execute(cmd.format(rotation))
 
     def homescreen(self):
         self.execute('am start -a android.intent.action.MAIN -c android.intent.category.HOME')
@@ -1404,3 +1616,32 @@ def _get_part_name(section):
     if name is None:
         name = '{}/{}/{}'.format(implementer, part, variant)
     return name
+
+
+def _build_path_tree(path_map, basepath, sep=os.path.sep, dictcls=dict):
+    """
+    Convert a flat mapping of paths to values into a nested structure of
+    dict-line object (``dict``'s by default), mirroring the directory hierarchy
+    represented by the paths relative to ``basepath``.
+
+    """
+    def process_node(node, path, value):
+        parts = path.split(sep, 1)
+        if len(parts) == 1:   # leaf
+            node[parts[0]] = value
+        else:  # branch
+            if parts[0] not in node:
+                node[parts[0]] = dictcls()
+            process_node(node[parts[0]], parts[1], value)
+
+    relpath_map = {os.path.relpath(p, basepath): v
+                   for p, v in path_map.iteritems()}
+
+    if len(relpath_map) == 1 and relpath_map.keys()[0] == '.':
+        result = relpath_map.values()[0]
+    else:
+        result = dictcls()
+        for path, value in relpath_map.iteritems():
+            process_node(result, path, value)
+
+    return result

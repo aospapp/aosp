@@ -17,12 +17,10 @@
 package com.android.tv.common.feature;
 
 import android.content.Context;
-
+import com.android.tv.common.util.CommonUtils;
 import java.util.Arrays;
 
-/**
- * Static utilities for features.
- */
+/** Static utilities for features. */
 public class FeatureUtils {
 
     /**
@@ -47,7 +45,6 @@ public class FeatureUtils {
                 return "or(" + Arrays.asList(features) + ")";
             }
         };
-
     }
 
     /**
@@ -74,36 +71,47 @@ public class FeatureUtils {
         };
     }
 
-    /**
-     * A feature that is always enabled.
-     */
-    public static final Feature ON = new Feature() {
-        @Override
-        public boolean isEnabled(Context context) {
-            return true;
-        }
+    /** A feature that is always enabled. */
+    public static final Feature ON =
+            new Feature() {
+                @Override
+                public boolean isEnabled(Context context) {
+                    return true;
+                }
 
-        @Override
-        public String toString() {
-            return "on";
-        }
-    };
+                @Override
+                public String toString() {
+                    return "on";
+                }
+            };
 
-    /**
-     * A feature that is always disabled.
-     */
-    public static final Feature OFF = new Feature() {
-        @Override
-        public boolean isEnabled(Context context) {
-            return false;
-        }
+    /** A feature that is always disabled. */
+    public static final Feature OFF =
+            new Feature() {
+                @Override
+                public boolean isEnabled(Context context) {
+                    return false;
+                }
 
-        @Override
-        public String toString() {
-            return "off";
-        }
-    };
+                @Override
+                public String toString() {
+                    return "off";
+                }
+            };
 
-    private FeatureUtils() {
-    }
+    /** True if running in robolectric. */
+    public static final Feature ROBOLECTRIC =
+            new Feature() {
+                @Override
+                public boolean isEnabled(Context context) {
+                    return CommonUtils.isRoboTest();
+                }
+
+                @Override
+                public String toString() {
+                    return "isRobolecteric";
+                }
+            };
+
+    private FeatureUtils() {}
 }

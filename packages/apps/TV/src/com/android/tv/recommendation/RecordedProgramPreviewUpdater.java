@@ -21,39 +21,32 @@ import android.os.Build;
 import android.support.annotation.RequiresApi;
 import android.text.TextUtils;
 import android.util.Log;
-
-import com.android.tv.ApplicationSingletons;
-import com.android.tv.TvApplication;
+import com.android.tv.TvSingletons;
 import com.android.tv.data.PreviewDataManager;
 import com.android.tv.data.PreviewProgramContent;
 import com.android.tv.dvr.DvrDataManager;
 import com.android.tv.dvr.data.RecordedProgram;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 
-/**
- * Class to update the preview data for {@link RecordedProgram}
- */
+/** Class to update the preview data for {@link RecordedProgram} */
 @RequiresApi(Build.VERSION_CODES.O)
+@SuppressWarnings("AndroidApiChecker") // TODO(b/32513850) remove when error prone is updated
 public class RecordedProgramPreviewUpdater {
     private static final String TAG = "RecordedProgramPreviewUpdater";
-    // STOPSHIP: set it to false.
-    private static final boolean DEBUG = true;
+    private static final boolean DEBUG = false;
 
     private static final int RECOMMENDATION_COUNT = 6;
 
     private static RecordedProgramPreviewUpdater sRecordedProgramPreviewUpdater;
 
-    /**
-     * Creates and returns the {@link RecordedProgramPreviewUpdater}.
-     */
+    /** Creates and returns the {@link RecordedProgramPreviewUpdater}. */
     public static RecordedProgramPreviewUpdater getInstance(Context context) {
         if (sRecordedProgramPreviewUpdater == null) {
-            sRecordedProgramPreviewUpdater
-                    = new RecordedProgramPreviewUpdater(context.getApplicationContext());
+            sRecordedProgramPreviewUpdater =
+                    new RecordedProgramPreviewUpdater(context.getApplicationContext());
         }
         return sRecordedProgramPreviewUpdater;
     }
@@ -64,56 +57,56 @@ public class RecordedProgramPreviewUpdater {
 
     private RecordedProgramPreviewUpdater(Context context) {
         mContext = context.getApplicationContext();
-        ApplicationSingletons applicationSingletons = TvApplication.getSingletons(mContext);
-        mPreviewDataManager = applicationSingletons.getPreviewDataManager();
-        mDvrDataManager = applicationSingletons.getDvrDataManager();
-        mDvrDataManager.addRecordedProgramListener(new DvrDataManager.RecordedProgramListener() {
-            @Override
-            public void onRecordedProgramsAdded(RecordedProgram... recordedPrograms) {
-                if (DEBUG) Log.d(TAG, "Add new preview recorded programs");
-                updatePreviewDataForRecordedPrograms();
-            }
+        TvSingletons tvSingletons = TvSingletons.getSingletons(mContext);
+        mPreviewDataManager = tvSingletons.getPreviewDataManager();
+        mDvrDataManager = tvSingletons.getDvrDataManager();
+        mDvrDataManager.addRecordedProgramListener(
+                new DvrDataManager.RecordedProgramListener() {
+                    @Override
+                    public void onRecordedProgramsAdded(RecordedProgram... recordedPrograms) {
+                        if (DEBUG) Log.d(TAG, "Add new preview recorded programs");
+                        updatePreviewDataForRecordedPrograms();
+                    }
 
-            @Override
-            public void onRecordedProgramsChanged(RecordedProgram... recordedPrograms) {
-                if (DEBUG) Log.d(TAG, "Update preview recorded programs");
-                updatePreviewDataForRecordedPrograms();
-            }
+                    @Override
+                    public void onRecordedProgramsChanged(RecordedProgram... recordedPrograms) {
+                        if (DEBUG) Log.d(TAG, "Update preview recorded programs");
+                        updatePreviewDataForRecordedPrograms();
+                    }
 
-            @Override
-            public void onRecordedProgramsRemoved(RecordedProgram... recordedPrograms) {
-                if (DEBUG) Log.d(TAG, "Delete preview recorded programs");
-                updatePreviewDataForRecordedPrograms();
-            }
-        });
+                    @Override
+                    public void onRecordedProgramsRemoved(RecordedProgram... recordedPrograms) {
+                        if (DEBUG) Log.d(TAG, "Delete preview recorded programs");
+                        updatePreviewDataForRecordedPrograms();
+                    }
+                });
     }
 
-    /**
-     * Updates the preview data for recorded programs.
-     */
+    /** Updates the preview data for recorded programs. */
     public void updatePreviewDataForRecordedPrograms() {
         if (!mPreviewDataManager.isLoadFinished()) {
-            mPreviewDataManager.addListener(new PreviewDataManager.PreviewDataListener() {
-                @Override
-                public void onPreviewDataLoadFinished() {
-                    mPreviewDataManager.removeListener(this);
-                    updatePreviewDataForRecordedPrograms();
-                }
+            mPreviewDataManager.addListener(
+                    new PreviewDataManager.PreviewDataListener() {
+                        @Override
+                        public void onPreviewDataLoadFinished() {
+                            mPreviewDataManager.removeListener(this);
+                            updatePreviewDataForRecordedPrograms();
+                        }
 
-                @Override
-                public void onPreviewDataUpdateFinished() { }
-            });
+                        @Override
+                        public void onPreviewDataUpdateFinished() {}
+                    });
             return;
         }
         if (!mDvrDataManager.isRecordedProgramLoadFinished()) {
             mDvrDataManager.addRecordedProgramLoadFinishedListener(
                     new DvrDataManager.OnRecordedProgramLoadFinishedListener() {
-                @Override
-                public void onRecordedProgramLoadFinished() {
-                    mDvrDataManager.removeRecordedProgramLoadFinishedListener(this);
-                    updatePreviewDataForRecordedPrograms();
-                }
-            });
+                        @Override
+                        public void onRecordedProgramLoadFinished() {
+                            mDvrDataManager.removeRecordedProgramLoadFinishedListener(this);
+                            updatePreviewDataForRecordedPrograms();
+                        }
+                    });
             return;
         }
         updatePreviewDataForRecordedProgramsInternal();
@@ -121,15 +114,18 @@ public class RecordedProgramPreviewUpdater {
 
     private void updatePreviewDataForRecordedProgramsInternal() {
         Set<RecordedProgram> recordedPrograms = generateRecommendationRecordedPrograms();
-        Long recordedPreviewChannelId = mPreviewDataManager.getPreviewChannelId(
-                PreviewDataManager.TYPE_RECORDED_PROGRAM_PREVIEW_CHANNEL);
+        Long recordedPreviewChannelId =
+                mPreviewDataManager.getPreviewChannelId(
+                        PreviewDataManager.TYPE_RECORDED_PROGRAM_PREVIEW_CHANNEL);
         if (recordedPreviewChannelId == PreviewDataManager.INVALID_PREVIEW_CHANNEL_ID
                 && !recordedPrograms.isEmpty()) {
             createPreviewChannelForRecordedPrograms();
         } else {
-            mPreviewDataManager.updatePreviewProgramsForChannel(recordedPreviewChannelId,
+            mPreviewDataManager.updatePreviewProgramsForChannel(
+                    recordedPreviewChannelId,
                     generatePreviewProgramContentsFromRecordedPrograms(
-                            recordedPreviewChannelId, recordedPrograms), null);
+                            recordedPreviewChannelId, recordedPrograms),
+                    null);
         }
     }
 
@@ -168,8 +164,9 @@ public class RecordedProgramPreviewUpdater {
             long previewChannelId, Set<RecordedProgram> recordedPrograms) {
         Set<PreviewProgramContent> result = new HashSet<>();
         for (RecordedProgram recordedProgram : recordedPrograms) {
-            result.add(PreviewProgramContent.createFromRecordedProgram(mContext, previewChannelId,
-                    recordedProgram));
+            result.add(
+                    PreviewProgramContent.createFromRecordedProgram(
+                            mContext, previewChannelId, recordedProgram));
         }
         return result;
     }

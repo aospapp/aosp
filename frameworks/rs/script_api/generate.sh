@@ -15,12 +15,24 @@
 # limitations under the License.
 #
 
-CLANG=$ANDROID_BUILD_TOP/prebuilts/clang/host/linux-x86/clang-stable/bin/clang++
+# TODO: $ANDROID_BUILD_TOP/prebuilts/clang/host/linux-x86/clang-stable/bin
+# no longer contains clang on AOSP master. Need a stable way to reach clang
+# binaries here.
+
+if [ x"$1" == "x" ]; then
+  echo "Please specify the top-level Piper client directory."
+  exit 1
+fi
+
+DOC_DIR="$1/googledata/devsite/site-android/en/guide/topics/renderscript/"
+if [ ! -d $DOC_DIR ]; then
+  echo "Expecting top-level Piper client directory."
+  exit 2
+fi
 
 cd `dirname $0`
 
 set -e
-$CLANG Generator.cpp Specification.cpp GenerateDocumentation.cpp GenerateHeaderFiles.cpp GenerateTestFiles.cpp Scanner.cpp Utilities.cpp GenerateStubsWhiteList.cpp -g -std=c++11 -Wall -o generator
 
 mkdir -p test
 mkdir -p include
@@ -33,16 +45,14 @@ mkdir -p slangtest
 #    This can be manually changed when cut&pasting the snippet into guide_toc.cs.
 # 3. rsIs/Clear/SetObject is documented in rs_object_info but also found in rs_graphics.
 #    The latter must appear after the former.
-./generator rs_core.spec rs_value_types.spec rs_object_types.spec rs_convert.spec rs_math.spec rs_vector_math.spec rs_matrix.spec rs_quaternion.spec rs_atomic.spec rs_time.spec rs_allocation_create.spec rs_allocation_data.spec rs_object_info.spec rs_for_each.spec rs_io.spec rs_debug.spec rs_graphics.spec
-
-rm generator
+$ANDROID_HOST_OUT/bin/rs-api-doc-generator rs_core.spec rs_value_types.spec rs_object_types.spec rs_convert.spec rs_math.spec rs_vector_math.spec rs_matrix.spec rs_quaternion.spec rs_atomic.spec rs_time.spec rs_allocation_create.spec rs_allocation_data.spec rs_object_info.spec rs_for_each.spec rs_io.spec rs_debug.spec rs_graphics.spec
 
 rm -f ../../../cts/tests/tests/renderscript/src/android/renderscript/cts/generated/*
 mv test/* ../../../cts/tests/tests/renderscript/src/android/renderscript/cts/generated/
 rmdir test
 
-rm -f ../../base/docs/html/guide/topics/renderscript/reference/*.jd
-mv docs/*.jd ../../base/docs/html/guide/topics/renderscript/reference/
+rm -f "$DOC_DIR"/reference/*.html
+mv docs/*.html "$DOC_DIR"/reference
 
 # Current API level : 24
 RS_API_LEVEL=24
@@ -55,4 +65,3 @@ rm -rf slangtest
 
 mv RSStubsWhiteList.cpp ../../compile/libbcc/lib/
 
-echo "Be sure to update platform/frameworks/base/docs/html/guide/guide_toc.cs if needed."

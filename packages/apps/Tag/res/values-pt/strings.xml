@@ -29,4 +29,5 @@
     <string name="mime_display_name" msgid="5926357152623764485">"Dados da tag do NFC"</string>
     <string name="vcard_title" msgid="7122634780732426007">"Informações de contato de ^1"</string>
     <string name="call_phone_permission_denied" msgid="8515177111984654599">"Esse aplicativo precisa acessar a permissão do Telefone para fazer chamadas. Você pode gerenciar a permissão de tags nas configurações"</string>
+    <string name="external_storage_permission_denied" msgid="7665146019168376837">"Esse aplicativo precisa acessar a permissão de Armazenamento externo para ter acesso aos arquivos. Você pode gerenciar a permissão de tags nas configurações"</string>
 </resources>

@@ -91,6 +91,10 @@ public class CommonLauncherHelper {
      */
     private void ensureIconVisible(BySelector app, UiObject2 container, Direction dir) {
         UiObject2 appIcon = mDevice.findObject(app);
+        if (appIcon == null) {
+            throw new RuntimeException("App icon was not visible.");
+        }
+
         Rect appR = appIcon.getVisibleBounds();
         Rect containerR = container.getVisibleBounds();
         int size = 0;
@@ -146,10 +150,10 @@ public class CommonLauncherHelper {
 
         // Go to the home page
         launcherStrategy.open();
-        Direction dir = launcherStrategy.getAllAppsScrollDirection();
         // attempt to find the app icon if it's not already on the screen
         if (!mDevice.hasObject(app)) {
             UiObject2 container = launcherStrategy.openAllApps(false);
+            Direction dir = launcherStrategy.getAllAppsScrollDirection();
 
             if (!mDevice.hasObject(app)) {
                 scrollBackToBeginning(container, Direction.reverse(dir));

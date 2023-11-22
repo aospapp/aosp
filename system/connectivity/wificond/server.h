@@ -23,6 +23,7 @@
 
 #include <android-base/macros.h>
 #include <wifi_system/interface_tool.h>
+#include <wifi_system/supplicant_manager.h>
 
 #include "android/net/wifi/BnWificond.h"
 #include "android/net/wifi/IApInterface.h"
@@ -56,16 +57,37 @@ class Server : public android::net::wifi::BnWificond {
   android::binder::Status UnregisterCallback(
       const android::sp<android::net::wifi::IInterfaceEventCallback>&
           callback) override;
+  // Returns a vector of available frequencies for 2.4GHz channels.
+  android::binder::Status getAvailable2gChannels(
+      ::std::unique_ptr<::std::vector<int32_t>>* out_frequencies) override;
+  // Returns a vector of available frequencies for 5GHz non-DFS channels.
+  android::binder::Status getAvailable5gNonDFSChannels(
+      ::std::unique_ptr<::std::vector<int32_t>>* out_frequencies) override;
+  // Returns a vector of available frequencies for DFS channels.
+  android::binder::Status getAvailableDFSChannels(
+      ::std::unique_ptr<::std::vector<int32_t>>* out_frequencies) override;
 
   android::binder::Status createApInterface(
+      const std::string& iface_name,
       android::sp<android::net::wifi::IApInterface>*
           created_interface) override;
 
   android::binder::Status createClientInterface(
+      const std::string& iface_name,
       android::sp<android::net::wifi::IClientInterface>*
           created_interface) override;
 
+  android::binder::Status tearDownApInterface(
+      const std::string& iface_name,
+      bool* out_success) override;
+
+  android::binder::Status tearDownClientInterface(
+      const std::string& iface_name,
+      bool* out_success) override;
+
   android::binder::Status tearDownInterfaces() override;
+  android::binder::Status enableSupplicant(bool* success) override;
+  android::binder::Status disableSupplicant(bool* success) override;
 
   android::binder::Status GetClientInterfaces(
       std::vector<android::sp<android::IBinder>>* out_client_ifs) override;
@@ -73,18 +95,13 @@ class Server : public android::net::wifi::BnWificond {
       std::vector<android::sp<android::IBinder>>* out_ap_ifs) override;
   status_t dump(int fd, const Vector<String16>& args) override;
 
-  // Call this once on startup.  It ignores all the invariants held
-  // in wificond and tries to restore ourselves to a blank state by
-  // killing userspace daemons and cleaning up the interface state.
-  void CleanUpSystemState();
-
  private:
   // Request interface information from kernel and setup local interface object.
   // This assumes that interface should be in STATION mode. Even if we setup
   // interface on behalf of createApInterace(), it is Hostapd that configure
   // the interface to Ap mode later.
   // Returns true on success, false otherwise.
-  bool SetupInterface(InterfaceInfo* interface);
+  bool SetupInterface(const std::string& iface_name, InterfaceInfo* interface);
   bool RefreshWiphyIndex();
   void LogSupportedBands();
   void OnRegDomainChanged(std::string& country_code);
@@ -105,8 +122,8 @@ class Server : public android::net::wifi::BnWificond {
   ScanUtils* const scan_utils_;
 
   uint32_t wiphy_index_;
-  std::vector<std::unique_ptr<ApInterfaceImpl>> ap_interfaces_;
-  std::vector<std::unique_ptr<ClientInterfaceImpl>> client_interfaces_;
+  std::map<std::string, std::unique_ptr<ApInterfaceImpl>> ap_interfaces_;
+  std::map<std::string, std::unique_ptr<ClientInterfaceImpl>> client_interfaces_;
   std::vector<android::sp<android::net::wifi::IInterfaceEventCallback>>
       interface_event_callbacks_;
 

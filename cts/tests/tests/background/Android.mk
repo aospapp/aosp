@@ -22,19 +22,19 @@ LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
 
 LOCAL_STATIC_JAVA_LIBRARIES := \
     android-support-test \
-    android-support-v4 \
+    androidx.legacy_legacy-support-v4 \
     mockito-target-minus-junit4 \
     compatibility-device-util \
     ctstestrunner \
     ub-uiautomator
 
-LOCAL_JAVA_LIBRARIES := android.test.runner
+LOCAL_JAVA_LIBRARIES := android.test.runner.stubs
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
 LOCAL_PACKAGE_NAME := CtsBackgroundRestrictionsTestCases
 
-LOCAL_COMPATIBILITY_SUITE := cts vts
+LOCAL_COMPATIBILITY_SUITE := cts vts cts_instant
 
 LOCAL_SDK_VERSION := test_current
 

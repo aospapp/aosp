@@ -15,7 +15,8 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-      package="android.widget.toast.cts">
+      package="android.widget.toast.cts"
+      android:targetSandboxVersion="2">
 
     <uses-sdk android:minSdkVersion="25" android:targetSdkVersion="26" />
 

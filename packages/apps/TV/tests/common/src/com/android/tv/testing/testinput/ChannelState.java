@@ -16,24 +16,16 @@
 package com.android.tv.testing.testinput;
 
 import android.media.tv.TvTrackInfo;
-
-import com.android.tv.testing.Constants;
-
+import com.android.tv.testing.constants.Constants;
 import java.util.Collections;
 import java.util.List;
 
-/**
- * Versioned state information for a channel.
- */
+/** Versioned state information for a channel. */
 public class ChannelState {
 
-    /**
-     * The video track a channel has by default.
-     */
+    /** The video track a channel has by default. */
     public static final TvTrackInfo DEFAULT_VIDEO_TRACK = Constants.FHD1080P50_VIDEO_TRACK;
-    /**
-     * The video track a channel has by default.
-     */
+    /** The video track a channel has by default. */
     public static final TvTrackInfo DEFAULT_AUDIO_TRACK = Constants.EN_STEREO_AUDIO_TRACK;
     /**
      * The channel is "tuned" and video available.
@@ -47,27 +39,23 @@ public class ChannelState {
      * Default ChannelState with version @{value #CHANNEL_VERSION_DEFAULT} and default {@link
      * ChannelStateData}.
      */
-    public static final ChannelState DEFAULT = new ChannelState(CHANNEL_VERSION_DEFAULT,
-            new ChannelStateData());
+    public static final ChannelState DEFAULT =
+            new ChannelState(CHANNEL_VERSION_DEFAULT, new ChannelStateData());
+
     private final int mVersion;
     private final ChannelStateData mData;
-
 
     private ChannelState(int version, ChannelStateData channelStateData) {
         mVersion = version;
         mData = channelStateData;
     }
 
-    /**
-     * Returns the id of the selected audio track, or null if none is selected.
-     */
+    /** Returns the id of the selected audio track, or null if none is selected. */
     public String getSelectedAudioTrackId() {
         return mData.mSelectedAudioTrackId;
     }
 
-    /**
-     * Returns the id of the selected audio track, or null if none is selected.
-     */
+    /** Returns the id of the selected audio track, or null if none is selected. */
     public String getSelectedVideoTrackId() {
         return mData.mSelectedVideoTrackId;
     }
@@ -82,9 +70,8 @@ public class ChannelState {
     }
 
     /**
-     * Tune status is either {@link #TUNE_STATUS_VIDEO_AVAILABLE} or a  {@link
-     * android.media.tv.TvInputService.Session#notifyVideoUnavailable(int) video unavailable
-     * reason}
+     * Tune status is either {@link #TUNE_STATUS_VIDEO_AVAILABLE} or a {@link
+     * android.media.tv.TvInputService.Session#notifyVideoUnavailable(int) video unavailable reason}
      */
     public int getTuneStatus() {
         return mData.mTuneStatus;

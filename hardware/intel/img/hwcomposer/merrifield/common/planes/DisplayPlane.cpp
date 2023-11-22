@@ -326,6 +326,12 @@ void DisplayPlane::invalidateBufferCache()
     mCurrentDataBuffer = 0;
 }
 
+void DisplayPlane::resetCurrentBuffer()
+{
+    // reset current data buffer
+    mCurrentDataBuffer = 0;
+}
+
 bool DisplayPlane::assignToDevice(int disp)
 {
     RETURN_FALSE_IF_NOT_INIT();

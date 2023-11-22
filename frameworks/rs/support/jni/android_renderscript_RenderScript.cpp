@@ -16,17 +16,19 @@
 
 #define LOG_TAG "libRS_jni"
 
-#include <stdlib.h>
-#include <stdio.h>
+#include <dlfcn.h>
 #include <fcntl.h>
-#include <unistd.h>
 #include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+
 #include <android/bitmap.h>
 #include <android/log.h>
 
 #include <rsEnv.h>
 #include "rsDispatch.h"
-#include <dlfcn.h>
 
 //#define LOG_API ALOG
 #define LOG_API(...)

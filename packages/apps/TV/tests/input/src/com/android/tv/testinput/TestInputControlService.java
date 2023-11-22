@@ -20,8 +20,8 @@ import android.content.Intent;
 import android.os.IBinder;
 
 /**
- * Testcases communicate to the {@link TestInputControl} via
- * {@link com.android.tv.testing.testinput.ITestInputControl}.
+ * Testcases communicate to the {@link TestInputControl} via {@link
+ * com.android.tv.testing.testinput.ITestInputControl}.
  */
 public class TestInputControlService extends Service {
 

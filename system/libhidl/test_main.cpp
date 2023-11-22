@@ -17,11 +17,15 @@
 #define LOG_TAG "LibHidlTest"
 
 #include <android-base/logging.h>
+#include <android/hardware/tests/inheritance/1.0/IParent.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include <hidl/HidlSupport.h>
+#include <hidl/ServiceManagement.h>
 #include <hidl/Status.h>
 #include <hidl/TaskRunner.h>
+#include <condition_variable>
+#include <fstream>
 #include <vector>
 
 #define EXPECT_ARRAYEQ(__a1__, __a2__, __size__) EXPECT_TRUE(isArrayEqual(__a1__, __a2__, __size__))
@@ -43,6 +47,17 @@ static inline bool is2dArrayEqual(const T arr1, const S arr2, size_t size1, size
             if(arr1[i][j] != arr2[i][j])
                 return false;
     return true;
+}
+
+bool isLibraryOpen(const std::string& lib) {
+    std::ifstream ifs("/proc/self/maps");
+    for (std::string line; std::getline(ifs, line);) {
+        if (line.size() >= lib.size() && line.substr(line.size() - lib.size()) == lib) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 class LibHidlTest : public ::testing::Test {
@@ -75,9 +90,9 @@ TEST_F(LibHidlTest, StringTest) {
     EXPECT_STREQ(s6.c_str(), "s6");
     hidl_string s7 = std::string("s7"); // copy = from std::string
     EXPECT_STREQ(s7.c_str(), "s7");
-    hidl_string s8(s7); // copy constructor
+    hidl_string s8(s7); // copy constructor // NOLINT, test the copy constructor
     EXPECT_STREQ(s8.c_str(), "s7");
-    hidl_string s9 = s8; // copy =
+    hidl_string s9 = s8; // copy =  // NOLINT, test the copy operator
     EXPECT_STREQ(s9.c_str(), "s7");
     char myCString[20] = "myCString";
     s.setToExternal(&myCString[0], strlen(myCString));
@@ -153,14 +168,14 @@ TEST_F(LibHidlTest, MemoryTest) {
     using android::hardware::hidl_memory;
 
     hidl_memory mem1 = hidl_memory(); // default constructor
-    hidl_memory mem2 = mem1; // copy constructor (nullptr)
+    hidl_memory mem2 = mem1; // copy constructor (nullptr), NOLINT
 
     EXPECT_EQ(nullptr, mem2.handle());
 
     native_handle_t* testHandle = native_handle_create(0 /* numInts */, 0 /* numFds */);
 
     hidl_memory mem3 = hidl_memory("foo", testHandle, 42 /* size */); // owns testHandle
-    hidl_memory mem4 = mem3; // copy constructor (regular handle)
+    hidl_memory mem4 = mem3; // copy constructor (regular handle), NOLINT
 
     EXPECT_EQ(mem3.name(), mem4.name());
     EXPECT_EQ(mem3.size(), mem4.size());
@@ -168,7 +183,7 @@ TEST_F(LibHidlTest, MemoryTest) {
     EXPECT_NE(mem3.handle(), mem4.handle()); // check handle cloned
 
     hidl_memory mem5 = hidl_memory("foo", nullptr, 0); // hidl memory works with nullptr handle
-    hidl_memory mem6 = mem5;
+    hidl_memory mem6 = mem5; // NOLINT, test copying
     EXPECT_EQ(nullptr, mem5.handle());
     EXPECT_EQ(nullptr, mem6.handle());
 }
@@ -178,6 +193,9 @@ TEST_F(LibHidlTest, VecInitTest) {
     using std::vector;
     int32_t array[] = {5, 6, 7};
     vector<int32_t> v(array, array + 3);
+
+    hidl_vec<int32_t> hv0(3);  // size
+    EXPECT_EQ(hv0.size(), 3ul);  // cannot say anything about its contents
 
     hidl_vec<int32_t> hv1 = v; // copy =
     EXPECT_ARRAYEQ(hv1, array, 3);
@@ -296,16 +314,23 @@ TEST_F(LibHidlTest, ArrayTest) {
 
 TEST_F(LibHidlTest, TaskRunnerTest) {
     using android::hardware::details::TaskRunner;
+    using namespace std::chrono_literals;
+
+    std::condition_variable cv;
+    std::mutex m;
+
     TaskRunner tr;
     tr.start(1 /* limit */);
     bool flag = false;
     tr.push([&] {
-        usleep(1000);
         flag = true;
+        cv.notify_all();
     });
-    usleep(500);
-    EXPECT_FALSE(flag);
-    usleep(1000);
+
+    std::unique_lock<std::mutex> lock(m);
+
+    // 1s so this doesn't deadlock. This isn't a performance test.
+    EXPECT_TRUE(cv.wait_for(lock, 1s, [&]{return flag;}));
     EXPECT_TRUE(flag);
 }
 
@@ -430,7 +455,17 @@ TEST_F(LibHidlTest, StatusStringTest) {
 
     EXPECT_THAT(toString(Status::fromExceptionCode(Status::EX_NULL_POINTER)),
             HasSubstr("EX_NULL_POINTER"));
+}
 
+TEST_F(LibHidlTest, PreloadTest) {
+    using ::android::hardware::preloadPassthroughService;
+    using ::android::hardware::tests::inheritance::V1_0::IParent;
+
+    static const std::string kLib = "android.hardware.tests.inheritance@1.0-impl.so";
+
+    EXPECT_FALSE(isLibraryOpen(kLib));
+    preloadPassthroughService<IParent>();
+    EXPECT_TRUE(isLibraryOpen(kLib));
 }
 
 int main(int argc, char **argv) {

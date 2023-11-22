@@ -117,6 +117,13 @@ public class SelfManagedIncomingCallTestActivity extends PassFailButtons.Activit
                         // Make it active to simulate an answer.
                         connection.setActive();
 
+                        // Removes the hold capability of the self-managed call, so that the follow
+                        // incoming call can trigger the incoming call UX that allow user to answer
+                        // the incoming call to disconnect the ongoing call.
+                        int capabilities = connection.getConnectionCapabilities();
+                        capabilities &= ~Connection.CAPABILITY_HOLD;
+                        connection.setConnectionCapabilities(capabilities);
+
                         // Place the second call. It should trigger the incoming call UX.
                         Bundle extras2 = new Bundle();
                         extras2.putParcelable(TelecomManager.EXTRA_INCOMING_CALL_ADDRESS,
@@ -127,7 +134,7 @@ public class SelfManagedIncomingCallTestActivity extends PassFailButtons.Activit
 
                         return null;
                     } catch (Throwable t) {
-                        return  t;
+                        return t;
                     }
                 }
 
@@ -149,31 +156,64 @@ public class SelfManagedIncomingCallTestActivity extends PassFailButtons.Activit
         mStep3Status = view.findViewById(R.id.step_3_status);
         mConfirm = view.findViewById(R.id.telecom_incoming_self_mgd_confirm_answer_button);
         mConfirm.setOnClickListener(v -> {
-            CtsConnectionService ctsConnectionService = CtsConnectionService.getConnectionService();
-            if (ctsConnectionService == null) {
-                mStep3Status.setImageResource(R.drawable.fs_error);
-                return;
-            }
-            List<CtsConnection> connections = ctsConnectionService.getConnections();
-            if (connections.size() != 1) {
-                mStep3Status.setImageResource(R.drawable.fs_error);
-                return;
-            }
+            try {
+                CtsSelfManagedConnectionService ctsSelfConnSvr =
+                        CtsSelfManagedConnectionService.waitForAndGetConnectionService();
+                if (ctsSelfConnSvr == null) {
+                    mStep3Status.setImageResource(R.drawable.fs_error);
+                    return;
+                }
+                List<CtsConnection> connections = ctsSelfConnSvr.getConnections();
+                if (connections.size() != 1) {
+                    mStep3Status.setImageResource(R.drawable.fs_error);
+                    return;
+                }
 
-            if (connections.get(0).getState() == Connection.STATE_ACTIVE) {
-                connections
-                        .stream()
-                        .forEach((c) -> c.onDisconnect());
-                mStep3Status.setImageResource(R.drawable.fs_good);
-                getPassButton().setEnabled(true);
-            } else {
-                mStep3Status.setImageResource(R.drawable.fs_error);
-            }
+                if (connections.get(0).getState() == Connection.STATE_ACTIVE) {
+                    mStep3Status.setImageResource(R.drawable.fs_good);
+                    getPassButton().setEnabled(true);
+                } else {
+                    mStep3Status.setImageResource(R.drawable.fs_error);
+                }
 
-            PhoneAccountUtils.unRegisterTestSelfManagedPhoneAccount(this);
+                // The self-managed connection service should be disconnected, because all of the
+                // self-managed connections are disconnected.
+                if (CtsConnectionService.getConnectionService() != null) {
+                    mStep3Status.setImageResource(R.drawable.fs_error);
+                    return;
+                }
+
+                mConfirm.setEnabled(false);
+            } finally {
+                // If some step fails, make sure we cleanup any lingering connections.
+                cleanupConnectionServices();
+            }
         });
 
         mShowUi.setEnabled(false);
         mConfirm.setEnabled(false);
+    }
+
+    private void cleanupConnectionServices() {
+        CtsSelfManagedConnectionService ctsSelfConnSvr =
+                CtsSelfManagedConnectionService.getConnectionService();
+        if (ctsSelfConnSvr != null) {
+            ctsSelfConnSvr.getConnections()
+                    .stream()
+                    .forEach((c) -> {
+                        c.onDisconnect();
+                    });
+        }
+
+        CtsConnectionService ctsConnectionService =
+                CtsConnectionService.getConnectionService();
+        if (ctsConnectionService != null) {
+            ctsConnectionService.getConnections()
+                    .stream()
+                    .forEach((c) -> {
+                        c.onDisconnect();
+                    });
+        }
+        PhoneAccountUtils.unRegisterTestSelfManagedPhoneAccount(this);
     }
 }

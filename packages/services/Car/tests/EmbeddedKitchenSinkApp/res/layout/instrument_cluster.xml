@@ -22,20 +22,31 @@
 
     <LinearLayout
             android:orientation="vertical"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content">
-        <LinearLayout
-                android:orientation="horizontal"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content">
-            <Button android:layout_width="wrap_content" android:layout_height="wrap_content"
-                    android:text="@string/cluster_start" android:id="@+id/cluster_start_button"/>
-            <Button android:layout_width="wrap_content" android:layout_height="wrap_content"
-                    android:text="@string/cluster_turn_left" android:id="@+id/cluster_turn_left_button"/>
-            <Button android:layout_width="wrap_content" android:layout_height="wrap_content"
-                    android:text="@string/cluster_stop" android:id="@+id/cluster_stop_button"/>
-            <Button android:layout_width="wrap_content" android:layout_height="wrap_content"
-                    android:text="@string/cluster_start_activity" android:id="@+id/cluster_start_activity"/>
-        </LinearLayout>
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+            <Button
+                    android:layout_width="match_parent"
+                    android:layout_height="0dp"
+                    android:layout_weight="1"
+                    android:text="@string/cluster_start"
+                    android:id="@+id/cluster_start_button"/>
+            <Button
+                    android:layout_width="match_parent"
+                    android:layout_height="0dp"
+                    android:layout_weight="1"
+                    android:text="@string/cluster_turn_left"
+                    android:id="@+id/cluster_turn_left_button"/>
+            <Button
+                    android:layout_width="match_parent"
+                    android:layout_height="0dp"
+                    android:layout_weight="1"
+                    android:text="@string/cluster_stop"
+                    android:id="@+id/cluster_stop_button"/>
+            <Button
+                    android:layout_width="match_parent"
+                    android:layout_height="0dp"
+                    android:layout_weight="1"
+                    android:text="@string/cluster_start_activity"
+                    android:id="@+id/cluster_start_activity"/>
     </LinearLayout>
 </LinearLayout>

@@ -41,7 +41,7 @@
     <string name="menu_compress" msgid="37539111904724188">"圧縮"</string>
     <string name="menu_extract" msgid="8171946945982532262">"次の場所に解凍…"</string>
     <string name="menu_rename" msgid="1883113442688817554">"名前を変更"</string>
-    <string name="menu_inspector" msgid="8217713416277319588">"情報を見る"</string>
+    <string name="menu_inspect" msgid="7279855349299446224">"情報を見る"</string>
     <string name="menu_view_in_owner" msgid="7228948660557554770">"<xliff:g id="SOURCE">%1$s</xliff:g>に表示"</string>
     <string name="menu_new_window" msgid="2947837751796109126">"新しいウィンドウ"</string>
     <string name="menu_cut_to_clipboard" msgid="2878752142015026229">"切り取り"</string>
@@ -57,6 +57,8 @@
     <string name="button_move" msgid="8596460499325291272">"移動"</string>
     <string name="button_dismiss" msgid="7235249361023803349">"非表示"</string>
     <string name="button_retry" msgid="4011461781916631389">"再試行"</string>
+    <string name="button_clear" msgid="5412304437764369441">"削除"</string>
+    <string name="button_show_provider" msgid="6905880493806292753">"プロバイダで表示"</string>
     <string name="not_sorted" msgid="7813496644889115530">"並べ替えなし"</string>
     <string name="sort_dimension_name" msgid="6325591541414177579">"名前"</string>
     <string name="sort_dimension_summary" msgid="7724534446881397860">"概要"</string>
@@ -64,14 +66,6 @@
     <string name="sort_dimension_size" msgid="2190547351159472884">"サイズ"</string>
     <string name="sort_dimension_date" msgid="4231005651895254033">"最終変更"</string>
     <string name="directory_items" msgid="6645621978998614003">"アイテム数"</string>
-    <string name="handler_app_file_opens_with" msgid="2667097605117000751">"このファイル形式を開けるアプリ"</string>
-    <string name="handler_app_belongs_to" msgid="5956928604521893459">"このファイルのプロバイダ"</string>
-    <string name="handler_app_button_info_1" msgid="4271199640671067569">"このファイル形式は他のアプリでも開けます。デフォルトのアプリ"</string>
-    <string name="handler_app_button_info_2" msgid="4299969771512815898">"を削除します。"</string>
-    <string name="handler_app_clear" msgid="206579047716445033">"削除"</string>
-    <string name="handler_app_show_in" msgid="7923573101129079048">"プロバイダで表示"</string>
-    <string name="handler_app_not_selected" msgid="8178393676227130360">"選択されていません"</string>
-    <string name="handler_app_unknown" msgid="56574249066388341">"不明"</string>
     <string name="sort_direction_ascending" msgid="5882787683763248102">"昇順"</string>
     <string name="sort_direction_descending" msgid="1729187589765894076">"降順"</string>
     <string name="drawer_open" msgid="8071673398187261741">"ルートを表示する"</string>
@@ -90,7 +84,6 @@
     <string name="toast_no_application" msgid="7555319548595113121">"ファイルを開けません"</string>
     <string name="toast_view_in_archives_unsupported" msgid="1923221390170964845">"アーカイブ内のファイルを開くことはできません"</string>
     <string name="toast_failed_delete" msgid="3453846588205817591">"一部のドキュメントを削除できません"</string>
-    <string name="file_inspector_load_error" msgid="1226344446677541109">"プロパティを読み込めませんでした"</string>
     <string name="share_via" msgid="8725082736005677161">"共有ツール"</string>
     <string name="copy_notification_title" msgid="52256435625098456">"ファイルのコピー中"</string>
     <string name="compress_notification_title" msgid="6830195148113751021">"ファイルの圧縮中"</string>
@@ -119,11 +112,11 @@
       <item quantity="one"><xliff:g id="COUNT_0">%1$d</xliff:g> 件のアイテムを削除しています。</item>
     </plurals>
     <string name="undo" msgid="2902438994196400565">"元に戻す"</string>
-    <string name="copy_preparing" msgid="5326063807006898223">"コピーの準備をしています…"</string>
-    <string name="compress_preparing" msgid="6650018601382062672">"圧縮の準備をしています…"</string>
-    <string name="extract_preparing" msgid="58266275455027829">"解凍を準備しています…"</string>
-    <string name="move_preparing" msgid="8742573245485449429">"移動の準備をしています…"</string>
-    <string name="delete_preparing" msgid="6513863752916028147">"削除の準備をしています…"</string>
+    <string name="copy_preparing" msgid="4759516490222449324">"準備しています…"</string>
+    <string name="compress_preparing" msgid="7401605598969019696">"準備しています…"</string>
+    <string name="extract_preparing" msgid="4796626960061745796">"準備しています…"</string>
+    <string name="move_preparing" msgid="6504239656430530761">"準備しています…"</string>
+    <string name="delete_preparing" msgid="7339349837842802508">"準備しています…"</string>
     <string name="delete_progress" msgid="2627631054702306423">"<xliff:g id="COUNT_0">%1$d</xliff:g>/<xliff:g id="TOTALCOUNT">%2$d</xliff:g>"</string>
     <plurals name="copy_error_notification_title" formatted="false" msgid="3188432450429390963">
       <item quantity="other"><xliff:g id="COUNT_1">%1$d</xliff:g> 件のアイテムをコピーできませんでした</item>
@@ -213,5 +206,4 @@
     <string name="new_archive_file_name" msgid="1604650338077249838">"archive<xliff:g id="EXTENSION">%s</xliff:g>"</string>
     <string name="overwrite_file_confirmation_message" msgid="2496109652768222716">"<xliff:g id="NAME">%1$s</xliff:g> を上書きしますか？"</string>
     <string name="continue_in_background" msgid="1974214559047793331">"バックグラウンドで続行"</string>
-    <string name="inspector_debug_section" msgid="3447621501565766900">"デバッグ情報（デベロッパーのみ）"</string>
 </resources>

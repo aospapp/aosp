@@ -15,16 +15,17 @@
  */
 package com.android.tradefed.testtype;
 
+import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.result.InputStreamSource;
 import com.android.tradefed.result.LogDataType;
 import com.android.tradefed.result.SnapshotInputStreamSource;
+import com.android.tradefed.util.proto.TfMetricProtoUtil;
 
 import junit.framework.TestCase;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 /**
  * Extension of {@link TestCase} that allows to log metrics when running as part of TradeFed. Either
@@ -33,7 +34,7 @@ import java.util.Map;
  */
 public class MetricTestCase extends TestCase {
 
-    public Map<String, String> mMetrics = new HashMap<>();
+    public HashMap<String, Metric> mMetrics = new HashMap<>();
     public List<LogHolder> mLogs = new ArrayList<>();
 
     public MetricTestCase() {
@@ -52,7 +53,11 @@ public class MetricTestCase extends TestCase {
      * @param value associated to the key.
      */
     public final void addTestMetric(String key, String value) {
-        mMetrics.put(key, value);
+        mMetrics.put(key, TfMetricProtoUtil.stringToMetric(value));
+    }
+
+    public final void addTestMetric(String key, Metric metric) {
+        mMetrics.put(key, metric);
     }
 
     /**

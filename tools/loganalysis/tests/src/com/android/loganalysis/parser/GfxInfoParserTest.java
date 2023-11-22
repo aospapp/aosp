@@ -93,6 +93,9 @@ public class GfxInfoParserTest extends TestCase {
         assertEquals("com.google.android.leanbacklauncher", item.getName(853));
         assertEquals(20391, item.getTotalFrames(853));
         assertEquals(785, item.getJankyFrames(853));
+        assertEquals(9, item.getPrecentile90(853));
+        assertEquals(14, item.getPrecentile95(853));
+        assertEquals(32, item.getPrecentile99(853));
     }
 
     /**
@@ -285,12 +288,21 @@ public class GfxInfoParserTest extends TestCase {
         assertEquals("com.google.android.leanbacklauncher", item.getName(844));
         assertEquals(1690, item.getTotalFrames(844));
         assertEquals(125, item.getJankyFrames(844));
+        assertEquals(13, item.getPrecentile90(844));
+        assertEquals(19, item.getPrecentile95(844));
+        assertEquals(48, item.getPrecentile99(844));
         assertEquals("com.android.vending", item.getName(1881));
         assertEquals(693, item.getTotalFrames(1881));
         assertEquals(62, item.getJankyFrames(1881));
+        assertEquals(16, item.getPrecentile90(1881));
+        assertEquals(26, item.getPrecentile95(1881));
+        assertEquals(81, item.getPrecentile99(1881));
         assertEquals("com.google.android.videos", item.getName(2931));
         assertEquals(107, item.getTotalFrames(2931));
         assertEquals(42, item.getJankyFrames(2931));
+        assertEquals(48, item.getPrecentile90(2931));
+        assertEquals(65, item.getPrecentile95(2931));
+        assertEquals(113, item.getPrecentile99(2931));
     }
 
     /**

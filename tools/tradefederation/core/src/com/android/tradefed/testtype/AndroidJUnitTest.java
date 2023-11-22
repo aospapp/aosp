@@ -23,16 +23,19 @@ import com.android.tradefed.config.OptionCopier;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.log.LogUtil.CLog;
+import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.util.ArrayUtil;
 import com.android.tradefed.util.ListInstrumentationParser;
 
 import com.google.common.annotations.VisibleForTesting;
 
+import org.junit.runner.notification.RunListener;
+
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Set;
 
@@ -66,6 +69,11 @@ public class AndroidJUnitTest extends InstrumentationTest implements IRuntimeHin
     private static final String SHARD_INDEX_INST_ARGS_KEY = "shardIndex";
     /** instrumentation test runner argument used to specify the total number of shards */
     private static final String NUM_SHARD_INST_ARGS_KEY = "numShards";
+    /**
+     * instrumentation test runner argument used to enable the new {@link RunListener} order on
+     * device side.
+     */
+    public static final String NEW_RUN_LISTENER_ORDER_KEY = "newRunListenerMode";
 
     private static final String INCLUDE_FILE = "includes.txt";
     private static final String EXCLUDE_FILE = "excludes.txt";
@@ -110,6 +118,21 @@ public class AndroidJUnitTest extends InstrumentationTest implements IRuntimeHin
         description = "The maximum number of shard we want to allow the AJUR test to shard into"
     )
     private Integer mMaxShard = null;
+
+    @Option(
+        name = "device-listeners",
+        description =
+                "Specify a device side instrumentation listener to be added for the run. "
+                        + "Can be repeated."
+    )
+    private List<String> mExtraDeviceListener = new ArrayList<>();
+
+    @Option(
+        name = "use-new-run-listener-order",
+        description = "Enables the new RunListener Order for AJUR."
+    )
+    // Default to true as it is harmless if not supported.
+    private boolean mNewRunListenerOrderMode = true;
 
     private String mDeviceIncludeFile = null;
     private String mDeviceExcludeFile = null;
@@ -310,6 +333,12 @@ public class AndroidJUnitTest extends InstrumentationTest implements IRuntimeHin
             runner.addInstrumentationArg(SHARD_INDEX_INST_ARGS_KEY, Integer.toString(mShardIndex));
             runner.addInstrumentationArg(NUM_SHARD_INST_ARGS_KEY, Integer.toString(mTotalShards));
         }
+        if (mNewRunListenerOrderMode) {
+            runner.addInstrumentationArg(
+                    NEW_RUN_LISTENER_ORDER_KEY, Boolean.toString(mNewRunListenerOrderMode));
+        }
+        // Add the listeners received from Options
+        addDeviceListener(mExtraDeviceListener);
     }
 
     /**
@@ -353,7 +382,7 @@ public class AndroidJUnitTest extends InstrumentationTest implements IRuntimeHin
     private void reportEarlyFailure(ITestInvocationListener listener, String errorMessage) {
         listener.testRunStarted("AndroidJUnitTest_setupError", 0);
         listener.testRunFailed(errorMessage);
-        listener.testRunEnded(0, Collections.emptyMap());
+        listener.testRunEnded(0, new HashMap<String, Metric>());
     }
 
     /**

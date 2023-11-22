@@ -2,7 +2,7 @@
 //
 //    Sample Setup formset.
 //
-//  Copyright (c) 2004 - 2015, Intel Corporation. All rights reserved.<BR>
+//  Copyright (c) 2004 - 2016, Intel Corporation. All rights reserved.<BR>
 //  This program and the accompanying materials
 //  are licensed and made available under the terms and conditions of the BSD License
 //  which accompanies this distribution.  The full text of the license may be found at
@@ -434,6 +434,17 @@ formset
             step    = 1,
             default = 18,
     endnumeric;
+
+    orderedlist
+        varid       = MyIfrNVData.GetDefaultValueFromCallBackForOrderedList,
+        questionid  = 0x1252,
+        prompt      = STRING_TOKEN(STR_DEFAULT_VALUE_FROM_CALLBACK_PROMPT),
+        help        = STRING_TOKEN(STR_DEFAULT_VALUE_FROM_CALLBACK_HELP),
+        flags       = INTERACTIVE,
+        option text = STRING_TOKEN(STR_ONE_OF_TEXT1), value = 1, flags = 0;
+        option text = STRING_TOKEN(STR_ONE_OF_TEXT2), value = 2, flags = 0;
+        option text = STRING_TOKEN(STR_ONE_OF_TEXT3), value = 3, flags = 0;
+    endlist;
         
     resetbutton
       defaultstore = MyStandardDefault,
@@ -448,36 +459,6 @@ formset
     endresetbutton;
 
     //
-    // Non-interactive password, validate by Setup Browser
-    //
-    password  varid    = MyIfrNVData.WhatIsThePassword,
-              prompt   = STRING_TOKEN(STR_PASSWORD_PROMPT),
-              help     = STRING_TOKEN(STR_PASSWORD_HELP),
-              minsize  = 6,
-              maxsize  = 20,
-    endpassword;
-
-    string    varid    = MyIfrNVData.PasswordClearText,
-              prompt   = STRING_TOKEN(STR_MY_STRING_PROMPT),
-              help     = STRING_TOKEN(STR_MY_STRING_HELP),
-              minsize  = 6,
-              maxsize  = 0x14,
-              default  = STRING_TOKEN(STR_MY_STRING_DEFAULT),
-    endstring;
-
-    //
-    // Interactive password, validate via ConfigAccess.Callback()
-    //
-    password  varid    = MyIfrNVData.WhatIsThePassword2,
-              prompt   = STRING_TOKEN(STR_PASSWORD_CALLBACK_PROMPT),
-              help     = STRING_TOKEN(STR_PASSWORD_HELP),
-              flags    = INTERACTIVE,
-              key      = 0x2000,
-              minsize  = 6,
-              maxsize  = 20,
-    endpassword;
-
-    //
     // Sample use case for IFR Security op-code
     //
     grayoutif NOT security (EFI_USER_INFO_ACCESS_SETUP_ADMIN_GUID);
@@ -485,6 +466,16 @@ formset
         help = STRING_TOKEN(STR_TEXT_SECRUITY_TEST_HELP),
         text = STRING_TOKEN(STR_TEXT_SECRUITY_TEST_TEXT);
     endif;
+
+    numeric varid   = MyEfiVar.SubmittedCallback,
+            questionid = 0x1250,
+            prompt  = STRING_TOKEN(STR_SUBMITTED_CALLBACK_TEST_PROMPT),
+            help    = STRING_TOKEN(STR_SUBMITTED_CALLBACK_TEST_HELP),
+            flags   = INTERACTIVE,
+            minimum = 0,
+            maximum = 255,
+            default = 18,
+    endnumeric;
     
     goto 2,
       prompt = STRING_TOKEN(STR_GOTO_FORM2), //SecondSetupPage  // this too has no end-op and basically it's a jump to a form ONLY

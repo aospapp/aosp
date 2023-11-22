@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "jni.h"
+#include <jni.h>
 
 #include <stack>
 #include <string>

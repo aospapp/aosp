@@ -479,23 +479,6 @@ std::string Leak::ToString(bool log_contents) const {
   return oss.str();
 }
 
-// Figure out the abi based on defined macros.
-#if defined(__arm__)
-#define ABI_STRING "arm"
-#elif defined(__aarch64__)
-#define ABI_STRING "arm64"
-#elif defined(__mips__) && !defined(__LP64__)
-#define ABI_STRING "mips"
-#elif defined(__mips__) && defined(__LP64__)
-#define ABI_STRING "mips64"
-#elif defined(__i386__)
-#define ABI_STRING "x86"
-#elif defined(__x86_64__)
-#define ABI_STRING "x86_64"
-#else
-#error "Unsupported ABI"
-#endif
-
 std::string UnreachableMemoryInfo::ToString(bool log_contents) const {
   std::ostringstream oss;
   oss << "  " << leak_bytes << " bytes in ";
@@ -510,6 +493,21 @@ std::string UnreachableMemoryInfo::ToString(bool log_contents) const {
   }
 
   return oss.str();
+}
+
+UnreachableMemoryInfo::~UnreachableMemoryInfo() {
+  // Clear the memory that holds the leaks, otherwise the next attempt to
+  // detect leaks may find the old data (for example in the jemalloc tcache)
+  // and consider all the leaks to be referenced.
+  memset(leaks.data(), 0, leaks.capacity() * sizeof(Leak));
+
+  std::vector<Leak> tmp;
+  leaks.swap(tmp);
+
+  // Disable and re-enable malloc to flush the jemalloc tcache to make sure
+  // there are no copies of the leaked pointer addresses there.
+  malloc_disable();
+  malloc_enable();
 }
 
 std::string GetUnreachableMemoryString(bool log_contents, size_t limit) {

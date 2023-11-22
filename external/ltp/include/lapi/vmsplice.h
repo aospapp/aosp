@@ -22,7 +22,7 @@
 #define VMSPLICE_H
 
 #include "config.h"
-#include "linux_syscall_numbers.h"
+#include "lapi/syscalls.h"
 
 #include "lapi/iovec.h"
 
@@ -30,7 +30,7 @@
 ssize_t vmsplice(int fd, const struct iovec *iov,
 	         unsigned long nr_segs, unsigned int flags)
 {
-	return ltp_syscall(__NR_vmsplice, fd, iov, nr_segs, flags);
+	return tst_syscall(__NR_vmsplice, fd, iov, nr_segs, flags);
 }
 #endif
 

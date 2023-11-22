@@ -22,12 +22,19 @@ import com.android.tradefed.config.OptionSetter;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.log.LogUtil.CLog;
 
+import junit.framework.Test;
+import junit.framework.TestSuite;
+
+import org.junit.internal.runners.JUnit38ClassRunner;
 import org.junit.runner.Runner;
 import org.junit.runner.notification.RunNotifier;
 import org.junit.runners.Suite;
 import org.junit.runners.model.InitializationError;
 import org.junit.runners.model.RunnerBuilder;
 
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.util.Enumeration;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -99,6 +106,36 @@ public class DeviceSuite extends Suite
 
     @Override
     protected void runChild(Runner runner, RunNotifier notifier) {
+        // Handle legacy JUnit3 style
+        if (runner instanceof JUnit38ClassRunner) {
+            JUnit38ClassRunner junit3Runner = (JUnit38ClassRunner) runner;
+            try {
+                // getTest is private so we use reflection to get the test object.
+                Method getTest = junit3Runner.getClass().getDeclaredMethod("getTest");
+                getTest.setAccessible(true);
+                Test test = (Test) getTest.invoke(junit3Runner);
+                if (test instanceof TestSuite) {
+                    TestSuite testSuite = (TestSuite) test;
+                    Enumeration<Test> testEnum = testSuite.tests();
+                    while (testEnum.hasMoreElements()) {
+                        Test t = testEnum.nextElement();
+                        injectValues(t);
+                    }
+                } else {
+                    injectValues(test);
+                }
+            } catch (NoSuchMethodException
+                    | SecurityException
+                    | IllegalAccessException
+                    | IllegalArgumentException
+                    | InvocationTargetException e) {
+                throw new RuntimeException(
+                        String.format(
+                                "Failed to invoke junit3 runner: %s",
+                                junit3Runner.getClass().getName()),
+                        e);
+            }
+        }
         try {
             OptionSetter setter = new OptionSetter(runner);
             for (String kv : mKeyValueOptions) {
@@ -108,5 +145,25 @@ public class DeviceSuite extends Suite
             CLog.d("Could not set option set-option on '%s', reason: '%s'", runner, e.getMessage());
         }
         super.runChild(runner, notifier);
+    }
+
+    /** Inject the options to the tests. */
+    private void injectValues(Object testObj) {
+        if (testObj instanceof IDeviceTest) {
+            if (mDevice == null) {
+                throw new IllegalArgumentException("Missing device");
+            }
+            ((IDeviceTest) testObj).setDevice(mDevice);
+        }
+        if (testObj instanceof IBuildReceiver) {
+            if (mBuildInfo == null) {
+                throw new IllegalArgumentException("Missing build information");
+            }
+            ((IBuildReceiver) testObj).setBuild(mBuildInfo);
+        }
+        // We are more flexible about abi information since not always available.
+        if (testObj instanceof IAbiReceiver) {
+            ((IAbiReceiver) testObj).setAbi(mAbi);
+        }
     }
 }

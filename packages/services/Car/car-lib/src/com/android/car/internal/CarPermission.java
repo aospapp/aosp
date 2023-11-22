@@ -58,4 +58,10 @@ public class CarPermission {
                         + " uid:"
                         + Binder.getCallingUid());
     }
+
+    /** @hide */
+    @Override
+    public String toString() {
+        return mName;
+    }
 }

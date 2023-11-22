@@ -401,6 +401,7 @@ public:
      *      interested only in video frame.
      *  r_scale, g_scale, b_scale - White balance scale.
      *  exposure_comp - Expsoure compensation.
+     *  frame_time - Receives the time at which the queried frame was produced.
      * Return:
      *  NO_ERROR on success, or an appropriate error status on failure.
      */
@@ -411,7 +412,8 @@ public:
                         float r_scale,
                         float g_scale,
                         float b_scale,
-                        float exposure_comp);
+                        float exposure_comp,
+                        int64_t* frame_time);
 
     /****************************************************************************
      * Names of the queries available for the emulated camera.

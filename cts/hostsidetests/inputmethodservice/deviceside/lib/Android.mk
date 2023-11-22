@@ -18,8 +18,7 @@ include $(CLEAR_VARS)
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 LOCAL_STATIC_JAVA_LIBRARIES := \
-    android-support-annotations \
-    json \
+    androidx.annotation_annotation \
     CtsInputMethodServiceCommon
 
 LOCAL_MODULE_TAGS := tests
@@ -29,6 +28,6 @@ LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
 
 LOCAL_MODULE := CtsInputMethodServiceLib
 
-LOCAL_SDK_VERSION := current
+LOCAL_SDK_VERSION := test_current
 
 include $(BUILD_STATIC_JAVA_LIBRARY)

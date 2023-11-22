@@ -13,37 +13,36 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#define LOG_TAG "VtsShellDriver"
 
 #include "ShellDriver.h"
 
-#include <stdio.h>
-#include <stdlib.h>
 #include <sys/socket.h>
-#include <sys/types.h>
+#include <sys/stat.h>
 #include <sys/un.h>
-#include <unistd.h>
-
-#include <iostream>
 #include <sstream>
 
 #include <VtsDriverCommUtil.h>
 #include <VtsDriverFileUtil.h>
+#include <android-base/logging.h>
+
 #include "test/vts/proto/VtsDriverControlMessage.pb.h"
 
 using namespace std;
+
+// Threshold of serialized proto msg size sent over socket.
+static constexpr long kProtoSizeThreshold = 1024 * 1024;  // 1MB
 
 namespace android {
 namespace vts {
 
 int VtsShellDriver::Close() {
-  cout << __func__ << endl;
   int result = 0;
 
   if (!this->socket_address_.empty()) {
     result = unlink(this->socket_address_.c_str());
     if (result != 0) {
-      cerr << __func__ << ":" << __LINE__
-           << " ERROR closing socket (errno = " << errno << ")" << endl;
+      LOG(ERROR) << " ERROR closing socket (errno = " << errno << ")";
     }
     this->socket_address_.clear();
   }
@@ -57,12 +56,10 @@ CommandResult* VtsShellDriver::ExecShellCommandPopen(const string& command) {
   // TODO: handle no output case.
   FILE* output_fp;
 
-  cout << "[Driver] Running command: " << command << endl << endl;
-
   // execute the command.
   output_fp = popen(command.c_str(), "r");
   if (output_fp == NULL) {
-    cerr << "Failed to run command: " << command << endl;
+    LOG(ERROR) << "Failed to run command: " << command;
     result->exit_code = errno;
     return result;
   }
@@ -75,18 +72,16 @@ CommandResult* VtsShellDriver::ExecShellCommandPopen(const string& command) {
     bytes_read = fread(buff, 1, sizeof(buff) - 1, output_fp);
     // TODO: catch stderr
     if (ferror(output_fp)) {
-      cerr << __func__ << ":" << __LINE__ << "ERROR reading shell output"
-           << endl;
+      LOG(ERROR) << "ERROR reading shell output";
       result->exit_code = -1;
       return result;
     }
 
-    cout << "[Driver] bytes read from output: " << bytes_read << endl;
     buff[bytes_read] = '\0';
     ss << buff;
   }
 
-  cout << "[Driver] Returning output: " << ss.str() << endl << endl;
+  LOG(DEBUG) << " Returning output: " << ss.str();
   result->stdout = ss.str();
 
   result->exit_code = pclose(output_fp) / 256;
@@ -114,13 +109,27 @@ CommandResult* VtsShellDriver::ExecShellCommandNohup(const string& command) {
 
   // execute the command.
   int exit_code = system(ss.str().c_str()) / 256;
-
   result->exit_code = exit_code;
-  result->stdout = ReadFile(stdout_file_name);
-  result->stderr = ReadFile(stderr_file_name);
 
-  remove(stdout_file_name);
-  remove(stderr_file_name);
+  // If stdout size larger than threshold, send back the temp file path.
+  // Otherwise, send back the context directly.
+  long stdout_size = GetFileSize(stdout_file_name);
+  if (stdout_size > kProtoSizeThreshold) {
+    result->stdout = string(stdout_file_name);
+  } else {
+    result->stdout = ReadFile(stdout_file_name);
+    remove(stdout_file_name);
+  }
+
+  // If stderr size larger than threshold, send back the temp file path.
+  // Otherwise, send back the context directly.
+  long stderr_size = GetFileSize(stderr_file_name);
+  if (stderr_size > kProtoSizeThreshold) {
+    result->stderr = string(stderr_file_name);
+  } else {
+    result->stderr = ReadFile(stderr_file_name);
+    remove(stderr_file_name);
+  }
 
   return result;
 }
@@ -147,28 +156,26 @@ int VtsShellDriver::HandleShellCommandConnection(int connection_fd) {
   while (1) {
     if (!driverUtil.VtsSocketRecvMessage(
             static_cast<google::protobuf::Message*>(&cmd_msg))) {
-      cerr << "[Shell driver] receiving message failure." << endl;
+      LOG(ERROR) << "Receiving message failure.";
       return -1;
     }
 
     if (cmd_msg.command_type() == EXIT) {
-      cout << "[Shell driver] received exit command." << endl;
+      LOG(ERROR) << "Received exit command.";
       break;
     } else if (cmd_msg.command_type() != EXECUTE_COMMAND) {
-      cerr << "[Shell driver] unknown command type " << cmd_msg.command_type()
-           << endl;
+      LOG(ERROR) << "Unknown command type " << cmd_msg.command_type();
       continue;
     }
-    cout << "[Shell driver] received " << cmd_msg.shell_command_size()
-         << " command(s). Processing... " << endl;
+    LOG(INFO) << "Received " << cmd_msg.shell_command_size()
+              << " command(s). Processing...";
 
     // execute command and write back output
     VtsDriverControlResponseMessage responseMessage;
 
     for (const auto& command : cmd_msg.shell_command()) {
       if (ExecShellCommand(command, &responseMessage) != 0) {
-        cerr << "[Shell driver] error during executing command [" << command
-             << "]" << endl;
+        LOG(ERROR) << "Error during executing command [" << command << "]";
         --numberOfFailure;
       }
     }
@@ -176,14 +183,14 @@ int VtsShellDriver::HandleShellCommandConnection(int connection_fd) {
     // TODO: other response code conditions
     responseMessage.set_response_code(VTS_DRIVER_RESPONSE_SUCCESS);
     if (!driverUtil.VtsSocketSendMessage(responseMessage)) {
-      fprintf(stderr, "Driver: write output to socket error.\n");
+      LOG(ERROR) << "Write output to socket error.";
       --numberOfFailure;
     }
-    cout << "[Shell driver] finished processing commands." << endl;
+    LOG(DEBUG) << "Finished processing commands.";
   }
 
   if (driverUtil.Close() != 0) {
-    cerr << "[Driver] failed to close connection. errno: " << errno << endl;
+    LOG(ERROR) << "Failed to close connection. errno: " << errno;
     --numberOfFailure;
   }
 
@@ -192,11 +199,11 @@ int VtsShellDriver::HandleShellCommandConnection(int connection_fd) {
 
 int VtsShellDriver::StartListen() {
   if (this->socket_address_.empty()) {
-    cerr << "[Driver] NULL socket address." << endl;
+    LOG(ERROR) << "NULL socket address.";
     return -1;
   }
 
-  cout << "[Driver] start listening on " << this->socket_address_ << endl;
+  LOG(INFO) << "Start listening on " << this->socket_address_;
 
   struct sockaddr_un address;
   int socket_fd, connection_fd;
@@ -205,7 +212,7 @@ int VtsShellDriver::StartListen() {
 
   socket_fd = socket(PF_UNIX, SOCK_STREAM, 0);
   if (socket_fd < 0) {
-    cerr << "Driver: socket() failed: " << strerror(errno) << endl;
+    LOG(ERROR) << "Socket() failed: " << strerror(errno);
     return socket_fd;
   }
 
@@ -217,12 +224,12 @@ int VtsShellDriver::StartListen() {
 
   if (::bind(socket_fd, (struct sockaddr*)&address,
              sizeof(struct sockaddr_un)) != 0) {
-    cerr << "Driver: bind() failed: " << strerror(errno) << endl;
+    LOG(ERROR) << "bind() failed: " << strerror(errno);
     return 1;
   }
 
   if (listen(socket_fd, 5) != 0) {
-    cerr << "Driver: listen() failed: " << strerror(errno) << endl;
+    LOG(ERROR) << "listen() failed: " << strerror(errno);
     return errno;
   }
 
@@ -233,7 +240,7 @@ int VtsShellDriver::StartListen() {
     connection_fd =
         accept(socket_fd, (struct sockaddr*)&address, &address_length);
     if (connection_fd == -1) {
-      cerr << "Driver: accept error: " << strerror(errno) << endl;
+      LOG(ERROR) << "Accept error: " << strerror(errno);
       break;
     }
 
@@ -242,7 +249,7 @@ int VtsShellDriver::StartListen() {
       close(socket_fd);
       // now inside newly created connection handling process
       if (HandleShellCommandConnection(connection_fd) != 0) {
-        cerr << "[Driver] failed to handle connection." << endl;
+        LOG(ERROR) << "Failed to handle connection.";
         close(connection_fd);
         exit(1);
       }
@@ -251,13 +258,19 @@ int VtsShellDriver::StartListen() {
     } else if (child > 0) {
       close(connection_fd);
     } else {
-      cerr << "[Driver] create child process failed. Exiting..." << endl;
+      LOG(ERROR) << "Create child process failed. Exiting...";
       return (errno);
     }
   }
   close(socket_fd);
 
   return 0;
+}
+
+long VtsShellDriver::GetFileSize(const char* filename) {
+  struct stat stat_buf;
+  int rc = stat(filename, &stat_buf);
+  return rc == 0 ? stat_buf.st_size : -1;
 }
 
 }  // namespace vts

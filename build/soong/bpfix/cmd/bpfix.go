@@ -75,13 +75,14 @@ func processFile(filename string, in io.Reader, out io.Writer, fixRequest bpfix.
 	}
 
 	// compute and apply any requested fixes
-	fixed, err := bpfix.FixTree(file, fixRequest)
+	fixer := bpfix.NewFixer(file)
+	file, err = fixer.Fix(fixRequest)
 	if err != nil {
 		return err
 	}
 
 	// output the results
-	res, err := parser.Print(fixed)
+	res, err := parser.Print(file)
 	if err != nil {
 		return err
 	}

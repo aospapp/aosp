@@ -17,6 +17,16 @@
 #include "utils.h"
 #include "ip_common.h"
 
+static void print_explain(FILE *f)
+{
+	fprintf(f, "Usage: ... bond_slave [ queue_id ID ]\n");
+}
+
+static void explain(void)
+{
+	print_explain(stderr);
+}
+
 static const char *slave_states[] = {
 	[BOND_STATE_ACTIVE] = "ACTIVE",
 	[BOND_STATE_BACKUP] = "BACKUP",
@@ -26,10 +36,13 @@ static void print_slave_state(FILE *f, struct rtattr *tb)
 {
 	unsigned int state = rta_getattr_u8(tb);
 
-	if (state >= sizeof(slave_states) / sizeof(slave_states[0]))
-		fprintf(f, "state %d ", state);
+	if (state >= ARRAY_SIZE(slave_states))
+		print_int(PRINT_ANY, "state_index", "state %d ", state);
 	else
-		fprintf(f, "state %s ", slave_states[state]);
+		print_string(PRINT_ANY,
+			     "state",
+			     "state %s ",
+			     slave_states[state]);
 }
 
 static const char *slave_mii_status[] = {
@@ -43,10 +56,16 @@ static void print_slave_mii_status(FILE *f, struct rtattr *tb)
 {
 	unsigned int status = rta_getattr_u8(tb);
 
-	if (status >= sizeof(slave_mii_status) / sizeof(slave_mii_status[0]))
-		fprintf(f, "mii_status %d ", status);
+	if (status >= ARRAY_SIZE(slave_mii_status))
+		print_int(PRINT_ANY,
+			  "mii_status_index",
+			  "mii_status %d ",
+			  status);
 	else
-		fprintf(f, "mii_status %s ", slave_mii_status[status]);
+		print_string(PRINT_ANY,
+			     "mii_status",
+			     "mii_status %s ",
+			     slave_mii_status[status]);
 }
 
 static void bond_slave_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
@@ -62,30 +81,42 @@ static void bond_slave_print_opt(struct link_util *lu, FILE *f, struct rtattr *t
 		print_slave_mii_status(f, tb[IFLA_BOND_SLAVE_MII_STATUS]);
 
 	if (tb[IFLA_BOND_SLAVE_LINK_FAILURE_COUNT])
-		fprintf(f, "link_failure_count %d ",
-			rta_getattr_u32(tb[IFLA_BOND_SLAVE_LINK_FAILURE_COUNT]));
+		print_int(PRINT_ANY,
+			  "link_failure_count",
+			  "link_failure_count %d ",
+			  rta_getattr_u32(tb[IFLA_BOND_SLAVE_LINK_FAILURE_COUNT]));
 
 	if (tb[IFLA_BOND_SLAVE_PERM_HWADDR])
-		fprintf(f, "perm_hwaddr %s ",
-			ll_addr_n2a(RTA_DATA(tb[IFLA_BOND_SLAVE_PERM_HWADDR]),
-				    RTA_PAYLOAD(tb[IFLA_BOND_SLAVE_PERM_HWADDR]),
-				    0, b1, sizeof(b1)));
+		print_string(PRINT_ANY,
+			     "perm_hwaddr",
+			     "perm_hwaddr %s ",
+			     ll_addr_n2a(RTA_DATA(tb[IFLA_BOND_SLAVE_PERM_HWADDR]),
+					 RTA_PAYLOAD(tb[IFLA_BOND_SLAVE_PERM_HWADDR]),
+					 0, b1, sizeof(b1)));
 
 	if (tb[IFLA_BOND_SLAVE_QUEUE_ID])
-		fprintf(f, "queue_id %d ",
-			rta_getattr_u16(tb[IFLA_BOND_SLAVE_QUEUE_ID]));
+		print_int(PRINT_ANY,
+			  "queue_id",
+			  "queue_id %d ",
+			  rta_getattr_u16(tb[IFLA_BOND_SLAVE_QUEUE_ID]));
 
 	if (tb[IFLA_BOND_SLAVE_AD_AGGREGATOR_ID])
-		fprintf(f, "ad_aggregator_id %d ",
-			rta_getattr_u16(tb[IFLA_BOND_SLAVE_AD_AGGREGATOR_ID]));
+		print_int(PRINT_ANY,
+			  "ad_aggregator_id",
+			  "ad_aggregator_id %d ",
+			  rta_getattr_u16(tb[IFLA_BOND_SLAVE_AD_AGGREGATOR_ID]));
 
 	if (tb[IFLA_BOND_SLAVE_AD_ACTOR_OPER_PORT_STATE])
-		fprintf(f, "ad_actor_oper_port_state %d\n",
-			rta_getattr_u8(tb[IFLA_BOND_SLAVE_AD_ACTOR_OPER_PORT_STATE]));
+		print_int(PRINT_ANY,
+			  "ad_actor_oper_port_state",
+			  "ad_actor_oper_port_state %d ",
+			  rta_getattr_u8(tb[IFLA_BOND_SLAVE_AD_ACTOR_OPER_PORT_STATE]));
 
 	if (tb[IFLA_BOND_SLAVE_AD_PARTNER_OPER_PORT_STATE])
-		fprintf(f, "ad_partner_oper_port_state %d\n",
-			rta_getattr_u16(tb[IFLA_BOND_SLAVE_AD_PARTNER_OPER_PORT_STATE]));
+		print_int(PRINT_ANY,
+			  "ad_partner_oper_port_state",
+			  "ad_partner_oper_port_state %d ",
+			  rta_getattr_u16(tb[IFLA_BOND_SLAVE_AD_PARTNER_OPER_PORT_STATE]));
 }
 
 static int bond_slave_parse_opt(struct link_util *lu, int argc, char **argv,
@@ -99,6 +130,13 @@ static int bond_slave_parse_opt(struct link_util *lu, int argc, char **argv,
 			if (get_u16(&queue_id, *argv, 0))
 				invarg("queue_id is invalid", *argv);
 			addattr16(n, 1024, IFLA_BOND_SLAVE_QUEUE_ID, queue_id);
+		} else {
+			if (matches(*argv, "help") != 0)
+				fprintf(stderr,
+					"bond_slave: unknown option \"%s\"?\n",
+					*argv);
+			explain();
+			return -1;
 		}
 		argc--, argv++;
 	}
@@ -106,10 +144,16 @@ static int bond_slave_parse_opt(struct link_util *lu, int argc, char **argv,
 	return 0;
 }
 
+static void bond_slave_print_help(struct link_util *lu, int argc, char **argv,
+				  FILE *f)
+{
+	print_explain(f);
+}
+
 struct link_util bond_slave_link_util = {
-	.id		= "bond",
+	.id		= "bond_slave",
 	.maxattr	= IFLA_BOND_SLAVE_MAX,
 	.print_opt	= bond_slave_print_opt,
 	.parse_opt	= bond_slave_parse_opt,
-	.slave		= true,
+	.print_help	= bond_slave_print_help,
 };

@@ -87,7 +87,11 @@ public class AssistScreenCaptureDisabledTest {
             Intent showSessionIntent = new Intent(ACTION_SHOW_SESSION);
             showSessionIntent.setPackage(ASSIST_PACKAGE);
             mContext.sendBroadcast(showSessionIntent);
-            Intent screenShotIntent = receiver.awaitForBroadcast();
+            Intent screenShotIntent = null;
+            for (int i = 0; i < MAX_ATTEMPTS_COUNT && (screenShotIntent == null); ++ i) {
+                Log.d(TAG, "has not received intent yet: wait for intent, attempt " + i);
+                screenShotIntent = receiver.awaitForBroadcast();
+            }
             Assert.assertNotNull(screenShotIntent);
             Assert.assertTrue(screenShotIntent.hasExtra(KEY_HAS_SCREENSHOT));
             assertEquals(possible, screenShotIntent.getBooleanExtra(KEY_HAS_SCREENSHOT, false));

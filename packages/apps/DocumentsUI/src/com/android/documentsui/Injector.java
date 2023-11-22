@@ -28,11 +28,12 @@ import com.android.documentsui.base.EventHandler;
 import com.android.documentsui.base.Features;
 import com.android.documentsui.base.Lookup;
 import com.android.documentsui.base.RootInfo;
+import com.android.documentsui.dirlist.DocsStableIdProvider;
 import com.android.documentsui.dirlist.DocumentsAdapter;
 import com.android.documentsui.prefs.ScopedPreferences;
 import com.android.documentsui.queries.SearchViewManager;
-import com.android.documentsui.selection.SelectionManager;
-import com.android.documentsui.selection.SelectionManager.SelectionPredicate;
+import com.android.documentsui.selection.ContentLock;
+import com.android.documentsui.selection.SelectionHelper;
 import com.android.documentsui.ui.DialogController;
 import com.android.documentsui.ui.MessageBuilder;
 import com.android.internal.annotations.VisibleForTesting;
@@ -70,7 +71,7 @@ public class Injector<T extends ActionHandler> {
     public FocusManager focusManager;
 
     @ContentScoped
-    public SelectionManager selectionMgr;
+    public DocsSelectionHelper selectionMgr;
 
     private final Model mModel;
 
@@ -119,9 +120,9 @@ public class Injector<T extends ActionHandler> {
         return focusManager.reset(view, model);
     }
 
-    public SelectionManager getSelectionManager(
-            DocumentsAdapter adapter, SelectionPredicate canSetState) {
-        return selectionMgr.reset(adapter, canSetState);
+    public SelectionHelper getSelectionManager(
+            DocumentsAdapter adapter, SelectionHelper.SelectionPredicate canSetState) {
+        return selectionMgr.reset(adapter, new DocsStableIdProvider(adapter), canSetState);
     }
 
     public final ActionModeController getActionModeController(
@@ -131,20 +132,22 @@ public class Injector<T extends ActionHandler> {
 
     /**
      * Obtains action handler and resets it if necessary.
-     * @param reloadLock the lock held by {@link com.android.documentsui.selection.BandController}
-     *                   to prevent loader from updating result during band selection. May be
-     *                   {@code null} if called from
-     *                   {@link com.android.documentsui.sidebar.RootsFragment}.
+     *
+     * @param contentLock the lock held by
+     *            {@link com.android.documentsui.selection.BandSelectionHelper} and
+     *            {@link com.android.documentsui.selection.GestureSelectionHelper} to prevent
+     *            loader from updating result during band/gesture selection. May be {@code null} if
+     *            called from {@link com.android.documentsui.sidebar.RootsFragment}.
      * @return the action handler
      */
-    public T getActionHandler(@Nullable DirectoryReloadLock reloadLock) {
+    public T getActionHandler(@Nullable ContentLock contentLock) {
 
         // provide our friend, RootsFragment, early access to this special feature!
-        if (reloadLock == null) {
+        if (contentLock == null) {
             return actions;
         }
 
-        return actions.reset(reloadLock);
+        return actions.reset(contentLock);
     }
 
     /**

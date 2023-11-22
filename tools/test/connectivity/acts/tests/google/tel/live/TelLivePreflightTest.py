@@ -20,6 +20,10 @@
 import time
 from queue import Empty
 
+from acts import signals
+from acts import utils
+from acts.controllers.android_device import get_info
+from acts.libs.ota import ota_updater
 from acts.test_decorators import test_tracker_info
 from acts.test_utils.tel.TelephonyBaseTest import TelephonyBaseTest
 from acts.test_utils.tel.tel_defines import AOSP_PREFIX
@@ -42,10 +46,13 @@ from acts.test_utils.tel.tel_test_utils import ensure_phones_default_state
 from acts.test_utils.tel.tel_test_utils import ensure_phone_subscription
 from acts.test_utils.tel.tel_test_utils import ensure_wifi_connected
 from acts.test_utils.tel.tel_test_utils import get_operator_name
+from acts.test_utils.tel.tel_test_utils import is_sim_locked
+from acts.test_utils.tel.tel_test_utils import run_multithread_func
 from acts.test_utils.tel.tel_test_utils import setup_droid_properties
 from acts.test_utils.tel.tel_test_utils import set_phone_screen_on
 from acts.test_utils.tel.tel_test_utils import set_phone_silent_mode
-from acts.test_utils.tel.tel_test_utils import toggle_airplane_mode
+from acts.test_utils.tel.tel_test_utils import toggle_airplane_mode_by_adb
+from acts.test_utils.tel.tel_test_utils import unlock_sim
 from acts.test_utils.tel.tel_test_utils import verify_http_connection
 from acts.test_utils.tel.tel_test_utils import wait_for_voice_attach_for_subscription
 from acts.test_utils.tel.tel_test_utils import wait_for_wifi_data_connection
@@ -60,17 +67,67 @@ class TelLivePreflightTest(TelephonyBaseTest):
         TelephonyBaseTest.__init__(self, controllers)
 
         self.wifi_network_ssid = self.user_params.get(
-            "wifi_network_ssid") or self.user_params.get("wifi_network_ssid_2g")
+            "wifi_network_ssid") or self.user_params.get(
+                "wifi_network_ssid_2g") or self.user_params.get(
+                    "wifi_network_ssid_5g")
         self.wifi_network_pass = self.user_params.get(
-            "wifi_network_pass") or self.user_params.get("wifi_network_pass_2g")
+            "wifi_network_pass") or self.user_params.get(
+                "wifi_network_pass_2g") or self.user_params.get(
+                    "wifi_network_ssid_5g")
 
     def setup_class(self):
+        for ad in self.android_devices:
+            toggle_airplane_mode_by_adb(self.log, ad, False)
+
+    def teardown_class(self):
         pass
 
     def setup_test(self):
         pass
 
     """ Tests Begin """
+
+    @test_tracker_info(uuid="cb897221-99e1-4697-927e-02d92d969440")
+    @TelephonyBaseTest.tel_test_wrap
+    def test_ota_upgrade(self):
+        ota_package = self.user_params.get("ota_package")
+        if isinstance(ota_package, list):
+            ota_package = ota_package[0]
+        if ota_package and "dev/null" not in ota_package:
+            self.log.info("Upgrade with ota_package %s", ota_package)
+            self.log.info("Before OTA upgrade: %s",
+                          get_info(self.android_devices))
+        else:
+            raise signals.TestSkip("No ota_package is defined")
+        ota_util = self.user_params.get("ota_util")
+        if isinstance(ota_util, list):
+            ota_util = ota_util[0]
+        if ota_util:
+            if "update_engine_client.zip" in ota_util:
+                self.user_params["UpdateDeviceOtaTool"] = ota_util
+                self.user_params["ota_tool"] = "UpdateDeviceOtaTool"
+            else:
+                self.user_params["AdbSideloadOtaTool"] = ota_util
+                self.user_params["ota_tool"] = "AdbSideloadOtaTool"
+        self.log.info("OTA upgrade with %s by %s", ota_package,
+                      self.user_params["ota_tool"])
+        ota_updater.initialize(self.user_params, self.android_devices)
+        tasks = [(ota_updater.update, [ad]) for ad in self.android_devices]
+        try:
+            run_multithread_func(self.log, tasks)
+        except Exception as err:
+            abort_all_tests(self.log, "Unable to do ota upgrade: %s" % err)
+        device_info = get_info(self.android_devices)
+        self.log.info("After OTA upgrade: %s", device_info)
+        self.results.add_controller_info("AndroidDevice", device_info)
+        for ad in self.android_devices:
+            if is_sim_locked(ad):
+                ad.log.info("After OTA, SIM keeps the locked state")
+            elif getattr(ad, "is_sim_locked", False):
+                ad.log.error("After OTA, SIM loses the locked state")
+            if not unlock_sim(ad):
+                abort_all_tests(ad.log, "unable to unlock SIM")
+        return True
 
     @test_tracker_info(uuid="8390a2eb-a744-4cda-bade-f94a2cc83f02")
     @TelephonyBaseTest.tel_test_wrap
@@ -104,11 +161,19 @@ class TelLivePreflightTest(TelephonyBaseTest):
     @test_tracker_info(uuid="1070b160-902b-43bf-92a0-92cc2d05bb13")
     @TelephonyBaseTest.tel_test_wrap
     def test_check_crash(self):
+        result = True
+        begin_time = None
         for ad in self.android_devices:
+            output = ad.adb.shell("cat /proc/uptime")
+            epoch_up_time = utils.get_current_epoch_time() - 1000 * float(
+                output.split(" ")[0])
             ad.crash_report_preflight = ad.check_crash_report(
-                self.test_id, None, True)
+                self.test_name,
+                begin_time=epoch_up_time,
+                log_crash_report=True)
             if ad.crash_report_preflight:
                 msg = "Find crash reports %s before test starts" % (
                     ad.crash_report_preflight)
                 ad.log.warn(msg)
-        return True
+                result = False
+        return result

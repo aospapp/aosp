@@ -33,6 +33,7 @@ import android.media.MediaExtractor;
 import android.media.MediaFormat;
 import android.media.MediaMuxer;
 import android.net.Uri;
+import android.platform.test.annotations.AppModeFull;
 import android.util.Log;
 import android.util.Pair;
 import android.util.Range;
@@ -54,6 +55,7 @@ import java.util.LinkedList;
 import java.util.Map;
 import java.util.Set;
 
+@AppModeFull(reason = "TODO: evaluate and port to instant")
 public class VideoEncoderTest extends MediaPlayerTestBase {
     private static final int MAX_SAMPLE_SIZE = 256 * 1024;
     private static final String TAG = "VideoEncoderTest";
@@ -1190,8 +1192,7 @@ public class VideoEncoderTest extends MediaPlayerTestBase {
         ArrayList<Encoder> result = new ArrayList<Encoder>();
 
         for (MediaCodecInfo info : mcl.getCodecInfos()) {
-            if (!info.isEncoder()
-                    || info.getName().toLowerCase().startsWith("omx.google.") != goog) {
+            if (!info.isEncoder() || MediaUtils.isGoogle(info.getName()) != goog) {
                 continue;
             }
             CodecCapabilities caps = null;

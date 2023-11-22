@@ -17,6 +17,7 @@ LOCAL_PATH:= $(call my-dir)
 include $(CLEAR_VARS)
 
 LOCAL_PACKAGE_NAME := CtsUsageStatsTestCases
+LOCAL_PRIVATE_PLATFORM_APIS := true
 
 # don't include this package in any target
 LOCAL_MODULE_TAGS := optional
@@ -26,14 +27,16 @@ LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
 
 LOCAL_STATIC_JAVA_LIBRARIES := \
     android-support-test \
+    compatibility-device-util \
     ctstestrunner \
     junit \
-    legacy-android-test \
     ub-uiautomator
+
+LOCAL_JAVA_LIBRARIES := android.test.base.stubs android.test.runner.stubs
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
 # Tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
+LOCAL_COMPATIBILITY_SUITE := cts vts general-tests cts_instant
 
 include $(BUILD_CTS_PACKAGE)

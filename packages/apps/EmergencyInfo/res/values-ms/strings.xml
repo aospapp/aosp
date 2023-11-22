@@ -105,5 +105,5 @@
     <string name="clear_all_message" msgid="1548432000373861295">"Kosongkan semua maklumat dan kenalan?"</string>
     <string name="emergency_info_footer" msgid="8751758742506410146">"Penambahan maklumat perubatan dan butiran hubungan kecemasan dapat membantu pasukan bantuan dalam kes kecemasan.\n\nSesiapa sahaja dapat membaca maklumat ini daripada skrin kunci anda dan mendail orang hubungan anda dengan mengetik namanya tanpa membuka kunci telefon anda."</string>
     <string name="settings_suggestion_title" msgid="2503369576806243476">"Tambahkan maklumat kecemasan"</string>
-    <string name="settings_suggestion_body" msgid="6623265155762787567">"Bantu pasukan bantuan pertama mencari maklumat penting"</string>
+    <string name="settings_suggestion_body" msgid="5559349261345837716">"Benarkan pasukan kecemasan melihat maklumat anda"</string>
 </resources>

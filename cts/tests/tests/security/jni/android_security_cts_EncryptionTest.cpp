@@ -18,7 +18,7 @@
 #include <cutils/log.h>
 #include <cutils/properties.h>
 #include <jni.h>
-#include <JNIHelp.h>
+#include <nativehelper/JNIHelp.h>
 #include <openssl/aes.h>
 #include <openssl/cpu.h>
 #include <openssl/evp.h>

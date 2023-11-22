@@ -540,15 +540,23 @@ public class CommandScheduler extends Thread implements ICommandScheduler, IComm
             ITestInvocation instance = getInvocation();
             IConfiguration config = mCmd.getConfiguration();
 
-            // Copy the command options invocation attributes to the invocation.
-            // TODO: Implement a locking/read-only mechanism to prevent unwanted attributes to be
-            // added during the invocation.
-            if (!config.getCommandOptions().getInvocationData().isEmpty()) {
-                mInvocationContext.addInvocationAttributes(
-                        config.getCommandOptions().getInvocationData());
+            for (final IScheduledInvocationListener listener : mListeners) {
+                try {
+                    listener.invocationInitiated(mInvocationContext);
+                } catch (Throwable anyException) {
+                    CLog.e("Exception caught while calling invocationInitiated:");
+                    CLog.e(anyException);
+                }
             }
 
             try {
+                // Copy the command options invocation attributes to the invocation if it has not
+                // been already done.
+                if (!config.getConfigurationDescription().shouldUseSandbox()
+                        && !config.getCommandOptions().getInvocationData().isEmpty()) {
+                    mInvocationContext.addInvocationAttributes(
+                            config.getCommandOptions().getInvocationData());
+                }
                 mCmd.commandStarted();
                 long invocTimeout = config.getCommandOptions().getInvocationTimeout();
                 if (invocTimeout > 0) {
@@ -1282,8 +1290,7 @@ public class CommandScheduler extends Thread implements ICommandScheduler, IComm
      */
     private void addNewExecCommandToQueue(CommandTracker commandTracker) {
         try {
-            IConfiguration config = getConfigFactory().createConfigurationFromArgs(
-                    commandTracker.getArgs(), null, getKeyStoreClient());
+            IConfiguration config = createConfiguration(commandTracker.getArgs());
             ExecutableCommand execCmd = createExecutableCommand(commandTracker, config, false);
             addExecCommandToQueue(execCmd, config.getCommandOptions().getLoopTime());
         } catch (ConfigurationException e) {
@@ -1343,8 +1350,7 @@ public class CommandScheduler extends Thread implements ICommandScheduler, IComm
         assertStarted();
         IDeviceManager manager = getDeviceManager();
         CommandTracker cmdTracker = createCommandTracker(args, null);
-        IConfiguration config = getConfigFactory().createConfigurationFromArgs(
-                cmdTracker.getArgs(), null, getKeyStoreClient());
+        IConfiguration config = createConfiguration(cmdTracker.getArgs());
         config.validateOptions();
 
         ExecutableCommand execCmd = createExecutableCommand(cmdTracker, config, false);
@@ -1430,10 +1436,15 @@ public class CommandScheduler extends Thread implements ICommandScheduler, IComm
         synchronized(this) {
             mExecutingCommands.add(execCmd);
         }
-        IInvocationContext context = new InvocationContext();
+        IInvocationContext context = createInvocationContext();
         context.setConfigurationDescriptor(config.getConfigurationDescription());
         context.addAllocatedDevice(config.getDeviceConfig().get(0).getDeviceName(), device);
         startInvocation(context, execCmd, listener);
+    }
+
+    @VisibleForTesting
+    protected IInvocationContext createInvocationContext() {
+        return new InvocationContext();
     }
 
     /** Optional initialization step before test invocation starts */

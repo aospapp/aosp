@@ -26,8 +26,7 @@
  * SUCH DAMAGE.
  */
 
-#ifndef __LINKER_MAIN_H
-#define __LINKER_MAIN_H
+#pragma once
 
 #include <android/dlext.h>
 
@@ -65,12 +64,10 @@ bool find_libraries(android_namespace_t* ns,
                     const android_dlextinfo* extinfo,
                     bool add_as_children,
                     bool search_linked_namespaces,
-                    std::unordered_map<const soinfo*, ElfReader>& readers_map,
                     std::vector<android_namespace_t*>* namespaces = nullptr);
 
 void solist_add_soinfo(soinfo* si);
 bool solist_remove_soinfo(soinfo* si);
 soinfo* solist_get_head();
 soinfo* solist_get_somain();
-
-#endif
+soinfo* solist_get_vdso();

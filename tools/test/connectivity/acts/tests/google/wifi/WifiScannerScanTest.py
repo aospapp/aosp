@@ -75,12 +75,15 @@ class WifiScannerScanTest(WifiBaseTest):
             "test_single_scan_while_pno",
             "test_wifi_connection_and_pno_while_batch_scan",
             "test_wifi_scanner_single_scan_in_isolated",
-            "test_wifi_scanner_with_invalid_numBssidsPerScan")
+            "test_wifi_scanner_with_invalid_numBssidsPerScan",
+            "test_wifi_scanner_dual_radio_low_latency",
+            "test_wifi_scanner_dual_radio_low_power",
+            "test_wifi_scanner_dual_radio_high_accuracy")
 
     def setup_class(self):
         self.dut = self.android_devices[0]
         wutils.wifi_test_device_init(self.dut)
-        req_params = ("run_extended_test", "ping_addr", "max_bugreports")
+        req_params = ("run_extended_test", "ping_addr", "max_bugreports", "dbs_supported_models")
         opt_param = ["reference_networks"]
         self.unpack_userparams(
             req_param_names=req_params, opt_param_names=opt_param)
@@ -108,6 +111,7 @@ class WifiScannerScanTest(WifiBaseTest):
         self.attenuators = wutils.group_attenuators(self.attenuators)
         self.attenuators[0].set_atten(0)
         self.attenuators[1].set_atten(0)
+        self.dut.droid.wifiEnableWifiConnectivityManager(False)
 
     def teardown_test(self):
         base_test.BaseTestClass.teardown_test(self)
@@ -121,6 +125,7 @@ class WifiScannerScanTest(WifiBaseTest):
         self.dut.cat_adb_log(test_name, begin_time)
 
     def teardown_class(self):
+        self.dut.droid.wifiEnableWifiConnectivityManager(True)
         if "AccessPoint" in self.user_params:
             del self.user_params["reference_networks"]
             del self.user_params["open_network"]
@@ -317,6 +322,8 @@ class WifiScannerScanTest(WifiBaseTest):
            parameter.
         3. Pop all full scan result events occurred earlier.
         4. Verify that full scan results match with normal scan results.
+        5. If the scan type is included in scan_setting, verify that the
+           radioChainInfos length.
 
         Args:
             scan_setting: The parameters for the single scan.
@@ -348,11 +355,26 @@ class WifiScannerScanTest(WifiBaseTest):
             asserts.assert_true(
                 len(results) >= bssids,
                 "Full single shot result don't match {}".format(len(results)))
+            if 'type' in scan_setting.keys():
+                for item in results:
+                    self.verify_radio_chain_length(scan_setting['type'], item)
         except queue.Empty as error:
             raise AssertionError(
                 "Event did not triggered for single shot {}".format(error))
         finally:
             self.dut.droid.wifiScannerStopScan(idx)
+
+    def verify_radio_chain_length(self, scan_setting_type, scan_result):
+        llen = len(scan_result[0]["radioChainInfos"])
+        if scan_setting_type == wutils.WifiEnums.SCAN_TYPE_LOW_LATENCY \
+            or scan_setting_type == wutils.WifiEnums.SCAN_TYPE_LOW_POWER:
+            asserts.assert_true(llen == 1,
+                                "radioChainInfos len expected:{} "
+                                "actual:{}".format(1, llen))
+        else:
+            asserts.assert_true(llen == 2,
+                                "radioChainInfos len expected:{} "
+                                "actual:{}".format(2, llen))
 
     def wifi_scanner_batch_scan_full(self, scan_setting):
         """Common logic for batch scan test case for full scan result.
@@ -952,6 +974,63 @@ class WifiScannerScanTest(WifiBaseTest):
                         "reportEvents":
                         wutils.WifiEnums.REPORT_EVENT_AFTER_EACH_SCAN}
         self.wifi_scanner_single_scan(scan_setting)
+
+    @test_tracker_info(uuid="7c8da0c4-dec7-4d04-abd4-f8ea467a5c6d")
+    def test_wifi_scanner_dual_radio_low_latency(self):
+        """Test WiFi scanner single scan for mix channel with default setting
+           parameters.
+
+         1. Start WifiScanner single scan for type = SCAN_TYPE_LOW_LATENCY.
+         2. Verify that scan results match with respective scan settings.
+        """
+        if self.dut.model not in self.dbs_supported_models:
+            asserts.skip(
+                ("Device %s does not support dual radio scanning.")
+                % self.dut.model)
+        scan_setting = {"channels": self.wifi_chs.MIX_CHANNEL_SCAN,
+                        "periodInMs": SCANTIME,
+                        "reportEvents":
+                            wutils.WifiEnums.REPORT_EVENT_FULL_SCAN_RESULT,
+                        "type": wutils.WifiEnums.SCAN_TYPE_LOW_LATENCY}
+        self.wifi_scanner_single_scan_full(scan_setting)
+
+    @test_tracker_info(uuid="58b49b01-851b-4e45-b218-9fd27c0be921")
+    def test_wifi_scanner_dual_radio_low_power(self):
+        """Test WiFi scanner single scan for mix channel with default setting
+           parameters.
+
+         1. Start WifiScanner single scan for type = SCAN_TYPE_LOW_POWER.
+         2. Verify that scan results match with respective scan settings.
+        """
+        if self.dut.model not in self.dbs_supported_models:
+            asserts.skip(
+                ("Device %s does not support dual radio scanning.")
+                % self.dut.model)
+        scan_setting = {"channels": self.wifi_chs.MIX_CHANNEL_SCAN,
+                        "periodInMs": SCANTIME,
+                        "reportEvents":
+                            wutils.WifiEnums.REPORT_EVENT_FULL_SCAN_RESULT,
+                        "type": wutils.WifiEnums.SCAN_TYPE_LOW_POWER}
+        self.wifi_scanner_single_scan_full(scan_setting)
+
+    @test_tracker_info(uuid="3e7288bc-45e4-497c-bf3a-977eec4e896e")
+    def test_wifi_scanner_dual_radio_high_accuracy(self):
+        """Test WiFi scanner single scan for mix channel with default setting
+           parameters.
+
+         1. Start WifiScanner single scan for type = SCAN_TYPE_HIGH_ACCURACY.
+         2. Verify that scan results match with respective scan settings.
+        """
+        if self.dut.model not in self.dbs_supported_models:
+            asserts.skip(
+                ("Device %s does not support dual radio scanning.")
+                % self.dut.model)
+        scan_setting = {"channels": self.wifi_chs.MIX_CHANNEL_SCAN,
+                        "periodInMs": SCANTIME,
+                        "reportEvents":
+                            wutils.WifiEnums.REPORT_EVENT_FULL_SCAN_RESULT,
+                        "type": wutils.WifiEnums.SCAN_TYPE_HIGH_ACCURACY}
+        self.wifi_scanner_single_scan_full(scan_setting)
 
     @test_tracker_info(uuid="e9f3aaad-4af3-4c54-9829-65dc1d6d4987")
     def test_wifi_scanner_batch_scan_channel_sanity(self):

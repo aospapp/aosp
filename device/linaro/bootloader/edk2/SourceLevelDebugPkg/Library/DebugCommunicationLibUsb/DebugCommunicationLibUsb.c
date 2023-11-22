@@ -511,7 +511,7 @@ UsbDebugPortControlTransfer (
   Check if it needs to re-initialize usb debug port hardware.
 
   During different phases switch, such as SEC to PEI or PEI to DXE or DXE to SMM, we should check
-  whether the usb debug port hardware configuration is changed. Such case can be triggerred by
+  whether the usb debug port hardware configuration is changed. Such case can be triggered by
   Pci bus resource allocation and so on.
 
   @param  Handle           Debug port handle.
@@ -597,7 +597,6 @@ InitializeUsbDebugHardware (
   RETURN_STATUS             Status;
   USB_DEBUG_PORT_REGISTER   *UsbDebugPortRegister;
   USB_DEBUG_PORT_DESCRIPTOR UsbDebugPortDescriptor;
-  UINT16                    PciCmd;
   UINT32                    *PortStatus;
   UINT32                    *UsbCmd;
   UINT32                    *UsbStatus;
@@ -606,7 +605,6 @@ InitializeUsbDebugHardware (
   UINT8                     Length;
 
   UsbDebugPortRegister = (USB_DEBUG_PORT_REGISTER *)(UINTN)(Handle->UsbDebugPortMemoryBase + Handle->DebugPortOffset);
-  PciCmd      = PciRead16 (PcdGet32(PcdUsbEhciPciAddress) + PCI_COMMAND_OFFSET);
   UsbHCSParam = (UINT32 *)(UINTN)(Handle->EhciMemoryBase + 0x04);
   UsbCmd      = (UINT32 *)(UINTN)(Handle->EhciMemoryBase + 0x20);
   UsbStatus   = (UINT32 *)(UINTN)(Handle->EhciMemoryBase + 0x24);
@@ -774,7 +772,6 @@ DebugPortReadBuffer (
   )
 {
   USB_DEBUG_PORT_HANDLE     *UsbDebugPortHandle;
-  USB_DEBUG_PORT_REGISTER   *UsbDebugPortRegister;
   RETURN_STATUS             Status;
   UINT8                     Index;
 
@@ -798,8 +795,6 @@ DebugPortReadBuffer (
       return 0;
     }
   }
-
-  UsbDebugPortRegister = (USB_DEBUG_PORT_REGISTER *)(UINTN)(UsbDebugPortHandle->UsbDebugPortMemoryBase + UsbDebugPortHandle->DebugPortOffset);
 
   //
   // Read data from buffer
@@ -1012,7 +1007,7 @@ DebugPortPollBuffer (
 /**
   Initialize the debug port.
 
-  If Function is not NULL, Debug Communication Libary will call this function
+  If Function is not NULL, Debug Communication Library will call this function
   by passing in the Context to be the first parameter. If needed, Debug Communication
   Library will create one debug port handle to be the second argument passing in
   calling the Function, otherwise it will pass NULL to be the second argument of
@@ -1042,7 +1037,6 @@ DebugPortInitialize (
 {
   RETURN_STATUS             Status;
   USB_DEBUG_PORT_HANDLE     Handle;
-  USB_DEBUG_PORT_HANDLE     *UsbDebugPortHandle;
 
   //
   // Validate the PCD PcdDebugPortHandleBufferSize value 
@@ -1050,15 +1044,9 @@ DebugPortInitialize (
   ASSERT (PcdGet16 (PcdDebugPortHandleBufferSize) == sizeof (USB_DEBUG_PORT_HANDLE));
 
   if (Function == NULL && Context != NULL) {
-    UsbDebugPortHandle = (USB_DEBUG_PORT_HANDLE *)Context;
-  } else {
-    ZeroMem(&Handle, sizeof (USB_DEBUG_PORT_HANDLE));
-    UsbDebugPortHandle = &Handle;
-  }
-
-  if (Function == NULL && Context != NULL) {
     return (DEBUG_PORT_HANDLE *) Context;
   }
+  ZeroMem(&Handle, sizeof (USB_DEBUG_PORT_HANDLE));
 
   Status = CalculateUsbDebugPortBar(&Handle.DebugPortOffset, &Handle.DebugPortBarNumber);
   if (RETURN_ERROR (Status)) {

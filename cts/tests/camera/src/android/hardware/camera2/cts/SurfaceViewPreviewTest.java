@@ -35,6 +35,7 @@ import android.util.Size;
 import android.hardware.camera2.cts.CameraTestUtils.SimpleCaptureCallback;
 import android.hardware.camera2.cts.testcases.Camera2SurfaceViewTestCase;
 import android.hardware.camera2.params.OutputConfiguration;
+import android.platform.test.annotations.AppModeFull;
 import android.util.Log;
 import android.util.Pair;
 import android.util.Range;
@@ -42,7 +43,7 @@ import android.view.SurfaceView;
 import android.view.SurfaceHolder;
 
 import org.mockito.ArgumentCaptor;
-import org.mockito.compat.ArgumentMatcher;
+import org.mockito.ArgumentMatcher;
 
 import static org.mockito.Mockito.*;
 
@@ -53,6 +54,7 @@ import java.util.List;
 /**
  * CameraDevice preview test by using SurfaceView.
  */
+@AppModeFull
 public class SurfaceViewPreviewTest extends Camera2SurfaceViewTestCase {
     private static final String TAG = "SurfaceViewPreviewTest";
     private static final boolean VERBOSE = Log.isLoggable(TAG, Log.VERBOSE);
@@ -871,10 +873,10 @@ public class SurfaceViewPreviewTest extends Camera2SurfaceViewTestCase {
         }
     }
 
-    private class IsCaptureResultValid extends ArgumentMatcher<TotalCaptureResult> {
+    private class IsCaptureResultValid implements ArgumentMatcher<TotalCaptureResult> {
         @Override
-        public boolean matchesObject(Object obj) {
-            TotalCaptureResult result = (TotalCaptureResult)obj;
+        public boolean matches(TotalCaptureResult obj) {
+            TotalCaptureResult result = obj;
             Long timeStamp = result.get(CaptureResult.SENSOR_TIMESTAMP);
             if (timeStamp != null && timeStamp.longValue() > 0L) {
                 return true;

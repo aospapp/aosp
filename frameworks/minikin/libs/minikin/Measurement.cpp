@@ -14,15 +14,12 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "Minikin"
+#include "minikin/Measurement.h"
 
+#include <cfloat>
 #include <cmath>
-#include <unicode/uchar.h>
 
-#include <android/log.h>
-
-#include <minikin/GraphemeBreak.h>
-#include <minikin/Measurement.h>
+#include "minikin/GraphemeBreak.h"
 
 namespace minikin {
 
@@ -30,7 +27,7 @@ namespace minikin {
 // are separate.
 
 static float getRunAdvance(const float* advances, const uint16_t* buf, size_t layoutStart,
-        size_t start, size_t count, size_t offset) {
+                           size_t start, size_t count, size_t offset) {
     float advance = 0.0f;
     size_t lastCluster = start;
     float clusterWidth = 0.0f;
@@ -54,8 +51,8 @@ static float getRunAdvance(const float* advances, const uint16_t* buf, size_t la
         int numGraphemeClustersAfter = 0;
         for (size_t i = lastCluster; i < nextCluster; i++) {
             bool isAfter = i >= offset;
-            if (GraphemeBreak::isGraphemeBreak(
-                    advances + (start - layoutStart), buf, start, count, i)) {
+            if (GraphemeBreak::isGraphemeBreak(advances + (start - layoutStart), buf, start, count,
+                                               i)) {
                 numGraphemeClusters++;
                 if (isAfter) {
                     numGraphemeClustersAfter++;
@@ -70,7 +67,7 @@ static float getRunAdvance(const float* advances, const uint16_t* buf, size_t la
 }
 
 float getRunAdvance(const float* advances, const uint16_t* buf, size_t start, size_t count,
-        size_t offset) {
+                    size_t offset) {
     return getRunAdvance(advances, buf, start, start, count, offset);
 }
 
@@ -83,7 +80,7 @@ float getRunAdvance(const float* advances, const uint16_t* buf, size_t start, si
  * search within the cluster and grapheme breaks.
  */
 size_t getOffsetForAdvance(const float* advances, const uint16_t* buf, size_t start, size_t count,
-        float advance) {
+                           float advance) {
     float x = 0.0f, xLastClusterStart = 0.0f, xSearchStart = 0.0f;
     size_t lastClusterStart = start, searchStart = start;
     for (size_t i = start; i < start + count; i++) {
@@ -108,7 +105,7 @@ size_t getOffsetForAdvance(const float* advances, const uint16_t* buf, size_t st
             // "getRunAdvance(layout, buf, start, count, i) - advance" but more efficient
             float delta = getRunAdvance(advances, buf, start, searchStart, count - searchStart, i)
 
-                    + xSearchStart - advance;
+                          + xSearchStart - advance;
             if (std::abs(delta) < bestDist) {
                 bestDist = std::abs(delta);
                 best = i;

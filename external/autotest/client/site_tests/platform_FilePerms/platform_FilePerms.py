@@ -36,6 +36,9 @@ class platform_FilePerms(test.test):
         '/dev/pstore': {
             'type': ['pstore'],
             'options': standard_rw_options},
+        '/sys/fs/pstore': {
+            'type': ['pstore'],
+            'options': standard_rw_options},
         '/dev/pts': { # Special case, we want to track gid/mode too.
             'type': ['devpts'],
             'options': ['rw', 'nosuid', 'noexec', 'gid=5', 'mode=620']},
@@ -49,6 +52,18 @@ class platform_FilePerms(test.test):
         '/mnt/stateful_partition/encrypted': {
             'type': ['ext4'],
             'options': standard_rw_options},
+        '/opt/google/containers/android/rootfs/android-data/data/dalvik-cache/'
+        'arm': {
+            'type': ['ext4'],
+            'options': standard_rw_options},
+        '/opt/google/containers/android/rootfs/android-data/data/dalvik-cache/'
+        'x86': {
+            'type': ['ext4'],
+            'options': standard_rw_options},
+        '/opt/google/containers/android/rootfs/android-data/data/dalvik-cache/'
+        'x86_64': {
+            'type': ['ext4'],
+            'options': standard_rw_options},
         # Special case - Android container has devices and suid programs.
         # Note that after the user logs in we remount it as "exec",
         # therefore we do not enforce 'noexec'.
@@ -56,7 +71,7 @@ class platform_FilePerms(test.test):
             'device': loop_device,
             'type': ['squashfs'],
             'options': ['ro']},
-        '/opt/google/containers/android/rootfs/root/vendor': {
+        '/opt/google/containers/android/rootfs/root/system/lib/arm': {
             'device': loop_device,
             'type': ['squashfs'],
             'options': ['ro', 'nosuid', 'nodev']},
@@ -97,64 +112,6 @@ class platform_FilePerms(test.test):
         '/run/arc/shared_mounts': {
             'type': ['tmpfs'],
             'options': standard_rw_options + ['mode=755']},
-        '/run/containers/android/root': {
-            'device': loop_device,
-            'type': ['squashfs'],
-            'options': ['ro']},
-        # The empty cache and data directories are ext2 and read-only because
-        # they are on the root device.
-        '/run/containers/android/root/cache': {
-            'device': root_device,
-            'type': ['ext2', 'ext4'],
-            'options': ['ro']},
-        '/run/containers/android/root/data': {
-            'device': root_device,
-            'type': ['ext2', 'ext4'],
-            'options': ['ro', 'nosuid', 'nodev']},
-        '/run/containers/android/root/dev': {
-            'type': ['tmpfs'],
-            'options': ['rw', 'nosuid', 'mode=755']},
-        '/run/containers/android/root/dev/dri': {
-            'type': ['tmpfs'],
-            'options': ['rw', 'noexec', 'nosuid']},
-        '/run/containers/android/root/dev/input': {
-            'type': ['tmpfs'],
-            'options': ['rw', 'noexec', 'nosuid']},
-        '/run/containers/android/root/dev/ptmx': {
-            'type': ['devpts'],
-            'options': ['rw', 'noexec', 'nosuid', 'mode=600', 'ptmxmode=666']},
-        '/run/containers/android/root/dev/pts': {
-            'type': ['devpts'],
-            'options': ['rw', 'noexec', 'nosuid', 'mode=600', 'ptmxmode=666']},
-        '/run/containers/android/root/dev/kmsg': {
-            'type': ['ext4'],
-            'options': standard_rw_options},
-        '/run/containers/android/root/oem': {
-            'type': ['tmpfs'],
-            'options': standard_rw_options + ['mode=755']},
-        '/run/containers/android/root/var/run/anr': {
-            'type': ['tmpfs'],
-            'options': standard_rw_options},
-        '/run/containers/android/root/var/run/arc': {
-            'type': ['tmpfs'],
-            'options': standard_rw_options + [
-                'uid=655360', 'gid=656360', 'mode=775']},
-        '/run/containers/android/root/var/run/arc/bugreport': {
-            'type': ['tmpfs'],
-            'options': standard_rw_options + ['mode=755']},
-        '/run/containers/android/root/var/run/chrome': {
-            'type': ['tmpfs'],
-            'options': standard_rw_options + ['mode=755']},
-        '/run/containers/android/root/var/run/camera': {
-            'type': ['tmpfs'],
-            'options': standard_rw_options + ['mode=755']},
-        '/run/containers/android/root/var/run/cras': {
-            'type': ['tmpfs'],
-            'options': standard_rw_options + ['mode=755']},
-        '/run/containers/android/root/vendor': {
-            'device': loop_device,
-            'type': ['squashfs'],
-            'options': ['ro']},
         '/proc': { 'type': ['proc'], 'options': standard_rw_options},
         '/run': { # Special case, we want to track mode too.
             'type': ['tmpfs'],
@@ -169,6 +126,10 @@ class platform_FilePerms(test.test):
             'type': ['squashfs'],
             'options': ['ro', 'nodev', 'nosuid']},
         '/sys': {'type': ['sysfs'], 'options': standard_rw_options},
+        # TODO: /run is already a tmpfs mountpoint, so ip should probably
+        # be modified to detect that, and not create a second mountpoint.
+        # crbug.com/757953
+        '/run/netns': {'type': ['tmpfs'], 'options': standard_rw_options},
         '/sys/fs/cgroup': {
             'type': ['tmpfs'],
             'options': standard_rw_options + ['mode=755']},
@@ -210,6 +171,9 @@ class platform_FilePerms(test.test):
         '/usr/share/oem': {
             'type': ['ext4'],
             'options': standard_ro_options},
+        '/run/imageloader': {
+            'type': ['tmpfs'],
+            'options': standard_rw_options},
     }
 
     # /var/run and /var/lock are bind mounts of /run and /run/lock,
@@ -222,17 +186,6 @@ class platform_FilePerms(test.test):
     # are ignored when checking mounts present in the live system.
     testmode_modded_fses = set(
         ['/home', '/tmp', '/usr/local', '/var/db/pkg', '/var/lib/portage'])
-
-    # TODO(yusukes): Remove shared_fonts_ variables once we switch to overlayfs.
-    shared_fonts_pattern = (r'/opt/google/containers/android/rootfs/root/'
-                            r'system/fonts/.*\.tt[cf]')
-    shared_fonts_expected_mount_options = {
-        'device': root_device,
-        # The fonts are bind-mounted versions of fonts in /usr/share/fonts. Use
-        # the same type and options for '/'.
-        'type': ['ext2'],
-        'options': ['ro'],
-    }
 
 
     def checkid(self, fs, userid):
@@ -404,7 +357,10 @@ class platform_FilePerms(test.test):
         # expectations for the second pass.
         mtabs = ['/var/log/mount_options.log', '/etc/mtab']
         ignored_fses = set(['/'])
-        ignored_types = set(['ecryptfs'])
+        # nsfs is ignored because it's a kernel filesystem used with
+        # network namespaces, and is not a traditional filesystem where
+        # arbitrary files may be created and executed.
+        ignored_types = set(['ecryptfs','nsfs'])
         for mtab_path in mtabs:
             mtab = self.read_mtab(mtab_path=mtab_path)
             for fs in mtab.keys():
@@ -416,9 +372,7 @@ class platform_FilePerms(test.test):
                     logging.warning('Ignoring filesystem "%s" with type "%s"',
                                  fs, fs_type)
                     continue
-                if re.match(self.shared_fonts_pattern, fs):
-                    mount_options = self.shared_fonts_expected_mount_options
-                elif fs in self.expected_mount_options:
+                if fs in self.expected_mount_options:
                     mount_options = self.expected_mount_options[fs]
                 else:
                     logging.error(

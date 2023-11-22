@@ -10,7 +10,7 @@ TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "enterprise"
 TEST_TYPE = "server"
-ATTRIBUTES = "suite:hotrod"
+ATTRIBUTES = "suite:hotrod, suite:hotrod-release"
 DEPENDENCIES = "usb_speaker"
 JOB_RETRIES = 3
 

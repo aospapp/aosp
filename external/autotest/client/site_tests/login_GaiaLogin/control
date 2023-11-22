@@ -4,7 +4,7 @@
 
 AUTHOR = "achuith"
 NAME = "login_GaiaLogin"
-ATTRIBUTES = "suite:regression"
+ATTRIBUTES = "suite:bvt-perbuild"
 TIME = "SHORT"
 TEST_CATEGORY = "General"
 TEST_CLASS = "login"

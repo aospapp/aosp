@@ -28,9 +28,7 @@ import android.view.ViewGroup.LayoutParams;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
-/**
- * A DialogFragment that shows a web view.
- */
+/** A DialogFragment that shows a web view. */
 public class WebDialogFragment extends SafeDismissDialogFragment {
     private static final String TAG = "WebDialogFragment";
     private static final String URL = "URL";
@@ -43,11 +41,11 @@ public class WebDialogFragment extends SafeDismissDialogFragment {
     /**
      * Create a new WebDialogFragment to show a particular web page.
      *
-     * @param url   The URL of the content to show.
+     * @param url The URL of the content to show.
      * @param title Optional title for the dialog.
      */
-    public static WebDialogFragment newInstance(String url, @Nullable String title,
-            String trackerLabel) {
+    public static WebDialogFragment newInstance(
+            String url, @Nullable String title, String trackerLabel) {
         WebDialogFragment f = new WebDialogFragment();
         Bundle args = new Bundle();
         args.putString(URL, url);
@@ -62,15 +60,17 @@ public class WebDialogFragment extends SafeDismissDialogFragment {
         super.onCreate(savedInstanceState);
         String title = getArguments().getString(TITLE);
         mTrackerLabel = getArguments().getString(TRACKER_LABEL);
-        int style = TextUtils.isEmpty(title) ? DialogFragment.STYLE_NO_TITLE
-                : DialogFragment.STYLE_NORMAL;
+        int style =
+                TextUtils.isEmpty(title)
+                        ? DialogFragment.STYLE_NO_TITLE
+                        : DialogFragment.STYLE_NORMAL;
         setStyle(style, 0);
     }
 
     @Nullable
     @Override
-    public View onCreateView(LayoutInflater inflater, ViewGroup container,
-            Bundle savedInstanceState) {
+    public View onCreateView(
+            LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         String title = getArguments().getString(TITLE);
         getDialog().setTitle(title);
 

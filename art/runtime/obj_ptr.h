@@ -28,13 +28,16 @@ namespace art {
 
 constexpr bool kObjPtrPoisoning = kIsDebugBuild;
 
+// It turns out that most of the performance overhead comes from copying. Don't validate for now.
+// This defers finding stale ObjPtr objects until they are used.
+constexpr bool kObjPtrPoisoningValidateOnCopy = false;
+
 // Value type representing a pointer to a mirror::Object of type MirrorType
-// Pass kPoison as a template boolean for testing in non-debug builds.
 // Since the cookie is thread based, it is not safe to share an ObjPtr between threads.
 template<class MirrorType>
 class ObjPtr {
   static constexpr size_t kCookieShift =
-      sizeof(kHeapReferenceSize) * kBitsPerByte - kObjectAlignmentShift;
+      kHeapReferenceSize * kBitsPerByte - kObjectAlignmentShift;
   static constexpr size_t kCookieBits = sizeof(uintptr_t) * kBitsPerByte - kCookieShift;
   static constexpr uintptr_t kCookieMask = (static_cast<uintptr_t>(1u) << kCookieBits) - 1;
 
@@ -46,32 +49,35 @@ class ObjPtr {
 
   // Note: The following constructors allow implicit conversion. This simplifies code that uses
   //       them, e.g., for parameter passing. However, in general, implicit-conversion constructors
-  //       are discouraged and detected by cpplint and clang-tidy. So mark these constructors
-  //       as NOLINT (without category, as the categories are different).
+  //       are discouraged and detected by clang-tidy.
 
-  ALWAYS_INLINE ObjPtr(std::nullptr_t)  // NOLINT
+  ALWAYS_INLINE ObjPtr(std::nullptr_t)
       REQUIRES_SHARED(Locks::mutator_lock_)
       : reference_(0u) {}
 
   template <typename Type,
             typename = typename std::enable_if<std::is_base_of<MirrorType, Type>::value>::type>
-  ALWAYS_INLINE ObjPtr(Type* ptr)  // NOLINT
+  ALWAYS_INLINE ObjPtr(Type* ptr)
       REQUIRES_SHARED(Locks::mutator_lock_)
       : reference_(Encode(static_cast<MirrorType*>(ptr))) {
   }
 
   template <typename Type,
             typename = typename std::enable_if<std::is_base_of<MirrorType, Type>::value>::type>
-  ALWAYS_INLINE ObjPtr(const ObjPtr<Type>& other)  // NOLINT
+  ALWAYS_INLINE ObjPtr(const ObjPtr<Type>& other)
       REQUIRES_SHARED(Locks::mutator_lock_)
-      : reference_(Encode(static_cast<MirrorType*>(other.Ptr()))) {
+      : reference_(kObjPtrPoisoningValidateOnCopy
+                       ? Encode(static_cast<MirrorType*>(other.Ptr()))
+                       : other.reference_) {
   }
 
   template <typename Type,
             typename = typename std::enable_if<std::is_base_of<MirrorType, Type>::value>::type>
   ALWAYS_INLINE ObjPtr& operator=(const ObjPtr<Type>& other)
       REQUIRES_SHARED(Locks::mutator_lock_) {
-    reference_ = Encode(static_cast<MirrorType*>(other.Ptr()));
+    reference_ = kObjPtrPoisoningValidateOnCopy
+                     ? Encode(static_cast<MirrorType*>(other.Ptr()))
+                     : other.reference_;
     return *this;
   }
 
@@ -161,6 +167,8 @@ class ObjPtr {
   ALWAYS_INLINE static uintptr_t Encode(MirrorType* ptr) REQUIRES_SHARED(Locks::mutator_lock_);
   // The encoded reference and cookie.
   uintptr_t reference_;
+
+  template <class T> friend class ObjPtr;  // Required for reference_ access in copy cons/operator.
 };
 
 static_assert(std::is_trivially_copyable<ObjPtr<void>>::value,

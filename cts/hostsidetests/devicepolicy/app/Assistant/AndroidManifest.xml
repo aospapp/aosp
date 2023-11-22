@@ -19,6 +19,8 @@
     package="com.android.cts.devicepolicy.assistapp" >
 
     <application>
+        <uses-library android:name="android.test.runner" />
+
 
         <service android:name=".MyInteractionService"
                 android:label="CTS test voice interaction service"

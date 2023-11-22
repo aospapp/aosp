@@ -87,6 +87,7 @@
 #include <pwd.h>
 
 #include "test.h"
+#include "safe_macros.h"
 
 #define MODE_RWX        S_IRWXU | S_IRWXG | S_IRWXO
 #define FILE_MODE       S_IRUSR | S_IRGRP | S_IROTH
@@ -281,25 +282,17 @@ int setup1(void)
 {
 	int fd;			/* file handle for testfile */
 
-	if (mkdir(DIR_TEMP, MODE_RWX) < 0) {
-		tst_brkm(TBROK, cleanup, "mkdir(2) of %s failed", DIR_TEMP);
-	}
+	SAFE_MKDIR(cleanup, DIR_TEMP, MODE_RWX);
 
 	if ((fd = open(TEST_FILE1, O_RDWR | O_CREAT, 0666)) == -1) {
 		tst_brkm(TBROK, cleanup,
 			 "open(%s, O_RDWR|O_CREAT, 0666) failed, errno=%d : %s",
 			 TEST_FILE1, errno, strerror(errno));
 	}
-	if (close(fd) == -1) {
-		tst_brkm(TBROK, cleanup,
-			 "close(%s) Failed, errno=%d : %s",
-			 TEST_FILE1, errno, strerror(errno));
-	}
+	SAFE_CLOSE(cleanup, fd);
 
 	/* Modify mode permissions on test directory */
-	if (chmod(DIR_TEMP, FILE_MODE) < 0) {
-		tst_brkm(TBROK, cleanup, "chmod(2) of %s failed", DIR_TEMP);
-	}
+	SAFE_CHMOD(cleanup, DIR_TEMP, FILE_MODE);
 	return 0;
 }
 
@@ -316,17 +309,9 @@ int setup2(void)
 			 "open(%s, O_RDWR|O_CREAT, 0666) failed, errno=%d : %s",
 			 TEST_FILE1, errno, strerror(errno));
 	}
-	if (close(fd) == -1) {
-		tst_brkm(TBROK, cleanup,
-			 "close(%s) Failed, errno=%d : %s",
-			 TEST_FILE2, errno, strerror(errno));
-	}
+	SAFE_CLOSE(cleanup, fd);
 
-	if (symlink(TEST_FILE2, SYM_FILE2) < 0) {
-		tst_brkm(TBROK, cleanup,
-			 "symlink() Fails to create %s in setup2, error=%d",
-			 SYM_FILE2, errno);
-	}
+	SAFE_SYMLINK(cleanup, TEST_FILE2, SYM_FILE2);
 	return 0;
 }
 
@@ -365,10 +350,7 @@ int setup3(void)
 			 "open(2) on t_file failed, errno=%d : %s",
 			 errno, strerror(errno));
 	}
-	if (close(fd) == -1) {
-		tst_brkm(TBROK, cleanup, "close(t_file) Failed, errno=%d : %s",
-			 errno, strerror(errno));
-	}
+	SAFE_CLOSE(cleanup, fd);
 	return 0;
 }
 
@@ -383,9 +365,7 @@ void cleanup(void)
 {
 
 	/* Restore mode permissions on test directory created in setup2() */
-	if (chmod(DIR_TEMP, MODE_RWX) < 0) {
-		tst_brkm(TBROK, NULL, "chmod(2) of %s failed", DIR_TEMP);
-	}
+	SAFE_CHMOD(NULL, DIR_TEMP, MODE_RWX);
 
 	tst_rmdir();
 

@@ -194,12 +194,20 @@ class FileSystemGetter(CacheingAndFilteringControlFileGetter):
 
         regexp = re.compile(self._CONTROL_PATTERN)
         directories = self._paths
+        # Do not explore site-packages. (crbug.com/771823)
+        # Do not explore venv. (b/67416549)
+        # (Do not pass Go. Do not collect $200.)
+        blacklist = {'site-packages', 'venv'}
         while len(directories) > 0:
             directory = directories.pop()
             if not os.path.exists(directory):
                 continue
+            # TODO(crbug.com/771827): This traverses everything,
+            # including results and containers.  Make it stop doing that.
             try:
                 for name in os.listdir(directory):
+                    if name in blacklist:
+                        continue
                     fullpath = os.path.join(directory, name)
                     if os.path.isfile(fullpath):
                         if regexp.search(name):

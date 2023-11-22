@@ -532,6 +532,7 @@ ieee802_1x_kay_deinit_receive_sc(
 		ieee802_1x_delete_receive_sa(participant->kay, psa);
 
 	dl_list_del(&psc->list);
+	secy_delete_receive_sc(participant->kay, psc);
 	os_free(psc);
 }
 
@@ -632,6 +633,8 @@ ieee802_1x_kay_move_live_peer(struct ieee802_1x_mka_participant *participant,
 	struct receive_sc *rxsc;
 
 	peer = ieee802_1x_kay_get_potential_peer(participant, mi);
+	if (!peer)
+		return NULL;
 
 	rxsc = ieee802_1x_kay_init_receive_sc(&participant->current_peer_sci);
 	if (!rxsc)
@@ -961,20 +964,18 @@ ieee802_1x_mka_i_in_peerlist(struct ieee802_1x_mka_participant *participant,
 		body_len = get_mka_param_body_len(hdr);
 		body_type = get_mka_param_body_type(hdr);
 
-		if (body_type != MKA_LIVE_PEER_LIST &&
-		    body_type != MKA_POTENTIAL_PEER_LIST)
-			continue;
-
-		ieee802_1x_mka_dump_peer_body(
-			(struct ieee802_1x_mka_peer_body *)pos);
-
-		if (left_len < (MKA_HDR_LEN + body_len + DEFAULT_ICV_LEN)) {
+		if (left_len < (MKA_HDR_LEN + MKA_ALIGN_LENGTH(body_len) + DEFAULT_ICV_LEN)) {
 			wpa_printf(MSG_ERROR,
 				   "KaY: MKA Peer Packet Body Length (%zu bytes) is less than the Parameter Set Header Length (%zu bytes) + the Parameter Set Body Length (%zu bytes) + %d bytes of ICV",
 				   left_len, MKA_HDR_LEN,
-				   body_len, DEFAULT_ICV_LEN);
-			continue;
+				   MKA_ALIGN_LENGTH(body_len),
+				   DEFAULT_ICV_LEN);
+			return FALSE;
 		}
+
+		if (body_type != MKA_LIVE_PEER_LIST &&
+		    body_type != MKA_POTENTIAL_PEER_LIST)
+			continue;
 
 		if ((body_len % 16) != 0) {
 			wpa_printf(MSG_ERROR,
@@ -982,6 +983,9 @@ ieee802_1x_mka_i_in_peerlist(struct ieee802_1x_mka_participant *participant,
 				   body_len);
 			continue;
 		}
+
+		ieee802_1x_mka_dump_peer_body(
+			(struct ieee802_1x_mka_peer_body *)pos);
 
 		for (i = 0; i < body_len;
 		     i += sizeof(struct ieee802_1x_mka_peer_id)) {
@@ -2363,7 +2367,6 @@ static void ieee802_1x_participant_timer(void *eloop_ctx, void *timeout_ctx)
 				if (sci_equal(&rxsc->sci, &peer->sci)) {
 					ieee802_1x_kay_deinit_receive_sc(
 						participant, rxsc);
-					secy_delete_receive_sc(kay, rxsc);
 				}
 			}
 			dl_list_del(&peer->list);
@@ -2546,6 +2549,7 @@ ieee802_1x_kay_deinit_transmit_sc(
 	dl_list_for_each_safe(psa, tmp, &psc->sa_list, struct transmit_sa, list)
 		ieee802_1x_delete_transmit_sa(participant->kay, psa);
 
+	secy_delete_transmit_sc(participant->kay, psc);
 	os_free(psc);
 }
 
@@ -3015,7 +3019,7 @@ static int ieee802_1x_kay_decode_mkpdu(struct ieee802_1x_kay *kay,
 				   "KaY: MKA Peer Packet Body Length (%zu bytes) is less than the Parameter Set Header Length (%zu bytes) + the Parameter Set Body Length (%zu bytes) + %d bytes of ICV",
 				   left_len, MKA_HDR_LEN,
 				   body_len, DEFAULT_ICV_LEN);
-			continue;
+			return -1;
 		}
 
 		if (handled[body_type])
@@ -3097,6 +3101,7 @@ ieee802_1x_kay_init(struct ieee802_1x_kay_ctx *ctx, enum macsec_policy policy,
 	kay = os_zalloc(sizeof(*kay));
 	if (!kay) {
 		wpa_printf(MSG_ERROR, "KaY-%s: out of memory", __func__);
+		os_free(ctx);
 		return NULL;
 	}
 
@@ -3131,10 +3136,8 @@ ieee802_1x_kay_init(struct ieee802_1x_kay_ctx *ctx, enum macsec_policy policy,
 	dl_list_init(&kay->participant_list);
 
 	if (policy != DO_NOT_SECURE &&
-	    secy_get_capability(kay, &kay->macsec_capable) < 0) {
-		os_free(kay);
-		return NULL;
-	}
+	    secy_get_capability(kay, &kay->macsec_capable) < 0)
+		goto error;
 
 	if (policy == DO_NOT_SECURE ||
 	    kay->macsec_capable == MACSEC_CAP_NOT_IMPLEMENTED) {
@@ -3161,16 +3164,17 @@ ieee802_1x_kay_init(struct ieee802_1x_kay_ctx *ctx, enum macsec_policy policy,
 	wpa_printf(MSG_DEBUG, "KaY: state machine created");
 
 	/* Initialize the SecY must be prio to CP, as CP will control SecY */
-	secy_init_macsec(kay);
+	if (secy_init_macsec(kay) < 0) {
+		wpa_printf(MSG_DEBUG, "KaY: Could not initialize MACsec");
+		goto error;
+	}
 
 	wpa_printf(MSG_DEBUG, "KaY: secy init macsec done");
 
 	/* init CP */
 	kay->cp = ieee802_1x_cp_sm_init(kay);
-	if (kay->cp == NULL) {
-		ieee802_1x_kay_deinit(kay);
-		return NULL;
-	}
+	if (kay->cp == NULL)
+		goto error;
 
 	if (policy == DO_NOT_SECURE) {
 		ieee802_1x_cp_connect_authenticated(kay->cp);
@@ -3181,12 +3185,15 @@ ieee802_1x_kay_init(struct ieee802_1x_kay_ctx *ctx, enum macsec_policy policy,
 		if (kay->l2_mka == NULL) {
 			wpa_printf(MSG_WARNING,
 				   "KaY: Failed to initialize L2 packet processing for MKA packet");
-			ieee802_1x_kay_deinit(kay);
-			return NULL;
+			goto error;
 		}
 	}
 
 	return kay;
+
+error:
+	ieee802_1x_kay_deinit(kay);
+	return NULL;
 }
 
 
@@ -3433,10 +3440,8 @@ ieee802_1x_kay_delete_mka(struct ieee802_1x_kay *kay, struct mka_key_name *ckn)
 		rxsc = dl_list_entry(participant->rxsc_list.next,
 				     struct receive_sc, list);
 		ieee802_1x_kay_deinit_receive_sc(participant, rxsc);
-		secy_delete_receive_sc(kay, rxsc);
 	}
 	ieee802_1x_kay_deinit_transmit_sc(participant, participant->txsc);
-	secy_delete_transmit_sc(kay, participant->txsc);
 
 	os_memset(&participant->cak, 0, sizeof(participant->cak));
 	os_memset(&participant->kek, 0, sizeof(participant->kek));

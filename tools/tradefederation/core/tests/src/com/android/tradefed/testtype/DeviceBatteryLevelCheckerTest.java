@@ -16,29 +16,32 @@
 
 package com.android.tradefed.testtype;
 
-import com.google.common.util.concurrent.SettableFuture;
-
 import com.android.ddmlib.IDevice;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.device.StubDevice;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.util.IRunUtil;
 
-import junit.framework.TestCase;
+import com.google.common.util.concurrent.SettableFuture;
 
 import org.easymock.EasyMock;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import java.util.concurrent.Future;
 
-public class DeviceBatteryLevelCheckerTest extends TestCase {
+/** Unit tests for {@link DeviceBatteryLevelChecker}. */
+@RunWith(JUnit4.class)
+public class DeviceBatteryLevelCheckerTest {
     private DeviceBatteryLevelChecker mChecker = null;
     ITestDevice mFakeTestDevice = null;
     IDevice mFakeDevice = null;
     public Integer mBatteryLevel = 10;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
+    @Before
+    public void setUp() throws Exception {
         mChecker = new DeviceBatteryLevelChecker() {
             @Override
             IRunUtil getRunUtil() {
@@ -61,6 +64,7 @@ public class DeviceBatteryLevelCheckerTest extends TestCase {
         EasyMock.expect(mFakeTestDevice.getIDevice()).andStubReturn(mFakeDevice);
     }
 
+    @Test
     public void testNull() throws Exception {
         expectBattLevel(null);
         replayDevices();
@@ -70,6 +74,7 @@ public class DeviceBatteryLevelCheckerTest extends TestCase {
         verifyDevices();
     }
 
+    @Test
     public void testNormal() throws Exception {
         expectBattLevel(45);
         replayDevices();
@@ -78,9 +83,8 @@ public class DeviceBatteryLevelCheckerTest extends TestCase {
         verifyDevices();
     }
 
-    /**
-     * Low battery with a resume level very low to check a resume if some level are reached.
-     */
+    /** Low battery with a resume level very low to check a resume if some level are reached. */
+    @Test
     public void testLow() throws Exception {
         mFakeTestDevice.stopLogcat();
         EasyMock.expectLastCall();
@@ -95,9 +99,8 @@ public class DeviceBatteryLevelCheckerTest extends TestCase {
         verifyDevices();
     }
 
-    /**
-     * Battery is low, device idles and battery gets high again.
-     */
+    /** Battery is low, device idles and battery gets high again. */
+    @Test
     public void testLow_becomeHigh() throws Exception {
         mFakeTestDevice.stopLogcat();
         EasyMock.expectLastCall();
@@ -123,9 +126,8 @@ public class DeviceBatteryLevelCheckerTest extends TestCase {
         verifyDevices();
     }
 
-    /**
-     * Battery is low, device idles and battery gets null, break the loop.
-     */
+    /** Battery is low, device idles and battery gets null, break the loop. */
+    @Test
     public void testLow_becomeNull() throws Exception {
         mFakeTestDevice.stopLogcat();
         EasyMock.expectLastCall();

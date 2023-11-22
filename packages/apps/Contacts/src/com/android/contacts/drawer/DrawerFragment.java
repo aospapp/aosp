@@ -123,6 +123,12 @@ public class DrawerFragment extends Fragment implements AccountsListener {
                         return;
                     }
                     mGroupListItems.clear();
+                    // Initialize cursor's position. If Activity relaunched by orientation change,
+                    // only onLoadFinished is called. OnCreateLoader is not called.
+                    // The cursor's position is remain end position by moveToNext when the last
+                    // onLoadFinished was called.
+                    // Therefore, if cursor position was not initialized mGroupListItems is empty.
+                    data.moveToPosition(-1);
                     for (int i = 0; i < data.getCount(); i++) {
                         if (data.moveToNext()) {
                             mGroupListItems.add(GroupUtil.getGroupListItem(data, i));
@@ -291,6 +297,14 @@ public class DrawerFragment extends Fragment implements AccountsListener {
         }
     }
 
+    private void applyTopInset(int insetTop) {
+        // set height of the scrim
+        mScrimDrawable.setIntrinsicHeight(insetTop);
+        mDrawerListView.setPadding(mDrawerListView.getPaddingLeft(),
+                insetTop, mDrawerListView.getPaddingRight(),
+                mDrawerListView.getPaddingBottom());
+    }
+
     public interface DrawerFragmentListener {
         void onDrawerItemClicked();
         void onContactsViewSelected(ContactsView mode);
@@ -305,8 +319,7 @@ public class DrawerFragment extends Fragment implements AccountsListener {
         @Override
         public WindowInsets onApplyWindowInsets(View v, WindowInsets insets) {
             final int insetTop = insets.getSystemWindowInsetTop();
-            // set height of the scrim
-            mScrimDrawable.setIntrinsicHeight(insetTop);
+            applyTopInset(insetTop);
             return insets;
         }
     }

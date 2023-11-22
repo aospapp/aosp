@@ -22,8 +22,9 @@ import android.util.Log;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import java.net.HttpURLConnection;
 import java.net.URL;
+
+import javax.net.ssl.HttpsURLConnection;
 
 /**
  * Used by NetstatsIncidentTest.  Makes some network requests so "dumpsys netstats" will have
@@ -51,9 +52,9 @@ public class NetstatsDeviceTest {
     }
 
     private void makeNetworkRequest() throws Exception {
-        final URL url = new URL("http://www.android.com/");
-        final HttpURLConnection urlConnection = (HttpURLConnection) url.openConnection();
-        HttpURLConnection.setFollowRedirects(true);
+        final URL url = new URL("https://www.android.com/");
+        final HttpsURLConnection urlConnection = (HttpsURLConnection) url.openConnection();
+        HttpsURLConnection.setFollowRedirects(true);
         try {
             final int status = urlConnection.getResponseCode();
 

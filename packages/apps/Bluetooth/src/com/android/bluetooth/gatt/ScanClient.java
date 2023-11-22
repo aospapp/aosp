@@ -19,6 +19,7 @@ package com.android.bluetooth.gatt;
 import android.bluetooth.le.ResultStorageDescriptor;
 import android.bluetooth.le.ScanFilter;
 import android.bluetooth.le.ScanSettings;
+import android.os.Binder;
 
 import java.util.List;
 import java.util.Objects;
@@ -30,22 +31,24 @@ import java.util.UUID;
  * @hide
  */
 /* package */class ScanClient {
-    int scannerId;
-    UUID[] uuids;
-    ScanSettings settings;
-    List<ScanFilter> filters;
-    List<List<ResultStorageDescriptor>> storages;
+    public int scannerId;
+    public UUID[] uuids;
+    public ScanSettings settings;
+    public ScanSettings passiveSettings;
+    public int appUid;
+    public List<ScanFilter> filters;
+    public List<List<ResultStorageDescriptor>> storages;
     // App associated with the scan client died.
-    boolean appDied;
-    boolean hasLocationPermission;
-    boolean hasPeersMacAddressPermission;
+    public boolean appDied;
+    public boolean hasLocationPermission;
+    public boolean hasPeersMacAddressPermission;
     // Pre-M apps are allowed to get scan results even if location is disabled
-    boolean legacyForegroundApp;
+    public boolean legacyForegroundApp;
 
-    AppScanStats stats = null;
+    public AppScanStats stats = null;
 
-    private static final ScanSettings DEFAULT_SCAN_SETTINGS = new ScanSettings.Builder()
-            .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY).build();
+    private static final ScanSettings DEFAULT_SCAN_SETTINGS =
+            new ScanSettings.Builder().setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY).build();
 
     ScanClient(int scannerId) {
         this(scannerId, new UUID[0], DEFAULT_SCAN_SETTINGS, null, null);
@@ -55,8 +58,7 @@ import java.util.UUID;
         this(scannerId, uuids, DEFAULT_SCAN_SETTINGS, null, null);
     }
 
-    ScanClient(int scannerId, ScanSettings settings,
-            List<ScanFilter> filters) {
+    ScanClient(int scannerId, ScanSettings settings, List<ScanFilter> filters) {
         this(scannerId, new UUID[0], settings, filters, null);
     }
 
@@ -70,8 +72,10 @@ import java.util.UUID;
         this.scannerId = scannerId;
         this.uuids = uuids;
         this.settings = settings;
+        this.passiveSettings = null;
         this.filters = filters;
         this.storages = storages;
+        this.appUid = Binder.getCallingUid();
     }
 
     @Override

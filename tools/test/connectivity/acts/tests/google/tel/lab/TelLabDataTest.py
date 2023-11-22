@@ -22,6 +22,7 @@ import json
 import logging
 import os
 
+from acts.test_decorators import test_tracker_info
 from acts.controllers.anritsu_lib._anritsu_utils import AnritsuError
 from acts.controllers.anritsu_lib.md8475a import MD8475A
 from acts.controllers.anritsu_lib.md8475a import BtsBandwidth
@@ -35,12 +36,14 @@ from acts.test_utils.tel.anritsu_utils import set_system_model_wcdma
 from acts.test_utils.tel.anritsu_utils import sms_mo_send
 from acts.test_utils.tel.anritsu_utils import sms_mt_receive_verify
 from acts.test_utils.tel.anritsu_utils import set_usim_parameters
+from acts.test_utils.tel.anritsu_utils import set_post_sim_params
 from acts.test_utils.tel.tel_defines import DIRECTION_MOBILE_ORIGINATED
 from acts.test_utils.tel.tel_defines import DIRECTION_MOBILE_TERMINATED
 from acts.test_utils.tel.tel_defines import NETWORK_MODE_CDMA
 from acts.test_utils.tel.tel_defines import NETWORK_MODE_GSM_ONLY
 from acts.test_utils.tel.tel_defines import NETWORK_MODE_GSM_UMTS
 from acts.test_utils.tel.tel_defines import NETWORK_MODE_LTE_GSM_WCDMA
+from acts.test_utils.tel.tel_defines import NETWORK_MODE_LTE_CDMA_EVDO
 from acts.test_utils.tel.tel_defines import RAT_1XRTT
 from acts.test_utils.tel.tel_defines import RAT_GSM
 from acts.test_utils.tel.tel_defines import RAT_LTE
@@ -56,6 +59,7 @@ from acts.test_utils.tel.tel_test_utils import ensure_phones_idle
 from acts.test_utils.tel.tel_test_utils import ensure_network_generation
 from acts.test_utils.tel.tel_test_utils import toggle_airplane_mode
 from acts.test_utils.tel.tel_test_utils import iperf_test_by_adb
+from acts.test_utils.tel.tel_test_utils import start_qxdm_loggers
 from acts.test_utils.tel.TelephonyBaseTest import TelephonyBaseTest
 from acts.utils import adb_shell_ping
 from acts.utils import rand_ascii_str
@@ -63,6 +67,7 @@ from acts.controllers import iperf_server
 from acts.utils import exe_cmd
 
 DEFAULT_PING_DURATION = 30
+
 
 class TelLabDataTest(TelephonyBaseTest):
     SETTLING_TIME = 30
@@ -97,10 +102,10 @@ class TelLabDataTest(TelephonyBaseTest):
         return True
 
     def setup_test(self):
+        if getattr(self, "qxdm_log", True):
+            start_qxdm_loggers(self.log, self.android_devices)
         ensure_phones_idle(self.log, self.android_devices)
         toggle_airplane_mode(self.log, self.ad, True)
-        self.ad.adb.shell(
-            "setprop net.lte.ims.volte.provisioned 1", ignore_status=True)
         return True
 
     def teardown_test(self):
@@ -118,6 +123,8 @@ class TelLabDataTest(TelephonyBaseTest):
             [self.bts1] = set_simulation_func(self.anritsu, self.user_params,
                                               self.ad.sim_card)
             set_usim_parameters(self.anritsu, self.ad.sim_card)
+            set_post_sim_params(self.anritsu, self.user_params,
+                                self.ad.sim_card)
             if self.lte_bandwidth == 20:
                 self.bts1.bandwidth = BtsBandwidth.LTE_BANDWIDTH_20MHz
             elif self.lte_bandwidth == 15:
@@ -130,7 +137,7 @@ class TelLabDataTest(TelephonyBaseTest):
             self.anritsu.start_simulation()
 
             if rat == RAT_LTE:
-                preferred_network_setting = NETWORK_MODE_LTE_GSM_WCDMA
+                preferred_network_setting = NETWORK_MODE_LTE_CDMA_EVDO
                 rat_family = RAT_FAMILY_LTE
             elif rat == RAT_WCDMA:
                 preferred_network_setting = NETWORK_MODE_GSM_UMTS
@@ -158,10 +165,6 @@ class TelLabDataTest(TelephonyBaseTest):
 
             self.anritsu.wait_for_registration_state()
             time.sleep(self.SETTLING_TIME)
-            if not ensure_network_generation(self.log, self.ad, GEN_4G,
-                                             NETWORK_SERVICE_DATA):
-                self.log.error("Device not in 4G Connected Mode.")
-                return False
 
             # Fetch IP address of the host machine
             cmd = "|".join(("ifconfig", "grep eth0 -A1", "grep inet",
@@ -198,7 +201,7 @@ class TelLabDataTest(TelephonyBaseTest):
                 else:
                     self.log.error("iperf failed to Destination.")
                     self.log.info("Iteration %d Failed", iteration)
-                    if float(current_power) < -55.0 :
+                    if float(current_power) < -55.0:
                         return True
                     else:
                         return False
@@ -226,6 +229,7 @@ class TelLabDataTest(TelephonyBaseTest):
 
     """ Tests Begin """
 
+    @test_tracker_info(uuid="df40279a-46dc-40ee-9205-bce2d0fba7e8")
     @TelephonyBaseTest.tel_test_wrap
     def test_lte_pings_iperf(self):
         """ Test Pings functionality on LTE

@@ -34,10 +34,12 @@ import android.support.annotation.VisibleForTesting;
 import android.telecom.TelecomManager;
 import android.telephony.PhoneNumberUtils;
 import com.android.dialer.common.LogUtil;
+import com.android.dialer.configprovider.ConfigProviderBindings;
 import com.android.dialer.database.FilteredNumberContract.FilteredNumber;
 import com.android.dialer.database.FilteredNumberContract.FilteredNumberColumns;
 import com.android.dialer.database.FilteredNumberContract.FilteredNumberSources;
 import com.android.dialer.database.FilteredNumberContract.FilteredNumberTypes;
+import com.android.dialer.strictmode.StrictModeUtils;
 import com.android.dialer.telecom.TelecomUtil;
 import java.util.ArrayList;
 import java.util.List;
@@ -116,7 +118,9 @@ public class FilteredNumberCompat {
    *     migration has been performed, {@code false} otherwise.
    */
   public static boolean useNewFiltering(Context context) {
-    return canUseNewFiltering() && hasMigratedToNewBlocking(context);
+    return !ConfigProviderBindings.get(context).getBoolean("debug_force_dialer_filtering", false)
+        && canUseNewFiltering()
+        && hasMigratedToNewBlocking(context);
   }
 
   /**
@@ -124,8 +128,10 @@ public class FilteredNumberCompat {
    *     android.provider.BlockedNumberContract} blocking, {@code false} otherwise.
    */
   public static boolean hasMigratedToNewBlocking(Context context) {
-    return PreferenceManager.getDefaultSharedPreferences(context)
-        .getBoolean(HAS_MIGRATED_TO_NEW_BLOCKING_KEY, false);
+    return StrictModeUtils.bypass(
+        () ->
+            PreferenceManager.getDefaultSharedPreferences(context)
+                .getBoolean(HAS_MIGRATED_TO_NEW_BLOCKING_KEY, false));
   }
 
   /**
@@ -270,7 +276,7 @@ public class FilteredNumberCompat {
     }
 
     // Great Wall blocking, must be primary user and the default or system dialer
-    // TODO: check that we're the system Dialer
+    // TODO(maxwelb): check that we're the system Dialer
     return TelecomUtil.isDefaultDialer(context)
         && safeBlockedNumbersContractCanCurrentUserBlockNumbers(context);
   }

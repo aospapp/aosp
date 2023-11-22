@@ -43,6 +43,7 @@ class TestCasesParser(object):
             stable_tests.STABLE_TESTS,
             disabled_tests.DISABLED_TESTS,
             enable_regex=True)
+        self._ltp_tests_filter.ExpandBitness()
 
     def ValidateDefinition(self, line):
         """Validate a tab delimited test case definition.
@@ -107,6 +108,10 @@ class TestCasesParser(object):
             # and we replace them with &&
             command = command.replace(';', '&&')
 
+            # Some test cases have hardcoded "/tmp" in the command
+            # we replace that with ltp_configs.TMPDIR
+            command = command.replace('/tmp', ltp_configs.TMPDIR)
+
             testcase = test_case.TestCase(
                 testsuite=testsuite, testname=testname, command=command)
 
@@ -121,8 +126,10 @@ class TestCasesParser(object):
                 testcase.is_filtered = True
                 testcase.note = "filtered"
 
-            # For skipping tests that are not designed or ready for Android
-            if (self._ltp_tests_filter.IsInExcludeFilter(test_display_name) and
+            # For skipping tests that are not designed or ready for Android,
+            # check for bit specific test in disabled list as well as non-bit specific
+            if ((self._ltp_tests_filter.IsInExcludeFilter(str(testcase)) or
+                 self._ltp_tests_filter.IsInExcludeFilter(test_display_name)) and
                     not test_filter.IsInIncludeFilter(test_display_name)):
                 logging.info("[Parser] Skipping test case %s. Reason: "
                              "disabled" % testcase.fullname)

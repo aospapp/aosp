@@ -27,8 +27,10 @@ class TestTestCase(unittest.TestCase):
             self.job.default_profile_only = False
             self.job.profilers = MockProfilerManager()
             self.job.test_retry = 0
+            self.job.fast = False
             self._new_keyval = False
             self.iteration = 0
+            self.tagged_testname = 'neutered_base_test'
             self.before_iteration_hooks = []
             self.after_iteration_hooks = []
 

@@ -19,6 +19,7 @@ LOCAL_PATH := $(call my-dir)
 
 pattern_locales := \
     as/as \
+    be/be \
     bn/bn \
     bg/bg \
     cu/cu \
@@ -41,6 +42,7 @@ pattern_locales := \
     hu/hu \
     hy/hy \
     kn/kn \
+    la/la \
     ml/ml \
     mn/mn-cyrl \
     mr/mr \
@@ -56,6 +58,9 @@ pattern_locales := \
 
 # TODO: we have data for sa/sa, but it requires special case handling for case
 # folding and normalization, so don't build it until that's fixed.
+#
+# TODO: we have data for Liturgical Latin, but there is no standard BCP 47 tag
+# for it, so we don't build it.
 
 BUILD_HYB := $(LOCAL_PATH)/build-hyb.mk
 

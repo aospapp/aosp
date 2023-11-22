@@ -53,7 +53,6 @@ bool GcdaRawCoverageParser::ParseMagic() {
 void GcdaRawCoverageParser::ParseBody() {
   unsigned tags[4];
   unsigned depth = 0;
-  int cnt = 0;
   bool found;
   unsigned base;
   unsigned position;

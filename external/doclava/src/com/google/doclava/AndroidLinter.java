@@ -77,7 +77,7 @@ public class AndroidLinter implements Linter {
       for (AnnotationInstanceInfo a : method.annotations()) {
         if (a.type().qualifiedNameMatches("android", "annotation.RequiresPermission")) {
           hasAnnotation = true;
-          ArrayList<AnnotationValueInfo> values = new ArrayList<AnnotationValueInfo>();
+          ArrayList<AnnotationValueInfo> values = new ArrayList<>();
           for (AnnotationValueInfo val : a.elementValues()) {
             switch (val.element().name()) {
               case "value":
@@ -91,6 +91,8 @@ public class AndroidLinter implements Linter {
                 break;
             }
           }
+          if (values.isEmpty()) continue;
+
           for (AnnotationValueInfo value : values) {
             String perm = String.valueOf(value.value());
             if (perm.indexOf('.') >= 0) perm = perm.substring(perm.lastIndexOf('.') + 1);

@@ -2,6 +2,7 @@
   EFI PEI Core dispatch services
   
 Copyright (c) 2006 - 2015, Intel Corporation. All rights reserved.<BR>
+(C) Copyright 2016 Hewlett Packard Enterprise Development LP<BR>
 This program and the accompanying materials
 are licensed and made available under the terms and conditions of the BSD License
 which accompanies this distribution.  The full text of the license may be found at
@@ -670,8 +671,8 @@ PeiCheckAndSwitchStack (
 
   if (Private->SwitchStackSignal) {
     //
-    // Before switch stack from temporary memory to permenent memory, calculate the heap and stack
-    // usage in temporary memory for debuging.
+    // Before switch stack from temporary memory to permanent memory, calculate the heap and stack
+    // usage in temporary memory for debugging.
     //
     DEBUG_CODE_BEGIN ();
       UINT32  *StackPointer;
@@ -682,7 +683,7 @@ PeiCheckAndSwitchStack (
            StackPointer ++);
 
       DEBUG ((EFI_D_INFO, "Temp Stack : BaseAddress=0x%p Length=0x%X\n", SecCoreData->StackBase, (UINT32)SecCoreData->StackSize));
-      DEBUG ((EFI_D_INFO, "Temp Heap  : BaseAddress=0x%p Length=0x%X\n", Private->HobList.Raw, (UINT32)((UINTN) Private->HobList.HandoffInformationTable->EfiFreeMemoryBottom - (UINTN) Private->HobList.Raw)));
+      DEBUG ((EFI_D_INFO, "Temp Heap  : BaseAddress=0x%p Length=0x%X\n", Private->HobList.Raw, (UINT32)((UINTN) Private->HobList.HandoffInformationTable->EfiFreeMemoryTop - (UINTN) Private->HobList.Raw)));
       DEBUG ((EFI_D_INFO, "Total temporary memory:    %d bytes.\n", (UINT32)SecCoreData->TemporaryRamSize));
       DEBUG ((EFI_D_INFO, "  temporary memory stack ever used: %d bytes.\n",
              (UINT32)(SecCoreData->StackSize - ((UINTN) StackPointer - (UINTN)SecCoreData->StackBase))
@@ -708,10 +709,10 @@ PeiCheckAndSwitchStack (
     //
     // Reserve the size of new stack at bottom of physical memory
     //
-    // The size of new stack in permenent memory must be the same size 
+    // The size of new stack in permanent memory must be the same size
     // or larger than the size of old stack in temporary memory.
     // But if new stack is smaller than the size of old stack, we also reserve
-    // the size of old stack at bottom of permenent memory.
+    // the size of old stack at bottom of permanent memory.
     //
     NewStackSize = RShiftU64 (Private->PhysicalMemoryLength, 1);
     NewStackSize = ALIGN_VALUE (NewStackSize, EFI_PAGE_SIZE);
@@ -788,7 +789,7 @@ PeiCheckAndSwitchStack (
 
       //
       // Temporary Ram Support PPI is provided by platform, it will copy 
-      // temporary memory to permenent memory and do stack switching.
+      // temporary memory to permanent memory and do stack switching.
       // After invoking Temporary Ram Support PPI, the following code's 
       // stack is in permanent memory.
       //
@@ -1141,7 +1142,7 @@ PeiDispatcher (
             if ((Private->PeiMemoryInstalled) && (Private->Fv[FvCount].PeimState[PeimCount] == PEIM_STATE_REGISITER_FOR_SHADOW) &&   \
                 (Private->HobList.HandoffInformationTable->BootMode != BOOT_ON_S3_RESUME || PcdGetBool (PcdShadowPeimOnS3Boot))) {
               //
-              // If memory is availble we shadow images by default for performance reasons.
+              // If memory is available we shadow images by default for performance reasons.
               // We call the entry point a 2nd time so the module knows it's shadowed.
               //
               //PERF_START (PeiServices, L"PEIM", PeimFileHandle, 0);

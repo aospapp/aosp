@@ -17,8 +17,6 @@
 
 #include <Guid/IdleLoopEvent.h>
 
-BOOLEAN mInterruptState   = FALSE;
-
 
 /**
   This function flushes the range of addresses from Start to Start+Length
@@ -41,7 +39,7 @@ BOOLEAN mInterruptState   = FALSE;
 
   @retval EFI_SUCCESS           The address range from Start to Start+Length was flushed from
                                 the processor's data cache.
-  @retval EFI_UNSUPPORTEDT      The processor does not support the cache flush type specified
+  @retval EFI_UNSUPPORTED       The processor does not support the cache flush type specified
                                 by FlushType.
   @retval EFI_DEVICE_ERROR      The address range from Start to Start+Length could not be flushed
                                 from the processor's data cache.
@@ -92,7 +90,6 @@ CpuEnableInterrupt (
 {
   ArmEnableInterrupts ();
 
-  mInterruptState  = TRUE;
   return EFI_SUCCESS;
 }
 
@@ -114,7 +111,6 @@ CpuDisableInterrupt (
 {
   ArmDisableInterrupts ();
 
-  mInterruptState = FALSE;
   return EFI_SUCCESS;
 }
 
@@ -143,7 +139,7 @@ CpuGetInterruptState (
     return EFI_INVALID_PARAMETER;
   }
 
-  *State = mInterruptState;
+  *State = ArmGetInterruptState();
   return EFI_SUCCESS;
 }
 
@@ -229,8 +225,17 @@ EFI_CPU_ARCH_PROTOCOL mCpu = {
   CpuGetTimerValue,
   CpuSetMemoryAttributes,
   0,          // NumberOfTimers
-  4,          // DmaBufferAlignment
+  2048,       // DmaBufferAlignment
 };
+
+STATIC
+VOID
+InitializeDma (
+  IN OUT  EFI_CPU_ARCH_PROTOCOL   *CpuArchProtocol
+  )
+{
+  CpuArchProtocol->DmaBufferAlignment = ArmCacheWritebackGranule ();
+}
 
 EFI_STATUS
 CpuDxeInitialize (
@@ -242,6 +247,8 @@ CpuDxeInitialize (
   EFI_EVENT    IdleLoopEvent;
 
   InitializeExceptions (&mCpu);
+
+  InitializeDma (&mCpu);
 
   Status = gBS->InstallMultipleProtocolInterfaces (
                 &mCpuHandle,

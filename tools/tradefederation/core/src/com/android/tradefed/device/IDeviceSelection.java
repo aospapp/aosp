@@ -30,9 +30,10 @@ public interface IDeviceSelection extends IMatcher<IDevice> {
     /**
      * Gets a copy of the serial numbers
      *
+     * @param device The {@link IDevice} representing the device considered for selection.
      * @return a {@link Collection} of serial numbers
      */
-    public Collection<String> getSerials();
+    public Collection<String> getSerials(IDevice device);
 
     /**
      * Gets a copy of the serial numbers exclusion list

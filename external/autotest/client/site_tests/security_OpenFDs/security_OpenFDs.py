@@ -197,6 +197,8 @@ class security_OpenFDs(test.test):
                         r'0500 /usr/share/fonts/.*',
                         # Zero-copy texture uploads. crbug.com/607632.
                         r'0700 anon_inode:dmabuf',
+                        # Ad blocking ruleset mmapped in for performance.
+                        r'0500 /home/chronos/Subresource Filter/Indexed Rules/[0-9]*/[0-9\.]*/Ruleset Data'
                        ])
         try:
             # Renderers have access to DRM vgem device for graphics tile upload.

@@ -1,7 +1,6 @@
 #!/usr/bin/env python2
 #
 # Copyright 2014 Google Inc. All Rights Reserved.
-
 """The unittest of flags."""
 
 from __future__ import print_function
@@ -12,6 +11,7 @@ import unittest
 
 class FlagTestCase(unittest.TestCase):
   """The unittest class."""
+
   def test_test_flag(self):
     # Verify that test_flag.is_test exists, that it is a list,
     # and that it contains 1 element.

@@ -212,6 +212,15 @@ class autoserv_parser(object):
         self.parser.add_argument('--lab', action='store', type=str,
                                  dest='lab', default='',
                                  help=argparse.SUPPRESS)
+        self.parser.add_argument('--cloud_trace_context', type=str, default='',
+                                 action='store', dest='cloud_trace_context',
+                                 help=('Global trace context to configure '
+                                       'emission of data to Cloud Trace.'))
+        self.parser.add_argument('--cloud_trace_context_enabled', type=str,
+                                 default='False', action='store',
+                                 dest='cloud_trace_context_enabled',
+                                 help=('Global trace context to configure '
+                                       'emission of data to Cloud Trace.'))
         #
         # Warning! Please read before adding any new arguments!
         #

@@ -112,6 +112,8 @@ public class URLJarFile extends JarFile {
     /*
      * close the jar file.
      */
+    // Android-note: All important methods here and in superclasses should synchronize on this
+    // to avoid premature finalization. The actual close implementation in ZipFile does.
     protected void finalize() throws IOException {
         close();
     }

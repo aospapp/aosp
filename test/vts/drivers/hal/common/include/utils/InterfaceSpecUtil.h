@@ -42,6 +42,10 @@ string GetVersionString(float version, bool for_macro=false);
 // Get the driver library name for a given HIDL HAL.
 string GetHidlHalDriverLibName(const string& package_name, const float version);
 
+// Get the FQNmae for a given HIDL HAL.
+string GetInterfaceFQName(const string& package_name, const float version,
+                          const string& interface_name);
+
 // Extract package name from full hidl type name
 // e.g. ::android::hardware::nfc::V1_0::INfc -> android.hardware.nfc
 string GetPackageName(const string& type_name);

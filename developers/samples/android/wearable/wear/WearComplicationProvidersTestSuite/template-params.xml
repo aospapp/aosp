@@ -20,7 +20,7 @@
     <package>com.example.android.wearable.wear.wearcomplicationproviderstestsuite</package>
 
     <minSdk>18</minSdk>
-    <targetSdkVersion>25</targetSdkVersion>
+    <targetSdkVersion>27</targetSdkVersion>
 
     <minSdkVersionWear>23</minSdkVersionWear>
     <compileSdkVersionWear>26</compileSdkVersionWear>
@@ -30,7 +30,7 @@
         <has_handheld_app>false</has_handheld_app>
     </wearable>
 
-    <dependency_wearable>com.android.support:appcompat-v7:26.0.0</dependency_wearable>
+    <dependency_wearable>com.android.support:appcompat-v7:27.1.0</dependency_wearable>
 
     <strings>
         <intro>
@@ -43,7 +43,7 @@ used to test how different types of complications render on a watch face.
 
     <template src="base-build" />
     <template src="Wear" />
-    
+
     <metadata>
         <!-- Values: {DRAFT | PUBLISHED | INTERNAL | DEPRECATED | SUPERCEDED} -->
         <status>PUBLISHED</status>

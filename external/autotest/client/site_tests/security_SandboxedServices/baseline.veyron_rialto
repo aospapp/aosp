@@ -1,4 +1,7 @@
 exe,euser,egroup,pidns,caps,nonewprivs,filter
+
+# See the baseline file for docs.
+
 pppd,root,root,No,No,No,No
 
 # TODO - it should be possible to run the watchdog as non-root

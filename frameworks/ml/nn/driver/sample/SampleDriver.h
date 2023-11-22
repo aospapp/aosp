@@ -36,8 +36,13 @@ class SampleDriver : public IDevice {
 public:
     SampleDriver(const char* name) : mName(name) {}
     ~SampleDriver() override {}
-    Return<ErrorStatus> prepareModel(const Model& model,
+    Return<void> getCapabilities(getCapabilities_cb cb) override;
+    Return<void> getSupportedOperations(const V1_0::Model& model,
+                                        getSupportedOperations_cb cb) override;
+    Return<ErrorStatus> prepareModel(const V1_0::Model& model,
                                      const sp<IPreparedModelCallback>& callback) override;
+    Return<ErrorStatus> prepareModel_1_1(const V1_1::Model& model, ExecutionPreference preference,
+                                         const sp<IPreparedModelCallback>& callback) override;
     Return<DeviceStatus> getStatus() override;
 
     // Starts and runs the driver service.  Typically called from main().
@@ -49,9 +54,7 @@ protected:
 
 class SamplePreparedModel : public IPreparedModel {
 public:
-    SamplePreparedModel(const Model& model)
-          : // Make a copy of the model, as we need to preserve it.
-            mModel(model) {}
+    SamplePreparedModel(const Model& model) : mModel(model) {}
     ~SamplePreparedModel() override {}
     bool initialize();
     Return<ErrorStatus> execute(const Request& request,

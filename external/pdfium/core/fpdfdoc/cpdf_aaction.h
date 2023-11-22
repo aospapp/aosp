@@ -34,18 +34,20 @@ class CPDF_AAction {
     SaveDocument,
     DocumentSaved,
     PrintDocument,
-    DocumentPrinted
+    DocumentPrinted,
+    NumberOfActions  // Must be last.
   };
 
-  CPDF_AAction() : m_pDict(nullptr) {}
-  explicit CPDF_AAction(CPDF_Dictionary* pDict) : m_pDict(pDict) {}
+  explicit CPDF_AAction(CPDF_Dictionary* pDict);
+  CPDF_AAction(const CPDF_AAction& that);
+  ~CPDF_AAction();
 
   bool ActionExist(AActionType eType) const;
   CPDF_Action GetAction(AActionType eType) const;
-  CPDF_Dictionary* GetDict() const { return m_pDict; }
+  CPDF_Dictionary* GetDict() const { return m_pDict.Get(); }
 
  private:
-  CPDF_Dictionary* const m_pDict;
+  UnownedPtr<CPDF_Dictionary> const m_pDict;
 };
 
 #endif  // CORE_FPDFDOC_CPDF_AACTION_H_

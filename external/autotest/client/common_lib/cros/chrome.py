@@ -52,14 +52,14 @@ class Chrome(object):
     BROWSER_TYPE_GUEST = 'system-guest'
 
 
-    def __init__(self, logged_in=True, extension_paths=[], autotest_ext=False,
+    def __init__(self, logged_in=True, extension_paths=None, autotest_ext=False,
                  num_tries=3, extra_browser_args=None,
-                 clear_enterprise_policy=True, dont_override_profile=False,
-                 disable_gaia_services=True, disable_default_apps = True,
-                 auto_login=True, gaia_login=False,
+                 clear_enterprise_policy=True, expect_policy_fetch=False,
+                 dont_override_profile=False, disable_gaia_services=True,
+                 disable_default_apps = True, auto_login=True, gaia_login=False,
                  username=None, password=None, gaia_id=None,
                  arc_mode=None, disable_arc_opt_in=True,
-                 init_network_controller=False):
+                 init_network_controller=False, login_delay=0):
         """
         Constructor of telemetry wrapper.
 
@@ -72,6 +72,8 @@ class Chrome(object):
                                    browser. It can be a string or a list.
         @param clear_enterprise_policy: Clear enterprise policy before
                                         logging in.
+        @param expect_policy_fetch: Expect that chrome can reach the device
+                                    management server and download policy.
         @param dont_override_profile: Don't delete cryptohome before login.
                                       Telemetry will output a warning with this
                                       option.
@@ -88,6 +90,8 @@ class Chrome(object):
                          start.
         @param disable_arc_opt_in: For opt in flow autotest. This option is used
                                    to disable the arc opt in flow.
+        @param login_delay: Time for idle in login screen to simulate the time
+                            required for password typing.
         """
         self._autotest_ext_path = None
 
@@ -95,6 +99,9 @@ class Chrome(object):
         if (utils.is_arc_available() and (arc_util.should_start_arc(arc_mode)
             or not disable_arc_opt_in)):
             autotest_ext = True
+
+        if extension_paths is None:
+            extension_paths = []
 
         if autotest_ext:
             self._autotest_ext_path = os.path.join(os.path.dirname(__file__),
@@ -129,9 +136,12 @@ class Chrome(object):
         b_options.disable_gaia_services = disable_gaia_services
         b_options.disable_default_apps = disable_default_apps
         b_options.disable_component_extensions_with_background_pages = disable_default_apps
+        b_options.disable_background_networking = False
+        b_options.expect_policy_fetch = expect_policy_fetch
 
         b_options.auto_login = auto_login
         b_options.gaia_login = gaia_login
+        b_options.login_delay = login_delay
 
         if utils.is_arc_available() and not disable_arc_opt_in:
             arc_util.set_browser_options_for_opt_in(b_options)
@@ -158,10 +168,14 @@ class Chrome(object):
         # (Without this, Chrome coredumps are trashed.)
         open(constants.CHROME_CORE_MAGIC_FILE, 'w').close()
 
+        self._browser_to_create = browser_finder.FindBrowser(
+            finder_options)
+        self._browser_to_create.SetUpEnvironment(b_options)
         for i in range(num_tries):
             try:
-                browser_to_create = browser_finder.FindBrowser(finder_options)
-                self._browser = browser_to_create.Create(finder_options)
+                self._browser = self._browser_to_create.Create()
+                self._browser_pid = \
+                    cros_interface.CrOSInterface().GetChromePid()
                 if utils.is_arc_available():
                     if disable_arc_opt_in:
                         if arc_util.should_start_arc(arc_mode):
@@ -176,7 +190,7 @@ class Chrome(object):
                 if i == num_tries-1:
                     raise
         if init_network_controller:
-          self._browser.platform.network_controller.InitializeIfNeeded()
+          self._browser.platform.network_controller.Open()
 
     def __enter__(self):
         return self
@@ -264,7 +278,7 @@ class Chrome(object):
 
 
     @staticmethod
-    def wait_for_browser_restart(func):
+    def wait_for_browser_restart(func, browser):
         """Runs func, and waits for a browser restart.
 
         @param func: function to run.
@@ -274,6 +288,7 @@ class Chrome(object):
         pid = _cri.GetChromePid()
         Chrome.did_browser_crash(func)
         utils.poll_for_condition(lambda: pid != _cri.GetChromePid(), timeout=60)
+        browser.WaitForBrowserToComeUp()
 
 
     def wait_for_browser_to_come_up(self):
@@ -308,4 +323,5 @@ class Chrome(object):
             # (crbug.com/663387)
             self._browser.platform.StopAllLocalServers()
             self._browser.Close()
+            self._browser_to_create.CleanUpEnvironment()
             self._browser.platform.network_controller.Close()

@@ -25,7 +25,7 @@
 
 #include "art_field-inl.h"
 #include "art_method-inl.h"
-#include "base/logging.h"
+#include "base/logging.h"  // For VLOG.
 #include "debugger.h"
 #include "jdwp/jdwp_constants.h"
 #include "jdwp/jdwp_expand_buf.h"
@@ -164,7 +164,7 @@ static uint32_t GetInstrumentationEventFor(JdwpEventKind eventKind) {
       return instrumentation::Instrumentation::kDexPcMoved;
     case EK_EXCEPTION:
     case EK_EXCEPTION_CATCH:
-      return instrumentation::Instrumentation::kExceptionCaught;
+      return instrumentation::Instrumentation::kExceptionThrown;
     case EK_METHOD_ENTRY:
       return instrumentation::Instrumentation::kMethodEntered;
     case EK_METHOD_EXIT:

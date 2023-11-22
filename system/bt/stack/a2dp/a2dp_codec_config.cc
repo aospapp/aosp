@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 The Android Open Source Project
+ * Copyright 2016 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,15 +31,21 @@
 #include "a2dp_vendor_aptx.h"
 #include "a2dp_vendor_aptx_hd.h"
 #include "a2dp_vendor_ldac.h"
+#include "bta/av/bta_av_int.h"
 #include "osi/include/log.h"
+#include "osi/include/properties.h"
 
 /* The Media Type offset within the codec info byte array */
 #define A2DP_MEDIA_TYPE_OFFSET 1
+
+/* A2DP Offload enabled in stack */
+static bool a2dp_offload_status;
 
 // Initializes the codec config.
 // |codec_config| is the codec config to initialize.
 // |codec_index| and |codec_priority| are the codec type and priority to use
 // for the initialization.
+
 static void init_btav_a2dp_codec_config(
     btav_a2dp_codec_config_t* codec_config, btav_a2dp_codec_index_t codec_index,
     btav_a2dp_codec_priority_t codec_priority) {
@@ -83,6 +89,7 @@ void A2dpCodecConfig::setCodecPriority(
   } else {
     codec_priority_ = codec_priority;
   }
+  codec_config_.codec_priority = codec_priority_;
 }
 
 void A2dpCodecConfig::setDefaultCodecPriority() {
@@ -93,6 +100,7 @@ void A2dpCodecConfig::setDefaultCodecPriority() {
     uint32_t priority = 1000 * (codec_index_ + 1) + 1;
     codec_priority_ = static_cast<btav_a2dp_codec_priority_t>(priority);
   }
+  codec_config_.codec_priority = codec_priority_;
 }
 
 A2dpCodecConfig* A2dpCodecConfig::createCodec(
@@ -103,13 +111,16 @@ A2dpCodecConfig* A2dpCodecConfig::createCodec(
   A2dpCodecConfig* codec_config = nullptr;
   switch (codec_index) {
     case BTAV_A2DP_CODEC_INDEX_SOURCE_SBC:
-      codec_config = new A2dpCodecConfigSbc(codec_priority);
+      codec_config = new A2dpCodecConfigSbcSource(codec_priority);
       break;
     case BTAV_A2DP_CODEC_INDEX_SINK_SBC:
       codec_config = new A2dpCodecConfigSbcSink(codec_priority);
       break;
     case BTAV_A2DP_CODEC_INDEX_SOURCE_AAC:
-      codec_config = new A2dpCodecConfigAac(codec_priority);
+      codec_config = new A2dpCodecConfigAacSource(codec_priority);
+      break;
+    case BTAV_A2DP_CODEC_INDEX_SINK_AAC:
+      codec_config = new A2dpCodecConfigAacSink(codec_priority);
       break;
     case BTAV_A2DP_CODEC_INDEX_SOURCE_APTX:
       codec_config = new A2dpCodecConfigAptx(codec_priority);
@@ -120,7 +131,6 @@ A2dpCodecConfig* A2dpCodecConfig::createCodec(
     case BTAV_A2DP_CODEC_INDEX_SOURCE_LDAC:
       codec_config = new A2dpCodecConfigLdac(codec_priority);
       break;
-    // Add a switch statement for each vendor-specific codec
     case BTAV_A2DP_CODEC_INDEX_MAX:
       break;
   }
@@ -133,6 +143,96 @@ A2dpCodecConfig* A2dpCodecConfig::createCodec(
   }
 
   return codec_config;
+}
+
+int A2dpCodecConfig::getTrackBitRate() const {
+  uint8_t p_codec_info[AVDT_CODEC_SIZE];
+  memcpy(p_codec_info, ota_codec_config_, sizeof(ota_codec_config_));
+  tA2DP_CODEC_TYPE codec_type = A2DP_GetCodecType(p_codec_info);
+
+  LOG_VERBOSE(LOG_TAG, "%s: codec_type = 0x%x", __func__, codec_type);
+
+  switch (codec_type) {
+    case A2DP_MEDIA_CT_SBC:
+      return A2DP_GetBitrateSbc();
+    case A2DP_MEDIA_CT_AAC:
+      return A2DP_GetBitRateAac(p_codec_info);
+    case A2DP_MEDIA_CT_NON_A2DP:
+      return A2DP_VendorGetBitRate(p_codec_info);
+    default:
+      break;
+  }
+
+  LOG_ERROR(LOG_TAG, "%s: unsupported codec type 0x%x", __func__, codec_type);
+  return -1;
+}
+
+bool A2dpCodecConfig::getCodecSpecificConfig(tBT_A2DP_OFFLOAD* p_a2dp_offload) {
+  std::lock_guard<std::recursive_mutex> lock(codec_mutex_);
+
+  uint8_t codec_config[AVDT_CODEC_SIZE];
+  uint32_t vendor_id;
+  uint16_t codec_id;
+
+  memset(p_a2dp_offload->codec_info, 0, sizeof(p_a2dp_offload->codec_info));
+
+  if (!A2DP_IsSourceCodecValid(ota_codec_config_)) {
+    return false;
+  }
+
+  memcpy(codec_config, ota_codec_config_, sizeof(ota_codec_config_));
+  tA2DP_CODEC_TYPE codec_type = A2DP_GetCodecType(codec_config);
+  switch (codec_type) {
+    case A2DP_MEDIA_CT_SBC:
+      p_a2dp_offload->codec_info[0] =
+          codec_config[4];  // blk_len | subbands | Alloc Method
+      p_a2dp_offload->codec_info[1] = codec_config[5];  // Min bit pool
+      p_a2dp_offload->codec_info[2] = codec_config[6];  // Max bit pool
+      break;
+    case A2DP_MEDIA_CT_AAC:
+      p_a2dp_offload->codec_info[0] = codec_config[3];  // object type
+      p_a2dp_offload->codec_info[1] = codec_config[6];  // VBR | BR
+      break;
+    case A2DP_MEDIA_CT_NON_A2DP:
+      vendor_id = A2DP_VendorCodecGetVendorId(codec_config);
+      codec_id = A2DP_VendorCodecGetCodecId(codec_config);
+      p_a2dp_offload->codec_info[0] = (vendor_id & 0x000000FF);
+      p_a2dp_offload->codec_info[1] = (vendor_id & 0x0000FF00) >> 8;
+      p_a2dp_offload->codec_info[2] = (vendor_id & 0x00FF0000) >> 16;
+      p_a2dp_offload->codec_info[3] = (vendor_id & 0xFF000000) >> 24;
+      p_a2dp_offload->codec_info[4] = (codec_id & 0x000000FF);
+      p_a2dp_offload->codec_info[5] = (codec_id & 0x0000FF00) >> 8;
+      if (vendor_id == A2DP_LDAC_VENDOR_ID && codec_id == A2DP_LDAC_CODEC_ID) {
+        if (codec_config_.codec_specific_1 == 0) {  // default is 0, ABR
+          p_a2dp_offload->codec_info[6] =
+              A2DP_LDAC_QUALITY_ABR_OFFLOAD;  // ABR in offload
+        } else {
+          switch (codec_config_.codec_specific_1 % 10) {
+            case 0:
+              p_a2dp_offload->codec_info[6] =
+                  A2DP_LDAC_QUALITY_HIGH;  // High bitrate
+              break;
+            case 1:
+              p_a2dp_offload->codec_info[6] =
+                  A2DP_LDAC_QUALITY_MID;  // Mid birate
+              break;
+            case 2:
+              p_a2dp_offload->codec_info[6] =
+                  A2DP_LDAC_QUALITY_LOW;  // Low birate
+              break;
+            case 3:  // fall through
+            default:
+              p_a2dp_offload->codec_info[6] =
+                  A2DP_LDAC_QUALITY_ABR_OFFLOAD;  // ABR in offload
+              break;
+          }
+        }
+      }
+      break;
+    default:
+      break;
+  }
+  return true;
 }
 
 bool A2dpCodecConfig::isValid() const { return true; }
@@ -271,12 +371,15 @@ bool A2dpCodecConfig::setCodecUserConfig(
   bool encoder_restart_input = *p_restart_input;
   bool encoder_restart_output = *p_restart_output;
   bool encoder_config_updated = *p_config_updated;
-  if (updateEncoderUserConfig(p_peer_params, &encoder_restart_input,
-                              &encoder_restart_output,
-                              &encoder_config_updated)) {
-    if (encoder_restart_input) *p_restart_input = true;
-    if (encoder_restart_output) *p_restart_output = true;
-    if (encoder_config_updated) *p_config_updated = true;
+
+  if (!a2dp_offload_status) {
+    if (updateEncoderUserConfig(p_peer_params, &encoder_restart_input,
+                                &encoder_restart_output,
+                                &encoder_config_updated)) {
+      if (encoder_restart_input) *p_restart_input = true;
+      if (encoder_restart_output) *p_restart_output = true;
+      if (encoder_config_updated) *p_config_updated = true;
+    }
   }
   if (*p_restart_input || *p_restart_output) *p_config_updated = true;
 
@@ -396,6 +499,7 @@ void A2dpCodecConfig::debug_codec_dump(int fd) {
   dprintf(fd, "\nA2DP %s State:\n", name().c_str());
   dprintf(fd, "  Priority: %d\n", codecPriority());
   dprintf(fd, "  Encoder interval (ms): %" PRIu64 "\n", encoderIntervalMs());
+  dprintf(fd, "  Effective MTU: %d\n", getEffectiveMtu());
 
   result = codecConfig2Str(getCodecConfig());
   dprintf(fd, "  Config: %s\n", result.c_str());
@@ -443,6 +547,41 @@ A2dpCodecs::~A2dpCodecs() {
 bool A2dpCodecs::init() {
   LOG_DEBUG(LOG_TAG, "%s", __func__);
   std::lock_guard<std::recursive_mutex> lock(codec_mutex_);
+  char* tok = NULL;
+  char* tmp_token = NULL;
+  bool offload_codec_support[BTAV_A2DP_CODEC_INDEX_MAX] = {false};
+  char value_sup[PROPERTY_VALUE_MAX], value_dis[PROPERTY_VALUE_MAX];
+
+  osi_property_get("ro.bluetooth.a2dp_offload.supported", value_sup, "false");
+  osi_property_get("persist.bluetooth.a2dp_offload.disabled", value_dis,
+                   "false");
+  a2dp_offload_status =
+      (strcmp(value_sup, "true") == 0) && (strcmp(value_dis, "false") == 0);
+
+  if (a2dp_offload_status) {
+    char value_cap[PROPERTY_VALUE_MAX];
+    osi_property_get("persist.bluetooth.a2dp_offload.cap", value_cap, "");
+    tok = strtok_r((char*)value_cap, "-", &tmp_token);
+    while (tok != NULL) {
+      if (strcmp(tok, "sbc") == 0) {
+        LOG_INFO(LOG_TAG, "%s: SBC offload supported", __func__);
+        offload_codec_support[BTAV_A2DP_CODEC_INDEX_SOURCE_SBC] = true;
+      } else if (strcmp(tok, "aac") == 0) {
+        LOG_INFO(LOG_TAG, "%s: AAC offload supported", __func__);
+        offload_codec_support[BTAV_A2DP_CODEC_INDEX_SOURCE_AAC] = true;
+      } else if (strcmp(tok, "aptx") == 0) {
+        LOG_INFO(LOG_TAG, "%s: APTX offload supported", __func__);
+        offload_codec_support[BTAV_A2DP_CODEC_INDEX_SOURCE_APTX] = true;
+      } else if (strcmp(tok, "aptxhd") == 0) {
+        LOG_INFO(LOG_TAG, "%s: APTXHD offload supported", __func__);
+        offload_codec_support[BTAV_A2DP_CODEC_INDEX_SOURCE_APTX_HD] = true;
+      } else if (strcmp(tok, "ldac") == 0) {
+        LOG_INFO(LOG_TAG, "%s: LDAC offload supported", __func__);
+        offload_codec_support[BTAV_A2DP_CODEC_INDEX_SOURCE_LDAC] = true;
+      }
+      tok = strtok_r(NULL, "-", &tmp_token);
+    };
+  }
 
   for (int i = BTAV_A2DP_CODEC_INDEX_MIN; i < BTAV_A2DP_CODEC_INDEX_MAX; i++) {
     btav_a2dp_codec_index_t codec_index =
@@ -455,6 +594,10 @@ bool A2dpCodecs::init() {
     if (cp_iter != codec_priorities_.end()) {
       codec_priority = cp_iter->second;
     }
+
+    // In offload mode, disable the codecs based on the property
+    if (a2dp_offload_status && (offload_codec_support[i] != true))
+      codec_priority = BTAV_A2DP_CODEC_PRIORITY_DISABLED;
 
     A2dpCodecConfig* codec_config =
         A2dpCodecConfig::createCodec(codec_index, codec_priority);
@@ -513,12 +656,39 @@ A2dpCodecConfig* A2dpCodecs::findSourceCodecConfig(
   return iter->second;
 }
 
+A2dpCodecConfig* A2dpCodecs::findSinkCodecConfig(const uint8_t* p_codec_info) {
+  std::lock_guard<std::recursive_mutex> lock(codec_mutex_);
+  btav_a2dp_codec_index_t codec_index = A2DP_SinkCodecIndex(p_codec_info);
+  if (codec_index == BTAV_A2DP_CODEC_INDEX_MAX) return nullptr;
+
+  auto iter = indexed_codecs_.find(codec_index);
+  if (iter == indexed_codecs_.end()) return nullptr;
+  return iter->second;
+}
+
 bool A2dpCodecs::setCodecConfig(const uint8_t* p_peer_codec_info,
                                 bool is_capability,
                                 uint8_t* p_result_codec_config,
                                 bool select_current_codec) {
   std::lock_guard<std::recursive_mutex> lock(codec_mutex_);
   A2dpCodecConfig* a2dp_codec_config = findSourceCodecConfig(p_peer_codec_info);
+  if (a2dp_codec_config == nullptr) return false;
+  if (!a2dp_codec_config->setCodecConfig(p_peer_codec_info, is_capability,
+                                         p_result_codec_config)) {
+    return false;
+  }
+  if (select_current_codec) {
+    current_codec_config_ = a2dp_codec_config;
+  }
+  return true;
+}
+
+bool A2dpCodecs::setSinkCodecConfig(const uint8_t* p_peer_codec_info,
+                                    bool is_capability,
+                                    uint8_t* p_result_codec_config,
+                                    bool select_current_codec) {
+  std::lock_guard<std::recursive_mutex> lock(codec_mutex_);
+  A2dpCodecConfig* a2dp_codec_config = findSinkCodecConfig(p_peer_codec_info);
   if (a2dp_codec_config == nullptr) return false;
   if (!a2dp_codec_config->setCodecConfig(p_peer_codec_info, is_capability,
                                          p_result_codec_config)) {
@@ -543,22 +713,8 @@ bool A2dpCodecs::setCodecUserConfig(
   *p_restart_output = false;
   *p_config_updated = false;
 
-  LOG_DEBUG(
-      LOG_TAG,
-      "%s: Configuring: codec_type=%d codec_priority=%d "
-      "sample_rate=0x%x bits_per_sample=0x%x "
-      "channel_mode=0x%x codec_specific_1=%" PRIi64
-      " "
-      "codec_specific_2=%" PRIi64
-      " "
-      "codec_specific_3=%" PRIi64
-      " "
-      "codec_specific_4=%" PRIi64,
-      __func__, codec_user_config.codec_type, codec_user_config.codec_priority,
-      codec_user_config.sample_rate, codec_user_config.bits_per_sample,
-      codec_user_config.channel_mode, codec_user_config.codec_specific_1,
-      codec_user_config.codec_specific_2, codec_user_config.codec_specific_3,
-      codec_user_config.codec_specific_4);
+  LOG_DEBUG(LOG_TAG, "%s: Configuring: %s", __func__,
+            codec_user_config.ToString().c_str());
 
   if (codec_user_config.codec_type < BTAV_A2DP_CODEC_INDEX_MAX) {
     auto iter = indexed_codecs_.find(codec_user_config.codec_type);
@@ -593,6 +749,7 @@ bool A2dpCodecs::setCodecUserConfig(
     // Check if there was no previous codec
     if (last_codec_config == nullptr) {
       current_codec_config_ = a2dp_codec_config;
+      *p_restart_input = true;
       *p_restart_output = true;
       break;
     }
@@ -628,6 +785,7 @@ bool A2dpCodecs::setCodecUserConfig(
       // connection to select a new codec.
       current_codec_config_ = a2dp_codec_config;
       last_codec_config->setDefaultCodecPriority();
+      *p_restart_input = true;
       *p_restart_output = true;
     }
   } while (false);
@@ -753,6 +911,28 @@ bool A2dpCodecs::setCodecOtaConfig(
 fail:
   current_codec_config_ = last_codec_config;
   return false;
+}
+
+bool A2dpCodecs::setPeerSinkCodecCapabilities(
+    const uint8_t* p_peer_codec_capabilities) {
+  std::lock_guard<std::recursive_mutex> lock(codec_mutex_);
+
+  if (!A2DP_IsPeerSinkCodecValid(p_peer_codec_capabilities)) return false;
+  A2dpCodecConfig* a2dp_codec_config =
+      findSourceCodecConfig(p_peer_codec_capabilities);
+  if (a2dp_codec_config == nullptr) return false;
+  return a2dp_codec_config->setPeerCodecCapabilities(p_peer_codec_capabilities);
+}
+
+bool A2dpCodecs::setPeerSourceCodecCapabilities(
+    const uint8_t* p_peer_codec_capabilities) {
+  std::lock_guard<std::recursive_mutex> lock(codec_mutex_);
+
+  if (!A2DP_IsPeerSourceCodecValid(p_peer_codec_capabilities)) return false;
+  A2dpCodecConfig* a2dp_codec_config =
+      findSinkCodecConfig(p_peer_codec_capabilities);
+  if (a2dp_codec_config == nullptr) return false;
+  return a2dp_codec_config->setPeerCodecCapabilities(p_peer_codec_capabilities);
 }
 
 bool A2dpCodecs::getCodecConfigAndCapabilities(
@@ -934,27 +1114,6 @@ void A2DP_InitDefaultCodec(uint8_t* p_codec_info) {
   A2DP_InitDefaultCodecSbc(p_codec_info);
 }
 
-tA2DP_STATUS A2DP_BuildSrc2SinkConfig(const uint8_t* p_src_cap,
-                                      uint8_t* p_pref_cfg) {
-  tA2DP_CODEC_TYPE codec_type = A2DP_GetCodecType(p_src_cap);
-
-  LOG_VERBOSE(LOG_TAG, "%s: codec_type = 0x%x", __func__, codec_type);
-
-  switch (codec_type) {
-    case A2DP_MEDIA_CT_SBC:
-      return A2DP_BuildSrc2SinkConfigSbc(p_src_cap, p_pref_cfg);
-    case A2DP_MEDIA_CT_AAC:
-      return A2DP_BuildSrc2SinkConfigAac(p_src_cap, p_pref_cfg);
-    case A2DP_MEDIA_CT_NON_A2DP:
-      return A2DP_VendorBuildSrc2SinkConfig(p_src_cap, p_pref_cfg);
-    default:
-      break;
-  }
-
-  LOG_ERROR(LOG_TAG, "%s: unsupported codec type 0x%x", __func__, codec_type);
-  return A2DP_NS_CODEC_TYPE;
-}
-
 bool A2DP_UsesRtpHeader(bool content_protection_enabled,
                         const uint8_t* p_codec_info) {
   tA2DP_CODEC_TYPE codec_type = A2DP_GetCodecType(p_codec_info);
@@ -1093,30 +1252,6 @@ int A2DP_GetSinkTrackChannelType(const uint8_t* p_codec_info) {
   return -1;
 }
 
-int A2DP_GetSinkFramesCountToProcess(uint64_t time_interval_ms,
-                                     const uint8_t* p_codec_info) {
-  tA2DP_CODEC_TYPE codec_type = A2DP_GetCodecType(p_codec_info);
-
-  LOG_VERBOSE(LOG_TAG, "%s: codec_type = 0x%x", __func__, codec_type);
-
-  switch (codec_type) {
-    case A2DP_MEDIA_CT_SBC:
-      return A2DP_GetSinkFramesCountToProcessSbc(time_interval_ms,
-                                                 p_codec_info);
-    case A2DP_MEDIA_CT_AAC:
-      return A2DP_GetSinkFramesCountToProcessAac(time_interval_ms,
-                                                 p_codec_info);
-    case A2DP_MEDIA_CT_NON_A2DP:
-      return A2DP_VendorGetSinkFramesCountToProcess(time_interval_ms,
-                                                    p_codec_info);
-    default:
-      break;
-  }
-
-  LOG_ERROR(LOG_TAG, "%s: unsupported codec type 0x%x", __func__, codec_type);
-  return -1;
-}
-
 bool A2DP_GetPacketTimestamp(const uint8_t* p_codec_info, const uint8_t* p_data,
                              uint32_t* p_timestamp) {
   tA2DP_CODEC_TYPE codec_type = A2DP_GetCodecType(p_codec_info);
@@ -1177,6 +1312,27 @@ const tA2DP_ENCODER_INTERFACE* A2DP_GetEncoderInterface(
   return NULL;
 }
 
+const tA2DP_DECODER_INTERFACE* A2DP_GetDecoderInterface(
+    const uint8_t* p_codec_info) {
+  tA2DP_CODEC_TYPE codec_type = A2DP_GetCodecType(p_codec_info);
+
+  LOG_VERBOSE(LOG_TAG, "%s: codec_type = 0x%x", __func__, codec_type);
+
+  switch (codec_type) {
+    case A2DP_MEDIA_CT_SBC:
+      return A2DP_GetDecoderInterfaceSbc(p_codec_info);
+    case A2DP_MEDIA_CT_AAC:
+      return A2DP_GetDecoderInterfaceAac(p_codec_info);
+    case A2DP_MEDIA_CT_NON_A2DP:
+      return A2DP_VendorGetDecoderInterface(p_codec_info);
+    default:
+      break;
+  }
+
+  LOG_ERROR(LOG_TAG, "%s: unsupported codec type 0x%x", __func__, codec_type);
+  return NULL;
+}
+
 bool A2DP_AdjustCodec(uint8_t* p_codec_info) {
   tA2DP_CODEC_TYPE codec_type = A2DP_GetCodecType(p_codec_info);
 
@@ -1215,6 +1371,26 @@ btav_a2dp_codec_index_t A2DP_SourceCodecIndex(const uint8_t* p_codec_info) {
   return BTAV_A2DP_CODEC_INDEX_MAX;
 }
 
+btav_a2dp_codec_index_t A2DP_SinkCodecIndex(const uint8_t* p_codec_info) {
+  tA2DP_CODEC_TYPE codec_type = A2DP_GetCodecType(p_codec_info);
+
+  LOG_VERBOSE(LOG_TAG, "%s: codec_type = 0x%x", __func__, codec_type);
+
+  switch (codec_type) {
+    case A2DP_MEDIA_CT_SBC:
+      return A2DP_SinkCodecIndexSbc(p_codec_info);
+    case A2DP_MEDIA_CT_AAC:
+      return A2DP_SinkCodecIndexAac(p_codec_info);
+    case A2DP_MEDIA_CT_NON_A2DP:
+      return A2DP_VendorSinkCodecIndex(p_codec_info);
+    default:
+      break;
+  }
+
+  LOG_ERROR(LOG_TAG, "%s: unsupported codec type 0x%x", __func__, codec_type);
+  return BTAV_A2DP_CODEC_INDEX_MAX;
+}
+
 const char* A2DP_CodecIndexStr(btav_a2dp_codec_index_t codec_index) {
   switch (codec_index) {
     case BTAV_A2DP_CODEC_INDEX_SOURCE_SBC:
@@ -1223,6 +1399,8 @@ const char* A2DP_CodecIndexStr(btav_a2dp_codec_index_t codec_index) {
       return A2DP_CodecIndexStrSbcSink();
     case BTAV_A2DP_CODEC_INDEX_SOURCE_AAC:
       return A2DP_CodecIndexStrAac();
+    case BTAV_A2DP_CODEC_INDEX_SINK_AAC:
+      return A2DP_CodecIndexStrAacSink();
     default:
       break;
   }
@@ -1234,7 +1412,7 @@ const char* A2DP_CodecIndexStr(btav_a2dp_codec_index_t codec_index) {
 }
 
 bool A2DP_InitCodecConfig(btav_a2dp_codec_index_t codec_index,
-                          tAVDT_CFG* p_cfg) {
+                          AvdtpSepConfig* p_cfg) {
   LOG_VERBOSE(LOG_TAG, "%s: codec %s", __func__,
               A2DP_CodecIndexStr(codec_index));
 
@@ -1249,6 +1427,8 @@ bool A2DP_InitCodecConfig(btav_a2dp_codec_index_t codec_index,
       return A2DP_InitCodecConfigSbcSink(p_cfg);
     case BTAV_A2DP_CODEC_INDEX_SOURCE_AAC:
       return A2DP_InitCodecConfigAac(p_cfg);
+    case BTAV_A2DP_CODEC_INDEX_SINK_AAC:
+      return A2DP_InitCodecConfigAacSink(p_cfg);
     default:
       break;
   }
@@ -1259,22 +1439,19 @@ bool A2DP_InitCodecConfig(btav_a2dp_codec_index_t codec_index,
   return false;
 }
 
-bool A2DP_DumpCodecInfo(const uint8_t* p_codec_info) {
+std::string A2DP_CodecInfoString(const uint8_t* p_codec_info) {
   tA2DP_CODEC_TYPE codec_type = A2DP_GetCodecType(p_codec_info);
-
-  LOG_VERBOSE(LOG_TAG, "%s: codec_type = 0x%x", __func__, codec_type);
 
   switch (codec_type) {
     case A2DP_MEDIA_CT_SBC:
-      return A2DP_DumpCodecInfoSbc(p_codec_info);
+      return A2DP_CodecInfoStringSbc(p_codec_info);
     case A2DP_MEDIA_CT_AAC:
-      return A2DP_DumpCodecInfoAac(p_codec_info);
+      return A2DP_CodecInfoStringAac(p_codec_info);
     case A2DP_MEDIA_CT_NON_A2DP:
-      return A2DP_VendorDumpCodecInfo(p_codec_info);
+      return A2DP_VendorCodecInfoString(p_codec_info);
     default:
       break;
   }
 
-  LOG_ERROR(LOG_TAG, "%s: unsupported codec type 0x%x", __func__, codec_type);
-  return false;
+  return "Unsupported codec type: " + loghex(codec_type);
 }

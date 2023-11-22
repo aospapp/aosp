@@ -24,8 +24,10 @@ LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE_CLASS := JAVA_LIBRARIES
 LOCAL_SRC_FILES := $(call all-java-files-under, core/src/main/java/)
 
-LOCAL_JAVA_LIBRARIES := \
+LOCAL_STATIC_JAVA_LIBRARIES := \
   dagger2-inject-host \
+
+LOCAL_JAVA_LIBRARIES := \
   guavalib
 
 LOCAL_JAVA_LANGUAGE_VERSION := 1.7
@@ -41,9 +43,11 @@ LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE_CLASS := JAVA_LIBRARIES
 LOCAL_SRC_FILES := $(call all-java-files-under, producers/src/main/java/)
 
+LOCAL_STATIC_JAVA_LIBRARIES := \
+  dagger2-inject-host \
+
 LOCAL_JAVA_LIBRARIES := \
   dagger2-host \
-  dagger2-inject-host \
   guavalib
 
 LOCAL_JAVA_LANGUAGE_VERSION := 1.7
@@ -58,7 +62,7 @@ LOCAL_MODULE := dagger2-compiler-host
 LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE_CLASS := JAVA_LIBRARIES
 # Required for use of javax.annotation.Generated per http://b/62050818
-LOCAL_JAVACFLAGS := $(if $(EXPERIMENTAL_USE_OPENJDK9),-J--add-modules=java.xml.ws.annotation,)
+LOCAL_JAVACFLAGS := $(if $(USE_OPENJDK9),-J--add-modules=java.xml.ws.annotation,)
 LOCAL_SRC_FILES := $(call all-java-files-under, compiler/src/main/java/)
 
 # Manually include META-INF/services/javax.annotation.processing.Processor
@@ -91,17 +95,3 @@ LOCAL_ANNOTATION_PROCESSOR_CLASSES := \
 
 LOCAL_JAVA_LANGUAGE_VERSION := 1.7
 include $(BUILD_HOST_JAVA_LIBRARY)
-
-# Build host dependencies.
-# ============================================================
-include $(CLEAR_VARS)
-
-LOCAL_PREBUILT_JAVA_LIBRARIES := \
-    dagger2-auto-common-host:lib/auto-common-1.0-20151022.071545-39$(COMMON_JAVA_PACKAGE_SUFFIX) \
-    dagger2-auto-factory-host:lib/auto-factory-1.0-20150915.183854-35$(COMMON_JAVA_PACKAGE_SUFFIX) \
-    dagger2-auto-service-host:lib/auto-service-1.0-rc2$(COMMON_JAVA_PACKAGE_SUFFIX) \
-    dagger2-auto-value-host:lib/auto-value-1.4.1$(COMMON_JAVA_PACKAGE_SUFFIX) \
-    dagger2-google-java-format:lib/google-java-format-0.1-20151017.042846-2$(COMMON_JAVA_PACKAGE_SUFFIX) \
-    dagger2-inject-host:lib/javax-inject$(COMMON_JAVA_PACKAGE_SUFFIX)
-
-include $(BUILD_HOST_PREBUILT)

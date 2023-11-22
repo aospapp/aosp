@@ -12,6 +12,7 @@ from autotest_lib.client.common_lib import error
 from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib.cros import chrome
 from autotest_lib.client.cros.graphics import graphics_utils
+from autotest_lib.client.cros.power import power_rapl
 
 
 class graphics_WebGLManyPlanetsDeep(graphics_utils.GraphicsTest):
@@ -64,6 +65,10 @@ class graphics_WebGLManyPlanetsDeep(graphics_utils.GraphicsTest):
                     'js_elapsed_time': datum['jsElapsedTime']
                 }
             time.sleep(1)
+
+        # Intel only: Record the power consumption for the next few seconds.
+        self.rapl_rate = power_rapl.get_rapl_measurement(
+            'rapl_many_planets_deep')
         tab.Close()
 
     def calculate_perf_values(self):
@@ -80,6 +85,19 @@ class graphics_WebGLManyPlanetsDeep(graphics_utils.GraphicsTest):
             'js_render_time_ms_std': std[1],
             'js_render_time_ms_mean': mean[1]
         })
+
+        # Remove entries that we don't care about.
+        rapl_rate = {key: self.rapl_rate[key]
+                     for key in self.rapl_rate.keys() if key.endswith('pwr')}
+        # Report to chromeperf/ dashboard.
+        for key, values in rapl_rate.iteritems():
+            self.output_perf_value(
+                description=key,
+                value=values,
+                units='W',
+                higher_is_better=False,
+                graph='rapl_power_consumption'
+            )
         self.output_perf_value(
             description='average_fps',
             value=avg_fps,

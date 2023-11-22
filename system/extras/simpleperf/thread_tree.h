@@ -59,7 +59,10 @@ struct MapComparator {
   bool operator()(const MapEntry* map1, const MapEntry* map2) const;
 };
 
-using MapSet = std::set<MapEntry*, MapComparator>;
+struct MapSet {
+  std::set<MapEntry*, MapComparator> maps;
+  uint64_t version = 0u;  // incremented each time changing maps
+};
 
 struct ThreadEntry {
   int pid;

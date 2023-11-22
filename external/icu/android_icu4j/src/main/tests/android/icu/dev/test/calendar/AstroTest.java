@@ -15,6 +15,8 @@ import java.util.Date;
 import java.util.Locale;
 
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import android.icu.dev.test.TestFmwk;
 import android.icu.impl.CalendarAstronomer;
@@ -25,9 +27,12 @@ import android.icu.util.Calendar;
 import android.icu.util.GregorianCalendar;
 import android.icu.util.SimpleTimeZone;
 import android.icu.util.TimeZone;
+import android.icu.testsharding.MainTestShard;
 
 // TODO: try finding next new moon after  07/28/1984 16:00 GMT
 
+@MainTestShard
+@RunWith(JUnit4.class)
 public class AstroTest extends TestFmwk {
     static final double PI = Math.PI;
 
@@ -351,7 +356,7 @@ public class AstroTest extends TestFmwk {
 //        astro.setDate(cal3.getTime());
 //        astro.foo();
     }
-    
+
     @Test
     public void TestMoonAge(){
         GregorianCalendar gc = new GregorianCalendar(new SimpleTimeZone(0,"GMT"));
@@ -364,7 +369,7 @@ public class AstroTest extends TestFmwk {
                 {2012, 5, 20, 14, 55, 59},
                 {2012, 5, 21, 7, 40, 40},
                 {2023, 9, 25, 10,00, 00},
-                {2008, 7, 7, 15, 00, 33}, 
+                {2008, 7, 7, 15, 00, 33},
                 {1832, 9, 24, 2, 33, 41 },
                 {2016, 1, 31, 23, 59, 59},
                 {2099, 5, 20, 14, 55, 59}

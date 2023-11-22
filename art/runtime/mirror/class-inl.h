@@ -23,20 +23,22 @@
 #include "art_method.h"
 #include "base/array_slice.h"
 #include "base/length_prefixed_array.h"
+#include "base/utils.h"
 #include "class_linker.h"
 #include "class_loader.h"
 #include "common_throws.h"
+#include "dex/dex_file-inl.h"
+#include "dex/invoke_type.h"
 #include "dex_cache.h"
-#include "dex_file-inl.h"
 #include "gc/heap-inl.h"
 #include "iftable.h"
-#include "object_array.h"
+#include "subtype_check.h"
 #include "object-inl.h"
+#include "object_array.h"
 #include "read_barrier-inl.h"
 #include "reference-inl.h"
 #include "runtime.h"
 #include "string.h"
-#include "utils.h"
 
 namespace art {
 namespace mirror {
@@ -54,7 +56,6 @@ inline uint32_t Class::GetObjectSizeAllocFastPath() {
   DCHECK((!IsVariableSize<kVerifyFlags, kReadBarrierOption>())) << "class=" << PrettyTypeOf();
   return GetField32(ObjectSizeAllocFastPathOffset());
 }
-
 
 template<VerifyObjectFlags kVerifyFlags, ReadBarrierOption kReadBarrierOption>
 inline Class* Class::GetSuperClass() {
@@ -127,7 +128,8 @@ inline ArraySlice<ArtMethod> Class::GetDirectMethodsSlice(PointerSize pointer_si
 }
 
 inline ArraySlice<ArtMethod> Class::GetDirectMethodsSliceUnchecked(PointerSize pointer_size) {
-  return GetMethodsSliceRangeUnchecked(pointer_size,
+  return GetMethodsSliceRangeUnchecked(GetMethodsPtr(),
+                                       pointer_size,
                                        GetDirectMethodsStartOffset(),
                                        GetVirtualMethodsStartOffset());
 }
@@ -139,7 +141,8 @@ inline ArraySlice<ArtMethod> Class::GetDeclaredMethodsSlice(PointerSize pointer_
 }
 
 inline ArraySlice<ArtMethod> Class::GetDeclaredMethodsSliceUnchecked(PointerSize pointer_size) {
-  return GetMethodsSliceRangeUnchecked(pointer_size,
+  return GetMethodsSliceRangeUnchecked(GetMethodsPtr(),
+                                       pointer_size,
                                        GetDirectMethodsStartOffset(),
                                        GetCopiedMethodsStartOffset());
 }
@@ -151,7 +154,8 @@ inline ArraySlice<ArtMethod> Class::GetDeclaredVirtualMethodsSlice(PointerSize p
 
 inline ArraySlice<ArtMethod> Class::GetDeclaredVirtualMethodsSliceUnchecked(
     PointerSize pointer_size) {
-  return GetMethodsSliceRangeUnchecked(pointer_size,
+  return GetMethodsSliceRangeUnchecked(GetMethodsPtr(),
+                                       pointer_size,
                                        GetVirtualMethodsStartOffset(),
                                        GetCopiedMethodsStartOffset());
 }
@@ -163,9 +167,11 @@ inline ArraySlice<ArtMethod> Class::GetVirtualMethodsSlice(PointerSize pointer_s
 }
 
 inline ArraySlice<ArtMethod> Class::GetVirtualMethodsSliceUnchecked(PointerSize pointer_size) {
-  return GetMethodsSliceRangeUnchecked(pointer_size,
+  LengthPrefixedArray<ArtMethod>* methods = GetMethodsPtr();
+  return GetMethodsSliceRangeUnchecked(methods,
+                                       pointer_size,
                                        GetVirtualMethodsStartOffset(),
-                                       NumMethods());
+                                       NumMethods(methods));
 }
 
 template<VerifyObjectFlags kVerifyFlags>
@@ -175,7 +181,11 @@ inline ArraySlice<ArtMethod> Class::GetCopiedMethodsSlice(PointerSize pointer_si
 }
 
 inline ArraySlice<ArtMethod> Class::GetCopiedMethodsSliceUnchecked(PointerSize pointer_size) {
-  return GetMethodsSliceRangeUnchecked(pointer_size, GetCopiedMethodsStartOffset(), NumMethods());
+  LengthPrefixedArray<ArtMethod>* methods = GetMethodsPtr();
+  return GetMethodsSliceRangeUnchecked(methods,
+                                       pointer_size,
+                                       GetCopiedMethodsStartOffset(),
+                                       NumMethods(methods));
 }
 
 inline LengthPrefixedArray<ArtMethod>* Class::GetMethodsPtr() {
@@ -186,19 +196,21 @@ inline LengthPrefixedArray<ArtMethod>* Class::GetMethodsPtr() {
 template<VerifyObjectFlags kVerifyFlags>
 inline ArraySlice<ArtMethod> Class::GetMethodsSlice(PointerSize pointer_size) {
   DCHECK(IsLoaded() || IsErroneous());
-  return GetMethodsSliceRangeUnchecked(pointer_size, 0, NumMethods());
+  LengthPrefixedArray<ArtMethod>* methods = GetMethodsPtr();
+  return GetMethodsSliceRangeUnchecked(methods, pointer_size, 0, NumMethods(methods));
 }
 
-inline ArraySlice<ArtMethod> Class::GetMethodsSliceRangeUnchecked(PointerSize pointer_size,
-                                                                  uint32_t start_offset,
-                                                                  uint32_t end_offset) {
+inline ArraySlice<ArtMethod> Class::GetMethodsSliceRangeUnchecked(
+    LengthPrefixedArray<ArtMethod>* methods,
+    PointerSize pointer_size,
+    uint32_t start_offset,
+    uint32_t end_offset) {
   DCHECK_LE(start_offset, end_offset);
-  DCHECK_LE(end_offset, NumMethods());
+  DCHECK_LE(end_offset, NumMethods(methods));
   uint32_t size = end_offset - start_offset;
   if (size == 0u) {
     return ArraySlice<ArtMethod>();
   }
-  LengthPrefixedArray<ArtMethod>* methods = GetMethodsPtr();
   DCHECK(methods != nullptr);
   DCHECK_LE(end_offset, methods->size());
   size_t method_size = ArtMethod::Size(pointer_size);
@@ -210,7 +222,10 @@ inline ArraySlice<ArtMethod> Class::GetMethodsSliceRangeUnchecked(PointerSize po
 }
 
 inline uint32_t Class::NumMethods() {
-  LengthPrefixedArray<ArtMethod>* methods = GetMethodsPtr();
+  return NumMethods(GetMethodsPtr());
+}
+
+inline uint32_t Class::NumMethods(LengthPrefixedArray<ArtMethod>* methods) {
   return (methods == nullptr) ? 0 : methods->size();
 }
 
@@ -288,20 +303,25 @@ inline bool Class::HasVTable() {
   return GetVTable() != nullptr || ShouldHaveEmbeddedVTable();
 }
 
+  template<VerifyObjectFlags kVerifyFlags,
+           ReadBarrierOption kReadBarrierOption>
 inline int32_t Class::GetVTableLength() {
-  if (ShouldHaveEmbeddedVTable()) {
+  if (ShouldHaveEmbeddedVTable<kVerifyFlags, kReadBarrierOption>()) {
     return GetEmbeddedVTableLength();
   }
-  return GetVTable() != nullptr ? GetVTable()->GetLength() : 0;
+  return GetVTable<kVerifyFlags, kReadBarrierOption>() != nullptr ?
+      GetVTable<kVerifyFlags, kReadBarrierOption>()->GetLength() : 0;
 }
 
+  template<VerifyObjectFlags kVerifyFlags,
+           ReadBarrierOption kReadBarrierOption>
 inline ArtMethod* Class::GetVTableEntry(uint32_t i, PointerSize pointer_size) {
-  if (ShouldHaveEmbeddedVTable()) {
+  if (ShouldHaveEmbeddedVTable<kVerifyFlags, kReadBarrierOption>()) {
     return GetEmbeddedVTableEntry(i, pointer_size);
   }
-  auto* vtable = GetVTable();
+  auto* vtable = GetVTable<kVerifyFlags, kReadBarrierOption>();
   DCHECK(vtable != nullptr);
-  return vtable->GetElementPtrSize<ArtMethod*>(i, pointer_size);
+  return vtable->template GetElementPtrSize<ArtMethod*, kVerifyFlags, kReadBarrierOption>(i, pointer_size);
 }
 
 inline int32_t Class::GetEmbeddedVTableLength() {
@@ -425,7 +445,6 @@ inline bool Class::ResolvedFieldAccessTest(ObjPtr<Class> access_to,
     // cache. Use LookupResolveType here to search the class table if it is not in the dex cache.
     // should be no thread suspension due to the class being resolved.
     ObjPtr<Class> dex_access_to = Runtime::Current()->GetClassLinker()->LookupResolvedType(
-        *dex_cache->GetDexFile(),
         class_idx,
         dex_cache,
         access_to->GetClassLoader());
@@ -462,7 +481,6 @@ inline bool Class::ResolvedMethodAccessTest(ObjPtr<Class> access_to,
     // The referenced class has already been resolved with the method, but may not be in the dex
     // cache.
     ObjPtr<Class> dex_access_to = Runtime::Current()->GetClassLinker()->LookupResolvedType(
-        *dex_cache->GetDexFile(),
         class_idx,
         dex_cache,
         access_to->GetClassLoader());
@@ -517,16 +535,46 @@ inline bool Class::CheckResolvedMethodAccess(ObjPtr<Class> access_to,
 }
 
 inline bool Class::IsSubClass(ObjPtr<Class> klass) {
+  // Since the SubtypeCheck::IsSubtypeOf needs to lookup the Depth,
+  // it is always O(Depth) in terms of speed to do the check.
+  //
+  // So always do the "slow" linear scan in normal release builds.
+  //
+  // Future note: If we could have the depth in O(1) we could use the 'fast'
+  // method instead as it avoids a loop and a read barrier.
+  bool result = false;
   DCHECK(!IsInterface()) << PrettyClass();
   DCHECK(!IsArrayClass()) << PrettyClass();
   ObjPtr<Class> current = this;
   do {
     if (current == klass) {
-      return true;
+      result = true;
+      break;
     }
     current = current->GetSuperClass();
   } while (current != nullptr);
-  return false;
+
+  if (kIsDebugBuild && kBitstringSubtypeCheckEnabled) {
+    ObjPtr<mirror::Class> dis(this);
+
+    SubtypeCheckInfo::Result sc_result = SubtypeCheck<ObjPtr<Class>>::IsSubtypeOf(dis, klass);
+    if (sc_result != SubtypeCheckInfo::kUnknownSubtypeOf) {
+      // Note: The "kUnknownSubTypeOf" can be avoided if and only if:
+      //   SubtypeCheck::EnsureInitialized(source)
+      //       happens-before source.IsSubClass(target)
+      //   SubtypeCheck::EnsureAssigned(target).GetState() == Assigned
+      //       happens-before source.IsSubClass(target)
+      //
+      // When code generated by optimizing compiler executes this operation, both
+      // happens-before are guaranteed, so there is no fallback code there.
+      SubtypeCheckInfo::Result expected_result =
+          result ? SubtypeCheckInfo::kSubtypeOf : SubtypeCheckInfo::kNotSubtypeOf;
+      DCHECK_EQ(expected_result, sc_result)
+          << "source: " << PrettyClass() << "target: " << klass->PrettyClass();
+    }
+  }
+
+  return result;
 }
 
 inline ArtMethod* Class::FindVirtualMethodForInterface(ArtMethod* method,
@@ -583,8 +631,10 @@ inline IfTable* Class::GetIfTable() {
   return ret.Ptr();
 }
 
+template<VerifyObjectFlags kVerifyFlags,
+         ReadBarrierOption kReadBarrierOption>
 inline int32_t Class::GetIfTableCount() {
-  return GetIfTable()->Count();
+  return GetIfTable<kVerifyFlags, kReadBarrierOption>()->Count();
 }
 
 inline void Class::SetIfTable(ObjPtr<IfTable> new_iftable) {
@@ -968,7 +1018,8 @@ inline ArraySlice<ArtMethod> Class::GetCopiedMethods(PointerSize pointer_size) {
 
 inline ArraySlice<ArtMethod> Class::GetMethods(PointerSize pointer_size) {
   CheckPointerSize(pointer_size);
-  return GetMethodsSliceRangeUnchecked(pointer_size, 0u, NumMethods());
+  LengthPrefixedArray<ArtMethod>* methods = GetMethodsPtr();
+  return GetMethodsSliceRangeUnchecked(methods, pointer_size, 0u, NumMethods(methods));
 }
 
 inline IterationRange<StrideIterator<ArtField>> Class::GetIFields() {

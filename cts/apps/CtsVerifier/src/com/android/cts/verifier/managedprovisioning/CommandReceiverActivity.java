@@ -16,6 +16,11 @@
 
 package com.android.cts.verifier.managedprovisioning;
 
+import static android.app.admin.DevicePolicyManager.LOCK_TASK_FEATURE_HOME;
+import static android.app.admin.DevicePolicyManager.LOCK_TASK_FEATURE_OVERVIEW;
+import static android.app.admin.DevicePolicyManager.MAKE_USER_EPHEMERAL;
+import static android.app.admin.DevicePolicyManager.SKIP_SETUP_WIZARD;
+
 import android.Manifest;
 import android.app.Activity;
 import android.app.KeyguardManager;
@@ -27,27 +32,32 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageInstaller;
 import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
 import android.graphics.BitmapFactory;
 import android.net.ProxyInfo;
 import android.os.Bundle;
+import android.os.PersistableBundle;
 import android.os.UserHandle;
 import android.os.UserManager;
 import android.provider.ContactsContract;
 import android.provider.MediaStore;
 import android.provider.Settings;
 import android.util.Log;
+import android.view.inputmethod.InputMethodInfo;
+import android.view.inputmethod.InputMethodManager;
 import android.widget.Toast;
 
 import com.android.cts.verifier.R;
-import com.android.cts.verifier.managedprovisioning.Utils;
 
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 public class CommandReceiverActivity extends Activity {
     private static final String TAG = "CommandReceiverActivity";
@@ -68,6 +78,7 @@ public class CommandReceiverActivity extends Activity {
     public static final String COMMAND_SET_KEYGUARD_DISABLED = "set-keyguard-disabled";
     public static final String COMMAND_SET_LOCK_SCREEN_INFO = "set-lock-screen-info";
     public static final String COMMAND_SET_STATUSBAR_DISABLED = "set-statusbar-disabled";
+    public static final String COMMAND_SET_LOCK_TASK_FEATURES = "set-lock-task-features";
     public static final String COMMAND_ALLOW_ONLY_SYSTEM_INPUT_METHODS =
             "allow-only-system-input-methods";
     public static final String COMMAND_ALLOW_ONLY_SYSTEM_ACCESSIBILITY_SERVICES =
@@ -102,6 +113,13 @@ public class CommandReceiverActivity extends Activity {
             "clear-maximum-password-attempts";
     public static final String COMMAND_SET_DEFAULT_IME = "set-default-ime";
     public static final String COMMAND_CLEAR_DEFAULT_IME = "clear-default-ime";
+    public static final String COMMAND_CREATE_MANAGED_USER = "create-managed-user";
+    public static final String COMMAND_CREATE_MANAGED_USER_WITHOUT_SETUP =
+            "create-managed-user-without-setup";
+    public static final String COMMAND_WITH_USER_SWITCHER_MESSAGE = "with-user-switcher-message";
+    public static final String COMMAND_WITHOUT_USER_SWITCHER_MESSAGE =
+            "without-user-switcher-message";
+    public static final String COMMAND_ENABLE_LOGOUT = "enable-logout";
 
     public static final String EXTRA_USER_RESTRICTION =
             "com.android.cts.verifier.managedprovisioning.extra.USER_RESTRICTION";
@@ -171,9 +189,8 @@ public class CommandReceiverActivity extends Activity {
                     Context.DEVICE_POLICY_SERVICE);
             mUm = (UserManager) getSystemService(Context.USER_SERVICE);
             mAdmin = DeviceAdminTestReceiver.getReceiverComponentName();
-            Log.i(TAG, "Command: " + intent);
-
             final String command = getIntent().getStringExtra(EXTRA_COMMAND);
+            Log.i(TAG, "Command: " + command);
             switch (command) {
                 case COMMAND_SET_USER_RESTRICTION: {
                     String restrictionKey = intent.getStringExtra(EXTRA_USER_RESTRICTION);
@@ -220,9 +237,22 @@ public class CommandReceiverActivity extends Activity {
                     boolean enforced = intent.getBooleanExtra(EXTRA_ENFORCED, false);
                     mDpm.setStatusBarDisabled(mAdmin, enforced);
                 } break;
+                case COMMAND_SET_LOCK_TASK_FEATURES: {
+                    int flags = intent.getIntExtra(EXTRA_VALUE,
+                            DevicePolicyManager.LOCK_TASK_FEATURE_NONE);
+                    mDpm.setLockTaskFeatures(mAdmin, flags);
+                    // If feature HOME is used, we need to whitelist the current launcher
+                    if ((flags & LOCK_TASK_FEATURE_HOME) != 0) {
+                        mDpm.setLockTaskPackages(mAdmin,
+                                new String[] {getPackageName(), getCurrentLauncherPackage()});
+                    } else {
+                        mDpm.setLockTaskPackages(mAdmin, new String[] {getPackageName()});
+                    }
+                } break;
                 case COMMAND_ALLOW_ONLY_SYSTEM_INPUT_METHODS: {
                     boolean enforced = intent.getBooleanExtra(EXTRA_ENFORCED, false);
-                    mDpm.setPermittedInputMethods(mAdmin, enforced ? new ArrayList() : null);
+                    mDpm.setPermittedInputMethods(mAdmin,
+                            enforced ? getEnabledNonSystemImes() : null);
                 } break;
                 case COMMAND_ALLOW_ONLY_SYSTEM_ACCESSIBILITY_SERVICES: {
                     boolean enforced = intent.getBooleanExtra(EXTRA_ENFORCED, false);
@@ -260,11 +290,12 @@ public class CommandReceiverActivity extends Activity {
                             return;
                         }
                         clearAllPoliciesAndRestrictions();
-                    } else if(mode == PolicyTransparencyTestListActivity.MODE_PROFILE_OWNER) {
+                    } else if (mode == PolicyTransparencyTestListActivity.MODE_MANAGED_PROFILE
+                            || mode == PolicyTransparencyTestListActivity.MODE_MANAGED_USER) {
                         if (!mDpm.isProfileOwnerApp(getPackageName())) {
                             return;
                         }
-                        clearProfileOwnerRelatedPoliciesAndRestrictions();
+                        clearProfileOwnerRelatedPoliciesAndRestrictions(mode);
                     }
                     // No policies need to be cleared for COMP at the moment.
                 } break;
@@ -421,7 +452,7 @@ public class CommandReceiverActivity extends Activity {
                         return;
                     }
                     mDpm.setRecommendedGlobalProxy(mAdmin, null);
-                }
+                } break;
                 case COMMAND_INSTALL_CA_CERT: {
                     if (!mDpm.isDeviceOwnerApp(getPackageName())) {
                         return;
@@ -458,7 +489,44 @@ public class CommandReceiverActivity extends Activity {
                         return;
                     }
                     mDpm.setSecureSetting(mAdmin, Settings.Secure.DEFAULT_INPUT_METHOD, null);
-                }
+                } break;
+                case COMMAND_CREATE_MANAGED_USER:{
+                    if (!mDpm.isDeviceOwnerApp(getPackageName())) {
+                        return;
+                    }
+                    PersistableBundle extras = new PersistableBundle();
+                    extras.putBoolean(DeviceAdminTestReceiver.EXTRA_MANAGED_USER_TEST, true);
+                    UserHandle userHandle = mDpm.createAndManageUser(mAdmin, "managed user", mAdmin,
+                            extras,
+                            SKIP_SETUP_WIZARD | MAKE_USER_EPHEMERAL);
+                    mDpm.setAffiliationIds(mAdmin,
+                            Collections.singleton(DeviceAdminTestReceiver.AFFILIATION_ID));
+                    mDpm.startUserInBackground(mAdmin, userHandle);
+                } break;
+                case COMMAND_CREATE_MANAGED_USER_WITHOUT_SETUP:{
+                    if (!mDpm.isDeviceOwnerApp(getPackageName())) {
+                        return;
+                    }
+                    PersistableBundle extras = new PersistableBundle();
+                    extras.putBoolean(DeviceAdminTestReceiver.EXTRA_MANAGED_USER_TEST, true);
+                    mDpm.createAndManageUser(mAdmin, "managed user", mAdmin, extras, /* flags */ 0);
+                } break;
+                case COMMAND_WITH_USER_SWITCHER_MESSAGE: {
+                    createAndSwitchUserWithMessage("Start user session", "End user session");
+                } break;
+                case COMMAND_WITHOUT_USER_SWITCHER_MESSAGE: {
+                    createAndSwitchUserWithMessage(null, null);
+                } break;
+                case COMMAND_ENABLE_LOGOUT: {
+                    if (!mDpm.isDeviceOwnerApp(getPackageName())) {
+                        return;
+                    }
+                    mDpm.addUserRestriction(mAdmin, UserManager.DISALLOW_USER_SWITCH);
+                    mDpm.setLogoutEnabled(mAdmin, true);
+                    UserHandle userHandle = mDpm.createAndManageUser(mAdmin, "managed user", mAdmin,
+                            null, SKIP_SETUP_WIZARD | MAKE_USER_EPHEMERAL);
+                    mDpm.switchUser(mAdmin, userHandle);
+                } break;
             }
         } catch (Exception e) {
             Log.e(TAG, "Failed to execute command: " + intent, e);
@@ -506,6 +574,7 @@ public class CommandReceiverActivity extends Activity {
         mDpm.clearUserRestriction(mAdmin, UserManager.DISALLOW_CONFIG_BLUETOOTH);
         mDpm.clearUserRestriction(mAdmin, UserManager.DISALLOW_CONFIG_VPN);
         mDpm.clearUserRestriction(mAdmin, UserManager.DISALLOW_DATA_ROAMING);
+        mDpm.clearUserRestriction(mAdmin, UserManager.DISALLOW_USER_SWITCH);
 
         mDpm.setDeviceOwnerLockScreenInfo(mAdmin, null);
         mDpm.setKeyguardDisabled(mAdmin, false);
@@ -527,6 +596,10 @@ public class CommandReceiverActivity extends Activity {
         mDpm.uninstallCaCert(mAdmin, TEST_CA.getBytes());
         mDpm.setMaximumFailedPasswordsForWipe(mAdmin, 0);
         mDpm.setSecureSetting(mAdmin, Settings.Secure.DEFAULT_INPUT_METHOD, null);
+        mDpm.setAffiliationIds(mAdmin, Collections.emptySet());
+        mDpm.setStartUserSessionMessage(mAdmin, null);
+        mDpm.setEndUserSessionMessage(mAdmin, null);
+        mDpm.setLogoutEnabled(mAdmin, false);
 
         uninstallHelperPackage();
         removeManagedProfile();
@@ -536,9 +609,8 @@ public class CommandReceiverActivity extends Activity {
                 PackageManager.DONT_KILL_APP);
     }
 
-    private void clearProfileOwnerRelatedPoliciesAndRestrictions() {
-        clearPolicyTransparencyUserRestriction(
-                PolicyTransparencyTestListActivity.MODE_PROFILE_OWNER);
+    private void clearProfileOwnerRelatedPoliciesAndRestrictions(int mode) {
+        clearPolicyTransparencyUserRestriction(mode);
         clearProfileOwnerRelatedPolicies();
     }
 
@@ -561,5 +633,56 @@ public class CommandReceiverActivity extends Activity {
         for (final UserHandle userHandle : mUm.getUserProfiles()) {
             mDpm.removeUser(mAdmin, userHandle);
         }
+    }
+
+    public static Intent createSetUserRestrictionIntent(String restriction, boolean enforced) {
+        return new Intent(ACTION_EXECUTE_COMMAND)
+                .putExtra(EXTRA_COMMAND,COMMAND_SET_USER_RESTRICTION)
+                .putExtra(EXTRA_USER_RESTRICTION, restriction)
+                .putExtra(EXTRA_ENFORCED, enforced);
+    }
+
+    private List<String> getEnabledNonSystemImes() {
+        InputMethodManager inputMethodManager = getSystemService(InputMethodManager.class);
+        final List<InputMethodInfo> inputMethods = inputMethodManager.getEnabledInputMethodList();
+        return inputMethods.stream()
+                .filter(inputMethodInfo -> !isSystemInputMethodInfo(inputMethodInfo))
+                .map(inputMethodInfo -> inputMethodInfo.getPackageName())
+                .filter(packageName -> !packageName.equals(getPackageName()))
+                .distinct()
+                .collect(Collectors.toList());
+    }
+
+    private boolean isSystemInputMethodInfo(InputMethodInfo inputMethodInfo) {
+        return inputMethodInfo.getServiceInfo().applicationInfo.isSystemApp();
+    }
+
+    private void createAndSwitchUserWithMessage(String startUserSessionMessage,
+            String endUserSessionMessage) {
+        if (!mDpm.isDeviceOwnerApp(getPackageName())) {
+            return;
+        }
+        mDpm.setStartUserSessionMessage(mAdmin, startUserSessionMessage);
+        mDpm.setEndUserSessionMessage(mAdmin, endUserSessionMessage);
+        mDpm.setAffiliationIds(mAdmin,
+                Collections.singleton(DeviceAdminTestReceiver.AFFILIATION_ID));
+
+        PersistableBundle extras = new PersistableBundle();
+        extras.putBoolean(DeviceAdminTestReceiver.EXTRA_LOGOUT_ON_START, true);
+        UserHandle userHandle = mDpm.createAndManageUser(mAdmin, "managed user", mAdmin,
+                extras,
+                SKIP_SETUP_WIZARD | MAKE_USER_EPHEMERAL);
+        mDpm.switchUser(mAdmin, userHandle);
+    }
+
+    private String getCurrentLauncherPackage() {
+        ResolveInfo resolveInfo = getPackageManager()
+            .resolveActivity(new Intent(Intent.ACTION_MAIN)
+                .addCategory(Intent.CATEGORY_HOME), PackageManager.MATCH_DEFAULT_ONLY);
+        if (resolveInfo == null || resolveInfo.activityInfo == null) {
+            return null;
+        }
+
+        return resolveInfo.activityInfo.packageName;
     }
 }

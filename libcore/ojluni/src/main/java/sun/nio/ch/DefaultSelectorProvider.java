@@ -128,11 +128,6 @@ public class DefaultSelectorProvider {
         overhead to set up when the number of FDs being polled is small
         (which is the common case on Android).
 
-        We also need to make sure that all tagged sockets are untagged before
-        they're preclosed at the platform level. However, there's nothing we
-        can do about applications that abuse public api (android.net.TrafficStats).
-
-
         ALTERNATE APPROACHES :
         ----------------------
         For completeness, I'm listing a couple of other approaches that were

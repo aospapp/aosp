@@ -22,9 +22,9 @@ LOCAL_SRC_FILES := $(mockftpserver_src_files)
 LOCAL_JAVA_RESOURCE_DIRS := MockFtpServer/src/main/resources
 LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE := mockftpserver
-LOCAL_JAVA_LIBRARIES := slf4j-jdk14 core-oj core-libart
+LOCAL_JAVA_LIBRARIES := slf4j-jdk14
 LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
-LOCAL_NO_STANDARD_LIBRARIES := true
+LOCAL_SDK_VERSION := core_current
 include $(BUILD_STATIC_JAVA_LIBRARY)
 
 include $(CLEAR_VARS)

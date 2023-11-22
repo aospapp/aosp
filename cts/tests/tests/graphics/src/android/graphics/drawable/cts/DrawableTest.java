@@ -213,6 +213,39 @@ public class DrawableTest {
         }
     }
 
+    private Boolean isClosed = new Boolean(false);
+
+    @Test
+    public void testCreateFromStream2() throws IOException {
+        FileInputStream inputStream = null;
+        File imageFile = null;
+        synchronized (isClosed) {
+            isClosed = false;
+            try {
+                imageFile = new File(mContext.getFilesDir(), "tempimage.jpg");
+                writeSampleImage(imageFile);
+
+                inputStream = new FileInputStream(imageFile) {
+                    @Override
+                    public void close() throws IOException {
+                        super.close();
+                        isClosed = true;
+                    }
+                };
+                assertNotNull(Drawable.createFromStream(inputStream, "Sample"));
+            } finally {
+                if (null != inputStream) {
+		    // verify that the stream was not closed
+                    assertFalse(isClosed);
+                    inputStream.close();
+                }
+                if (imageFile.exists()) {
+                    assertTrue(imageFile.delete());
+                }
+            }
+        }
+    }
+
     @Test
     public void testCreateFromResourceStream1() throws IOException {
         FileInputStream inputEmptyStream = null;

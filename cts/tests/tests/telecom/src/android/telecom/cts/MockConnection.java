@@ -18,6 +18,7 @@ package android.telecom.cts;
 
 import static android.telecom.CallAudioState.*;
 
+import android.net.Uri;
 import android.os.Bundle;
 import android.telecom.CallAudioState;
 import android.telecom.Connection;
@@ -40,6 +41,7 @@ public class MockConnection extends Connection {
     public static final int ON_START_RTT = 5;
     public static final int ON_RTT_REQUEST_RESPONSE = 6;
     public static final int ON_STOP_RTT = 7;
+    public static final int ON_DEFLECT = 8;
 
     private CallAudioState mCallAudioState =
             new CallAudioState(false, CallAudioState.ROUTE_EARPIECE, ROUTE_EARPIECE | ROUTE_SPEAKER);
@@ -221,6 +223,13 @@ public class MockConnection extends Connection {
         }
     }
 
+    @Override
+    public void onDeflect(Uri address) {
+        if (mInvokeCounterMap.get(ON_DEFLECT) != null) {
+            mInvokeCounterMap.get(ON_DEFLECT).invoke(address);
+        }
+    }
+
     public int getCurrentState()  {
         return mState;
     }
@@ -322,6 +331,8 @@ public class MockConnection extends Connection {
                 return "onRttRequestResponse";
             case ON_STOP_RTT:
                 return "onStopRtt";
+            case ON_DEFLECT:
+                return "onDeflect";
             default:
                 return "Callback";
         }

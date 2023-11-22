@@ -19,12 +19,13 @@ include $(CLEAR_VARS)
 LOCAL_MODULE_TAGS := tests
 
 # LOCAL_SDK_VERSION := current
+LOCAL_PRIVATE_PLATFORM_APIS := true
 
 LOCAL_PACKAGE_NAME := SmartCamera-tests
 
 LOCAL_SRC_FILES += $(call all-java-files-under, src)
 
-LOCAL_JAVA_LIBRARIES := legacy-android-test
+LOCAL_JAVA_LIBRARIES := android.test.base
 LOCAL_STATIC_JAVA_LIBRARIES := guava junit
 
 LOCAL_PROGUARD_ENABLED := disabled

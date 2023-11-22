@@ -14,10 +14,11 @@
  * limitations under the License.
  */
 
+#include "minikin/SparseBitSet.h"
+
 #include <random>
 
 #include <gtest/gtest.h>
-#include <minikin/SparseBitSet.h>
 
 namespace minikin {
 
@@ -27,7 +28,7 @@ TEST(SparseBitSetTest, randomTest) {
     std::mt19937 mt;  // Fix seeds to be able to reproduce the result.
     std::uniform_int_distribution<uint16_t> distribution(1, 512);
 
-    std::vector<uint32_t> range { distribution(mt) };
+    std::vector<uint32_t> range{distribution(mt)};
     for (size_t i = 1; i < kTestRangeNum * 2; ++i) {
         range.push_back((range.back() - 1) + distribution(mt));
     }

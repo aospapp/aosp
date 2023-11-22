@@ -17,13 +17,13 @@
 #ifndef ART_RUNTIME_INTERPRETER_SHADOW_FRAME_H_
 #define ART_RUNTIME_INTERPRETER_SHADOW_FRAME_H_
 
+#include <cstdint>
 #include <cstring>
-#include <stdint.h>
 #include <string>
 
 #include "base/macros.h"
 #include "base/mutex.h"
-#include "dex_file.h"
+#include "dex/dex_file.h"
 #include "lock_count_data.h"
 #include "read_barrier.h"
 #include "stack_reference.h"
@@ -32,7 +32,7 @@
 namespace art {
 
 namespace mirror {
-  class Object;
+class Object;
 }  // namespace mirror
 
 class ArtMethod;
@@ -92,7 +92,7 @@ class ShadowFrame {
   }
 
   uint32_t GetDexPC() const {
-    return (dex_pc_ptr_ == nullptr) ? dex_pc_ : dex_pc_ptr_ - code_item_->insns_;
+    return (dex_pc_ptr_ == nullptr) ? dex_pc_ : dex_pc_ptr_ - dex_instructions_;
   }
 
   int16_t GetCachedHotnessCountdown() const {
@@ -146,12 +146,8 @@ class ShadowFrame {
     return &vregs_[i + NumberOfVRegs()];
   }
 
-  void SetCodeItem(const DexFile::CodeItem* code_item) {
-    code_item_ = code_item;
-  }
-
-  const DexFile::CodeItem* GetCodeItem() const {
-    return code_item_;
+  const uint16_t* GetDexInstructions() const {
+    return dex_instructions_;
   }
 
   float GetVRegFloat(size_t i) const {
@@ -188,9 +184,7 @@ class ShadowFrame {
       const uint32_t* vreg_ptr = &vregs_[i];
       ref = reinterpret_cast<const StackReference<mirror::Object>*>(vreg_ptr)->AsMirrorPtr();
     }
-    if (kUseReadBarrier) {
-      ReadBarrier::AssertToSpaceInvariant(ref);
-    }
+    ReadBarrier::MaybeAssertToSpaceInvariant(ref);
     if (kVerifyFlags & kVerifyReads) {
       VerifyObject(ref);
     }
@@ -256,9 +250,7 @@ class ShadowFrame {
     if (kVerifyFlags & kVerifyWrites) {
       VerifyObject(val);
     }
-    if (kUseReadBarrier) {
-      ReadBarrier::AssertToSpaceInvariant(val);
-    }
+    ReadBarrier::MaybeAssertToSpaceInvariant(val);
     uint32_t* vreg = &vregs_[i];
     reinterpret_cast<StackReference<mirror::Object>*>(vreg)->Assign(val);
     if (HasReferenceArray()) {
@@ -328,8 +320,8 @@ class ShadowFrame {
     return OFFSETOF_MEMBER(ShadowFrame, dex_pc_ptr_);
   }
 
-  static size_t CodeItemOffset() {
-    return OFFSETOF_MEMBER(ShadowFrame, code_item_);
+  static size_t DexInstructionsOffset() {
+    return OFFSETOF_MEMBER(ShadowFrame, dex_instructions_);
   }
 
   static size_t CachedHotnessCountdownOffset() {
@@ -361,6 +353,14 @@ class ShadowFrame {
     return result_register_;
   }
 
+  bool NeedsNotifyPop() const {
+    return needs_notify_pop_;
+  }
+
+  void SetNotifyPop(bool notify) {
+    needs_notify_pop_ = notify;
+  }
+
  private:
   ShadowFrame(uint32_t num_vregs, ShadowFrame* link, ArtMethod* method,
               uint32_t dex_pc, bool has_reference_array)
@@ -368,11 +368,12 @@ class ShadowFrame {
         method_(method),
         result_register_(nullptr),
         dex_pc_ptr_(nullptr),
-        code_item_(nullptr),
+        dex_instructions_(nullptr),
         number_of_vregs_(num_vregs),
         dex_pc_(dex_pc),
         cached_hotness_countdown_(0),
-        hotness_countdown_(0) {
+        hotness_countdown_(0),
+        needs_notify_pop_(0) {
     // TODO(iam): Remove this parameter, it's an an artifact of portable removal
     DCHECK(has_reference_array);
     if (has_reference_array) {
@@ -398,12 +399,16 @@ class ShadowFrame {
   ArtMethod* method_;
   JValue* result_register_;
   const uint16_t* dex_pc_ptr_;
-  const DexFile::CodeItem* code_item_;
+  // Dex instruction base of the code item.
+  const uint16_t* dex_instructions_;
   LockCountData lock_count_data_;  // This may contain GC roots when lock counting is active.
   const uint32_t number_of_vregs_;
   uint32_t dex_pc_;
   int16_t cached_hotness_countdown_;
   int16_t hotness_countdown_;
+  // TODO Might be worth it to try to bit-pack this into some other field to reduce stack usage.
+  // NB alignment requires that this field takes 4 bytes. Only 1 bit is actually ever used.
+  bool needs_notify_pop_;
 
   // This is a two-part array:
   //  - [0..number_of_vregs) holds the raw virtual registers, and each element here is always 4

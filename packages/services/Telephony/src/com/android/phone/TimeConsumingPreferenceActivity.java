@@ -1,7 +1,5 @@
 package com.android.phone;
 
-import com.android.internal.telephony.CommandException;
-
 import android.app.AlertDialog;
 import android.app.Dialog;
 import android.app.ProgressDialog;
@@ -10,6 +8,8 @@ import android.preference.Preference;
 import android.preference.PreferenceActivity;
 import android.util.Log;
 import android.view.WindowManager;
+
+import com.android.internal.telephony.CommandException;
 
 import java.util.ArrayList;
 
@@ -23,7 +23,7 @@ interface  TimeConsumingPreferenceListener {
 public class TimeConsumingPreferenceActivity extends PreferenceActivity
                         implements TimeConsumingPreferenceListener,
                         DialogInterface.OnCancelListener {
-    private static final String LOG_TAG = "TimeConsumingPreferenceActivity";
+    private static final String LOG_TAG = "TimeConsumingPrefActivity";
     private final boolean DBG = (PhoneGlobals.DBG_LEVEL >= 2);
 
     private class DismissOnClickListener implements DialogInterface.OnClickListener {
@@ -53,6 +53,7 @@ public class TimeConsumingPreferenceActivity extends PreferenceActivity
     static final int STK_CC_SS_TO_DIAL_ERROR = 700;
     static final int STK_CC_SS_TO_USSD_ERROR = 800;
     static final int STK_CC_SS_TO_SS_ERROR = 900;
+    static final int STK_CC_SS_TO_DIAL_VIDEO_ERROR = 1000;
 
     private final ArrayList<String> mBusyList = new ArrayList<String>();
 
@@ -81,7 +82,8 @@ public class TimeConsumingPreferenceActivity extends PreferenceActivity
 
         if (id == RESPONSE_ERROR || id == RADIO_OFF_ERROR || id == EXCEPTION_ERROR
                 || id == FDN_CHECK_FAILURE || id == STK_CC_SS_TO_DIAL_ERROR
-                || id == STK_CC_SS_TO_USSD_ERROR || id == STK_CC_SS_TO_SS_ERROR) {
+                || id == STK_CC_SS_TO_USSD_ERROR || id == STK_CC_SS_TO_SS_ERROR
+                || id == STK_CC_SS_TO_DIAL_VIDEO_ERROR) {
             AlertDialog.Builder builder = new AlertDialog.Builder(this);
 
             int msgId;
@@ -111,6 +113,10 @@ public class TimeConsumingPreferenceActivity extends PreferenceActivity
                     break;
                 case STK_CC_SS_TO_SS_ERROR:
                     msgId = R.string.stk_cc_ss_to_ss_error;
+                    builder.setPositiveButton(R.string.close_dialog, mDismiss);
+                    break;
+                case STK_CC_SS_TO_DIAL_VIDEO_ERROR:
+                    msgId = R.string.stk_cc_ss_to_dial_video_error;
                     builder.setPositiveButton(R.string.close_dialog, mDismiss);
                     break;
                 case EXCEPTION_ERROR:
@@ -149,8 +155,7 @@ public class TimeConsumingPreferenceActivity extends PreferenceActivity
     @Override
     public void onStarted(Preference preference, boolean reading) {
         if (DBG) dumpState();
-        if (DBG) Log.d(LOG_TAG, "onStarted, preference=" + preference.getKey()
-                + ", reading=" + reading);
+        Log.i(LOG_TAG, "onStarted, preference=" + preference.getKey() + ", reading=" + reading);
         mBusyList.add(preference.getKey());
 
         if (mIsForeground) {
@@ -166,8 +171,7 @@ public class TimeConsumingPreferenceActivity extends PreferenceActivity
     @Override
     public void onFinished(Preference preference, boolean reading) {
         if (DBG) dumpState();
-        if (DBG) Log.d(LOG_TAG, "onFinished, preference=" + preference.getKey()
-                + ", reading=" + reading);
+        Log.i(LOG_TAG, "onFinished, preference=" + preference.getKey() + ", reading=" + reading);
         mBusyList.remove(preference.getKey());
 
         if (mBusyList.isEmpty()) {
@@ -183,7 +187,7 @@ public class TimeConsumingPreferenceActivity extends PreferenceActivity
     @Override
     public void onError(Preference preference, int error) {
         if (DBG) dumpState();
-        if (DBG) Log.d(LOG_TAG, "onError, preference=" + preference.getKey() + ", error=" + error);
+        Log.i(LOG_TAG, "onError, preference=" + preference.getKey() + ", error=" + error);
 
         if (mIsForeground) {
             showDialog(error);
@@ -197,6 +201,15 @@ public class TimeConsumingPreferenceActivity extends PreferenceActivity
             onError(preference, FDN_CHECK_FAILURE);
         } else if (exception.getCommandError() == CommandException.Error.RADIO_NOT_AVAILABLE) {
             onError(preference, RADIO_OFF_ERROR);
+        } else if (exception.getCommandError() == CommandException.Error.SS_MODIFIED_TO_DIAL) {
+            onError(preference, STK_CC_SS_TO_DIAL_ERROR);
+        } else if (exception.getCommandError() == CommandException.Error
+                .SS_MODIFIED_TO_DIAL_VIDEO) {
+            onError(preference, STK_CC_SS_TO_DIAL_VIDEO_ERROR);
+        } else if (exception.getCommandError() == CommandException.Error.SS_MODIFIED_TO_USSD) {
+            onError(preference, STK_CC_SS_TO_USSD_ERROR);
+        } else if (exception.getCommandError() == CommandException.Error.SS_MODIFIED_TO_SS) {
+            onError(preference, STK_CC_SS_TO_SS_ERROR);
         } else {
             preference.setEnabled(false);
             onError(preference, EXCEPTION_ERROR);

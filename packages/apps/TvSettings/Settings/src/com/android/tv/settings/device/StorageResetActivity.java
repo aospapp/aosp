@@ -39,7 +39,7 @@ public class StorageResetActivity extends TvSettingsActivity {
 
         @Override
         public void onPreferenceStartInitialScreen() {
-            final StorageResetFragment fragment = StorageResetFragment.newInstance();
+            final StorageSummaryFragment fragment = StorageSummaryFragment.newInstance();
             startPreferenceFragment(fragment);
         }
     }

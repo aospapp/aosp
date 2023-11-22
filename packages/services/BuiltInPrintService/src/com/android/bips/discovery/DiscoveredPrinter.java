@@ -17,15 +17,12 @@
 
 package com.android.bips.discovery;
 
-import android.content.Context;
 import android.net.Uri;
 import android.print.PrinterId;
 import android.printservice.PrintService;
 import android.text.TextUtils;
 import android.util.JsonReader;
 import android.util.JsonWriter;
-
-import com.android.bips.R;
 
 import java.io.IOException;
 import java.io.StringWriter;
@@ -88,7 +85,9 @@ public class DiscoveredPrinter {
         }
         reader.endObject();
 
-        if (printerName == null || path == null) throw new IOException("Missing name or path");
+        if (printerName == null || path == null) {
+            throw new IOException("Missing name or path");
+        }
         this.uuid = uuid;
         this.name = printerName;
         this.path = path;
@@ -103,6 +102,13 @@ public class DiscoveredPrinter {
         return uuid != null ? uuid : path;
     }
 
+    /**
+     * Return a host string for the user to see (an IP address or hostname without port number)
+     */
+    public String getHost() {
+        return path.getHost().replaceAll(":[0-9]+", "");
+    }
+
     /** Return a generated printer ID based on uuid or (if uuid is missing) its path */
     public PrinterId getId(PrintService printService) {
         if (mPrinterId == null) {
@@ -111,20 +117,8 @@ public class DiscoveredPrinter {
         return mPrinterId;
     }
 
-    /** Return a friendly description string including host and (if present) location */
-    public String getDescription(Context context) {
-        String host = path.getHost().replaceAll(":[0-9]+", "");
-        String description;
-        if (!TextUtils.isEmpty(location)) {
-            description = context.getString(R.string.printer_description, host, location);
-        } else {
-            description = host;
-        }
-        return description;
-    }
-
     /** Writes all serializable fields into JSON form */
-    public void write(JsonWriter writer) throws IOException {
+    void write(JsonWriter writer) throws IOException {
         writer.beginObject();
         writer.name("name").value(name);
         writer.name("path").value(path.toString());
@@ -137,26 +131,16 @@ public class DiscoveredPrinter {
         writer.endObject();
     }
 
-    /** Combine the best (longest) elements of this record and another into a merged record */
-    DiscoveredPrinter bestOf(DiscoveredPrinter other) {
-        return new DiscoveredPrinter(uuid, longest(name, other.name), path,
-                longest(location, other.location));
-    }
-
-    private static String longest(String a, String b) {
-        if (a == null) return b;
-        if (b == null) return a;
-        return a.length() > b.length() ? a : b;
-    }
-
     @Override
     public boolean equals(Object obj) {
-        if (!(obj instanceof DiscoveredPrinter)) return false;
+        if (!(obj instanceof DiscoveredPrinter)) {
+            return false;
+        }
         DiscoveredPrinter other = (DiscoveredPrinter) obj;
-        return Objects.equals(uuid, other.uuid) &&
-                Objects.equals(name, other.name) &&
-                Objects.equals(path, other.path) &&
-                Objects.equals(location, other.location);
+        return Objects.equals(uuid, other.uuid)
+                && Objects.equals(name, other.name)
+                && Objects.equals(path, other.path)
+                && Objects.equals(location, other.location);
     }
 
     @Override

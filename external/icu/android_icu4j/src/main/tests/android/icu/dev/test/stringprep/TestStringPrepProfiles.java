@@ -10,15 +10,20 @@
 package android.icu.dev.test.stringprep;
 
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import android.icu.dev.test.TestFmwk;
 import android.icu.text.StringPrep;
 import android.icu.text.StringPrepParseException;
+import android.icu.testsharding.MainTestShard;
 
 /**
  * @author Michael Ow
  *
  */
+@MainTestShard
+@RunWith(JUnit4.class)
 public class TestStringPrepProfiles extends TestFmwk {
     /*
      * The format of the test cases should be the following:
@@ -29,8 +34,8 @@ public class TestStringPrepProfiles extends TestFmwk {
      *     src string2
      *     expected result2
      *     ...
-     * } 
-     * 
+     * }
+     *
      * *Note: For expected failures add FAIL to beginning of the source string and for expected result use "FAIL".
      */
     private static String[][] testCases = {
@@ -102,7 +107,7 @@ public class TestStringPrepProfiles extends TestFmwk {
             "suffixdomain \u007Ffiend"
         }
     };
-    
+
     private int getOptionFromProfileName(String profileName) {
         if (profileName.equals("RFC4013_SASLPREP")) {
             return StringPrep.RFC4013_SASLPREP;
@@ -130,12 +135,12 @@ public class TestStringPrepProfiles extends TestFmwk {
             return StringPrep.RFC3530_NFS4_MIXED_PREP_PREFIX;
         } else if (profileName.equals("RFC3530_NFS4_MIXED_PREP_SUFFIX")) {
             return StringPrep.RFC3530_NFS4_MIXED_PREP_SUFFIX;
-        } 
-        
+        }
+
         // Should not happen.
         return -1;
     }
-    
+
     @Test
     public void TestProfiles() {
         String profileName = null;
@@ -143,12 +148,12 @@ public class TestStringPrepProfiles extends TestFmwk {
         String result = null;
         String src = null;
         String expected = null;
-        
+
         for (int i = 0; i < testCases.length; i++) {
             for (int j = 0; j < testCases[i].length; j++) {
                 if (j == 0) {
                     profileName = testCases[i][j];
-                    
+
                     sprep = StringPrep.getInstance(getOptionFromProfileName(profileName));
                 } else {
                     src = testCases[i][j];

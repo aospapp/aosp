@@ -28,6 +28,7 @@ import android.content.pm.PackageManager;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.net.wifi.WifiManager;
+import android.os.BatteryManager;
 import android.os.SystemClock;
 import android.util.Log;
 
@@ -106,6 +107,10 @@ public class BatteryConstraintTest extends ConstraintTest {
         boolean curNotLow = Boolean.parseBoolean(SystemUtil.runShellCommand(getInstrumentation(),
                 "cmd jobscheduler get-battery-not-low").trim());
         assertEquals(notLow, curNotLow);
+        IntentFilter filter = new IntentFilter(Intent.ACTION_BATTERY_CHANGED);
+        Intent batteryState = getContext().registerReceiver(null, filter);
+        assertEquals(notLow,
+                !batteryState.getBooleanExtra(BatteryManager.EXTRA_BATTERY_LOW, notLow));
     }
 
     String getJobState() throws Exception {
@@ -122,6 +127,13 @@ public class BatteryConstraintTest extends ConstraintTest {
 
     void assertJobNotReady() throws Exception {
         assertJobNotReady(BATTERY_JOB_ID);
+    }
+
+    static void waitFor(long waitMillis) throws Exception {
+        final long deadline = SystemClock.uptimeMillis() + waitMillis;
+        do {
+            Thread.sleep(500L);
+        } while (SystemClock.uptimeMillis() < deadline);
     }
 
     // --------------------------------------------------------------------------------------------
@@ -152,6 +164,7 @@ public class BatteryConstraintTest extends ConstraintTest {
      */
     public void testBatteryNotLowConstraintExecutes_withPower() throws Exception {
         setBatteryState(true, 100);
+        waitFor(2_000);
         verifyChargingState(true);
         verifyBatteryNotLowState(true);
 
@@ -171,6 +184,7 @@ public class BatteryConstraintTest extends ConstraintTest {
      */
     public void testBatteryNotLowConstraintExecutes_withoutPower() throws Exception {
         setBatteryState(false, 100);
+        waitFor(2_000);
         verifyChargingState(false);
         verifyBatteryNotLowState(true);
 
@@ -233,6 +247,10 @@ public class BatteryConstraintTest extends ConstraintTest {
      */
     public void testBatteryNotLowConstraintFails_withoutPower() throws Exception {
         setBatteryState(false, 15);
+        // setBatteryState() waited for the charging/not-charging state to formally settle,
+        // but battery level reporting lags behind that.  wait a moment to let that happen
+        // before proceeding.
+        waitFor(2_000);
         verifyChargingState(false);
         verifyBatteryNotLowState(false);
 
@@ -253,6 +271,7 @@ public class BatteryConstraintTest extends ConstraintTest {
         kTestEnvironment.setExpectedWaitForRun();
         kTestEnvironment.setContinueAfterStart();
         setBatteryState(false, 50);
+        waitFor(2_000);
         verifyChargingState(false);
         verifyBatteryNotLowState(true);
         kTestEnvironment.setExpectedStopped();
@@ -264,6 +283,7 @@ public class BatteryConstraintTest extends ConstraintTest {
         // And check that the job is stopped if battery goes low again.
         setBatteryState(false, 15);
         setBatteryState(false, 14);
+        waitFor(2_000);
         verifyChargingState(false);
         verifyBatteryNotLowState(false);
         assertTrue("Job with not low constraint did not stop when battery went low.",

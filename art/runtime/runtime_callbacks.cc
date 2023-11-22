@@ -21,13 +21,10 @@
 #include "art_method.h"
 #include "base/macros.h"
 #include "class_linker.h"
+#include "monitor.h"
 #include "thread.h"
 
 namespace art {
-
-void RuntimeCallbacks::AddThreadLifecycleCallback(ThreadLifecycleCallback* cb) {
-  thread_callbacks_.push_back(cb);
-}
 
 template <typename T>
 ALWAYS_INLINE
@@ -36,6 +33,122 @@ static inline void Remove(T* cb, std::vector<T*>* data) {
   if (it != data->end()) {
     data->erase(it);
   }
+}
+
+void RuntimeCallbacks::AddDdmCallback(DdmCallback* cb) {
+  ddm_callbacks_.push_back(cb);
+}
+
+void RuntimeCallbacks::RemoveDdmCallback(DdmCallback* cb) {
+  Remove(cb, &ddm_callbacks_);
+}
+
+void RuntimeCallbacks::DdmPublishChunk(uint32_t type, const ArrayRef<const uint8_t>& data) {
+  for (DdmCallback* cb : ddm_callbacks_) {
+    cb->DdmPublishChunk(type, data);
+  }
+}
+
+void RuntimeCallbacks::AddDebuggerControlCallback(DebuggerControlCallback* cb) {
+  debugger_control_callbacks_.push_back(cb);
+}
+
+void RuntimeCallbacks::RemoveDebuggerControlCallback(DebuggerControlCallback* cb) {
+  Remove(cb, &debugger_control_callbacks_);
+}
+
+bool RuntimeCallbacks::IsDebuggerConfigured() {
+  for (DebuggerControlCallback* cb : debugger_control_callbacks_) {
+    if (cb->IsDebuggerConfigured()) {
+      return true;
+    }
+  }
+  return false;
+}
+
+void RuntimeCallbacks::StartDebugger() {
+  for (DebuggerControlCallback* cb : debugger_control_callbacks_) {
+    cb->StartDebugger();
+  }
+}
+
+void RuntimeCallbacks::StopDebugger() {
+  for (DebuggerControlCallback* cb : debugger_control_callbacks_) {
+    cb->StopDebugger();
+  }
+}
+
+void RuntimeCallbacks::AddMethodInspectionCallback(MethodInspectionCallback* cb) {
+  method_inspection_callbacks_.push_back(cb);
+}
+
+void RuntimeCallbacks::RemoveMethodInspectionCallback(MethodInspectionCallback* cb) {
+  Remove(cb, &method_inspection_callbacks_);
+}
+
+bool RuntimeCallbacks::IsMethodSafeToJit(ArtMethod* m) {
+  for (MethodInspectionCallback* cb : method_inspection_callbacks_) {
+    if (!cb->IsMethodSafeToJit(m)) {
+      DCHECK(cb->IsMethodBeingInspected(m))
+          << "Contract requires that !IsMethodSafeToJit(m) -> IsMethodBeingInspected(m)";
+      return false;
+    }
+  }
+  return true;
+}
+
+bool RuntimeCallbacks::IsMethodBeingInspected(ArtMethod* m) {
+  for (MethodInspectionCallback* cb : method_inspection_callbacks_) {
+    if (cb->IsMethodBeingInspected(m)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool RuntimeCallbacks::MethodNeedsDebugVersion(ArtMethod* m) {
+  for (MethodInspectionCallback* cb : method_inspection_callbacks_) {
+    if (cb->MethodNeedsDebugVersion(m)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+void RuntimeCallbacks::AddThreadLifecycleCallback(ThreadLifecycleCallback* cb) {
+  thread_callbacks_.push_back(cb);
+}
+
+void RuntimeCallbacks::MonitorContendedLocking(Monitor* m) {
+  for (MonitorCallback* cb : monitor_callbacks_) {
+    cb->MonitorContendedLocking(m);
+  }
+}
+
+void RuntimeCallbacks::MonitorContendedLocked(Monitor* m) {
+  for (MonitorCallback* cb : monitor_callbacks_) {
+    cb->MonitorContendedLocked(m);
+  }
+}
+
+void RuntimeCallbacks::ObjectWaitStart(Handle<mirror::Object> m, int64_t timeout) {
+  for (MonitorCallback* cb : monitor_callbacks_) {
+    cb->ObjectWaitStart(m, timeout);
+  }
+}
+
+void RuntimeCallbacks::MonitorWaitFinished(Monitor* m, bool timeout) {
+  for (MonitorCallback* cb : monitor_callbacks_) {
+    cb->MonitorWaitFinished(m, timeout);
+  }
+}
+
+void RuntimeCallbacks::AddMonitorCallback(MonitorCallback* cb) {
+  monitor_callbacks_.push_back(cb);
+}
+
+void RuntimeCallbacks::RemoveMonitorCallback(MonitorCallback* cb) {
+  Remove(cb, &monitor_callbacks_);
 }
 
 void RuntimeCallbacks::RemoveThreadLifecycleCallback(ThreadLifecycleCallback* cb) {

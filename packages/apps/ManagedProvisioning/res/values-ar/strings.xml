@@ -67,6 +67,7 @@
     <string name="setup_work_device" msgid="6003988351437862369">"جارٍ إعداد جهاز العمل…"</string>
     <string name="progress_data_process" msgid="1707745321954672971">"جارٍ معالجة بيانات الإعداد…"</string>
     <string name="progress_connect_to_wifi" msgid="472251154628863539">"‏جارٍ الاتصال بشبكة Wi-Fi…"</string>
+    <string name="progress_connect_to_mobile_network" msgid="3852054186860657088">"جارٍ الاتصال بشبكة جوّال…"</string>
     <string name="progress_download" msgid="3522436271691064624">"جارٍ تنزيل تطبيق المشرف…"</string>
     <string name="progress_install" msgid="2258045670385866183">"جارٍ تثبيت تطبيق المشرف…"</string>
     <string name="progress_delete_non_required_apps" msgid="7633458399262691256">"جارٍ إزالة تطبيقات النظام غير المطلوبة…"</string>
@@ -104,10 +105,10 @@
     <string name="dismiss" msgid="9009534756748565880">"إلغاء"</string>
     <string name="profile_owner_info" msgid="8975319972303812298">"أنت بصدد إنشاء ملف شخصي للعمل تتم إدارته ومراقبته بواسطة مؤسستك. تسري البنود."</string>
     <string name="profile_owner_info_with_terms_headers" msgid="7373591910245655373">"أنت بصدد إنشاء ملف شخصي للعمل يخضع لإدارة ومراقبة مؤسستك. تسري البنود المتبعة في <xliff:g id="TERMS_HEADERS">%1$s</xliff:g>."</string>
-    <string name="profile_owner_info_comp" msgid="9190421701126119142">"سيتم إنشاء ملف شخصي لتطبيقات العمل، وسيخضع هذا الملف الشخصي وبقية محتويات الجهاز لإدارة ومراقبة مؤسستك. تسري البنود."</string>
-    <string name="profile_owner_info_with_terms_headers_comp" msgid="2012766614492554556">"سيتم إنشاء ملف شخصي لتطبيقات العمل، وسيخضع هذا الملف الشخصي وبقية محتويات الجهاز لإدارة ومراقبة مؤسستك. تسري البنود في <xliff:g id="TERMS_HEADERS">%1$s</xliff:g>."</string>
-    <string name="device_owner_info" msgid="2883639372446424007">"ستتم إدارة هذا الجهاز وتأمينه بواسطة <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g>. تسري البنود. <xliff:g id="VIEW_TERMS">%2$s</xliff:g>"</string>
-    <string name="device_owner_info_with_terms_headers" msgid="7333703548160002079">"ستتم إدارة هذا الجهاز وتأمينه بواسطة <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g>. تسري البنود المتّبعة في <xliff:g id="TERMS_HEADERS">%2$s</xliff:g>. <xliff:g id="VIEW_TERMS">%3$s</xliff:g>"</string>
+    <string name="profile_owner_info_comp" msgid="9190421701126119142">"سيتم إنشاء ملف شخصي لتطبيقات العمل، وسيخضع هذا الملف الشخصي وباقي محتوى الجهاز لإدارة ومراقبة مؤسستك. تسري البنود."</string>
+    <string name="profile_owner_info_with_terms_headers_comp" msgid="2012766614492554556">"سيتم إنشاء ملف شخصي لتطبيقات العمل، وسيخضع هذا الملف الشخصي وباقي محتوى الجهاز لإدارة ومراقبة مؤسستك. تسري البنود في <xliff:g id="TERMS_HEADERS">%1$s</xliff:g>."</string>
+    <string name="device_owner_info" msgid="3716661456037934467">"ستدير مؤسسة <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> هذا الجهاز وتراقبه وتحافظ على أمانه. وسيتم تطبيق الأحكام السارية. <xliff:g id="VIEW_TERMS">%2$s</xliff:g>"</string>
+    <string name="device_owner_info_with_terms_headers" msgid="1254243288669282977">"ستدير مؤسسة <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> هذا الجهاز وتراقبه وتحافظ على أمانه. وسيتم تطبيق الأحكام السارية لدى <xliff:g id="TERMS_HEADERS">%2$s</xliff:g>. <xliff:g id="VIEW_TERMS">%3$s</xliff:g>"</string>
     <string name="link_isnt_secure_and_cant_be_opened_until_device_setup_finished" msgid="1604497932637832657">"هذا الرابط غير آمن ولا يمكن فتحه حتى يكتمل إعداد الجهاز: <xliff:g id="LINK_RAW_TEST">%1$s</xliff:g>"</string>
     <string name="contact_device_provider" msgid="9100405424740726066">"إذا كانت لديك أسئلة، فاتصل بـ <xliff:g id="ORGANIZATIONS_ADMIN">%1$s</xliff:g>."</string>
     <string name="if_questions_contact_admin" msgid="6147462485780267795">"إذا كانت لديك أسئلة، فاتصل بمشرف مؤسستك"</string>
@@ -154,4 +155,7 @@
     <string name="join_many_items_last" msgid="7469666990442158802">"<xliff:g id="ALL_BUT_LAST_ITEM">%1$s</xliff:g> و<xliff:g id="LAST_ITEM_0">%2$s</xliff:g>"</string>
     <string name="join_many_items_first" msgid="8365482726853276608">"<xliff:g id="FIRST_ITEM">%1$s</xliff:g>، <xliff:g id="ALL_BUT_FIRST_AND_LAST_ITEM">%2$s</xliff:g>"</string>
     <string name="join_many_items_middle" msgid="8569294838319639963">"<xliff:g id="ADDED_ITEM">%1$s</xliff:g>، <xliff:g id="REST_OF_ITEMS">%2$s</xliff:g>"</string>
+    <string name="take_a_few_minutes" msgid="6282806501305322838">"قد يستغرق ذلك بضع دقائق."</string>
+    <string name="work_profile_description" msgid="8524116010729569213">"سيتم الاحتفاظ بتطبيقات عملك في هذا الملف الشخصي وستديرها مؤسستك."</string>
+    <string name="device_owner_description" msgid="168013145812679664">"سيظل هذا الجهاز محميًا وتحت إدارة مؤسستك."</string>
 </resources>

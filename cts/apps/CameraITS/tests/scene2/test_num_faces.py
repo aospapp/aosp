@@ -32,12 +32,15 @@ def main():
     """Test face detection."""
     with its.device.ItsSession() as cam:
         props = cam.get_camera_properties()
+        its.caps.skip_unless(its.caps.face_detect(props))
+        mono_camera = its.caps.mono_camera(props)
         fd_modes = props['android.statistics.info.availableFaceDetectModes']
         a = props['android.sensor.info.activeArraySize']
         aw, ah = a['right'] - a['left'], a['bottom'] - a['top']
 
         if its.caps.read_3a(props):
-            _, _, _, _, _ = cam.do_3a(get_results=True)
+            _, _, _, _, _ = cam.do_3a(get_results=True,
+                                      mono_camera=mono_camera)
 
         for fd_mode in fd_modes:
             assert FD_MODE_OFF <= fd_mode <= FD_MODE_FULL

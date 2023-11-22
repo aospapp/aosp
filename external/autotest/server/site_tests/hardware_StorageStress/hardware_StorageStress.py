@@ -57,11 +57,13 @@ class hardware_StorageStress(test.test):
 
         # parse power command
         if power_command == 'nothing':
-            power_func = self._do_nothing
+            self._power_func = self._do_nothing
         elif power_command == 'reboot':
-            power_func = self._do_reboot
+            self._power_func = self._do_reboot
         elif power_command == 'suspend':
-            power_func = self._do_suspend
+            self._power_func = self._do_suspend
+        elif power_command == 'wait':
+            self._power_func = self._do_wait
         else:
             raise error.TestFail(
                 'Test failed with error: Invalid power command')
@@ -100,7 +102,6 @@ class hardware_StorageStress(test.test):
 
             # do power command & verify data & calculate time
             loop_start_time = time.time()
-            power_func()
             loop_func()
             loop_time = time.time() - loop_start_time
 
@@ -122,6 +123,9 @@ class hardware_StorageStress(test.test):
 
     def _do_nothing(self):
         pass
+
+    def _do_wait(self):
+        time.sleep(self._suspend_duration)
 
     def _do_reboot(self):
         """
@@ -154,6 +158,7 @@ class hardware_StorageStress(test.test):
             check_client_result=True, disable_sysinfo=True, wait=0,
             tag='%s_%d' % ('verify_data', self._loop_count),
             requirements=[(self._FIO_REQUIREMENT_FILE, self._FIO_VERIFY_FLAGS)])
+        self._power_func()
 
     def _full_disk_write(self):
         """
@@ -171,6 +176,8 @@ class hardware_StorageStress(test.test):
                                  requirements=[('64k_stress', [])],
                                  time_length=self._soak_time)
 
+        self._power_func()
+
         self._client_at.run_test('hardware_StorageFio',
                                  check_client_result=True,
                                  disable_sysinfo=True,
@@ -178,11 +185,15 @@ class hardware_StorageStress(test.test):
                                  requirements=[('surfing', [])],
                                  time_length=self._soak_time)
 
+        self._power_func()
+
         self._client_at.run_test('hardware_StorageFio',
                                  check_client_result=True,
                                  disable_sysinfo=True,
                                  tag='%s_%d' % ('integrity', self._loop_count),
                                  wait=0, integrity=True)
+
+        self._power_func()
 
         self._client_at.run_test('hardware_StorageWearoutDetect',
                                  tag='%s_%d' % ('wearout', self._loop_count),

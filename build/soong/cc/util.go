@@ -40,50 +40,11 @@ func libNamesToFlags(names []string) string {
 	return android.JoinWithPrefix(names, "-l")
 }
 
-func indexList(s string, list []string) int {
-	for i, l := range list {
-		if l == s {
-			return i
-		}
-	}
-
-	return -1
-}
-
-func inList(s string, list []string) bool {
-	return indexList(s, list) != -1
-}
-
-func filterList(list []string, filter []string) (remainder []string, filtered []string) {
-	for _, l := range list {
-		if inList(l, filter) {
-			filtered = append(filtered, l)
-		} else {
-			remainder = append(remainder, l)
-		}
-	}
-
-	return
-}
-
-func removeListFromList(list []string, filter_out []string) (result []string) {
-	result = make([]string, 0, len(list))
-	for _, l := range list {
-		if !inList(l, filter_out) {
-			result = append(result, l)
-		}
-	}
-	return
-}
-
-func removeFromList(s string, list []string) (bool, []string) {
-	i := indexList(s, list)
-	if i != -1 {
-		return true, append(list[:i], list[i+1:]...)
-	} else {
-		return false, list
-	}
-}
+var indexList = android.IndexList
+var inList = android.InList
+var filterList = android.FilterList
+var removeListFromList = android.RemoveListFromList
+var removeFromList = android.RemoveFromList
 
 var libNameRegexp = regexp.MustCompile(`^lib(.*)$`)
 
@@ -97,31 +58,34 @@ func moduleToLibName(module string) (string, error) {
 
 func flagsToBuilderFlags(in Flags) builderFlags {
 	return builderFlags{
-		globalFlags:   strings.Join(in.GlobalFlags, " "),
-		arFlags:       strings.Join(in.ArFlags, " "),
-		asFlags:       strings.Join(in.AsFlags, " "),
-		cFlags:        strings.Join(in.CFlags, " "),
-		toolingCFlags: strings.Join(in.ToolingCFlags, " "),
-		conlyFlags:    strings.Join(in.ConlyFlags, " "),
-		cppFlags:      strings.Join(in.CppFlags, " "),
-		yaccFlags:     strings.Join(in.YaccFlags, " "),
-		protoFlags:    strings.Join(in.protoFlags, " "),
-		aidlFlags:     strings.Join(in.aidlFlags, " "),
-		rsFlags:       strings.Join(in.rsFlags, " "),
-		ldFlags:       strings.Join(in.LdFlags, " "),
-		libFlags:      strings.Join(in.libFlags, " "),
-		tidyFlags:     strings.Join(in.TidyFlags, " "),
-		sAbiFlags:     strings.Join(in.SAbiFlags, " "),
-		yasmFlags:     strings.Join(in.YasmFlags, " "),
-		toolchain:     in.Toolchain,
-		clang:         in.Clang,
-		coverage:      in.Coverage,
-		tidy:          in.Tidy,
-		sAbiDump:      in.SAbiDump,
+		globalFlags:    strings.Join(in.GlobalFlags, " "),
+		arFlags:        strings.Join(in.ArFlags, " "),
+		asFlags:        strings.Join(in.AsFlags, " "),
+		cFlags:         strings.Join(in.CFlags, " "),
+		toolingCFlags:  strings.Join(in.ToolingCFlags, " "),
+		conlyFlags:     strings.Join(in.ConlyFlags, " "),
+		cppFlags:       strings.Join(in.CppFlags, " "),
+		yaccFlags:      strings.Join(in.YaccFlags, " "),
+		protoFlags:     strings.Join(in.protoFlags, " "),
+		protoOutParams: strings.Join(in.protoOutParams, ","),
+		aidlFlags:      strings.Join(in.aidlFlags, " "),
+		rsFlags:        strings.Join(in.rsFlags, " "),
+		ldFlags:        strings.Join(in.LdFlags, " "),
+		libFlags:       strings.Join(in.libFlags, " "),
+		tidyFlags:      strings.Join(in.TidyFlags, " "),
+		sAbiFlags:      strings.Join(in.SAbiFlags, " "),
+		yasmFlags:      strings.Join(in.YasmFlags, " "),
+		toolchain:      in.Toolchain,
+		clang:          in.Clang,
+		coverage:       in.Coverage,
+		tidy:           in.Tidy,
+		sAbiDump:       in.SAbiDump,
+		protoRoot:      in.ProtoRoot,
 
 		systemIncludeFlags: strings.Join(in.SystemIncludeFlags, " "),
 
 		groupStaticLibs: in.GroupStaticLibs,
+		arGoldPlugin:    in.ArGoldPlugin,
 	}
 }
 

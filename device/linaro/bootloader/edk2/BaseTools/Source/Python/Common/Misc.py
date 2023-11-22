@@ -1,7 +1,7 @@
 ## @file
 # Common routines used by all tools
 #
-# Copyright (c) 2007 - 2015, Intel Corporation. All rights reserved.<BR>
+# Copyright (c) 2007 - 2016, Intel Corporation. All rights reserved.<BR>
 # This program and the accompanying materials
 # are licensed and made available under the terms and conditions of the BSD License
 # which accompanies this distribution.  The full text of the license may be found at
@@ -74,7 +74,7 @@ def _parseForGCC(lines, efifilepath, varnames):
     status = 0
     sections = []
     varoffset = []
-    for line in lines:
+    for index, line in enumerate(lines):
         line = line.strip()
         # status machine transection
         if status == 0 and line == "Memory Configuration":
@@ -88,14 +88,17 @@ def _parseForGCC(lines, efifilepath, varnames):
             continue
 
         # status handler
-        if status == 2:
+        if status == 3:
             m = re.match('^([\w_\.]+) +([\da-fA-Fx]+) +([\da-fA-Fx]+)$', line)
             if m != None:
                 sections.append(m.groups(0))
             for varname in varnames:
-                m = re.match("^([\da-fA-Fx]+) +[_]*(%s)$" % varname, line)
+                m = re.match(".data.(%s)$" % varname, line)
                 if m != None:
-                    varoffset.append((varname, int(m.groups(0)[0], 16) , int(sections[-1][1], 16), sections[-1][0]))
+                    if lines[index + 1]:
+                        m = re.match('^([\da-fA-Fx]+) +([\da-fA-Fx]+)', lines[index + 1].strip())
+                        if m != None:
+                            varoffset.append((varname, int(m.groups(0)[0], 16) , int(sections[-1][1], 16), sections[-1][0]))
 
     if not varoffset:
         return []
@@ -794,13 +797,18 @@ def GetRelPath(Path1, Path2):
 #
 #   @param      CName           The CName of the GUID
 #   @param      PackageList     List of packages looking-up in
+#   @param      Inffile         The driver file
 #
 #   @retval     GuidValue   if the CName is found in any given package
 #   @retval     None        if the CName is not found in all given packages
 #
-def GuidValue(CName, PackageList):
+def GuidValue(CName, PackageList, Inffile = None):
     for P in PackageList:
-        if CName in P.Guids:
+        GuidKeys = P.Guids.keys()
+        if Inffile and P._PrivateGuids:
+            if not Inffile.startswith(P.MetaFile.Dir):
+                GuidKeys = (dict.fromkeys(x for x in P.Guids if x not in P._PrivateGuids)).keys()
+        if CName in GuidKeys:
             return P.Guids[CName]
     return None
 
@@ -808,13 +816,18 @@ def GuidValue(CName, PackageList):
 #
 #   @param      CName           The CName of the GUID
 #   @param      PackageList     List of packages looking-up in
+#   @param      Inffile         The driver file
 #
 #   @retval     GuidValue   if the CName is found in any given package
 #   @retval     None        if the CName is not found in all given packages
 #
-def ProtocolValue(CName, PackageList):
+def ProtocolValue(CName, PackageList, Inffile = None):
     for P in PackageList:
-        if CName in P.Protocols:
+        ProtocolKeys = P.Protocols.keys()
+        if Inffile and P._PrivateProtocols:
+            if not Inffile.startswith(P.MetaFile.Dir):
+                ProtocolKeys = (dict.fromkeys(x for x in P.Protocols if x not in P._PrivateProtocols)).keys()
+        if CName in ProtocolKeys:
             return P.Protocols[CName]
     return None
 
@@ -822,13 +835,18 @@ def ProtocolValue(CName, PackageList):
 #
 #   @param      CName           The CName of the GUID
 #   @param      PackageList     List of packages looking-up in
+#   @param      Inffile         The driver file
 #
 #   @retval     GuidValue   if the CName is found in any given package
 #   @retval     None        if the CName is not found in all given packages
 #
-def PpiValue(CName, PackageList):
+def PpiValue(CName, PackageList, Inffile = None):
     for P in PackageList:
-        if CName in P.Ppis:
+        PpiKeys = P.Ppis.keys()
+        if Inffile and P._PrivatePpis:
+            if not Inffile.startswith(P.MetaFile.Dir):
+                PpiKeys = (dict.fromkeys(x for x in P.Ppis if x not in P._PrivatePpis)).keys()
+        if CName in PpiKeys:
             return P.Ppis[CName]
     return None
 
@@ -1397,32 +1415,7 @@ def ParseConsoleLog(Filename):
     Opr.close()
     Opw.close()
 
-## AnalyzeDscPcd
-#
-#  Analyze DSC PCD value, since there is no data type info in DSC
-#  This fuction is used to match functions (AnalyzePcdData, AnalyzeHiiPcdData, AnalyzeVpdPcdData) used for retrieving PCD value from database
-#  1. Feature flag: TokenSpace.PcdCName|PcdValue
-#  2. Fix and Patch:TokenSpace.PcdCName|PcdValue[|MaxSize]
-#  3. Dynamic default:
-#     TokenSpace.PcdCName|PcdValue[|VOID*[|MaxSize]]
-#     TokenSpace.PcdCName|PcdValue
-#  4. Dynamic VPD:
-#     TokenSpace.PcdCName|VpdOffset[|VpdValue]
-#     TokenSpace.PcdCName|VpdOffset[|MaxSize[|VpdValue]]
-#  5. Dynamic HII:
-#     TokenSpace.PcdCName|HiiString|VaiableGuid|VariableOffset[|HiiValue]
-#  PCD value needs to be located in such kind of string, and the PCD value might be an expression in which
-#    there might have "|" operator, also in string value.
-#
-#  @param Setting: String contain information described above with "TokenSpace.PcdCName|" stripped
-#  @param PcdType: PCD type: feature, fixed, dynamic default VPD HII
-#  @param DataType: The datum type of PCD: VOID*, UNIT, BOOL
-#  @retval:
-#    ValueList: A List contain fields described above
-#    IsValid:   True if conforming EBNF, otherwise False
-#    Index:     The index where PcdValue is in ValueList
-#
-def AnalyzeDscPcd(Setting, PcdType, DataType=''):
+def AnalyzePcdExpression(Setting):
     Setting = Setting.strip()
     # There might be escaped quote in a string: \", \\\"
     Data = Setting.replace('\\\\', '//').replace('\\\"', '\\\'')
@@ -1451,6 +1444,36 @@ def AnalyzeDscPcd(Setting, PcdType, DataType=''):
             break
         FieldList.append(Setting[StartPos:Pos].strip())
         StartPos = Pos + 1
+
+    return FieldList
+
+## AnalyzeDscPcd
+#
+#  Analyze DSC PCD value, since there is no data type info in DSC
+#  This fuction is used to match functions (AnalyzePcdData, AnalyzeHiiPcdData, AnalyzeVpdPcdData) used for retrieving PCD value from database
+#  1. Feature flag: TokenSpace.PcdCName|PcdValue
+#  2. Fix and Patch:TokenSpace.PcdCName|PcdValue[|MaxSize]
+#  3. Dynamic default:
+#     TokenSpace.PcdCName|PcdValue[|VOID*[|MaxSize]]
+#     TokenSpace.PcdCName|PcdValue
+#  4. Dynamic VPD:
+#     TokenSpace.PcdCName|VpdOffset[|VpdValue]
+#     TokenSpace.PcdCName|VpdOffset[|MaxSize[|VpdValue]]
+#  5. Dynamic HII:
+#     TokenSpace.PcdCName|HiiString|VaiableGuid|VariableOffset[|HiiValue]
+#  PCD value needs to be located in such kind of string, and the PCD value might be an expression in which
+#    there might have "|" operator, also in string value.
+#
+#  @param Setting: String contain information described above with "TokenSpace.PcdCName|" stripped
+#  @param PcdType: PCD type: feature, fixed, dynamic default VPD HII
+#  @param DataType: The datum type of PCD: VOID*, UNIT, BOOL
+#  @retval:
+#    ValueList: A List contain fields described above
+#    IsValid:   True if conforming EBNF, otherwise False
+#    Index:     The index where PcdValue is in ValueList
+#
+def AnalyzeDscPcd(Setting, PcdType, DataType=''):
+    FieldList = AnalyzePcdExpression(Setting)
 
     IsValid = True
     if PcdType in (MODEL_PCD_FIXED_AT_BUILD, MODEL_PCD_PATCHABLE_IN_MODULE, MODEL_PCD_FEATURE_FLAG):

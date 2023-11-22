@@ -4,17 +4,32 @@
    it under the terms of the GNU General Public License as published by
    the Free Software Foundation; version 2 dated June, 1991, or
    (at your option) version 3 dated 29 June, 2007.
- 
+
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
    GNU General Public License for more details.
-     
+
    You should have received a copy of the GNU General Public License
    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 #include "dnsmasq.h"
+
+#include <sys/stat.h>
+
+#if defined(HAVE_BSD_NETWORK)
+#error Should not HAVE_BSD_NETWORK
+#endif
+
+#if defined(HAVE_SOLARIS_NETWORK)
+#error Should not HAVE_SOLARIS_NETWORK
+#endif
+
+#if !defined(HAVE_LINUX_NETWORK)
+#error Should HAVE_LINUX_NETWORK
+#endif
+
 
 struct daemon *daemon;
 
@@ -62,11 +77,53 @@ static int set_android_listeners(fd_set *set, int *maxfdp);
 static int check_android_listeners(fd_set *set);
 #endif
 
+void setupSignalHandling() {
+    struct sigaction sigact;
+
+    sigact.sa_handler = sig_handler;
+    sigact.sa_flags = 0;
+    sigemptyset(&sigact.sa_mask);
+    sigaction(SIGUSR1, &sigact, NULL);
+    sigaction(SIGUSR2, &sigact, NULL);
+    sigaction(SIGHUP, &sigact, NULL);
+    sigaction(SIGTERM, &sigact, NULL);
+    sigaction(SIGALRM, &sigact, NULL);
+    sigaction(SIGCHLD, &sigact, NULL);
+
+    /* ignore SIGPIPE */
+    sigact.sa_handler = SIG_IGN;
+    sigaction(SIGPIPE, &sigact, NULL);
+}
+
+void closeUnwantedFileDescriptors() {
+    const long kMaxFd = sysconf(_SC_OPEN_MAX);
+    long i;
+    struct stat stat_buf;
+
+    /* Close any file descriptors we inherited apart from std{in|out|err}. */
+    for (i = 0; i < kMaxFd; i++) {
+        // TODO: Evaluate just skipping STDIN, since netd does not
+        // (intentionally) pass in any other file descriptors.
+        if (i == STDOUT_FILENO || i == STDERR_FILENO || i == STDIN_FILENO) {
+            continue;
+        }
+
+        if (fstat(i, &stat_buf) != 0) {
+            if (errno == EBADF) continue;
+            if (errno == EACCES) continue;  // Lessen the log spam.
+            my_syslog(LOG_ERR, "fstat(%d) error: %d/%s", i, errno, strerror(errno));
+        } else {
+            my_syslog(LOG_ERR, "Closing inherited file descriptor %d (%u:%u)",
+                      i, stat_buf.st_dev, stat_buf.st_ino);
+        }
+        close(i);
+    }
+}
+
 int main (int argc, char **argv)
 {
   int bind_fallback = 0;
   time_t now;
-  struct sigaction sigact;
   struct iname *if_tmp;
   int piperead, pipefd[2], err_pipe[2];
   struct passwd *ent_pw = NULL;
@@ -89,19 +146,7 @@ int main (int argc, char **argv)
   textdomain("dnsmasq");
 #endif
 
-  sigact.sa_handler = sig_handler;
-  sigact.sa_flags = 0;
-  sigemptyset(&sigact.sa_mask);
-  sigaction(SIGUSR1, &sigact, NULL);
-  sigaction(SIGUSR2, &sigact, NULL);
-  sigaction(SIGHUP, &sigact, NULL);
-  sigaction(SIGTERM, &sigact, NULL);
-  sigaction(SIGALRM, &sigact, NULL);
-  sigaction(SIGCHLD, &sigact, NULL);
-
-  /* ignore SIGPIPE */
-  sigact.sa_handler = SIG_IGN;
-  sigaction(SIGPIPE, &sigact, NULL);
+  setupSignalHandling();
 
   umask(022); /* known umask, create leases and pid files as 0644 */
 
@@ -120,11 +165,8 @@ int main (int argc, char **argv)
 	daemon->lease_file = LEASEFILE;
     }
 #endif
-  
-  /* Close any file descriptors we inherited apart from std{in|out|err} */
-  for (i = 0; i < max_fd; i++)
-    if (i != STDOUT_FILENO && i != STDERR_FILENO && i != STDIN_FILENO)
-      close(i);
+
+  closeUnwantedFileDescriptors();
 
 #ifdef HAVE_LINUX_NETWORK
   netlink_init();
@@ -138,15 +180,10 @@ int main (int argc, char **argv)
     }
 #endif
 
-#ifdef HAVE_SOLARIS_NETWORK
-  if (daemon->max_logs != 0)
-    die(_("asychronous logging is not available under Solaris"), NULL, EC_BADCONF);
-#endif
-  
   rand_init();
-  
+
   now = dnsmasq_time();
-  
+
 #ifdef HAVE_DHCP
   if (daemon->dhcp)
     {
@@ -373,28 +410,8 @@ int main (int argc, char **argv)
 	  /* Tell kernel to not clear capabilities when dropping root */
 	  if (capset(hdr, data) == -1 || prctl(PR_SET_KEEPCAPS, 1, 0, 0, 0) == -1)
 	    bad_capabilities = errno;
-			  
-#elif defined(HAVE_SOLARIS_NETWORK)
-	  /* http://developers.sun.com/solaris/articles/program_privileges.html */
-	  priv_set_t *priv_set;
-	  
-	  if (!(priv_set = priv_str_to_set("basic", ",", NULL)) ||
-	      priv_addset(priv_set, PRIV_NET_ICMPACCESS) == -1 ||
-	      priv_addset(priv_set, PRIV_SYS_NET_CONFIG) == -1)
-	    bad_capabilities = errno;
 
-	  if (priv_set && bad_capabilities == 0)
-	    {
-	      priv_inverse(priv_set);
-	  
-	      if (setppriv(PRIV_OFF, PRIV_LIMIT, priv_set) == -1)
-		bad_capabilities = errno;
-	    }
-
-	  if (priv_set)
-	    priv_freeset(priv_set);
-
-#endif    
+#endif
 
 	  if (bad_capabilities != 0)
 	    {
@@ -601,43 +618,29 @@ int main (int argc, char **argv)
     }
 }
 
-static void sig_handler(int sig)
-{
-  if (pid == 0)
-    {
-      /* ignore anything other than TERM during startup
-	 and in helper proc. (helper ignore TERM too) */
-      if (sig == SIGTERM)
-	exit(EC_MISC);
-    }
-  else if (pid != getpid())
-    {
-      /* alarm is used to kill TCP children after a fixed time. */
-      if (sig == SIGALRM)
-	_exit(0);
-    }
-  else
-    {
-      /* master process */
-      int event, errsave = errno;
-      
-      if (sig == SIGHUP)
-	event = EVENT_RELOAD;
-      else if (sig == SIGCHLD)
-	event = EVENT_CHILD;
-      else if (sig == SIGALRM)
-	event = EVENT_ALARM;
-      else if (sig == SIGTERM)
-	event = EVENT_TERM;
-      else if (sig == SIGUSR1)
-	event = EVENT_DUMP;
-      else if (sig == SIGUSR2)
-	event = EVENT_REOPEN;
-      else
-	return;
+static void sig_handler(int sig) {
+    if (pid == 0) {
+        /* ignore anything other than TERM during startup
+           and in helper proc. (helper ignore TERM too) */
+        if (sig == SIGTERM) exit(EC_MISC);
+    } else if (pid != getpid()) {
+        /* alarm is used to kill TCP children after a fixed time. */
+        if (sig == SIGALRM) _exit(0);
+    } else {
+        /* master process */
+        const int errsave = errno;
+        int event;
 
-      send_event(pipewrite, event, 0); 
-      errno = errsave;
+        if (sig == SIGHUP) event = EVENT_RELOAD;
+        else if (sig == SIGCHLD) event = EVENT_CHILD;
+        else if (sig == SIGALRM) event = EVENT_ALARM;
+        else if (sig == SIGTERM) event = EVENT_TERM;
+        else if (sig == SIGUSR1) event = EVENT_DUMP;
+        else if (sig == SIGUSR2) event = EVENT_REOPEN;
+        else return;
+
+        send_event(pipewrite, event, 0);
+        errno = errsave;
     }
 }
 
@@ -853,22 +856,17 @@ static void poll_resolv()
     }
 }       
 
-void clear_cache_and_reload(time_t now)
-{
-  if (daemon->port != 0)
-    cache_reload();
-  
+void clear_cache_and_reload(time_t now) {
+    if (daemon->port != 0) cache_reload();
+
 #ifdef HAVE_DHCP
-  if (daemon->dhcp)
-    {
-      if (daemon->options & OPT_ETHERS)
-	dhcp_read_ethers();
-      reread_dhcp();
-      dhcp_update_configs(daemon->dhcp_conf);
-      check_dhcp_hosts(0);
-      lease_update_from_configs(); 
-      lease_update_file(now); 
-      lease_update_dns();
+    if (daemon->dhcp) {
+        reread_dhcp();
+        dhcp_update_configs(daemon->dhcp_conf);
+        check_dhcp_hosts(0);
+        lease_update_from_configs();
+        lease_update_file(now);
+        lease_update_dns();
     }
 #endif
 }
@@ -1139,7 +1137,7 @@ int icmp_ping(struct in_addr addr)
   int gotreply = 0;
   time_t start, now;
 
-#if defined(HAVE_LINUX_NETWORK) || defined (HAVE_SOLARIS_NETWORK)
+#if defined(HAVE_LINUX_NETWORK)
   if ((fd = make_icmp_sock()) == -1)
     return 0;
 #else
@@ -1210,7 +1208,7 @@ int icmp_ping(struct in_addr addr)
 	}
     }
   
-#if defined(HAVE_LINUX_NETWORK) || defined(HAVE_SOLARIS_NETWORK)
+#if defined(HAVE_LINUX_NETWORK)
   close(fd);
 #else
   opt = 1;

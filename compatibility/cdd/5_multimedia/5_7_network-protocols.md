@@ -18,7 +18,7 @@ http://tools.ietf.org/html/draft-pantos-http-live-streaming-07).
 codecs in the RTSP table below. For exceptions please see the table footnotes
 in [section 5.1](#5_1_media_codecs).
 
-Media Segment Formats
+**Media Segment Formats**
 
 <table>
 
@@ -63,7 +63,7 @@ Media Segment Formats
 
 </table>
 
-RTSP (RTP, SDP)
+**RTSP (RTP, SDP)**
 
 <table>
  <tr>

@@ -24,7 +24,7 @@
     <string name="unknown_device" msgid="9221903979877041009">"Dispositiu desconegut"</string>
     <string name="unknownNumber" msgid="4994750948072751566">"Desconegut"</string>
     <string name="airplane_error_title" msgid="2683839635115739939">"Mode d\'avió"</string>
-    <string name="airplane_error_msg" msgid="8698965595254137230">"No pots utilitzar Bluetooth en mode d\'avió."</string>
+    <string name="airplane_error_msg" msgid="8698965595254137230">"No pots utilitzar el Bluetooth en mode d\'avió."</string>
     <string name="bt_enable_title" msgid="8657832550503456572"></string>
     <string name="bt_enable_line1" msgid="7203551583048149">"Per utilitzar serveis Bluetooth, primer cal que activeu el Bluetooth."</string>
     <string name="bt_enable_line2" msgid="4341936569415937994">"Vols activar el Bluetooth ara?"</string>
@@ -132,4 +132,5 @@
     <string name="bluetooth_connected" msgid="6718623220072656906">"Àudio per Bluetooth connectat"</string>
     <string name="bluetooth_disconnected" msgid="3318303728981478873">"Àudio per Bluetooth desconnectat"</string>
     <string name="a2dp_sink_mbs_label" msgid="7566075853395412558">"Àudio per Bluetooth"</string>
+    <string name="bluetooth_opp_file_limit_exceeded" msgid="8894450394309084519">"No es poden transferir fitxers més grans de 4 GB"</string>
 </resources>

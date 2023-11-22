@@ -522,9 +522,22 @@ root {
         ka-Latn-t-ka-m0-bgn {
             alias {"ka-ka_Latn/BGN"}
         }
+        ka-Latn-t-ka-m0-bgn-2009 {
+            alias {"ka-ka_Latn/BGN"}
+        }
         ka-ka_Latn/BGN {
             file {
                 resource:process(transliterator) {"ka_ka_Latn_BGN.txt"}
+                direction {"FORWARD"}
+            }
+        }
+
+        ka-Latn-t-ka-m0-bgn-1981 {
+            alias {"ka-ka_Latn/BGN_1981"}
+        }
+        ka-ka_Latn/BGN_1981 {
+            file {
+                resource:process(transliterator) {"ka_ka_Latn_BGN_1981.txt"}
                 direction {"FORWARD"}
             }
         }
@@ -2056,31 +2069,6 @@ root {
             }
         }
 
-        Syriac-Latin {
-            alias {"Syrc-Latn"}
-        }
-        und-Latn-t-und-syrc {
-            alias {"Syrc-Latn"}
-        }
-        Syrc-Latn {
-            file {
-                resource:process(transliterator) {"Syrc_Latn.txt"}
-                direction {"FORWARD"}
-            }
-        }
-        Latin-Syriac {
-            alias {"Latn-Syrc"}
-        }
-        und-Syrc-t-und-latn {
-            alias {"Latn-Syrc"}
-        }
-        Latn-Syrc {
-            file {
-                resource:process(transliterator) {"Syrc_Latn.txt"}
-                direction {"REVERSE"}
-            }
-        }
-
         Tamil-Arabic {
             alias {"Taml-Arab"}
         }
@@ -2570,6 +2558,16 @@ root {
             }
         }
 
+        blt-fonipa-t-blt {
+            alias {"blt-blt_FONIPA"}
+        }
+        blt-blt_FONIPA {
+            file {
+                resource:process(transliterator) {"blt_blt_FONIPA.txt"}
+                direction {"FORWARD"}
+            }
+        }
+
         am-t-ch {
             alias {"ch-am"}
         }
@@ -2716,6 +2714,26 @@ root {
         cs_FONIPA-ko {
             file {
                 resource:process(transliterator) {"cs_FONIPA_ko.txt"}
+                direction {"FORWARD"}
+            }
+        }
+
+        cy-fonipa-t-cy {
+            alias {"cy-cy_FONIPA"}
+        }
+        cy-cy_FONIPA {
+            file {
+                resource:process(transliterator) {"cy_cy_FONIPA.txt"}
+                direction {"FORWARD"}
+            }
+        }
+
+        de-t-de-d0-ascii {
+            alias {"de-ASCII"}
+        }
+        de-ASCII {
+            file {
+                resource:process(transliterator) {"de_ASCII.txt"}
                 direction {"FORWARD"}
             }
         }
@@ -3789,6 +3807,16 @@ root {
         sk_FONIPA-ja {
             file {
                 resource:process(transliterator) {"sk_FONIPA_ja.txt"}
+                direction {"FORWARD"}
+            }
+        }
+
+        ta-fonipa-t-ta {
+            alias {"ta-ta_FONIPA"}
+        }
+        ta-ta_FONIPA {
+            file {
+                resource:process(transliterator) {"ta_ta_FONIPA.txt"}
                 direction {"FORWARD"}
             }
         }

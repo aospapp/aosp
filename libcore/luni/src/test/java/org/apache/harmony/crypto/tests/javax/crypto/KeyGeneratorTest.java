@@ -354,6 +354,9 @@ public class KeyGeneratorTest extends TestCase {
         SecureRandom random = new SecureRandom();
 
         for (int i = 0; i < kgs.length; i++) {
+            // This both serves to ensure that we're testing the default provider and forces
+            // the implementation to lock in the provider, even if later calls fail
+            assertEquals(defaultProvider, kgs[i].getProvider());
             for (int j = 0; j < size.length; j++) {
                 try {
                     kgs[i].init(size[j]);

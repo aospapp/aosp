@@ -39,7 +39,9 @@ class AndroidTTSEngine implements TTSEngine {
 
     @Override
     public void stop() {
-        mTextToSpeech.stop();
+        if (mTextToSpeech != null) {
+            mTextToSpeech.stop();
+        }
     }
 
     @Override
@@ -51,5 +53,10 @@ class AndroidTTSEngine implements TTSEngine {
     public void shutdown() {
         mTextToSpeech.shutdown();
         mTextToSpeech = null;
+    }
+
+    @Override
+    public int getStream() {
+        return TextToSpeech.Engine.DEFAULT_STREAM;
     }
 }

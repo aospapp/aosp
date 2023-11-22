@@ -17,6 +17,7 @@
 package com.android.tv.data;
 
 import android.media.tv.TvContentRating;
+import com.android.tv.data.api.Channel;
 
 public interface StreamInfo {
     int VIDEO_DEFINITION_LEVEL_UNKNOWN = 0;
@@ -28,19 +29,26 @@ public interface StreamInfo {
     int AUDIO_CHANNEL_COUNT_UNKNOWN = 0;
 
     Channel getCurrentChannel();
+
     TvContentRating getBlockedContentRating();
 
     int getVideoWidth();
+
     int getVideoHeight();
+
     float getVideoFrameRate();
+
     float getVideoDisplayAspectRatio();
+
     int getVideoDefinitionLevel();
+
     int getAudioChannelCount();
+
     boolean hasClosedCaption();
+
     boolean isVideoAvailable();
-    /**
-     *  Returns true, if video or audio is available.
-     */
+    /** Returns true, if video or audio is available. */
     boolean isVideoOrAudioAvailable();
+
     int getVideoUnavailableReason();
 }

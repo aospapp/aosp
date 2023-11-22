@@ -22,16 +22,28 @@
 #include <string>
 #include <utility> // for pair
 
+#include <linux/if_link.h>
+#include <linux/if_tunnel.h>
 #include <linux/netlink.h>
 #include <linux/udp.h>
 #include <linux/xfrm.h>
 #include <sysutils/SocketClient.h>
-#include <utils/RWLock.h>
 
 #include "NetdConstants.h"
+#include "netdutils/Slice.h"
+#include "netdutils/Status.h"
 
 namespace android {
 namespace net {
+
+// Exposed for testing
+extern const uint32_t ALGO_MASK_AUTH_ALL;
+// Exposed for testing
+extern const uint32_t ALGO_MASK_CRYPT_ALL;
+// Exposed for testing
+extern const uint32_t ALGO_MASK_AEAD_ALL;
+// Exposed for testing
+extern const uint8_t REPLAY_WINDOW_SIZE;
 
 // Suggest we avoid the smallest and largest ints
 class XfrmMessage;
@@ -46,12 +58,15 @@ public:
         mSock = -1;
     }
 
-    virtual bool open() = 0;
+    virtual netdutils::Status open() = 0;
 
     virtual ~XfrmSocket() { close(); }
 
-    virtual int sendMessage(uint16_t nlMsgType, uint16_t nlMsgFlags, uint16_t nlMsgSeqNum,
-                            iovec* iov, int iovLen) const = 0;
+    // Sends the netlink message contained in iovecs. This populates iovecs[0] with
+    // a valid netlink message header.
+    virtual netdutils::Status sendMessage(uint16_t nlMsgType, uint16_t nlMsgFlags,
+                                          uint16_t nlMsgSeqNum,
+                                          std::vector<iovec>* iovecs) const = 0;
 
 protected:
     int mSock;
@@ -87,18 +102,20 @@ struct XfrmEncap {
     uint16_t dstPort;
 };
 
-struct XfrmSaId {
-    XfrmDirection direction;
+// minimally sufficient structure to match either an SA or a Policy
+struct XfrmId {
     xfrm_address_t dstAddr; // network order
     xfrm_address_t srcAddr;
     int addrFamily;  // AF_INET or AF_INET6
     int transformId; // requestId
     int spi;
+    xfrm_mark mark;
 };
 
-struct XfrmSaInfo : XfrmSaId {
+struct XfrmSaInfo : XfrmId {
     XfrmAlgo auth;
     XfrmAlgo crypt;
+    XfrmAlgo aead;
     int netId;
     XfrmMode mode;
     XfrmEncap encap;
@@ -108,33 +125,123 @@ class XfrmController {
 public:
     XfrmController();
 
-    int ipSecAllocateSpi(int32_t transformId, int32_t direction, const std::string& localAddress,
-                         const std::string& remoteAddress, int32_t inSpi, int32_t* outSpi);
+    static netdutils::Status Init();
 
-    int ipSecAddSecurityAssociation(
-        int32_t transformId, int32_t mode, int32_t direction, const std::string& localAddress,
-        const std::string& remoteAddress, int64_t underlyingNetworkHandle, int32_t spi,
-        const std::string& authAlgo, const std::vector<uint8_t>& authKey, int32_t authTruncBits,
-        const std::string& cryptAlgo, const std::vector<uint8_t>& cryptKey, int32_t cryptTruncBits,
-        int32_t encapType, int32_t encapLocalPort, int32_t encapRemotePort);
+    static netdutils::Status ipSecSetEncapSocketOwner(const android::base::unique_fd& socket,
+                                                      int newUid, uid_t callerUid);
 
-    int ipSecDeleteSecurityAssociation(int32_t transformId, int32_t direction,
-                                       const std::string& localAddress,
-                                       const std::string& remoteAddress, int32_t spi);
+    static netdutils::Status ipSecAllocateSpi(int32_t transformId, const std::string& localAddress,
+                                              const std::string& remoteAddress, int32_t inSpi,
+                                              int32_t* outSpi);
 
-    int ipSecApplyTransportModeTransform(const android::base::unique_fd& socket,
-                                         int32_t transformId, int32_t direction,
+    static netdutils::Status ipSecAddSecurityAssociation(
+        int32_t transformId, int32_t mode, const std::string& sourceAddress,
+        const std::string& destinationAddress, int32_t underlyingNetId, int32_t spi,
+        int32_t markValue, int32_t markMask, const std::string& authAlgo,
+        const std::vector<uint8_t>& authKey, int32_t authTruncBits, const std::string& cryptAlgo,
+        const std::vector<uint8_t>& cryptKey, int32_t cryptTruncBits, const std::string& aeadAlgo,
+        const std::vector<uint8_t>& aeadKey, int32_t aeadIcvBits, int32_t encapType,
+        int32_t encapLocalPort, int32_t encapRemotePort);
+
+    static netdutils::Status ipSecDeleteSecurityAssociation(int32_t transformId,
+                                                            const std::string& sourceAddress,
+                                                            const std::string& destinationAddress,
+                                                            int32_t spi, int32_t markValue,
+                                                            int32_t markMask);
+
+    static netdutils::Status
+    ipSecApplyTransportModeTransform(const android::base::unique_fd& socket, int32_t transformId,
+                                     int32_t direction, const std::string& localAddress,
+                                     const std::string& remoteAddress, int32_t spi);
+
+    static netdutils::Status
+    ipSecRemoveTransportModeTransform(const android::base::unique_fd& socket);
+
+    static netdutils::Status ipSecAddSecurityPolicy(int32_t transformId, int32_t direction,
+                                                    const std::string& sourceAddress,
+                                                    const std::string& destinationAddress,
+                                                    int32_t spi, int32_t markValue,
+                                                    int32_t markMask);
+
+    static netdutils::Status ipSecUpdateSecurityPolicy(int32_t transformId, int32_t direction,
+                                                       const std::string& sourceAddress,
+                                                       const std::string& destinationAddress,
+                                                       int32_t spi, int32_t markValue,
+                                                       int32_t markMask);
+
+    static netdutils::Status ipSecDeleteSecurityPolicy(int32_t transformId, int32_t direction,
+                                                       const std::string& sourceAddress,
+                                                       const std::string& destinationAddress,
+                                                       int32_t markValue, int32_t markMask);
+
+    static int addVirtualTunnelInterface(const std::string& deviceName,
                                          const std::string& localAddress,
-                                         const std::string& remoteAddress, int32_t spi);
+                                         const std::string& remoteAddress, int32_t ikey,
+                                         int32_t okey, bool isUpdate);
 
-    int ipSecRemoveTransportModeTransform(const android::base::unique_fd& socket);
+    static int removeVirtualTunnelInterface(const std::string& deviceName);
+
+    // Some XFRM netlink attributes comprise a header, a struct, and some data
+    // after the struct. We wrap all of those in one struct for easier
+    // marshalling. The structs below must be ABI compatible with the kernel and
+    // are composed from kernel structures; thus, they use the kernel naming
+    // convention.
+
+    // Exposed for testing
+    static constexpr size_t MAX_KEY_LENGTH = 128;
+
+    // Container for the content of an XFRMA_ALG_CRYPT netlink attribute.
+    // Exposed for testing
+    struct nlattr_algo_crypt {
+        nlattr hdr;
+        xfrm_algo crypt;
+        uint8_t key[MAX_KEY_LENGTH];
+    };
+
+    // Container for the content of an XFRMA_ALG_AUTH_TRUNC netlink attribute.
+    // Exposed for testing
+    struct nlattr_algo_auth {
+        nlattr hdr;
+        xfrm_algo_auth auth;
+        uint8_t key[MAX_KEY_LENGTH];
+    };
+
+    // Container for the content of an XFRMA_TMPL netlink attribute.
+    // Exposed for testing
+    struct nlattr_algo_aead {
+        nlattr hdr;
+        xfrm_algo_aead aead;
+        uint8_t key[MAX_KEY_LENGTH];
+    };
+
+    // Exposed for testing
+    struct nlattr_user_tmpl {
+        nlattr hdr;
+        xfrm_user_tmpl tmpl;
+    };
+
+    // Container for the content of an XFRMA_ENCAP netlink attribute.
+    // Exposed for testing
+    struct nlattr_encap_tmpl {
+        nlattr hdr;
+        xfrm_encap_tmpl tmpl;
+    };
+
+    // Container for the content of an XFRMA_MARK netlink attribute.
+    // Exposed for testing
+    struct nlattr_xfrm_mark {
+        nlattr hdr;
+        xfrm_mark mark;
+    };
+
+    // Container for the content of an XFRMA_OUTPUT_MARK netlink attribute.
+    // Exposed for testing
+    struct nlattr_xfrm_output_mark {
+        nlattr hdr;
+        __u32 outputMark;
+    };
 
 private:
-    // prevent concurrent modification of XFRM
-    android::RWLock mLock;
-
-    static constexpr size_t MAX_ALGO_LENGTH = 128;
-
 /*
  * Below is a redefinition of the xfrm_usersa_info struct that is part
  * of the Linux uapi <linux/xfrm.h> to align the structures to a 64-bit
@@ -175,59 +282,64 @@ private:
                   "struct xfrm_userspi_info has changed and does not match the kernel struct.");
 #endif
 
-    struct nlattr_algo_crypt {
-        nlattr hdr;
-        xfrm_algo crypt;
-        uint8_t key[MAX_ALGO_LENGTH];
-    };
-
-    struct nlattr_algo_auth {
-        nlattr hdr;
-        xfrm_algo_auth auth;
-        uint8_t key[MAX_ALGO_LENGTH];
-    };
-
-    struct nlattr_user_tmpl {
-        nlattr hdr;
-        xfrm_user_tmpl tmpl;
-    };
-
-    struct nlattr_encap_tmpl {
-        nlattr hdr;
-        xfrm_encap_tmpl tmpl;
-    };
-
-
-    // helper function for filling in the XfrmSaInfo structure
-    static int fillXfrmSaId(int32_t direction, const std::string& localAddress,
-                            const std::string& remoteAddress, int32_t spi, XfrmSaId* xfrmId);
+    // helper function for filling in the XfrmId (and XfrmSaInfo) structure
+    static netdutils::Status fillXfrmId(const std::string& sourceAddress,
+                                        const std::string& destinationAddress, int32_t spi,
+                                        int32_t markValue, int32_t markMask, int32_t transformId,
+                                        XfrmId* xfrmId);
 
     // Top level functions for managing a Transport Mode Transform
-    static int addTransportModeTransform(const XfrmSaInfo& record);
+    static netdutils::Status addTransportModeTransform(const XfrmSaInfo& record);
     static int removeTransportModeTransform(const XfrmSaInfo& record);
 
     // TODO(messagerefactor): FACTOR OUT ALL MESSAGE BUILDING CODE BELOW HERE
     // Shared between SA and SP
-    static void fillTransportModeSelector(const XfrmSaInfo& record, xfrm_selector* selector);
+    static void fillXfrmSelector(const XfrmSaInfo& record, xfrm_selector* selector);
 
     // Shared between Transport and Tunnel Mode
     static int fillNlAttrXfrmAlgoEnc(const XfrmAlgo& in_algo, nlattr_algo_crypt* algo);
     static int fillNlAttrXfrmAlgoAuth(const XfrmAlgo& in_algo, nlattr_algo_auth* algo);
+    static int fillNlAttrXfrmAlgoAead(const XfrmAlgo& in_algo, nlattr_algo_aead* algo);
     static int fillNlAttrXfrmEncapTmpl(const XfrmSaInfo& record, nlattr_encap_tmpl* tmpl);
 
-    // Functions for Creating a Transport Mode SA
-    static int createTransportModeSecurityAssociation(const XfrmSaInfo& record,
-                                                      const XfrmSocket& sock);
+    // Functions for updating a Transport Mode SA
+    static netdutils::Status updateSecurityAssociation(const XfrmSaInfo& record,
+                                                       const XfrmSocket& sock);
     static int fillUserSaInfo(const XfrmSaInfo& record, xfrm_usersa_info* usersa);
 
     // Functions for deleting a Transport Mode SA
-    static int deleteSecurityAssociation(const XfrmSaId& record, const XfrmSocket& sock);
-    static int fillUserSaId(const XfrmSaId& record, xfrm_usersa_id* said);
+    static netdutils::Status deleteSecurityAssociation(const XfrmId& record,
+                                                       const XfrmSocket& sock);
+    static int fillUserSaId(const XfrmId& record, xfrm_usersa_id* said);
     static int fillUserTemplate(const XfrmSaInfo& record, xfrm_user_tmpl* tmpl);
-    static int fillTransportModeUserSpInfo(const XfrmSaInfo& record, xfrm_userpolicy_info* usersp);
 
-    static int allocateSpi(const XfrmSaInfo& record, uint32_t minSpi, uint32_t maxSpi,
-                           uint32_t* outSpi, const XfrmSocket& sock);
+    static int fillTransportModeUserSpInfo(const XfrmSaInfo& record, XfrmDirection direction,
+                                           xfrm_userpolicy_info* usersp);
+    static int fillNlAttrUserTemplate(const XfrmSaInfo& record, nlattr_user_tmpl* tmpl);
+    static int fillUserPolicyId(const XfrmSaInfo& record, XfrmDirection direction,
+                                xfrm_userpolicy_id* policy_id);
+    static int fillNlAttrXfrmMark(const XfrmId& record, nlattr_xfrm_mark* mark);
+    static int fillNlAttrXfrmOutputMark(const __u32 output_mark_value,
+                                        nlattr_xfrm_output_mark* output_mark);
+
+    static netdutils::Status allocateSpi(const XfrmSaInfo& record, uint32_t minSpi, uint32_t maxSpi,
+                                         uint32_t* outSpi, const XfrmSocket& sock);
+
+    static netdutils::Status processSecurityPolicy(int32_t transformId, int32_t direction,
+                                                   const std::string& localAddress,
+                                                   const std::string& remoteAddress, int32_t spi,
+                                                   int32_t markValue, int32_t markMask,
+                                                   int32_t msgType);
+    static netdutils::Status updateTunnelModeSecurityPolicy(const XfrmSaInfo& record,
+                                                            const XfrmSocket& sock,
+                                                            XfrmDirection direction,
+                                                            uint16_t msgType);
+    static netdutils::Status deleteTunnelModeSecurityPolicy(const XfrmSaInfo& record,
+                                                            const XfrmSocket& sock,
+                                                            XfrmDirection direction);
+    static netdutils::Status flushInterfaces();
+    static netdutils::Status flushSaDb(const XfrmSocket& s);
+    static netdutils::Status flushPolicyDb(const XfrmSocket& s);
 
     // END TODO(messagerefactor)
 };

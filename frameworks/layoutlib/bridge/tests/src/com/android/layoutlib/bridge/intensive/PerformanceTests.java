@@ -43,7 +43,7 @@ public class PerformanceTests extends RenderTestBase {
     private void render(@NonNull String layoutFileName)
             throws ClassNotFoundException, FileNotFoundException {
         SessionParams params = createSessionParams(layoutFileName, ConfigGenerator.NEXUS_5);
-        render(params, 250);
+        render(sBridge, params, 250);
     }
 
     @Test

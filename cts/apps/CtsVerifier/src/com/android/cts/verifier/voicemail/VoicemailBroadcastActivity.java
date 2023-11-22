@@ -18,6 +18,8 @@
 package com.android.cts.verifier.voicemail;
 
 import android.os.Bundle;
+import android.telephony.TelephonyManager;
+import android.text.TextUtils;
 import android.view.View;
 import android.widget.ImageView;
 import android.widget.TextView;
@@ -39,6 +41,7 @@ public class VoicemailBroadcastActivity extends PassFailButtons.Activity {
     private TextView mLeaveVoicemailText;
 
     private DefaultDialerChanger mDefaultDialerChanger;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -66,6 +69,16 @@ public class VoicemailBroadcastActivity extends PassFailButtons.Activity {
                 mDefaultDialerChanger.setRestorePending(true);
             }
         });
+
+        if (TextUtils.isEmpty(getSystemService(TelephonyManager.class).getVoiceMailNumber())) {
+            findViewById(R.id.no_carrier_support).setVisibility(View.VISIBLE);
+            getPassButton().setEnabled(true);
+            ((ImageView) findViewById(R.id.set_default_dialer_image))
+                    .setImageDrawable(getDrawable(R.drawable.fs_warning));
+            ((ImageView) findViewById(R.id.restore_default_dialer_image))
+                    .setImageDrawable(getDrawable(R.drawable.fs_warning));
+            mLeaveVoicemailImage.setImageDrawable(getDrawable(R.drawable.fs_warning));
+        }
     }
 
     @Override

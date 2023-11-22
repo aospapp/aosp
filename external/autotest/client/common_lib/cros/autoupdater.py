@@ -132,16 +132,18 @@ def list_image_dir_contents(update_url):
 class BaseUpdater(object):
     """Platform-agnostic DUT update functionality."""
 
-    def __init__(self, updater_ctrl_bin, update_url, host):
+    def __init__(self, updater_ctrl_bin, update_url, host, interactive=True):
         """Initializes the object.
 
         @param updater_ctrl_bin: Path to update_engine_client.
         @param update_url: The URL we want the update to use.
         @param host: A client.common_lib.hosts.Host implementation.
+        @param interactive: Bool whether we are doing an interactive update.
         """
         self.updater_ctrl_bin = updater_ctrl_bin
         self.update_url = update_url
         self.host = host
+        self.interactive = interactive
 
 
     def check_update_status(self):
@@ -302,6 +304,8 @@ class BaseUpdater(object):
         """Updates the device image and verifies success."""
         autoupdate_cmd = ('%s --update --omaha_url=%s' %
                           (self.updater_ctrl_bin, self.update_url))
+        if not self.interactive:
+            autoupdate_cmd = '%s --interactive=false' % autoupdate_cmd
         run_args = {'command': autoupdate_cmd, 'timeout': 3600}
         err_prefix = ('Failed to install device image using payload at %s '
                       'on %s. ' % (self.update_url, self.host.hostname))
@@ -325,7 +329,7 @@ class ChromiumOSUpdater(BaseUpdater):
     REMOTE_TMP_STATEFUL_UPDATE = os.path.join(
             '/tmp', STATEFUL_UPDATE_SCRIPT)
     UPDATER_BIN = '/usr/bin/update_engine_client'
-    UPDATED_MARKER = '/var/run/update_engine_autoupdate_completed'
+    UPDATED_MARKER = '/run/update_engine_autoupdate_completed'
     UPDATER_LOGS = ['/var/log/messages', '/var/log/update_engine']
 
     KERNEL_A = {'name': 'KERN-A', 'kernel': 2, 'root': 3}
@@ -334,9 +338,10 @@ class ChromiumOSUpdater(BaseUpdater):
     # auto update.
     KERNEL_UPDATE_TIMEOUT = 120
 
-    def __init__(self, update_url, host=None, local_devserver=False):
+    def __init__(self, update_url, host=None, local_devserver=False,
+                 interactive=True):
         super(ChromiumOSUpdater, self).__init__(self.UPDATER_BIN, update_url,
-                                                host)
+                                                host, interactive=interactive)
         self.local_devserver = local_devserver
         if not local_devserver:
             self.update_version = url_to_version(update_url)

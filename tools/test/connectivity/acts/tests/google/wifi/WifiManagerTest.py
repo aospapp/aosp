@@ -20,7 +20,7 @@ import queue
 import time
 
 import acts.base_test
-import acts.signals
+import acts.signals as signals
 import acts.test_utils.wifi.wifi_test_utils as wutils
 import acts.utils
 
@@ -51,11 +51,6 @@ class WifiManagerTest(WifiBaseTest):
     def setup_class(self):
         self.dut = self.android_devices[0]
         wutils.wifi_test_device_init(self.dut)
-        # If running in a setup with attenuators, set attenuation on all
-        # channels to zero.
-        if getattr(self, "attenuators", []):
-            for a in self.attenuators:
-                a.set_atten(0)
         req_params = []
         opt_param = [
             "open_network", "reference_networks", "iperf_server_address"
@@ -75,19 +70,23 @@ class WifiManagerTest(WifiBaseTest):
         self.wpapsk_2g = self.reference_networks[0]["2g"]
         self.wpapsk_5g = self.reference_networks[0]["5g"]
         self.open_network = self.open_network[0]["2g"]
-        self.iperf_server.start()
+        if hasattr(self, 'iperf_server'):
+            self.iperf_server.start()
 
     def setup_test(self):
         self.dut.droid.wakeLockAcquireBright()
         self.dut.droid.wakeUpNow()
+        wutils.wifi_toggle_state(self.dut, True)
 
     def teardown_test(self):
         self.dut.droid.wakeLockRelease()
         self.dut.droid.goToSleepNow()
+        self.turn_location_off_and_scan_toggle_off()
         wutils.reset_wifi(self.dut)
 
     def teardown_class(self):
-        self.iperf_server.stop()
+        if hasattr(self, 'iperf_server'):
+            self.iperf_server.stop()
 
     def on_fail(self, test_name, begin_time):
         self.dut.take_bug_report(test_name, begin_time)
@@ -110,10 +109,8 @@ class WifiManagerTest(WifiBaseTest):
         droid = ad.droid
         ed = ad.ed
         SSID = network[WifiEnums.SSID_KEY]
-        ed.clear_all_events()
-        wutils.start_wifi_connection_scan(ad)
-        scan_results = droid.wifiGetScanResults()
-        wutils.assert_network_in_list({WifiEnums.SSID_KEY: SSID}, scan_results)
+        wutils.start_wifi_connection_scan_and_ensure_network_found(
+            ad, SSID);
         wutils.wifi_connect(ad, network, num_of_tries=3)
 
     def get_connection_data(self, dut, network):
@@ -218,12 +215,8 @@ class WifiManagerTest(WifiBaseTest):
                  False otherwise.
 
         """
-        self.dut.ed.clear_all_events()
-        wutils.start_wifi_connection_scan(self.dut)
-        scan_results = self.dut.droid.wifiGetScanResults()
-        wutils.assert_network_in_list({
-            WifiEnums.SSID_KEY: network_ssid
-        }, scan_results)
+        wutils.start_wifi_connection_scan_and_ensure_network_found(
+            self.dut, network_ssid);
         wutils.wifi_connect_by_id(self.dut, network_id)
         connect_data = self.dut.droid.wifiGetConnectionInfo()
         connect_ssid = connect_data[WifiEnums.SSID_KEY]
@@ -328,15 +321,188 @@ class WifiManagerTest(WifiBaseTest):
             idle_time = new_idle_time
             wutils.start_wifi_connection_scan(self.dut)
 
+    def turn_location_on_and_scan_toggle_on(self):
+        """ Turns on wifi location scans.
+        """
+        acts.utils.set_location_service(self.dut, True)
+        self.dut.droid.wifiScannerToggleAlwaysAvailable(True)
+        msg = "Failed to turn on location service's scan."
+        asserts.assert_true(self.dut.droid.wifiScannerIsAlwaysAvailable(), msg)
+
+    def turn_location_off_and_scan_toggle_off(self):
+        """ Turns off wifi location scans.
+        """
+        acts.utils.set_location_service(self.dut, False)
+        self.dut.droid.wifiScannerToggleAlwaysAvailable(False)
+        msg = "Failed to turn off location service's scan."
+        asserts.assert_true(not self.dut.droid.wifiScannerIsAlwaysAvailable(), msg)
+
+    def turn_location_on_and_scan_toggle_off(self):
+        """ Turns off wifi location scans, but keeps location on.
+        """
+        acts.utils.set_location_service(self.dut, True)
+        self.dut.droid.wifiScannerToggleAlwaysAvailable(False)
+        msg = "Failed to turn off location service's scan."
+        asserts.assert_true(not self.dut.droid.wifiScannerIsAlwaysAvailable(), msg)
+
+    def helper_reconnect_toggle_wifi(self):
+        """Connect to multiple networks, turn off/on wifi, then reconnect to
+           a previously connected network.
+
+        Steps:
+        1. Connect to a 2GHz network.
+        2. Connect to a 5GHz network.
+        3. Turn WiFi OFF/ON.
+        4. Reconnect to the non-current network.
+
+        """
+        connect_2g_data = self.get_connection_data(self.dut, self.wpapsk_2g)
+        connect_5g_data = self.get_connection_data(self.dut, self.wpapsk_5g)
+        wutils.toggle_wifi_off_and_on(self.dut)
+        reconnect_to = self.get_enabled_network(connect_2g_data,
+                                                connect_5g_data)
+        reconnect = self.connect_to_wifi_network_with_id(
+            reconnect_to[WifiEnums.NETID_KEY],
+            reconnect_to[WifiEnums.SSID_KEY])
+        if not reconnect:
+            raise signals.TestFailure("Device did not connect to the correct"
+                                      " network after toggling WiFi.")
+
+    def helper_reconnect_toggle_airplane(self):
+        """Connect to multiple networks, turn on/off Airplane moce, then
+           reconnect a previously connected network.
+
+        Steps:
+        1. Connect to a 2GHz network.
+        2. Connect to a 5GHz network.
+        3. Turn ON/OFF Airplane mode.
+        4. Reconnect to the non-current network.
+
+        """
+        connect_2g_data = self.get_connection_data(self.dut, self.wpapsk_2g)
+        connect_5g_data = self.get_connection_data(self.dut, self.wpapsk_5g)
+        wutils.toggle_airplane_mode_on_and_off(self.dut)
+        reconnect_to = self.get_enabled_network(connect_2g_data,
+                                                connect_5g_data)
+        reconnect = self.connect_to_wifi_network_with_id(
+            reconnect_to[WifiEnums.NETID_KEY],
+            reconnect_to[WifiEnums.SSID_KEY])
+        if not reconnect:
+            raise signals.TestFailure("Device did not connect to the correct"
+                                      " network after toggling Airplane mode.")
+
+    def helper_reboot_configstore_reconnect(self):
+        """Connect to multiple networks, reboot then reconnect to previously
+           connected network.
+
+        Steps:
+        1. Connect to a 2GHz network.
+        2. Connect to a 5GHz network.
+        3. Reboot device.
+        4. Verify all networks are persistent after reboot.
+        5. Reconnect to the non-current network.
+
+        """
+        network_list = self.connect_multiple_networks(self.dut)
+        self.dut.reboot()
+        time.sleep(DEFAULT_TIMEOUT)
+        self.check_configstore_networks(network_list)
+
+        reconnect_to = self.get_enabled_network(network_list[BAND_2GHZ],
+                                                network_list[BAND_5GHZ])
+
+        reconnect = self.connect_to_wifi_network_with_id(
+            reconnect_to[WifiEnums.NETID_KEY],
+            reconnect_to[WifiEnums.SSID_KEY])
+        if not reconnect:
+            raise signals.TestFailure(
+                "Device failed to reconnect to the correct"
+                " network after reboot.")
+
+    def helper_toggle_wifi_reboot_configstore_reconnect(self):
+        """Connect to multiple networks, disable WiFi, reboot, then
+           reconnect to previously connected network.
+
+        Steps:
+        1. Connect to a 2GHz network.
+        2. Connect to a 5GHz network.
+        3. Turn WiFi OFF.
+        4. Reboot device.
+        5. Turn WiFi ON.
+        4. Verify all networks are persistent after reboot.
+        5. Reconnect to the non-current network.
+
+        """
+        network_list = self.connect_multiple_networks(self.dut)
+        self.log.debug("Toggling wifi OFF")
+        wutils.wifi_toggle_state(self.dut, False)
+        time.sleep(DEFAULT_TIMEOUT)
+        self.dut.reboot()
+        time.sleep(DEFAULT_TIMEOUT)
+        self.log.debug("Toggling wifi ON")
+        wutils.wifi_toggle_state(self.dut, True)
+        time.sleep(DEFAULT_TIMEOUT)
+        self.check_configstore_networks(network_list)
+        reconnect_to = self.get_enabled_network(network_list[BAND_2GHZ],
+                                                network_list[BAND_5GHZ])
+        reconnect = self.connect_to_wifi_network_with_id(
+            reconnect_to[WifiEnums.NETID_KEY],
+            reconnect_to[WifiEnums.SSID_KEY])
+        if not reconnect:
+            msg = ("Device failed to reconnect to the correct network after"
+                   " toggling WiFi and rebooting.")
+            raise signals.TestFailure(msg)
+
+    def helper_toggle_airplane_reboot_configstore_reconnect(self):
+        """Connect to multiple networks, enable Airplane mode, reboot, then
+           reconnect to previously connected network.
+
+        Steps:
+        1. Connect to a 2GHz network.
+        2. Connect to a 5GHz network.
+        3. Toggle Airplane mode ON.
+        4. Reboot device.
+        5. Toggle Airplane mode OFF.
+        4. Verify all networks are persistent after reboot.
+        5. Reconnect to the non-current network.
+
+        """
+        network_list = self.connect_multiple_networks(self.dut)
+        self.log.debug("Toggling Airplane mode ON")
+        asserts.assert_true(
+            acts.utils.force_airplane_mode(self.dut, True),
+            "Can not turn on airplane mode on: %s" % self.dut.serial)
+        time.sleep(DEFAULT_TIMEOUT)
+        self.dut.reboot()
+        time.sleep(DEFAULT_TIMEOUT)
+        self.log.debug("Toggling Airplane mode OFF")
+        asserts.assert_true(
+            acts.utils.force_airplane_mode(self.dut, False),
+            "Can not turn on airplane mode on: %s" % self.dut.serial)
+        time.sleep(DEFAULT_TIMEOUT)
+        self.check_configstore_networks(network_list)
+        reconnect_to = self.get_enabled_network(network_list[BAND_2GHZ],
+                                                network_list[BAND_5GHZ])
+        reconnect = self.connect_to_wifi_network_with_id(
+            reconnect_to[WifiEnums.NETID_KEY],
+            reconnect_to[WifiEnums.SSID_KEY])
+        if not reconnect:
+            msg = ("Device failed to reconnect to the correct network after"
+                   " toggling Airplane mode and rebooting.")
+            raise signals.TestFailure(msg)
+
     """Tests"""
 
     @test_tracker_info(uuid="525fc5e3-afba-4bfd-9a02-5834119e3c66")
-    def test_toggle_state(self):
+    def test_toggle_wifi_state_and_get_startupTime(self):
         """Test toggling wifi"""
         self.log.debug("Going from on to off.")
         wutils.wifi_toggle_state(self.dut, False)
         self.log.debug("Going from off to on.")
+        startTime = time.time()
         wutils.wifi_toggle_state(self.dut, True)
+        startup_time = time.time() - startTime
+        self.log.debug("WiFi was enabled on the device in %s s." % startup_time)
 
     @test_tracker_info(uuid="e9d11563-2bbe-4c96-87eb-ec919b51435b")
     def test_toggle_with_screen(self):
@@ -360,13 +526,35 @@ class WifiManagerTest(WifiBaseTest):
     @test_tracker_info(uuid="71556e06-7fb1-4e2b-9338-b01f1f8e286e")
     def test_scan(self):
         """Test wifi connection scan can start and find expected networks."""
-        wutils.wifi_toggle_state(self.dut, True)
-        self.log.debug("Start regular wifi scan.")
-        wutils.start_wifi_connection_scan(self.dut)
-        wifi_results = self.dut.droid.wifiGetScanResults()
-        self.log.debug("Scan results: %s", wifi_results)
         ssid = self.open_network[WifiEnums.SSID_KEY]
-        wutils.assert_network_in_list({WifiEnums.SSID_KEY: ssid}, wifi_results)
+        wutils.start_wifi_connection_scan_and_ensure_network_found(
+            self.dut, ssid);
+
+    @test_tracker_info(uuid="3ea09efb-6921-429e-afb1-705ef5a09afa")
+    def test_scan_with_wifi_off_and_location_scan_on(self):
+        """Put wifi in scan only mode"""
+        self.turn_location_on_and_scan_toggle_on()
+        wutils.wifi_toggle_state(self.dut, False)
+
+        """Test wifi connection scan can start and find expected networks."""
+        ssid = self.open_network[WifiEnums.SSID_KEY]
+        wutils.start_wifi_connection_scan_and_ensure_network_found(
+            self.dut, ssid);
+
+    @test_tracker_info(uuid="770caebe-bcb1-43ac-95b6-5dd52dd90e80")
+    def test_scan_with_wifi_off_and_location_scan_off(self):
+        """Turn off wifi and location scan"""
+        self.turn_location_on_and_scan_toggle_off()
+        wutils.wifi_toggle_state(self.dut, False)
+
+        """Test wifi connection scan should fail."""
+        self.dut.droid.wifiStartScan()
+        try:
+            self.dut.ed.pop_event("WifiManagerScanResultsAvailable", 60)
+        except queue.Empty:
+            self.log.debug("Wifi scan results not received.")
+        else:
+            asserts.fail("Wi-Fi scan results received")
 
     @test_tracker_info(uuid="a4ad9930-a8fa-4868-81ed-a79c7483e502")
     def test_add_network(self):
@@ -463,17 +651,23 @@ class WifiManagerTest(WifiBaseTest):
         4. Reconnect to the non-current network.
 
         """
-        connect_2g_data = self.get_connection_data(self.dut, self.wpapsk_2g)
-        connect_5g_data = self.get_connection_data(self.dut, self.wpapsk_5g)
-        wutils.toggle_wifi_off_and_on(self.dut)
-        reconnect_to = self.get_enabled_network(connect_2g_data,
-                                                connect_5g_data)
-        reconnect = self.connect_to_wifi_network_with_id(
-            reconnect_to[WifiEnums.NETID_KEY],
-            reconnect_to[WifiEnums.SSID_KEY])
-        if not reconnect:
-            raise signals.TestFailure("Device did not connect to the correct"
-                                      " network after toggling WiFi.")
+        self.helper_reconnect_toggle_wifi()
+
+    @test_tracker_info(uuid="bd2cec9e-7f17-44ef-8a0c-4da92a9b55ae")
+    def test_reconnect_toggle_wifi_with_location_scan_on(self):
+        """Connect to multiple networks, turn off/on wifi, then reconnect to
+           a previously connected network.
+
+        Steps:
+        1. Turn on location scans.
+        2. Connect to a 2GHz network.
+        3. Connect to a 5GHz network.
+        4. Turn WiFi OFF/ON.
+        5. Reconnect to the non-current network.
+
+        """
+        self.turn_location_on_and_scan_toggle_on()
+        self.helper_reconnect_toggle_wifi()
 
     @test_tracker_info(uuid="8e6e6c21-fefb-4fe8-9fb1-f09b1182b76d")
     def test_reconnect_toggle_airplane(self):
@@ -487,17 +681,23 @@ class WifiManagerTest(WifiBaseTest):
         4. Reconnect to the non-current network.
 
         """
-        connect_2g_data = self.get_connection_data(self.dut, self.wpapsk_2g)
-        connect_5g_data = self.get_connection_data(self.dut, self.wpapsk_5g)
-        wutils.toggle_airplane_mode_on_and_off(self.dut)
-        reconnect_to = self.get_enabled_network(connect_2g_data,
-                                                connect_5g_data)
-        reconnect = self.connect_to_wifi_network_with_id(
-            reconnect_to[WifiEnums.NETID_KEY],
-            reconnect_to[WifiEnums.SSID_KEY])
-        if not reconnect:
-            raise signals.TestFailure("Device did not connect to the correct"
-                                      " network after toggling Airplane mode.")
+        self.helper_reconnect_toggle_airplane()
+
+    @test_tracker_info(uuid="28562f13-8a0a-492e-932c-e587560db5f2")
+    def test_reconnect_toggle_airplane_with_location_scan_on(self):
+        """Connect to multiple networks, turn on/off Airplane moce, then
+           reconnect a previously connected network.
+
+        Steps:
+        1. Turn on location scans.
+        2. Connect to a 2GHz network.
+        3. Connect to a 5GHz network.
+        4. Turn ON/OFF Airplane mode.
+        5. Reconnect to the non-current network.
+
+        """
+        self.turn_location_on_and_scan_toggle_on()
+        self.helper_reconnect_toggle_airplane()
 
     @test_tracker_info(uuid="3d041c12-05e2-46a7-ab9b-e3f60cc735db")
     def test_reboot_configstore_reconnect(self):
@@ -512,21 +712,24 @@ class WifiManagerTest(WifiBaseTest):
         5. Reconnect to the non-current network.
 
         """
-        network_list = self.connect_multiple_networks(self.dut)
-        self.dut.reboot()
-        time.sleep(DEFAULT_TIMEOUT)
-        self.check_configstore_networks(network_list)
+        self.helper_reboot_configstore_reconnect()
 
-        reconnect_to = self.get_enabled_network(network_list[BAND_2GHZ],
-                                                network_list[BAND_5GHZ])
+    @test_tracker_info(uuid="a70d5853-67b5-4d48-bdf7-08ee51fafd21")
+    def test_reboot_configstore_reconnect_with_location_scan_on(self):
+        """Connect to multiple networks, reboot then reconnect to previously
+           connected network.
 
-        reconnect = self.connect_to_wifi_network_with_id(
-            reconnect_to[WifiEnums.NETID_KEY],
-            reconnect_to[WifiEnums.SSID_KEY])
-        if not reconnect:
-            raise signals.TestFailure(
-                "Device failed to reconnect to the correct"
-                " network after reboot.")
+        Steps:
+        1. Turn on location scans.
+        2. Connect to a 2GHz network.
+        3. Connect to a 5GHz network.
+        4. Reboot device.
+        5. Verify all networks are persistent after reboot.
+        6. Reconnect to the non-current network.
+
+        """
+        self.turn_location_on_and_scan_toggle_on()
+        self.helper_reboot_configstore_reconnect()
 
     @test_tracker_info(uuid="26d94dfa-1349-4c8b-aea0-475eb73bb521")
     def test_toggle_wifi_reboot_configstore_reconnect(self):
@@ -543,25 +746,26 @@ class WifiManagerTest(WifiBaseTest):
         5. Reconnect to the non-current network.
 
         """
-        network_list = self.connect_multiple_networks(self.dut)
-        self.log.debug("Toggling wifi OFF")
-        wutils.wifi_toggle_state(self.dut, False)
-        time.sleep(DEFAULT_TIMEOUT)
-        self.dut.reboot()
-        time.sleep(DEFAULT_TIMEOUT)
-        self.log.debug("Toggling wifi ON")
-        wutils.wifi_toggle_state(self.dut, True)
-        time.sleep(DEFAULT_TIMEOUT)
-        self.check_configstore_networks(network_list)
-        reconnect_to = self.get_enabled_network(network_list[BAND_2GHZ],
-                                                network_list[BAND_5GHZ])
-        reconnect = self.connect_to_wifi_network_with_id(
-            reconnect_to[WifiEnums.NETID_KEY],
-            reconnect_to[WifiEnums.SSID_KEY])
-        if not reconnect:
-            msg = ("Device failed to reconnect to the correct network after"
-                   " toggling WiFi and rebooting.")
-            raise signals.TestFailure(msg)
+        self.helper_toggle_wifi_reboot_configstore_reconnect()
+
+    @test_tracker_info(uuid="7c004a3b-c1c6-4371-9124-0f34650be915")
+    def test_toggle_wifi_reboot_configstore_reconnect_with_location_scan_on(self):
+        """Connect to multiple networks, disable WiFi, reboot, then
+           reconnect to previously connected network.
+
+        Steps:
+        1. Turn on location scans.
+        2. Connect to a 2GHz network.
+        3. Connect to a 5GHz network.
+        4. Turn WiFi OFF.
+        5. Reboot device.
+        6. Turn WiFi ON.
+        7. Verify all networks are persistent after reboot.
+        8. Reconnect to the non-current network.
+
+        """
+        self.turn_location_on_and_scan_toggle_on()
+        self.helper_toggle_wifi_reboot_configstore_reconnect()
 
     @test_tracker_info(uuid="4fce017b-b443-40dc-a598-51d59d3bb38f")
     def test_toggle_airplane_reboot_configstore_reconnect(self):
@@ -578,29 +782,26 @@ class WifiManagerTest(WifiBaseTest):
         5. Reconnect to the non-current network.
 
         """
-        network_list = self.connect_multiple_networks(self.dut)
-        self.log.debug("Toggling Airplane mode ON")
-        asserts.assert_true(
-            acts.utils.force_airplane_mode(self.dut, True),
-            "Can not turn on airplane mode on: %s" % self.dut.serial)
-        time.sleep(DEFAULT_TIMEOUT)
-        self.dut.reboot()
-        time.sleep(DEFAULT_TIMEOUT)
-        self.log.debug("Toggling Airplane mode OFF")
-        asserts.assert_true(
-            acts.utils.force_airplane_mode(self.dut, False),
-            "Can not turn on airplane mode on: %s" % self.dut.serial)
-        time.sleep(DEFAULT_TIMEOUT)
-        self.check_configstore_networks(network_list)
-        reconnect_to = self.get_enabled_network(network_list[BAND_2GHZ],
-                                                network_list[BAND_5GHZ])
-        reconnect = self.connect_to_wifi_network_with_id(
-            reconnect_to[WifiEnums.NETID_KEY],
-            reconnect_to[WifiEnums.SSID_KEY])
-        if not reconnect:
-            msg = ("Device failed to reconnect to the correct network after"
-                   " toggling Airplane mode and rebooting.")
-            raise signals.TestFailure(msg)
+        self.helper_toggle_airplane_reboot_configstore_reconnect()
+
+    @test_tracker_info(uuid="7f0810f9-2338-4158-95f5-057f5a1905b6")
+    def test_toggle_airplane_reboot_configstore_reconnect_with_location_scan_on(self):
+        """Connect to multiple networks, enable Airplane mode, reboot, then
+           reconnect to previously connected network.
+
+        Steps:
+        1. Turn on location scans.
+        2. Connect to a 2GHz network.
+        3. Connect to a 5GHz network.
+        4. Toggle Airplane mode ON.
+        5. Reboot device.
+        6. Toggle Airplane mode OFF.
+        7. Verify all networks are persistent after reboot.
+        8. Reconnect to the non-current network.
+
+        """
+        self.turn_location_on_and_scan_toggle_on()
+        self.helper_toggle_airplane_reboot_configstore_reconnect()
 
     @test_tracker_info(uuid="81eb7527-4c92-4422-897a-6b5f6445e84a")
     def test_config_store_with_wpapsk_2g(self):

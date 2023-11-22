@@ -33,7 +33,7 @@
         <!-- Launch the lenspicker for all the facets. The lens picker will trampoline into the last run app or display a list of valid apps -->
         <item>intent:#Intent;action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;launchFlags=0x14000000;package=com.android.support.car.lenspicker;end</item>
         <item>intent:#Intent;action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;launchFlags=0x14000000;package=com.android.support.car.lenspicker;end</item>
-        <item>intent:#Intent;action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;launchFlags=0x14000000;package=com.android.support.car.lenspicker;S.system_command=toggle_notifications;end</item>
+        <item>intent:#Intent;action=android.intent.action.MAIN;category=android.intent.category.HOME;launchFlags=0x14000000;S.system_command=toggle_notifications;end</item>
         <item>intent:#Intent;action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;launchFlags=0x14000000;package=com.android.support.car.lenspicker;end</item>
         <item>intent:#Intent;action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;launchFlags=0x14000000;package=com.android.support.car.lenspicker;end</item>
     </array>
@@ -57,6 +57,6 @@
         <item>com.android.car.dialer</item>
         <item>com.android.car.overview</item>
         <item></item>
-        <item>com.android.car.hvac;com.android.settings;com.android.car.settings;com.android.vending;com.google.android.car.bugreport;com.google.android.car.kitchensink;com.android.car.systemupdater;org.chromium.webview_shell;com.android.contacts;org.codeaurora.bluetooth.bttestapp;com.google.android.projection.sink</item>
+        <item>com.android.car.hvac;com.android.settings;com.android.car.settings;com.android.vending;com.google.android.car.bugreport;com.google.android.car.kitchensink;com.android.car.systemupdater;org.chromium.webview_shell;com.android.contacts;org.codeaurora.bluetooth.bttestapp;com.google.android.projection.sink;com.google.android.googlequicksearchbox</item>
     </array>
 </resources>

@@ -25,13 +25,13 @@ namespace art {
 
 class SideEffectsAnalysis : public HOptimization {
  public:
-  SideEffectsAnalysis(HGraph* graph, const char* pass_name = kSideEffectsAnalysisPassName)
+  explicit SideEffectsAnalysis(HGraph* graph, const char* pass_name = kSideEffectsAnalysisPassName)
       : HOptimization(graph, pass_name),
         graph_(graph),
         block_effects_(graph->GetBlocks().size(),
-                       graph->GetArena()->Adapter(kArenaAllocSideEffectsAnalysis)),
+                       graph->GetAllocator()->Adapter(kArenaAllocSideEffectsAnalysis)),
         loop_effects_(graph->GetBlocks().size(),
-                      graph->GetArena()->Adapter(kArenaAllocSideEffectsAnalysis)) {}
+                      graph->GetAllocator()->Adapter(kArenaAllocSideEffectsAnalysis)) {}
 
   SideEffects GetLoopEffects(HBasicBlock* block) const;
   SideEffects GetBlockEffects(HBasicBlock* block) const;

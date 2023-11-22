@@ -16,10 +16,12 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.google.android.car.diagnosticverifier">
 
-    <uses-permission android:name="android.car.permission.DIAGNOSTIC_READ_ALL" />
+    <uses-permission android:name="android.car.permission.CAR_DIAGNOSTICS" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
 
     <application android:label="Car Diagnostic Verification">
+        <uses-library android:name="android.test.runner" />
+
         <activity android:name=".MainActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>

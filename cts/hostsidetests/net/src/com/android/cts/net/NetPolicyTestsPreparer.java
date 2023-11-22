@@ -25,50 +25,38 @@ import com.android.tradefed.targetprep.ITargetPreparer;
 
 public class NetPolicyTestsPreparer implements ITargetPreparer, ITargetCleaner {
     private final static String KEY_PAROLE_DURATION = "parole_duration";
-    private final static String DESIRED_PAROLE_DURATION = "0";
+    private final static int DESIRED_PAROLE_DURATION = 0;
+    private final static String KEY_STABLE_CHARGING_THRESHOLD = "stable_charging_threshold";
+    private final static int DESIRED_STABLE_CHARGING_THRESHOLD = 0;
 
-    private boolean mAppIdleConstsUpdated;
+    private ITestDevice mDevice;
     private String mOriginalAppIdleConsts;
 
     @Override
     public void setUp(ITestDevice device, IBuildInfo buildInfo) throws DeviceNotAvailableException {
-        updateParoleDuration(device);
+        mDevice = device;
+        mOriginalAppIdleConsts = getAppIdleConstants();
+        setAppIdleConstants(KEY_PAROLE_DURATION + "=" + DESIRED_PAROLE_DURATION + ","
+                + KEY_STABLE_CHARGING_THRESHOLD + "=" + DESIRED_STABLE_CHARGING_THRESHOLD);
         LogUtil.CLog.d("Original app_idle_constants: " + mOriginalAppIdleConsts);
     }
 
     @Override
     public void tearDown(ITestDevice device, IBuildInfo buildInfo, Throwable throwable)
             throws DeviceNotAvailableException {
-        if (mAppIdleConstsUpdated) {
-            executeCmd(device, "settings put global app_idle_constants " + mOriginalAppIdleConsts);
-        }
+        setAppIdleConstants(mOriginalAppIdleConsts);
     }
 
-    /**
-     * Updates parole_duration with the desired value.
-     */
-    private void updateParoleDuration(ITestDevice device) throws DeviceNotAvailableException {
-        mOriginalAppIdleConsts = executeCmd(device, "settings get global app_idle_constants");
-        String newAppIdleConstants;
-        final String newConstant = KEY_PAROLE_DURATION + "=" + DESIRED_PAROLE_DURATION;
-        if (mOriginalAppIdleConsts == null || "null".equals(mOriginalAppIdleConsts)) {
-            // app_idle_constants is initially empty, so just assign the desired value.
-            newAppIdleConstants = newConstant;
-        } else if (mOriginalAppIdleConsts.contains(KEY_PAROLE_DURATION)) {
-            // app_idle_constants contains parole_duration, so replace it with the desired value.
-            newAppIdleConstants = mOriginalAppIdleConsts.replaceAll(
-                    KEY_PAROLE_DURATION + "=\\d+", newConstant);
-        } else {
-            // app_idle_constants didn't have parole_duration, so append the desired value.
-            newAppIdleConstants = mOriginalAppIdleConsts + "," + newConstant;
-        }
-        executeCmd(device, "settings put global app_idle_constants " + newAppIdleConstants);
-        mAppIdleConstsUpdated = true;
+    private void setAppIdleConstants(String appIdleConstants) throws DeviceNotAvailableException {
+        executeCmd("settings put global app_idle_constants " + appIdleConstants);
     }
 
-    private String executeCmd(ITestDevice device, String cmd)
-            throws DeviceNotAvailableException {
-        final String output = device.executeShellCommand(cmd).trim();
+    private String getAppIdleConstants() throws DeviceNotAvailableException {
+        return executeCmd("settings get global app_idle_constants");
+    }
+
+    private String executeCmd(String cmd) throws DeviceNotAvailableException {
+        final String output = mDevice.executeShellCommand(cmd).trim();
         LogUtil.CLog.d("Output for '%s': %s", cmd, output);
         return output;
     }

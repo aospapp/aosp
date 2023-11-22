@@ -18,8 +18,10 @@ package android.media.cts;
 
 import android.media.AudioManager;
 import android.media.ToneGenerator;
+import android.platform.test.annotations.AppModeFull;
 import android.test.AndroidTestCase;
 
+@AppModeFull(reason = "TODO: evaluate and port to instant")
 public class ToneGeneratorTest extends AndroidTestCase {
 
     public void testSyncGenerate() throws Exception {

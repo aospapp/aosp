@@ -1,7 +1,7 @@
 /** @file
   VFR file used by the TCG2 configuration component.
 
-Copyright (c) 2015, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2015 - 2017, Intel Corporation. All rights reserved.<BR>
 This program and the accompanying materials 
 are licensed and made available under the terms and conditions of the BSD License 
 which accompanies this distribution.  The full text of the license may be found at 
@@ -51,6 +51,40 @@ formset
             option text = STRING_TOKEN(STR_TCG2_TPM_2_0_DTPM),     value = TPM_DEVICE_2_0_DTPM,     flags = RESET_REQUIRED;
     endoneof;
 
+    suppressif ideqvallist TCG2_CONFIGURATION.TpmDevice == TPM_DEVICE_NULL TPM_DEVICE_1_2;
+
+    subtitle text = STRING_TOKEN(STR_NULL);
+
+    text
+      help   = STRING_TOKEN(STR_TPM2_ACPI_HID_HELP),
+      text   = STRING_TOKEN(STR_TPM2_ACPI_HID_PROMPT),
+        text   = STRING_TOKEN(STR_TPM2_ACPI_HID_CONTENT);
+
+    text
+      help   = STRING_TOKEN(STR_TCG2_DEVICE_INTERFACE_STATE_HELP),
+      text   = STRING_TOKEN(STR_TCG2_DEVICE_INTERFACE_STATE_PROMPT),
+        text   = STRING_TOKEN(STR_TCG2_DEVICE_INTERFACE_STATE_CONTENT);
+
+    text
+      help   = STRING_TOKEN(STR_TCG2_DEVICE_INTERFACE_CAPABILITY_HELP),
+      text   = STRING_TOKEN(STR_TCG2_DEVICE_INTERFACE_CAPABILITY_PROMPT),
+        text   = STRING_TOKEN(STR_TCG2_DEVICE_INTERFACE_CAPABILITY_CONTENT);
+
+    suppressif ideqval TCG2_CONFIGURATION_INFO.TpmDeviceInterfacePtpFifoSupported == 0
+            OR ideqval TCG2_CONFIGURATION_INFO.TpmDeviceInterfacePtpCrbSupported == 0;
+    oneof varid  = TCG2_CONFIGURATION_INFO.TpmDeviceInterfaceAttempt,
+          questionid = KEY_TPM_DEVICE_INTERFACE,
+          prompt = STRING_TOKEN(STR_TCG2_DEVICE_INTERFACE_PROMPT),
+          help   = STRING_TOKEN(STR_TCG2_DEVICE_INTERFACE_HELP),
+          flags  = INTERACTIVE,
+            option text = STRING_TOKEN(STR_TCG2_DEVICE_INTERFACE_TIS),          value = TPM_DEVICE_INTERFACE_TIS,          flags = RESET_REQUIRED;
+            option text = STRING_TOKEN(STR_TCG2_DEVICE_INTERFACE_PTP_FIFO),     value = TPM_DEVICE_INTERFACE_PTP_FIFO,     flags = RESET_REQUIRED;
+            option text = STRING_TOKEN(STR_TCG2_DEVICE_INTERFACE_PTP_CRB),      value = TPM_DEVICE_INTERFACE_PTP_CRB,      flags = DEFAULT | MANUFACTURING | RESET_REQUIRED;
+    endoneof;
+    endif;
+
+    endif;
+
     subtitle text = STRING_TOKEN(STR_NULL);
 
     suppressif ideqvallist TCG2_CONFIGURATION.TpmDevice == TPM_DEVICE_NULL TPM_DEVICE_1_2;
@@ -83,9 +117,6 @@ formset
             option text = STRING_TOKEN(STR_TCG2_CHANGE_EPS), value = TCG2_PHYSICAL_PRESENCE_CHANGE_EPS, flags = RESET_REQUIRED;
             option text = STRING_TOKEN(STR_TCG2_LOG_ALL_DIGESTS), value = TCG2_PHYSICAL_PRESENCE_LOG_ALL_DIGESTS, flags = RESET_REQUIRED;
             option text = STRING_TOKEN(STR_TCG2_DISABLE_ENDORSEMENT_ENABLE_STORAGE_HIERARCHY), value = TCG2_PHYSICAL_PRESENCE_DISABLE_ENDORSEMENT_ENABLE_STORAGE_HIERARCHY, flags = RESET_REQUIRED;
-
-            option text = STRING_TOKEN(STR_TCG2_ENABLE_BLOCK_SID), value = TCG2_PHYSICAL_PRESENCE_ENABLE_BLOCK_SID, flags = RESET_REQUIRED;
-            option text = STRING_TOKEN(STR_TCG2_DISABLE_BLOCK_SID), value = TCG2_PHYSICAL_PRESENCE_DISABLE_BLOCK_SID, flags = RESET_REQUIRED;
     endoneof;
     
     suppressif NOT questionref(Tpm2Operation) == TCG2_PHYSICAL_PRESENCE_SET_PCR_BANKS;
@@ -131,7 +162,7 @@ formset
             questionid = KEY_TPM2_PCR_BANKS_REQUEST_0,
             prompt     = STRING_TOKEN(STR_TCG2_PCR_BANK_SHA1),
             help       = STRING_TOKEN(STR_TCG2_PCR_BANK_SHA1_HELP),
-            flags      = INTERACTIVE,
+            flags      = INTERACTIVE | RESET_REQUIRED,
             default    = 1,
     endcheckbox;
   endif;
@@ -141,7 +172,7 @@ formset
             questionid = KEY_TPM2_PCR_BANKS_REQUEST_1,
             prompt     = STRING_TOKEN(STR_TCG2_PCR_BANK_SHA256),
             help       = STRING_TOKEN(STR_TCG2_PCR_BANK_SHA256_HELP),
-            flags      = INTERACTIVE,
+            flags      = INTERACTIVE | RESET_REQUIRED,
             default    = 0,
     endcheckbox;
   endif;
@@ -151,7 +182,7 @@ formset
             questionid = KEY_TPM2_PCR_BANKS_REQUEST_2,
             prompt     = STRING_TOKEN(STR_TCG2_PCR_BANK_SHA384),
             help       = STRING_TOKEN(STR_TCG2_PCR_BANK_SHA384_HELP),
-            flags      = INTERACTIVE,
+            flags      = INTERACTIVE | RESET_REQUIRED,
             default    = 0,
     endcheckbox;
   endif;
@@ -161,7 +192,7 @@ formset
             questionid = KEY_TPM2_PCR_BANKS_REQUEST_3,
             prompt     = STRING_TOKEN(STR_TCG2_PCR_BANK_SHA512),
             help       = STRING_TOKEN(STR_TCG2_PCR_BANK_SHA512_HELP),
-            flags      = INTERACTIVE,
+            flags      = INTERACTIVE | RESET_REQUIRED,
             default    = 0,
     endcheckbox;
   endif;
@@ -171,7 +202,7 @@ formset
             questionid = KEY_TPM2_PCR_BANKS_REQUEST_4,
             prompt     = STRING_TOKEN(STR_TCG2_PCR_BANK_SM3_256),
             help       = STRING_TOKEN(STR_TCG2_PCR_BANK_SM3_256_HELP),
-            flags      = INTERACTIVE,
+            flags      = INTERACTIVE | RESET_REQUIRED,
             default    = 0,
     endcheckbox;
   endif;

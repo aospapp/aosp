@@ -52,6 +52,7 @@ def run_client_test(machine):
 
     if not client_attributes.has_resume_bug:
         client_at.run_test('power_Resume')
+        client_at.run_test('power_UiResume')
 
   finally:
     client.power_on()

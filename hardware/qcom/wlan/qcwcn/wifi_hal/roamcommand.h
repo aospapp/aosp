@@ -39,8 +39,8 @@ public:
     RoamCommand(wifi_handle handle, int id, u32 vendor_id, u32 subcmd);
     virtual ~RoamCommand();
 
-    virtual int create();
-    virtual int requestResponse();
+    virtual wifi_error create();
+    virtual wifi_error requestResponse();
 };
 
 #ifdef __cplusplus

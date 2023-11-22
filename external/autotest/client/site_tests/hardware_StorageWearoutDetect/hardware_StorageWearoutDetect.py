@@ -23,7 +23,7 @@ class hardware_StorageWearoutDetect(test.test):
 
     version = 1
     STORAGE_INFO_PATH = '/var/log/storage_info.txt'
-    STORAGE_INFO_UPDATE_PATH = '/usr/share/userfeedback/scripts/storage_info'
+    STORAGE_INFO_COMMON_PATH = '/usr/share/misc/storage-info-common.sh'
 
     # Example     "   Model Number:    LITEONIT LSS-32L6G-HP"
     SSD_DETECT = r"\s*Model Number:\s*(?P<model>.*)\s*$"
@@ -53,11 +53,14 @@ class hardware_StorageWearoutDetect(test.test):
         """
 
         if not use_cached_result:
-            if not os.path.exists(self.STORAGE_INFO_UPDATE_PATH):
+            if not os.path.exists(self.STORAGE_INFO_COMMON_PATH):
                 msg = str('Test failed with error: %s not exist'
-                          % self.STORAGE_INFO_UPDATE_PATH)
+                          % self.STORAGE_INFO_COMMON_PATH)
                 raise error.TestFail(msg)
-            utils.system(self.STORAGE_INFO_UPDATE_PATH)
+            cmd = ' '.join(['. %s;' % (self.STORAGE_INFO_COMMON_PATH, ),
+                            'get_storage_info'])
+            utils.run(cmd, stdout_tee=open(self.STORAGE_INFO_PATH, 'w'),
+                      stderr_tee=utils.TEE_TO_LOGS)
 
         # Check that storage_info file exist.
         if not os.path.exists(self.STORAGE_INFO_PATH):

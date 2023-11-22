@@ -25,6 +25,7 @@ LOCAL_SRC_FILES := $(call all-java-files-under, src) \
 LOCAL_STATIC_JAVA_LIBRARIES := android-support-v8-renderscript
 
 LOCAL_PACKAGE_NAME := SSHealingBrush
+LOCAL_SDK_VERSION := current
 
 LOCAL_RENDERSCRIPT_FLAGS := -target-api 0
 

@@ -29,7 +29,7 @@ public class MapContact {
         mName = name;
     }
 
-    public static MapContact create(long id, String name){
+    public static MapContact create(long id, String name) {
         return new MapContact(id, name);
     }
 
@@ -42,21 +42,21 @@ public class MapContact {
     }
 
     public String getXBtUidString() {
-        if(mId > 0) {
-            return  BluetoothMapUtils.getLongLongAsString(mId, 0);
+        if (mId > 0) {
+            return BluetoothMapUtils.getLongLongAsString(mId, 0);
         }
         return null;
     }
 
     public SignedLongLong getXBtUid() {
-        if(mId > 0) {
-            return  new SignedLongLong(mId, 0);
+        if (mId > 0) {
+            return new SignedLongLong(mId, 0);
         }
         return null;
     }
 
     @Override
-    public String toString(){
+    public String toString() {
         return mName;
     }
 }

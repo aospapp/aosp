@@ -23,11 +23,9 @@ import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.util.RunUtil;
 
-/**
- * An {@link ITargetPreparer} that waits until device's temperature gets down to target
- */
+/** An {@link ITargetPreparer} that waits until device's temperature gets down to target */
 @OptionClass(alias = "temperature-throttle-waiter")
-public class TemperatureThrottlingWaiter implements ITargetPreparer {
+public class TemperatureThrottlingWaiter extends BaseTargetPreparer {
 
     @Option(name = "poll-interval",
             description = "Interval in seconds, to poll for device temperature; defaults to 30s")
@@ -45,8 +43,14 @@ public class TemperatureThrottlingWaiter implements ITargetPreparer {
         + "temperature has reached to target; defaults to 120s")
     private long mPostIdleWaitSecs = 120;
 
-    @Option(name = "device-temperature-file-path", description = "Name of file that contains device"
-        + "temperature. Example: /sys/class/hwmon/hwmon1/device/msm_therm")
+    public static final String DEVICE_TEMPERATURE_FILE_PATH_NAME = "device-temperature-file-path";
+
+    @Option(
+        name = DEVICE_TEMPERATURE_FILE_PATH_NAME,
+        description =
+                "Name of file that contains device"
+                        + "temperature. Example: /sys/class/hwmon/hwmon1/device/msm_therm"
+    )
     private String mDeviceTemperatureFilePath = null;
 
     @Option(name = "target-temperature", description = "Target Temperature that device should have;"

@@ -16,6 +16,7 @@
  * limitations under the License.
  */
 
+#include <cstdlib>
 #include <string.h>
 #include <errno.h>
 #include <inttypes.h>
@@ -32,6 +33,7 @@
 #include "gralloc_priv.h"
 #include "gralloc_helper.h"
 #include "framebuffer_device.h"
+#include "ion_4.12.h"
 
 #include "mali_gralloc_formats.h"
 
@@ -148,6 +150,51 @@ static ion_user_handle_t alloc_from_ion_heap(int ion_fd, size_t size, unsigned i
 	return ion_hnd;
 }
 
+static int find_system_heap_id(int ion_client)
+{
+	int i, ret, cnt, system_heap_id = -1;
+	struct ion_heap_data *data;
+
+	ret = ion_query_heap_cnt(ion_client, &cnt);
+
+	if (ret)
+	{
+		AERR("ion count query failed with %s", strerror(errno));
+		return -1;
+	}
+
+	data = (struct ion_heap_data *)malloc(cnt * sizeof(*data));
+	if (!data)
+	{
+		AERR("Error allocating data %s\n", strerror(errno));
+		return -1;
+	}
+
+	ret = ion_query_get_heaps(ion_client, cnt, data);
+	if (ret)
+	{
+		AERR("Error querying heaps from ion %s", strerror(errno));
+	}
+	else
+	{
+		for (i = 0; i < cnt; i++) {
+			if (strcmp(data[i].name, "ion_system_heap") == 0) {
+				system_heap_id = data[i].heap_id;
+				break;
+			}
+		}
+
+		if (i == cnt)
+		{
+			AERR("No System Heap Found amongst %d heaps\n", cnt);
+			system_heap_id = -1;
+		}
+	}
+
+	free(data);
+	return system_heap_id;
+}
+
 unsigned int pick_ion_heap(int usage)
 {
 	unsigned int heap_mask;
@@ -215,7 +262,6 @@ void set_ion_flags(unsigned int heap_mask, int usage, unsigned int *priv_heap_fl
 int alloc_backend_alloc(alloc_device_t* dev, size_t size, int usage, buffer_handle_t* pHandle, uint64_t fmt, int w, int h)
 {
 	private_module_t* m = reinterpret_cast<private_module_t*>(dev->common.module);
-	ion_user_handle_t ion_hnd;
 	unsigned char *cpu_ptr = NULL;
 	int shared_fd;
 	int ret;
@@ -225,35 +271,51 @@ int alloc_backend_alloc(alloc_device_t* dev, size_t size, int usage, buffer_hand
 	int lock_state = 0;
 	int min_pgsz = 0;
 
-	heap_mask = pick_ion_heap(usage);
-	if(heap_mask == 0)
+	if (m->gralloc_legacy_ion)
 	{
-		AERR("Failed to find an appropriate ion heap");
-		return -1;
-	}
-	set_ion_flags(heap_mask, usage, &priv_heap_flag, &ion_flags);
+		ion_user_handle_t ion_hnd;
 
-	ion_hnd = alloc_from_ion_heap(m->ion_client, size, heap_mask, ion_flags, &min_pgsz);
-	if (ion_hnd < 0)
+		heap_mask = pick_ion_heap(usage);
+		if(heap_mask == 0)
+		{
+			AERR("Failed to find an appropriate ion heap");
+			return -1;
+		}
+		set_ion_flags(heap_mask, usage, &priv_heap_flag, &ion_flags);
+
+		ion_hnd = alloc_from_ion_heap(m->ion_client, size, heap_mask, ion_flags, &min_pgsz);
+		if (ion_hnd < 0)
+		{
+			AERR("Failed to ion_alloc from ion_client:%d", m->ion_client);
+			return -1;
+		}
+
+		ret = ion_share( m->ion_client, ion_hnd, &shared_fd );
+		if ( ret != 0 )
+		{
+			AERR( "ion_share( %d ) failed", m->ion_client );
+			if ( 0 != ion_free( m->ion_client, ion_hnd ) ) AERR( "ion_free( %d ) failed", m->ion_client );
+			return -1;
+		}
+
+		// we do not need ion_hnd once we have shared_fd
+		if (0 != ion_free(m->ion_client, ion_hnd))
+		{
+		    AWAR("ion_free( %d ) failed", m->ion_client);
+		}
+		ion_hnd = -1;
+	}
+	else
 	{
-		AERR("Failed to ion_alloc from ion_client:%d", m->ion_client);
-		return -1;
+		/* Support only System heap to begin with */
+		ret = ion_alloc_fd(m->ion_client, size, 0, 1 << m->system_heap_id, 0, &(shared_fd));
+		if (ret != 0)
+		{
+			AERR("Failed to ion_alloc_fd from ion_client:%d", m->ion_client);
+			return -1;
+		}
+		min_pgsz = SZ_4K;
 	}
-
-	ret = ion_share( m->ion_client, ion_hnd, &shared_fd );
-	if ( ret != 0 )
-	{
-		AERR( "ion_share( %d ) failed", m->ion_client );
-		if ( 0 != ion_free( m->ion_client, ion_hnd ) ) AERR( "ion_free( %d ) failed", m->ion_client );		
-		return -1;
-	}
-
-        // we do not need ion_hnd once we have shared_fd
-        if (0 != ion_free(m->ion_client, ion_hnd))
-        {
-            AWAR("ion_free( %d ) failed", m->ion_client);
-        }
-        ion_hnd = -1;
 
 	if (!(usage & GRALLOC_USAGE_PROTECTED))
 	{
@@ -350,6 +412,20 @@ int alloc_backend_open(alloc_device_t *dev)
 	{
 		AERR( "ion_open failed with %s", strerror(errno) );
 		return -1;
+	}
+
+	m->gralloc_legacy_ion = ion_is_legacy(m->ion_client);
+
+	if (!m->gralloc_legacy_ion)
+	{
+		m->system_heap_id = find_system_heap_id(m->ion_client);
+		if (m->system_heap_id < 0)
+		{
+			ion_close(m->ion_client);
+			m->ion_client = -1;
+			AERR( "ion_open failed: no system heap found" );
+			return -1;
+		}
 	}
 
 	return 0;

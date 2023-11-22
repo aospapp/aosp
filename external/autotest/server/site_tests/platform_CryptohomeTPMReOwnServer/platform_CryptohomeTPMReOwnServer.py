@@ -3,12 +3,8 @@
 # found in the LICENSE file.
 
 import logging
-import os
-import shutil
-import sys
+from autotest_lib.client.common_lib.cros import tpm_utils
 from autotest_lib.server import test, autotest
-from autotest_lib.client.bin import utils
-from autotest_lib.client.common_lib import error
 
 class platform_CryptohomeTPMReOwnServer(test.test):
     """
@@ -21,20 +17,15 @@ class platform_CryptohomeTPMReOwnServer(test.test):
 
     # Run the client subtest named [subtest].
     def tpm_run(self, subtest, ignore_status=False):
-        self.client_at.run_test(self.client_test, subtest=subtest)
-        cstatus = self.job.get_state("client_status")
-        logging.info("server: client status = %s", cstatus)
-        self.job.set_state("client_status", None)
-        if not ignore_status and cstatus != 'Success':
-            error.TestFail("client subtest %s failed with status %s" %
-                           (subtest, cstatus))
-        return cstatus
+        self.client_at.run_test(self.client_test,
+                                subtest=subtest,
+                                check_client_result=(not ignore_status))
 
 
     def reboot_client(self):
         # Reboot the client
-        logging.info('CryptohomeTPMReOwnServer: rebooting %s number %d' %
-                     (self.client.hostname, self.n_client_reboots))
+        logging.info('CryptohomeTPMReOwnServer: rebooting %s number %d',
+                     self.client.hostname, self.n_client_reboots)
         self.client.reboot()
         self.n_client_reboots += 1
 
@@ -44,26 +35,17 @@ class platform_CryptohomeTPMReOwnServer(test.test):
         self.client_at = autotest.Autotest(self.client)
         self.client_test = 'platform_CryptohomeTPMReOwn'
 
-        self.job.set_state("client_status", None)
+        # Set up the client in the unowned state and init the TPM again.
+        tpm_utils.ClearTPMOwnerRequest(self.client)
+        self.tpm_run("take_tpm_ownership", ignore_status=True)
 
-        # Set up the client in the unowned state.
-        self.reboot_client()
-        self.tpm_run("clear_tpm", ignore_status=True)
-
-        self.reboot_client()
-        self.tpm_run("enable_tpm", ignore_status=True)
-
-        self.reboot_client()
         self.tpm_run("mount_cryptohome")
 
         self.reboot_client()
         self.tpm_run("mount_cryptohome_after_reboot")
 
-        self.reboot_client()
-        self.tpm_run("clear_tpm", ignore_status=True)
+        # Clear and re-own the TPM on the next boot.
+        tpm_utils.ClearTPMOwnerRequest(self.client)
+        self.tpm_run("take_tpm_ownership", ignore_status=True)
 
-        self.reboot_client()
-        self.tpm_run("enable_tpm", ignore_status=True)
-
-        self.reboot_client()
         self.tpm_run("mount_cryptohome_check_recreate")

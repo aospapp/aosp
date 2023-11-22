@@ -26,24 +26,16 @@ import android.transition.Transition;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-
 import com.android.tv.R;
 import com.android.tv.util.TvSettings;
-
 import java.util.List;
 import java.util.Locale;
 
-/**
- * Fragment for DVR playback closed-caption/multi-audio settings.
- */
+/** Fragment for DVR playback closed-caption/multi-audio settings. */
 public class DvrPlaybackSideFragment extends GuidedStepFragment {
-    /**
-     * The tag for passing track infos to side fragments.
-     */
+    /** The tag for passing track infos to side fragments. */
     public static final String TRACK_INFOS = "dvr_key_track_infos";
-    /**
-     * The tag for passing selected track's ID to side fragments.
-     */
+    /** The tag for passing selected track's ID to side fragments. */
     public static final String SELECTED_TRACK_ID = "dvr_key_selected_track_id";
 
     private static final int ACTION_ID_NO_SUBTITLE = -1;
@@ -60,39 +52,42 @@ public class DvrPlaybackSideFragment extends GuidedStepFragment {
         mTrackInfos = getArguments().getParcelableArrayList(TRACK_INFOS);
         mTrackType = mTrackInfos.get(0).getType();
         mSelectedTrackId = getArguments().getString(SELECTED_TRACK_ID);
-        mOverlayFragment = ((DvrPlaybackOverlayFragment) getFragmentManager()
-                .findFragmentById(R.id.dvr_playback_controls_fragment));
+        mOverlayFragment =
+                ((DvrPlaybackOverlayFragment)
+                        getFragmentManager().findFragmentById(R.id.dvr_playback_controls_fragment));
         super.onCreate(savedInstanceState);
     }
 
     @Override
-    public View onCreateBackgroundView(LayoutInflater inflater, ViewGroup container,
-            Bundle savedInstanceState) {
+    public View onCreateBackgroundView(
+            LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         View backgroundView = super.onCreateBackgroundView(inflater, container, savedInstanceState);
-        backgroundView.setBackgroundColor(getResources()
-                .getColor(R.color.lb_playback_controls_background_light));
+        backgroundView.setBackgroundColor(
+                getResources().getColor(R.color.lb_playback_controls_background_light));
         return backgroundView;
     }
 
     @Override
     public void onCreateActions(@NonNull List<GuidedAction> actions, Bundle savedInstanceState) {
         if (mTrackType == TvTrackInfo.TYPE_SUBTITLE) {
-            actions.add(new GuidedAction.Builder(getActivity())
-                    .id(ACTION_ID_NO_SUBTITLE)
-                    .title(getString(R.string.closed_caption_option_item_off))
-                    .checkSetId(CHECK_SET_ID)
-                    .checked(mSelectedTrackId == null)
-                    .build());
+            actions.add(
+                    new GuidedAction.Builder(getActivity())
+                            .id(ACTION_ID_NO_SUBTITLE)
+                            .title(getString(R.string.closed_caption_option_item_off))
+                            .checkSetId(CHECK_SET_ID)
+                            .checked(mSelectedTrackId == null)
+                            .build());
         }
         for (int i = 0; i < mTrackInfos.size(); i++) {
             TvTrackInfo info = mTrackInfos.get(i);
             boolean checked = TextUtils.equals(info.getId(), mSelectedTrackId);
-            GuidedAction action = new GuidedAction.Builder(getActivity())
-                    .id(i)
-                    .title(getTrackLabel(info, i))
-                    .checkSetId(CHECK_SET_ID)
-                    .checked(checked)
-                    .build();
+            GuidedAction action =
+                    new GuidedAction.Builder(getActivity())
+                            .id(i)
+                            .title(getTrackLabel(info, i))
+                            .checkSetId(CHECK_SET_ID)
+                            .checked(checked)
+                            .build();
             actions.add(action);
             if (checked) {
                 mSelectedTrack = info;
@@ -136,8 +131,8 @@ public class DvrPlaybackSideFragment extends GuidedStepFragment {
         if (track.getLanguage() != null) {
             return new Locale(track.getLanguage()).getDisplayName();
         }
-        return track.getType() == TvTrackInfo.TYPE_SUBTITLE ?
-                getString(R.string.closed_caption_unknown_language, trackIndex + 1)
+        return track.getType() == TvTrackInfo.TYPE_SUBTITLE
+                ? getString(R.string.closed_caption_unknown_language, trackIndex + 1)
                 : getString(R.string.multi_audio_unknown_language);
     }
 

@@ -88,6 +88,7 @@ static SLresult IAndroidConfiguration_GetConfiguration(SLAndroidConfigurationItf
         case SL_OBJECTID_AUDIOPLAYER:
             result = android_audioPlayer_getConfig((CAudioPlayer *) thiz->mThis, configKey,
                     pValueSize, pConfigValue);
+            break;
         default:
             result = SL_RESULT_FEATURE_UNSUPPORTED;
             break;

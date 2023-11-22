@@ -29,6 +29,7 @@ import com.android.tradefed.config.Option;
 import com.android.tradefed.config.OptionClass;
 import com.android.tradefed.device.IDeviceMonitor.DeviceLister;
 import com.android.tradefed.device.IManagedTestDevice.DeviceEventResponse;
+import com.android.tradefed.host.IHostOptions;
 import com.android.tradefed.log.ILogRegistry.EventType;
 import com.android.tradefed.log.LogRegistry;
 import com.android.tradefed.log.LogUtil.CLog;
@@ -58,6 +59,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
@@ -100,7 +102,17 @@ public class DeviceManager implements IDeviceManager {
      */
     private static final String DEVICE_LIST_PATTERN = "(.*)(\n)(%s)(\\s+)(device)(.*?)";
 
+    private Semaphore mConcurrentFlashLock = null;
+
+    /**
+     * This serves both as an indication of whether the flash lock should be used, and as an
+     * indicator of whether or not the flash lock has been initialized -- if this is true
+     * and {@code mConcurrentFlashLock} is {@code null}, then it has not yet been initialized.
+     */
+    private Boolean mShouldCheckFlashLock = true;
+
     protected DeviceMonitorMultiplexer mDvcMon = new DeviceMonitorMultiplexer();
+    private Boolean mDvcMonRunning = false;
 
     private boolean mIsInitialized = false;
 
@@ -235,7 +247,7 @@ public class DeviceManager implements IDeviceManager {
         // It's important to add the listener before initializing the ADB bridge to avoid a race
         // condition when detecting devices.
         mAdbBridge.addDeviceChangeListener(mManagedDeviceListener);
-        if (mDvcMon != null) {
+        if (mDvcMon != null && !mDvcMonRunning) {
             mDvcMon.setDeviceLister(new DeviceLister() {
                 @Override
                 public List<DeviceDescriptor> listDevices() {
@@ -243,6 +255,7 @@ public class DeviceManager implements IDeviceManager {
                 }
             });
             mDvcMon.run();
+            mDvcMonRunning = true;
         }
 
         mAdbBridge.init(false /* client support */, mAdbPath);
@@ -322,6 +335,15 @@ public class DeviceManager implements IDeviceManager {
      */
     IGlobalConfiguration getGlobalConfig() {
         return GlobalConfiguration.getInstance();
+    }
+
+    /**
+     * Gets the {@link IHostOptions} instance to use.
+     * <p/>
+     * Exposed for unit testing
+     */
+    IHostOptions getHostOptions() {
+        return getGlobalConfig().getHostOptions();
     }
 
     /**
@@ -1262,5 +1284,91 @@ public class DeviceManager implements IDeviceManager {
     @Override
     public String getFastbootPath() {
         return mFastbootPath;
+    }
+
+    /**
+     * Set the state of the concurrent flash limit implementation
+     *
+     * Exposed for unit testing
+     */
+    void setConcurrentFlashSettings(Semaphore flashLock, boolean shouldCheck) {
+        synchronized (mShouldCheckFlashLock) {
+            mConcurrentFlashLock = flashLock;
+            mShouldCheckFlashLock = shouldCheck;
+        }
+    }
+
+    Semaphore getConcurrentFlashLock() {
+        return mConcurrentFlashLock;
+    }
+
+    /** Initialize the concurrent flash lock semaphore **/
+    private void initConcurrentFlashLock() {
+        if (!mShouldCheckFlashLock) return;
+        // The logic below is to avoid multi-thread race conditions while initializing
+        // mConcurrentFlashLock when we hit this condition.
+        if (mConcurrentFlashLock == null) {
+            // null with mShouldCheckFlashLock == true means initialization hasn't been done yet
+            synchronized(mShouldCheckFlashLock) {
+                // Check all state again, since another thread might have gotten here first
+                if (!mShouldCheckFlashLock) return;
+
+                IHostOptions hostOptions = getHostOptions();
+                Integer concurrentFlashingLimit = hostOptions.getConcurrentFlasherLimit();
+
+                if (concurrentFlashingLimit == null) {
+                    mShouldCheckFlashLock = false;
+                    return;
+                }
+
+                if (mConcurrentFlashLock == null) {
+                    mConcurrentFlashLock = new Semaphore(concurrentFlashingLimit, true /* fair */);
+                }
+            }
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int getAvailableFlashingPermits() {
+        initConcurrentFlashLock();
+        if (mConcurrentFlashLock != null) {
+            return mConcurrentFlashLock.availablePermits();
+        }
+        IHostOptions hostOptions = getHostOptions();
+        if (hostOptions.getConcurrentFlasherLimit() != null) {
+            return hostOptions.getConcurrentFlasherLimit();
+        }
+        return Integer.MAX_VALUE;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void takeFlashingPermit() {
+        initConcurrentFlashLock();
+        if (!mShouldCheckFlashLock) return;
+
+        IHostOptions hostOptions = getHostOptions();
+        Integer concurrentFlashingLimit = hostOptions.getConcurrentFlasherLimit();
+        CLog.i(
+                "Requesting a flashing permit out of the max limit of %s. Current queue "
+                        + "length: %s",
+                concurrentFlashingLimit,
+                mConcurrentFlashLock.getQueueLength());
+        mConcurrentFlashLock.acquireUninterruptibly();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void returnFlashingPermit() {
+        if (mConcurrentFlashLock != null) {
+            mConcurrentFlashLock.release();
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String getAdbVersion() {
+        return mAdbBridge.getAdbVersion(mAdbPath);
     }
 }

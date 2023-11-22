@@ -1,4 +1,4 @@
-# Copyright 2017 The Android Open Source Project
+# Copyright (C) 2017 The Android Open Source Project
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,40 +12,30 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Build the unit tests.
-
-LOCAL_PATH:= $(call my-dir)
+LOCAL_PATH := $(call my-dir)
 
 include $(CLEAR_VARS)
-LOCAL_MODULE := CtsNativeMediaAAudioTestCases
-LOCAL_MODULE_PATH := $(TARGET_OUT_DATA)/nativetest
+
+LOCAL_PACKAGE_NAME := CtsNativeMediaAAudioTestCases
+
+# Include both the 32 and 64 bit versions
 LOCAL_MULTILIB := both
-LOCAL_MODULE_STEM_32 := $(LOCAL_MODULE)32
-LOCAL_MODULE_STEM_64 := $(LOCAL_MODULE)64
 
-LOCAL_SRC_FILES := \
-    src/test_aaudio.cpp \
-    src/test_aaudio_callback.cpp \
-    src/test_aaudio_misc.cpp \
-    src/test_aaudio_mmap.cpp \
-    src/test_aaudio_stream_builder.cpp \
-    src/utils.cpp \
-
-LOCAL_SHARED_LIBRARIES := \
-    libaaudio \
-    liblog \
-
-LOCAL_STATIC_LIBRARIES := \
-    libgtest_ndk_c++ \
-
-LOCAL_CTS_TEST_PACKAGE := android.nativemedia.aaudio
+# When built, explicitly put it in the data partition.
+LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
 
 # Tag this module as a cts test artifact
 LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
 
-LOCAL_CFLAGS := -Werror -Wall
+LOCAL_STATIC_JAVA_LIBRARIES := ctstestrunner nativetesthelper
+
+LOCAL_JNI_SHARED_LIBRARIES := libnativeaaudiotest
+
+LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
 LOCAL_SDK_VERSION := current
-LOCAL_NDK_STL_VARIANT := c++_static
 
-include $(BUILD_CTS_EXECUTABLE)
+include $(BUILD_CTS_PACKAGE)
+
+# Include the associated library's makefile.
+include $(LOCAL_PATH)/jni/Android.mk

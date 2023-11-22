@@ -46,11 +46,9 @@ static struct latency_entry *read_process_stats(struct latency_entry *list, int 
 static struct latency_entry *read_thread_stats(struct latency_entry *list, int erase, int pid, int tid, int fatal);
 
 static struct latency_entry *alloc_latency_entry(void);
-static void free_latency_entry(struct latency_entry *e);
 
 static void set_latencytop(int on);
 static struct latency_entry *read_latency_file(FILE *f, struct latency_entry *list);
-static void erase_latency_file(FILE *f);
 
 static struct latency_entry *find_latency_entry(struct latency_entry *e, char *reason);
 static void print_latency_entries(struct latency_entry *head);
@@ -286,11 +284,6 @@ static struct latency_entry *alloc_latency_entry(void) {
     return e;
 }
 
-static void free_latency_entry(struct latency_entry *e) {
-    e->next = free_entries;
-    free_entries = e;
-}
-
 static struct latency_entry *find_latency_entry(struct latency_entry *head, char *reason) {
     struct latency_entry *e;
 
@@ -317,10 +310,6 @@ static void set_latencytop(int on) {
     fprintf(f, "%d\n", on);
 
     fclose(f);
-}
-
-static void erase_latency_file(FILE *f) {
-    fprintf(f, "erase\n");
 }
 
 static struct latency_entry *read_latency_file(FILE *f, struct latency_entry *list) {

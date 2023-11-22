@@ -15,11 +15,8 @@
 #ifndef AST_PROCESSING_H_
 #define AST_PROCESSING_H_
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wunused-parameter"
-#pragma clang diagnostic ignored "-Wnested-anon-types"
-#include "proto/abi_dump.pb.h"
-#pragma clang diagnostic pop
+#include "ast_util.h"
+#include <ir_representation.h>
 
 #include <clang/AST/AST.h>
 #include <clang/AST/ASTConsumer.h>
@@ -33,13 +30,13 @@
 class HeaderASTVisitor
     : public clang::RecursiveASTVisitor<HeaderASTVisitor> {
  public:
-  HeaderASTVisitor(abi_dump::TranslationUnit *tu_ptr,
-                   clang::MangleContext *mangle_contextp,
+  HeaderASTVisitor(clang::MangleContext *mangle_contextp,
                    clang::ASTContext *ast_contextp,
                    const clang::CompilerInstance *compiler_instance_p,
-                   const std::string &current_file_name,
                    const std::set<std::string> &exported_headers,
-                   const clang::Decl *tu_decl);
+                   const clang::Decl *tu_decl,
+                   abi_util::IRDumper *ir_dumper,
+                   ast_util::ASTCaches *ast_caches);
 
   bool VisitRecordDecl(const clang::RecordDecl *decl);
 
@@ -57,30 +54,32 @@ class HeaderASTVisitor
   }
 
  private:
-  abi_dump::TranslationUnit *tu_ptr_;
   clang::MangleContext *mangle_contextp_;
   clang::ASTContext *ast_contextp_;
   const clang::CompilerInstance *cip_;
-  const std::string current_file_name_;
   const std::set<std::string> &exported_headers_;
   // To optimize recursion into only exported abi.
   const clang::Decl *tu_decl_;
+  abi_util::IRDumper *ir_dumper_;
+  // We cache the source file an AST node corresponds to, to avoid repeated
+  // calls to "realpath".
+  ast_util::ASTCaches *ast_caches_;
 };
 
 class HeaderASTConsumer : public clang::ASTConsumer {
  public:
-  HeaderASTConsumer(const std::string &file_name,
-                    clang::CompilerInstance *compiler_instancep,
+  HeaderASTConsumer(clang::CompilerInstance *compiler_instancep,
                     const std::string &out_dump_name,
-                    const std::set<std::string> &exported_headers);
+                    std::set<std::string> &exported_headers,
+                    abi_util::TextFormatIR text_format);
 
   void HandleTranslationUnit(clang::ASTContext &ctx) override;
 
  private:
-  std::string file_name_;
   clang::CompilerInstance *cip_;
-  std::string out_dump_name_;
-  std::set<std::string> exported_headers_;
+  const std::string &out_dump_name_;
+  std::set<std::string> &exported_headers_;
+  abi_util::TextFormatIR text_format_;
 };
 
-#endif  // AST_PROCESSING_H_
+#endif // AST_PROCESSING_H_

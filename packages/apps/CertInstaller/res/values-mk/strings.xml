@@ -52,6 +52,7 @@
     <item msgid="375085478373011304">"Виртуелна приватна мрежа и апликации"</item>
     <item msgid="692322974985472861">"Wi-Fi"</item>
   </string-array>
+    <string name="certificate_capabilities_warning" msgid="4158609401937799110">"Забелешка: издавачот на овој сертификат може да провери целиот сообраќај кон и од уредот."</string>
     <string name="wifi_title" msgid="8475811746333426489">"Профил на Wi-Fi"</string>
     <string name="wifi_detail_title" msgid="3627332137252994395">"Детали за %s"</string>
     <string name="wifi_detail_label" msgid="3032151019356747583">"Детали"</string>

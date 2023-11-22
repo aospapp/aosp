@@ -34,6 +34,7 @@ import android.content.Intent;
 import android.nfc.NdefMessage;
 import android.nfc.NdefRecord;
 import android.nfc.NfcAdapter;
+import android.os.UserHandle;
 import android.test.AndroidTestCase;
 import android.test.suitebuilder.annotation.SmallTest;
 
@@ -107,7 +108,7 @@ public class MessageParserTest extends AndroidTestCase {
         // GIVEN the device admin app is installed.
         doReturn(TEST_COMPONENT_NAME)
                 .when(mUtils)
-                .findDeviceAdmin(null, TEST_COMPONENT_NAME, mContext);
+                .findDeviceAdmin(null, TEST_COMPONENT_NAME, mContext, UserHandle.myUserId());
         // GIVEN a list of supported provisioning actions, except NFC.
         String[] supportedProvisioningActions = new String[] {
                 ACTION_PROVISION_MANAGED_DEVICE,

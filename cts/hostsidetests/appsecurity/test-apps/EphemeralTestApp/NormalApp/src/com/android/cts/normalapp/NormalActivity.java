@@ -17,12 +17,14 @@
 package com.android.cts.normalapp;
 
 import android.app.Activity;
+import android.app.SearchManager;
 import android.content.Intent;
 import android.content.pm.PackageInfo;
 import android.content.pm.ResolveInfo;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.net.Uri;
 import android.os.Bundle;
+import android.provider.SearchRecentSuggestions;
 import android.util.Log;
 
 import com.android.cts.util.TestResult;
@@ -35,6 +37,14 @@ public class NormalActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        final Intent intent  = getIntent();
+        if (Intent.ACTION_SEARCH.equals(intent.getAction())) {
+            final String query = intent.getStringExtra(SearchManager.QUERY);
+            final SearchRecentSuggestions suggestions = new SearchRecentSuggestions(this,
+                    SearchSuggestionProvider.AUTHORITY, SearchSuggestionProvider.MODE);
+            suggestions.saveRecentQuery(query, null);
+        }
 
         boolean canAccessInstantApp = false;
         String exception = null;

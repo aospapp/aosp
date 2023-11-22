@@ -48,6 +48,8 @@
         android:orientation="horizontal"
         >
 
+        <include layout="@layout/heads_up_status_bar_layout" />
+
         <!-- The alpha of this area is controlled from both PhoneStatusBarTransitions and
              PhoneStatusBar (DISABLE_NOTIFICATION_ICONS). -->
         <com.android.systemui.statusbar.AlphaOptimizedFrameLayout

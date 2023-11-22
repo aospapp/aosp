@@ -1,6 +1,5 @@
 # Installation directories.
 PREFIX ?= ${DESTDIR}/usr
-SYSCONFDIR ?= ${DESTDIR}/etc
 BINDIR ?= $(PREFIX)/bin
 SHAREDIR ?= $(PREFIX)/share/system-config-selinux
 DATADIR ?= $(PREFIX)/share
@@ -12,14 +11,13 @@ domainsPage.py \
 fcontextPage.py \
 html_util.py \
 loginsPage.py \
-mappingsPage.py \
 modulesPage.py \
 polgen.glade \
 portsPage.py \
 semanagePage.py \
 statusPage.py \
-system-config-selinux.glade \
 system-config-selinux.png \
+system-config-selinux.ui \
 usersPage.py
 
 all: $(TARGETS) system-config-selinux.py polgengui.py
@@ -30,7 +28,6 @@ install: all
 	-mkdir -p $(BINDIR)
 	-mkdir -p $(DATADIR)/pixmaps
 	-mkdir -p $(DATADIR)/icons/hicolor/24x24/apps
-	-mkdir -p $(SYSCONFDIR)
 	-mkdir -p $(DATADIR)/polkit-1/actions/
 	install -m 755 system-config-selinux.py $(SHAREDIR)
 	install -m 755 system-config-selinux $(BINDIR)

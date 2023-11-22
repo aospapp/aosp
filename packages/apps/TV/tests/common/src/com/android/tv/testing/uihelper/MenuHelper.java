@@ -25,33 +25,30 @@ import android.support.test.uiautomator.Direction;
 import android.support.test.uiautomator.UiDevice;
 import android.support.test.uiautomator.UiObject2;
 import android.support.test.uiautomator.Until;
-
 import com.android.tv.R;
-
 import junit.framework.Assert;
 
-/**
- * Helper for testing {@link com.android.tv.menu.Menu}.
- */
+/** Helper for testing {@link com.android.tv.menu.Menu}. */
 public class MenuHelper extends BaseUiDeviceHelper {
     private final BySelector byChannels;
 
     public MenuHelper(UiDevice uiDevice, Resources targetResources) {
         super(uiDevice, targetResources);
-        byChannels = ByResource.id(mTargetResources, R.id.item_list)
-                .hasDescendant(ByResource.text(mTargetResources, R.string.menu_title_channels));
+        byChannels =
+                ByResource.id(mTargetResources, R.id.item_list)
+                        .hasDescendant(
+                                ByResource.text(mTargetResources, R.string.menu_title_channels));
     }
 
     public BySelector getByChannels() {
         return byChannels;
     }
 
-
     /**
-     * Navigate to the menu item with the text {@code itemTextResId} in the row with text
-     * {@code rowTitleResId}.
-     * <p>
-     * Fails if the menu item can not be navigated to.
+     * Navigate to the menu item with the text {@code itemTextResId} in the row with text {@code
+     * rowTitleResId}.
+     *
+     * <p>Fails if the menu item can not be navigated to.
      *
      * @param rowTitleResId the resource id of the string in the desired row title.
      * @param itemTextResId the resource id of the string in the desired item.
@@ -62,17 +59,20 @@ public class MenuHelper extends BaseUiDeviceHelper {
         BySelector byListView = ByResource.id(mTargetResources, R.id.list_view);
         UiObject2 listView = row.findObject(byListView);
         Assert.assertNotNull(
-                "Menu row '" + mTargetResources.getString(rowTitleResId) + "' does not have a "
-                        + byListView, listView);
+                "Menu row '"
+                        + mTargetResources.getString(rowTitleResId)
+                        + "' does not have a "
+                        + byListView,
+                listView);
         return assertNavigateToRowItem(listView, itemTextResId);
     }
 
     /**
      * Navigate to the menu row with the text title {@code rowTitleResId}.
-     * <p>
-     * Fails if the menu row can not be navigated to.
-     * We can't navigate to the Play controls row with this method, because the row doesn't have the
-     * title when it is selected. Use {@link #assertNavigateToPlayControlsRow} for the row instead.
+     *
+     * <p>Fails if the menu row can not be navigated to. We can't navigate to the Play controls row
+     * with this method, because the row doesn't have the title when it is selected. Use {@link
+     * #assertNavigateToPlayControlsRow} for the row instead.
      *
      * @param rowTitleResId the resource id of the string in the desired row title.
      * @return the row navigated to.
@@ -82,14 +82,17 @@ public class MenuHelper extends BaseUiDeviceHelper {
         UiObject2 menu = mUiDevice.findObject(MENU);
         // TODO: handle play controls. They have a different dom structure and navigation sometimes
         // can get stuck on that row.
-        return UiDeviceAsserts.assertNavigateTo(mUiDevice, menu,
-                By.hasDescendant(ByResource.text(mTargetResources, rowTitleResId)), Direction.DOWN);
+        return UiDeviceAsserts.assertNavigateTo(
+                mUiDevice,
+                menu,
+                By.hasDescendant(ByResource.text(mTargetResources, rowTitleResId)),
+                Direction.DOWN);
     }
 
     /**
      * Navigate to the Play controls row.
-     * <p>
-     * Fails if the row can not be navigated to.
+     *
+     * <p>Fails if the row can not be navigated to.
      *
      * @see #assertNavigateToRow
      */
@@ -103,27 +106,28 @@ public class MenuHelper extends BaseUiDeviceHelper {
 
     /**
      * Navigate to the menu item in the given {@code row} with the text {@code itemTextResId} .
-     * <p>
-     * Fails if the menu item can not be navigated to.
      *
-     * @param row           the container to look for menu items in.
+     * <p>Fails if the menu item can not be navigated to.
+     *
+     * @param row the container to look for menu items in.
      * @param itemTextResId the resource id of the string in the desired item.
      * @return the item navigated to.
      */
     public UiObject2 assertNavigateToRowItem(UiObject2 row, int itemTextResId) {
-        return UiDeviceAsserts.assertNavigateTo(mUiDevice, row,
+        return UiDeviceAsserts.assertNavigateTo(
+                mUiDevice,
+                row,
                 By.hasDescendant(ByResource.text(mTargetResources, itemTextResId)),
                 Direction.RIGHT);
     }
 
     public UiObject2 assertPressOptionsSettings() {
-        return assertPressMenuItem(R.string.menu_title_options,
-                R.string.options_item_settings);
+        return assertPressMenuItem(R.string.menu_title_options, R.string.options_item_settings);
     }
 
     public UiObject2 assertPressOptionsClosedCaptions() {
-        return assertPressMenuItem(R.string.menu_title_options,
-                R.string.options_item_closed_caption);
+        return assertPressMenuItem(
+                R.string.menu_title_options, R.string.options_item_closed_caption);
     }
 
     public UiObject2 assertPressOptionsDisplayMode() {
@@ -135,20 +139,19 @@ public class MenuHelper extends BaseUiDeviceHelper {
     }
 
     public UiObject2 assertPressProgramGuide() {
-        return assertPressMenuItem(R.string.menu_title_channels,
-                R.string.channels_item_program_guide);
+        return assertPressMenuItem(
+                R.string.menu_title_channels, R.string.channels_item_program_guide);
     }
 
     public UiObject2 assertPressDvrLibrary() {
-        return assertPressMenuItem(R.string.menu_title_channels,
-                R.string.channels_item_dvr);
+        return assertPressMenuItem(R.string.menu_title_channels, R.string.channels_item_dvr);
     }
 
     /**
-     * Navigate to the menu item with the text {@code itemTextResId} in the row with text
-     * {@code rowTitleResId}.
-     * <p>
-     * Fails if the menu item can not be navigated to.
+     * Navigate to the menu item with the text {@code itemTextResId} in the row with text {@code
+     * rowTitleResId}.
+     *
+     * <p>Fails if the menu item can not be navigated to.
      *
      * @param rowTitleResId the resource id of the string in the desired row title.
      * @param itemTextResId the resource id of the string in the desired item.
@@ -161,17 +164,15 @@ public class MenuHelper extends BaseUiDeviceHelper {
         return item;
     }
 
-    /**
-     * Waits until the menu is visible.
-     */
+    /** Waits until the menu is visible. */
     public void assertWaitForMenu() {
         UiDeviceAsserts.assertWaitForCondition(mUiDevice, Until.hasObject(MENU));
     }
 
     /**
-    * Show the menu.
-     * <p>
-     * Fails if the menu does not appear in {@link Constants#MAX_SHOW_DELAY_MILLIS}.
+     * Show the menu.
+     *
+     * <p>Fails if the menu does not appear in {@link Constants#MAX_SHOW_DELAY_MILLIS}.
      */
     public void showMenu() {
         if (!mUiDevice.hasObject(MENU)) {

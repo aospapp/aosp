@@ -10,12 +10,12 @@
 #include <memory>
 
 #include "core/fxcodec/fx_codec_def.h"
-#include "core/fxcrt/fx_basic.h"
+#include "core/fxcrt/retain_ptr.h"
 
 class CJBig2_Context;
 class CJBig2_Image;
 class CPDF_StreamAcc;
-class IFX_Pause;
+class IFX_PauseIndicator;
 class JBig2_DocumentContext;
 
 class CCodec_Jbig2Context {
@@ -25,11 +25,10 @@ class CCodec_Jbig2Context {
 
   uint32_t m_width;
   uint32_t m_height;
-  CPDF_StreamAcc* m_pGlobalStream;
-  CPDF_StreamAcc* m_pSrcStream;
+  RetainPtr<CPDF_StreamAcc> m_pGlobalStream;
+  RetainPtr<CPDF_StreamAcc> m_pSrcStream;
   uint8_t* m_dest_buf;
   uint32_t m_dest_pitch;
-  IFX_Pause* m_pPause;
   std::unique_ptr<CJBig2_Context> m_pContext;
 };
 
@@ -43,13 +42,16 @@ class CCodec_Jbig2Module {
       std::unique_ptr<JBig2_DocumentContext>* pContextHolder,
       uint32_t width,
       uint32_t height,
-      CPDF_StreamAcc* src_stream,
-      CPDF_StreamAcc* global_stream,
+      const RetainPtr<CPDF_StreamAcc>& src_stream,
+      const RetainPtr<CPDF_StreamAcc>& global_stream,
       uint8_t* dest_buf,
       uint32_t dest_pitch,
-      IFX_Pause* pPause);
+      IFX_PauseIndicator* pPause);
   FXCODEC_STATUS ContinueDecode(CCodec_Jbig2Context* pJbig2Context,
-                                IFX_Pause* pPause);
+                                IFX_PauseIndicator* pPause);
+
+ private:
+  FXCODEC_STATUS Decode(CCodec_Jbig2Context* pJbig2Context, int result);
 };
 
 #endif  // CORE_FXCODEC_CODEC_CCODEC_JBIG2MODULE_H_

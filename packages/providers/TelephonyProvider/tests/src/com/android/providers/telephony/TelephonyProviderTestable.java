@@ -19,14 +19,19 @@ import android.content.Context;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 import android.provider.Telephony;
+import android.support.test.InstrumentationRegistry;
 import android.telephony.SubscriptionManager;
 import android.text.TextUtils;
 import android.util.Log;
 
 import java.util.List;
 import java.util.ArrayList;
+import com.android.internal.annotations.VisibleForTesting;
+import com.android.internal.telephony.uicc.IccRecords;
 import com.android.providers.telephony.TelephonyProvider;
 import static android.provider.Telephony.Carriers.*;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
 
 /**
  * A subclass of TelephonyProvider used for testing on an in-memory database
@@ -34,12 +39,26 @@ import static android.provider.Telephony.Carriers.*;
 public class TelephonyProviderTestable extends TelephonyProvider {
     private static final String TAG = "TelephonyProviderTestable";
 
+    @VisibleForTesting
+    public static final String TEST_SPN = "testspn";
+
     private InMemoryTelephonyProviderDbHelper mDbHelper;
+    private MockInjector mMockInjector;
+
+    public TelephonyProviderTestable() {
+        this(new MockInjector());
+    }
+
+    private TelephonyProviderTestable(MockInjector mockInjector) {
+        super(mockInjector);
+        mMockInjector = mockInjector;
+    }
 
     @Override
     public boolean onCreate() {
         Log.d(TAG, "onCreate called: mDbHelper = new InMemoryTelephonyProviderDbHelper()");
         mDbHelper = new InMemoryTelephonyProviderDbHelper();
+        s_apnSourceServiceExists = false;
         return true;
     }
 
@@ -71,6 +90,18 @@ public class TelephonyProviderTestable extends TelephonyProvider {
         return false;
     }
 
+    @Override
+    IccRecords getIccRecords(int subId) {
+        Log.d(TAG, "getIccRecords called");
+        IccRecords iccRecords = mock(IccRecords.class);
+        doReturn(TEST_SPN).when(iccRecords).getServiceProviderName();
+        return iccRecords;
+    }
+
+    public void fakeCallingUid(int uid) {
+        mMockInjector.fakeCallingUid(uid);
+    }
+
     /**
      * An in memory DB for TelephonyProviderTestable to use
      */
@@ -78,7 +109,7 @@ public class TelephonyProviderTestable extends TelephonyProvider {
 
 
         public InMemoryTelephonyProviderDbHelper() {
-            super(null,      // no context is needed for in-memory db
+            super(InstrumentationRegistry.getTargetContext(),
                     null,    // db file name is null for in-memory db
                     null,    // CursorFactory is null by default
                     1);      // db version is no-op for tests
@@ -93,13 +124,26 @@ public class TelephonyProviderTestable extends TelephonyProvider {
 
             // set up the siminfo table
             Log.d(TAG, "InMemoryTelephonyProviderDbHelper onCreate creating the siminfo table");
-            db.execSQL(CREATE_SIMINFO_TABLE_STRING);
+            db.execSQL(getStringForSimInfoTableCreation("siminfo"));
         }
 
         @Override
         public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
             Log.d(TAG, "InMemoryTelephonyProviderDbHelper onUpgrade doing nothing");
             return;
+        }
+    }
+
+    static class MockInjector extends Injector {
+        private int callingUid = 0;
+
+        @Override
+        int binderGetCallingUid() {
+            return callingUid;
+        }
+
+        void fakeCallingUid(int uid) {
+            callingUid = uid;
         }
     }
 }

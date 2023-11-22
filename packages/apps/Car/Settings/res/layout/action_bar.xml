@@ -18,25 +18,25 @@
 <RelativeLayout
         xmlns:android="http://schemas.android.com/apk/res/android"
         android:layout_width="match_parent"
-        android:layout_height="@dimen/lens_header_height"
+        android:layout_height="@dimen/car_app_bar_height"
         android:gravity="end|center_vertical" >
     <FrameLayout
         android:id="@+id/action_bar_icon_container"
-        android:layout_width="@dimen/side_margin"
-        android:layout_height="@dimen/lens_header_height"
-        android:foreground="@drawable/car_list_item_background"
-        android:layout_alignParentStart="true">
+        android:layout_width="@dimen/car_margin"
+        android:layout_height="@dimen/car_app_bar_height"
+        android:layout_alignParentStart="true"
+        android:background="@drawable/button_ripple_bg">
         <ImageView
-            style="@style/SettingIcon.ActionBar"/>
+            android:id="@+id/back_button"
+            style="@style/ListIcon.ActionBar"/>
     </FrameLayout>
     <TextView
         android:id="@+id/title"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginStart="@dimen/side_margin"
+        android:layout_marginStart="@dimen/car_margin"
         android:layout_marginTop="@dimen/optical_center_offset"
-        style="@style/CarTitle"
-        android:textColor="@color/car_teal_700"
+        android:textAppearance="@style/TextAppearance.Car.Title2"
         android:layout_gravity="center_vertical"
         android:layout_centerVertical="true"
         android:layout_alignParentStart="true"

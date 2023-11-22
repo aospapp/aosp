@@ -110,33 +110,46 @@ std::unique_ptr<EmbeddedElf> ApkInspector::FindElfInApkByOffsetWithoutCache(cons
                                                       zentry.uncompressed_length));
 }
 
-std::unique_ptr<EmbeddedElf> ApkInspector::FindElfInApkByName(const std::string& apk_path,
-                                                              const std::string& elf_filename) {
+bool ApkInspector::FindOffsetInApkByName(const std::string& apk_path,
+                                         const std::string& elf_filename, uint64_t* offset,
+                                         uint32_t* uncompressed_length) {
   if (!IsValidApkPath(apk_path)) {
-    return nullptr;
+    return false;
   }
   FileHelper fhelper = FileHelper::OpenReadOnly(apk_path);
   if (!fhelper) {
-    return nullptr;
+    return false;
   }
   ArchiveHelper ahelper(fhelper.fd(), apk_path);
   if (!ahelper) {
-    return nullptr;
+    return false;
   }
   ZipArchiveHandle& handle = ahelper.archive_handle();
   ZipEntry zentry;
   int32_t rc = FindEntry(handle, ZipString(elf_filename.c_str()), &zentry);
-  if (rc != 0) {
+  if (rc != false) {
     LOG(ERROR) << "failed to find " << elf_filename << " in " << apk_path
         << ": " << ErrorCodeString(rc);
-    return nullptr;
+    return false;
   }
   if (zentry.method != kCompressStored || zentry.compressed_length != zentry.uncompressed_length) {
     LOG(ERROR) << "shared library " << elf_filename << " in " << apk_path << " is compressed";
+    return false;
+  }
+  *offset = zentry.offset;
+  *uncompressed_length = zentry.uncompressed_length;
+  return true;
+}
+
+std::unique_ptr<EmbeddedElf> ApkInspector::FindElfInApkByName(const std::string& apk_path,
+                                                              const std::string& elf_filename) {
+  uint64_t offset;
+  uint32_t uncompressed_length;
+  if (!FindOffsetInApkByName(apk_path, elf_filename, &offset, &uncompressed_length)) {
     return nullptr;
   }
-  return std::unique_ptr<EmbeddedElf>(new EmbeddedElf(apk_path, elf_filename, zentry.offset,
-                                                  zentry.uncompressed_length));
+  return std::unique_ptr<EmbeddedElf>(new EmbeddedElf(apk_path, elf_filename, offset,
+                                                      uncompressed_length));
 }
 
 bool IsValidApkPath(const std::string& apk_path) {

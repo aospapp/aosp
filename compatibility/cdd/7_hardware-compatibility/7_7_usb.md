@@ -6,11 +6,6 @@ If device implementations have a USB port, they:
 
 ### 7.7.1\. USB peripheral mode
 
-If handheld device implementations include a USB port supporting peripheral
-mode, they:
-
-*    [H-1-1] MUST implement the Android Open Accessory (AOA) API.
-
 If device implementations include a USB port supporting peripheral mode:
 
 *    [C-1-1] The port MUST be connectable to a USB host that has a standard
@@ -68,12 +63,12 @@ Android SDK and MUST declare support for the hardware feature
 [`android.hardware.usb.host`](http://developer.android.com/guide/topics/connectivity/usb/host.html).
 *   [C-1-2] MUST implement support to connect standard USB peripherals,
 in other words, they MUST either:
-   *   Have an on-device type C port or ship with cable(s) adapting an on-device
-   proprietary port to a standard USB type-C port (USB Type-C device).
-   *   Have an on-device type A or ship with cable(s) adapting an on-device
-   proprietary port to a standard USB type-A port.
-   *   Have an on-device micro-AB port, which SHOULD ship with a cable adapting
-   to a standard type-A port.
+     *   Have an on-device type C port or ship with cable(s) adapting an on-device
+     proprietary port to a standard USB type-C port (USB Type-C device).
+     *   Have an on-device type A or ship with cable(s) adapting an on-device
+     proprietary port to a standard USB type-A port.
+     *   Have an on-device micro-AB port, which SHOULD ship with a cable adapting
+     to a standard type-A port.
 *   [C-1-3] MUST NOT ship with an adapter converting from USB type A or
 micro-AB ports to a type-C port (receptacle).
 *   [SR] STRONGLY RECOMMENDED to implement the [USB audio class](
@@ -93,16 +88,16 @@ as documented in the Android SDK documentation.
 If device implementations include a USB port supporting host mode and the USB
 audio class, they:
 
-*    [C-2-1] MUST support the [USB HID class](https://developer.android.com/reference/android/hardware/usb/UsbConstants.html#USB_CLASS_HID)
+*    [C-2-1] MUST support the [USB HID class](https://developer.android.com/reference/android/hardware/usb/UsbConstants.html#USB_CLASS_HID).
 *    [C-2-2] MUST support the detection and mapping of the following HID data
 fields specified in the [USB HID Usage Tables](http://www.usb.org/developers/hidpage/Hut1_12v2.pdf)
 and the [Voice Command Usage Request](http://www.usb.org/developers/hidpage/Voice_Command_Usage.pdf)
 to the [`KeyEvent`](https://developer.android.com/reference/android/view/KeyEvent.html)
 constants as below:
-        *   Usage Page (0xC) Usage ID (0x0CD): `KEYCODE_MEDIA_PLAY_PAUSE`
-        *   Usage Page (0xC) Usage ID (0x0E9): `KEYCODE_VOLUME_UP`
-        *   Usage Page (0xC) Usage ID (0x0EA): `KEYCODE_VOLUME_DOWN`
-        *   Usage Page (0xC) Usage ID (0x0CF): `KEYCODE_VOICE_ASSIST`
+       *   Usage Page (0xC) Usage ID (0x0CD): `KEYCODE_MEDIA_PLAY_PAUSE`
+       *   Usage Page (0xC) Usage ID (0x0E9): `KEYCODE_VOLUME_UP`
+       *   Usage Page (0xC) Usage ID (0x0EA): `KEYCODE_VOLUME_DOWN`
+       *   Usage Page (0xC) Usage ID (0x0CF): `KEYCODE_VOICE_ASSIST`
 
 
 If device implementations include a USB port supporting host mode and

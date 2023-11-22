@@ -49,6 +49,11 @@ public interface IAndroidDebugBridge {
     void init(boolean clientSupport, String adbOsLocation);
 
     /**
+     * Returns the adb full version of the adb location provided, or null if anything goes wrong.
+     */
+    String getAdbVersion(String adbOsLocation);
+
+    /**
      * Wrapper for {@link AndroidDebugBridge#terminate()}
      */
     void terminate();

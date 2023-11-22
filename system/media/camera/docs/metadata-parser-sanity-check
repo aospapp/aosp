@@ -47,8 +47,8 @@ function check_test
 
 check_test "$thisdir/metadata_model_test.py" || exit 1
 check_test "$thisdir/metadata_helpers_test.py" || exit 1
-python $thisdir/metadata_parser_xml.py $thisdir/metadata_properties.xml $thisdir/metadata_template.mako $tmp_out || exit 1
-tidy -indent -xml -quiet $thisdir/metadata_properties.xml > $tmp_tidy1
+python $thisdir/metadata_parser_xml.py $thisdir/metadata_definitions.xml $thisdir/metadata_template.mako $tmp_out || exit 1
+tidy -indent -xml -quiet $thisdir/metadata_definitions.xml > $tmp_tidy1
 tidy -indent -xml -quiet $tmp_out > $tmp_tidy2
 
 diff $tmp_tidy1 $tmp_tidy2

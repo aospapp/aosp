@@ -21,19 +21,19 @@ import com.android.tv.R;
 import com.android.tv.ui.sidepanel.Item;
 import com.android.tv.ui.sidepanel.SideFragment;
 import com.android.tv.ui.sidepanel.SubMenuItem;
-
 import java.util.ArrayList;
 import java.util.List;
 
 public class ProgramRestrictionsFragment extends SideFragment {
     private static final String TRACKER_LABEL = "Program restrictions";
 
-    private final SideFragmentListener mSideFragmentListener = new SideFragmentListener() {
-        @Override
-        public void onSideFragmentViewDestroyed() {
-            notifyDataSetChanged();
-        }
-    };
+    private final SideFragmentListener mSideFragmentListener =
+            new SideFragmentListener() {
+                @Override
+                public void onSideFragmentViewDestroyed() {
+                    notifyDataSetChanged();
+                }
+            };
 
     public static String getDescription(MainActivity tvActivity) {
         return RatingsFragment.getDescription(tvActivity);
@@ -53,30 +53,34 @@ public class ProgramRestrictionsFragment extends SideFragment {
     protected List<Item> getItemList() {
         List<Item> items = new ArrayList<>();
 
-        items.add(new SubMenuItem(getString(R.string.option_country_rating_systems),
-                RatingSystemsFragment.getDescription(getMainActivity()),
-                getMainActivity().getOverlayManager().getSideFragmentManager()) {
-            @Override
-            protected SideFragment getFragment() {
-                SideFragment fragment = new RatingSystemsFragment();
-                fragment.setListener(mSideFragmentListener);
-                return fragment;
-            }
-        });
+        items.add(
+                new SubMenuItem(
+                        getString(R.string.option_country_rating_systems),
+                        RatingSystemsFragment.getDescription(getMainActivity()),
+                        getMainActivity().getOverlayManager().getSideFragmentManager()) {
+                    @Override
+                    protected SideFragment getFragment() {
+                        SideFragment fragment = new RatingSystemsFragment();
+                        fragment.setListener(mSideFragmentListener);
+                        return fragment;
+                    }
+                });
         String ratingsDescription = RatingsFragment.getDescription(getMainActivity());
-        SubMenuItem ratingsItem = new SubMenuItem(getString(R.string.option_ratings),
-                ratingsDescription,
-                getMainActivity().getOverlayManager().getSideFragmentManager()) {
-            @Override
-            protected SideFragment getFragment() {
-                SideFragment fragment = new RatingsFragment();
-                fragment.setListener(mSideFragmentListener);
-                return fragment;
-            }
-        };
+        SubMenuItem ratingsItem =
+                new SubMenuItem(
+                        getString(R.string.option_ratings),
+                        ratingsDescription,
+                        getMainActivity().getOverlayManager().getSideFragmentManager()) {
+                    @Override
+                    protected SideFragment getFragment() {
+                        SideFragment fragment = new RatingsFragment();
+                        fragment.setListener(mSideFragmentListener);
+                        return fragment;
+                    }
+                };
         // When "None" is selected for rating systems, disable the Ratings option.
-        if (RatingSystemsFragment.getDescription(getMainActivity()).equals(
-                getString(R.string.option_no_enabled_rating_system))) {
+        if (RatingSystemsFragment.getDescription(getMainActivity())
+                .equals(getString(R.string.option_no_enabled_rating_system))) {
             ratingsItem.setEnabled(false);
         }
         items.add(ratingsItem);

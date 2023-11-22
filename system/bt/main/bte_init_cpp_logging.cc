@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright (C) 2016 Android Open Source Project
+ *  Copyright 2016 Android Open Source Project
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -24,21 +24,21 @@ void init_cpp_logging(config_t* config) {
   // configuring.
   if (base::CommandLine::InitializedForCurrentProcess()) return;
 
-  const char* loggingV =
-      config_get_string(config, CONFIG_DEFAULT_SECTION, "LoggingV", NULL);
-  const char* loggingVModule =
-      config_get_string(config, CONFIG_DEFAULT_SECTION, "LoggingVModule", NULL);
+  const std::string* loggingV =
+      config_get_string(*config, CONFIG_DEFAULT_SECTION, "LoggingV", NULL);
+  const std::string* loggingVModule = config_get_string(
+      *config, CONFIG_DEFAULT_SECTION, "LoggingVModule", NULL);
 
   int argc = 1;
   const char* argv[] = {"bt_stack", NULL, NULL};
 
   if (loggingV != NULL) {
-    argv[argc] = loggingV;
+    argv[argc] = loggingV->c_str();
     argc++;
   }
 
   if (loggingVModule != NULL) {
-    argv[argc] = loggingVModule;
+    argv[argc] = loggingVModule->c_str();
     argc++;
   }
 

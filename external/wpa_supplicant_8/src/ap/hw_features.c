@@ -78,10 +78,12 @@ int hostapd_get_hw_features(struct hostapd_iface *iface)
 	int i, j;
 	u16 num_modes, flags;
 	struct hostapd_hw_modes *modes;
+	u8 dfs_domain;
 
 	if (hostapd_drv_none(hapd))
 		return -1;
-	modes = hostapd_get_hw_feature_data(hapd, &num_modes, &flags);
+	modes = hostapd_get_hw_feature_data(hapd, &num_modes, &flags,
+					    &dfs_domain);
 	if (modes == NULL) {
 		hostapd_logger(hapd, NULL, HOSTAPD_MODULE_IEEE80211,
 			       HOSTAPD_LEVEL_DEBUG,
@@ -91,6 +93,7 @@ int hostapd_get_hw_features(struct hostapd_iface *iface)
 	}
 
 	iface->hw_flags = flags;
+	iface->dfs_domain = dfs_domain;
 
 	hostapd_free_hw_features(iface->hw_features, iface->num_hw_features);
 	iface->hw_features = modes;
@@ -331,6 +334,7 @@ static void ieee80211n_check_scan(struct hostapd_iface *iface)
 		iface->conf->secondary_channel = 0;
 		iface->conf->vht_oper_centr_freq_seg0_idx = 0;
 		iface->conf->vht_oper_centr_freq_seg1_idx = 0;
+		iface->conf->vht_oper_chwidth = VHT_CHANWIDTH_USE_HT;
 		res = 1;
 		wpa_printf(MSG_INFO, "Fallback to 20 MHz");
 	}
@@ -722,14 +726,33 @@ static int hostapd_is_usable_chan(struct hostapd_iface *iface,
 
 static int hostapd_is_usable_chans(struct hostapd_iface *iface)
 {
+	int secondary_chan;
+
 	if (!hostapd_is_usable_chan(iface, iface->conf->channel, 1))
 		return 0;
 
 	if (!iface->conf->secondary_channel)
 		return 1;
 
-	return hostapd_is_usable_chan(iface, iface->conf->channel +
-				      iface->conf->secondary_channel * 4, 0);
+	if (!iface->conf->ht40_plus_minus_allowed)
+		return hostapd_is_usable_chan(
+			iface, iface->conf->channel +
+			iface->conf->secondary_channel * 4, 0);
+
+	/* Both HT40+ and HT40- are set, pick a valid secondary channel */
+	secondary_chan = iface->conf->channel + 4;
+	if (hostapd_is_usable_chan(iface, secondary_chan, 0)) {
+		iface->conf->secondary_channel = 1;
+		return 1;
+	}
+
+	secondary_chan = iface->conf->channel - 4;
+	if (hostapd_is_usable_chan(iface, secondary_chan, 0)) {
+		iface->conf->secondary_channel = -1;
+		return 1;
+	}
+
+	return 0;
 }
 
 
@@ -909,5 +932,19 @@ int hostapd_hw_get_freq(struct hostapd_data *hapd, int chan)
 
 int hostapd_hw_get_channel(struct hostapd_data *hapd, int freq)
 {
-	return hw_get_chan(hapd->iface->current_mode, freq);
+	int i, channel;
+	struct hostapd_hw_modes *mode;
+
+	channel = hw_get_chan(hapd->iface->current_mode, freq);
+	if (channel)
+		return channel;
+	/* Check other available modes since the channel list for the current
+	 * mode did not include the specified frequency. */
+	for (i = 0; i < hapd->iface->num_hw_features; i++) {
+		mode = &hapd->iface->hw_features[i];
+		channel = hw_get_chan(mode, freq);
+		if (channel)
+			return channel;
+	}
+	return 0;
 }

@@ -17,111 +17,108 @@
 package com.android.tv.analytics;
 
 import android.support.annotation.VisibleForTesting;
-
 import com.android.tv.TimeShiftManager;
-import com.android.tv.data.Channel;
+import com.android.tv.data.api.Channel;
 
-/**
- * A implementation of Tracker that does nothing.
- */
+/** A implementation of Tracker that does nothing. */
 @VisibleForTesting
 public class StubTracker implements Tracker {
     @Override
-    public void sendChannelCount(int browsableChannelCount, int totalChannelCount) { }
+    public void sendChannelCount(int browsableChannelCount, int totalChannelCount) {}
 
     @Override
-    public void sendConfigurationInfo(ConfigurationInfo info) { }
+    public void sendConfigurationInfo(ConfigurationInfo info) {}
 
     @Override
-    public void sendMainStart() { }
+    public void sendMainStart() {}
 
     @Override
-    public void sendMainStop(long durationMs) { }
+    public void sendMainStop(long durationMs) {}
 
     @Override
-    public void sendScreenView(String screenName) { }
+    public void sendScreenView(String screenName) {}
 
     @Override
-    public void sendChannelViewStart(Channel channel, boolean tunedByRecommendation) { }
+    public void sendChannelViewStart(Channel channel, boolean tunedByRecommendation) {}
 
     @Override
-    public void sendChannelTuneTime(Channel channel, long durationMs) { }
+    public void sendChannelTuneTime(Channel channel, long durationMs) {}
 
     @Override
-    public void sendChannelViewStop(Channel channel, long durationMs) { }
+    public void sendChannelViewStop(Channel channel, long durationMs) {}
 
     @Override
-    public void sendChannelUp() { }
+    public void sendChannelUp() {}
 
     @Override
-    public void sendChannelDown() { }
+    public void sendChannelDown() {}
 
     @Override
-    public void sendShowMenu() { }
+    public void sendShowMenu() {}
 
     @Override
-    public void sendHideMenu(long durationMs) { }
+    public void sendHideMenu(long durationMs) {}
 
     @Override
-    public void sendMenuClicked(String label) { }
+    public void sendMenuClicked(String label) {}
 
     @Override
-    public void sendMenuClicked(int labelResId) { }
+    public void sendMenuClicked(int labelResId) {}
 
     @Override
-    public void sendShowEpg() { }
+    public void sendShowEpg() {}
 
     @Override
-    public void sendEpgItemClicked() { }
+    public void sendEpgItemClicked() {}
 
     @Override
-    public void sendHideEpg(long durationMs) { }
+    public void sendHideEpg(long durationMs) {}
 
     @Override
-    public void sendShowChannelSwitch() { }
+    public void sendShowChannelSwitch() {}
 
     @Override
-    public void sendHideChannelSwitch(long durationMs) { }
+    public void sendHideChannelSwitch(long durationMs) {}
 
     @Override
-    public void sendChannelNumberInput() { }
+    public void sendChannelNumberInput() {}
 
     @Override
-    public void sendChannelInputNavigated() { }
+    public void sendChannelInputNavigated() {}
 
     @Override
-    public void sendChannelNumberItemClicked() { }
+    public void sendChannelNumberItemClicked() {}
 
     @Override
-    public void sendChannelNumberItemChosenByTimeout() { }
+    public void sendChannelNumberItemChosenByTimeout() {}
 
     @Override
-    public void sendChannelVideoUnavailable(Channel channel, int reason) { }
+    public void sendChannelVideoUnavailable(Channel channel, int reason) {}
 
     @Override
-    public void sendAc3PassthroughCapabilities(boolean isSupported) { }
+    public void sendAc3PassthroughCapabilities(boolean isSupported) {}
 
     @Override
-    public void sendInputConnectionFailure(String inputId) { }
+    public void sendInputConnectionFailure(String inputId) {}
 
     @Override
-    public void sendInputDisconnected(String inputId) { }
+    public void sendInputDisconnected(String inputId) {}
 
     @Override
-    public void sendShowInputSelection() { }
+    public void sendShowInputSelection() {}
 
     @Override
-    public void sendHideInputSelection(long durationMs) { }
+    public void sendHideInputSelection(long durationMs) {}
 
     @Override
-    public void sendInputSelected(String inputLabel) { }
+    public void sendInputSelected(String inputLabel) {}
 
     @Override
-    public void sendShowSidePanel(HasTrackerLabel trackerLabel) { }
+    public void sendShowSidePanel(HasTrackerLabel trackerLabel) {}
 
     @Override
-    public void sendHideSidePanel(HasTrackerLabel trackerLabel, long durationMs) { }
+    public void sendHideSidePanel(HasTrackerLabel trackerLabel, long durationMs) {}
 
     @Override
-    public void sendTimeShiftAction(@TimeShiftManager.TimeShiftActionId int actionId) { }
+    public void sendTimeShiftAction(@TimeShiftManager.TimeShiftActionId int actionId) {}
 }

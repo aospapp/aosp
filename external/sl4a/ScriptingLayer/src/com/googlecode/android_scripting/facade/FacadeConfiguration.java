@@ -36,6 +36,7 @@ import com.googlecode.android_scripting.facade.bluetooth.BluetoothFacade;
 import com.googlecode.android_scripting.facade.bluetooth.BluetoothHealthFacade;
 import com.googlecode.android_scripting.facade.bluetooth.BluetoothHfpClientFacade;
 import com.googlecode.android_scripting.facade.bluetooth.BluetoothHidFacade;
+import com.googlecode.android_scripting.facade.bluetooth.BluetoothHidDeviceFacade;
 import com.googlecode.android_scripting.facade.bluetooth.BluetoothHspFacade;
 import com.googlecode.android_scripting.facade.bluetooth.BluetoothLeAdvertiseFacade;
 import com.googlecode.android_scripting.facade.bluetooth.BluetoothLeAdvertisingSetFacade;
@@ -53,6 +54,8 @@ import com.googlecode.android_scripting.facade.media.MediaPlayerFacade;
 import com.googlecode.android_scripting.facade.media.MediaRecorderFacade;
 import com.googlecode.android_scripting.facade.media.MediaScannerFacade;
 import com.googlecode.android_scripting.facade.media.MediaSessionFacade;
+import com.googlecode.android_scripting.facade.net.IpSecManagerFacade;
+import com.googlecode.android_scripting.facade.net.SocketFacade;
 import com.googlecode.android_scripting.facade.net.nsd.NsdManagerFacade;
 import com.googlecode.android_scripting.facade.telephony.CarrierConfigFacade;
 import com.googlecode.android_scripting.facade.telephony.ImsManagerFacade;
@@ -66,6 +69,7 @@ import com.googlecode.android_scripting.facade.wifi.HttpFacade;
 import com.googlecode.android_scripting.facade.wifi.WifiManagerFacade;
 import com.googlecode.android_scripting.facade.wifi.WifiAwareManagerFacade;
 import com.googlecode.android_scripting.facade.wifi.WifiP2pManagerFacade;
+import com.googlecode.android_scripting.facade.wifi.WifiRtt2ManagerFacade;
 import com.googlecode.android_scripting.facade.wifi.WifiRttManagerFacade;
 import com.googlecode.android_scripting.facade.wifi.WifiScannerFacade;
 import com.googlecode.android_scripting.jsonrpc.RpcReceiver;
@@ -74,7 +78,8 @@ import com.googlecode.android_scripting.rpc.RpcDeprecated;
 import com.googlecode.android_scripting.rpc.RpcMinSdk;
 import com.googlecode.android_scripting.rpc.RpcStartEvent;
 import com.googlecode.android_scripting.rpc.RpcStopEvent;
-import com.googlecode.android_scripting.webcam.WebCamFacade;
+import com.googlecode.android_scripting.facade.net.IpSecManagerFacade;
+import com.googlecode.android_scripting.facade.webcam.WebCamFacade;
 
 /**
  * Encapsulates the list of supported facades and their construction.
@@ -125,6 +130,7 @@ public class FacadeConfiguration {
         sFacadeClassList.add(BluetoothHealthFacade.class);
         sFacadeClassList.add(BluetoothHspFacade.class);
         sFacadeClassList.add(BluetoothHidFacade.class);
+        sFacadeClassList.add(BluetoothHidDeviceFacade.class);
         sFacadeClassList.add(BluetoothMapFacade.class);
         sFacadeClassList.add(BluetoothPanFacade.class);
         sFacadeClassList.add(BluetoothMediaFacade.class);
@@ -156,6 +162,12 @@ public class FacadeConfiguration {
             sFacadeClassList.add(NsdManagerFacade.class);
             sFacadeClassList.add(BluetoothMapClientFacade.class);
             sFacadeClassList.add(BluetoothLeAdvertisingSetFacade.class);
+            sFacadeClassList.add(IpSecManagerFacade.class);
+            sFacadeClassList.add(SocketFacade.class);
+        }
+
+        if (sSdkLevel >= 27) {
+            sFacadeClassList.add(WifiRtt2ManagerFacade.class);
         }
 
         for (Class<? extends RpcReceiver> recieverClass : sFacadeClassList) {

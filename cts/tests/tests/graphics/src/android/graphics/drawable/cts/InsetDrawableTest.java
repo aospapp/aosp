@@ -498,8 +498,8 @@ public class InsetDrawableTest {
         final Theme t = res.newTheme();
         halfDrawable.applyTheme(t);
         float approxDouble = 1 / approxHalf;
-        // Reproduce imprecise truncated scale down, and back up. Note that we don't round.
-        assertEquals((int)(approxDouble * ((int)(origInsetHoriz * approxHalf))),
+        // Reproduce imprecise truncated scale down, and back up.
+        assertEquals(Math.round(approxDouble * Math.round(origInsetHoriz * approxHalf)),
                 halfDrawable.getIntrinsicWidth() - halfDrawable.getDrawable().getIntrinsicWidth());
         doubleDrawable.applyTheme(t);
         assertEquals(origInsetHoriz, doubleDrawable.getIntrinsicWidth()

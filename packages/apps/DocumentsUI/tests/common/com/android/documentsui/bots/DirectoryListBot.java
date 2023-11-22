@@ -17,6 +17,7 @@
 package com.android.documentsui.bots;
 
 import static junit.framework.Assert.assertEquals;
+import static junit.framework.Assert.assertFalse;
 import static junit.framework.Assert.assertNotNull;
 import static junit.framework.Assert.assertTrue;
 import static junit.framework.Assert.fail;
@@ -103,12 +104,30 @@ public class DirectoryListBot extends Bots.BaseBot {
         }
     }
 
-    public void assertHeaderMessageText(String message) throws UiObjectNotFoundException {
+    public void assertHasMessage(String expected) throws UiObjectNotFoundException {
         UiObject messageTextView = findHeaderMessageTextView();
-        assertTrue(messageTextView.exists());
-
-        String msg = String.valueOf(message);
+        String msg = String.valueOf(expected);
         assertEquals(msg, messageTextView.getText());
+    }
+
+    public void assertHasMessage(boolean expected) throws UiObjectNotFoundException {
+        UiObject messageTextView = findHeaderMessageTextView();
+        if (expected) {
+            assertTrue(messageTextView.exists());
+        } else {
+            assertFalse(messageTextView.exists());
+        }
+    }
+
+    public void assertHasMessageButtonText(String expected) throws UiObjectNotFoundException {
+        UiObject button = findHeaderMessageButton();
+        String msg = String.valueOf(expected);
+        assertEquals(msg, button.getText());
+    }
+
+    public void clickMessageButton() throws UiObjectNotFoundException {
+        UiObject button = findHeaderMessageButton();
+        button.click();
     }
 
     /**
@@ -128,6 +147,12 @@ public class DirectoryListBot extends Bots.BaseBot {
         return findObject(
                 DIR_CONTAINER_ID,
                 "com.android.documentsui:id/message_textview");
+    }
+
+    private UiObject findHeaderMessageButton() {
+        return findObject(
+                DIR_CONTAINER_ID,
+                "com.android.documentsui:id/button_dismiss");
     }
 
     private UiObject findPlaceholderMessageTextView() {

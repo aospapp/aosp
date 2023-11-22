@@ -44,30 +44,29 @@ SecPlatformInformation2 (
      OUT EFI_SEC_PLATFORM_INFORMATION_RECORD2 *PlatformInformationRecord2
   )
 {
-  PEI_CPU_MP_DATA                      *PeiCpuMpData;
-  UINTN                                BistInformationSize;
-  UINTN                                CpuIndex;
-  EFI_SEC_PLATFORM_INFORMATION_CPU     *CpuInstance;
+  EFI_HOB_GUID_TYPE       *GuidHob;
+  VOID                    *DataInHob;
+  UINTN                   DataSize;
 
-  PeiCpuMpData = GetMpHobData ();
+  GuidHob = GetFirstGuidHob (&gEfiSecPlatformInformation2PpiGuid);
+  if (GuidHob == NULL) {
+    *StructureSize = 0;
+    return EFI_SUCCESS;
+  }
 
-  BistInformationSize = sizeof (EFI_SEC_PLATFORM_INFORMATION_RECORD2) +
-                        sizeof (EFI_SEC_PLATFORM_INFORMATION_CPU) * PeiCpuMpData->CpuCount;
+  DataInHob = GET_GUID_HOB_DATA (GuidHob);
+  DataSize  = GET_GUID_HOB_DATA_SIZE (GuidHob);
+
   //
-  // return the information size if input buffer size is too small
+  // return the information from BistHob
   //
-  if ((*StructureSize) < (UINT64) BistInformationSize) {
-    *StructureSize = (UINT64) BistInformationSize;
+  if ((*StructureSize) < (UINT64) DataSize) {
+    *StructureSize = (UINT64) DataSize;
     return EFI_BUFFER_TOO_SMALL;
   }
 
-  PlatformInformationRecord2->NumberOfCpus = PeiCpuMpData->CpuCount;
-  CpuInstance = PlatformInformationRecord2->CpuInstance;
-  for (CpuIndex = 0; CpuIndex < PeiCpuMpData->CpuCount; CpuIndex ++) {
-    CpuInstance[CpuIndex].CpuLocation                = PeiCpuMpData->CpuData[CpuIndex].ApicId;
-    CpuInstance[CpuIndex].InfoRecord.IA32HealthFlags = PeiCpuMpData->CpuData[CpuIndex].Health;
-  }
-
+  *StructureSize = (UINT64) DataSize;
+  CopyMem (PlatformInformationRecord2, DataInHob, DataSize);
   return EFI_SUCCESS;
 }
 
@@ -80,6 +79,7 @@ SecPlatformInformation2 (
   @param  PpiDescriptor       Return a pointer to instance of the
                               EFI_PEI_PPI_DESCRIPTOR
   @param  BistInformationData Pointer to BIST information data
+  @param  BistInformationSize Return the size in bytes of BIST information
 
   @retval EFI_SUCCESS         Retrieve of the BIST data successfully
   @retval EFI_NOT_FOUND       No sec platform information(2) ppi export
@@ -91,7 +91,8 @@ GetBistInfoFromPpi (
   IN CONST EFI_PEI_SERVICES     **PeiServices,
   IN CONST EFI_GUID             *Guid,
      OUT EFI_PEI_PPI_DESCRIPTOR **PpiDescriptor,
-     OUT VOID                   **BistInformationData
+     OUT VOID                   **BistInformationData,
+     OUT UINT64                 *BistInformationSize OPTIONAL
   )
 {
   EFI_STATUS                            Status;
@@ -136,6 +137,9 @@ GetBistInfoFromPpi (
                                                );
         if (Status == EFI_SUCCESS) {
           *BistInformationData = SecPlatformInformation2;
+          if (BistInformationSize != NULL) {
+            *BistInformationSize = InformationSize;
+          }
           return EFI_SUCCESS;
         }
       }
@@ -152,13 +156,11 @@ GetBistInfoFromPpi (
   or SEC Platform Information PPI.
 
   @param PeiServices         Pointer to PEI Services Table
-  @param PeiCpuMpData        Pointer to PEI CPU MP Data
 
 **/
 VOID
 CollectBistDataFromPpi (
-  IN CONST EFI_PEI_SERVICES             **PeiServices,
-  IN PEI_CPU_MP_DATA                    *PeiCpuMpData
+  IN CONST EFI_PEI_SERVICES             **PeiServices
   )
 {
   EFI_STATUS                            Status;
@@ -170,13 +172,30 @@ CollectBistDataFromPpi (
   EFI_SEC_PLATFORM_INFORMATION_CPU      BspCpuInstance;
   UINTN                                 ProcessorNumber;
   UINTN                                 CpuIndex;
-  PEI_CPU_DATA                          *CpuData;
+  EFI_PROCESSOR_INFORMATION             ProcessorInfo;
+  EFI_HEALTH_FLAGS                      BistData;
+  UINTN                                 NumberOfProcessors;
+  UINTN                                 NumberOfEnabledProcessors;
+  UINTN                                 BistInformationSize;
+  EFI_SEC_PLATFORM_INFORMATION_RECORD2  *PlatformInformationRecord2;
+  EFI_SEC_PLATFORM_INFORMATION_CPU      *CpuInstanceInHob;
+  
+
+  MpInitLibGetNumberOfProcessors(&NumberOfProcessors, &NumberOfEnabledProcessors);
+
+  BistInformationSize = sizeof (EFI_SEC_PLATFORM_INFORMATION_RECORD2) +
+                        sizeof (EFI_SEC_PLATFORM_INFORMATION_CPU) * NumberOfProcessors;
+  Status = PeiServicesAllocatePool (
+             (UINTN) BistInformationSize,
+             (VOID **) &PlatformInformationRecord2
+             );
+  ASSERT_EFI_ERROR (Status);
+  PlatformInformationRecord2->NumberOfCpus = (UINT32)NumberOfProcessors;
 
   SecPlatformInformation2 = NULL;
   SecPlatformInformation  = NULL;
   NumberOfData            = 0;
   CpuInstance             = NULL;
-
   //
   // Get BIST information from Sec Platform Information2 Ppi firstly
   //
@@ -184,7 +203,8 @@ CollectBistDataFromPpi (
              PeiServices,
              &gEfiSecPlatformInformation2PpiGuid,
              &SecInformationDescriptor,
-             (VOID *) &SecPlatformInformation2
+             (VOID *) &SecPlatformInformation2,
+             NULL
              );
   if (Status == EFI_SUCCESS) {
     //
@@ -200,7 +220,8 @@ CollectBistDataFromPpi (
                PeiServices,
                &gEfiSecPlatformInformationPpiGuid,
                &SecInformationDescriptor,
-               (VOID *) &SecPlatformInformation
+               (VOID *) &SecPlatformInformation,
+               NULL
                );
     if (Status == EFI_SUCCESS) {
       NumberOfData = 1;
@@ -215,21 +236,18 @@ CollectBistDataFromPpi (
       DEBUG ((EFI_D_INFO, "Does not find any stored CPU BIST information from PPI!\n"));
     }
   }
-  for (ProcessorNumber = 0; ProcessorNumber < PeiCpuMpData->CpuCount; ProcessorNumber ++) {
-    CpuData = &PeiCpuMpData->CpuData[ProcessorNumber];
+  for (ProcessorNumber = 0; ProcessorNumber < NumberOfProcessors; ProcessorNumber ++) {
+    MpInitLibGetProcessorInfo (ProcessorNumber, &ProcessorInfo, &BistData);
     for (CpuIndex = 0; CpuIndex < NumberOfData; CpuIndex ++) {
       ASSERT (CpuInstance != NULL);
-      if (CpuData->ApicId == CpuInstance[CpuIndex].CpuLocation) {
+      if (ProcessorInfo.ProcessorId == CpuInstance[CpuIndex].CpuLocation) {
         //
         // Update processor's BIST data if it is already stored before
         //
-        CpuData->Health = CpuInstance[CpuIndex].InfoRecord.IA32HealthFlags;
+        BistData = CpuInstance[CpuIndex].InfoRecord.IA32HealthFlags;
       }
     }
-    if (CpuData->Health.Uint32 == 0) {
-      CpuData->CpuHealthy = TRUE;
-    } else {
-      CpuData->CpuHealthy = FALSE;
+    if (BistData.Uint32 != 0) {
       //
       // Report Status Code that self test is failed
       //
@@ -239,14 +257,27 @@ CollectBistDataFromPpi (
         );
     }
     DEBUG ((EFI_D_INFO, "  APICID - 0x%08x, BIST - 0x%08x\n",
-            PeiCpuMpData->CpuData[ProcessorNumber].ApicId,
-            PeiCpuMpData->CpuData[ProcessorNumber].Health.Uint32
+            (UINT32) ProcessorInfo.ProcessorId,
+            BistData
             ));
+    CpuInstanceInHob = PlatformInformationRecord2->CpuInstance;
+    CpuInstanceInHob[ProcessorNumber].CpuLocation = (UINT32) ProcessorInfo.ProcessorId;
+    CpuInstanceInHob[ProcessorNumber].InfoRecord.IA32HealthFlags = BistData;
   }
+ 
+  //
+  // Build SecPlatformInformation2 PPI GUIDed HOB that also could be consumed
+  // by CPU MP driver to get CPU BIST data
+  //
+  BuildGuidDataHob (
+    &gEfiSecPlatformInformation2PpiGuid,
+    PlatformInformationRecord2,
+    (UINTN) BistInformationSize
+    );
 
-  if (SecPlatformInformation2 != NULL && NumberOfData < PeiCpuMpData->CpuCount) {
+  if (SecPlatformInformation2 != NULL && NumberOfData < NumberOfProcessors) {
     //
-    // Reinstall SecPlatformInformation2 PPI to include new BIST inforamtion
+    // Reinstall SecPlatformInformation2 PPI to include new BIST information
     //
     Status = PeiServicesReInstallPpi (
                SecInformationDescriptor,
@@ -255,9 +286,10 @@ CollectBistDataFromPpi (
     ASSERT_EFI_ERROR (Status);
   } else {
     //
-    // Install SecPlatformInformation2 PPI to include new BIST inforamtion
+    // Install SecPlatformInformation2 PPI to include new BIST information
     //
     Status = PeiServicesInstallPpi (&mPeiSecPlatformInformation2Ppi);
     ASSERT_EFI_ERROR(Status);
   }
 }
+

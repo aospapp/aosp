@@ -29,6 +29,7 @@ import android.hardware.camera2.cts.helpers.StaticMetadata;
 import android.hardware.camera2.cts.helpers.StaticMetadata.CheckLevel;
 import android.hardware.camera2.cts.testcases.Camera2AndroidTestCase;
 import android.hardware.camera2.params.StreamConfigurationMap;
+import android.platform.test.annotations.AppModeFull;
 import android.util.Log;
 import android.util.Pair;
 import android.util.Size;
@@ -50,6 +51,7 @@ import java.util.Set;
  * Note that most of the tests in this class don't require camera open.
  * </p>
  */
+@AppModeFull
 public class StaticMetadataTest extends Camera2AndroidTestCase {
     private static final String TAG = "StaticMetadataTest";
     private static final boolean VERBOSE = Log.isLoggable(TAG, Log.VERBOSE);
@@ -57,7 +59,7 @@ public class StaticMetadataTest extends Camera2AndroidTestCase {
     private String mCameraId;
 
     // Last defined capability enum, for iterating over all of them
-    private static final int LAST_CAPABILITY_ENUM = REQUEST_AVAILABLE_CAPABILITIES_BURST_CAPTURE;
+    private static final int LAST_CAPABILITY_ENUM = REQUEST_AVAILABLE_CAPABILITIES_MONOCHROME;
 
     /**
      * Test the available capability for different hardware support level devices.
@@ -417,6 +419,12 @@ public class StaticMetadataTest extends Camera2AndroidTestCase {
                 return;
             case REQUEST_AVAILABLE_CAPABILITIES_DEPTH_OUTPUT:
                 // Tested in ExtendedCameracharacteristicsTest
+                return;
+            case REQUEST_AVAILABLE_CAPABILITIES_CONSTRAINED_HIGH_SPEED_VIDEO:
+            case REQUEST_AVAILABLE_CAPABILITIES_MOTION_TRACKING:
+            case REQUEST_AVAILABLE_CAPABILITIES_LOGICAL_MULTI_CAMERA:
+            case REQUEST_AVAILABLE_CAPABILITIES_MONOCHROME:
+                // Tested in ExtendedCameraCharacteristicsTest
                 return;
             default:
                 capabilityName = "Unknown";

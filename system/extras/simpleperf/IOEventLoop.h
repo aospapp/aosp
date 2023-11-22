@@ -35,6 +35,9 @@ class IOEventLoop {
   IOEventLoop();
   ~IOEventLoop();
 
+  // Use precise timer for periodic events which want precision in ms.
+  bool UsePreciseTimer();
+
   // Register a read Event, so [callback] is called when [fd] can be read
   // without blocking. If registered successfully, return the reference
   // to control the Event, otherwise return nullptr.
@@ -81,6 +84,7 @@ class IOEventLoop {
   event_base* ebase_;
   std::vector<std::unique_ptr<IOEvent>> events_;
   bool has_error_;
+  bool use_precise_timer_;
 };
 
 #endif  // SIMPLE_PERF_IOEVENT_LOOP_H_

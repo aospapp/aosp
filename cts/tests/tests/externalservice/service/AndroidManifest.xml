@@ -19,6 +19,8 @@
     package="android.externalservice.service">
 
     <application android:label="External Service Host">
+        <uses-library android:name="android.test.runner" />
+
         <!-- Service used to start .ExternalService from this package. -->
         <service android:name=".ServiceCreator"
                  android:isolatedProcess="false"

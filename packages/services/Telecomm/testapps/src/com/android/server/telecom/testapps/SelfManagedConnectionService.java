@@ -35,6 +35,7 @@ import java.util.Random;
  * See {@link android.telecom} for more information on self-managed {@link ConnectionService}s.
  */
 public class SelfManagedConnectionService extends ConnectionService {
+    public static final String EXTRA_HOLDABLE = "com.android.server.telecom.testapps.HOLDABLE";
     private static final String[] TEST_NAMES = {"Tom Smith", "Jane Appleseed", "Joseph Engleton",
             "Claudia McPherson", "Chris P. Bacon", "Seymour Butz", "Hugh Mungus", "Anita Bath"};
     private final SelfManagedCallList mCallList = SelfManagedCallList.getInstance();
@@ -65,6 +66,17 @@ public class SelfManagedConnectionService extends ConnectionService {
         mCallList.notifyCreateOutgoingConnectionFailed(request);
     }
 
+    @Override
+    public void onConnectionServiceFocusLost() {
+        mCallList.notifyConnectionServiceFocusLost();
+        connectionServiceFocusReleased();
+    }
+
+    @Override
+    public void onConnectionServiceFocusGained() {
+        mCallList.notifyConnectionServiceFocusGained();
+    }
+
     private Connection createSelfManagedConnection(ConnectionRequest request, boolean isIncoming) {
         SelfManagedConnection connection = new SelfManagedConnection(mCallList,
                 getApplicationContext(), isIncoming);
@@ -79,14 +91,21 @@ public class SelfManagedConnectionService extends ConnectionService {
         connection.setExtras(request.getExtras());
         if (isIncoming) {
             connection.setIsIncomingCallUiShowing(request.shouldShowIncomingCallUi());
+            connection.setRinging();
         }
         Bundle requestExtras = request.getExtras();
         if (requestExtras != null) {
-            Log.i(this, "createConnection: isHandover=%b, handoverFrom=%s",
+            boolean isHoldable = requestExtras.getBoolean(EXTRA_HOLDABLE, false);
+            Log.i(this, "createConnection: isHandover=%b, handoverFrom=%s, holdable=%b",
                     requestExtras.getBoolean(TelecomManager.EXTRA_IS_HANDOVER),
-                    requestExtras.getString(TelecomManager.EXTRA_HANDOVER_FROM_PHONE_ACCOUNT));
+                    requestExtras.getString(TelecomManager.EXTRA_HANDOVER_FROM_PHONE_ACCOUNT),
+                    isHoldable);
             connection.setIsHandover(requestExtras.getBoolean(TelecomManager.EXTRA_IS_HANDOVER,
                     false));
+            if (isHoldable) {
+                connection.setConnectionCapabilities(connection.getConnectionCapabilities() |
+                        Connection.CAPABILITY_HOLD | Connection.CAPABILITY_SUPPORT_HOLD);
+            }
             if (!isIncoming && connection.isHandover()) {
                 Intent intent = new Intent(Intent.ACTION_MAIN, null);
                 intent.setFlags(Intent.FLAG_ACTIVITY_NO_USER_ACTION | Intent.FLAG_ACTIVITY_NEW_TASK);

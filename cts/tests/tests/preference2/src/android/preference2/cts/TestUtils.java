@@ -38,13 +38,15 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Collection of helper utils for preferences testing.
+ * Collection of helper utils for testing preferences.
  */
 public class TestUtils {
 
     final UiDevice device;
     private final Instrumentation mInstrumentation;
     private final UiAutomation mAutomation;
+    private int mStatusBarHeight = -1;
+    private int mNavigationBarHeight = -1;
 
     TestUtils() {
         mInstrumentation = InstrumentationRegistry.getInstrumentation();
@@ -57,15 +59,20 @@ public class TestUtils {
         device.waitForIdle();
 
         Bitmap bt = mAutomation.takeScreenshot();
-        // Crop-out the top bar where current time is displayed since any time change would
-        // introduce flakiness (we are cutting 5% of the screen height).
-        int yToCut = bt.getHeight() / 20;
-        // Crop the right side for scrollbar which might or might not be visible. But on
-        // watch, the scroll bar is a curve and occupies 20% of the screen on the right
-        // hand side.
+
+        // Crop-out the status bar to avoid flakiness with changing notifications / time.
+        int statusBarHeight = getStatusBarHeight();
+
+        // Crop-out the navigation bar to avoid flakiness with button animations.
+        int navigationBarHeight = getNavigationBarHeight();
+
+        // Crop the right side for scrollbar which might or might not be visible. On wearable
+        // devices the scroll bar is a curve and occupies 20% of the right side.
         int xToCut = isOnWatchUiMode() ? bt.getWidth() / 5 : bt.getWidth() / 20;
+
         bt = Bitmap.createBitmap(
-                bt, 0, yToCut, bt.getWidth() - xToCut, bt.getHeight() - yToCut);
+                bt, 0, statusBarHeight, bt.getWidth() - xToCut,
+                bt.getHeight() - statusBarHeight - navigationBarHeight);
 
         return bt;
     }
@@ -76,21 +83,21 @@ public class TestUtils {
         }
 
         try {
-          // If the current UI has shown text, just click on it.
-          UiObject text = new UiObject(new UiSelector().text(searchText));
-          if (text.exists() || text.waitForExists(1000)) {
+            // If the current UI has shown text, just click on it.
+            UiObject text = new UiObject(new UiSelector().text(searchText));
+            if (text.exists() || text.waitForExists(1000)) {
+                text.click();
+                return;
+            }
+
+            // Otherwise, if it is scrollable, scroll to where the text is and tap.
+            UiScrollable textScroll = new UiScrollable(new UiSelector().scrollable(true));
+
+            textScroll.scrollIntoView(new UiSelector().text(searchText));
+            text = new UiObject(new UiSelector().text(searchText));
             text.click();
-            return;
-          }
-
-          // Otherwise, if it is scrollable, scroll to where the text is and tap.
-          UiScrollable textScroll =  new UiScrollable(new UiSelector().scrollable(true));
-
-          textScroll.scrollIntoView(new UiSelector().text(searchText));
-          text = new UiObject(new UiSelector().text(searchText));
-          text.click();
         } catch (UiObjectNotFoundException e) {
-          throw new AssertionError("View with text '" + searchText + "' was not found!", e);
+            throw new AssertionError("View with text '" + searchText + "' was not found!", e);
         }
     }
 
@@ -124,7 +131,7 @@ public class TestUtils {
         UiObject obj = device.findObject(new UiSelector().textMatches(text));
         try {
             return obj.isFocused();
-        } catch(UiObjectNotFoundException e) {
+        } catch (UiObjectNotFoundException e) {
             return false;
         }
     }
@@ -149,7 +156,7 @@ public class TestUtils {
 
     // Multi-window helpers taken from ActivityManagerDockedStackTests.java
 
-    void enterMultiWindow(Activity activity)  {
+    void enterMultiWindow(Activity activity) {
         try {
             int id = getActivityTaskId(activity);
             runShellCommand("am stack move-task " + id + " 3 true");
@@ -162,7 +169,7 @@ public class TestUtils {
     void leaveMultiWindow(Activity activity) {
         try {
             int id = getActivityTaskId(activity);
-            runShellCommand("am stack move-task "+ id +" 1 true");
+            runShellCommand("am stack move-task " + id + " 1 true");
         } catch (IOException e) {
             throw new RuntimeException("Failed to get activity task id!", e);
         }
@@ -192,6 +199,38 @@ public class TestUtils {
         String componentName = activity.getPackageName();
         String baseWindowName = componentName + "/" + componentName + ".";
         return baseWindowName + activity.getClass().getSimpleName();
+    }
+
+    private int getStatusBarHeight() {
+        // Cache the result to keep it fast.
+        if (mStatusBarHeight >= 0) {
+            return mStatusBarHeight;
+        }
+
+        mStatusBarHeight = 0;
+        int resourceId = mInstrumentation.getTargetContext().getResources()
+                .getIdentifier("status_bar_height", "dimen", "android");
+        if (resourceId > 0) {
+            mStatusBarHeight = mInstrumentation.getTargetContext().getResources()
+                    .getDimensionPixelSize(resourceId);
+        }
+        return mStatusBarHeight;
+    }
+
+    private int getNavigationBarHeight() {
+        // Cache the result to keep it fast.
+        if (mNavigationBarHeight >= 0) {
+            return mNavigationBarHeight;
+        }
+
+        mNavigationBarHeight = 0;
+        int resourceId = mInstrumentation.getTargetContext().getResources()
+                .getIdentifier("navigation_bar_height", "dimen", "android");
+        if (resourceId > 0) {
+            mNavigationBarHeight = mInstrumentation.getTargetContext().getResources()
+                    .getDimensionPixelSize(resourceId);
+        }
+        return mNavigationBarHeight;
     }
 
     private String runShellCommand(String cmd) {

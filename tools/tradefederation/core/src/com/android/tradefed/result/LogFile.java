@@ -15,40 +15,56 @@
  */
 package com.android.tradefed.result;
 
-/**
- * Class to hold the metadata for a saved log file.
- */
-public class LogFile {
+import com.android.tradefed.build.BuildSerializedVersion;
+
+import java.io.Serializable;
+
+/** Class to hold the metadata for a saved log file. */
+public class LogFile implements Serializable {
+    private static final long serialVersionUID = BuildSerializedVersion.VERSION;
+
     private final String mPath;
     private final String mUrl;
     private final boolean mIsText;
     private final boolean mIsCompressed;
-
-    /**
-     * Construct a {@link LogFile} with filepath and URL metadata.
-     *
-     * @param path The absolute path to the saved file.
-     * @param url The URL where the saved file can be accessed.
-     * @deprecated use {@link #LogFile(String, String, boolean, boolean)} instead.
-     */
-    @Deprecated
-    public LogFile(String path, String url) {
-        this(path, url, false, false);
-    }
+    private final LogDataType mType;
+    private final long mSize;
 
     /**
      * Construct a {@link LogFile} with filepath, URL, and {@link LogDataType} metadata.
      *
      * @param path The absolute path to the saved file.
      * @param url The URL where the saved file can be accessed.
-     * @param compressed Whether the saved file is compressed.
-     * @param text Whether the saved file can be displayed as text.
+     * @param type The {@link LogDataType} of the logged file.
      */
-    public LogFile(String path, String url, boolean compressed, boolean text) {
+    public LogFile(String path, String url, LogDataType type) {
         mPath = path;
         mUrl = url;
-        mIsCompressed = compressed;
-        mIsText = text;
+        mIsCompressed = type.isCompressed();
+        mIsText = type.isText();
+        mType = type;
+        mSize = 0L;
+    }
+
+    /**
+     * Construct a {@link LogFile} with filepath, URL, and {@link LogDataType} metadata. Variation
+     * of {@link LogFile#LogFile(String, String, LogDataType)} where the compressed state can be set
+     * explicitly because in some cases, we manually compress the file but we want to keep the
+     * original type for tracking purpose.
+     *
+     * @param path The absolute path to the saved file.
+     * @param url The URL where the saved file can be accessed.
+     * @param isCompressed Whether the file was compressed or not.
+     * @param type The {@link LogDataType} of the logged file.
+     * @param size The size of the logged file in bytes.
+     */
+    public LogFile(String path, String url, boolean isCompressed, LogDataType type, long size) {
+        mPath = path;
+        mUrl = url;
+        mIsCompressed = isCompressed;
+        mIsText = type.isText();
+        mType = type;
+        mSize = size;
     }
 
     /**
@@ -77,5 +93,15 @@ public class LogFile {
      */
     public boolean isCompressed() {
         return mIsCompressed;
+    }
+
+    /** Get the {@link LogDataType} of the file that was logged. */
+    public LogDataType getType() {
+        return mType;
+    }
+
+    /** Get the size of the logged file. */
+    public long getSize() {
+        return mSize;
     }
 }

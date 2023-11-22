@@ -28,7 +28,7 @@ import logging
 import os
 import time
 
-from autotest_lib.client.common_lib import error, utils
+from autotest_lib.client.common_lib import error
 from autotest_lib.server import autotest
 from autotest_lib.server import profilers
 from autotest_lib.server import test
@@ -36,10 +36,9 @@ from autotest_lib.server import utils
 from autotest_lib.server.cros import telemetry_runner
 
 # List of benchmarks to run to capture profile information. This is
-# based on the "superhero" and "perf_v2" list and other telemetry
-# benchmarks. Goal is to have a short list that is as representative
-# as possible and takes a short time to execute. At this point the
-# list of benchmarks is in flux.
+# based on the "superhero" list and other telemetry benchmarks. Goal is
+# to have a short list that is as representative as possible and takes a
+# short time to execute. At this point the list of benchmarks is in flux.
 TELEMETRY_AFDO_BENCHMARKS = (
     ('page_cycler_v2.typical_25', ('--pageset-repeat=1',)),
     ('page_cycler_v2.intl_ja_zh', ('--pageset-repeat=1',)),
@@ -51,8 +50,6 @@ TELEMETRY_AFDO_BENCHMARKS = (
     ('octane',),
     ('kraken',),
     ('speedometer',),
-    ('dromaeo.domcoreattr',),
-    ('dromaeo.domcoremodify',),
     )
 
 # Temporarily disable this benchmark because it is failing a
@@ -137,6 +134,10 @@ class telemetry_AFDOGenerate(test.test):
         latest_data =  COMP_PERF_FILE % (self._arch, 'LATEST')
         latest_compressed = self._get_compressed_name(latest_data)
         self._gs_upload(compressed, latest_compressed)
+
+        # So that they are not uploaded along with the logs.
+        os.remove(compressed)
+        os.remove(perf_data)
 
 
     def _parse_args(self, args):

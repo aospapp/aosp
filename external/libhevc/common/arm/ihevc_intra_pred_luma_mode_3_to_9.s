@@ -84,9 +84,12 @@
 @r2 => *pu1_dst
 @r3 => dst_strd
 
-@stack contents from #40
+@stack contents from #104
 @   nt
 @   mode
+
+.equ    nt_offset,      104
+.equ    mode_offset,    108
 
 .text
 .align 4
@@ -126,13 +129,13 @@ col_for_intra_luma_addr_3:
 ihevc_intra_pred_luma_mode_3_to_9_a9q:
 
     stmfd       sp!, {r4-r12, r14}          @stack stores the values of the arguments
-
-    ldr         r4,[sp,#40]                 @loads nt
+    vpush       {d8 - d15}
+    ldr         r4,[sp,#nt_offset]          @loads nt
     ldr         r7, gai4_ihevc_ang_table_addr
 ulbl1:
     add         r7,r7,pc
 
-    ldr         r5,[sp,#44]                 @mode (3 to 9)
+    ldr         r5,[sp,#mode_offset]        @mode (3 to 9)
     ldr         r8, gai4_ihevc_inv_ang_table_addr
 ulbl2:
     add         r8,r8,pc
@@ -566,6 +569,7 @@ ulbl3_2:
     vst1.32     d18[0], [r2], r3            @st (row 3)
 
 end_func:
+    vpop        {d8 - d15}
     ldmfd       sp!,{r4-r12,r15}            @reload the registers from sp
 
 

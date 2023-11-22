@@ -19,6 +19,7 @@
     package="android.netlegacy22.permission.cts">
 
     <uses-permission android:name="android.permission.INJECT_EVENTS" />
+    <uses-permission android:name="android.permission.INTERNET" />
     <application>
         <uses-library android:name="android.test.runner" />
         <activity android:name="android.permission.cts.PermissionStubActivity"

@@ -240,7 +240,7 @@ public class MmsSmsDatabaseHelper extends SQLiteOpenHelper {
     private static boolean sFakeLowStorageTest = false;     // for testing only
 
     static final String DATABASE_NAME = "mmssms.db";
-    static final int DATABASE_VERSION = 66;
+    static final int DATABASE_VERSION = 67;
     private static final int IDLE_CONNECTION_TIMEOUT_MS = 30000;
 
     private final Context mContext;
@@ -567,6 +567,8 @@ public class MmsSmsDatabaseHelper extends SQLiteOpenHelper {
     private void createIndices(SQLiteDatabase db) {
         createThreadIdIndex(db);
         createThreadIdDateIndex(db);
+        createPartMidIndex(db);
+        createAddrMsgIdIndex(db);
     }
 
     private void createThreadIdIndex(SQLiteDatabase db) {
@@ -582,6 +584,22 @@ public class MmsSmsDatabaseHelper extends SQLiteOpenHelper {
         try {
             db.execSQL("CREATE INDEX IF NOT EXISTS threadIdDateIndex ON sms" +
             " (thread_id, date);");
+        } catch (Exception ex) {
+            Log.e(TAG, "got exception creating indices: " + ex.toString());
+        }
+    }
+
+    private void createPartMidIndex(SQLiteDatabase db) {
+        try {
+            db.execSQL("CREATE INDEX IF NOT EXISTS partMidIndex ON part (mid)");
+        } catch (Exception ex) {
+            Log.e(TAG, "got exception creating indices: " + ex.toString());
+        }
+    }
+
+    private void createAddrMsgIdIndex(SQLiteDatabase db) {
+        try {
+            db.execSQL("CREATE INDEX IF NOT EXISTS addrMsgIdIndex ON addr (msg_id)");
         } catch (Exception ex) {
             Log.e(TAG, "got exception creating indices: " + ex.toString());
         }
@@ -889,30 +907,32 @@ public class MmsSmsDatabaseHelper extends SQLiteOpenHelper {
             "content_url TEXT," +
             "offset INTEGER);";
 
+    /**
+     * This table is used by the SMS dispatcher to hold
+     * incomplete partial messages until all the parts arrive.
+     */
+    @VisibleForTesting
+    public static String CREATE_RAW_TABLE_STRING =
+            "CREATE TABLE raw (" +
+            "_id INTEGER PRIMARY KEY," +
+            "date INTEGER," +
+            "reference_number INTEGER," + // one per full message
+            "count INTEGER," + // the number of parts
+            "sequence INTEGER," + // the part number of this message
+            "destination_port INTEGER," +
+            "address TEXT," +
+            "sub_id INTEGER DEFAULT " + SubscriptionManager.INVALID_SUBSCRIPTION_ID + ", " +
+            "pdu TEXT," + // the raw PDU for this part
+            "deleted INTEGER DEFAULT 0," + // bool to indicate if row is deleted
+            "message_body TEXT," + // message body
+            "display_originating_addr TEXT);";
+    // email address if from an email gateway, otherwise same as address
     private void createSmsTables(SQLiteDatabase db) {
         // N.B.: Whenever the columns here are changed, the columns in
         // {@ref MmsSmsProvider} must be changed to match.
         db.execSQL(CREATE_SMS_TABLE_STRING);
 
-        /**
-         * This table is used by the SMS dispatcher to hold
-         * incomplete partial messages until all the parts arrive.
-         */
-        db.execSQL("CREATE TABLE raw (" +
-                   "_id INTEGER PRIMARY KEY," +
-                   "date INTEGER," +
-                   "reference_number INTEGER," + // one per full message
-                   "count INTEGER," + // the number of parts
-                   "sequence INTEGER," + // the part number of this message
-                   "destination_port INTEGER," +
-                   "address TEXT," +
-                   "sub_id INTEGER DEFAULT " + SubscriptionManager.INVALID_SUBSCRIPTION_ID + ", " +
-                   "pdu TEXT," + // the raw PDU for this part
-                   "deleted INTEGER DEFAULT 0," + // bool to indicate if row is deleted
-                   "message_body TEXT," + // message body
-                   "display_originating_addr TEXT);"
-                   // email address if from an email gateway, otherwise same as address
-        );
+        db.execSQL(CREATE_RAW_TABLE_STRING);
 
         db.execSQL(CREATE_ATTACHMENTS_TABLE_STRING);
 
@@ -1486,7 +1506,22 @@ public class MmsSmsDatabaseHelper extends SQLiteOpenHelper {
             } finally {
                 db.endTransaction();
             }
-
+            // fall through
+        case 66:
+            if (currentVersion <= 66) {
+                return;
+            }
+            db.beginTransaction();
+            try {
+                createPartMidIndex(db);
+                createAddrMsgIdIndex(db);
+                db.setTransactionSuccessful();
+            } catch (Throwable ex) {
+                Log.e(TAG, ex.getMessage(), ex);
+                break; // force to destroy all old data;
+            } finally {
+                db.endTransaction();
+            }
             return;
         }
 

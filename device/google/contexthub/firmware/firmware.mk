@@ -56,7 +56,7 @@ FLAGS += -Ios/platform/$(PLATFORM)/inc
 FLAGS += -I$(VARIANT_PATH)/inc
 FLAGS += -Iexternal/freebsd/inc
 FLAGS += -I../lib/include
-FLAGS += -I../inc
+FLAGS += -I../../../../system/chre/chre_api/include/chre_api
 
 FLAGS += -Wall -Werror
 #help avoid commmon embedded C mistakes
@@ -85,14 +85,13 @@ SRCS_bl += os/core/bl.c
 #some help for bootloader
 SRCS_bl += os/core/printf.c
 
-ifndef PLATFORM_HAS_HARDWARE_CRC
 SRCS_os += ../lib/nanohub/softcrc.c
-endif
 
 #extra deps
 DEPS += $(wildcard inc/*.h)
 DEPS += $(wildcard ../inc/*.h)
 DEPS += $(wildcard ../inc/chre/*.h)
+DEPS += $(wildcard $(VARIANT_PATH)/inc/variant/*.h)
 DEPS += firmware.mk firmware_conf.mk $(MAKE_PLAT) $(MAKE_CPU) $(MAKE_VAR)
 DELIVERABLES += $(OUT)/full.bin
 
@@ -116,3 +115,5 @@ $(OUT)/full.bin: $(BL_FILE) $(OS_FILE)
 
 clean:
 	rm -rf $(OUT)
+
+.SECONDARY: $(OUT)/os.checked.elf

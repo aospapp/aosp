@@ -1,7 +1,7 @@
 /** @file
   UEFI Memory pool management functions.
 
-Copyright (c) 2006 - 2015, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2006 - 2016, Intel Corporation. All rights reserved.<BR>
 This program and the accompanying materials
 are licensed and made available under the terms and conditions of the BSD License
 which accompanies this distribution.  The full text of the license may be found at
@@ -52,13 +52,13 @@ typedef struct {
 // as we would in a strict power-of-2 sequence
 //
 STATIC CONST UINT16 mPoolSizeTable[] = {
-  64, 128, 192, 320, 512, 832, 1344, 2176, 3520, 5696, 9216, 14912, 24128
+  128, 256, 384, 640, 1024, 1664, 2688, 4352, 7040, 11392, 18432, 29824
 };
 
 #define SIZE_TO_LIST(a)   (GetPoolIndexFromSize (a))
 #define LIST_TO_SIZE(a)   (mPoolSizeTable [a])
 
-#define MAX_POOL_LIST     (sizeof (mPoolSizeTable) / sizeof (mPoolSizeTable[0]))
+#define MAX_POOL_LIST     (ARRAY_SIZE (mPoolSizeTable))
 
 #define MAX_POOL_SIZE     (MAX_ADDRESS - POOL_OVERHEAD)
 
@@ -197,8 +197,9 @@ LookupPoolHead (
   @param  Buffer                 The address to return a pointer to the allocated
                                  pool
 
-  @retval EFI_INVALID_PARAMETER  PoolType not valid or Buffer is NULL. 
-                                 PoolType was EfiPersistentMemory.
+  @retval EFI_INVALID_PARAMETER  Buffer is NULL.
+                                 PoolType is in the range EfiMaxMemoryType..0x6FFFFFFF.
+                                 PoolType is EfiPersistentMemory.
   @retval EFI_OUT_OF_RESOURCES   Size exceeds max pool size or allocation failed.
   @retval EFI_SUCCESS            Pool successfully allocated.
 
@@ -256,7 +257,9 @@ CoreInternalAllocatePool (
   @param  Buffer                 The address to return a pointer to the allocated
                                  pool
 
-  @retval EFI_INVALID_PARAMETER  PoolType not valid or Buffer is NULL. 
+  @retval EFI_INVALID_PARAMETER  Buffer is NULL.
+                                 PoolType is in the range EfiMaxMemoryType..0x6FFFFFFF.
+                                 PoolType is EfiPersistentMemory.
   @retval EFI_OUT_OF_RESOURCES   Size exceeds max pool size or allocation failed.
   @retval EFI_SUCCESS            Pool successfully allocated.
 
@@ -273,7 +276,15 @@ CoreAllocatePool (
 
   Status = CoreInternalAllocatePool (PoolType, Size, Buffer);
   if (!EFI_ERROR (Status)) {
-    CoreUpdateProfile ((EFI_PHYSICAL_ADDRESS) (UINTN) RETURN_ADDRESS (0), MemoryProfileActionAllocatePool, PoolType, Size, *Buffer);
+    CoreUpdateProfile (
+      (EFI_PHYSICAL_ADDRESS) (UINTN) RETURN_ADDRESS (0),
+      MemoryProfileActionAllocatePool,
+      PoolType,
+      Size,
+      *Buffer,
+      NULL
+      );
+    InstallMemoryAttributesTableOnMemoryAllocation (PoolType);
   }
   return Status;
 }
@@ -456,6 +467,7 @@ Done:
   Frees pool.
 
   @param  Buffer                 The allocated pool entry to free
+  @param  PoolType               Pointer to pool type
 
   @retval EFI_INVALID_PARAMETER  Buffer is not a valid value.
   @retval EFI_SUCCESS            Pool successfully freed.
@@ -464,7 +476,8 @@ Done:
 EFI_STATUS
 EFIAPI
 CoreInternalFreePool (
-  IN VOID        *Buffer
+  IN VOID               *Buffer,
+  OUT EFI_MEMORY_TYPE   *PoolType OPTIONAL
   )
 {
   EFI_STATUS Status;
@@ -474,7 +487,7 @@ CoreInternalFreePool (
   }
 
   CoreAcquireMemoryLock ();
-  Status = CoreFreePoolI (Buffer);
+  Status = CoreFreePoolI (Buffer, PoolType);
   CoreReleaseMemoryLock ();
   return Status;
 }
@@ -494,11 +507,20 @@ CoreFreePool (
   IN VOID  *Buffer
   )
 {
-  EFI_STATUS  Status;
+  EFI_STATUS        Status;
+  EFI_MEMORY_TYPE   PoolType;
 
-  Status = CoreInternalFreePool (Buffer);
+  Status = CoreInternalFreePool (Buffer, &PoolType);
   if (!EFI_ERROR (Status)) {
-    CoreUpdateProfile ((EFI_PHYSICAL_ADDRESS) (UINTN) RETURN_ADDRESS (0), MemoryProfileActionFreePool, (EFI_MEMORY_TYPE) 0, 0, Buffer);
+    CoreUpdateProfile (
+      (EFI_PHYSICAL_ADDRESS) (UINTN) RETURN_ADDRESS (0),
+      MemoryProfileActionFreePool,
+      PoolType,
+      0,
+      Buffer,
+      NULL
+      );
+    InstallMemoryAttributesTableOnMemoryAllocation (PoolType);
   }
   return Status;
 }
@@ -508,6 +530,7 @@ CoreFreePool (
   Caller must have the memory lock held
 
   @param  Buffer                 The allocated pool entry to free
+  @param  PoolType               Pointer to pool type
 
   @retval EFI_INVALID_PARAMETER  Buffer not valid
   @retval EFI_SUCCESS            Buffer successfully freed.
@@ -515,7 +538,8 @@ CoreFreePool (
 **/
 EFI_STATUS
 CoreFreePoolI (
-  IN VOID       *Buffer
+  IN VOID               *Buffer,
+  OUT EFI_MEMORY_TYPE   *PoolType OPTIONAL
   )
 {
   POOL        *Pool;
@@ -578,6 +602,10 @@ CoreFreePoolI (
     Granularity = EFI_ACPI_RUNTIME_PAGE_ALLOCATION_ALIGNMENT;
   } else {
     Granularity = DEFAULT_PAGE_ALLOCATION;
+  }
+
+  if (PoolType != NULL) {
+    *PoolType = Head->Type;
   }
 
   //
@@ -658,13 +686,13 @@ CoreFreePoolI (
   }
 
   //
-  // If this is an OS specific memory type, then check to see if the last
+  // If this is an OS/OEM specific memory type, then check to see if the last
   // portion of that memory type has been freed.  If it has, then free the
   // list entry for that memory type
   //
-  if ((INT32)Pool->MemoryType < 0 && Pool->Used == 0) {
+  if (((UINT32) Pool->MemoryType >= MEMORY_TYPE_OEM_RESERVED_MIN) && Pool->Used == 0) {
     RemoveEntryList (&Pool->Link);
-    CoreFreePoolI (Pool);
+    CoreFreePoolI (Pool, NULL);
   }
 
   return EFI_SUCCESS;

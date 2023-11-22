@@ -23,7 +23,12 @@ import java.nio.charset.Charset;
 import java.nio.charset.CharsetDecoder;
 import java.nio.charset.CharsetEncoder;
 import java.nio.charset.CodingErrorAction;
+import java.util.Arrays;
+
 import junit.framework.TestCase;
+
+import android.icu.lang.UCharacter;
+import android.icu.lang.UProperty;
 
 /**
  * Super class for concrete charset test suites.
@@ -174,35 +179,47 @@ public abstract class OldCharset_AbstractTest extends TestCase {
     }
 
     public void test_CodecDynamic () throws CharacterCodingException {
-        encoder.onUnmappableCharacter(CodingErrorAction.REPORT);
-        decoder.onMalformedInput(CodingErrorAction.REPORT);
         CharBuffer inputCB = CharBuffer.allocate(65536);
         // Only test most of the Unicode BMP.
-        // Supplementary code points would require use of encoder.canEncode(CharSequence).
-        for (char code = 0x20; code <= 0xfffd; code++) {
-            // Skip surrogates to avoid writing broken UTF-16.
-            // Ignore charsets that do convert surrogate code units.
-            if (code == 0xd800) {
-                code = 0xdfff;
-                continue;
-            }
+        for (int code = 0x20; code <= 0xfffd; code++) {
             // Ignore the private use area.
             if (code == 0xe000) {
                 code = 0xf8ff;
                 continue;
             }
-            if (encoder.canEncode(code)) {
-                inputCB.put(code);
+            char[] codeChars = Character.toChars(code);
+            if (encoder.canEncode(new String(codeChars))) {
+                // Skip ignorable characters that don't map to anything.
+                if (isDefaultIgnorableCode(code) && encodesToNothing(encoder, codeChars)) {
+                    continue;
+                }
+
+                inputCB.put(codeChars);
             }
         }
         inputCB.rewind();
+
+        encoder.onUnmappableCharacter(CodingErrorAction.REPORT);
         ByteBuffer intermediateBB = encoder.encode(inputCB);
         inputCB.rewind();
         intermediateBB.rewind();
+
+        decoder.onMalformedInput(CodingErrorAction.REPORT);
         CharBuffer outputCB = decoder.decode(intermediateBB);
         outputCB.rewind();
         assertEqualCBs("decode(encode(A)) must be identical with A!",
                 inputCB, outputCB);
+    }
+
+    private static boolean encodesToNothing(CharsetEncoder encoder, char[] codeChars)
+            throws CharacterCodingException {
+        boolean encodesToNothing = encoder.encode(CharBuffer.wrap(codeChars)).limit() == 0;
+        encoder.reset();
+        return encodesToNothing;
+    }
+
+    private static boolean isDefaultIgnorableCode(int code) {
+        return UCharacter.hasBinaryProperty(code, UProperty.DEFAULT_IGNORABLE_CODE_POINT);
     }
 
     static void assertEqualCBs (String msg, CharBuffer expectedCB, CharBuffer actualCB) {

@@ -30,12 +30,15 @@ ubsan_cxx_rtl_files = [
     "ubsan_type_hash_win.cc",
 ]
 
+ubsan_rtl_cflags = [
+    "-Wall",
+    "-Werror",
+]
+
 ubsan_rtl_cppflags = [
     "-fvisibility=hidden",
     "-fno-exceptions",
     "-std=c++11",
-    "-Wall",
-    "-Werror",
     "-Wno-unused-parameter",
     "-Wno-non-virtual-dtor",
     "-DUBSAN_CAN_USE_CXXABI",
@@ -48,6 +51,7 @@ cc_library_static {
     host_supported: true,
 
     include_dirs: ubsan_rtl_c_includes,
+    cflags: ubsan_rtl_cflags,
     cppflags: ubsan_rtl_cppflags,
     srcs: ubsan_rtl_files,
     sdk_version: "19",
@@ -68,6 +72,7 @@ cc_library_static {
     host_supported: true,
 
     include_dirs: ubsan_rtl_c_includes,
+    cflags: ubsan_rtl_cflags,
     cppflags: ubsan_rtl_cppflags,
     rtti: true,
     srcs: ubsan_cxx_rtl_files,
@@ -96,7 +101,6 @@ cc_defaults {
         "liblog",
         "libdl",
     ],
-    clang: true,
     sanitize: {
         never: true,
     },
@@ -176,6 +180,7 @@ cc_library_host_static {
     name: "libubsan_standalone",
 
     include_dirs: ubsan_rtl_c_includes,
+    cflags: ubsan_rtl_cflags,
     cppflags: ubsan_rtl_cppflags + ["-fno-rtti"],
     srcs: ubsan_rtl_files,
     whole_static_libs: ["libsan"],
@@ -195,6 +200,7 @@ cc_library_host_static {
     name: "libubsan_standalone_cxx",
 
     include_dirs: ubsan_rtl_c_includes,
+    cflags: ubsan_rtl_cflags,
     cppflags: ubsan_rtl_cppflags,
     srcs: ubsan_cxx_rtl_files,
     sanitize: {

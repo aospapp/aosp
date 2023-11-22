@@ -30,8 +30,8 @@ THRESHOLD_MIN_LEVEL = 0.1
 THRESHOLD_MAX_LEVEL = 0.9
 THRESHOLD_MAX_LEVEL_DIFF = 0.045
 THRESHOLD_MAX_LEVEL_DIFF_WIDE_RANGE = 0.06
-THRESHOLD_ROUND_DOWN_GAIN = 0.1
-THRESHOLD_ROUND_DOWN_EXP = 0.05
+THRESH_ROUND_DOWN_GAIN = 0.1
+THRESH_ROUND_DOWN_EXP = 0.05
 
 
 def get_raw_active_array_size(props):
@@ -90,12 +90,16 @@ def main():
             e_test = s_e_product / s_test
             print 'Testing s:', s_test, 'e:', e_test
             req = its.objects.manual_capture_request(
-                s_test, e_test, 0.0, True, props)
+                    s_test, e_test, 0.0, True, props)
             cap = cam.do_capture(req, fmt)
             s_res = cap['metadata']['android.sensor.sensitivity']
             e_res = cap['metadata']['android.sensor.exposureTime']
-            assert 0 <= s_test - s_res < s_test * THRESHOLD_ROUND_DOWN_GAIN
-            assert 0 <= e_test - e_res < e_test * THRESHOLD_ROUND_DOWN_EXP
+            s_msg = 's_write: %d, s_read: %d, TOL=%.f%%' % (
+                    s_test, s_res, THRESH_ROUND_DOWN_GAIN*100)
+            e_msg = 'e_write: %.2fms, e_read: %.2fms, TOL=%.f%%' % (
+                    e_test/1.0E6, e_res/1.0E6, THRESH_ROUND_DOWN_EXP*100)
+            assert 0 <= s_test - s_res < s_test * THRESH_ROUND_DOWN_GAIN, s_msg
+            assert 0 <= e_test - e_res < e_test * THRESH_ROUND_DOWN_EXP, e_msg
             s_e_product_res = s_res * e_res
             request_result_ratio = s_e_product / s_e_product_res
             print 'Capture result s:', s_test, 'e:', e_test

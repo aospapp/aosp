@@ -20,7 +20,9 @@ LOCAL_PACKAGE_NAME := CtsNetSecConfigBasicDebugEnabledTestCases
 LOCAL_MODULE_TAGS := tests
 LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
 
-LOCAL_STATIC_JAVA_LIBRARIES := ctstestrunner org.apache.http.legacy android-support-test
+LOCAL_STATIC_JAVA_LIBRARIES := ctstestrunner android-support-test
+
+LOCAL_JAVA_LIBRARIES := org.apache.http.legacy
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 LOCAL_SRC_FILES += $(call all-java-files-under, ../src)

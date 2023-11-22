@@ -24,16 +24,18 @@
 #include <set>
 #include <string>
 #include <utility>
+#include <memory>
 #include <vector>
 
 #include "arch/instruction_set.h"
 #include "base/macros.h"
 #include "base/mutex.h"
 #include "deoptimization_kind.h"
-#include "dex_file_types.h"
+#include "dex/dex_file_types.h"
 #include "experimental_flags.h"
 #include "gc_root.h"
 #include "instrumentation.h"
+#include "jdwp_provider.h"
 #include "obj_ptr.h"
 #include "offsets.h"
 #include "process_state.h"
@@ -43,31 +45,36 @@
 namespace art {
 
 namespace gc {
-  class AbstractSystemWeakHolder;
-  class Heap;
+class AbstractSystemWeakHolder;
+class Heap;
 }  // namespace gc
 
+namespace hiddenapi {
+enum class EnforcementPolicy;
+}  // namespace hiddenapi
+
 namespace jit {
-  class Jit;
-  class JitOptions;
+class Jit;
+class JitOptions;
 }  // namespace jit
 
 namespace mirror {
-  class Array;
-  class ClassLoader;
-  class DexCache;
-  template<class T> class ObjectArray;
-  template<class T> class PrimitiveArray;
-  typedef PrimitiveArray<int8_t> ByteArray;
-  class String;
-  class Throwable;
+class Array;
+class ClassLoader;
+class DexCache;
+template<class T> class ObjectArray;
+template<class T> class PrimitiveArray;
+typedef PrimitiveArray<int8_t> ByteArray;
+class String;
+class Throwable;
 }  // namespace mirror
 namespace ti {
-  class Agent;
+class Agent;
+class AgentSpec;
 }  // namespace ti
 namespace verifier {
-  class MethodVerifier;
-  enum class VerifyMode : int8_t;
+class MethodVerifier;
+enum class VerifyMode : int8_t;
 }  // namespace verifier
 class ArenaPool;
 class ArtMethod;
@@ -322,7 +329,7 @@ class Runtime {
   // instead.
   void VisitImageRoots(RootVisitor* visitor) REQUIRES_SHARED(Locks::mutator_lock_);
 
-  // Visit all of the roots we can do safely do concurrently.
+  // Visit all of the roots we can safely visit concurrently.
   void VisitConcurrentRoots(RootVisitor* visitor,
                             VisitRootFlags flags = kVisitRootFlagAllRoots)
       REQUIRES(!Locks::classlinker_classes_lock_, !Locks::trace_lock_)
@@ -439,7 +446,11 @@ class Runtime {
 
   void PreZygoteFork();
   void InitNonZygoteOrPostFork(
-      JNIEnv* env, bool is_system_server, NativeBridgeAction action, const char* isa);
+      JNIEnv* env,
+      bool is_system_server,
+      NativeBridgeAction action,
+      const char* isa,
+      bool profile_system_server = false);
 
   const instrumentation::Instrumentation* GetInstrumentation() const {
     return &instrumentation_;
@@ -453,12 +464,17 @@ class Runtime {
                        const std::string& profile_output_filename);
 
   // Transaction support.
-  bool IsActiveTransaction() const {
-    return preinitialization_transaction_ != nullptr;
-  }
-  void EnterTransactionMode(Transaction* transaction);
+  bool IsActiveTransaction() const;
+  void EnterTransactionMode();
+  void EnterTransactionMode(bool strict, mirror::Class* root);
   void ExitTransactionMode();
+  void RollbackAllTransactions() REQUIRES_SHARED(Locks::mutator_lock_);
+  // Transaction rollback and exit transaction are always done together, it's convenience to
+  // do them in one function.
+  void RollbackAndExitTransactionMode() REQUIRES_SHARED(Locks::mutator_lock_);
   bool IsTransactionAborted() const;
+  const std::unique_ptr<Transaction>& GetTransaction() const;
+  bool IsActiveStrictTransactionMode() const;
 
   void AbortTransactionAndThrowAbortError(Thread* self, const std::string& abort_message)
       REQUIRES_SHARED(Locks::mutator_lock_);
@@ -508,8 +524,69 @@ class Runtime {
     return !implicit_so_checks_;
   }
 
+  void DisableVerifier();
   bool IsVerificationEnabled() const;
   bool IsVerificationSoftFail() const;
+
+  void SetHiddenApiEnforcementPolicy(hiddenapi::EnforcementPolicy policy) {
+    hidden_api_policy_ = policy;
+  }
+
+  hiddenapi::EnforcementPolicy GetHiddenApiEnforcementPolicy() const {
+    return hidden_api_policy_;
+  }
+
+  void SetPendingHiddenApiWarning(bool value) {
+    pending_hidden_api_warning_ = value;
+  }
+
+  void SetHiddenApiExemptions(const std::vector<std::string>& exemptions) {
+    hidden_api_exemptions_ = exemptions;
+  }
+
+  const std::vector<std::string>& GetHiddenApiExemptions() {
+    return hidden_api_exemptions_;
+  }
+
+  bool HasPendingHiddenApiWarning() const {
+    return pending_hidden_api_warning_;
+  }
+
+  void SetDedupeHiddenApiWarnings(bool value) {
+    dedupe_hidden_api_warnings_ = value;
+  }
+
+  bool ShouldDedupeHiddenApiWarnings() {
+    return dedupe_hidden_api_warnings_;
+  }
+
+  void AlwaysSetHiddenApiWarningFlag() {
+    always_set_hidden_api_warning_flag_ = true;
+  }
+
+  bool ShouldAlwaysSetHiddenApiWarningFlag() const {
+    return always_set_hidden_api_warning_flag_;
+  }
+
+  void SetHiddenApiEventLogSampleRate(uint32_t rate) {
+    hidden_api_access_event_log_rate_ = rate;
+  }
+
+  uint32_t GetHiddenApiEventLogSampleRate() const {
+    return hidden_api_access_event_log_rate_;
+  }
+
+  const std::string& GetProcessPackageName() const {
+    return process_package_name_;
+  }
+
+  void SetProcessPackageName(const char* package_name) {
+    if (package_name == nullptr) {
+      process_package_name_.clear();
+    } else {
+      process_package_name_ = package_name;
+    }
+  }
 
   bool IsDexFileFallbackEnabled() const {
     return allow_dex_file_fallback_;
@@ -579,6 +656,14 @@ class Runtime {
     is_native_debuggable_ = value;
   }
 
+  bool AreAsyncExceptionsThrown() const {
+    return async_exceptions_thrown_;
+  }
+
+  void SetAsyncExceptionsThrown() {
+    async_exceptions_thrown_ = true;
+  }
+
   // Returns the build fingerprint, if set. Otherwise an empty string is returned.
   std::string GetFingerprint() {
     return fingerprint_;
@@ -644,13 +729,17 @@ class Runtime {
   void AddSystemWeakHolder(gc::AbstractSystemWeakHolder* holder);
   void RemoveSystemWeakHolder(gc::AbstractSystemWeakHolder* holder);
 
-  void AttachAgent(const std::string& agent_arg);
+  void AttachAgent(JNIEnv* env, const std::string& agent_arg, jobject class_loader);
 
-  const std::list<ti::Agent>& GetAgents() const {
+  const std::list<std::unique_ptr<ti::Agent>>& GetAgents() const {
     return agents_;
   }
 
   RuntimeCallbacks* GetRuntimeCallbacks();
+
+  bool HasLoadedPlugins() const {
+    return !plugins_.empty();
+  }
 
   void InitThreadGroups(Thread* self);
 
@@ -676,6 +765,16 @@ class Runtime {
   bool MAdviseRandomAccess() const {
     return madvise_random_access_;
   }
+
+  const std::string& GetJdwpOptions() {
+    return jdwp_options_;
+  }
+
+  JdwpProvider GetJdwpProvider() const {
+    return jdwp_provider_;
+  }
+
+  static constexpr int32_t kUnsetSdkVersion = 0u;
 
  private:
   static void InitPlatformSignalHandlers();
@@ -714,7 +813,7 @@ class Runtime {
   static constexpr int kProfileForground = 0;
   static constexpr int kProfileBackground = 1;
 
-  static constexpr uint32_t kCalleeSaveSize = 4u;
+  static constexpr uint32_t kCalleeSaveSize = 6u;
 
   // 64 bit so that we can share the same asm offsets for both 32 and 64 bits.
   uint64_t callee_save_methods_[kCalleeSaveSize];
@@ -751,7 +850,8 @@ class Runtime {
   std::string class_path_string_;
   std::vector<std::string> properties_;
 
-  std::list<ti::Agent> agents_;
+  std::list<ti::AgentSpec> agent_specs_;
+  std::list<std::unique_ptr<ti::Agent>> agents_;
   std::vector<Plugin> plugins_;
 
   // The default stack size for managed threads created by the runtime.
@@ -842,8 +942,11 @@ class Runtime {
   // If true, then we dump the GC cumulative timings on shutdown.
   bool dump_gc_performance_on_shutdown_;
 
-  // Transaction used for pre-initializing classes at compilation time.
-  Transaction* preinitialization_transaction_;
+  // Transactions used for pre-initializing classes at compilation time.
+  // Support nested transactions, maintain a list containing all transactions. Transactions are
+  // handled under a stack discipline. Because GC needs to go over all transactions, we choose list
+  // as substantial data structure instead of stack.
+  std::list<std::unique_ptr<Transaction>> preinitialization_transactions_;
 
   // If kNone, verification is disabled. kEnable by default.
   verifier::VerifyMode verify_;
@@ -885,6 +988,10 @@ class Runtime {
   // Whether we are running under native debugger.
   bool is_native_debuggable_;
 
+  // whether or not any async exceptions have ever been thrown. This is used to speed up the
+  // MterpShouldSwitchInterpreters function.
+  bool async_exceptions_thrown_;
+
   // Whether Java code needs to be debuggable.
   bool is_java_debuggable_;
 
@@ -915,6 +1022,33 @@ class Runtime {
   // Whether the application should run in safe mode, that is, interpreter only.
   bool safe_mode_;
 
+  // Whether access checks on hidden API should be performed.
+  hiddenapi::EnforcementPolicy hidden_api_policy_;
+
+  // List of signature prefixes of methods that have been removed from the blacklist, and treated
+  // as if whitelisted.
+  std::vector<std::string> hidden_api_exemptions_;
+
+  // Whether the application has used an API which is not restricted but we
+  // should issue a warning about it.
+  bool pending_hidden_api_warning_;
+
+  // Do not warn about the same hidden API access violation twice.
+  // This is only used for testing.
+  bool dedupe_hidden_api_warnings_;
+
+  // Hidden API can print warnings into the log and/or set a flag read by the
+  // framework to show a UI warning. If this flag is set, always set the flag
+  // when there is a warning. This is only used for testing.
+  bool always_set_hidden_api_warning_flag_;
+
+  // How often to log hidden API access to the event log. An integer between 0
+  // (never) and 0x10000 (always).
+  uint32_t hidden_api_access_event_log_rate_;
+
+  // The package of the app running in this process.
+  std::string process_package_name_;
+
   // Whether threads should dump their native stack on SIGQUIT.
   bool dump_native_stack_on_sig_quit_;
 
@@ -926,6 +1060,12 @@ class Runtime {
 
   // Whether zygote code is in a section that should not start threads.
   bool zygote_no_threads_;
+
+  // The string containing requested jdwp options
+  std::string jdwp_options_;
+
+  // The jdwp provider we were configured with.
+  JdwpProvider jdwp_provider_;
 
   // Saved environment.
   class EnvSnapshot {

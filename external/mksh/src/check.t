@@ -1,4 +1,4 @@
-# $MirOS: src/bin/mksh/check.t,v 1.775 2017/04/12 17:38:41 tg Exp $
+# $MirOS: src/bin/mksh/check.t,v 1.801 2018/01/14 01:47:33 tg Exp $
 # -*- mode: sh -*-
 #-
 # Copyright Â© 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
@@ -30,40 +30,62 @@
 # (2013/12/02 20:39:44) http://cvsweb.openbsd.org/cgi-bin/cvsweb/src/regress/bin/ksh/?sortby=date
 
 expected-stdout:
-	@(#)MIRBSD KSH R55 2017/04/12
+	@(#)MIRBSD KSH R56 2018/01/14
 description:
-	Check version of shell.
+	Check base version of full shell
 stdin:
-	echo $KSH_VERSION
+	echo ${KSH_VERSION%%' +'*}
 name: KSH_VERSION
-category: !shell:legacy-yes,!shell:textmode-yes
+category: !shell:legacy-yes
 ---
 expected-stdout:
-	@(#)LEGACY KSH R55 2017/04/12
+	@(#)LEGACY KSH R56 2018/01/14
 description:
-	Check version of legacy shell.
+	Check base version of legacy shell
 stdin:
-	echo $KSH_VERSION
+	echo ${KSH_VERSION%%' +'*}
 name: KSH_VERSION-legacy
-category: !shell:legacy-no,!shell:textmode-yes
+category: !shell:legacy-no
 ---
-expected-stdout:
-	@(#)MIRBSD KSH R55 2017/04/12 +TEXTMODE
+name: KSH_VERSION-ascii
 description:
-	Check version of shell.
+	Check that the shell version tag does not include EBCDIC
+category: !shell:ebcdic-yes
 stdin:
-	echo $KSH_VERSION
+	for x in $KSH_VERSION; do
+		[[ $x = '+EBCDIC' ]] && exit 1
+	done
+	exit 0
+---
+name: KSH_VERSION-ebcdic
+description:
+	Check that the shell version tag includes EBCDIC
+category: !shell:ebcdic-no
+stdin:
+	for x in $KSH_VERSION; do
+		[[ $x = '+EBCDIC' ]] && exit 0
+	done
+	exit 1
+---
+name: KSH_VERSION-binmode
+description:
+	Check that the shell version tag does not include TEXTMODE
+category: !shell:textmode-yes
+stdin:
+	for x in $KSH_VERSION; do
+		[[ $x = '+TEXTMODE' ]] && exit 1
+	done
+	exit 0
+---
 name: KSH_VERSION-textmode
-category: !shell:legacy-yes,!shell:textmode-no
----
-expected-stdout:
-	@(#)LEGACY KSH R55 2017/04/12 +TEXTMODE
 description:
-	Check version of legacy shell.
+	Check that the shell version tag includes TEXTMODE
+category: !shell:textmode-no
 stdin:
-	echo $KSH_VERSION
-name: KSH_VERSION-legacy-textmode
-category: !shell:legacy-no,!shell:textmode-no
+	for x in $KSH_VERSION; do
+		[[ $x = '+TEXTMODE' ]] && exit 0
+	done
+	exit 1
 ---
 name: selftest-1
 description:
@@ -1334,7 +1356,7 @@ name: cd-pe
 description:
 	Check package for cd -Pe
 need-pass: no
-# the mv command fails on Cygwin
+# the mv command fails on Cygwin and z/OS
 # Hurd aborts the testsuite (permission denied)
 # QNX does not find subdir to cd into
 category: !os:cygwin,!os:gnu,!os:msys,!os:nto,!os:os390,!nosymlink
@@ -1355,7 +1377,7 @@ file-setup: file 644 "x"
 	cd -P$1 subdir
 	echo 2=$?,${PWD#$bwd/}
 	cd $bwd
-	chmod 755 renamed
+	chmod 755 noread renamed 2>/dev/null
 	rm -rf noread link renamed
 stdin:
 	export TSHELL="$__progname"
@@ -1944,15 +1966,12 @@ expected-stdout:
 name: eglob-bad-1
 description:
 	Check that globbing isn't done when glob has syntax error
-file-setup: file 644 "abcx"
-file-setup: file 644 "abcz"
-file-setup: file 644 "bbc"
+category: !os:cygwin,!os:msys,!os:os2
+file-setup: file 644 "@(a[b|)c]foo"
 stdin:
-	echo !([*)*
-	echo +(a|b[)*
+	echo @(a[b|)c]*
 expected-stdout:
-	!([*)*
-	+(a|b[)*
+	@(a[b|)c]*
 ---
 name: eglob-bad-2
 description:
@@ -2039,9 +2058,11 @@ stdin:
 	case foo in *(a|b[)) echo yes;; *) echo no;; esac
 	case foo in *(a|b[)|f*) echo yes;; *) echo no;; esac
 	case '*(a|b[)' in *(a|b[)) echo yes;; *) echo no;; esac
+	case 'aab[b[ab[a' in *(a|b[)) echo yes;; *) echo no;; esac
 expected-stdout:
 	no
 	yes
+	no
 	yes
 ---
 name: eglob-trim-1
@@ -2305,6 +2326,7 @@ expected-stdout:
 name: eglob-utf8-1
 description:
 	UTF-8 mode differences for eglobbing
+category: !shell:ebcdic-yes
 stdin:
 	s=blÃ¶d
 	set +U
@@ -2336,17 +2358,26 @@ expected-stdout:
 ---
 name: glob-bad-1
 description:
-	Check that globbing isn't done when glob has syntax error
+	Check that [ matches itself if it's not a valid bracket expr
+	but does not prevent globbing, while backslash-escaping does
 file-setup: dir 755 "[x"
 file-setup: file 644 "[x/foo"
 stdin:
 	echo [*
 	echo *[x
 	echo [x/*
+	:>'ab[x'
+	:>'a[a-z][x'
+	echo a[a-z][*
+	echo a[a-z]*
+	echo a[a\-z]*
 expected-stdout:
-	[*
-	*[x
+	[x
+	[x
 	[x/foo
+	ab[x
+	ab[x
+	a[a-z]*
 ---
 name: glob-bad-2
 description:
@@ -2365,6 +2396,18 @@ expected-stdout:
 	dir/abc
 	dir/abc
 ---
+name: glob-bad-3
+description:
+	Check that the slash is parsed before the glob
+stdin:
+	mkdir a 'a[b'
+	(cd 'a[b'; echo ok >'c]d')
+	echo nok >abd
+	echo fail >a/d
+	cat a[b/c]d
+expected-stdout:
+	ok
+---
 name: glob-range-1
 description:
 	Test range matching
@@ -2373,24 +2416,31 @@ file-setup: file 644 "abc"
 file-setup: file 644 "bbc"
 file-setup: file 644 "cbc"
 file-setup: file 644 "-bc"
+file-setup: file 644 "!bc"
+file-setup: file 644 "^bc"
+file-setup: file 644 "+bc"
+file-setup: file 644 ",bc"
+file-setup: file 644 "0bc"
+file-setup: file 644 "1bc"
 stdin:
 	echo [ab-]*
 	echo [-ab]*
 	echo [!-ab]*
 	echo [!ab]*
 	echo []ab]*
-	:>'./!bc'
-	:>'./^bc'
 	echo [^ab]*
-	echo [!ab]*
+	echo [+--]*
+	echo [--1]*
+
 expected-stdout:
 	-bc abc bbc
 	-bc abc bbc
-	cbc
-	-bc cbc
+	!bc +bc ,bc 0bc 1bc ^bc cbc
+	!bc +bc ,bc -bc 0bc 1bc ^bc cbc
 	abc bbc
 	^bc abc bbc
-	!bc -bc ^bc cbc
+	+bc ,bc -bc
+	-bc 0bc 1bc
 ---
 name: glob-range-2
 description:
@@ -2408,7 +2458,7 @@ description:
 # breaks on Mac OSX (HFS+ non-standard Unicode canonical decomposition)
 # breaks on Cygwin 1.7 (files are now UTF-16 or something)
 # breaks on QNX 6.4.1 (says RT)
-category: !os:cygwin,!os:darwin,!os:msys,!os:nto,!os:os2
+category: !os:cygwin,!os:darwin,!os:msys,!os:nto,!os:os2,!os:os390
 need-pass: no
 file-setup: file 644 "aÂc"
 stdin:
@@ -2435,10 +2485,32 @@ file-setup: file 644 "cbc"
 file-setup: file 644 "dbc"
 file-setup: file 644 "ebc"
 file-setup: file 644 "-bc"
+file-setup: file 644 "@bc"
 stdin:
 	echo [a-c-e]*
+	echo [a--@]*
 expected-stdout:
 	-bc abc bbc cbc ebc
+	@bc
+---
+name: glob-word-1
+description:
+	Check BSD word boundary matches
+stdin:
+	t() { [[ $1 = *[[:\<:]]bar[[:\>:]]* ]]; echo =$?; }
+	t 'foo bar baz'
+	t 'foobar baz'
+	t 'foo barbaz'
+	t 'bar'
+	t '_bar'
+	t 'bar_'
+expected-stdout:
+	=0
+	=1
+	=1
+	=0
+	=1
+	=1
 ---
 name: glob-trim-1
 description:
@@ -2695,6 +2767,7 @@ expected-stdout:
 name: heredoc-10
 description:
 	Check direct here document assignment
+category: !shell:ebcdic-yes
 stdin:
 	x=u
 	va=<<EOF
@@ -2743,6 +2816,62 @@ expected-stdout:
 	} vc={=c u \x40=
 	} vd={=d u \x40=
 	} ve={=e $x \x40=
+	} vf={=f $x @=
+	} |
+	| vapp1^vapp2^ |
+---
+name: heredoc-10-ebcdic
+description:
+	Check direct here document assignment
+category: !shell:ebcdic-no
+stdin:
+	x=u
+	va=<<EOF
+	=a $x \x7C=
+	EOF
+	vb=<<'EOF'
+	=b $x \x7C=
+	EOF
+	function foo {
+		vc=<<-EOF
+			=c $x \x7C=
+		EOF
+	}
+	fnd=$(typeset -f foo)
+	print -r -- "$fnd"
+	function foo {
+		echo blub
+	}
+	foo
+	eval "$fnd"
+	foo
+	# rather nonsensical, butâ€¦
+	vd=<<<"=d $x \x7C="
+	ve=<<<'=e $x \x7C='
+	vf=<<<$'=f $x \x7C='
+	# now check
+	print -r -- "| va={$va} vb={$vb} vc={$vc} vd={$vd} ve={$ve} vf={$vf} |"
+	# check append
+	v=<<-EOF
+		vapp1
+	EOF
+	v+=<<-EOF
+		vapp2
+	EOF
+	print -r -- "| ${v//$'\n'/^} |"
+expected-stdout:
+	function foo {
+		vc=<<-EOF 
+	=c $x \x7C=
+	EOF
+	
+	} 
+	blub
+	| va={=a u \x7C=
+	} vb={=b $x \x7C=
+	} vc={=c u \x7C=
+	} vd={=d u \x7C=
+	} ve={=e $x \x7C=
 	} vf={=f $x @=
 	} |
 	| vapp1^vapp2^ |
@@ -3199,7 +3328,7 @@ stdin:
 		echo B
 	      ) &
 	    ' &
-	sleep 2
+	sleep 5
 	echo Left overs: *
 expected-stdout:
 	A
@@ -3263,7 +3392,7 @@ stdin:
 		(sleep 1; foo) &
 		foo
 	    ' &
-	sleep 2
+	sleep 5
 	echo Left overs: *
 expected-stdout:
 	hi
@@ -5034,18 +5163,34 @@ expected-stdout:
 	2 :10/8,16: .
 	3 :10/10,16: .
 ---
-name: integer-base-check-numeric-from
+name: integer-base-check-numeric-from-1
 description:
-	Check behaviour for base one to 36, and that 37 degrades to 10
+	Check behaviour for base one
+category: !shell:ebcdic-yes
 stdin:
 	echo 1:$((1#1))0.
+expected-stdout:
+	1:490.
+---
+name: integer-base-check-numeric-from-1-ebcdic
+description:
+	Check behaviour for base one
+category: !shell:ebcdic-no
+stdin:
+	echo 1:$((1#1))0.
+expected-stdout:
+	1:2410.
+---
+name: integer-base-check-numeric-from-2
+description:
+	Check behaviour for base two to 36, and that 37 degrades to 10
+stdin:
 	i=1
 	while (( ++i <= 37 )); do
 		eval 'echo '$i':$(('$i'#10)).'
 	done
 	echo 37:$($__progname -c 'echo $((37#10))').$?:
 expected-stdout:
-	1:490.
 	2:2.
 	3:3.
 	4:4.
@@ -5084,18 +5229,41 @@ expected-stdout:
 	37:10.
 	37:10.0:
 ---
-name: integer-base-check-numeric-to
+name: integer-base-check-numeric-to-1
 description:
-	Check behaviour for base one to 36, and that 37 degrades to 10
+	Check behaviour for base one
+category: !shell:ebcdic-yes
 stdin:
-	i=0
+	i=1
+	typeset -Uui$i x=0x40
+	eval "typeset -i10 y=$x"
+	print $i:$x.$y.
+expected-stdout:
+	1:1#@.64.
+---
+name: integer-base-check-numeric-to-1-ebcdic
+description:
+	Check behaviour for base one
+category: !shell:ebcdic-no
+stdin:
+	i=1
+	typeset -Uui$i x=0x7C
+	eval "typeset -i10 y=$x"
+	print $i:$x.$y.
+expected-stdout:
+	1:1#@.124.
+---
+name: integer-base-check-numeric-to-2
+description:
+	Check behaviour for base two to 36, and that 37 degrades to 10
+stdin:
+	i=1
 	while (( ++i <= 37 )); do
 		typeset -Uui$i x=0x40
 		eval "typeset -i10 y=$x"
 		print $i:$x.$y.
 	done
 expected-stdout:
-	1:1#@.64.
 	2:2#1000000.64.
 	3:3#2101.64.
 	4:4#1000.64.
@@ -6534,7 +6702,7 @@ name: regression-65
 description:
 	check for a regression with sleep builtin and signal mask
 category: !nojsig
-time-limit: 3
+time-limit: 5
 stdin:
 	sleep 1
 	echo blub |&
@@ -6738,6 +6906,13 @@ expected-exit: e != 0
 expected-stderr-pattern:
 	/read[ -]?only/
 ---
+name: readonly-5
+description:
+	Ensure readonly is idempotent
+stdin:
+	readonly x=1
+	readonly x
+---
 name: syntax-1
 description:
 	Check that lone ampersand is a syntax error
@@ -6870,6 +7045,48 @@ stdin:
 expected-stdout:
 	y1-
 	x2-3- z1-
+---
+name: exec-modern-korn-shell
+description:
+	Check that exec can execute any command that makes it
+	through syntax and parser
+stdin:
+	print '#!'"$__progname"'\necho tf' >lq
+	chmod +x lq
+	PATH=$PWD
+	exec 2>&1
+	foo() { print two; }
+	print =1
+	(exec print one)
+	print =2
+	(exec foo)
+	print =3
+	(exec ls)
+	print =4
+	(exec lq)
+expected-stdout-pattern:
+	/=1\none\n=2\ntwo\n=3\n.*: ls: not found\n=4\ntf\n/
+---
+name: exec-ksh88
+description:
+	Check that exec only executes after a PATH search
+arguments: !-o!posix!
+stdin:
+	print '#!'"$__progname"'\necho tf' >lq
+	chmod +x lq
+	PATH=$PWD
+	exec 2>&1
+	foo() { print two; }
+	print =1
+	(exec print one)
+	print =2
+	(exec foo)
+	print =3
+	(exec ls)
+	print =4
+	(exec lq)
+expected-stdout-pattern:
+	/=1\n.*: print: not found\n=2\n.*: foo: not found\n=3\n.*: ls: not found\n=4\ntf\n/
 ---
 name: xxx-what-do-you-call-this-1
 stdin:
@@ -8233,7 +8450,7 @@ description:
 	multibyte character of the shell input (with -c, from standard
 	input, as file, or as eval argument), but nowhere else
 # breaks on Mac OSX (HFS+ non-standard Unicode canonical decomposition)
-category: !os:darwin
+category: !os:darwin,!shell:ebcdic-yes
 stdin:
 	mkdir foo
 	print '#!/bin/sh\necho ohne' >foo/fnord
@@ -8310,11 +8527,10 @@ expected-stdout:
 expected-stderr-pattern:
 	/(Unrecognized character .... ignored at \..t4 line 1)*/
 ---
-name: utf8opt-1a
+name: utf8opt-1
 description:
 	Check that the utf8-mode flag is not set at non-interactive startup
-category: !os:hpux
-env-setup: !PS1=!PS2=!LC_CTYPE=en_US.UTF-8!
+env-setup: !PS1=!PS2=!LC_CTYPE=@utflocale@!
 stdin:
 	if [[ $- = *U* ]]; then
 		echo is set
@@ -8324,51 +8540,15 @@ stdin:
 expected-stdout:
 	is not set
 ---
-name: utf8opt-1b
-description:
-	Check that the utf8-mode flag is not set at non-interactive startup
-category: os:hpux
-env-setup: !PS1=!PS2=!LC_CTYPE=en_US.utf8!
-stdin:
-	if [[ $- = *U* ]]; then
-		echo is set
-	else
-		echo is not set
-	fi
-expected-stdout:
-	is not set
----
-name: utf8opt-2a
+name: utf8opt-2
 description:
 	Check that the utf8-mode flag is set at interactive startup.
-	-DMKSH_ASSUME_UTF8=0 => expected failure, please ignore
-	-DMKSH_ASSUME_UTF8=1 => not expected, please investigate
-	-UMKSH_ASSUME_UTF8 => not expected, but if your OS is old,
-	 try passing HAVE_SETLOCALE_CTYPE=0 to Build.sh
+	If your OS is old, try passing HAVE_SETLOCALE_CTYPE=0 to Build.sh
 need-pass: no
-category: !os:hpux,!os:msys,!os:os2
+category: !noutf8
 need-ctty: yes
 arguments: !-i!
-env-setup: !PS1=!PS2=!LC_CTYPE=en_US.UTF-8!
-stdin:
-	if [[ $- = *U* ]]; then
-		echo is set
-	else
-		echo is not set
-	fi
-expected-stdout:
-	is set
-expected-stderr-pattern:
-	/(# )*/
----
-name: utf8opt-2b
-description:
-	Check that the utf8-mode flag is set at interactive startup
-	Expected failure if -DMKSH_ASSUME_UTF8=0
-category: os:hpux
-need-ctty: yes
-arguments: !-i!
-env-setup: !PS1=!PS2=!LC_CTYPE=en_US.utf8!
+env-setup: !PS1=!PS2=!LC_CTYPE=@utflocale@!
 stdin:
 	if [[ $- = *U* ]]; then
 		echo is set
@@ -8845,6 +9025,15 @@ expected-stdout:
 	.b:a.b.c.d:
 	.c:a  b.c  d..:
 	.d:a b.c d..:
+---
+name: arrassign-eol
+description:
+	Commands after array assignments are not permitted
+stdin:
+	foo=(a b) env
+expected-exit: e != 0
+expected-stderr-pattern:
+	/syntax error: unexpected 'env'/
 ---
 name: arrassign-fnc-none
 description:
@@ -9348,6 +9537,7 @@ expected-stdout:
 name: varexpand-special-hash
 description:
 	Check special ${var@x} expansion for x=hash
+category: !shell:ebcdic-yes
 stdin:
 	typeset -i8 foo=10
 	bar=baz
@@ -9356,9 +9546,22 @@ stdin:
 expected-stdout:
 	9B15FBFB CFBDD32B 00000000 .
 ---
+name: varexpand-special-hash-ebcdic
+description:
+	Check special ${var@x} expansion for x=hash
+category: !shell:ebcdic-no
+stdin:
+	typeset -i8 foo=10
+	bar=baz
+	unset baz
+	print ${foo@#} ${bar@#} ${baz@#} .
+expected-stdout:
+	016AE33D 9769C4AF 00000000 .
+---
 name: varexpand-special-quote
 description:
 	Check special ${var@Q} expansion for quoted strings
+category: !shell:faux-ebcdic
 stdin:
 	set +U
 	i=x
@@ -9377,6 +9580,29 @@ expected-stdout:
 	typeset u=x
 	typeset v='a b'
 	typeset w=$'c\nd\240e\u20ACf'
+---
+name: varexpand-special-quote-faux-EBCDIC
+description:
+	Check special ${var@Q} expansion for quoted strings
+category: shell:faux-ebcdic
+stdin:
+	set +U
+	i=x
+	j=a\ b
+	k=$'c
+	d\xA0''eâ‚¬f'
+	print -r -- "<i=$i j=$j k=$k>"
+	s="u=${i@Q} v=${j@Q} w=${k@Q}"
+	print -r -- "s=\"$s\""
+	eval "$s"
+	typeset -p u v w
+expected-stdout:
+	<i=x j=a b k=c
+	d eâ‚¬f>
+	s="u=x v='a b' w=$'c\nd e\u20ACf'"
+	typeset u=x
+	typeset v='a b'
+	typeset w=$'c\nd e\u20ACf'
 ---
 name: varexpand-null-1
 description:
@@ -9718,7 +9944,7 @@ stdin:
 	    $'\J\K\L\M\N\O\P\Q\R\S\T\U1\V\W\X\Y\Z\[\\\]\^\_\`\a\b\d\e' \
 	    $'\f\g\h\i\j\k\l\m\n\o\p\q\r\s\t\u1\v\w\x1\y\z\{\|\}\~ $x' \
 	    $'\u20acd' $'\U20acd' $'\x123' $'fn\x0rd' $'\0234' $'\234' \
-	    $'\2345' $'\ca' $'\c!' $'\c?' $'\câ‚¬' $'a\
+	    $'\2345' $'\ca' $'\c!' $'\c?' $'\câ€¦' $'a\
 	b' | {
 		# integer-base-one-3As
 		typeset -Uui16 -Z11 pos=0
@@ -9760,7 +9986,7 @@ expected-stdout:
 	00000050  68 69 6A 6B 6C 6D 0A 6F - 70 71 0D 73 09 01 0B 77  |hijklm.opq.s...w|
 	00000060  01 79 7A 7B 7C 7D 7E 20 - 24 78 0A E2 82 AC 64 0A  |.yz{|}~ $x....d.|
 	00000070  EF BF BD 0A C4 A3 0A 66 - 6E 0A 13 34 0A 9C 0A 9C  |.......fn..4....|
-	00000080  35 0A 01 0A 01 0A 7F 0A - 02 82 AC 0A 61 0A 62 0A  |5...........a.b.|
+	00000080  35 0A 01 0A 01 0A 7F 0A - 82 80 A6 0A 61 0A 62 0A  |5...........a.b.|
 ---
 name: dollar-quotes-in-heredocs-strings
 description:
@@ -10391,6 +10617,7 @@ expected-stdout:
 name: integer-base-one-5A
 description:
 	Check to see that weâ€™re NUL and Unicode safe
+category: !shell:ebcdic-yes
 stdin:
 	set +U
 	print 'a\0b\xfdz' >x
@@ -10400,6 +10627,20 @@ stdin:
 	print ${y[*]} .
 expected-stdout:
 	16#61 16#0 16#62 16#FD 16#7A .
+---
+name: integer-base-one-5E
+description:
+	Check to see that weâ€™re NUL and Unicode safe
+category: !shell:ebcdic-no
+stdin:
+	set +U
+	print 'a\0b\xfdz' >x
+	read -a y <x
+	set -U
+	typeset -Uui16 y
+	print ${y[*]} .
+expected-stdout:
+	16#81 16#0 16#82 16#FD 16#A9 .
 ---
 name: integer-base-one-5W
 description:
@@ -11486,19 +11727,19 @@ expected-stdout:
 		echo $(true) $((1+ 2)) ${  :;} ${| REPLY=x;}
 	}
 	inline_COMSUB_EXPRSUB_FUNSUB_VALSUB() {
-		\echo $(\true ) $((1+ 2)) ${ : ;} ${|REPLY=x ;} 
+		\echo $(\true ) $((1+ 2)) ${ \: ;} ${|REPLY=x ;} 
 	} 
 	function comsub_COMSUB_EXPRSUB_FUNSUB_VALSUB { x=$(
 		echo $(true) $((1+ 2)) ${  :;} ${| REPLY=x;}
 	); }
 	function comsub_COMSUB_EXPRSUB_FUNSUB_VALSUB {
-		x=$(\echo $(\true ) $((1+ 2)) ${ : ;} ${|REPLY=x ;} ) 
+		x=$(\echo $(\true ) $((1+ 2)) ${ \: ;} ${|REPLY=x ;} ) 
 	} 
 	function reread_COMSUB_EXPRSUB_FUNSUB_VALSUB { x=$((
 		echo $(true) $((1+ 2)) ${  :;} ${| REPLY=x;}
 	)|tr u x); }
 	function reread_COMSUB_EXPRSUB_FUNSUB_VALSUB {
-		x=$( ( \echo $(\true ) $((1+ 2)) ${ : ;} ${|REPLY=x ;} ) | \tr u x ) 
+		x=$( ( \echo $(\true ) $((1+ 2)) ${ \: ;} ${|REPLY=x ;} ) | \tr u x ) 
 	} 
 	inline_QCHAR_OQUOTE_CQUOTE() {
 		echo fo\ob\"a\`r\'b\$az
@@ -12498,8 +12739,19 @@ expected-stdout:
 name: echo-test-1
 description:
 	Test what the echo builtin does (mksh)
+category: !shell:ebcdic-yes
 stdin:
 	echo -n 'foo\x40bar'
+	echo -e '\tbaz'
+expected-stdout:
+	foo@bar	baz
+---
+name: echo-test-1-ebcdic
+description:
+	Test what the echo builtin does (mksh)
+category: !shell:ebcdic-no
+stdin:
+	echo -n 'foo\x7Cbar'
 	echo -e '\tbaz'
 expected-stdout:
 	foo@bar	baz
@@ -12534,7 +12786,7 @@ expected-stdout:
 name: echo-test-3-normal
 description:
 	Test what the echo builtin does, and test a compatibility flag.
-category: !mnbsdash
+category: !mnbsdash,!shell:ebcdic-yes
 stdin:
 	"$__progname" -c 'echo -n 1=\\x40$1; echo -e \\x2E' -- foo bar
 	"$__progname" -o posix -c 'echo -n 2=\\x40$1; echo -e \\x2E' -- foo bar
@@ -12543,6 +12795,19 @@ expected-stdout:
 	1=@foo.
 	2=\x40foo-e \x2E
 	3=\x40foo-e \x2E
+---
+name: echo-test-3-ebcdic
+description:
+	Test what the echo builtin does, and test a compatibility flag.
+category: !mnbsdash,!shell:ebcdic-no
+stdin:
+	"$__progname" -c 'echo -n 1=\\x7C$1; echo -e \\x4B' -- foo bar
+	"$__progname" -o posix -c 'echo -n 2=\\x7C$1; echo -e \\x4B' -- foo bar
+	"$__progname" -o sh -c 'echo -n 3=\\x7C$1; echo -e \\x4B' -- foo bar
+expected-stdout:
+	1=@foo.
+	2=\x7Cfoo-e \x4B
+	3=\x7Cfoo-e \x4B
 ---
 name: utilities-getopts-1
 description:
@@ -12979,6 +13244,7 @@ name: duffs-device
 description:
 	Check that the compiler did not optimise-break them
 	(lex.c has got a similar one in SHEREDELIM)
+category: !shell:faux-ebcdic,!shell:ebcdic-yes
 stdin:
 	set +U
 	s=
@@ -12990,6 +13256,38 @@ stdin:
 	typeset -p s
 expected-stdout:
 	typeset s=$'\001\002\003\004\005\006\a\b\t\n\v\f\r\016\017\020\021\022\023\024\025\026\027\030\031\032\E\034\035\036\037 !"#$%&\047()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~\177\200\201\202\203\204\205\206\207\210\211\212\213\214\215\216\217\220\221\222\223\224\225\226\227\230\231\232\233\234\235\236\237\240\241\242\243\244\245\246\247\250\251\252\253\254\255\256\257\260\261\262\263\264\265\266\267\270\271\272\273\274\275\276\277\300\301\302\303\304\305\306\307\310\311\312\313\314\315\316\317\320\321\322\323\324\325\326\327\330\331\332\333\334\335\336\337\340\341\342\343\344\345\346\347\350\351\352\353\354\355\356\357\360\361\362\363\364\365\366\367\370\371\372\373\374\375\376\377\u00A0\u20AC\uFFFD\357\277\276\357\277\277\360\220\200\200.'
+---
+name: duffs-device-ebcdic
+description:
+	Check that the compiler did not optimise-break them
+category: !shell:ebcdic-no
+stdin:
+	set +U
+	s=
+	typeset -i1 i=0
+	while (( ++i < 256 )); do
+		s+=${i#1#}
+	done
+	#s+=$'\xC2\xA0\xE2\x82\xAC\xEF\xBF\xBD\xEF\xBF\xBE\xEF\xBF\xBF\xF0\x90\x80\x80.' #XXX
+	typeset -p s
+expected-stdout:
+	typeset s=$'\001\002\003\004\t\006\007\010\011\012\v\f\r\016\017\020\021\022\023\024\n\b\027\030\031\032\033\034\035\036\037\040\041\042\043\044\045\046\E\050\051\052\053\054\055\056\a\060\061\062\063\064\065\066\067\070\071\072\073\074\075\076\077  âäàáãåçñ¢.<(+|&éêëèíîïìß!$*);^-/ÂÄÀÁÃÅÇÑ¦,%_>?øÉÊËÈÍÎÏÌ`:#@\175="Øabcdefghi«»ðýþ±°jklmnopqrªºæ¸Æ¤µ~stuvwxyz¡¿Ð[Þ®¬£¥·©§¶¼½¾Ý¨¯]´×{ABCDEFGHI­ôöòóõ}JKLMNOPQR¹ûüùúÿ\\÷STUVWXYZ²ÔÖÒÓÕ0123456789³ÛÜÙÚ\377'
+---
+name: duffs-device-faux-EBCDIC
+description:
+	Check that the compiler did not optimise-break them
+category: shell:faux-ebcdic
+stdin:
+	set +U
+	s=
+	typeset -i1 i=0
+	while (( ++i < 256 )); do
+		s+=${i#1#}
+	done
+	s+=$'\xC2\xA0\xE2\x82\xAC\xEF\xBF\xBD\xEF\xBF\xBE\xEF\xBF\xBF\xF0\x90\x80\x80.'
+	typeset -p s
+expected-stdout:
+	typeset s=$'\001\002\003\004\005\006\a\b\t\n\v\f\r\016\017\020\021\022\023\024\025\026\027\030\031\032\E\034\035\036\037 !"#$%&\047()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~\177\200\201\202\203\204\205\206\207\210\211\212\213\214\215\216\217\220\221\222\223\224\225\226\227\230\231\232\233\234\235\236\237 ¡¢£¤¥¦§¨©ª«¬­®¯°±²³´µ¶·¸¹º»¼½¾¿ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖ×ØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõö÷øùúûüýþÿ\u00A0\u20AC\uFFFDï¿¾ï¿¿ð\220\200\200.'
 ---
 name: stateptr-underflow
 description:

@@ -17,7 +17,6 @@
 package com.android.bluetooth;
 
 import android.app.ActivityManager;
-import android.app.ActivityThread;
 import android.app.AppOpsManager;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
@@ -29,6 +28,7 @@ import android.os.Binder;
 import android.os.Build;
 import android.os.ParcelUuid;
 import android.os.Process;
+import android.os.SystemProperties;
 import android.os.UserHandle;
 import android.os.UserManager;
 import android.util.Log;
@@ -46,9 +46,10 @@ import java.util.concurrent.TimeUnit;
  * @hide
  */
 
-final public class Utils {
+public final class Utils {
     private static final String TAG = "BluetoothUtils";
     private static final int MICROS_PER_UNIT = 625;
+    private static final String PTS_TEST_MODE_PROPERTY = "persist.bluetooth.pts";
 
     static final int BD_ADDR_LEN = 6; // bytes
     static final int BD_UUID_LEN = 16; // bytes
@@ -58,9 +59,8 @@ final public class Utils {
             return null;
         }
 
-        return String.format("%02X:%02X:%02X:%02X:%02X:%02X",
-                address[0], address[1], address[2], address[3], address[4],
-                address[5]);
+        return String.format("%02X:%02X:%02X:%02X:%02X:%02X", address[0], address[1], address[2],
+                address[3], address[4], address[5]);
     }
 
     public static byte[] getByteAddress(BluetoothDevice device) {
@@ -101,7 +101,9 @@ final public class Utils {
     public static String byteArrayToString(byte[] valueBuf) {
         StringBuilder sb = new StringBuilder();
         for (int idx = 0; idx < valueBuf.length; idx++) {
-            if (idx != 0) sb.append(" ");
+            if (idx != 0) {
+                sb.append(" ");
+            }
             sb.append(String.format("%02x", valueBuf[idx]));
         }
         return sb.toString();
@@ -153,8 +155,8 @@ final public class Utils {
         converter.order(ByteOrder.BIG_ENDIAN);
 
         for (int i = 0; i < numUuids; i++) {
-            puuids[i] = new ParcelUuid(new UUID(converter.getLong(offset),
-                    converter.getLong(offset + 8)));
+            puuids[i] = new ParcelUuid(
+                    new UUID(converter.getLong(offset), converter.getLong(offset + 8)));
             offset += BD_UUID_LEN;
         }
         return puuids;
@@ -177,9 +179,15 @@ final public class Utils {
 
     public static String ellipsize(String s) {
         // Only ellipsize release builds
-        if (!Build.TYPE.equals("user")) return s;
-        if (s == null) return null;
-        if (s.length() < 3) return s;
+        if (!Build.TYPE.equals("user")) {
+            return s;
+        }
+        if (s == null) {
+            return null;
+        }
+        if (s.length() < 3) {
+            return s;
+        }
         return s.charAt(0) + "⋯" + s.charAt(s.length() - 1);
     }
 
@@ -214,67 +222,46 @@ final public class Utils {
         }
     }
 
+    static int sSystemUiUid = UserHandle.USER_NULL;
+    public static void setSystemUiUid(int uid) {
+        Utils.sSystemUiUid = uid;
+    }
+
+    static int sForegroundUserId = UserHandle.USER_NULL;
+    public static void setForegroundUserId(int uid) {
+        Utils.sForegroundUserId = uid;
+    }
+
     public static boolean checkCaller() {
-        boolean ok;
-        // Get the caller's user id then clear the calling identity
-        // which will be restored in the finally clause.
         int callingUser = UserHandle.getCallingUserId();
         int callingUid = Binder.getCallingUid();
-        long ident = Binder.clearCallingIdentity();
-
-        try {
-            // With calling identity cleared the current user is the foreground user.
-            int foregroundUser = ActivityManager.getCurrentUser();
-            ok = (foregroundUser == callingUser);
-            if (!ok) {
-                // Always allow SystemUI/System access.
-                final int systemUiUid = ActivityThread.getPackageManager().getPackageUid(
-                        "com.android.systemui", PackageManager.MATCH_SYSTEM_ONLY,
-                        UserHandle.USER_SYSTEM);
-                ok = (systemUiUid == callingUid) || (Process.SYSTEM_UID == callingUid);
-            }
-        } catch (Exception ex) {
-            Log.e(TAG, "checkIfCallerIsSelfOrForegroundUser: Exception ex=" + ex);
-            ok = false;
-        } finally {
-            Binder.restoreCallingIdentity(ident);
-        }
-        return ok;
+        return (sForegroundUserId == callingUser) || (sSystemUiUid == callingUid)
+                || (Process.SYSTEM_UID == callingUid);
     }
 
     public static boolean checkCallerAllowManagedProfiles(Context mContext) {
         if (mContext == null) {
             return checkCaller();
         }
-        boolean ok;
-        // Get the caller's user id and if it's a managed profile, get it's parents
-        // id, then clear the calling identity
-        // which will be restored in the finally clause.
         int callingUser = UserHandle.getCallingUserId();
         int callingUid = Binder.getCallingUid();
+
+        // Use the Bluetooth process identity when making call to get parent user
         long ident = Binder.clearCallingIdentity();
         try {
             UserManager um = (UserManager) mContext.getSystemService(Context.USER_SERVICE);
             UserInfo ui = um.getProfileParent(callingUser);
             int parentUser = (ui != null) ? ui.id : UserHandle.USER_NULL;
-            // With calling identity cleared the current user is the foreground user.
-            int foregroundUser = ActivityManager.getCurrentUser();
-            ok = (foregroundUser == callingUser) ||
-                    (foregroundUser == parentUser);
-            if (!ok) {
-                // Always allow SystemUI/System access.
-                final int systemUiUid = ActivityThread.getPackageManager().getPackageUid(
-                        "com.android.systemui", PackageManager.MATCH_SYSTEM_ONLY,
-                        UserHandle.USER_SYSTEM);
-                ok = (systemUiUid == callingUid) || (Process.SYSTEM_UID == callingUid);
-            }
+
+            // Always allow SystemUI/System access.
+            return (sForegroundUserId == callingUser) || (sForegroundUserId == parentUser)
+                    || (sSystemUiUid == callingUid) || (Process.SYSTEM_UID == callingUid);
         } catch (Exception ex) {
             Log.e(TAG, "checkCallerAllowManagedProfiles: Exception ex=" + ex);
-            ok = false;
+            return false;
         } finally {
             Binder.restoreCallingIdentity(ident);
         }
-        return ok;
     }
 
     /**
@@ -295,15 +282,15 @@ final public class Utils {
      */
     public static boolean checkCallerHasLocationPermission(Context context, AppOpsManager appOps,
             String callingPackage) {
-        if (context.checkCallingOrSelfPermission(android.Manifest.permission.
-                ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
-                && isAppOppAllowed(appOps, AppOpsManager.OP_FINE_LOCATION, callingPackage)) {
+        if (context.checkCallingOrSelfPermission(android.Manifest.permission.ACCESS_FINE_LOCATION)
+                == PackageManager.PERMISSION_GRANTED && isAppOppAllowed(
+                        appOps, AppOpsManager.OP_FINE_LOCATION, callingPackage)) {
             return true;
         }
 
-        if (context.checkCallingOrSelfPermission(android.Manifest.permission.
-                ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
-                && isAppOppAllowed(appOps, AppOpsManager.OP_COARSE_LOCATION, callingPackage)) {
+        if (context.checkCallingOrSelfPermission(android.Manifest.permission.ACCESS_COARSE_LOCATION)
+                == PackageManager.PERMISSION_GRANTED && isAppOppAllowed(
+                        appOps, AppOpsManager.OP_COARSE_LOCATION, callingPackage)) {
             return true;
         }
         // Enforce location permission for apps targeting M and later versions
@@ -330,8 +317,8 @@ final public class Utils {
      * Returns true if the caller holds PEERS_MAC_ADDRESS.
      */
     public static boolean checkCallerHasPeersMacAddressPermission(Context context) {
-        return context.checkCallingOrSelfPermission(
-                android.Manifest.permission.PEERS_MAC_ADDRESS) == PackageManager.PERMISSION_GRANTED;
+        return context.checkCallingOrSelfPermission(android.Manifest.permission.PEERS_MAC_ADDRESS)
+                == PackageManager.PERMISSION_GRANTED;
     }
 
     public static boolean isLegacyForegroundApp(Context context, String pkgName) {
@@ -340,8 +327,8 @@ final public class Utils {
 
     private static boolean isMApp(Context context, String pkgName) {
         try {
-            return context.getPackageManager().getApplicationInfo(pkgName, 0)
-                    .targetSdkVersion >= Build.VERSION_CODES.M;
+            return context.getPackageManager().getApplicationInfo(pkgName, 0).targetSdkVersion
+                    >= Build.VERSION_CODES.M;
         } catch (PackageManager.NameNotFoundException e) {
             // In case of exception, assume M app
         }
@@ -354,7 +341,7 @@ final public class Utils {
      * @param pkgName application package name.
      */
     private static boolean isForegroundApp(Context context, String pkgName) {
-        ActivityManager am = (ActivityManager)context.getSystemService(Context.ACTIVITY_SERVICE);
+        ActivityManager am = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
         List<ActivityManager.RunningTaskInfo> tasks = am.getRunningTasks(1);
         return !tasks.isEmpty() && pkgName.equals(tasks.get(0).topActivity.getPackageName());
     }
@@ -369,5 +356,51 @@ final public class Utils {
      */
     public static int millsToUnit(int milliseconds) {
         return (int) (TimeUnit.MILLISECONDS.toMicros(milliseconds) / MICROS_PER_UNIT);
+    }
+
+    /**
+     * Check if we are running in BluetoothInstrumentationTest context by trying to load
+     * com.android.bluetooth.FileSystemWriteTest. If we are not in Instrumentation test mode, this
+     * class should not be found. Thus, the assumption is that FileSystemWriteTest must exist.
+     * If FileSystemWriteTest is removed in the future, another test class in
+     * BluetoothInstrumentationTest should be used instead
+     *
+     * @return true if in BluetoothInstrumentationTest, false otherwise
+     */
+    public static boolean isInstrumentationTestMode() {
+        try {
+            return Class.forName("com.android.bluetooth.FileSystemWriteTest") != null;
+        } catch (ClassNotFoundException exception) {
+            return false;
+        }
+    }
+
+    /**
+     * Throws {@link IllegalStateException} if we are not in BluetoothInstrumentationTest. Useful
+     * for ensuring certain methods only get called in BluetoothInstrumentationTest
+     */
+    public static void enforceInstrumentationTestMode() {
+        if (!isInstrumentationTestMode()) {
+            throw new IllegalStateException("Not in BluetoothInstrumentationTest");
+        }
+    }
+
+    /**
+     * Check if we are running in PTS test mode. To enable/disable PTS test mode, invoke
+     * {@code adb shell setprop persist.bluetooth.pts true/false}
+     *
+     * @return true if in PTS Test mode, false otherwise
+     */
+    public static boolean isPtsTestMode() {
+        return SystemProperties.getBoolean(PTS_TEST_MODE_PROPERTY, false);
+    }
+
+    /**
+     * Get uid/pid string in a binder call
+     *
+     * @return "uid/pid=xxxx/yyyy"
+     */
+    public static String getUidPidString() {
+        return "uid/pid=" + Binder.getCallingUid() + "/" + Binder.getCallingPid();
     }
 }
