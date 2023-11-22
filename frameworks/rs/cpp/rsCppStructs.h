@@ -541,7 +541,7 @@ public:
     void * getID() const;
     virtual ~BaseObj();
     virtual void updateFromNative();
-    virtual bool equals(sp<const BaseObj> obj);
+    virtual bool equals(const sp<const BaseObj>& obj);
 
 protected:
     void *mID;
@@ -551,7 +551,7 @@ protected:
     BaseObj(void *id, sp<RS> rs);
     void checkValid();
 
-    static void * getObjID(sp<const BaseObj> o);
+    static void * getObjID(const sp<const BaseObj>& o);
 
 };
 
@@ -594,7 +594,7 @@ protected:
     uint32_t mCurrentCount;
 
     void * getIDSafe() const;
-    void updateCacheInfo(sp<const Type> t);
+    void updateCacheInfo(const sp<const Type>& t);
 
     Allocation(void *id, sp<RS> rs, sp<const Type> t, uint32_t usage);
 
@@ -651,7 +651,7 @@ public:
      */
     void ioGetInput();
 
-#if !defined(RS_SERVER) && !defined(RS_COMPATIBILITY_LIB)
+#ifndef RS_COMPATIBILITY_LIB
     /**
      * Returns the handle to a raw buffer that is being managed by the screen
      * compositor. This operation is only valid for Allocations with USAGE_IO_INPUT.
@@ -664,7 +664,7 @@ public:
      * operation is only valid for Allocations with USAGE_IO_OUTPUT.
      * @param[in] s Surface to associate with allocation
      */
-    void setSurface(sp<Surface> s);
+    void setSurface(const sp<Surface>& s);
 #endif
 
     /**
@@ -691,7 +691,7 @@ public:
      * @param[in] data Allocation from which to copy
      * @param[in] dataOff offset of first Element in data to copy
      */
-    void copy1DRangeFrom(uint32_t off, size_t count, sp<const Allocation> data, uint32_t dataOff);
+    void copy1DRangeFrom(uint32_t off, size_t count, const sp<const Allocation>& data, uint32_t dataOff);
 
     /**
      * Copy an array into part of this Allocation.
@@ -748,7 +748,7 @@ public:
      * @param[in] dataYoff Y offset of region to copy from in data
      */
     void copy2DRangeFrom(uint32_t xoff, uint32_t yoff, uint32_t w, uint32_t h,
-                         sp<const Allocation> data, uint32_t dataXoff, uint32_t dataYoff);
+                         const sp<const Allocation>& data, uint32_t dataXoff, uint32_t dataYoff);
 
     /**
      * Copy from a strided array into a rectangular region in this Allocation.
@@ -818,7 +818,7 @@ public:
      */
     void copy3DRangeFrom(uint32_t xoff, uint32_t yoff, uint32_t zoff,
                          uint32_t w, uint32_t h, uint32_t d,
-                         sp<const Allocation> data,
+                         const sp<const Allocation>& data,
                          uint32_t dataXoff, uint32_t dataYoff, uint32_t dataZoff);
 
     /**
@@ -843,7 +843,7 @@ public:
      * @param[in] usage usage for the Allocation
      * @return new Allocation
      */
-    static sp<Allocation> createTyped(sp<RS> rs, sp<const Type> type,
+    static sp<Allocation> createTyped(const sp<RS>& rs, const sp<const Type>& type,
                                    RsAllocationMipmapControl mipmaps, uint32_t usage);
 
     /**
@@ -856,7 +856,7 @@ public:
      * @param[in] pointer existing backing store to use for this Allocation if possible
      * @return new Allocation
      */
-    static sp<Allocation> createTyped(sp<RS> rs, sp<const Type> type,
+    static sp<Allocation> createTyped(const sp<RS>& rs, const sp<const Type>& type,
                                    RsAllocationMipmapControl mipmaps, uint32_t usage, void * pointer);
 
     /**
@@ -866,7 +866,7 @@ public:
      * @param[in] usage usage for the Allocation
      * @return new Allocation
      */
-    static sp<Allocation> createTyped(sp<RS> rs, sp<const Type> type,
+    static sp<Allocation> createTyped(const sp<RS>& rs, const sp<const Type>& type,
                                    uint32_t usage = RS_ALLOCATION_USAGE_SCRIPT);
     /**
      * Creates an Allocation with a specified number of given elements.
@@ -876,7 +876,7 @@ public:
      * @param[in] usage usage for the Allocation
      * @return new Allocation
      */
-    static sp<Allocation> createSized(sp<RS> rs, sp<const Element> e, size_t count,
+    static sp<Allocation> createSized(const sp<RS>& rs, const sp<const Element>& e, size_t count,
                                    uint32_t usage = RS_ALLOCATION_USAGE_SCRIPT);
 
     /**
@@ -888,7 +888,7 @@ public:
      * @param[in] usage usage for the Allocation
      * @return new Allocation
      */
-    static sp<Allocation> createSized2D(sp<RS> rs, sp<const Element> e,
+    static sp<Allocation> createSized2D(const sp<RS>& rs, const sp<const Element>& e,
                                         size_t x, size_t y,
                                         uint32_t usage = RS_ALLOCATION_USAGE_SCRIPT);
 
@@ -1004,363 +1004,363 @@ public:
      * @param[in] rs RenderScript context
      * @return Element
      */
-    static sp<const Element> BOOLEAN(sp<RS> rs);
+    static sp<const Element> BOOLEAN(const sp<RS> &rs);
     /**
      * Utility function for returning an Element containing a single unsigned char.
      * @param[in] rs RenderScript context
      * @return Element
      */
-    static sp<const Element> U8(sp<RS> rs);
+    static sp<const Element> U8(const sp<RS> &rs);
     /**
      * Utility function for returning an Element containing a single signed char.
      * @param[in] rs RenderScript context
      * @return Element
      */
-    static sp<const Element> I8(sp<RS> rs);
+    static sp<const Element> I8(const sp<RS> &rs);
     /**
      * Utility function for returning an Element containing a single unsigned short.
      * @param[in] rs RenderScript context
      * @return Element
      */
-    static sp<const Element> U16(sp<RS> rs);
+    static sp<const Element> U16(const sp<RS> &rs);
     /**
      * Utility function for returning an Element containing a single signed short.
      * @param[in] rs RenderScript context
      * @return Element
      */
-    static sp<const Element> I16(sp<RS> rs);
+    static sp<const Element> I16(const sp<RS> &rs);
     /**
      * Utility function for returning an Element containing a single unsigned int.
      * @param[in] rs RenderScript context
      * @return Element
      */
-    static sp<const Element> U32(sp<RS> rs);
+    static sp<const Element> U32(const sp<RS> &rs);
     /**
      * Utility function for returning an Element containing a single signed int.
      * @param[in] rs RenderScript context
      * @return Element
      */
-    static sp<const Element> I32(sp<RS> rs);
+    static sp<const Element> I32(const sp<RS> &rs);
     /**
      * Utility function for returning an Element containing a single unsigned long long.
      * @param[in] rs RenderScript context
      * @return Element
      */
-    static sp<const Element> U64(sp<RS> rs);
+    static sp<const Element> U64(const sp<RS> &rs);
     /**
      * Utility function for returning an Element containing a single signed long long.
      * @param[in] rs RenderScript context
      * @return Element
      */
-    static sp<const Element> I64(sp<RS> rs);
+    static sp<const Element> I64(const sp<RS> &rs);
     /**
      * Utility function for returning an Element containing a single half.
      * @param[in] rs RenderScript context
      * @return Element
      */
-    static sp<const Element> F16(sp<RS> rs);
+    static sp<const Element> F16(const sp<RS> &rs);
     /**
      * Utility function for returning an Element containing a single float.
      * @param[in] rs RenderScript context
      * @return Element
      */
-    static sp<const Element> F32(sp<RS> rs);
+    static sp<const Element> F32(const sp<RS> &rs);
     /**
      * Utility function for returning an Element containing a single double.
      * @param[in] rs RenderScript context
      * @return Element
      */
-    static sp<const Element> F64(sp<RS> rs);
+    static sp<const Element> F64(const sp<RS> &rs);
     /**
      * Utility function for returning an Element containing a single Element.
      * @param[in] rs RenderScript context
      * @return Element
      */
-    static sp<const Element> ELEMENT(sp<RS> rs);
+    static sp<const Element> ELEMENT(const sp<RS> &rs);
     /**
      * Utility function for returning an Element containing a single Type.
      * @param[in] rs RenderScript context
      * @return Element
      */
-    static sp<const Element> TYPE(sp<RS> rs);
+    static sp<const Element> TYPE(const sp<RS> &rs);
     /**
      * Utility function for returning an Element containing a single Allocation.
      * @param[in] rs RenderScript context
      * @return Element
      */
-    static sp<const Element> ALLOCATION(sp<RS> rs);
+    static sp<const Element> ALLOCATION(const sp<RS> &rs);
     /**
      * Utility function for returning an Element containing a single Sampler.
      * @param[in] rs RenderScript context
      * @return Element
      */
-    static sp<const Element> SAMPLER(sp<RS> rs);
+    static sp<const Element> SAMPLER(const sp<RS> &rs);
     /**
      * Utility function for returning an Element containing a single Script.
      * @param[in] rs RenderScript context
      * @return Element
      */
-    static sp<const Element> SCRIPT(sp<RS> rs);
+    static sp<const Element> SCRIPT(const sp<RS> &rs);
     /**
      * Utility function for returning an Element containing an ALPHA_8 pixel.
      * @param[in] rs RenderScript context
      * @return Element
      */
-    static sp<const Element> A_8(sp<RS> rs);
+    static sp<const Element> A_8(const sp<RS> &rs);
     /**
      * Utility function for returning an Element containing an RGB_565 pixel.
      * @param[in] rs RenderScript context
      * @return Element
      */
-    static sp<const Element> RGB_565(sp<RS> rs);
+    static sp<const Element> RGB_565(const sp<RS> &rs);
     /**
      * Utility function for returning an Element containing an RGB_888 pixel.
      * @param[in] rs RenderScript context
      * @return Element
      */
-    static sp<const Element> RGB_888(sp<RS> rs);
+    static sp<const Element> RGB_888(const sp<RS> &rs);
     /**
      * Utility function for returning an Element containing an RGBA_5551 pixel.
      * @param[in] rs RenderScript context
      * @return Element
      */
-    static sp<const Element> RGBA_5551(sp<RS> rs);
+    static sp<const Element> RGBA_5551(const sp<RS> &rs);
     /**
      * Utility function for returning an Element containing an RGBA_4444 pixel.
      * @param[in] rs RenderScript context
      * @return Element
      */
-    static sp<const Element> RGBA_4444(sp<RS> rs);
+    static sp<const Element> RGBA_4444(const sp<RS> &rs);
     /**
      * Utility function for returning an Element containing an RGBA_8888 pixel.
      * @param[in] rs RenderScript context
      * @return Element
      */
-    static sp<const Element> RGBA_8888(sp<RS> rs);
+    static sp<const Element> RGBA_8888(const sp<RS> &rs);
 
     /**
      * Utility function for returning an Element containing a half2.
      * @param[in] rs RenderScript context
      * @return Element
      */
-    static sp<const Element> F16_2(sp<RS> rs);
+    static sp<const Element> F16_2(const sp<RS> &rs);
     /**
      * Utility function for returning an Element containing a half3.
      * @param[in] rs RenderScript context
      * @return Element
      */
-    static sp<const Element> F16_3(sp<RS> rs);
+    static sp<const Element> F16_3(const sp<RS> &rs);
     /**
      * Utility function for returning an Element containing a half4.
      * @param[in] rs RenderScript context
      * @return Element
      */
-    static sp<const Element> F16_4(sp<RS> rs);
+    static sp<const Element> F16_4(const sp<RS> &rs);
 
     /**
      * Utility function for returning an Element containing a float2.
      * @param[in] rs RenderScript context
      * @return Element
      */
-    static sp<const Element> F32_2(sp<RS> rs);
+    static sp<const Element> F32_2(const sp<RS> &rs);
     /**
      * Utility function for returning an Element containing a float3.
      * @param[in] rs RenderScript context
      * @return Element
      */
-    static sp<const Element> F32_3(sp<RS> rs);
+    static sp<const Element> F32_3(const sp<RS> &rs);
     /**
      * Utility function for returning an Element containing a float4.
      * @param[in] rs RenderScript context
      * @return Element
      */
-    static sp<const Element> F32_4(sp<RS> rs);
+    static sp<const Element> F32_4(const sp<RS> &rs);
     /**
      * Utility function for returning an Element containing a double2.
      * @param[in] rs RenderScript context
      * @return Element
      */
-    static sp<const Element> F64_2(sp<RS> rs);
+    static sp<const Element> F64_2(const sp<RS> &rs);
     /**
      * Utility function for returning an Element containing a double3.
      * @param[in] rs RenderScript context
      * @return Element
      */
-    static sp<const Element> F64_3(sp<RS> rs);
+    static sp<const Element> F64_3(const sp<RS> &rs);
     /**
      * Utility function for returning an Element containing a double4.
      * @param[in] rs RenderScript context
      * @return Element
      */
-    static sp<const Element> F64_4(sp<RS> rs);
+    static sp<const Element> F64_4(const sp<RS> &rs);
     /**
      * Utility function for returning an Element containing a uchar2.
      * @param[in] rs RenderScript context
      * @return Element
      */
-    static sp<const Element> U8_2(sp<RS> rs);
+    static sp<const Element> U8_2(const sp<RS> &rs);
     /**
      * Utility function for returning an Element containing a uchar3.
      * @param[in] rs RenderScript context
      * @return Element
      */
-    static sp<const Element> U8_3(sp<RS> rs);
+    static sp<const Element> U8_3(const sp<RS> &rs);
     /**
      * Utility function for returning an Element containing a uchar4.
      * @param[in] rs RenderScript context
      * @return Element
      */
-    static sp<const Element> U8_4(sp<RS> rs);
+    static sp<const Element> U8_4(const sp<RS> &rs);
     /**
      * Utility function for returning an Element containing a char2.
      * @param[in] rs RenderScript context
      * @return Element
      */
-    static sp<const Element> I8_2(sp<RS> rs);
+    static sp<const Element> I8_2(const sp<RS> &rs);
     /**
      * Utility function for returning an Element containing a char3.
      * @param[in] rs RenderScript context
      * @return Element
      */
-    static sp<const Element> I8_3(sp<RS> rs);
+    static sp<const Element> I8_3(const sp<RS> &rs);
     /**
      * Utility function for returning an Element containing a char4.
      * @param[in] rs RenderScript context
      * @return Element
      */
-    static sp<const Element> I8_4(sp<RS> rs);
+    static sp<const Element> I8_4(const sp<RS> &rs);
     /**
      * Utility function for returning an Element containing a ushort2.
      * @param[in] rs RenderScript context
      * @return Element
      */
-    static sp<const Element> U16_2(sp<RS> rs);
+    static sp<const Element> U16_2(const sp<RS> &rs);
     /**
      * Utility function for returning an Element containing a ushort3.
      * @param[in] rs RenderScript context
      * @return Element
      */
-    static sp<const Element> U16_3(sp<RS> rs);
+    static sp<const Element> U16_3(const sp<RS> &rs);
     /**
      * Utility function for returning an Element containing a ushort4.
      * @param[in] rs RenderScript context
      * @return Element
      */
-    static sp<const Element> U16_4(sp<RS> rs);
+    static sp<const Element> U16_4(const sp<RS> &rs);
     /**
      * Utility function for returning an Element containing a short2.
      * @param[in] rs RenderScript context
      * @return Element
      */
-    static sp<const Element> I16_2(sp<RS> rs);
+    static sp<const Element> I16_2(const sp<RS> &rs);
     /**
      * Utility function for returning an Element containing a short3.
      * @param[in] rs RenderScript context
      * @return Element
      */
-    static sp<const Element> I16_3(sp<RS> rs);
+    static sp<const Element> I16_3(const sp<RS> &rs);
     /**
      * Utility function for returning an Element containing a short4.
      * @param[in] rs RenderScript context
      * @return Element
      */
-    static sp<const Element> I16_4(sp<RS> rs);
+    static sp<const Element> I16_4(const sp<RS> &rs);
     /**
      * Utility function for returning an Element containing a uint2.
      * @param[in] rs RenderScript context
      * @return Element
      */
-    static sp<const Element> U32_2(sp<RS> rs);
+    static sp<const Element> U32_2(const sp<RS> &rs);
     /**
      * Utility function for returning an Element containing a uint3.
      * @param[in] rs RenderScript context
      * @return Element
      */
-    static sp<const Element> U32_3(sp<RS> rs);
+    static sp<const Element> U32_3(const sp<RS> &rs);
     /**
      * Utility function for returning an Element containing a uint4.
      * @param[in] rs RenderScript context
      * @return Element
      */
-    static sp<const Element> U32_4(sp<RS> rs);
+    static sp<const Element> U32_4(const sp<RS> &rs);
     /**
      * Utility function for returning an Element containing an int2.
      * @param[in] rs RenderScript context
      * @return Element
      */
-    static sp<const Element> I32_2(sp<RS> rs);
+    static sp<const Element> I32_2(const sp<RS> &rs);
     /**
      * Utility function for returning an Element containing an int3.
      * @param[in] rs RenderScript context
      * @return Element
      */
-    static sp<const Element> I32_3(sp<RS> rs);
+    static sp<const Element> I32_3(const sp<RS> &rs);
     /**
      * Utility function for returning an Element containing an int4.
      * @param[in] rs RenderScript context
      * @return Element
      */
-    static sp<const Element> I32_4(sp<RS> rs);
+    static sp<const Element> I32_4(const sp<RS> &rs);
     /**
      * Utility function for returning an Element containing a ulong2.
      * @param[in] rs RenderScript context
      * @return Element
      */
-    static sp<const Element> U64_2(sp<RS> rs);
+    static sp<const Element> U64_2(const sp<RS> &rs);
     /**
      * Utility function for returning an Element containing a ulong3.
      * @param[in] rs RenderScript context
      * @return Element
      */
-    static sp<const Element> U64_3(sp<RS> rs);
+    static sp<const Element> U64_3(const sp<RS> &rs);
     /**
      * Utility function for returning an Element containing a ulong4.
      * @param[in] rs RenderScript context
      * @return Element
      */
-    static sp<const Element> U64_4(sp<RS> rs);
+    static sp<const Element> U64_4(const sp<RS> &rs);
     /**
      * Utility function for returning an Element containing a long2.
      * @param[in] rs RenderScript context
      * @return Element
      */
-    static sp<const Element> I64_2(sp<RS> rs);
+    static sp<const Element> I64_2(const sp<RS> &rs);
     /**
      * Utility function for returning an Element containing a long3.
      * @param[in] rs RenderScript context
      * @return Element
      */
-    static sp<const Element> I64_3(sp<RS> rs);
+    static sp<const Element> I64_3(const sp<RS> &rs);
     /**
      * Utility function for returning an Element containing a long4.
      * @param[in] rs RenderScript context
      * @return Element
      */
-    static sp<const Element> I64_4(sp<RS> rs);
+    static sp<const Element> I64_4(const sp<RS> &rs);
     /**
      * Utility function for returning an Element containing a YUV pixel.
      * @param[in] rs RenderScript context
      * @return Element
      */
-    static sp<const Element> YUV(sp<RS> rs);
+    static sp<const Element> YUV(const sp<RS> &rs);
     /**
      * Utility function for returning an Element containing an rs_matrix_4x4.
      * @param[in] rs RenderScript context
      * @return Element
      */
-    static sp<const Element> MATRIX_4X4(sp<RS> rs);
+    static sp<const Element> MATRIX_4X4(const sp<RS> &rs);
     /**
      * Utility function for returning an Element containing an rs_matrix_3x3.
      * @param[in] rs RenderScript context
      * @return Element
      */
-    static sp<const Element> MATRIX_3X3(sp<RS> rs);
+    static sp<const Element> MATRIX_3X3(const sp<RS> &rs);
     /**
      * Utility function for returning an Element containing an rs_matrix_2x2.
      * @param[in] rs RenderScript context
      * @return Element
      */
-    static sp<const Element> MATRIX_2X2(sp<RS> rs);
+    static sp<const Element> MATRIX_2X2(const sp<RS> &rs);
 
     void updateFromNative();
 
@@ -1370,7 +1370,7 @@ public:
      * @param[in] dt data type
      * @return Element
      */
-    static sp<const Element> createUser(sp<RS> rs, RsDataType dt);
+    static sp<const Element> createUser(const sp<RS>& rs, RsDataType dt);
     /**
      * Create a vector Element with the given DataType
      * @param[in] rs RenderScript
@@ -1378,7 +1378,7 @@ public:
      * @param[in] size vector size
      * @return Element
      */
-    static sp<const Element> createVector(sp<RS> rs, RsDataType dt, uint32_t size);
+    static sp<const Element> createVector(const sp<RS>& rs, RsDataType dt, uint32_t size);
     /**
      * Create an Element with a given DataType and DataKind.
      * @param[in] rs RenderScript context
@@ -1386,14 +1386,14 @@ public:
      * @param[in] dk DataKind
      * @return Element
      */
-    static sp<const Element> createPixel(sp<RS> rs, RsDataType dt, RsDataKind dk);
+    static sp<const Element> createPixel(const sp<RS>& rs, RsDataType dt, RsDataKind dk);
 
     /**
      * Returns true if the Element can interoperate with this Element.
      * @param[in] e Element to compare
      * @return true if Elements can interoperate
      */
-    bool isCompatible(sp<const Element>e) const;
+    bool isCompatible(const sp<const Element>&e) const;
 
     /**
      * Builder class for producing complex elements with matching field and name
@@ -1412,9 +1412,9 @@ public:
         bool mSkipPadding;
 
     public:
-        Builder(sp<RS> rs);
+        explicit Builder(sp<RS> rs);
         ~Builder();
-        void add(sp<const Element> e, const char * name, uint32_t arraySize = 1);
+        void add(const sp<const Element>& e, const char * name, uint32_t arraySize = 1);
         sp<const Element> create();
     };
 
@@ -1428,7 +1428,7 @@ protected:
             uint32_t * arraySizes);
     Element(void *id, sp<RS> rs, RsDataType dt, RsDataKind dk, bool norm, uint32_t size);
     Element(void *id, sp<RS> rs);
-    Element(sp<RS> rs);
+    explicit Element(sp<RS> rs);
     virtual ~Element();
 
 private:
@@ -1458,7 +1458,7 @@ protected:
     size_t mLen;
 
 public:
-    FieldPacker(size_t len)
+    explicit FieldPacker(size_t len)
         : mPos(0), mLen(len) {
             mData = new unsigned char[len];
         }
@@ -1536,7 +1536,7 @@ public:
       }
     */
 
-    void add(sp<BaseObj> obj) {
+    void add(const sp<BaseObj>& obj) {
         if (obj != NULL) {
             add((uint32_t) (uintptr_t) obj->getID());
         } else {
@@ -1663,7 +1663,7 @@ public:
      * @param[in] dimZ Z dimension
      * @return new Type
      */
-    static sp<const Type> create(sp<RS> rs, sp<const Element> e, uint32_t dimX, uint32_t dimY, uint32_t dimZ);
+    static sp<const Type> create(const sp<RS>& rs, const sp<const Element>& e, uint32_t dimX, uint32_t dimY, uint32_t dimZ);
 
     class Builder {
     protected:
@@ -1698,11 +1698,11 @@ private:
 
 protected:
     Script(void *id, sp<RS> rs);
-    void forEach(uint32_t slot, sp<const Allocation> in, sp<const Allocation> out,
+    void forEach(uint32_t slot, const sp<const Allocation>& in, const sp<const Allocation>& out,
             const void *v, size_t) const;
-    void bindAllocation(sp<Allocation> va, uint32_t slot) const;
+    void bindAllocation(const sp<Allocation>& va, uint32_t slot) const;
     void setVar(uint32_t index, const void *, size_t len) const;
-    void setVar(uint32_t index, sp<const BaseObj> o) const;
+    void setVar(uint32_t index, const sp<const BaseObj>& o) const;
     void invoke(uint32_t slot, const void *v, size_t len) const;
 
 
@@ -1734,7 +1734,7 @@ public:
         sp<const Element> mElement;
         sp<Allocation> mAllocation;
 
-        void init(sp<RS> rs, uint32_t dimx, uint32_t usages = 0);
+        void init(const sp<RS>& rs, uint32_t dimx, uint32_t usages = 0);
 
     public:
         sp<const Element> getElement() {
@@ -1792,21 +1792,21 @@ class ScriptIntrinsic3DLUT : public ScriptIntrinsic {
      * @param[in] e Element
      * @return new ScriptIntrinsic
      */
-    static sp<ScriptIntrinsic3DLUT> create(sp<RS> rs, sp<const Element> e);
+    static sp<ScriptIntrinsic3DLUT> create(const sp<RS>& rs, const sp<const Element>& e);
 
     /**
      * Launch the intrinsic.
      * @param[in] ain input Allocation
      * @param[in] aout output Allocation
      */
-    void forEach(sp<Allocation> ain, sp<Allocation> aout);
+    void forEach(const sp<Allocation>& ain, const sp<Allocation>& aout);
 
     /**
      * Sets the lookup table. The lookup table must use the same Element as the
      * intrinsic.
      * @param[in] lut new lookup table
      */
-    void setLUT(sp<Allocation> lut);
+    void setLUT(const sp<Allocation>& lut);
 };
 
 
@@ -1829,7 +1829,7 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param rs The RenderScript context
      * @return ScriptIntrinsicBLAS
      */
-    static sp<ScriptIntrinsicBLAS> create(sp<RS> rs);
+    static sp<ScriptIntrinsicBLAS> create(const sp<RS>& rs);
 
     /**
      * SGEMV performs one of the matrix-vector operations
@@ -1847,8 +1847,8 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param incY The increment for the elements of vector y, must be larger than zero.
      */
     void SGEMV(RsBlasTranspose TransA,
-               float alpha, sp<Allocation> A, sp<Allocation> X, int incX,
-               float beta, sp<Allocation> Y, int incY);
+               float alpha, const sp<Allocation>& A, const sp<Allocation>& X, int incX,
+               float beta, const sp<Allocation>& Y, int incY);
 
     /**
      * DGEMV performs one of the matrix-vector operations
@@ -1866,8 +1866,8 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param incY The increment for the elements of vector y, must be larger than zero.
      */
     void DGEMV(RsBlasTranspose TransA,
-               double alpha, sp<Allocation> A, sp<Allocation> X, int incX,
-               double beta, sp<Allocation> Y, int incY);
+               double alpha, const sp<Allocation>& A, const sp<Allocation>& X, int incX,
+               double beta, const sp<Allocation>& Y, int incY);
 
     /**
      * CGEMV performs one of the matrix-vector operations
@@ -1885,8 +1885,8 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param incY The increment for the elements of vector y, must be larger than zero.
      */
     void CGEMV(RsBlasTranspose TransA,
-               Float2 alpha, sp<Allocation> A, sp<Allocation> X, int incX,
-               Float2 beta, sp<Allocation> Y, int incY);
+               Float2 alpha, const sp<Allocation>& A, const sp<Allocation>& X, int incX,
+               Float2 beta, const sp<Allocation>& Y, int incY);
 
     /**
      * ZGEMV performs one of the matrix-vector operations
@@ -1904,8 +1904,8 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param incY The increment for the elements of vector y, must be larger than zero.
      */
     void ZGEMV(RsBlasTranspose TransA,
-               Double2 alpha, sp<Allocation> A, sp<Allocation> X, int incX,
-               Double2 beta, sp<Allocation> Y, int incY);
+               Double2 alpha, const sp<Allocation>& A, const sp<Allocation>& X, int incX,
+               Double2 beta, const sp<Allocation>& Y, int incY);
 
     /**
      * SGBMV performs one of the matrix-vector operations
@@ -1932,8 +1932,8 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param incY The increment for the elements of vector y, must be larger than zero.
      */
     void SGBMV(RsBlasTranspose TransA,
-               int KL, int KU, float alpha, sp<Allocation> A, sp<Allocation> X, int incX,
-               float beta, sp<Allocation> Y, int incY);
+               int KL, int KU, float alpha, const sp<Allocation>& A, const sp<Allocation>& X, int incX,
+               float beta, const sp<Allocation>& Y, int incY);
 
     /**
      * DGBMV performs one of the matrix-vector operations
@@ -1960,8 +1960,8 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param incY The increment for the elements of vector y, must be larger than zero.
      */
     void DGBMV(RsBlasTranspose TransA,
-               int KL, int KU, double alpha, sp<Allocation> A, sp<Allocation> X,
-               int incX, double beta, sp<Allocation> Y, int incY);
+               int KL, int KU, double alpha, const sp<Allocation>& A, const sp<Allocation>& X,
+               int incX, double beta, const sp<Allocation>& Y, int incY);
 
     /**
      * CGBMV performs one of the matrix-vector operations
@@ -1988,8 +1988,8 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param incY The increment for the elements of vector y, must be larger than zero.
      */
     void CGBMV(RsBlasTranspose TransA,
-               int KL, int KU, Float2 alpha, sp<Allocation> A, sp<Allocation> X,
-               int incX, Float2 beta, sp<Allocation> Y, int incY);
+               int KL, int KU, Float2 alpha, const sp<Allocation>& A, const sp<Allocation>& X,
+               int incX, Float2 beta, const sp<Allocation>& Y, int incY);
 
     /**
      * ZGBMV performs one of the matrix-vector operations
@@ -2016,8 +2016,8 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param incY The increment for the elements of vector y, must be larger than zero.
      */
     void ZGBMV(RsBlasTranspose TransA,
-               int KL, int KU, Double2 alpha, sp<Allocation> A, sp<Allocation> X, int incX,
-               Double2 beta, sp<Allocation> Y, int incY);
+               int KL, int KU, Double2 alpha, const sp<Allocation>& A, const sp<Allocation>& X, int incX,
+               Double2 beta, const sp<Allocation>& Y, int incY);
 
     /**
      * STRMV performs one of the matrix-vector operations
@@ -2033,7 +2033,7 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param incX The increment for the elements of vector x, must be larger than zero.
      */
     void STRMV(RsBlasUplo Uplo, RsBlasTranspose TransA, RsBlasDiag Diag,
-               sp<Allocation> A, sp<Allocation> X, int incX);
+               const sp<Allocation>& A, const sp<Allocation>& X, int incX);
 
     /**
      * DTRMV performs one of the matrix-vector operations
@@ -2049,7 +2049,7 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param incX The increment for the elements of vector x, must be larger than zero.
      */
     void DTRMV(RsBlasUplo Uplo, RsBlasTranspose TransA, RsBlasDiag Diag,
-               sp<Allocation> A, sp<Allocation> X, int incX);
+               const sp<Allocation>& A, const sp<Allocation>& X, int incX);
 
     /**
      * CTRMV performs one of the matrix-vector operations
@@ -2065,7 +2065,7 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param incX The increment for the elements of vector x, must be larger than zero.
      */
     void CTRMV(RsBlasUplo Uplo, RsBlasTranspose TransA, RsBlasDiag Diag,
-               sp<Allocation> A, sp<Allocation> X, int incX);
+               const sp<Allocation>& A, const sp<Allocation>& X, int incX);
 
     /**
      * ZTRMV performs one of the matrix-vector operations
@@ -2081,7 +2081,7 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param incX The increment for the elements of vector x, must be larger than zero.
      */
     void ZTRMV(RsBlasUplo Uplo, RsBlasTranspose TransA, RsBlasDiag Diag,
-               sp<Allocation> A, sp<Allocation> X, int incX);
+               const sp<Allocation>& A, const sp<Allocation>& X, int incX);
 
     /**
      * STBMV performs one of the matrix-vector operations
@@ -2105,7 +2105,7 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param incX The increment for the elements of vector x, must be larger than zero.
      */
     void STBMV(RsBlasUplo Uplo, RsBlasTranspose TransA, RsBlasDiag Diag,
-               int K, sp<Allocation> A, sp<Allocation> X, int incX);
+               int K, const sp<Allocation>& A, const sp<Allocation>& X, int incX);
 
     /**
      * DTBMV performs one of the matrix-vector operations
@@ -2129,7 +2129,7 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param incX The increment for the elements of vector x, must be larger than zero.
      */
     void DTBMV(RsBlasUplo Uplo, RsBlasTranspose TransA, RsBlasDiag Diag,
-               int K, sp<Allocation> A, sp<Allocation> X, int incX);
+               int K, const sp<Allocation>& A, const sp<Allocation>& X, int incX);
 
     /**
      * CTBMV performs one of the matrix-vector operations
@@ -2153,7 +2153,7 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param incX The increment for the elements of vector x, must be larger than zero.
      */
     void CTBMV(RsBlasUplo Uplo, RsBlasTranspose TransA, RsBlasDiag Diag,
-               int K, sp<Allocation> A, sp<Allocation> X, int incX);
+               int K, const sp<Allocation>& A, const sp<Allocation>& X, int incX);
 
     /**
      * ZTBMV performs one of the matrix-vector operations
@@ -2177,7 +2177,7 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param incX The increment for the elements of vector x, must be larger than zero.
      */
     void ZTBMV(RsBlasUplo Uplo, RsBlasTranspose TransA, RsBlasDiag Diag,
-               int K, sp<Allocation> A, sp<Allocation> X, int incX);
+               int K, const sp<Allocation>& A, const sp<Allocation>& X, int incX);
 
     /**
      * STPMV performs one of the matrix-vector operations
@@ -2201,7 +2201,7 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param incX The increment for the elements of vector x, must be larger than zero.
      */
     void STPMV(RsBlasUplo Uplo, RsBlasTranspose TransA, RsBlasDiag Diag,
-               sp<Allocation> Ap, sp<Allocation> X, int incX);
+               const sp<Allocation>& Ap, const sp<Allocation>& X, int incX);
 
     /**
      * DTPMV performs one of the matrix-vector operations
@@ -2225,7 +2225,7 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param incX The increment for the elements of vector x, must be larger than zero.
      */
     void DTPMV(RsBlasUplo Uplo, RsBlasTranspose TransA, RsBlasDiag Diag,
-               sp<Allocation> Ap, sp<Allocation> X, int incX);
+               const sp<Allocation>& Ap, const sp<Allocation>& X, int incX);
 
     /**
      * CTPMV performs one of the matrix-vector operations
@@ -2249,7 +2249,7 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param incX The increment for the elements of vector x, must be larger than zero.
      */
     void CTPMV(RsBlasUplo Uplo, RsBlasTranspose TransA, RsBlasDiag Diag,
-               sp<Allocation> Ap, sp<Allocation> X, int incX);
+               const sp<Allocation>& Ap, const sp<Allocation>& X, int incX);
 
     /**
      * ZTPMV performs one of the matrix-vector operations
@@ -2273,7 +2273,7 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param incX The increment for the elements of vector x, must be larger than zero.
      */
     void ZTPMV(RsBlasUplo Uplo, RsBlasTranspose TransA, RsBlasDiag Diag,
-               sp<Allocation> Ap, sp<Allocation> X, int incX);
+               const sp<Allocation>& Ap, const sp<Allocation>& X, int incX);
 
     /**
      * STRSV solves one of the systems of equations
@@ -2289,7 +2289,7 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param incX The increment for the elements of vector x, must be larger than zero.
      */
     void STRSV(RsBlasUplo Uplo, RsBlasTranspose TransA, RsBlasDiag Diag,
-               sp<Allocation> A, sp<Allocation> X, int incX);
+               const sp<Allocation>& A, const sp<Allocation>& X, int incX);
 
     /**
      * DTRSV solves one of the systems of equations
@@ -2305,7 +2305,7 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param incX The increment for the elements of vector x, must be larger than zero.
      */
     void DTRSV(RsBlasUplo Uplo, RsBlasTranspose TransA, RsBlasDiag Diag,
-               sp<Allocation> A, sp<Allocation> X, int incX);
+               const sp<Allocation>& A, const sp<Allocation>& X, int incX);
 
     /**
      * CTRSV solves one of the systems of equations
@@ -2321,7 +2321,7 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param incX The increment for the elements of vector x, must be larger than zero.
      */
     void CTRSV(RsBlasUplo Uplo, RsBlasTranspose TransA, RsBlasDiag Diag,
-               sp<Allocation> A, sp<Allocation> X, int incX);
+               const sp<Allocation>& A, const sp<Allocation>& X, int incX);
 
     /**
      * ZTRSV solves one of the systems of equations
@@ -2337,7 +2337,7 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param incX The increment for the elements of vector x, must be larger than zero.
      */
     void ZTRSV(RsBlasUplo Uplo, RsBlasTranspose TransA, RsBlasDiag Diag,
-               sp<Allocation> A, sp<Allocation> X, int incX);
+               const sp<Allocation>& A, const sp<Allocation>& X, int incX);
 
     /**
      * STBSV solves one of the systems of equations
@@ -2361,7 +2361,7 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param incX The increment for the elements of vector x, must be larger than zero.
      */
     void STBSV(RsBlasUplo Uplo, RsBlasTranspose TransA, RsBlasDiag Diag,
-               int K, sp<Allocation> A, sp<Allocation> X, int incX);
+               int K, const sp<Allocation>& A, const sp<Allocation>& X, int incX);
 
     /**
      * DTBSV solves one of the systems of equations
@@ -2385,7 +2385,7 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param incX The increment for the elements of vector x, must be larger than zero.
      */
     void DTBSV(RsBlasUplo Uplo, RsBlasTranspose TransA, RsBlasDiag Diag,
-               int K, sp<Allocation> A, sp<Allocation> X, int incX);
+               int K, const sp<Allocation>& A, const sp<Allocation>& X, int incX);
 
     /**
      * CTBSV solves one of the systems of equations
@@ -2409,7 +2409,7 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param incX The increment for the elements of vector x, must be larger than zero.
      */
     void CTBSV(RsBlasUplo Uplo, RsBlasTranspose TransA, RsBlasDiag Diag,
-               int K, sp<Allocation> A, sp<Allocation> X, int incX);
+               int K, const sp<Allocation>& A, const sp<Allocation>& X, int incX);
 
     /**
      * ZTBSV solves one of the systems of equations
@@ -2433,7 +2433,7 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param incX The increment for the elements of vector x, must be larger than zero.
      */
     void ZTBSV(RsBlasUplo Uplo, RsBlasTranspose TransA, RsBlasDiag Diag,
-               int K, sp<Allocation> A, sp<Allocation> X, int incX);
+               int K, const sp<Allocation>& A, const sp<Allocation>& X, int incX);
 
     /**
      * STPSV solves one of the systems of equations
@@ -2457,7 +2457,7 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param incX The increment for the elements of vector x, must be larger than zero.
      */
     void STPSV(RsBlasUplo Uplo, RsBlasTranspose TransA, RsBlasDiag Diag,
-               sp<Allocation> Ap, sp<Allocation> X, int incX);
+               const sp<Allocation>& Ap, const sp<Allocation>& X, int incX);
 
     /**
      * DTPSV solves one of the systems of equations
@@ -2481,7 +2481,7 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param incX The increment for the elements of vector x, must be larger than zero.
      */
     void DTPSV(RsBlasUplo Uplo, RsBlasTranspose TransA, RsBlasDiag Diag,
-               sp<Allocation> Ap, sp<Allocation> X, int incX);
+               const sp<Allocation>& Ap, const sp<Allocation>& X, int incX);
 
     /**
      * CTPSV solves one of the systems of equations
@@ -2505,7 +2505,7 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param incX The increment for the elements of vector x, must be larger than zero.
      */
     void CTPSV(RsBlasUplo Uplo, RsBlasTranspose TransA, RsBlasDiag Diag,
-               sp<Allocation> Ap, sp<Allocation> X, int incX);
+               const sp<Allocation>& Ap, const sp<Allocation>& X, int incX);
 
     /**
      * ZTPSV solves one of the systems of equations
@@ -2529,7 +2529,7 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param incX The increment for the elements of vector x, must be larger than zero.
      */
     void ZTPSV(RsBlasUplo Uplo, RsBlasTranspose TransA, RsBlasDiag Diag,
-               sp<Allocation> Ap, sp<Allocation> X, int incX);
+               const sp<Allocation>& Ap, const sp<Allocation>& X, int incX);
 
     /**
      * SSYMV performs the matrix-vector operation
@@ -2546,8 +2546,8 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param Y The input allocation contains vector y, supported elements type: {Element#F32}.
      * @param incY The increment for the elements of vector y, must be larger than zero.
      */
-    void SSYMV(RsBlasUplo Uplo, float alpha, sp<Allocation> A, sp<Allocation> X,
-               int incX, float beta, sp<Allocation> Y, int incY);
+    void SSYMV(RsBlasUplo Uplo, float alpha, const sp<Allocation>& A, const sp<Allocation>& X,
+               int incX, float beta, const sp<Allocation>& Y, int incY);
 
     /**
      * SSBMV performs the matrix-vector operation
@@ -2572,8 +2572,8 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param Y The input allocation contains vector y, supported elements type: {Element#F32}.
      * @param incY The increment for the elements of vector y, must be larger than zero.
      */
-    void SSBMV(RsBlasUplo Uplo, int K, float alpha, sp<Allocation> A, sp<Allocation> X,
-               int incX, float beta, sp<Allocation> Y, int incY);
+    void SSBMV(RsBlasUplo Uplo, int K, float alpha, const sp<Allocation>& A, const sp<Allocation>& X,
+               int incX, float beta, const sp<Allocation>& Y, int incY);
 
     /**
      * SSPMV performs the matrix-vector operation
@@ -2598,8 +2598,8 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param Y The input allocation contains vector y, supported elements type: {Element#F32}.
      * @param incY The increment for the elements of vector y, must be larger than zero.
      */
-    void SSPMV(RsBlasUplo Uplo, float alpha, sp<Allocation> Ap, sp<Allocation> X,
-               int incX, float beta, sp<Allocation> Y, int incY);
+    void SSPMV(RsBlasUplo Uplo, float alpha, const sp<Allocation>& Ap, const sp<Allocation>& X,
+               int incX, float beta, const sp<Allocation>& Y, int incY);
 
     /**
      * SGER performs the rank 1 operation
@@ -2614,7 +2614,7 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param incY The increment for the elements of vector y, must be larger than zero.
      * @param A The input allocation contains matrix A, supported elements type: {Element#F32}.
      */
-    void SGER(float alpha, sp<Allocation> X, int incX, sp<Allocation> Y, int incY, sp<Allocation> A);
+    void SGER(float alpha, const sp<Allocation>& X, int incX, const sp<Allocation>& Y, int incY, const sp<Allocation>& A);
 
     /**
      * SSYR performs the rank 1 operation
@@ -2628,7 +2628,7 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param incX The increment for the elements of vector x, must be larger than zero.
      * @param A The input allocation contains matrix A, supported elements type: {Element#F32}.
      */
-    void SSYR(RsBlasUplo Uplo, float alpha, sp<Allocation> X, int incX, sp<Allocation> A);
+    void SSYR(RsBlasUplo Uplo, float alpha, const sp<Allocation>& X, int incX, const sp<Allocation>& A);
 
     /**
      * SSPR performs the rank 1 operation
@@ -2650,7 +2650,7 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param incX The increment for the elements of vector x, must be larger than zero.
      * @param Ap The input allocation contains matrix A, supported elements type: {Element#F32}.
      */
-    void SSPR(RsBlasUplo Uplo, float alpha, sp<Allocation> X, int incX, sp<Allocation> Ap);
+    void SSPR(RsBlasUplo Uplo, float alpha, const sp<Allocation>& X, int incX, const sp<Allocation>& Ap);
 
     /**
      * SSYR2 performs the symmetric rank 2 operation
@@ -2666,8 +2666,8 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param incY The increment for the elements of vector y, must be larger than zero.
      * @param A The input allocation contains matrix A, supported elements type: {Element#F32}.
      */
-    void SSYR2(RsBlasUplo Uplo, float alpha, sp<Allocation> X, int incX,
-               sp<Allocation> Y, int incY, sp<Allocation> A);
+    void SSYR2(RsBlasUplo Uplo, float alpha, const sp<Allocation>& X, int incX,
+               const sp<Allocation>& Y, int incY, const sp<Allocation>& A);
 
     /**
      * SSPR2 performs the symmetric rank 2 operation
@@ -2691,8 +2691,8 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param incY The increment for the elements of vector y, must be larger than zero.
      * @param Ap The input allocation contains matrix A, supported elements type: {Element#F32}.
      */
-    void SSPR2(RsBlasUplo Uplo, float alpha, sp<Allocation> X, int incX,
-               sp<Allocation> Y, int incY, sp<Allocation> Ap);
+    void SSPR2(RsBlasUplo Uplo, float alpha, const sp<Allocation>& X, int incX,
+               const sp<Allocation>& Y, int incY, const sp<Allocation>& Ap);
 
     /**
      * DSYMV performs the matrix-vector operation
@@ -2709,8 +2709,8 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param Y The input allocation contains vector y, supported elements type: {Element#F64}.
      * @param incY The increment for the elements of vector y, must be larger than zero.
      */
-    void DSYMV(RsBlasUplo Uplo, double alpha, sp<Allocation> A, sp<Allocation> X, int incX,
-               double beta, sp<Allocation> Y, int incY);
+    void DSYMV(RsBlasUplo Uplo, double alpha, const sp<Allocation>& A, const sp<Allocation>& X, int incX,
+               double beta, const sp<Allocation>& Y, int incY);
 
     /**
      * DSBMV performs the matrix-vector operation
@@ -2735,8 +2735,8 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param Y The input allocation contains vector y, supported elements type: {Element#F64}.
      * @param incY The increment for the elements of vector y, must be larger than zero.
      */
-    void DSBMV(RsBlasUplo Uplo, int K, double alpha, sp<Allocation> A, sp<Allocation> X, int incX,
-               double beta, sp<Allocation> Y, int incY);
+    void DSBMV(RsBlasUplo Uplo, int K, double alpha, const sp<Allocation>& A, const sp<Allocation>& X, int incX,
+               double beta, const sp<Allocation>& Y, int incY);
 
     /**
      * DSPMV performs the matrix-vector operation
@@ -2761,8 +2761,8 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param Y The input allocation contains vector y, supported elements type: {Element#F64}.
      * @param incY The increment for the elements of vector y, must be larger than zero.
      */
-    void DSPMV(RsBlasUplo Uplo, double alpha, sp<Allocation> Ap, sp<Allocation> X, int incX,
-               double beta, sp<Allocation> Y, int incY);
+    void DSPMV(RsBlasUplo Uplo, double alpha, const sp<Allocation>& Ap, const sp<Allocation>& X, int incX,
+               double beta, const sp<Allocation>& Y, int incY);
 
     /**
      * DGER performs the rank 1 operation
@@ -2777,7 +2777,7 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param incY The increment for the elements of vector y, must be larger than zero.
      * @param A The input allocation contains matrix A, supported elements type: {Element#F64}.
      */
-    void DGER(double alpha, sp<Allocation> X, int incX, sp<Allocation> Y, int incY, sp<Allocation> A);
+    void DGER(double alpha, const sp<Allocation>& X, int incX, const sp<Allocation>& Y, int incY, const sp<Allocation>& A);
 
     /**
      * DSYR performs the rank 1 operation
@@ -2791,7 +2791,7 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param incX The increment for the elements of vector x, must be larger than zero.
      * @param A The input allocation contains matrix A, supported elements type: {Element#F64}.
      */
-    void DSYR(RsBlasUplo Uplo, double alpha, sp<Allocation> X, int incX, sp<Allocation> A);
+    void DSYR(RsBlasUplo Uplo, double alpha, const sp<Allocation>& X, int incX, const sp<Allocation>& A);
 
     /**
      * DSPR performs the rank 1 operation
@@ -2813,7 +2813,7 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param incX The increment for the elements of vector x, must be larger than zero.
      * @param Ap The input allocation contains matrix A, supported elements type: {Element#F64}.
      */
-    void DSPR(RsBlasUplo Uplo, double alpha, sp<Allocation> X, int incX, sp<Allocation> Ap);
+    void DSPR(RsBlasUplo Uplo, double alpha, const sp<Allocation>& X, int incX, const sp<Allocation>& Ap);
 
     /**
      * DSYR2 performs the symmetric rank 2 operation
@@ -2829,8 +2829,8 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param incY The increment for the elements of vector y, must be larger than zero.
      * @param A The input allocation contains matrix A, supported elements type: {Element#F64}.
      */
-    void DSYR2(RsBlasUplo Uplo, double alpha, sp<Allocation> X, int incX,
-               sp<Allocation> Y, int incY, sp<Allocation> A);
+    void DSYR2(RsBlasUplo Uplo, double alpha, const sp<Allocation>& X, int incX,
+               const sp<Allocation>& Y, int incY, const sp<Allocation>& A);
 
     /**
      * DSPR2 performs the symmetric rank 2 operation
@@ -2854,8 +2854,8 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param incY The increment for the elements of vector y, must be larger than zero.
      * @param Ap The input allocation contains matrix A, supported elements type: {Element#F64}.
      */
-    void DSPR2(RsBlasUplo Uplo, double alpha, sp<Allocation> X, int incX,
-               sp<Allocation> Y, int incY, sp<Allocation> Ap);
+    void DSPR2(RsBlasUplo Uplo, double alpha, const sp<Allocation>& X, int incX,
+               const sp<Allocation>& Y, int incY, const sp<Allocation>& Ap);
 
     /**
      * CHEMV performs the matrix-vector operation
@@ -2872,8 +2872,8 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param Y The input allocation contains vector y, supported elements type: {Element#F32_2}.
      * @param incY The increment for the elements of vector y, must be larger than zero.
      */
-    void CHEMV(RsBlasUplo Uplo, Float2 alpha, sp<Allocation> A, sp<Allocation> X,
-               int incX, Float2 beta, sp<Allocation> Y, int incY);
+    void CHEMV(RsBlasUplo Uplo, Float2 alpha, const sp<Allocation>& A, const sp<Allocation>& X,
+               int incX, Float2 beta, const sp<Allocation>& Y, int incY);
 
     /**
      * CHBMV performs the matrix-vector operation
@@ -2898,8 +2898,8 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param Y The input allocation contains vector y, supported elements type: {Element#F32_2}.
      * @param incY The increment for the elements of vector y, must be larger than zero.
      */
-    void CHBMV(RsBlasUplo Uplo, int K, Float2 alpha, sp<Allocation> A, sp<Allocation> X,
-               int incX, Float2 beta, sp<Allocation> Y, int incY);
+    void CHBMV(RsBlasUplo Uplo, int K, Float2 alpha, const sp<Allocation>& A, const sp<Allocation>& X,
+               int incX, Float2 beta, const sp<Allocation>& Y, int incY);
 
     /**
      * CHPMV performs the matrix-vector operation
@@ -2924,8 +2924,8 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param Y The input allocation contains vector y, supported elements type: {Element#F32_2}.
      * @param incY The increment for the elements of vector y, must be larger than zero.
      */
-    void CHPMV(RsBlasUplo Uplo, Float2 alpha, sp<Allocation> Ap, sp<Allocation> X,
-               int incX, Float2 beta, sp<Allocation> Y, int incY);
+    void CHPMV(RsBlasUplo Uplo, Float2 alpha, const sp<Allocation>& Ap, const sp<Allocation>& X,
+               int incX, Float2 beta, const sp<Allocation>& Y, int incY);
 
     /**
      * CGERU performs the rank 1 operation
@@ -2940,8 +2940,8 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param incY The increment for the elements of vector y, must be larger than zero.
      * @param A The input allocation contains matrix A, supported elements type: {Element#F32_2}.
      */
-    void CGERU(Float2 alpha, sp<Allocation> X, int incX,
-               sp<Allocation> Y, int incY, sp<Allocation> A);
+    void CGERU(Float2 alpha, const sp<Allocation>& X, int incX,
+               const sp<Allocation>& Y, int incY, const sp<Allocation>& A);
 
     /**
      * CGERC performs the rank 1 operation
@@ -2956,8 +2956,8 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param incY The increment for the elements of vector y, must be larger than zero.
      * @param A The input allocation contains matrix A, supported elements type: {Element#F32_2}.
      */
-    void CGERC(Float2 alpha, sp<Allocation> X, int incX,
-               sp<Allocation> Y, int incY, sp<Allocation> A);
+    void CGERC(Float2 alpha, const sp<Allocation>& X, int incX,
+               const sp<Allocation>& Y, int incY, const sp<Allocation>& A);
 
     /**
      * CHER performs the rank 1 operation
@@ -2971,7 +2971,7 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param incX The increment for the elements of vector x, must be larger than zero.
      * @param A The input allocation contains matrix A, supported elements type: {Element#F32_2}.
      */
-    void CHER(RsBlasUplo Uplo, float alpha, sp<Allocation> X, int incX, sp<Allocation> A);
+    void CHER(RsBlasUplo Uplo, float alpha, const sp<Allocation>& X, int incX, const sp<Allocation>& A);
 
     /**
      * CHPR performs the rank 1 operation
@@ -2993,7 +2993,7 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param incX The increment for the elements of vector x, must be larger than zero.
      * @param Ap The input allocation contains matrix A, supported elements type: {Element#F32_2}.
      */
-    void CHPR(RsBlasUplo Uplo, float alpha, sp<Allocation> X, int incX, sp<Allocation> Ap);
+    void CHPR(RsBlasUplo Uplo, float alpha, const sp<Allocation>& X, int incX, const sp<Allocation>& Ap);
 
     /**
      * CHER2 performs the symmetric rank 2 operation
@@ -3009,8 +3009,8 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param incY The increment for the elements of vector y, must be larger than zero.
      * @param A The input allocation contains matrix A, supported elements type: {Element#F32_2}.
      */
-    void CHER2(RsBlasUplo Uplo, Float2 alpha, sp<Allocation> X, int incX,
-               sp<Allocation> Y, int incY, sp<Allocation> A);
+    void CHER2(RsBlasUplo Uplo, Float2 alpha, const sp<Allocation>& X, int incX,
+               const sp<Allocation>& Y, int incY, const sp<Allocation>& A);
 
     /**
      * CHPR2 performs the symmetric rank 2 operation
@@ -3034,8 +3034,8 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param incY The increment for the elements of vector y, must be larger than zero.
      * @param Ap The input allocation contains matrix A, supported elements type: {Element#F32_2}.
      */
-    void CHPR2(RsBlasUplo Uplo, Float2 alpha, sp<Allocation> X, int incX,
-               sp<Allocation> Y, int incY, sp<Allocation> Ap);
+    void CHPR2(RsBlasUplo Uplo, Float2 alpha, const sp<Allocation>& X, int incX,
+               const sp<Allocation>& Y, int incY, const sp<Allocation>& Ap);
 
     /**
      * ZHEMV performs the matrix-vector operation
@@ -3052,8 +3052,8 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param Y The input allocation contains vector y, supported elements type: {Element#F64_2}.
      * @param incY The increment for the elements of vector y, must be larger than zero.
      */
-    void ZHEMV(RsBlasUplo Uplo, Double2 alpha, sp<Allocation> A, sp<Allocation> X,
-               int incX, Double2 beta, sp<Allocation> Y, int incY);
+    void ZHEMV(RsBlasUplo Uplo, Double2 alpha, const sp<Allocation>& A, const sp<Allocation>& X,
+               int incX, Double2 beta, const sp<Allocation>& Y, int incY);
 
     /**
      * ZHBMV performs the matrix-vector operation
@@ -3078,8 +3078,8 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param Y The input allocation contains vector y, supported elements type: {Element#F64_2}.
      * @param incY The increment for the elements of vector y, must be larger than zero.
      */
-    void ZHBMV(RsBlasUplo Uplo, int K, Double2 alpha, sp<Allocation> A, sp<Allocation> X,
-               int incX, Double2 beta, sp<Allocation> Y, int incY);
+    void ZHBMV(RsBlasUplo Uplo, int K, Double2 alpha, const sp<Allocation>& A, const sp<Allocation>& X,
+               int incX, Double2 beta, const sp<Allocation>& Y, int incY);
 
     /**
      * ZHPMV performs the matrix-vector operation
@@ -3104,8 +3104,8 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param Y The input allocation contains vector y, supported elements type: {Element#F64_2}.
      * @param incY The increment for the elements of vector y, must be larger than zero.
      */
-    void ZHPMV(RsBlasUplo Uplo, Double2 alpha, sp<Allocation> Ap, sp<Allocation> X,
-               int incX, Double2 beta, sp<Allocation> Y, int incY);
+    void ZHPMV(RsBlasUplo Uplo, Double2 alpha, const sp<Allocation>& Ap, const sp<Allocation>& X,
+               int incX, Double2 beta, const sp<Allocation>& Y, int incY);
 
     /**
      * ZGERU performs the rank 1 operation
@@ -3120,8 +3120,8 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param incY The increment for the elements of vector y, must be larger than zero.
      * @param A The input allocation contains matrix A, supported elements type: {Element#F64_2}.
      */
-    void ZGERU(Double2 alpha, sp<Allocation> X, int incX,
-               sp<Allocation> Y, int incY, sp<Allocation> A);
+    void ZGERU(Double2 alpha, const sp<Allocation>& X, int incX,
+               const sp<Allocation>& Y, int incY, const sp<Allocation>& A);
 
     /**
      * ZGERC performs the rank 1 operation
@@ -3136,8 +3136,8 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param incY The increment for the elements of vector y, must be larger than zero.
      * @param A The input allocation contains matrix A, supported elements type: {Element#F64_2}.
      */
-    void ZGERC(Double2 alpha, sp<Allocation> X, int incX,
-               sp<Allocation> Y, int incY, sp<Allocation> A);
+    void ZGERC(Double2 alpha, const sp<Allocation>& X, int incX,
+               const sp<Allocation>& Y, int incY, const sp<Allocation>& A);
 
     /**
      * ZHER performs the rank 1 operation
@@ -3151,7 +3151,7 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param incX The increment for the elements of vector x, must be larger than zero.
      * @param A The input allocation contains matrix A, supported elements type: {Element#F64_2}.
      */
-    void ZHER(RsBlasUplo Uplo, double alpha, sp<Allocation> X, int incX, sp<Allocation> A);
+    void ZHER(RsBlasUplo Uplo, double alpha, const sp<Allocation>& X, int incX, const sp<Allocation>& A);
 
     /**
      * ZHPR performs the rank 1 operation
@@ -3173,7 +3173,7 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param incX The increment for the elements of vector x, must be larger than zero.
      * @param Ap The input allocation contains matrix A, supported elements type: {Element#F64_2}.
      */
-    void ZHPR(RsBlasUplo Uplo, double alpha, sp<Allocation> X, int incX, sp<Allocation> Ap);
+    void ZHPR(RsBlasUplo Uplo, double alpha, const sp<Allocation>& X, int incX, const sp<Allocation>& Ap);
 
     /**
      * ZHER2 performs the symmetric rank 2 operation
@@ -3189,8 +3189,8 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param incY The increment for the elements of vector y, must be larger than zero.
      * @param A The input allocation contains matrix A, supported elements type: {Element#F64_2}.
      */
-    void ZHER2(RsBlasUplo Uplo, Double2 alpha, sp<Allocation> X, int incX,
-               sp<Allocation> Y, int incY, sp<Allocation> A);
+    void ZHER2(RsBlasUplo Uplo, Double2 alpha, const sp<Allocation>& X, int incX,
+               const sp<Allocation>& Y, int incY, const sp<Allocation>& A);
 
     /**
      * ZHPR2 performs the symmetric rank 2 operation
@@ -3214,8 +3214,8 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param incY The increment for the elements of vector y, must be larger than zero.
      * @param Ap The input allocation contains matrix A, supported elements type: {Element#F64_2}.
      */
-    void ZHPR2(RsBlasUplo Uplo, Double2 alpha, sp<Allocation> X, int incX,
-               sp<Allocation> Y, int incY, sp<Allocation> Ap);
+    void ZHPR2(RsBlasUplo Uplo, Double2 alpha, const sp<Allocation>& X, int incX,
+               const sp<Allocation>& Y, int incY, const sp<Allocation>& Ap);
 
     /**
      * SGEMM performs one of the matrix-matrix operations
@@ -3231,8 +3231,8 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param beta The scalar beta.
      * @param C The input allocation contains matrix C, supported elements type: {Element#F32}.
      */
-    void SGEMM(RsBlasTranspose TransA, RsBlasTranspose TransB, float alpha, sp<Allocation> A,
-                      sp<Allocation> B, float beta, sp<Allocation> C);
+    void SGEMM(RsBlasTranspose TransA, RsBlasTranspose TransB, float alpha, const sp<Allocation>& A,
+                      const sp<Allocation>& B, float beta, const sp<Allocation>& C);
 
 
     /**
@@ -3249,8 +3249,8 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param beta The scalar beta.
      * @param C The input allocation contains matrix C, supported elements type: {Element#F64}.
      */
-    void DGEMM(RsBlasTranspose TransA, RsBlasTranspose TransB, double alpha, sp<Allocation> A,
-                      sp<Allocation> B, double beta, sp<Allocation> C);
+    void DGEMM(RsBlasTranspose TransA, RsBlasTranspose TransB, double alpha, const sp<Allocation>& A,
+                      const sp<Allocation>& B, double beta, const sp<Allocation>& C);
 
     /**
      * CGEMM performs one of the matrix-matrix operations
@@ -3266,8 +3266,8 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param beta The scalar beta.
      * @param C The input allocation contains matrix C, supported elements type: {Element#F32_2}.
      */
-    void CGEMM(RsBlasTranspose TransA, RsBlasTranspose TransB, Float2 alpha, sp<Allocation> A,
-                      sp<Allocation> B, Float2 beta, sp<Allocation> C);
+    void CGEMM(RsBlasTranspose TransA, RsBlasTranspose TransB, Float2 alpha, const sp<Allocation>& A,
+                      const sp<Allocation>& B, Float2 beta, const sp<Allocation>& C);
 
     /**
      * ZGEMM performs one of the matrix-matrix operations
@@ -3278,13 +3278,13 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param TransA The type of transpose applied to matrix A.
      * @param TransB The type of transpose applied to matrix B.
      * @param alpha The scalar alpha.
-     * @param A The input allocation contains matrix A, supported elements type: {Element#F64_2
-     * @param B The input allocation contains matrix B, supported elements type: {Element#F64_2
+     * @param A The input allocation contains matrix A, supported elements type: {Element#F64_2}.
+     * @param B The input allocation contains matrix B, supported elements type: {Element#F64_2}.
      * @param beta The scalar beta.
-     * @param C The input allocation contains matrix C, supported elements type: {Element#F64_2
+     * @param C The input allocation contains matrix C, supported elements type: {Element#F64_2}.
      */
-    void ZGEMM(RsBlasTranspose TransA, RsBlasTranspose TransB, Double2 alpha, sp<Allocation> A,
-                      sp<Allocation> B, Double2 beta, sp<Allocation> C);
+    void ZGEMM(RsBlasTranspose TransA, RsBlasTranspose TransB, Double2 alpha, const sp<Allocation>& A,
+                      const sp<Allocation>& B, Double2 beta, const sp<Allocation>& C);
 
     /**
      * SSYMM performs one of the matrix-matrix operations
@@ -3300,8 +3300,8 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param beta The scalar beta.
      * @param C The input allocation contains matrix C, supported elements type: {Element#F32}.
      */
-    void SSYMM(RsBlasSide Side, RsBlasUplo Uplo, float alpha, sp<Allocation> A,
-                      sp<Allocation> B, float beta, sp<Allocation> C);
+    void SSYMM(RsBlasSide Side, RsBlasUplo Uplo, float alpha, const sp<Allocation>& A,
+                      const sp<Allocation>& B, float beta, const sp<Allocation>& C);
 
     /**
      * DSYMM performs one of the matrix-matrix operations
@@ -3317,8 +3317,8 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param beta The scalar beta.
      * @param C The input allocation contains matrix C, supported elements type: {Element#F64}.
      */
-    void DSYMM(RsBlasSide Side, RsBlasUplo Uplo, double alpha, sp<Allocation> A,
-                      sp<Allocation> B, double beta, sp<Allocation> C);
+    void DSYMM(RsBlasSide Side, RsBlasUplo Uplo, double alpha, const sp<Allocation>& A,
+                      const sp<Allocation>& B, double beta, const sp<Allocation>& C);
 
     /**
      * CSYMM performs one of the matrix-matrix operations
@@ -3334,8 +3334,8 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param beta The scalar beta.
      * @param C The input allocation contains matrix C, supported elements type: {Element#F32_2}.
      */
-    void CSYMM(RsBlasSide Side, RsBlasUplo Uplo, Float2 alpha, sp<Allocation> A,
-                      sp<Allocation> B, Float2 beta, sp<Allocation> C);
+    void CSYMM(RsBlasSide Side, RsBlasUplo Uplo, Float2 alpha, const sp<Allocation>& A,
+                      const sp<Allocation>& B, Float2 beta, const sp<Allocation>& C);
 
     /**
      * ZSYMM performs one of the matrix-matrix operations
@@ -3351,8 +3351,8 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param beta The scalar beta.
      * @param C The input allocation contains matrix C, supported elements type: {Element#F64_2}.
      */
-    void ZSYMM(RsBlasSide Side, RsBlasUplo Uplo, Double2 alpha, sp<Allocation> A,
-                      sp<Allocation> B, Double2 beta, sp<Allocation> C);
+    void ZSYMM(RsBlasSide Side, RsBlasUplo Uplo, Double2 alpha, const sp<Allocation>& A,
+                      const sp<Allocation>& B, Double2 beta, const sp<Allocation>& C);
 
     /**
      * SSYRK performs one of the symmetric rank k operations
@@ -3368,7 +3368,7 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param C The input allocation contains matrix C, supported elements type: {Element#F32}.
      */
     void SSYRK(RsBlasUplo Uplo, RsBlasTranspose Trans, float alpha,
-               sp<Allocation> A, float beta, sp<Allocation> C);
+               const sp<Allocation>& A, float beta, const sp<Allocation>& C);
 
     /**
      * DSYRK performs one of the symmetric rank k operations
@@ -3384,7 +3384,7 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param C The input allocation contains matrix C, supported elements type: {Element#F64}.
      */
     void DSYRK(RsBlasUplo Uplo, RsBlasTranspose Trans, double alpha,
-               sp<Allocation> A, double beta, sp<Allocation> C);
+               const sp<Allocation>& A, double beta, const sp<Allocation>& C);
 
     /**
      * CSYRK performs one of the symmetric rank k operations
@@ -3400,7 +3400,7 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param C The input allocation contains matrix C, supported elements type: {Element#F32_2}.
      */
     void CSYRK(RsBlasUplo Uplo, RsBlasTranspose Trans, Float2 alpha,
-               sp<Allocation> A, Float2 beta, sp<Allocation> C);
+               const sp<Allocation>& A, Float2 beta, const sp<Allocation>& C);
 
     /**
      * ZSYRK performs one of the symmetric rank k operations
@@ -3416,7 +3416,7 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param C The input allocation contains matrix C, supported elements type: {Element#F64_2}.
      */
     void ZSYRK(RsBlasUplo Uplo, RsBlasTranspose Trans, Double2 alpha,
-               sp<Allocation> A, Double2 beta, sp<Allocation> C);
+               const sp<Allocation>& A, Double2 beta, const sp<Allocation>& C);
 
     /**
      * SSYR2K performs one of the symmetric rank 2k operations
@@ -3433,7 +3433,7 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param C The input allocation contains matrix C, supported elements type: {Element#F32}.
      */
     void SSYR2K(RsBlasUplo Uplo, RsBlasTranspose Trans, float alpha,
-                sp<Allocation> A, sp<Allocation> B, float beta, sp<Allocation> C);
+                const sp<Allocation>& A, const sp<Allocation>& B, float beta, const sp<Allocation>& C);
 
     /**
      * DSYR2K performs one of the symmetric rank 2k operations
@@ -3450,7 +3450,7 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param C The input allocation contains matrix C, supported elements type: {Element#F64}.
      */
     void DSYR2K(RsBlasUplo Uplo, RsBlasTranspose Trans, double alpha,
-                sp<Allocation> A, sp<Allocation> B, double beta, sp<Allocation> C);
+                const sp<Allocation>& A, const sp<Allocation>& B, double beta, const sp<Allocation>& C);
 
     /**
      * CSYR2K performs one of the symmetric rank 2k operations
@@ -3467,7 +3467,7 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param C The input allocation contains matrix C, supported elements type: {Element#F32_2}.
      */
     void CSYR2K(RsBlasUplo Uplo, RsBlasTranspose Trans, Float2 alpha,
-                sp<Allocation> A, sp<Allocation> B, Float2 beta, sp<Allocation> C);
+                const sp<Allocation>& A, const sp<Allocation>& B, Float2 beta, const sp<Allocation>& C);
 
     /**
      * ZSYR2K performs one of the symmetric rank 2k operations
@@ -3484,7 +3484,7 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param C The input allocation contains matrix C, supported elements type: {Element#F64_2}.
      */
     void ZSYR2K(RsBlasUplo Uplo, RsBlasTranspose Trans, Double2 alpha,
-                sp<Allocation> A, sp<Allocation> B, Double2 beta, sp<Allocation> C);
+                const sp<Allocation>& A, const sp<Allocation>& B, Double2 beta, const sp<Allocation>& C);
 
     /**
      * STRMM performs one of the matrix-matrix operations
@@ -3502,7 +3502,7 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param B The input allocation contains matrix B, supported elements type: {Element#F32}.
      */
     void STRMM(RsBlasSide Side, RsBlasUplo Uplo, RsBlasTranspose TransA,
-               RsBlasDiag Diag, float alpha, sp<Allocation> A, sp<Allocation> B);
+               RsBlasDiag Diag, float alpha, const sp<Allocation>& A, const sp<Allocation>& B);
 
     /**
      * DTRMM performs one of the matrix-matrix operations
@@ -3520,7 +3520,7 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param B The input allocation contains matrix B, supported elements type: {Element#F64}.
      */
     void DTRMM(RsBlasSide Side, RsBlasUplo Uplo, RsBlasTranspose TransA, RsBlasDiag Diag,
-               double alpha, sp<Allocation> A, sp<Allocation> B);
+               double alpha, const sp<Allocation>& A, const sp<Allocation>& B);
 
     /**
      * CTRMM performs one of the matrix-matrix operations
@@ -3538,7 +3538,7 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param B The input allocation contains matrix B, supported elements type: {Element#F32_2}.
      */
     void CTRMM(RsBlasSide Side, RsBlasUplo Uplo, RsBlasTranspose TransA, RsBlasDiag Diag,
-               Float2 alpha, sp<Allocation> A, sp<Allocation> B);
+               Float2 alpha, const sp<Allocation>& A, const sp<Allocation>& B);
 
     /**
      * ZTRMM performs one of the matrix-matrix operations
@@ -3556,7 +3556,7 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param B The input allocation contains matrix B, supported elements type: {Element#F64_2}.
      */
     void ZTRMM(RsBlasSide Side, RsBlasUplo Uplo, RsBlasTranspose TransA, RsBlasDiag Diag,
-               Double2 alpha, sp<Allocation> A, sp<Allocation> B);
+               Double2 alpha, const sp<Allocation>& A, const sp<Allocation>& B);
 
     /**
      * STRSM solves one of the matrix equations
@@ -3574,7 +3574,7 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param B The input allocation contains matrix B, supported elements type: {Element#F32}.
      */
     void STRSM(RsBlasSide Side, RsBlasUplo Uplo, RsBlasTranspose TransA, RsBlasDiag Diag,
-               float alpha, sp<Allocation> A, sp<Allocation> B);
+               float alpha, const sp<Allocation>& A, const sp<Allocation>& B);
 
     /**
      * DTRSM solves one of the matrix equations
@@ -3592,7 +3592,7 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param B The input allocation contains matrix B, supported elements type: {Element#F64}.
      */
     void DTRSM(RsBlasSide Side, RsBlasUplo Uplo, RsBlasTranspose TransA, RsBlasDiag Diag,
-               double alpha, sp<Allocation> A, sp<Allocation> B);
+               double alpha, const sp<Allocation>& A, const sp<Allocation>& B);
 
     /**
      * CTRSM solves one of the matrix equations
@@ -3610,7 +3610,7 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param B The input allocation contains matrix B, supported elements type: {Element#F32_2}.
      */
     void CTRSM(RsBlasSide Side, RsBlasUplo Uplo, RsBlasTranspose TransA, RsBlasDiag Diag,
-               Float2 alpha, sp<Allocation> A, sp<Allocation> B);
+               Float2 alpha, const sp<Allocation>& A, const sp<Allocation>& B);
 
     /**
      * ZTRSM solves one of the matrix equations
@@ -3628,7 +3628,7 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param B The input allocation contains matrix B, supported elements type: {Element#F64_2}.
      */
     void ZTRSM(RsBlasSide Side, RsBlasUplo Uplo, RsBlasTranspose TransA, RsBlasDiag Diag,
-               Double2 alpha, sp<Allocation> A, sp<Allocation> B);
+               Double2 alpha, const sp<Allocation>& A, const sp<Allocation>& B);
 
     /**
      * CHEMM performs one of the matrix-matrix operations
@@ -3644,8 +3644,8 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param beta The scalar beta.
      * @param C The input allocation contains matrix C, supported elements type: {Element#F32_2}.
      */
-    void CHEMM(RsBlasSide Side, RsBlasUplo Uplo, Float2 alpha, sp<Allocation> A,
-               sp<Allocation> B, Float2 beta, sp<Allocation> C);
+    void CHEMM(RsBlasSide Side, RsBlasUplo Uplo, Float2 alpha, const sp<Allocation>& A,
+               const sp<Allocation>& B, Float2 beta, const sp<Allocation>& C);
 
     /**
      * ZHEMM performs one of the matrix-matrix operations
@@ -3661,8 +3661,8 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param beta The scalar beta.
      * @param C The input allocation contains matrix C, supported elements type: {Element#F64_2}.
      */
-    void ZHEMM(RsBlasSide Side, RsBlasUplo Uplo, Double2 alpha, sp<Allocation> A,
-               sp<Allocation> B, Double2 beta, sp<Allocation> C);
+    void ZHEMM(RsBlasSide Side, RsBlasUplo Uplo, Double2 alpha, const sp<Allocation>& A,
+               const sp<Allocation>& B, Double2 beta, const sp<Allocation>& C);
 
     /**
      * CHERK performs one of the hermitian rank k operations
@@ -3677,8 +3677,8 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param beta The scalar beta.
      * @param C The input allocation contains matrix C, supported elements type: {Element#F32_2}.
      */
-    void CHERK(RsBlasUplo Uplo, RsBlasTranspose Trans, float alpha, sp<Allocation> A,
-               float beta, sp<Allocation> C);
+    void CHERK(RsBlasUplo Uplo, RsBlasTranspose Trans, float alpha, const sp<Allocation>& A,
+               float beta, const sp<Allocation>& C);
 
     /**
      * ZHERK performs one of the hermitian rank k operations
@@ -3693,8 +3693,8 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param beta The scalar beta.
      * @param C The input allocation contains matrix C, supported elements type: {Element#F64_2}.
      */
-    void ZHERK(RsBlasUplo Uplo, RsBlasTranspose Trans, double alpha, sp<Allocation> A,
-               double beta, sp<Allocation> C);
+    void ZHERK(RsBlasUplo Uplo, RsBlasTranspose Trans, double alpha, const sp<Allocation>& A,
+               double beta, const sp<Allocation>& C);
 
     /**
      * CHER2K performs one of the hermitian rank 2k operations
@@ -3710,8 +3710,8 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param beta The scalar beta.
      * @param C The input allocation contains matrix C, supported elements type: {Element#F32_2}.
      */
-    void CHER2K(RsBlasUplo Uplo, RsBlasTranspose Trans, Float2 alpha, sp<Allocation> A,
-                sp<Allocation> B, float beta, sp<Allocation> C);
+    void CHER2K(RsBlasUplo Uplo, RsBlasTranspose Trans, Float2 alpha, const sp<Allocation>& A,
+                const sp<Allocation>& B, float beta, const sp<Allocation>& C);
 
     /**
      * ZHER2K performs one of the hermitian rank 2k operations
@@ -3727,8 +3727,8 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param beta The scalar beta.
      * @param C The input allocation contains matrix C, supported elements type: {Element#F64_2}.
      */
-    void ZHER2K(RsBlasUplo Uplo, RsBlasTranspose Trans, Double2 alpha, sp<Allocation> A,
-                sp<Allocation> B, double beta, sp<Allocation> C);
+    void ZHER2K(RsBlasUplo Uplo, RsBlasTranspose Trans, Double2 alpha, const sp<Allocation>& A,
+                const sp<Allocation>& B, double beta, const sp<Allocation>& C);
 
     /**
      * 8-bit GEMM-like operation for neural networks: C = A * Transpose(B)
@@ -3745,7 +3745,7 @@ class ScriptIntrinsicBLAS : public ScriptIntrinsic {
      * @param c_offset The offset for all values in matrix C.
      * @param c_mult The multiplier for all values in matrix C, e.g C[i,j] = (C[i,j] + c_offset) * c_mult.
      **/
-    void BNNM(sp<Allocation> A, int a_offset, sp<Allocation> B, int b_offset, sp<Allocation> C,
+    void BNNM(const sp<Allocation>& A, int a_offset, const sp<Allocation>& B, int b_offset, const sp<Allocation>& C,
               int c_offset, int c_mult);
 };
 
@@ -3762,97 +3762,97 @@ class ScriptIntrinsicBlend : public ScriptIntrinsic {
      * @param[in] e Element
      * @return new ScriptIntrinsicBlend
      */
-    static sp<ScriptIntrinsicBlend> create(sp<RS> rs, sp<const Element> e);
+    static sp<ScriptIntrinsicBlend> create(const sp<RS>& rs, const sp<const Element>& e);
     /**
      * sets dst = {0, 0, 0, 0}
      * @param[in] in input Allocation
      * @param[in] out output Allocation
      */
-    void forEachClear(sp<Allocation> in, sp<Allocation> out);
+    void forEachClear(const sp<Allocation>& in, const sp<Allocation>& out);
     /**
      * Sets dst = src
      * @param[in] in input Allocation
      * @param[in] out output Allocation
      */
-    void forEachSrc(sp<Allocation> in, sp<Allocation> out);
+    void forEachSrc(const sp<Allocation>& in, const sp<Allocation>& out);
     /**
      * Sets dst = dst (NOP)
      * @param[in] in input Allocation
      * @param[in] out output Allocation
      */
-    void forEachDst(sp<Allocation> in, sp<Allocation> out);
+    void forEachDst(const sp<Allocation>& in, const sp<Allocation>& out);
     /**
      * Sets dst = src + dst * (1.0 - src.a)
      * @param[in] in input Allocation
      * @param[in] out output Allocation
      */
-    void forEachSrcOver(sp<Allocation> in, sp<Allocation> out);
+    void forEachSrcOver(const sp<Allocation>& in, const sp<Allocation>& out);
     /**
      * Sets dst = dst + src * (1.0 - dst.a)
      * @param[in] in input Allocation
      * @param[in] out output Allocation
      */
-    void forEachDstOver(sp<Allocation> in, sp<Allocation> out);
+    void forEachDstOver(const sp<Allocation>& in, const sp<Allocation>& out);
     /**
      * Sets dst = src * dst.a
      * @param[in] in input Allocation
      * @param[in] out output Allocation
      */
-    void forEachSrcIn(sp<Allocation> in, sp<Allocation> out);
+    void forEachSrcIn(const sp<Allocation>& in, const sp<Allocation>& out);
     /**
      * Sets dst = dst * src.a
      * @param[in] in input Allocation
      * @param[in] out output Allocation
      */
-    void forEachDstIn(sp<Allocation> in, sp<Allocation> out);
+    void forEachDstIn(const sp<Allocation>& in, const sp<Allocation>& out);
     /**
      * Sets dst = src * (1.0 - dst.a)
      * @param[in] in input Allocation
      * @param[in] out output Allocation
      */
-    void forEachSrcOut(sp<Allocation> in, sp<Allocation> out);
+    void forEachSrcOut(const sp<Allocation>& in, const sp<Allocation>& out);
     /**
      * Sets dst = dst * (1.0 - src.a)
      * @param[in] in input Allocation
      * @param[in] out output Allocation
      */
-    void forEachDstOut(sp<Allocation> in, sp<Allocation> out);
+    void forEachDstOut(const sp<Allocation>& in, const sp<Allocation>& out);
     /**
      * Sets dst.rgb = src.rgb * dst.a + (1.0 - src.a) * dst.rgb
      * @param[in] in input Allocation
      * @param[in] out output Allocation
      */
-    void forEachSrcAtop(sp<Allocation> in, sp<Allocation> out);
+    void forEachSrcAtop(const sp<Allocation>& in, const sp<Allocation>& out);
     /**
      * Sets dst.rgb = dst.rgb * src.a + (1.0 - dst.a) * src.rgb
      * @param[in] in input Allocation
      * @param[in] out output Allocation
      */
-    void forEachDstAtop(sp<Allocation> in, sp<Allocation> out);
+    void forEachDstAtop(const sp<Allocation>& in, const sp<Allocation>& out);
     /**
      * Sets dst = {src.r ^ dst.r, src.g ^ dst.g, src.b ^ dst.b, src.a ^ dst.a}
      * @param[in] in input Allocation
      * @param[in] out output Allocation
      */
-    void forEachXor(sp<Allocation> in, sp<Allocation> out);
+    void forEachXor(const sp<Allocation>& in, const sp<Allocation>& out);
     /**
      * Sets dst = src * dst
      * @param[in] in input Allocation
      * @param[in] out output Allocation
      */
-    void forEachMultiply(sp<Allocation> in, sp<Allocation> out);
+    void forEachMultiply(const sp<Allocation>& in, const sp<Allocation>& out);
     /**
      * Sets dst = min(src + dst, 1.0)
      * @param[in] in input Allocation
      * @param[in] out output Allocation
      */
-    void forEachAdd(sp<Allocation> in, sp<Allocation> out);
+    void forEachAdd(const sp<Allocation>& in, const sp<Allocation>& out);
     /**
      * Sets dst = max(dst - src, 0.0)
      * @param[in] in input Allocation
      * @param[in] out output Allocation
      */
-    void forEachSubtract(sp<Allocation> in, sp<Allocation> out);
+    void forEachSubtract(const sp<Allocation>& in, const sp<Allocation>& out);
 };
 
 /**
@@ -3869,17 +3869,17 @@ class ScriptIntrinsicBlur : public ScriptIntrinsic {
      * @param[in] e Element
      * @return new ScriptIntrinsicBlur
      */
-    static sp<ScriptIntrinsicBlur> create(sp<RS> rs, sp<const Element> e);
+    static sp<ScriptIntrinsicBlur> create(const sp<RS>& rs, const sp<const Element>& e);
     /**
      * Sets the input of the blur.
      * @param[in] in input Allocation
      */
-    void setInput(sp<Allocation> in);
+    void setInput(const sp<Allocation>& in);
     /**
      * Runs the intrinsic.
      * @param[in] output Allocation
      */
-    void forEach(sp<Allocation> out);
+    void forEach(const sp<Allocation>& out);
     /**
      * Sets the radius of the blur. The supported range is 0 < radius <= 25.
      * @param[in] radius radius of the blur
@@ -3903,14 +3903,14 @@ class ScriptIntrinsicColorMatrix : public ScriptIntrinsic {
      * @param[in] rs RenderScript context
      * @return new ScriptIntrinsicColorMatrix
      */
-    static sp<ScriptIntrinsicColorMatrix> create(sp<RS> rs);
+    static sp<ScriptIntrinsicColorMatrix> create(const sp<RS>& rs);
     /**
      * Applies the color matrix. Supported types are U8 and F32 with
      * vector lengths between 1 and 4.
      * @param[in] in input Allocation
      * @param[out] out output Allocation
      */
-    void forEach(sp<Allocation> in, sp<Allocation> out);
+    void forEach(const sp<Allocation>& in, const sp<Allocation>& out);
     /**
      * Set the value to be added after the color matrix has been
      * applied. The default value is {0, 0, 0, 0}.
@@ -3963,17 +3963,17 @@ class ScriptIntrinsicConvolve3x3 : public ScriptIntrinsic {
      * @param[in] e Element
      * @return new ScriptIntrinsicConvolve3x3
      */
-    static sp<ScriptIntrinsicConvolve3x3> create(sp<RS> rs, sp<const Element> e);
+    static sp<ScriptIntrinsicConvolve3x3> create(const sp<RS>& rs, const sp<const Element>& e);
     /**
      * Sets input for intrinsic.
      * @param[in] in input Allocation
      */
-    void setInput(sp<Allocation> in);
+    void setInput(const sp<Allocation>& in);
     /**
      * Launches the intrinsic.
      * @param[in] out output Allocation
      */
-    void forEach(sp<Allocation> out);
+    void forEach(const sp<Allocation>& out);
     /**
      * Sets convolution kernel.
      * @param[in] v float[9] of values
@@ -3995,17 +3995,17 @@ class ScriptIntrinsicConvolve5x5 : public ScriptIntrinsic {
      * @param[in] e Element
      * @return new ScriptIntrinsicConvolve5x5
      */
-    static sp<ScriptIntrinsicConvolve5x5> create(sp<RS> rs, sp<const Element> e);
+    static sp<ScriptIntrinsicConvolve5x5> create(const sp<RS>& rs, const sp<const Element>& e);
     /**
      * Sets input for intrinsic.
      * @param[in] in input Allocation
      */
-    void setInput(sp<Allocation> in);
+    void setInput(const sp<Allocation>& in);
     /**
      * Launches the intrinsic.
      * @param[in] out output Allocation
      */
-    void forEach(sp<Allocation> out);
+    void forEach(const sp<Allocation>& out);
     /**
      * Sets convolution kernel.
      * @param[in] v float[25] of values
@@ -4032,14 +4032,14 @@ class ScriptIntrinsicHistogram : public ScriptIntrinsic {
      *
      * @return ScriptIntrinsicHistogram
      */
-    static sp<ScriptIntrinsicHistogram> create(sp<RS> rs, sp<const Element> e);
+    static sp<ScriptIntrinsicHistogram> create(const sp<RS>& rs, const sp<const Element>& e);
     /**
      * Set the output of the histogram.  32 bit integer types are
      * supported.
      *
      * @param[in] aout The output allocation
      */
-    void setOutput(sp<Allocation> aout);
+    void setOutput(const sp<Allocation>& aout);
     /**
      * Set the coefficients used for the dot product calculation. The
      * default is {0.299f, 0.587f, 0.114f, 0.f}.
@@ -4064,7 +4064,7 @@ class ScriptIntrinsicHistogram : public ScriptIntrinsic {
      *
      * @param[in] ain The input image
      */
-    void forEach(sp<Allocation> ain);
+    void forEach(const sp<Allocation>& ain);
     /**
      * Process an input buffer and place the histogram into the output
      * allocation. The dot product of the input channel and the
@@ -4075,7 +4075,7 @@ class ScriptIntrinsicHistogram : public ScriptIntrinsic {
      *
      * @param ain The input image
      */
-    void forEach_dot(sp<Allocation> ain);
+    void forEach_dot(const sp<Allocation>& ain);
 };
 
 /**
@@ -4102,7 +4102,7 @@ class ScriptIntrinsicLUT : public ScriptIntrinsic {
      *
      * @return ScriptIntrinsicLUT
      */
-    static sp<ScriptIntrinsicLUT> create(sp<RS> rs, sp<const Element> e);
+    static sp<ScriptIntrinsicLUT> create(const sp<RS>& rs, const sp<const Element>& e);
     /**
      * Invoke the kernel and apply the lookup to each cell of ain and
      * copy to aout.
@@ -4110,7 +4110,7 @@ class ScriptIntrinsicLUT : public ScriptIntrinsic {
      * @param[in] ain Input allocation
      * @param[in] aout Output allocation
      */
-    void forEach(sp<Allocation> ain, sp<Allocation> aout);
+    void forEach(const sp<Allocation>& ain, const sp<Allocation>& aout);
     /**
      * Sets entries in LUT for the red channel.
      * @param[in] base base of region to update
@@ -4156,7 +4156,7 @@ class ScriptIntrinsicResize : public ScriptIntrinsic {
      * @param[in] e Element
      * @return new ScriptIntrinsic
      */
-    static sp<ScriptIntrinsicResize> create(sp<RS> rs);
+    static sp<ScriptIntrinsicResize> create(const sp<RS>& rs);
 
     /**
      * Resize copy the input allocation to the output specified. The
@@ -4165,13 +4165,13 @@ class ScriptIntrinsicResize : public ScriptIntrinsic {
      * @param[in] ain input Allocation
      * @param[in] aout output Allocation
      */
-    void forEach_bicubic(sp<Allocation> aout);
+    void forEach_bicubic(const sp<Allocation>& aout);
 
     /**
      * Set the input of the resize.
      * @param[in] lut new lookup table
      */
-    void setInput(sp<Allocation> ain);
+    void setInput(const sp<Allocation>& ain);
 };
 
 /**
@@ -4195,13 +4195,13 @@ class ScriptIntrinsicYuvToRGB : public ScriptIntrinsic {
      *
      * @return ScriptIntrinsicYuvToRGB
      */
-    static sp<ScriptIntrinsicYuvToRGB> create(sp<RS> rs, sp<const Element> e);
+    static sp<ScriptIntrinsicYuvToRGB> create(const sp<RS>& rs, const sp<const Element>& e);
     /**
      * Set the input YUV allocation.
      *
      * @param[in] ain The input allocation.
      */
-    void setInput(sp<Allocation> in);
+    void setInput(const sp<Allocation>& in);
 
     /**
      * Convert the image to RGB.
@@ -4209,7 +4209,7 @@ class ScriptIntrinsicYuvToRGB : public ScriptIntrinsic {
      * @param[in] aout Output allocation. Must match creation element
      *                 type.
      */
-    void forEach(sp<Allocation> out);
+    void forEach(const sp<Allocation>& out);
 
 };
 
@@ -4244,7 +4244,7 @@ class ScriptIntrinsicYuvToRGB : public ScriptIntrinsic {
      * @param[in] wrapT T wrapping mode
      * @param[in] anisotropy anisotropy setting
      */
-    static sp<Sampler> create(sp<RS> rs, RsSamplerValue min, RsSamplerValue mag, RsSamplerValue wrapS, RsSamplerValue wrapT, float anisotropy);
+    static sp<Sampler> create(const sp<RS>& rs, RsSamplerValue min, RsSamplerValue mag, RsSamplerValue wrapS, RsSamplerValue wrapT, float anisotropy);
 
     /**
      * @return minification setting for the sampler
@@ -4275,7 +4275,7 @@ class ScriptIntrinsicYuvToRGB : public ScriptIntrinsic {
      *
      * @return Sampler
      */
-    static sp<const Sampler> CLAMP_NEAREST(sp<RS> rs);
+    static sp<const Sampler> CLAMP_NEAREST(const sp<RS> &rs);
     /**
      * Retrieve a sampler with min and mag set to linear and wrap modes set to
      * clamp.
@@ -4284,7 +4284,7 @@ class ScriptIntrinsicYuvToRGB : public ScriptIntrinsic {
      *
      * @return Sampler
      */
-    static sp<const Sampler> CLAMP_LINEAR(sp<RS> rs);
+    static sp<const Sampler> CLAMP_LINEAR(const sp<RS> &rs);
     /**
      * Retrieve a sampler with mag set to linear, min linear mipmap linear, and
      * wrap modes set to clamp.
@@ -4293,7 +4293,7 @@ class ScriptIntrinsicYuvToRGB : public ScriptIntrinsic {
      *
      * @return Sampler
      */
-    static sp<const Sampler> CLAMP_LINEAR_MIP_LINEAR(sp<RS> rs);
+    static sp<const Sampler> CLAMP_LINEAR_MIP_LINEAR(const sp<RS> &rs);
     /**
      * Retrieve a sampler with min and mag set to nearest and wrap modes set to
      * wrap.
@@ -4302,7 +4302,7 @@ class ScriptIntrinsicYuvToRGB : public ScriptIntrinsic {
      *
      * @return Sampler
      */
-    static sp<const Sampler> WRAP_NEAREST(sp<RS> rs);
+    static sp<const Sampler> WRAP_NEAREST(const sp<RS> &rs);
     /**
      * Retrieve a sampler with min and mag set to linear and wrap modes set to
      * wrap.
@@ -4311,7 +4311,7 @@ class ScriptIntrinsicYuvToRGB : public ScriptIntrinsic {
      *
      * @return Sampler
      */
-    static sp<const Sampler> WRAP_LINEAR(sp<RS> rs);
+    static sp<const Sampler> WRAP_LINEAR(const sp<RS> &rs);
     /**
      * Retrieve a sampler with mag set to linear, min linear mipmap linear, and
      * wrap modes set to wrap.
@@ -4320,7 +4320,7 @@ class ScriptIntrinsicYuvToRGB : public ScriptIntrinsic {
      *
      * @return Sampler
      */
-    static sp<const Sampler> WRAP_LINEAR_MIP_LINEAR(sp<RS> rs);
+    static sp<const Sampler> WRAP_LINEAR_MIP_LINEAR(const sp<RS> &rs);
     /**
      * Retrieve a sampler with min and mag set to nearest and wrap modes set to
      * mirrored repeat.
@@ -4329,7 +4329,7 @@ class ScriptIntrinsicYuvToRGB : public ScriptIntrinsic {
      *
      * @return Sampler
      */
-    static sp<const Sampler> MIRRORED_REPEAT_NEAREST(sp<RS> rs);
+    static sp<const Sampler> MIRRORED_REPEAT_NEAREST(const sp<RS> &rs);
     /**
      * Retrieve a sampler with min and mag set to linear and wrap modes set to
      * mirrored repeat.
@@ -4338,7 +4338,7 @@ class ScriptIntrinsicYuvToRGB : public ScriptIntrinsic {
      *
      * @return Sampler
      */
-    static sp<const Sampler> MIRRORED_REPEAT_LINEAR(sp<RS> rs);
+    static sp<const Sampler> MIRRORED_REPEAT_LINEAR(const sp<RS> &rs);
     /**
      * Retrieve a sampler with min and mag set to linear and wrap modes set to
      * mirrored repeat.
@@ -4347,12 +4347,12 @@ class ScriptIntrinsicYuvToRGB : public ScriptIntrinsic {
      *
      * @return Sampler
      */
-    static sp<const Sampler> MIRRORED_REPEAT_LINEAR_MIP_LINEAR(sp<RS> rs);
+    static sp<const Sampler> MIRRORED_REPEAT_LINEAR_MIP_LINEAR(const sp<RS> &rs);
 
 };
 
-}
+} // namespace RSC
 
-}
+} // namespace android
 
 #endif

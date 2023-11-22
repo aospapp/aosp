@@ -15,6 +15,8 @@
  */
 package com.android.cts.deviceowner;
 
+import com.android.compatibility.common.util.ApiLevelUtil;
+
 import android.app.admin.DevicePolicyManager;
 import android.app.admin.SystemUpdatePolicy;
 import android.content.BroadcastReceiver;
@@ -46,7 +48,7 @@ public class SystemUpdatePolicyTest extends BaseDeviceOwnerTest {
     @Override
     protected void setUp() throws Exception {
         super.setUp();
-        mHasFeature = Build.VERSION.SDK_INT > Build.VERSION_CODES.LOLLIPOP_MR1;
+        mHasFeature = ApiLevelUtil.isAfter(Build.VERSION_CODES.LOLLIPOP_MR1);
 
         if (mHasFeature) {
             IntentFilter filter = new IntentFilter();

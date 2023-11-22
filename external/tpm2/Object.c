@@ -268,8 +268,8 @@ ObjectAllocateSlot(
     if(i == MAX_LOADED_OBJECTS) return FALSE;
     *handle = i + TRANSIENT_FIRST;
     *object = &s_objects[i].object.entity;
-    // Initialize the object attributes
-    MemorySet(&((*object)->attributes), 0, sizeof(OBJECT_ATTRIBUTES));
+    // Initialize the container.
+    MemorySet(*object, 0, sizeof(**object));
     return TRUE;
 }
 //

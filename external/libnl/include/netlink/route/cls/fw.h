@@ -15,12 +15,14 @@
 #define NETLINK_FW_H_
 
 #include <netlink/netlink.h>
+#include <netlink/route/classifier.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 extern int	rtnl_fw_set_classid(struct rtnl_cls *, uint32_t);
+extern int	rtnl_fw_set_mask(struct rtnl_cls *, uint32_t);
 
 #ifdef __cplusplus
 }

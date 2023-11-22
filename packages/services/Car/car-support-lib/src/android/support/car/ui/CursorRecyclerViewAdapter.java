@@ -24,6 +24,7 @@ import android.support.v7.widget.RecyclerView;
 /**
  * Adapter that exposes data from a Cursor to a {@link RecyclerView} widget.
  * The Cursor must include an Id column or this class will not work.
+ * @hide
  */
 public abstract  class CursorRecyclerViewAdapter<VH extends RecyclerView.ViewHolder>
         extends RecyclerView.Adapter<VH> {

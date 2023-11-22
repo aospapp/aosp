@@ -16,20 +16,39 @@
 
 package android.text.style.cts;
 
-import android.text.cts.R;
-
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
 
 import android.content.Context;
-import android.cts.util.WidgetTestUtils;
 import android.graphics.Bitmap;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
-import android.test.AndroidTestCase;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
+import android.text.cts.R;
 import android.text.style.DynamicDrawableSpan;
 import android.text.style.ImageSpan;
 
-public class ImageSpanTest extends AndroidTestCase {
+import com.android.compatibility.common.util.WidgetTestUtils;
+
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class ImageSpanTest {
+    private Context mContext;
+
+    @Before
+    public void setup() {
+        mContext = InstrumentationRegistry.getTargetContext();
+    }
+
+    @Test
     public void testConstructor() {
         int width = 80;
         int height = 120;
@@ -39,6 +58,10 @@ public class ImageSpanTest extends AndroidTestCase {
         new ImageSpan(b);
         new ImageSpan(b, DynamicDrawableSpan.ALIGN_BOTTOM);
         new ImageSpan(b, DynamicDrawableSpan.ALIGN_BASELINE);
+
+        new ImageSpan(mContext, b);
+        new ImageSpan(mContext, b, DynamicDrawableSpan.ALIGN_BOTTOM);
+        new ImageSpan(mContext, b, DynamicDrawableSpan.ALIGN_BASELINE);
 
         Drawable d = mContext.getResources().getDrawable(R.drawable.pass);
         new ImageSpan(d);
@@ -69,8 +92,9 @@ public class ImageSpanTest extends AndroidTestCase {
         new ImageSpan((Context) null, -1, -1);
     }
 
+    @Test
     public void testGetSource() {
-        Drawable d = mContext.getResources().getDrawable(R.drawable.pass);
+        Drawable d = mContext.getDrawable(R.drawable.pass);
 
         ImageSpan imageSpan = new ImageSpan(d);
         assertNull(imageSpan.getSource());
@@ -84,8 +108,9 @@ public class ImageSpanTest extends AndroidTestCase {
         assertEquals(source, imageSpan.getSource());
     }
 
+    @Test
     public void testGetDrawable() {
-        Drawable drawable = mContext.getResources().getDrawable(R.drawable.pass);
+        Drawable drawable = mContext.getDrawable(R.drawable.pass);
 
         ImageSpan imageSpan = new ImageSpan(drawable);
         assertSame(drawable, imageSpan.getDrawable());

@@ -58,6 +58,11 @@ void vnd_load_conf(const char *p_path);
 void hw_epilog_process(void);
 #endif
 
+#if (BRCM_A2DP_OFFLOAD == TRUE)
+void brcm_vnd_a2dp_init(bt_vendor_callbacks_t *callback);
+int brcm_vnd_a2dp_execute(bt_vendor_opcode_t, void *ev_data);
+#endif
+
 /******************************************************************************
 **  Variables
 ******************************************************************************/
@@ -123,6 +128,10 @@ static int init(const bt_vendor_callbacks_t* p_cb, unsigned char *local_bdaddr)
     /* This is handed over from the stack */
     memcpy(vnd_local_bd_addr, local_bdaddr, 6);
 
+#if (BRCM_A2DP_OFFLOAD == TRUE)
+    brcm_vnd_a2dp_init(bt_vendor_cbacks);
+#endif
+
     return 0;
 }
 
@@ -139,10 +148,15 @@ static int op(bt_vendor_opcode_t opcode, void *param)
         case BT_VND_OP_POWER_CTRL:
             {
                 int *state = (int *) param;
-                if (*state == BT_VND_PWR_OFF)
-                    upio_set_bluetooth_power(UPIO_BT_POWER_OFF);
-                else if (*state == BT_VND_PWR_ON)
+                upio_set_bluetooth_power(UPIO_BT_POWER_OFF);
+                if (*state == BT_VND_PWR_ON)
+                {
+                    ALOGW("NOTE: BT_VND_PWR_ON now forces power-off first");
                     upio_set_bluetooth_power(UPIO_BT_POWER_ON);
+                } else {
+                    /* Make sure wakelock is released */
+                    hw_lpm_set_wake_state(false);
+                }
             }
             break;
 
@@ -226,6 +240,12 @@ static int op(bt_vendor_opcode_t opcode, void *param)
 #endif
             }
             break;
+#if (BRCM_A2DP_OFFLOAD == TRUE)
+        case BT_VND_OP_A2DP_OFFLOAD_START:
+        case BT_VND_OP_A2DP_OFFLOAD_STOP:
+            retval = brcm_vnd_a2dp_execute(opcode, param);
+            break;
+#endif
     }
 
     return retval;

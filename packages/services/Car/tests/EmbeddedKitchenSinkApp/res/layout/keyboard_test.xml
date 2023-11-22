@@ -15,9 +15,13 @@
 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:orientation="vertical" android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:layout_marginTop="96dp"
-    android:layout_marginLeft="96dp">
+    android:layout_height="match_parent">
+
+    <TextView
+        android:id="@+id/driving_status"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textSize="20dp"/>
 
     <TextView
         android:id="@+id/search_text"

@@ -18,12 +18,12 @@
 #include "rsCppUtils.h"
 
 #include <string>
-
-#include <string.h>
+#include <unistd.h>
 
 #ifndef RS_COMPATIBILITY_LIB
 #include <sys/wait.h>
 #endif
+
 
 namespace android {
 namespace renderscript {
@@ -99,5 +99,20 @@ bool rsuExecuteCommand(const char *exe, int nArgs, const char * const *args) {
 }
 #endif // RS_COMPATIBILITY_LIB
 
+// Implementation of property_get from libcutils
+int property_get(const char *key, char *value, const char *default_value) {
+    int len;
+    len = __system_property_get(key, value);
+    if (len > 0) {
+        return len;
+    }
+
+    if (default_value) {
+        len = strlen(default_value);
+        memcpy(value, default_value, len + 1);
+    }
+    return len;
 }
-}
+
+} // namespace renderscript
+} // namespace android

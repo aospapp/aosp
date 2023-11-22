@@ -45,12 +45,8 @@
 #define    ALG_XOR                     ALG_YES
 #define    ALG_KEYEDHASH               ALG_YES
 #define    ALG_SHA256                  ALG_YES
-#ifdef EMBEDDED_MODE
-#define    ALG_SHA384                  ALG_NO
-#else
 #define    ALG_SHA384                  ALG_YES
-#endif
-#define    ALG_SHA512                  ALG_NO
+#define    ALG_SHA512                  ALG_YES
 #define    ALG_SM3_256                 ALG_NO
 #define    ALG_SM4                     ALG_NO
 #define    ALG_RSASSA                  (ALG_YES*ALG_RSA)
@@ -60,9 +56,15 @@
 #define   ALG_ECC                   ALG_YES
 #define   ALG_ECDH                  (ALG_YES*ALG_ECC)
 #define   ALG_ECDSA                 (ALG_YES*ALG_ECC)
+#ifdef EMBEDDED_MODE
+#define   ALG_ECDAA                 (ALG_NO*ALG_ECC)
+#define   ALG_SM2                   (ALG_NO*ALG_ECC)
+#define   ALG_ECSCHNORR             (ALG_NO*ALG_ECC)
+#else
 #define   ALG_ECDAA                 (ALG_YES*ALG_ECC)
 #define   ALG_SM2                   (ALG_YES*ALG_ECC)
 #define   ALG_ECSCHNORR             (ALG_YES*ALG_ECC)
+#endif
 #define   ALG_ECMQV                 (ALG_NO*ALG_ECC)
 #define   ALG_SYMCIPHER             ALG_YES
 #define   ALG_KDF1_SP800_56A        (ALG_YES*ALG_ECC)
@@ -256,7 +258,17 @@
 #define MAX_NV_BUFFER_SIZE                1024
 #define MAX_CAP_BUFFER                    1024
 #ifdef EMBEDDED_MODE
-#define NV_MEMORY_SIZE                    8192
+// This must be matched by the package using this library!
+#define NV_MEMORY_SIZE                    11980
+// Versioning NV storage format will allow to smoothly migrate NVRAM contents.
+// Versions:
+// 1 - full non-serialized objects in NVMEM, max SHA digest is SHA-256
+// 2 - a mix of serialized and non-serialized objects in NVMEM, max SHA digest
+//     is SHA-512. Eviction objects can be stored either serialized or
+//     non-serialized. The size of the stored entity smaller than
+//     sizeof(OBJECT) is considered an indication of the serialized form.
+
+#define NV_FORMAT_VERSION                 2
 #else
 #define NV_MEMORY_SIZE                    16384
 #endif
@@ -349,6 +361,7 @@ typedef UINT16              TPM_ALG_ID;
 #define ALG_SM4_VALUE                0x0013
 #if defined ALG_RSASSA && ALG_RSASSA == YES
 #define TPM_ALG_RSASSA               (TPM_ALG_ID)(0x0014)
+#define SUPPORT_PADDING_ONLY_RSASSA  YES
 #endif
 #define ALG_RSASSA_VALUE             0x0014
 #if defined ALG_RSAES && ALG_RSAES == YES

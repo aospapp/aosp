@@ -9,6 +9,7 @@
  * %End-Header%
  */
 
+#include "config.h"
 #include <stdio.h>
 #include <string.h>
 #if HAVE_UNISTD_H
@@ -21,6 +22,9 @@
 #endif
 #if HAVE_SYS_TYPES_H
 #include <sys/types.h>
+#endif
+#if HAVE_LINUX_TYPES_H
+#include <linux/types.h>
 #endif
 
 #include "ext2_fs.h"
@@ -41,7 +45,7 @@ struct ext2fs_rb_private {
 	struct bmap_rb_extent *wcursor;
 	struct bmap_rb_extent *rcursor;
 	struct bmap_rb_extent *rcursor_next;
-#ifdef BMAP_STATS_OPS
+#ifdef ENABLE_BMAP_STATS_OPS
 	__u64 mark_hit;
 	__u64 test_hit;
 #endif
@@ -83,21 +87,21 @@ static void print_tree(struct rb_root *root)
 
 static void check_tree(struct rb_root *root, const char *msg)
 {
-	struct rb_node *new_node, *node, *next;
+	struct rb_node *node;
 	struct bmap_rb_extent *ext, *old = NULL;
 
 	for (node = ext2fs_rb_first(root); node;
 	     node = ext2fs_rb_next(node)) {
 		ext = node_to_extent(node);
-		if (ext->count <= 0) {
-			printf("Tree Error: count is crazy\n");
-			printf("extent: %llu -> %llu (%u)\n", ext->start,
+		if (ext->count == 0) {
+			printf("Tree Error: count is zero\n");
+			printf("extent: %llu -> %llu (%llu)\n", ext->start,
 				ext->start + ext->count, ext->count);
 			goto err_out;
 		}
-		if (ext->start < 0) {
-			printf("Tree Error: start is crazy\n");
-			printf("extent: %llu -> %llu (%u)\n", ext->start,
+		if (ext->start + ext->count < ext->start) {
+			printf("Tree Error: start or count is crazy\n");
+			printf("extent: %llu -> %llu (%llu)\n", ext->start,
 				ext->start + ext->count, ext->count);
 			goto err_out;
 		}
@@ -105,20 +109,20 @@ static void check_tree(struct rb_root *root, const char *msg)
 		if (old) {
 			if (old->start > ext->start) {
 				printf("Tree Error: start is crazy\n");
-				printf("extent: %llu -> %llu (%u)\n",
+				printf("extent: %llu -> %llu (%llu)\n",
 					old->start, old->start + old->count,
 					old->count);
-				printf("extent next: %llu -> %llu (%u)\n",
+				printf("extent next: %llu -> %llu (%llu)\n",
 					ext->start, ext->start + ext->count,
 					ext->count);
 				goto err_out;
 			}
 			if ((old->start + old->count) >= ext->start) {
 				printf("Tree Error: extent is crazy\n");
-				printf("extent: %llu -> %llu (%u)\n",
+				printf("extent: %llu -> %llu (%llu)\n",
 					old->start, old->start + old->count,
 					old->count);
-				printf("extent next: %llu -> %llu (%u)\n",
+				printf("extent next: %llu -> %llu (%llu)\n",
 					ext->start, ext->start + ext->count,
 					ext->count);
 				goto err_out;
@@ -135,7 +139,7 @@ err_out:
 }
 #else
 #define check_tree(root, msg) do {} while (0)
-#define print_tree(root, msg) do {} while (0)
+#define print_tree(root) do {} while (0)
 #endif
 
 static void rb_get_new_extent(struct bmap_rb_extent **ext, __u64 start,
@@ -146,10 +150,8 @@ static void rb_get_new_extent(struct bmap_rb_extent **ext, __u64 start,
 
 	retval = ext2fs_get_mem(sizeof (struct bmap_rb_extent),
 				&new_ext);
-	if (retval) {
-		perror("ext2fs_get_mem");
-		exit(1);
-	}
+	if (retval)
+		abort();
 
 	new_ext->start = start;
 	new_ext->count = count;
@@ -183,7 +185,7 @@ static errcode_t rb_alloc_private_data (ext2fs_generic_bitmap bitmap)
 	bp->rcursor_next = NULL;
 	bp->wcursor = NULL;
 
-#ifdef BMAP_STATS_OPS
+#ifdef ENABLE_BMAP_STATS_OPS
 	bp->test_hit = 0;
 	bp->mark_hit = 0;
 #endif
@@ -299,21 +301,19 @@ static errcode_t rb_resize_bmap(ext2fs_generic_bitmap bmap,
 {
 	struct ext2fs_rb_private *bp;
 
-	if (new_real_end >= bmap->real_end) {
-		bmap->end = new_end;
-		bmap->real_end = new_real_end;
-		return 0;
-	}
-
 	bp = (struct ext2fs_rb_private *) bmap->private;
 	bp->rcursor = NULL;
 	bp->wcursor = NULL;
 
-	/* truncate tree to new_real_end size */
-	rb_truncate(new_real_end, &bp->root);
+	rb_truncate(((new_end < bmap->end) ? new_end : bmap->end) - bmap->start,
+		    &bp->root);
 
 	bmap->end = new_end;
 	bmap->real_end = new_real_end;
+
+	if (bmap->end < bmap->real_end)
+		rb_insert_extent(bmap->end + 1 - bmap->start,
+				 bmap->real_end - bmap->end, bp);
 	return 0;
 
 }
@@ -331,7 +331,7 @@ rb_test_bit(struct ext2fs_rb_private *bp, __u64 bit)
 		goto search_tree;
 
 	if (bit >= rcursor->start && bit < rcursor->start + rcursor->count) {
-#ifdef BMAP_STATS_OPS
+#ifdef ENABLE_BMAP_STATS_OPS
 		bp->test_hit++;
 #endif
 		return 1;
@@ -396,7 +396,7 @@ static int rb_insert_extent(__u64 start, __u64 count,
 	if (ext) {
 		if (start >= ext->start &&
 		    start <= (ext->start + ext->count)) {
-#ifdef BMAP_STATS_OPS
+#ifdef ENABLE_BMAP_STATS_OPS
 			bp->mark_hit++;
 #endif
 			goto got_extent;
@@ -492,7 +492,7 @@ static int rb_remove_extent(__u64 start, __u64 count,
 	__u64 new_start, new_count;
 	int retval = 0;
 
-	if (EXT2FS_RB_EMPTY_ROOT(root))
+	if (ext2fs_rb_empty_root(root))
 		return 0;
 
 	while (*n) {
@@ -569,11 +569,14 @@ static int rb_remove_extent(__u64 start, __u64 count,
 static int rb_mark_bmap(ext2fs_generic_bitmap bitmap, __u64 arg)
 {
 	struct ext2fs_rb_private *bp;
+	int retval;
 
 	bp = (struct ext2fs_rb_private *) bitmap->private;
 	arg -= bitmap->start;
 
-	return rb_insert_extent(arg, 1, bp);
+	retval = rb_insert_extent(arg, 1, bp);
+	check_tree(&bp->root, __func__);
+	return retval;
 }
 
 static int rb_unmark_bmap(ext2fs_generic_bitmap bitmap, __u64 arg)
@@ -610,6 +613,7 @@ static void rb_mark_bmap_extent(ext2fs_generic_bitmap bitmap, __u64 arg,
 	arg -= bitmap->start;
 
 	rb_insert_extent(arg, num, bp);
+	check_tree(&bp->root, __func__);
 }
 
 static void rb_unmark_bmap_extent(ext2fs_generic_bitmap bitmap, __u64 arg,
@@ -637,7 +641,7 @@ static int rb_test_clear_bmap_extent(ext2fs_generic_bitmap bitmap,
 	n = &bp->root.rb_node;
 	start -= bitmap->start;
 
-	if ((len == 0) || EXT2FS_RB_EMPTY_ROOT(&bp->root))
+	if (len == 0 || ext2fs_rb_empty_root(&bp->root))
 		return 1;
 
 	/*
@@ -714,11 +718,14 @@ static errcode_t rb_set_bmap_range(ext2fs_generic_bitmap bitmap,
 
 		rb_insert_extent(start + first_set - bitmap->start,
 				 i - first_set, bp);
+		check_tree(&bp->root, __func__);
 		first_set = -1;
 	}
-	if (first_set != -1)
+	if (first_set != -1) {
 		rb_insert_extent(start + first_set - bitmap->start,
 				 num - first_set, bp);
+		check_tree(&bp->root, __func__);
+	}
 
 	return 0;
 }
@@ -730,14 +737,13 @@ static errcode_t rb_get_bmap_range(ext2fs_generic_bitmap bitmap,
 	struct rb_node *parent = NULL, *next, **n;
 	struct ext2fs_rb_private *bp;
 	struct bmap_rb_extent *ext;
-	int count;
-	__u64 pos;
+	__u64 count, pos;
 
 	bp = (struct ext2fs_rb_private *) bitmap->private;
 	n = &bp->root.rb_node;
 	start -= bitmap->start;
 
-	if (EXT2FS_RB_EMPTY_ROOT(&bp->root))
+	if (ext2fs_rb_empty_root(&bp->root))
 		return 0;
 
 	while (*n) {
@@ -762,9 +768,9 @@ static errcode_t rb_get_bmap_range(ext2fs_generic_bitmap bitmap,
 		if (pos >= start + num)
 			break;
 		if (pos < start) {
-			count -= start - pos;
-			if (count < 0)
+			if (pos + count <  start)
 				continue;
+			count -= start - pos;
 			pos = start;
 		}
 		if (pos + count > start + num)
@@ -799,9 +805,94 @@ static void rb_clear_bmap(ext2fs_generic_bitmap bitmap)
 	bp->rcursor = NULL;
 	bp->rcursor_next = NULL;
 	bp->wcursor = NULL;
+	check_tree(&bp->root, __func__);
 }
 
-#ifdef BMAP_STATS
+static errcode_t rb_find_first_zero(ext2fs_generic_bitmap bitmap,
+				   __u64 start, __u64 end, __u64 *out)
+{
+	struct rb_node *parent = NULL, **n;
+	struct ext2fs_rb_private *bp;
+	struct bmap_rb_extent *ext;
+
+	bp = (struct ext2fs_rb_private *) bitmap->private;
+	n = &bp->root.rb_node;
+	start -= bitmap->start;
+	end -= bitmap->start;
+
+	if (start > end)
+		return EINVAL;
+
+	if (ext2fs_rb_empty_root(&bp->root))
+		return ENOENT;
+
+	while (*n) {
+		parent = *n;
+		ext = node_to_extent(parent);
+		if (start < ext->start) {
+			n = &(*n)->rb_left;
+		} else if (start >= (ext->start + ext->count)) {
+			n = &(*n)->rb_right;
+		} else if (ext->start + ext->count <= end) {
+			*out = ext->start + ext->count + bitmap->start;
+			return 0;
+		} else
+			return ENOENT;
+	}
+
+	*out = start + bitmap->start;
+	return 0;
+}
+
+static errcode_t rb_find_first_set(ext2fs_generic_bitmap bitmap,
+				   __u64 start, __u64 end, __u64 *out)
+{
+	struct rb_node *parent = NULL, **n;
+	struct rb_node *node;
+	struct ext2fs_rb_private *bp;
+	struct bmap_rb_extent *ext;
+
+	bp = (struct ext2fs_rb_private *) bitmap->private;
+	n = &bp->root.rb_node;
+	start -= bitmap->start;
+	end -= bitmap->start;
+
+	if (start > end)
+		return EINVAL;
+
+	if (ext2fs_rb_empty_root(&bp->root))
+		return ENOENT;
+
+	while (*n) {
+		parent = *n;
+		ext = node_to_extent(parent);
+		if (start < ext->start) {
+			n = &(*n)->rb_left;
+		} else if (start >= (ext->start + ext->count)) {
+			n = &(*n)->rb_right;
+		} else {
+			/* The start bit is set */
+			*out = start + bitmap->start;
+			return 0;
+		}
+	}
+
+	node = parent;
+	ext = node_to_extent(node);
+	if (ext->start < start) {
+		node = ext2fs_rb_next(node);
+		if (node == NULL)
+			return ENOENT;
+		ext = node_to_extent(node);
+	}
+	if (ext->start <= end) {
+		*out = ext->start + bitmap->start;
+		return 0;
+	}
+	return ENOENT;
+}
+
+#ifdef ENABLE_BMAP_STATS
 static void rb_print_stats(ext2fs_generic_bitmap bitmap)
 {
 	struct ext2fs_rb_private *bp;
@@ -812,14 +903,13 @@ static void rb_print_stats(ext2fs_generic_bitmap bitmap)
 	__u64 min_size = ULONG_MAX;
 	__u64 size = 0, avg_size = 0;
 	double eff;
-#ifdef BMAP_STATS_OPS
+#ifdef ENABLE_BMAP_STATS_OPS
 	__u64 mark_all, test_all;
 	double m_hit = 0.0, t_hit = 0.0;
 #endif
 
 	bp = (struct ext2fs_rb_private *) bitmap->private;
 
-	node = ext2fs_rb_first(&bp->root);
 	for (node = ext2fs_rb_first(&bp->root); node != NULL;
 	     node = ext2fs_rb_next(node)) {
 		ext = node_to_extent(node);
@@ -837,7 +927,7 @@ static void rb_print_stats(ext2fs_generic_bitmap bitmap)
 		min_size = 0;
 	eff = (double)((count * sizeof(struct bmap_rb_extent)) << 3) /
 	      (bitmap->real_end - bitmap->start);
-#ifdef BMAP_STATS_OPS
+#ifdef ENABLE_BMAP_STATS_OPS
 	mark_all = bitmap->stats.mark_count + bitmap->stats.mark_ext_count;
 	test_all = bitmap->stats.test_count + bitmap->stats.test_ext_count;
 	if (mark_all)
@@ -864,7 +954,9 @@ static void rb_print_stats(ext2fs_generic_bitmap bitmap)
 		eff);
 }
 #else
-static void rb_print_stats(ext2fs_generic_bitmap bitmap){}
+static void rb_print_stats(ext2fs_generic_bitmap bitmap EXT2FS_ATTR((unused)))
+{
+}
 #endif
 
 struct ext2_bitmap_ops ext2fs_blkmap64_rbtree = {
@@ -883,4 +975,6 @@ struct ext2_bitmap_ops ext2fs_blkmap64_rbtree = {
 	.get_bmap_range = rb_get_bmap_range,
 	.clear_bmap = rb_clear_bmap,
 	.print_stats = rb_print_stats,
+	.find_first_zero = rb_find_first_zero,
+	.find_first_set = rb_find_first_set,
 };

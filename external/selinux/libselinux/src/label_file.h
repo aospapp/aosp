@@ -1,7 +1,18 @@
 #ifndef _SELABEL_FILE_H_
 #define _SELABEL_FILE_H_
 
+#include <errno.h>
+#include <string.h>
+
 #include <sys/stat.h>
+
+/*
+ * regex.h/c were introduced to hold all dependencies on the regular
+ * expression back-end when we started supporting PCRE2. regex.h defines a
+ * minimal interface required by libselinux, so that the remaining code
+ * can be agnostic about the underlying implementation.
+ */
+#include "regex.h"
 
 #include "callbacks.h"
 #include "label_internal.h"
@@ -13,29 +24,21 @@
 #define SELINUX_COMPILED_FCONTEXT_PCRE_VERS	2
 #define SELINUX_COMPILED_FCONTEXT_MODE		3
 #define SELINUX_COMPILED_FCONTEXT_PREFIX_LEN	4
+#define SELINUX_COMPILED_FCONTEXT_REGEX_ARCH	5
 
-#define SELINUX_COMPILED_FCONTEXT_MAX_VERS	SELINUX_COMPILED_FCONTEXT_PREFIX_LEN
-
-/* Prior to version 8.20, libpcre did not have pcre_free_study() */
-#if (PCRE_MAJOR < 8 || (PCRE_MAJOR == 8 && PCRE_MINOR < 20))
-#define pcre_free_study  pcre_free
-#endif
+#define SELINUX_COMPILED_FCONTEXT_MAX_VERS \
+	SELINUX_COMPILED_FCONTEXT_REGEX_ARCH
 
 /* A file security context specification. */
 struct spec {
 	struct selabel_lookup_rec lr;	/* holds contexts for lookup result */
 	char *regex_str;	/* regular expession string for diagnostics */
 	char *type_str;		/* type string for diagnostic messages */
-	pcre *regex;		/* compiled regular expression */
-	union {
-		pcre_extra *sd;	/* pointer to extra compiled stuff */
-		pcre_extra lsd;	/* used to hold the mmap'd version */
-	};
+	struct regex_data * regex; /* backend dependent regular expression data */
 	mode_t mode;		/* mode format value */
 	int matches;		/* number of matching pathnames */
 	int stem_id;		/* indicates which stem-compression item */
 	char hasMetaChars;	/* regular expression has meta-chars */
-	char regcomp;		/* regex_str has been compiled to regex */
 	char from_mmap;		/* this spec is from an mmap of the data */
 	size_t prefix_len;      /* length of fixed path prefix */
 };
@@ -74,14 +77,6 @@ struct saved_data {
 	int alloc_stems;
 	struct mmap_area *mmap_areas;
 };
-
-static inline pcre_extra *get_pcre_extra(struct spec *spec)
-{
-	if (spec->from_mmap)
-		return &spec->lsd;
-	else
-		return spec->sd;
-}
 
 static inline mode_t string_to_mode(char *mode)
 {
@@ -327,13 +322,14 @@ static inline int next_entry(void *buf, struct mmap_area *fp, size_t bytes)
 static inline int compile_regex(struct saved_data *data, struct spec *spec,
 					    const char **errbuf)
 {
-	const char *tmperrbuf;
 	char *reg_buf, *anchored_regex, *cp;
+	struct regex_error_data error_data;
+	static char regex_error_format_buffer[256];
 	struct stem *stem_arr = data->stem_arr;
 	size_t len;
-	int erroff;
+	int rc;
 
-	if (spec->regcomp)
+	if (spec->regex)
 		return 0; /* already done */
 
 	/* Skip the fixed stem. */
@@ -344,8 +340,11 @@ static inline int compile_regex(struct saved_data *data, struct spec *spec,
 	/* Anchor the regular expression. */
 	len = strlen(reg_buf);
 	cp = anchored_regex = malloc(len + 3);
-	if (!anchored_regex)
+	if (!anchored_regex) {
+		if (errbuf)
+			*errbuf = "out of memory";
 		return -1;
+	}
 
 	/* Create ^...$ regexp.  */
 	*cp++ = '^';
@@ -355,25 +354,19 @@ static inline int compile_regex(struct saved_data *data, struct spec *spec,
 	*cp = '\0';
 
 	/* Compile the regular expression. */
-	spec->regex = pcre_compile(anchored_regex, PCRE_DOTALL, &tmperrbuf,
-						    &erroff, NULL);
+	rc = regex_prepare_data(&spec->regex, anchored_regex, &error_data);
 	free(anchored_regex);
-	if (!spec->regex) {
-		if (errbuf)
-			*errbuf = tmperrbuf;
-		return -1;
-	}
-
-	spec->sd = pcre_study(spec->regex, 0, &tmperrbuf);
-	if (!spec->sd && tmperrbuf) {
-		if (errbuf)
-			*errbuf = tmperrbuf;
+	if (rc < 0) {
+		if (errbuf) {
+			regex_format_error(&error_data,
+					regex_error_format_buffer,
+					sizeof(regex_error_format_buffer));
+			*errbuf = &regex_error_format_buffer[0];
+		}
 		return -1;
 	}
 
 	/* Done. */
-	spec->regcomp = 1;
-
 	return 0;
 }
 
@@ -390,8 +383,17 @@ static inline int process_line(struct selabel_handle *rec,
 	unsigned int nspec = data->nspec;
 	const char *errbuf = NULL;
 
-	items = read_spec_entries(line_buf, 3, &regex, &type, &context);
-	if (items <= 0)
+	items = read_spec_entries(line_buf, &errbuf, 3, &regex, &type, &context);
+	if (items < 0) {
+		rc = errno;
+		selinux_log(SELINUX_ERROR,
+			"%s:  line %u error due to: %s\n", path,
+			lineno, errbuf ?: strerror(errno));
+		errno = rc;
+		return -1;
+	}
+
+	if (items == 0)
 		return items;
 
 	if (items < 2) {
@@ -438,12 +440,11 @@ static inline int process_line(struct selabel_handle *rec,
 	 */
 	data->nspec++;
 
-	if (rec->validating &&
-			    compile_regex(data, &spec_arr[nspec], &errbuf)) {
+	if (rec->validating
+			&& compile_regex(data, &spec_arr[nspec], &errbuf)) {
 		COMPAT_LOG(SELINUX_ERROR,
 			   "%s:  line %u has invalid regex %s:  %s\n",
-			   path, lineno, regex,
-			   (errbuf ? errbuf : "out of memory"));
+			   path, lineno, regex, errbuf);
 		errno = EINVAL;
 		return -1;
 	}
@@ -466,7 +467,7 @@ static inline int process_line(struct selabel_handle *rec,
 	spec_hasMetaChars(&spec_arr[nspec]);
 
 	if (strcmp(context, "<<none>>") && rec->validating)
-		compat_validate(rec, &spec_arr[nspec].lr, path, lineno);
+		return compat_validate(rec, &spec_arr[nspec].lr, path, lineno);
 
 	return 0;
 }

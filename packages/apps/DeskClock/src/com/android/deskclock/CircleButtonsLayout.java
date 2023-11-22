@@ -4,8 +4,8 @@ import android.content.Context;
 import android.content.res.Resources;
 import android.util.AttributeSet;
 import android.view.View;
+import android.widget.Button;
 import android.widget.FrameLayout;
-import android.widget.ImageButton;
 import android.widget.TextView;
 
 /**
@@ -16,12 +16,9 @@ import android.widget.TextView;
  */
 public class CircleButtonsLayout extends FrameLayout {
 
-    private int mCircleTimerViewId;
-    private int mResetAddButtonId;
-    private int mLabelId;
     private float mDiamOffset;
     private View mCircleView;
-    private ImageButton mResetAddButton;
+    private Button mResetAddButton;
     private TextView mLabel;
 
     @SuppressWarnings("unused")
@@ -31,12 +28,6 @@ public class CircleButtonsLayout extends FrameLayout {
 
     public CircleButtonsLayout(Context context, AttributeSet attrs) {
         super(context, attrs);
-    }
-
-    public void setCircleTimerViewIds(int circleTimerViewId, int stopButtonId,  int labelId) {
-        mCircleTimerViewId = circleTimerViewId;
-        mResetAddButtonId = stopButtonId;
-        mLabelId = labelId;
 
         final Resources res = getContext().getResources();
         final float strokeSize = res.getDimension(R.dimen.circletimer_circle_size);
@@ -56,13 +47,10 @@ public class CircleButtonsLayout extends FrameLayout {
     }
 
     protected void remeasureViews() {
-        if (mCircleView == null) {
-            mCircleView = findViewById(mCircleTimerViewId);
-            if (mCircleView == null) {
-                return;
-            }
-            mResetAddButton = (ImageButton) findViewById(mResetAddButtonId);
-            mLabel = (TextView) findViewById(mLabelId);
+        if (mLabel == null) {
+            mCircleView = findViewById(R.id.timer_time);
+            mLabel = (TextView) findViewById(R.id.timer_label);
+            mResetAddButton = (Button) findViewById(R.id.reset_add);
         }
 
         final int frameWidth = mCircleView.getMeasuredWidth();

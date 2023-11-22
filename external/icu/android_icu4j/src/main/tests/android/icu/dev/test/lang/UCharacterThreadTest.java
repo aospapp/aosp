@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 2008, International Business Machines Corporation and         *
@@ -11,16 +13,15 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.ListIterator;
 
+import org.junit.Test;
+
 import android.icu.dev.test.TestFmwk;
 import android.icu.lang.UCharacter;
-import org.junit.runner.RunWith;
-import android.icu.junit.IcuTestFmwkRunner;
 
 /**
  * @author aheninger
  *
  */
-@RunWith(IcuTestFmwkRunner.class)
 public class UCharacterThreadTest extends TestFmwk {
   // constructor -----------------------------------------------------------
     
@@ -33,24 +34,11 @@ public class UCharacterThreadTest extends TestFmwk {
     
       // public methods --------------------------------------------------------
       
-    public static void main(String[] arg)  
-    {
-        try
-        {
-            UCharacterThreadTest test = new UCharacterThreadTest();
-            test.run(arg);
-        }
-        catch (Exception e)
-        {
-              e.printStackTrace();
-        }
-    }
-    
-    
     //
     //  Test multi-threaded parallel calls to UCharacter.getName(codePoint)
     //  Regression test for ticket 6264.
     //
+    @Test
     public void TestUCharactersGetName() throws InterruptedException {
         List threads = new LinkedList();
         for(int t=0; t<20; t++) {

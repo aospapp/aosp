@@ -44,6 +44,7 @@
           <intent-filter>
               <action android:name="android.intent.action.START_TEST_ASSIST_STRUCTURE" />
               <action android:name="android.intent.action.START_TEST_LIFECYCLE" />
+              <action android:name="android.intent.action.START_TEST_LIFECYCLE_NOUI" />
               <action android:name="android.intent.action.START_TEST_FLAG_SECURE" />
               <action android:name="android.intent.action.START_TEST_SCREENSHOT" />
               <action android:name="android.intent.action.START_TEST_EXTRA_ASSIST" />

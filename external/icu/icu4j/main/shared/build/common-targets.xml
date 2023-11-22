@@ -1,6 +1,8 @@
 <!--
+* © 2016 and later: Unicode, Inc. and others.
+* License & terms of use: http://www.unicode.org/copyright.html#License
 *******************************************************************************
-* Copyright (C) 2009-2014, International Business Machines Corporation and    *
+* Copyright (C) 2009-2016, International Business Machines Corporation and    *
 * others. All Rights Reserved.                                                *
 *******************************************************************************
 -->
@@ -23,14 +25,9 @@
 
     <target name="@compile">
         <echo message="build-local:     ${global.build-local.properties}"/>
-        <echo message="${java5.bootclasspath}"/>
-        <!-- set java5/6 bootclasspath to empty if not set -->
-        <property name="java5.bootclasspath" value=""/>
+        <!-- set java 6 bootclasspath to empty if not set -->
         <property name="java6.bootclasspath" value=""/>
 
-        <condition property="javac.bootclasspath" value="${java5.bootclasspath}">
-            <equals arg1="${javac.target}" arg2="1.5"/>
-        </condition>
         <condition property="javac.bootclasspath" value="${java6.bootclasspath}" else="">
             <equals arg1="${javac.target}" arg2="1.6"/>
         </condition>
@@ -86,7 +83,7 @@
         <jar jarfile="${jar.dir}/${jar.name}" manifest="${out.dir}/manifest.stub" compress="true">
             <fileset dir="${bin.dir}" includes="**/*"/>
             <fileset dir="${shared.dir}/licenses">
-                <include name="license.html"/>
+                <include name="LICENSE"/>
             </fileset>
         </jar>
     </target>
@@ -96,7 +93,7 @@
         <jar jarfile="${jar.dir}/${src.jar.name}" compress="true">
             <fileset dir="${src.dir}" includes="**/*.java"/>
             <fileset dir="${shared.dir}/licenses">
-                <include name="license.html"/>
+                <include name="LICENSE"/>
             </fileset>
         </jar>
     </target>

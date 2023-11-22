@@ -16,11 +16,14 @@
 
 package android.text.style.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Paint.FontMetricsInt;
-import android.test.AndroidTestCase;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.text.Html;
 import android.text.Layout;
 import android.text.Spanned;
@@ -28,19 +31,26 @@ import android.text.StaticLayout;
 import android.text.TextPaint;
 import android.text.style.IconMarginSpan;
 
-public class IconMarginSpanTest extends AndroidTestCase {
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class IconMarginSpanTest {
     private static final int WIDTH = 80;
     private static final int HEIGHT = 120;
     private static final int[] COLOR = new int[WIDTH * HEIGHT];
     private static final Bitmap BITMAP_80X120 =
         Bitmap.createBitmap(COLOR, WIDTH, HEIGHT, Bitmap.Config.RGB_565);
 
+    @Test
     public void testConstructor() {
         new IconMarginSpan(BITMAP_80X120);
         new IconMarginSpan(BITMAP_80X120, 1);
         new IconMarginSpan(null, -1);
     }
 
+    @Test
     public void testGetLeadingMargin() {
         IconMarginSpan iconMarginSpan = new IconMarginSpan(BITMAP_80X120, 1);
         int leadingMargin1 = iconMarginSpan.getLeadingMargin(true);
@@ -51,6 +61,7 @@ public class IconMarginSpanTest extends AndroidTestCase {
         assertTrue(leadingMargin2 > leadingMargin1);
     }
 
+    @Test
     public void testDrawLeadingMargin() {
         IconMarginSpan iconMarginSpan = new IconMarginSpan(BITMAP_80X120, 0);
         Canvas c = new Canvas();
@@ -59,22 +70,24 @@ public class IconMarginSpanTest extends AndroidTestCase {
         Layout layout = new StaticLayout("cts test.", p, 200, Layout.Alignment.ALIGN_NORMAL,
                 1, 0, true);
         iconMarginSpan.drawLeadingMargin(c, p, 0, 0, 0, 0, 0, text, 0, 0, true, layout);
-
-        try {
-            iconMarginSpan.chooseHeight(null, 0, 0, 0, 0, null);
-            fail("should throw NullPointerException.");
-        } catch (NullPointerException e) {
-            // expected, test success.
-        }
-
-        try {
-            iconMarginSpan.chooseHeight("cts test.", 0, 0, 0, 0, null);
-            fail("When try to use a String as the text, should throw ClassCastException.");
-        } catch (ClassCastException e) {
-            // expected, test success.
-        }
     }
 
+    @Test(expected=NullPointerException.class)
+    public void testDrawLeadingMarginNull() {
+        IconMarginSpan iconMarginSpan = new IconMarginSpan(BITMAP_80X120, 0);
+
+        iconMarginSpan.chooseHeight(null, 0, 0, 0, 0, null);
+    }
+
+    @Test(expected=ClassCastException.class)
+    public void testDrawLeadingMarginString() {
+        IconMarginSpan iconMarginSpan = new IconMarginSpan(BITMAP_80X120, 0);
+
+        // When try to use a String as the text, should throw ClassCastException
+        iconMarginSpan.chooseHeight("cts test.", 0, 0, 0, 0, null);
+    }
+
+    @Test
     public void testChooseHeight() {
         IconMarginSpan iconMarginSpan = new IconMarginSpan(BITMAP_80X120, 0);
 
@@ -94,19 +107,20 @@ public class IconMarginSpanTest extends AndroidTestCase {
         assertEquals(HEIGHT, fm.descent);
         assertEquals(0, fm.leading);
         assertEquals(0, fm.top);
+    }
 
-        try {
-            iconMarginSpan.chooseHeight(null, 0, 0, 0, 0, null);
-            fail("should throw NullPointerException.");
-        } catch (NullPointerException e) {
-            // expected, test success.
-        }
+    @Test(expected=NullPointerException.class)
+    public void testChooseHeightNull() {
+        IconMarginSpan iconMarginSpan = new IconMarginSpan(BITMAP_80X120, 0);
 
-        try {
-            iconMarginSpan.chooseHeight("cts test.", 0, 0, 0, 0, null);
-            fail("When try to use a String as the text, should throw ClassCastException.");
-        } catch (ClassCastException e) {
-            // expected, test success.
-        }
+        iconMarginSpan.chooseHeight(null, 0, 0, 0, 0, null);
+    }
+
+    @Test(expected=ClassCastException.class)
+    public void testChooseHeightString() {
+        IconMarginSpan iconMarginSpan = new IconMarginSpan(BITMAP_80X120, 0);
+
+        // When try to use a String as the text, should throw ClassCastException
+        iconMarginSpan.chooseHeight("cts test.", 0, 0, 0, 0, null);
     }
 }

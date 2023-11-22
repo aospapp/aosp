@@ -16,9 +16,14 @@
  * 93/10/30	- Creation
  */
 
+#ifndef _LARGEFILE_SOURCE
 #define _LARGEFILE_SOURCE
+#endif
+#ifndef _LARGEFILE64_SOURCE
 #define _LARGEFILE64_SOURCE
+#endif
 
+#include "config.h"
 #if HAVE_ERRNO_H
 #include <errno.h>
 #endif

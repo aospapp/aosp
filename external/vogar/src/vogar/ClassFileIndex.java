@@ -180,7 +180,7 @@ public final class ClassFileIndex {
     private void getJarFiles(Set<File> jarFiles, File dir) {
         List<File> files = Arrays.asList(dir.listFiles());
         for (File file : files) {
-            if (file.isDirectory()) {
+            if (file.isDirectory() && file.exists() && file.canRead()) {
                 getJarFiles(jarFiles, file);
                 continue;
             }

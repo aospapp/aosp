@@ -38,8 +38,8 @@ import java.lang.ref.WeakReference;
  *
  * {@sample development/samples/ApiDemos/res/anim/object_animator.xml ObjectAnimatorResources}
  *
- * <p>When using resource files, it is possible to use {@link PropertyValuesHolder} and
- * {@link Keyframe} to create more complex animations. Using PropertyValuesHolders
+ * <p>Starting from API 23, it is possible to use {@link PropertyValuesHolder} and
+ * {@link Keyframe} in resource files to create more complex animations. Using PropertyValuesHolders
  * allows animators to animate several properties in parallel, as shown in this sample:</p>
  *
  * {@sample development/samples/ApiDemos/res/anim/object_animator_pvh.xml
@@ -977,8 +977,9 @@ public final class ObjectAnimator extends ValueAnimator {
     @Override
     void animateValue(float fraction) {
         final Object target = getTarget();
-        if (target == null) {
-            // We lost the target reference, cancel and clean up.
+        if (mTarget != null && target == null) {
+            // We lost the target reference, cancel and clean up. Note: we allow null target if the
+            /// target has never been set.
             cancel();
             return;
         }
@@ -988,6 +989,11 @@ public final class ObjectAnimator extends ValueAnimator {
         for (int i = 0; i < numValues; ++i) {
             mValues[i].setAnimatedValue(target);
         }
+    }
+
+    @Override
+    boolean isInitialized() {
+        return mInitialized;
     }
 
     @Override

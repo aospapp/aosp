@@ -18,9 +18,9 @@ include $(CLEAR_VARS)
 LOCAL_MODULE_TAGS := tests
 LOCAL_MODULE := recovery_test
 LOCAL_SRC_FILES := recovery_test.cpp
-LOCAL_SHARED_LIBRARIES += libcutils libutils liblog liblogwrap
+LOCAL_SHARED_LIBRARIES += libcutils libutils libbase liblog \
+                          liblogwrap libext4_utils
 LOCAL_STATIC_LIBRARIES += libtestUtil libfs_mgr
 LOCAL_C_INCLUDES += system/extras/tests/include \
-                    system/extras/ext4_utils \
                     system/core/logwrapper/include
 include $(BUILD_NATIVE_TEST)

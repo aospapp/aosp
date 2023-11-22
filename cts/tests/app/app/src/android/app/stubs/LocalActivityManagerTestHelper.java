@@ -21,9 +21,10 @@ import android.app.Activity;
 import android.app.ActivityGroup;
 import android.app.LocalActivityManager;
 import android.content.Intent;
-import android.cts.util.CTSResult;
 import android.os.Bundle;
 import android.view.Window;
+
+import com.android.compatibility.common.util.CTSResult;
 
 public class LocalActivityManagerTestHelper extends ActivityGroup {
 

@@ -115,6 +115,11 @@ typedef struct sAniHdr {
    unsigned short length;
 } tAniHdr, tAniMsgHdr;
 
+typedef struct sAniCLDMsg {
+   int radio;          // unit number of the radio
+   tAniHdr wmsg;       // Airgo Message Header
+} tAniCLDHdr;
+
 /*
  * This msg hdr will always follow tAniHdr in all the messages exchanged
  * between the Applications in userspace the Pseudo Driver, in either
@@ -122,8 +127,7 @@ typedef struct sAniHdr {
  */
 typedef struct sAniNlMsg {
     struct  nlmsghdr nlh;   // Netlink Header
-    int radio;          // unit number of the radio
-    tAniHdr wmsg;       // Airgo Message Header
+    tAniCLDHdr clh;
 } tAniNlHdr;
 
 typedef struct sAniAppRegReq {

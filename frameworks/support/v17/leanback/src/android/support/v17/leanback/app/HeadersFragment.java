@@ -34,12 +34,19 @@ import android.support.v17.leanback.widget.SectionRow;
 import android.support.v17.leanback.widget.VerticalGridView;
 import android.support.v7.widget.RecyclerView;
 import android.view.View;
-import android.view.ViewGroup;
 import android.view.View.OnLayoutChangeListener;
+import android.view.ViewGroup;
 import android.widget.FrameLayout;
 
 /**
- * An internal fragment containing a list of row headers.
+ * An fragment containing a list of row headers. Implementation must support three types of rows:
+ * <ul>
+ *     <li>{@link DividerRow} rendered by {@link DividerPresenter}.</li>
+ *     <li>{@link Row} rendered by {@link RowHeaderPresenter}.</li>
+ *     <li>{@link SectionRow} rendered by {@link RowHeaderPresenter}.</li>
+ * </ul>
+ * Use {@link #setPresenterSelector(PresenterSelector)} in subclass constructor to customize
+ * Presenters. App may override {@link BrowseFragment#onCreateHeadersFragment()}.
  */
 public class HeadersFragment extends BaseRowFragment {
 
@@ -70,7 +77,7 @@ public class HeadersFragment extends BaseRowFragment {
     }
 
     private OnHeaderViewSelectedListener mOnHeaderViewSelectedListener;
-    private OnHeaderClickedListener mOnHeaderClickedListener;
+    OnHeaderClickedListener mOnHeaderClickedListener;
     private boolean mHeadersEnabled = true;
     private boolean mHeadersGone = false;
     private int mBackgroundColor;
@@ -84,6 +91,7 @@ public class HeadersFragment extends BaseRowFragment {
 
     public HeadersFragment() {
         setPresenterSelector(sHeaderPresenter);
+        FocusHighlightHelper.setupHeaderItemFocusHighlight(getBridgeAdapter());
     }
 
     public void setOnHeaderClickedListener(OnHeaderClickedListener listener) {
@@ -137,7 +145,7 @@ public class HeadersFragment extends BaseRowFragment {
 
     };
 
-    private static OnLayoutChangeListener sLayoutChangeListener = new OnLayoutChangeListener() {
+    static OnLayoutChangeListener sLayoutChangeListener = new OnLayoutChangeListener() {
         @Override
         public void onLayoutChange(View v, int left, int top, int right, int bottom,
             int oldLeft, int oldTop, int oldRight, int oldBottom) {
@@ -157,9 +165,6 @@ public class HeadersFragment extends BaseRowFragment {
         final VerticalGridView listView = getVerticalGridView();
         if (listView == null) {
             return;
-        }
-        if (getBridgeAdapter() != null) {
-            FocusHighlightHelper.setupHeaderItemFocusHighlight(listView);
         }
         if (mBackgroundColorSet) {
             listView.setBackgroundColor(mBackgroundColor);
@@ -214,7 +219,7 @@ public class HeadersFragment extends BaseRowFragment {
 
     // Wrapper needed because of conflict between RecyclerView's use of alpha
     // for ADD animations, and RowHeaderPresenter's use of alpha for selected level.
-    private final ItemBridgeAdapter.Wrapper mWrapper = new ItemBridgeAdapter.Wrapper() {
+    final ItemBridgeAdapter.Wrapper mWrapper = new ItemBridgeAdapter.Wrapper() {
         @Override
         public void wrap(View wrapper, View wrapped) {
             ((FrameLayout) wrapper).addView(wrapped);
@@ -229,13 +234,8 @@ public class HeadersFragment extends BaseRowFragment {
     void updateAdapter() {
         super.updateAdapter();
         ItemBridgeAdapter adapter = getBridgeAdapter();
-        if (adapter != null) {
-            adapter.setAdapterListener(mAdapterListener);
-            adapter.setWrapper(mWrapper);
-        }
-        if (adapter != null && getVerticalGridView() != null) {
-            FocusHighlightHelper.setupHeaderItemFocusHighlight(getVerticalGridView());
-        }
+        adapter.setAdapterListener(mAdapterListener);
+        adapter.setWrapper(mWrapper);
     }
 
     void setBackgroundColor(int color) {

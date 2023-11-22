@@ -16,7 +16,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="phoneAppLabel" product="tablet" msgid="1107073389495104784">"Mobildata"</string>
+    <string name="phoneAppLabel" product="tablet" msgid="8576272342240415145">"Mobildata"</string>
     <string name="phoneAppLabel" product="default" msgid="6790717591729922998">"Telefontjänster"</string>
     <string name="emergencyDialerIconLabel" msgid="7812140032168171053">"Nödsamtal"</string>
     <string name="phoneIconLabel" msgid="2331230813161304895">"Telefon"</string>
@@ -45,6 +45,7 @@
     <string name="no_vm_number" msgid="4164780423805688336">"Nummer till röstbrevlåda saknas"</string>
     <string name="no_vm_number_msg" msgid="1300729501030053828">"Det finns inget nummer till röstbrevlådan sparat på SIM-kortet."</string>
     <string name="add_vm_number_str" msgid="4676479471644687453">"Lägg till nummer"</string>
+    <string name="voice_number_setting_primary_user_only" msgid="6596604364907022416">"Endast den primära användaren får ändra röstbrevlådans inställningar."</string>
     <string name="puk_unlocked" msgid="2284912838477558454">"SIM-kortets spärr har tagits bort. Låser upp telefonen…"</string>
     <string name="label_ndp" msgid="780479633159517250">"PIN-kod för upplåsning av SIM-nätverk"</string>
     <string name="sim_ndp_unlock_text" msgid="683628237760543009">"Lås upp"</string>
@@ -52,7 +53,7 @@
     <string name="requesting_unlock" msgid="6412629401033249351">"Försöker låsa upp nätverket…"</string>
     <string name="unlock_failed" msgid="6490531697031504225">"Det gick inte att låsa upp nätverket."</string>
     <string name="unlock_success" msgid="6770085622238180152">"Nätverket upplåst"</string>
-    <string name="mobile_network_settings_not_available" msgid="3831911315358856062">"Inställningarna för mobilnätverk är inte tillgängliga för den här användaren"</string>
+    <string name="mobile_network_settings_not_available" msgid="7355254462995117896">"Inställningarna för mobilnätverk är inte tillgängliga för den här användaren"</string>
     <string name="labelGSMMore" msgid="5930842194056092106">"Samtalsinst. för GSM"</string>
     <string name="labelGsmMore_with_label" msgid="2674012918829238901">"Samtalsinställningar för GSM (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="labelCDMAMore" msgid="1630676740428229339">"Samtalsinst. för CDMA"</string>
@@ -76,6 +77,7 @@
     <string name="voicemail" msgid="8693759337917898954">"Röstbrevlåda"</string>
     <string name="voicemail_settings_with_label" msgid="152724978380748296">"Röstbrevlåda (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="voicemail_abbreviated" msgid="2215592488517217448">"RB:"</string>
+    <string name="voicemail_notifications_preference_title" msgid="4019728578955102213">"Aviseringar"</string>
     <string name="networks" msgid="8873030692174541976">"Nätverksoperatörer"</string>
     <string name="cell_broadcast_settings" msgid="8740238216690502563">"Nödsändningar"</string>
     <string name="call_settings" msgid="6112441768261754562">"Samtalsinställningar"</string>
@@ -93,9 +95,9 @@
     <string name="labelCW" msgid="6120513814915920200">"Samtal väntar"</string>
     <string name="sum_cw_enabled" msgid="8083061901633671397">"Meddela mig om inkommande samtal under pågående samtal"</string>
     <string name="sum_cw_disabled" msgid="3648693907300104575">"Meddela mig om inkommande samtal under pågående samtal"</string>
-    <string name="call_forwarding_settings" msgid="3378927671091537173">"Inställningar för Vidarebefordra samtal"</string>
+    <string name="call_forwarding_settings" msgid="3378927671091537173">"Inställningar vidarebefordning"</string>
     <string name="call_forwarding_settings_with_label" msgid="8569489414006897127">"Inställningar för vidarebefordran av samtal (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
-    <string name="labelCF" msgid="2574386948026924737">"Vidarebefordra samtal"</string>
+    <string name="labelCF" msgid="2574386948026924737">"Vidarekoppla samtal"</string>
     <string name="labelCFU" msgid="8147177368148660600">"Vidarebefordra alltid"</string>
     <string name="messageCFU" msgid="3560082430662923687">"Använd alltid detta nummer"</string>
     <string name="sum_cfu_enabled_indicator" msgid="4014187342724130197">"Vidarebefordra alla samtal"</string>
@@ -115,7 +117,7 @@
     <string name="labelCFNRc" msgid="2614827454402079766">"När jag inte kan nås"</string>
     <string name="messageCFNRc" msgid="6380695421020295119">"Använd nummer"</string>
     <string name="sum_cfnrc_enabled" msgid="7010898346095497421">"Vidarebefordrar till <xliff:g id="PHONENUMBER">{0}</xliff:g>"</string>
-    <string name="sum_cfnrc_disabled" msgid="7222141261321276464">"Inaktiverat"</string>
+    <string name="sum_cfnrc_disabled" msgid="2684474391807469832">"Av"</string>
     <string name="disable_cfnrc_forbidden" msgid="5646361343094064333">"Operatören stöder inte inaktivering av vidarebefordran av samtal när det inte går att nå telefonen."</string>
     <string name="updating_title" msgid="6146755386174019046">"Samtalsinställningar"</string>
     <string name="call_settings_admin_user_only" msgid="4526094783818216374">"Det är bara administratören som kan ändra samtalsinställningar."</string>
@@ -157,7 +159,8 @@
     <string name="vm_change_pin_error_invalid" msgid="3972205462701668653">"Den nya pinkoden innehåller ogiltiga tecken."</string>
     <string name="vm_change_pin_error_system_error" msgid="6610603326230000207">"Det gick inte att ändra pinkoden"</string>
     <string name="vvm_unsupported_message_format" msgid="11795090778411977">"Meddelandetypen stöds inte, ring <xliff:g id="NUMBER">%s</xliff:g> om du vill lyssna."</string>
-    <string name="mobile_networks" msgid="2843854043339307375">"Inställningar för mobilnätverk"</string>
+    <string name="mobile_networks" msgid="5540397602919106177">"Mobila nätverksinställningar"</string>
+    <string name="network_settings_title" msgid="514120489499925574">"Mobilnätverk"</string>
     <string name="label_available" msgid="1181658289009300430">"Tillgängliga nätverk"</string>
     <string name="load_networks_progress" msgid="5230707536168902952">"Söker…"</string>
     <string name="empty_networks_list" msgid="4249426905018815316">"Hittade inga nätverk."</string>
@@ -237,7 +240,7 @@
     <!-- no translation found for throttle_time_frame_subtext (7732763021560399960) -->
     <skip />
     <string name="throttle_rate_subtext" msgid="2149102656120726855">"Datahastigheten sänks till <xliff:g id="USED">%1$d</xliff:g> kbit/s om dataanvändningsgränsen överskrids"</string>
-    <string name="throttle_help_subtext" msgid="3633091498168446044">"Mer information om operatörens dataanvändningspolicy för mobilnätverket"</string>
+    <string name="throttle_help_subtext" msgid="5217706521499010816">"Mer information om operatörens dataanvändningspolicy för mobilnätverket"</string>
     <string name="cell_broadcast_sms" msgid="5584192824053625842">"Cell Broadcast SMS"</string>
     <string name="enable_disable_cell_bc_sms" msgid="4851147873691392255">"Cell Broadcast SMS"</string>
     <string name="cell_bc_sms_enable" msgid="6441688565738921084">"Cell Broadcast SMS aktiverat"</string>
@@ -374,6 +377,7 @@
     <string name="menu_add" msgid="1882023737425114762">"Lägg till kontakt"</string>
     <string name="menu_edit" msgid="7143003705504672374">"Redigera kontakt"</string>
     <string name="menu_delete" msgid="3977150783449642851">"Ta bort kontakt"</string>
+    <string name="menu_dial" msgid="3223106222819685808">"Ring kontakt"</string>
     <string name="get_pin2" msgid="8204677063922225311">"Ange PIN2-kod"</string>
     <string name="name" msgid="7329028332786872378">"Namn"</string>
     <string name="number" msgid="7905950798349903858">"Nummer"</string>
@@ -388,7 +392,7 @@
     <string name="deleting_fdn_contact" msgid="5669163206349319969">"Tar bort fast nummer…"</string>
     <string name="fdn_contact_deleted" msgid="7154162327112259569">"Det fasta numret har tagits bort."</string>
     <string name="pin2_invalid" msgid="5470854099230755944">"FDN uppdaterades inte eftersom du skrev en felaktig PIN-kod."</string>
-    <string name="fdn_invalid_number" msgid="1494755047900009147">"FDN uppdaterades inte eftersom numret inte får ha mer än 20 siffror."</string>
+    <string name="fdn_invalid_number" msgid="8602417141715473998">"Det fasta uppringningsnumret (FDN) uppdaterades inte eftersom det är tomt eller överskriver 20 siffror."</string>
     <string name="pin2_or_fdn_invalid" msgid="6025144083384701197">"FDN uppdaterades inte. Antingen har du angivit fel PIN2, eller så avvisades telefonnumret."</string>
     <string name="fdn_failed" msgid="540018079008319747">"Det gick inte att ringa till fast uppringningsnummer."</string>
     <string name="simContacts_emptyLoading" msgid="2203331234764498011">"Läser från SIM-kort…"</string>
@@ -445,16 +449,16 @@
     <string name="notification_voicemail_no_vm_number" msgid="760963466895609716">"Nummer till röstbrevlåda okänt"</string>
     <string name="notification_network_selection_title" msgid="4224455487793492772">"Ingen tjänst"</string>
     <string name="notification_network_selection_text" msgid="2607085729661923269">"Det valda nätverket (<xliff:g id="OPERATOR_NAME">%s</xliff:g>) är inte tillgängligt"</string>
-    <string name="incall_error_power_off" msgid="2947938060513306698">"Inaktivera flygplansläget om du vill ringa."</string>
+    <string name="incall_error_power_off" product="watch" msgid="2007450435656211658">"Aktivera mobilt nätverk, stäng av flygplansläget eller batterisparläget för att ringa ett samtal."</string>
+    <string name="incall_error_power_off" product="default" msgid="2947938060513306698">"Inaktivera flygplansläget om du vill ringa."</string>
     <string name="incall_error_power_off_wfc" msgid="8711428920632416575">"Inaktivera flygplansläget eller anslut till ett trådlöst nätverk om du vill ringa."</string>
     <string name="incall_error_ecm_emergency_only" msgid="738708660612388692">"Avsluta läget för återuppringning vid nödsamtal om du vill ringa ett vanligt samtal."</string>
     <string name="incall_error_emergency_only" msgid="4678640422710818317">"Inte registrerat på nätverk."</string>
-    <string name="incall_error_out_of_service" msgid="4100065333878929223">"Det finns inget mobilnät tillgängligt."</string>
-    <string name="incall_error_out_of_service_wfc" msgid="323851839058697057">"Det finns inga tillgängliga mobilnätverk. Anslut till ett trådlöst nätverk om du vill ringa."</string>
+    <string name="incall_error_out_of_service" msgid="8587993036435080418">"Inget mobilt nätverk är tillgängligt."</string>
+    <string name="incall_error_out_of_service_wfc" msgid="8741629779555132471">"Det finns inga tillgängliga mobilnätverk. Anslut till ett trådlöst nätverk om du vill ringa."</string>
     <string name="incall_error_no_phone_number_supplied" msgid="1150414018684246528">"Ange ett giltigt nummer om du vill ringa ett samtal."</string>
     <string name="incall_error_call_failed" msgid="5891978320269774095">"Det gick inte att koppla samtalet."</string>
     <string name="incall_error_cannot_add_call" msgid="5206923515522412110">"Det går inte att lägga till samtalet just nu."</string>
-    <string name="incall_status_dialed_mmi" msgid="3672498861336189563">"Startar sekvens för MMI-kod…"</string>
     <string name="incall_error_supp_service_unknown" msgid="655570339115407698">"Tjänsten stöds inte"</string>
     <string name="incall_error_supp_service_switch" msgid="5237002176899962862">"Det gick inte att växla mellan samtal."</string>
     <string name="incall_error_supp_service_separate" msgid="7224393405134545246">"Det gick inte att koppla isär samtalen."</string>
@@ -529,10 +533,7 @@
     <string name="phone_entered_ecm_text" msgid="6266424252578731203">"Starta läget Återuppringning vid nödsamtal"</string>
     <string name="phone_in_ecm_notification_title" msgid="3226896828951687085">"Läget Återuppringning vid nödsamtal"</string>
     <string name="phone_in_ecm_call_notification_text" msgid="4611608947314729773">"Dataanslutning inaktiverad"</string>
-    <plurals name="phone_in_ecm_notification_time" formatted="false" msgid="8308381858502470919">
-      <item quantity="other">Ingen dataanslutning i <xliff:g id="COUNT_1">%s</xliff:g> minuter</item>
-      <item quantity="one">Ingen dataanslutning i <xliff:g id="COUNT_0">%s</xliff:g> minut</item>
-    </plurals>
+    <string name="phone_in_ecm_notification_complete_time" msgid="7730376844178948351">"Ingen dataanslutning förrän <xliff:g id="COMPLETETIME">%s</xliff:g>"</string>
     <plurals name="alert_dialog_exit_ecm" formatted="false" msgid="7179911675595441201">
       <item quantity="other">Mobilen försätts i nödsamtalsläge i <xliff:g id="COUNT_1">%s</xliff:g> minuter. I det här läget går det inte att använda några appar där en dataanslutning används. Vill du avsluta nu?</item>
       <item quantity="one">Mobilen försätts i nödsamtalsläge i <xliff:g id="COUNT_0">%s</xliff:g> minut. I det här läget går det inte att använda några appar där en dataanslutning används. Vill du avsluta nu?</item>
@@ -556,12 +557,9 @@
     <string name="selectContact" msgid="781975788478987237">"välj kontakt"</string>
     <string name="not_voice_capable" msgid="2739898841461577811">"Röstsamtal stöds inte"</string>
     <string name="description_dial_button" msgid="7459705245418435351">"ring upp"</string>
-    <string name="voicemail_notification_vibrate_when_title" msgid="8361970092063604886">"Vibrera"</string>
-    <string name="voicemail_notification_vibarte_when_dialog_title" msgid="5739583146522136440">"Vibrera"</string>
     <string name="voicemail_visual_voicemail_switch_title" msgid="5012622186976275457">"Visuell röstbrevlåda"</string>
     <string name="voicemail_set_pin_dialog_title" msgid="2797924461029093837">"Ställ in pinkod"</string>
     <string name="voicemail_change_pin_dialog_title" msgid="6035421908626121564">"Byt pinkod"</string>
-    <string name="voicemail_notification_ringtone_title" msgid="2609519527849101590">"Ljud"</string>
     <string name="preference_category_ringtone" msgid="5197960752529332721">"Ringsignal och vibrera"</string>
     <string name="pstn_connection_service_label" msgid="1743245930577325900">"Inbyggda SIM-kort"</string>
     <string name="enable_video_calling_title" msgid="7237253660669000899">"Aktivera videosamtal"</string>
@@ -572,12 +570,14 @@
     <string name="sim_description_emergency_calls" msgid="7535215397212301562">"Endast nödsamtal"</string>
     <string name="sim_description_default" msgid="4778679519938775515">"SIM-kortsplats: <xliff:g id="SLOT_ID">%s</xliff:g>"</string>
     <string name="accessibility_settings_activity_title" msgid="8562004288733103868">"Tillgänglighet"</string>
-    <string name="status_hint_label_incoming_wifi_call" msgid="8772915926382037499">"Inkommande Wi-Fi-samtal"</string>
+    <string name="status_hint_label_incoming_wifi_call" msgid="5932176406432044638">"Wi-Fi-samtal från"</string>
     <string name="status_hint_label_wifi_call" msgid="8900805254974653903">"Wi-Fi-samtal"</string>
     <string name="emergency_action_launch_hint" msgid="4906759256275562674">"Tryck igen för att öppna"</string>
     <string name="message_decode_error" msgid="3456481534066924855">"Ett fel inträffade när meddelandet avkodades."</string>
     <string name="callFailed_cdma_activation" msgid="2307989779233262164">"Ett SIM-kort har använts för att aktivera tjänsten och uppdatera roamingfunktionerna i mobilen."</string>
     <string name="callFailed_cdma_call_limit" msgid="1556916577171457086">"Det finns för många aktiva samtal. Avsluta eller slå samman pågående samtal innan du ringer ett nytt."</string>
+    <string name="callFailed_imei_not_accepted" msgid="132192626901238542">"Det går inte att ansluta. Sätt i ett giltigt SIM-kort."</string>
+    <string name="callFailed_wifi_lost" msgid="5968076625137297184">"Wi-Fi-anslutningen bruten. Samtal avslutat."</string>
     <string name="change_pin_title" msgid="7790232089699034029">"Ändra röstbrevlådans pinkod"</string>
     <string name="change_pin_continue_label" msgid="2135088662420163447">"Fortsätt"</string>
     <string name="change_pin_cancel_label" msgid="353535488390948596">"Avbryt"</string>

@@ -5,7 +5,6 @@
 AUTHOR = "Brillo Team"
 NAME = "brillo-smoke"
 PURPOSE = "Test critical brillo functionality."
-CRITERIA = "All tests with SUITE=brillo-smoke must pass."
 
 TIME = "SHORT"
 TEST_CATEGORY = "General"

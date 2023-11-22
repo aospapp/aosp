@@ -4,7 +4,6 @@
 import logging
 
 from autotest_lib.client.common_lib import global_config, error
-from autotest_lib.client.common_lib.cros.graphite import autotest_stats
 from autotest_lib.scheduler import drones, scheduler_config
 
 HOSTS_JOB_SUBDIR = 'hosts/'
@@ -14,11 +13,11 @@ ENABLE_ARCHIVING =  global_config.global_config.get_config_value(
 
 
 class SiteDroneManager(object):
+    """
+    Site specific DroneManager extensions.
 
-
-    _timer = autotest_stats.Timer('drone_manager')
-
-
+    When importing this class gains BaseDroneManager as a base class.
+    """
     def copy_to_results_repository(self, process, source_path,
                                    destination_path=None):
         """
@@ -77,13 +76,3 @@ class SiteDroneManager(object):
                               hostname, e)
                 return
             self._drones[drone.hostname] = drone
-
-
-    @_timer.decorate
-    def refresh(self):
-       super(SiteDroneManager, self).refresh()
-
-
-    @_timer.decorate
-    def execute_actions(self):
-       super(SiteDroneManager, self).execute_actions()

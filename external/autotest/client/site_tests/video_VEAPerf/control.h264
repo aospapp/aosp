@@ -9,7 +9,6 @@ CRITERIA = """
 The test fails if the video_encode_accelerator_unittest fails or crashes.
 """
 ATTRIBUTES = "suite:crosbolt_perf_nightly"
-SUITE = "crosbolt_perf_nightly"
 TIME = "MEDIUM"
 TEST_CATEGORY = "Performance"
 TEST_CLASS = "video"
@@ -36,10 +35,9 @@ performance of the Chromium Video Encode Accelerator.
 # (VEA_unittest reuses per-stream requested-frame-rate as input frame rate when
 # --run_at_fps option is enabled.)
 test_cases = [
+    ('crowd/crowd1080-96f60dd6ff87ba8b129301a0f36efc58.yuv', True, 1920, 1080, 4000000, 1, 30),
     ('tulip2/tulip2-1280x720-1b95123232922fe0067869c74e19cd09.yuv', True, 1280, 720, 1200000, 1, 30),
     ('tulip2/tulip2-640x360-094bd827de18ca196a83cc6442b7b02f.yuv', True, 640, 360, 500000, 1, 30),
-    ('tulip2/tulip2-320x180-55be7124b3aec1b72bfb57f433297193.yuv', True, 320, 180, 100000, 1, 30),
-    ('tulip2/tulip2-240x136-ed58afc99d08e5d21013c1a5056e43bf.yuv', True, 240, 136, 100000, 1, 30)
 ]
 
 job.run_test('video_VEAPerf', test_cases=test_cases)

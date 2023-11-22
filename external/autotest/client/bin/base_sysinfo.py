@@ -1,39 +1,50 @@
 import os, shutil, re, glob, subprocess, logging
 
+from distutils import dir_util
+
 from autotest_lib.client.common_lib import log
 from autotest_lib.client.cros import constants
 from autotest_lib.client.bin import utils, package
 
-
 _DEFAULT_COMMANDS_TO_LOG_PER_TEST = []
 _DEFAULT_COMMANDS_TO_LOG_PER_BOOT = [
-    "lspci -vvn", "gcc --version", "ld --version", "mount", "hostname",
-    "uptime",
-    ]
+    'lspci -vvn',
+    'gcc --version',
+    'ld --version',
+    'mount',
+    'hostname',
+    'uptime',
+]
 _DEFAULT_COMMANDS_TO_LOG_BEFORE_ITERATION = []
 _DEFAULT_COMMANDS_TO_LOG_AFTER_ITERATION = []
 
 _DEFAULT_FILES_TO_LOG_PER_TEST = []
 _DEFAULT_FILES_TO_LOG_PER_BOOT = [
-    "/proc/pci", "/proc/meminfo", "/proc/slabinfo", "/proc/version",
-    "/proc/cpuinfo", "/proc/modules", "/proc/interrupts", "/proc/partitions",
-    '/var/log/messages', constants.LOG_CONSOLE_RAMOOPS,
-    '/var/log/bios_info.txt', '/var/log/storage_info.txt',
-    ]
+    '/proc/pci',
+    '/proc/meminfo',
+    '/proc/slabinfo',
+    '/proc/version',
+    '/proc/cpuinfo',
+    '/proc/modules',
+    '/proc/interrupts',
+    '/proc/partitions',
+    constants.LOG_CONSOLE_RAMOOPS,
+    '/var/log/',
+]
 _DEFAULT_FILES_TO_LOG_BEFORE_ITERATION = [
-    "/proc/schedstat", "/proc/meminfo", "/proc/slabinfo", "/proc/interrupts"
-    ]
+    '/proc/schedstat', '/proc/meminfo', '/proc/slabinfo', '/proc/interrupts'
+]
 _DEFAULT_FILES_TO_LOG_AFTER_ITERATION = [
-    "/proc/schedstat", "/proc/meminfo", "/proc/slabinfo", "/proc/interrupts"
-    ]
+    '/proc/schedstat', '/proc/meminfo', '/proc/slabinfo', '/proc/interrupts'
+]
 
 
 class loggable(object):
     """ Abstract class for representing all things "loggable" by sysinfo. """
+
     def __init__(self, logf, log_in_keyval):
         self.logf = logf
         self.log_in_keyval = log_in_keyval
-
 
     def readline(self, logdir):
         """Reads one line from the log.
@@ -84,12 +95,17 @@ class logfile(loggable):
 
 
     def run(self, logdir):
-        """Copies the log file to the specified directory.
+        """Copies the log file or directory to the specified directory.
 
         @param logdir: The log directory.
         """
         if os.path.exists(self.path):
-            shutil.copyfile(self.path, os.path.join(logdir, self.logf))
+            if os.path.isdir(self.path):
+                dst = os.path.join(logdir, self.logf, self.path.lstrip('/'))
+                dir_util.copy_tree(self.path, dst)
+            else:
+                dst = os.path.join(logdir, self.logf)
+                shutil.copyfile(self.path, dst)
 
 
 class command(loggable):
@@ -140,8 +156,12 @@ class command(loggable):
         stderr = open(os.devnull, "w")
         stdout = open(logf_path, "w")
         try:
-            subprocess.call(self.cmd, stdin=stdin, stdout=stdout, stderr=stderr,
-                            shell=True, env=env)
+            subprocess.call(self.cmd,
+                            stdin=stdin,
+                            stdout=stdout,
+                            stderr=stderr,
+                            shell=True,
+                            env=env)
         finally:
             for f in (stdin, stdout, stderr):
                 f.close()
@@ -191,17 +211,19 @@ class base_sysinfo(object):
         # We compress the dmesg because it can get large when kernels are
         # configured with a large buffer and some tests trigger OOMs or
         # other large "spam" that fill it up...
-        self.test_loggables.add(command("dmesg -c", logf="dmesg",
+        self.test_loggables.add(command('dmesg -c',
+                                        logf='dmesg',
                                         compress_log=True))
-        self.test_loggables.add(command("journalctl -o export", logf="journal",
+        self.test_loggables.add(command('journalctl -o export',
+                                        logf='journal',
                                         compress_log=True))
-        self.boot_loggables.add(logfile("/proc/cmdline",
-                                             log_in_keyval=True))
+        self.boot_loggables.add(logfile('/proc/cmdline', log_in_keyval=True))
         # log /proc/mounts but with custom filename since we already
         # log the output of the "mount" command as the filename "mount"
         self.boot_loggables.add(logfile('/proc/mounts', logf='proc_mounts'))
-        self.boot_loggables.add(command("uname -a", logf="uname",
-                                             log_in_keyval=True))
+        self.boot_loggables.add(command('uname -a',
+                                        logf='uname',
+                                        log_in_keyval=True))
         self._installed_packages = []
 
 
@@ -353,6 +375,13 @@ class base_sysinfo(object):
 
         for log in self.before_iteration_loggables:
             log.run(logdir)
+        # Start each log with the board name for orientation.
+        board = utils.get_board_with_frequency_and_memory()
+        logging.info('ChromeOS BOARD = %s', board)
+        # Leave some autotest bread crumbs in the system logs.
+        utils.system('logger "autotest starting iteration %s on %s"' % (logdir,
+                                                                        board),
+                     ignore_status=True)
 
 
     @log.log_and_ignore_errors("post-test siteration sysinfo error:")
@@ -368,6 +397,8 @@ class base_sysinfo(object):
 
         for log in self.after_iteration_loggables:
             log.run(logdir)
+        utils.system('logger "autotest finished iteration %s"' % logdir,
+                     ignore_status=True)
 
 
     def _log_messages(self, logdir):
@@ -394,7 +425,8 @@ class base_sysinfo(object):
         if not hasattr(self, "_journal_cursor"):
             return
 
-        cmd = "/usr/bin/journalctl --after-cursor \"%s\"" % (self._journal_cursor)
+        cmd = "/usr/bin/journalctl --after-cursor \"%s\"" % (
+            self._journal_cursor)
         try:
             with open(os.path.join(logdir, "journal"), "w") as journal:
               journal.write(utils.system_output(cmd))
@@ -421,11 +453,11 @@ class base_sysinfo(object):
         keyval = {}
 
         # grab any loggables that should be in the keyval
+        keyval.update(self._read_sysinfo_keyvals(self.test_loggables,
+                                                 test_sysinfodir))
         keyval.update(self._read_sysinfo_keyvals(
-            self.test_loggables, test_sysinfodir))
-        keyval.update(self._read_sysinfo_keyvals(
-            self.boot_loggables,
-            os.path.join(test_sysinfodir, "reboot_current")))
+            self.boot_loggables, os.path.join(test_sysinfodir,
+                                              'reboot_current')))
 
         # remove hostname from uname info
         #   Linux lpt36 2.6.18-smp-230.1 #1 [4069269] SMP Fri Oct 24 11:30:...
@@ -437,8 +469,7 @@ class base_sysinfo(object):
         path = os.path.join(test_sysinfodir, "reboot_current", "meminfo")
         if os.path.exists(path):
             mem_data = open(path).read()
-            match = re.search(r"^MemTotal:\s+(\d+) kB$", mem_data,
-                              re.MULTILINE)
+            match = re.search(r'^MemTotal:\s+(\d+) kB$', mem_data, re.MULTILINE)
             if match:
                 keyval["sysinfo-memtotal-in-kb"] = match.group(1)
 

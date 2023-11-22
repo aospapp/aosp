@@ -21,6 +21,7 @@ import android.support.annotation.VisibleForTesting;
 
 import com.android.tv.util.Clock;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -42,12 +43,25 @@ class ScheduledProgramReaper implements Runnable {
     @Override
     @MainThread
     public void run() {
-        List<ScheduledRecording> recordings = mDvrDataManager.getAllScheduledRecordings();
         long cutoff = mClock.currentTimeMillis() - TimeUnit.DAYS.toMillis(DAYS);
-        for (ScheduledRecording r : recordings) {
-            if (r.getEndTimeMs() < cutoff) {
-                mDvrDataManager.removeScheduledRecording(r);
+        List<ScheduledRecording> toRemove = new ArrayList<>();
+        for (ScheduledRecording r : mDvrDataManager.getAllScheduledRecordings()) {
+            // Do not remove the schedules if it belongs to the series recording and was finished
+            // successfully. The schedule is necessary for checking the scheduled episode of the
+            // series recording.
+            if (r.getEndTimeMs() < cutoff
+                    && (r.getSeriesRecordingId() == SeriesRecording.ID_NOT_SET
+                    || r.getState() != ScheduledRecording.STATE_RECORDING_FINISHED)) {
+                toRemove.add(r);
             }
+        }
+        for (ScheduledRecording r : mDvrDataManager.getDeletedSchedules()) {
+            if (r.getEndTimeMs() < cutoff) {
+                toRemove.add(r);
+            }
+        }
+        if (!toRemove.isEmpty()) {
+            mDvrDataManager.removeScheduledRecording(ScheduledRecording.toArray(toRemove));
         }
     }
 }

@@ -197,6 +197,8 @@ public class ItsService extends Service implements SensorEventListener {
     private volatile LinkedList<MySensorEvent> mEvents = null;
     private volatile Object mEventLock = new Object();
     private volatile boolean mEventsEnabled = false;
+    private HandlerThread mSensorThread = null;
+    private Handler mSensorHandler = null;
 
     public interface CaptureCallback {
         void onCaptureAvailable(Image capture);
@@ -228,9 +230,15 @@ public class ItsService extends Service implements SensorEventListener {
             mAccelSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
             mMagSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
             mGyroSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
-            mSensorManager.registerListener(this, mAccelSensor, SensorManager.SENSOR_DELAY_FASTEST);
-            mSensorManager.registerListener(this, mMagSensor, SensorManager.SENSOR_DELAY_FASTEST);
-            mSensorManager.registerListener(this, mGyroSensor, SensorManager.SENSOR_DELAY_FASTEST);
+            mSensorThread = new HandlerThread("SensorThread");
+            mSensorThread.start();
+            mSensorHandler = new Handler(mSensorThread.getLooper());
+            mSensorManager.registerListener(this, mAccelSensor,
+                    SensorManager.SENSOR_DELAY_NORMAL, mSensorHandler);
+            mSensorManager.registerListener(this, mMagSensor,
+                    SensorManager.SENSOR_DELAY_NORMAL, mSensorHandler);
+            mSensorManager.registerListener(this, mGyroSensor,
+                    /*200hz*/5000, mSensorHandler);
 
             // Get a handle to the system vibrator.
             mVibrator = (Vibrator)getSystemService(Context.VIBRATOR_SERVICE);
@@ -290,6 +298,10 @@ public class ItsService extends Service implements SensorEventListener {
                 mSaveThreads[i].quit();
                 mSaveThreads[i] = null;
             }
+        }
+        if (mSensorThread != null) {
+            mSensorThread.quitSafely();
+            mSensorThread = null;
         }
         if (mResultThread != null) {
             mResultThread.quitSafely();
@@ -404,6 +416,7 @@ public class ItsService extends Service implements SensorEventListener {
         // (called on different threads) will need to send data back to the host script.
 
         public Socket mOpenSocket = null;
+        private Thread mThread = null;
 
         public SocketWriteRunnable(Socket openSocket) {
             mOpenSocket = openSocket;
@@ -421,6 +434,7 @@ public class ItsService extends Service implements SensorEventListener {
                     ByteBuffer b = mSocketWriteQueue.take();
                     synchronized(mSocketWriteDrainLock) {
                         if (mOpenSocket == null) {
+                            Logt.e(TAG, "No open socket connection!");
                             continue;
                         }
                         if (b.hasArray()) {
@@ -442,14 +456,26 @@ public class ItsService extends Service implements SensorEventListener {
                     }
                 } catch (IOException e) {
                     Logt.e(TAG, "Error writing to socket", e);
+                    mOpenSocket = null;
                     break;
                 } catch (java.lang.InterruptedException e) {
                     Logt.e(TAG, "Error writing to socket (interrupted)", e);
+                    mOpenSocket = null;
                     break;
                 }
             }
             Logt.i(TAG, "Socket writer thread terminated");
         }
+
+        public synchronized void checkAndStartThread() {
+            if (mThread == null || mThread.getState() == Thread.State.TERMINATED) {
+                mThread = new Thread(this);
+            }
+            if (mThread.getState() == Thread.State.NEW) {
+                mThread.start();
+            }
+        }
+
     }
 
     class SocketRunnable implements Runnable {
@@ -475,7 +501,6 @@ public class ItsService extends Service implements SensorEventListener {
 
             // Create a new thread to handle writes to this socket.
             mSocketWriteRunnable = new SocketWriteRunnable(null);
-            (new Thread(mSocketWriteRunnable)).start();
 
             while (!mThreadExitFlag) {
                 // Receive the socket-open request from the host.
@@ -489,6 +514,7 @@ public class ItsService extends Service implements SensorEventListener {
                     mSocketWriteQueue.clear();
                     mInflightImageSizes.clear();
                     mSocketWriteRunnable.setOpenSocket(mOpenSocket);
+                    mSocketWriteRunnable.checkAndStartThread();
                     Logt.i(TAG, "Socket connected");
                 } catch (IOException e) {
                     Logt.e(TAG, "Socket open error: ", e);
@@ -700,10 +726,13 @@ public class ItsService extends Service implements SensorEventListener {
                     int format = readers[i].getImageFormat();
                     if (format == ImageFormat.RAW_SENSOR) {
                         if (mCaptureRawIsStats) {
+                            int aaw = ItsUtils.getActiveArrayCropRegion(mCameraCharacteristics)
+                                              .width();
+                            int aah = ItsUtils.getActiveArrayCropRegion(mCameraCharacteristics)
+                                              .height();
                             jsonSurface.put("format", "rawStats");
-                            jsonSurface.put("width", readers[i].getWidth()/mCaptureStatsGridWidth);
-                            jsonSurface.put("height",
-                                    readers[i].getHeight()/mCaptureStatsGridHeight);
+                            jsonSurface.put("width", aaw/mCaptureStatsGridWidth);
+                            jsonSurface.put("height", aah/mCaptureStatsGridHeight);
                         } else if (mCaptureRawIsDng) {
                             jsonSurface.put("format", "dng");
                         } else {
@@ -1000,6 +1029,9 @@ public class ItsService extends Service implements SensorEventListener {
                             CaptureRequest.CONTROL_AWB_MODE_AUTO);
                     req.set(CaptureRequest.CONTROL_AWB_LOCK, false);
                     req.set(CaptureRequest.CONTROL_AWB_REGIONS, regionAWB);
+                    // ITS only turns OIS on when it's explicitly requested
+                    req.set(CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE,
+                            CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE_OFF);
 
                     if (evComp != 0) {
                         req.set(CaptureRequest.CONTROL_AE_EXPOSURE_COMPENSATION, evComp);
@@ -1144,14 +1176,16 @@ public class ItsService extends Service implements SensorEventListener {
                     if (height <= 0) {
                         height = ItsUtils.getMaxSize(sizes).getHeight();
                     }
-                    if (mCaptureStatsGridWidth <= 0) {
-                        mCaptureStatsGridWidth = width;
-                    }
-                    if (mCaptureStatsGridHeight <= 0) {
-                        mCaptureStatsGridHeight = height;
-                    }
 
-                    // TODO: Crop to the active array in the stats image analysis.
+                    // The stats computation only applies to the active array region.
+                    int aaw = ItsUtils.getActiveArrayCropRegion(mCameraCharacteristics).width();
+                    int aah = ItsUtils.getActiveArrayCropRegion(mCameraCharacteristics).height();
+                    if (mCaptureStatsGridWidth <= 0 || mCaptureStatsGridWidth > aaw) {
+                        mCaptureStatsGridWidth = aaw;
+                    }
+                    if (mCaptureStatsGridHeight <= 0 || mCaptureStatsGridHeight > aah) {
+                        mCaptureStatsGridHeight = aah;
+                    }
 
                     outputSizes[i] = new Size(width, height);
                 }
@@ -1161,12 +1195,13 @@ public class ItsService extends Service implements SensorEventListener {
         } else {
             // No surface(s) specified at all.
             // Default: a single output surface which is full-res YUV.
-            Size sizes[] = ItsUtils.getYuvOutputSizes(mCameraCharacteristics);
+            Size maxYuvSize = ItsUtils.getMaxOutputSize(
+                    mCameraCharacteristics, ImageFormat.YUV_420_888);
             numSurfaces = backgroundRequest ? 2 : 1;
 
             outputSizes = new Size[numSurfaces];
             outputFormats = new int[numSurfaces];
-            outputSizes[0] = sizes[0];
+            outputSizes[0] = maxYuvSize;
             outputFormats[0] = ImageFormat.YUV_420_888;
             if (backgroundRequest) {
                 outputSizes[1] = new Size(640, 480);
@@ -1276,6 +1311,8 @@ public class ItsService extends Service implements SensorEventListener {
 
             // Initiate the captures.
             long maxExpTimeNs = -1;
+            List<CaptureRequest> requestList =
+                    new ArrayList<>(requests.size());
             for (int i = 0; i < requests.size(); i++) {
                 CaptureRequest.Builder req = requests.get(i);
                 // For DNG captures, need the LSC map to be available.
@@ -1290,8 +1327,9 @@ public class ItsService extends Service implements SensorEventListener {
                 for (int j = 0; j < numCaptureSurfaces; j++) {
                     req.addTarget(mOutputImageReaders[j].getSurface());
                 }
-                mSession.capture(req.build(), mCaptureResultListener, mResultHandler);
+                requestList.add(req.build());
             }
+            mSession.captureBurst(requestList, mCaptureResultListener, mResultHandler);
 
             long timeout = TIMEOUT_CALLBACK * 1000;
             if (maxExpTimeNs > 0) {
@@ -1477,6 +1515,11 @@ public class ItsService extends Service implements SensorEventListener {
     }
 
     @Override
+    public final void onAccuracyChanged(Sensor sensor, int accuracy) {
+        Logt.i(TAG, "Sensor " + sensor.getName() + " accuracy changed to " + accuracy);
+    }
+
+    @Override
     public final void onSensorChanged(SensorEvent event) {
         synchronized(mEventLock) {
             if (mEventsEnabled) {
@@ -1489,10 +1532,6 @@ public class ItsService extends Service implements SensorEventListener {
                 mEvents.add(ev2);
             }
         }
-    }
-
-    @Override
-    public final void onAccuracyChanged(Sensor sensor, int accuracy) {
     }
 
     private final CaptureCallback mCaptureCallback = new CaptureCallback() {
@@ -1538,9 +1577,18 @@ public class ItsService extends Service implements SensorEventListener {
                             long startTimeMs = SystemClock.elapsedRealtime();
                             int w = capture.getWidth();
                             int h = capture.getHeight();
+                            int aaw = ItsUtils.getActiveArrayCropRegion(mCameraCharacteristics)
+                                              .width();
+                            int aah = ItsUtils.getActiveArrayCropRegion(mCameraCharacteristics)
+                                              .height();
+                            int aax = ItsUtils.getActiveArrayCropRegion(mCameraCharacteristics)
+                                              .left;
+                            int aay = ItsUtils.getActiveArrayCropRegion(mCameraCharacteristics)
+                                              .top;
                             int gw = mCaptureStatsGridWidth;
                             int gh = mCaptureStatsGridHeight;
-                            float[] stats = StatsImage.computeStatsImage(img, w, h, gw, gh);
+                            float[] stats = StatsImage.computeStatsImage(
+                                                             img, w, h, aax, aay, aaw, aah, gw, gh);
                             long endTimeMs = SystemClock.elapsedRealtime();
                             Log.e(TAG, "Raw stats computation takes " + (endTimeMs - startTimeMs) + " ms");
                             int statsImgSize = stats.length * 4;
@@ -1548,7 +1596,7 @@ public class ItsService extends Service implements SensorEventListener {
                                 mSocketQueueQuota.release(img.length);
                                 mSocketQueueQuota.acquire(statsImgSize);
                             }
-                            ByteBuffer bBuf = ByteBuffer.allocateDirect(statsImgSize);
+                            ByteBuffer bBuf = ByteBuffer.allocate(statsImgSize);
                             bBuf.order(ByteOrder.nativeOrder());
                             FloatBuffer fBuf = bBuf.asFloatBuffer();
                             fBuf.put(stats);

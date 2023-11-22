@@ -53,7 +53,8 @@ final public class AbstractionLayer {
     static final int BT_DEVICE_TYPE_DUAL = 0x03;
 
     static final int BT_BOND_STATE_NONE = 0x00;
-    static final int BT_BOND_STATE_BONDED = 0x01;
+    static final int BT_BOND_STATE_BONDING = 0x01;
+    static final int BT_BOND_STATE_BONDED = 0x02;
 
     static final int BT_SSP_VARIANT_PASSKEY_CONFIRMATION = 0x00;
     static final int BT_SSP_VARIANT_PASSKEY_ENTRY = 0x01;

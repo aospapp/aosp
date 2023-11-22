@@ -27,6 +27,7 @@ import android.graphics.drawable.InsetDrawable;
 import android.os.Build;
 import android.support.annotation.DrawableRes;
 import android.support.annotation.Nullable;
+import android.support.annotation.RequiresApi;
 import android.support.annotation.StringRes;
 import android.support.v4.content.ContextCompat;
 import android.support.v4.view.GravityCompat;
@@ -36,9 +37,6 @@ import android.view.MenuItem;
 import android.view.View;
 
 /**
- * @deprecated Please use ActionBarDrawerToggle in support-v7-appcompat.
- *
- * <p>
  * This class provides a handy way to tie together the functionality of
  * {@link DrawerLayout} and the framework <code>ActionBar</code> to implement the recommended
  * design for navigation drawers.
@@ -67,7 +65,10 @@ public class ActionBarDrawerToggle implements DrawerLayout.DrawerListener {
     /**
      * Allows an implementing Activity to return an {@link ActionBarDrawerToggle.Delegate} to use
      * with ActionBarDrawerToggle.
+     *
+     * @deprecated Use ActionBarDrawerToggle.DelegateProvider in support-v7-appcompat.
      */
+    @Deprecated
     public interface DelegateProvider {
 
         /**
@@ -78,6 +79,10 @@ public class ActionBarDrawerToggle implements DrawerLayout.DrawerListener {
         Delegate getDrawerToggleDelegate();
     }
 
+    /**
+     * @deprecated Use ActionBarDrawerToggle.DelegateProvider in support-v7-appcompat.
+     */
+    @Deprecated
     public interface Delegate {
         /**
          * @return Up indicator drawable as defined in the Activity's theme, or null if one is not
@@ -109,48 +114,36 @@ public class ActionBarDrawerToggle implements DrawerLayout.DrawerListener {
         Object setActionBarDescription(Object info, Activity activity, int contentDescRes);
     }
 
-    private static class ActionBarDrawerToggleImplBase implements ActionBarDrawerToggleImpl {
+    @RequiresApi(11)
+    private static class ActionBarDrawerToggleImplIcs implements ActionBarDrawerToggleImpl {
+        ActionBarDrawerToggleImplIcs() {
+        }
+
         @Override
         public Drawable getThemeUpIndicator(Activity activity) {
-            return null;
+            return ActionBarDrawerToggleIcs.getThemeUpIndicator(activity);
         }
 
         @Override
         public Object setActionBarUpIndicator(Object info, Activity activity,
                 Drawable themeImage, int contentDescRes) {
-            // No action bar to set.
-            return info;
-        }
-
-        @Override
-        public Object setActionBarDescription(Object info, Activity activity, int contentDescRes) {
-            // No action bar to set
-            return info;
-        }
-    }
-
-    private static class ActionBarDrawerToggleImplHC implements ActionBarDrawerToggleImpl {
-        @Override
-        public Drawable getThemeUpIndicator(Activity activity) {
-            return ActionBarDrawerToggleHoneycomb.getThemeUpIndicator(activity);
-        }
-
-        @Override
-        public Object setActionBarUpIndicator(Object info, Activity activity,
-                Drawable themeImage, int contentDescRes) {
-            return ActionBarDrawerToggleHoneycomb.setActionBarUpIndicator(info, activity,
+            return ActionBarDrawerToggleIcs.setActionBarUpIndicator(info, activity,
                     themeImage, contentDescRes);
         }
 
         @Override
         public Object setActionBarDescription(Object info, Activity activity, int contentDescRes) {
-            return ActionBarDrawerToggleHoneycomb.setActionBarDescription(info, activity,
+            return ActionBarDrawerToggleIcs.setActionBarDescription(info, activity,
                     contentDescRes);
         }
     }
 
+    @RequiresApi(18)
     private static class ActionBarDrawerToggleImplJellybeanMR2
             implements ActionBarDrawerToggleImpl {
+        ActionBarDrawerToggleImplJellybeanMR2() {
+        }
+
         @Override
         public Drawable getThemeUpIndicator(Activity activity) {
             return ActionBarDrawerToggleJellybeanMR2.getThemeUpIndicator(activity);
@@ -173,13 +166,10 @@ public class ActionBarDrawerToggle implements DrawerLayout.DrawerListener {
     private static final ActionBarDrawerToggleImpl IMPL;
 
     static {
-        final int version = Build.VERSION.SDK_INT;
-        if (version >= 18) {
+        if (Build.VERSION.SDK_INT >= 18) {
             IMPL = new ActionBarDrawerToggleImplJellybeanMR2();
-        } else if (version >= 11) {
-            IMPL = new ActionBarDrawerToggleImplHC();
         } else {
-            IMPL = new ActionBarDrawerToggleImplBase();
+            IMPL = new ActionBarDrawerToggleImplIcs();
         }
     }
 
@@ -189,7 +179,7 @@ public class ActionBarDrawerToggle implements DrawerLayout.DrawerListener {
     // android.R.id.home as defined by public API in v11
     private static final int ID_HOME = 0x0102002c;
 
-    private final Activity mActivity;
+    final Activity mActivity;
     private final Delegate mActivityImpl;
     private final DrawerLayout mDrawerLayout;
     private boolean mDrawerIndicatorEnabled = true;
@@ -505,7 +495,7 @@ public class ActionBarDrawerToggle implements DrawerLayout.DrawerListener {
         private float mPosition;
         private float mOffset;
 
-        private SlideDrawable(Drawable wrapped) {
+        SlideDrawable(Drawable wrapped) {
             super(wrapped, 0);
         }
 

@@ -1,8 +1,10 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
- * Copyright (C) 2009-2012, International Business Machines Corporation and    *
- * others. All Rights Reserved.                                                *
+ * Copyright (C) 2009-2016, International Business Machines Corporation and
+ * others. All Rights Reserved.
  *******************************************************************************
  */
 package android.icu.impl;
@@ -11,6 +13,7 @@ import java.util.Collections;
 import java.util.Map;
 
 import android.icu.text.CurrencyDisplayNames;
+import android.icu.text.DecimalFormatSymbols;
 import android.icu.util.ULocale;
 
 /**
@@ -18,6 +21,8 @@ import android.icu.util.ULocale;
  */
 public class CurrencyData {
     public static final CurrencyDisplayInfoProvider provider;
+
+    private CurrencyData() {}
 
     public static interface CurrencyDisplayInfoProvider {
         CurrencyDisplayInfo getInstance(ULocale locale, boolean withFallback);
@@ -32,11 +37,11 @@ public class CurrencyData {
 
     public static final class CurrencyFormatInfo {
         public final String currencyPattern;
-        public final char monetarySeparator;
-        public final char monetaryGroupingSeparator;
+        public final String monetarySeparator;
+        public final String monetaryGroupingSeparator;
 
-        public CurrencyFormatInfo(String currencyPattern, char monetarySeparator,
-                char monetaryGroupingSeparator) {
+        public CurrencyFormatInfo(String currencyPattern, String monetarySeparator,
+                String monetaryGroupingSeparator) {
             this.currencyPattern = currencyPattern;
             this.monetarySeparator = monetarySeparator;
             this.monetaryGroupingSeparator = monetaryGroupingSeparator;
@@ -44,24 +49,48 @@ public class CurrencyData {
     }
 
     public static final class CurrencySpacingInfo {
-        public final String beforeCurrencyMatch;
-        public final String beforeContextMatch;
-        public final String beforeInsert;
-        public final String afterCurrencyMatch;
-        public final String afterContextMatch;
-        public final String afterInsert;
+        private final String[][] symbols = new String[SpacingType.COUNT.ordinal()][SpacingPattern.COUNT.ordinal()];
 
-        public CurrencySpacingInfo(
-                String beforeCurrencyMatch, String beforeContextMatch, String beforeInsert,
-                String afterCurrencyMatch, String afterContextMatch, String afterInsert) {
-            this.beforeCurrencyMatch = beforeCurrencyMatch;
-            this.beforeContextMatch = beforeContextMatch;
-            this.beforeInsert = beforeInsert;
-            this.afterCurrencyMatch = afterCurrencyMatch;
-            this.afterContextMatch = afterContextMatch;
-            this.afterInsert = afterInsert;
+        public static enum SpacingType { BEFORE, AFTER, COUNT };
+        public static enum SpacingPattern {
+            CURRENCY_MATCH(DecimalFormatSymbols.CURRENCY_SPC_CURRENCY_MATCH),
+            SURROUNDING_MATCH(DecimalFormatSymbols.CURRENCY_SPC_SURROUNDING_MATCH),
+            INSERT_BETWEEN(DecimalFormatSymbols.CURRENCY_SPC_INSERT),
+            COUNT;
+
+            SpacingPattern() {}
+            SpacingPattern(int value) { assert value == ordinal(); }
+        };
+
+        public CurrencySpacingInfo() {}
+
+        public CurrencySpacingInfo(String... strings) {
+            assert strings.length == 6;
+
+            int k = 0;
+            for (int i=0; i<SpacingType.COUNT.ordinal(); i++) {
+                for (int j=0; j<SpacingPattern.COUNT.ordinal(); j++) {
+                    symbols[i][j] = strings[k];
+                    k++;
+                }
+            }
         }
 
+        public void setSymbolIfNull(SpacingType type, SpacingPattern pattern, String value) {
+            int i = type.ordinal();
+            int j = pattern.ordinal();
+            if (symbols[i][j] == null) {
+                symbols[i][j] = value;
+            }
+        }
+
+        public String[] getBeforeSymbols() {
+            return symbols[SpacingType.BEFORE.ordinal()];
+        }
+
+        public String[] getAfterSymbols() {
+            return symbols[SpacingType.AFTER.ordinal()];
+        }
 
         private static final String DEFAULT_CUR_MATCH = "[:letter:]";
         private static final String DEFAULT_CTX_MATCH = "[:digit:]";
@@ -79,10 +108,12 @@ public class CurrencyData {
             temp = (CurrencyDisplayInfoProvider) clzz.newInstance();
         } catch (Throwable t) {
             temp = new CurrencyDisplayInfoProvider() {
+                @Override
                 public CurrencyDisplayInfo getInstance(ULocale locale, boolean withFallback) {
                     return DefaultInfo.getWithFallback(withFallback);
                 }
 
+                @Override
                 public boolean hasData() {
                     return false;
                 }

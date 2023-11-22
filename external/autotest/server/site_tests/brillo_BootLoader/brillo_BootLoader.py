@@ -3,7 +3,6 @@
 # found in the LICENSE file.
 
 import logging
-import time
 
 import common
 from autotest_lib.client.common_lib import error
@@ -38,7 +37,52 @@ class brillo_BootLoader(test.test):
         self.suffix_b = self.dut.run_output('bootctl get-suffix 1')
         logging.info('Slot 0 suffix: "%s"', self.suffix_a)
         logging.info('Slot 1 suffix: "%s"', self.suffix_b)
-        _assert_equal(self.num_slots, 2)
+        _assert_equal(2, self.num_slots)
+        # We're going to need the size of the boot partitions later.
+        self.boot_a_size = int(self.dut.run_output(
+            'blockdev --getsize64 /dev/block/by-name/boot%s' % self.suffix_a))
+        self.boot_b_size = int(self.dut.run_output(
+            'blockdev --getsize64 /dev/block/by-name/boot%s' % self.suffix_b))
+        if self.boot_a_size != self.boot_b_size:
+            raise error.TestFail('boot partitions are not the same size')
+        logging.info('boot partition size: %d bytes', self.boot_a_size)
+
+
+    def fastboot_get_var(self, variable_name):
+        """Gets a fastboot variable.
+
+        Returns a string with the value or the empty string if the
+        variable does not exist.
+
+        Prerequisite: The DUT is in bootloader mode.
+
+        @param variable_name: Name of fastboot variable to get.
+
+        """
+        cmd_output = self.dut.fastboot_run('getvar %s' % variable_name)
+        # Gah, 'fastboot getvar' prints requested output on stderr
+        # instead of stdout as you'd expect.
+        lines = cmd_output.stderr.split('\n')
+        if lines[0].startswith(variable_name + ': '):
+            return (lines[0])[len(variable_name + ': '):]
+        return ''
+
+
+    def check_fastboot_variables(self):
+        """Checks that fastboot bootloader has necessary variables for A/B.
+
+        Prerequisite: The DUT is in ADB mode.
+        """
+        logging.info('Checking fastboot-compliant bootloader has necessary '
+                     'variables for A/B.')
+        self.dut.ensure_bootloader_mode()
+        # The slot-suffixes looks like '_a,_b' and may have a trailing comma.
+        suffixes = self.fastboot_get_var('slot-suffixes')
+        if suffixes.rstrip(',').split(',') != [self.suffix_a, self.suffix_b]:
+            raise error.TestFail('Variable slot-suffixes has unexpected '
+                                 'value "%s"' % suffixes)
+        # Back to ADB mode.
+        self.dut.fastboot_reboot()
 
 
     def get_current_slot(self):
@@ -54,9 +98,9 @@ class brillo_BootLoader(test.test):
 
         Prerequisite: The DUT is in ADB mode.
 
-        @slot_number: Zero-based index of slot to be running from.
+        @param slot_number: Zero-based index of slot to be running from.
         """
-        _assert_equal(self.get_current_slot(), slot_number)
+        _assert_equal(slot_number, self.get_current_slot())
 
 
     def set_active_slot(self, slot_number):
@@ -64,7 +108,7 @@ class brillo_BootLoader(test.test):
 
         Prerequisite: The DUT is in ADB mode.
 
-        @slot_number: Zero-based index of slot to make active.
+        @param slot_number: Zero-based index of slot to make active.
         """
         logging.info('Setting slot %d active.', slot_number)
         self.dut.run('bootctl set-active-boot-slot %d' % slot_number)
@@ -75,7 +119,7 @@ class brillo_BootLoader(test.test):
 
         Prerequisite: The DUT is in ADB mode.
 
-        @slot_number: Zero-based index of slot to be running from.
+        @param slot_number: Zero-based index of slot to be running from.
         """
         logging.info('Ensuring device is running from slot %d.', slot_number)
         if self.get_current_slot() != slot_number:
@@ -120,17 +164,13 @@ class brillo_BootLoader(test.test):
         """
         logging.info('Check set_active command in fastboot-compliant bootloader.')
         self.dut.ensure_bootloader_mode()
-        # TODO(zeuthen): The "oem set_active <NUMBER>" is specific to
-        # edison. We need to get set_active support in fastboot - see
-        # b/25075082 - and then for vendors to implement "set_active
-        # <SLOT_SUFFIX>" e.g. use suffix instead of number.
-        self.dut.fastboot_run('oem set_active 0')
-        self.dut.fastboot_run('continue')
+        self.dut.fastboot_run('set_active %s' % self.suffix_a)
+        self.dut.fastboot_reboot()
         self.dut.adb_run('wait-for-device')
         self.assert_current_slot(0)
         self.dut.ensure_bootloader_mode()
-        self.dut.fastboot_run('oem set_active 1')
-        self.dut.fastboot_run('continue')
+        self.dut.fastboot_run('set_active %s' % self.suffix_b)
+        self.dut.fastboot_reboot()
         self.dut.adb_run('wait-for-device')
         self.assert_current_slot(1)
 
@@ -147,7 +187,8 @@ class brillo_BootLoader(test.test):
         # fell back to A.
         self.ensure_running_slot(1)
         self.dut.run('dd if=/dev/zero of=/dev/block/by-name/boot%s '
-                     'count=8192 bs=4096' % self.suffix_b)
+                     'count=%d bs=4096' % (self.suffix_b,
+                                           self.boot_b_size/4096))
         self.dut.reboot()
         self.assert_current_slot(0)
         # Restore boot_b for use in future test cases.
@@ -170,14 +211,14 @@ class brillo_BootLoader(test.test):
         self.dut.reboot()
         num_retries = 1
         while num_retries < 10 and self.get_current_slot() == 1:
-            logging.info('Still with B after %d retries' % num_retries)
+            logging.info('Still with B after %d retries', num_retries)
             num_retries += 1
             self.dut.reboot()
         if self.get_current_slot() != 0:
             raise error.TestFail('Bootloader did not fall back after '
                                  '%d retries without the slot being marked '
                                  'as GOOD' % num_retries)
-        logging.info('Falled back to A after %d retries.', num_retries)
+        logging.info('Fell back to A after %d retries.', num_retries)
 
 
     def check_bootloader_mark_successful(self):
@@ -194,7 +235,7 @@ class brillo_BootLoader(test.test):
             self.dut.reboot()
             self.assert_current_slot(0)
             num_reboots += 1
-            logging.info('Still with A after %d reboots' % num_reboots)
+            logging.info('Still with A after %d reboots', num_reboots)
 
 
     def run_once(self, dut=None):
@@ -209,6 +250,7 @@ class brillo_BootLoader(test.test):
         """
         self.dut = dut
         self.get_slots_and_suffix()
+        self.check_fastboot_variables()
         self.ensure_running_slot(0)
         self.copy_a_to_b()
         self.check_bootctl_set_active()

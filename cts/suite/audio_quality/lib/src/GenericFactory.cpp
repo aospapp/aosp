@@ -69,3 +69,6 @@ TaskGeneric* GenericFactory::createTask(TaskGeneric::TaskType type)
     LOGD("GenericFactory::createTask 0x%x, type %d", task, type);
     return task;
 }
+
+GenericFactory::~GenericFactory() {
+}

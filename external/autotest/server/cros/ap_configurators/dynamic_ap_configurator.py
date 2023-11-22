@@ -1,4 +1,4 @@
-# Copyright (c) 2012 The Chromium Authors. All rights reserved.
+# Copyright 2016 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
@@ -51,7 +51,9 @@ class DynamicAPConfigurator(web_driver_core_helpers.WebDriverCoreHelpers,
                 rpm_frontend_server, verbose=False)
 
         # Load the data for the config file
-        self.admin_interface_url = ap_config.get_admin()
+        # The url is the actual IP.
+        # TODO: Revert this after setting up local dns in chaos.
+        self.admin_interface_url = ap_config.get_admin_ip()
         self.class_name = ap_config.get_class()
         self._short_name = ap_config.get_model()
         self.mac_address = ap_config.get_wan_mac()
@@ -238,11 +240,14 @@ class DynamicAPConfigurator(web_driver_core_helpers.WebDriverCoreHelpers,
         @param webdriver_hostname: locked webdriver instance
         @param webdriver_port: port of the webdriver server
 
-        @returns a string: the address of webdriver running on port.
+        @returns a string: the webdriver instance running on port.
 
         @raises TestError: Webdriver is not running.
         """
-        address = webdriver_hostname + '.cros'
+        if webdriver_hostname is 'localhost':
+            address = 'localhost'
+        else:
+            address = webdriver_hostname + '.cros'
         url = 'http://%s:%d/session' % (address, webdriver_port)
         req = urllib2.Request(url, '{"desiredCapabilities":{}}')
         try:
@@ -257,7 +262,7 @@ class DynamicAPConfigurator(web_driver_core_helpers.WebDriverCoreHelpers,
                 response = urllib2.urlopen(req)
                 logging.info('Webdriver connection established to server %s',
                             address)
-                return webdriver_hostname
+                return address
         except:
             err = 'Could not establish connection: %s', webdriver_hostname
             raise error.TestError(err)
@@ -363,12 +368,45 @@ class DynamicAPConfigurator(web_driver_core_helpers.WebDriverCoreHelpers,
         raise NotImplementedError
 
 
+    def get_supported_channel_widths(self):
+        """
+        Returns a dictionary describing supported channel widths based on
+        band and mode.
+
+        Example:
+        channel_width_2GHZ = [{ap_spec.MODE_B : [20]},
+                              {ap_spec.MODE_B|ap_spec.MODE_G : [20,40]},
+                              {ap_spec.MODE_N : [20]}]
+
+        channel_width_5GHZ = [{ap_spec.MODE_N : [20,40]},
+                              {ap_spec.MODE_AC : [20,40,80]}]
+
+        channel_width = {ap_spec.BAND_2GHZ : channel_width_2GHZ,
+                         ap_spec.BAND_5GHZ : channel_width_5GHZ}
+
+        Note: The derived class implements this method and returns
+        channel_width.
+
+        @return a dictionary as described above.
+        """
+        raise NotImplementedError
+
+
     def is_visibility_supported(self):
         """
         Returns if AP supports setting the visibility (SSID broadcast).
 
         @return True if supported; False otherwise.
 
+        """
+        return True
+
+
+    def is_radio_switchable(self):
+        """
+        Returns if AP supports setting the radio ON/OFF.
+
+        @return True if supported; False otherwise.
         """
         return True
 
@@ -407,6 +445,18 @@ class DynamicAPConfigurator(web_driver_core_helpers.WebDriverCoreHelpers,
 
         """
         raise NotImplementedError
+
+
+    def is_spec_supported(self, spec):
+        """
+        Returns if a given spec is supported by the router.
+
+        @param spec: an instance of the
+        autotest_lib.server.cros.ap_configurators.APSpec class.
+
+        @return: True if supported. False otherwise.
+        """
+        return True
 
 
     def navigate_to_page(self, page_number):
@@ -521,8 +571,11 @@ class DynamicAPConfigurator(web_driver_core_helpers.WebDriverCoreHelpers,
         if self.is_visibility_supported():
             self.set_visibility(set_ap_spec.visible)
         if (set_ap_spec.security == ap_spec.SECURITY_TYPE_WPAPSK or
-            set_ap_spec.security == ap_spec.SECURITY_TYPE_WPA2PSK):
+            set_ap_spec.security == ap_spec.SECURITY_TYPE_WPA2PSK or
+            set_ap_spec.security == ap_spec.SECURITY_TYPE_MIXED):
             self.set_security_wpapsk(set_ap_spec.security, set_ap_spec.password)
+        elif set_ap_spec.security == ap_spec.SECURITY_TYPE_WEP:
+            self.set_security_wep(set_ap_spec.security, set_ap_spec.password)
         else:
             self.set_security_disabled()
         self.set_band(set_ap_spec.band)
@@ -602,6 +655,17 @@ class DynamicAPConfigurator(web_driver_core_helpers.WebDriverCoreHelpers,
         raise NotImplementedError
 
 
+    def set_channel_width(self, channel_width):
+        """
+        Sets the channel width of the wireless network.
+
+        Note: The derived class must implement this method.
+
+        @param channel_width: integer value of the channel width.
+        """
+        raise NotImplementedError
+
+
     def set_security_disabled(self):
         """
         Disables the security of the wireless network.
@@ -655,10 +719,9 @@ class DynamicAPConfigurator(web_driver_core_helpers.WebDriverCoreHelpers,
         # Load the Auth extension
 
         webdriver_hostname = self.ap_spec.webdriver_hostname
-        webdriver_ready = self.check_webdriver_ready(webdriver_hostname,
+        webdriver_address = self.check_webdriver_ready(webdriver_hostname,
                                                      self._webdriver_port)
-        webdriver_server = webdriver_ready + '.cros'
-        if webdriver_server is None:
+        if webdriver_address is None:
             raise RuntimeError('Unable to connect to webdriver locally or '
                                'via the lab service.')
         extension_path = os.path.join(os.path.dirname(__file__),
@@ -668,7 +731,7 @@ class DynamicAPConfigurator(web_driver_core_helpers.WebDriverCoreHelpers,
         base64_ext = (binascii.b2a_base64(f.read()).strip())
         base64_extensions.append(base64_ext)
         f.close()
-        webdriver_url = ('http://%s:%d' % (webdriver_server,
+        webdriver_url = ('http://%s:%d' % (webdriver_address,
                                            self._webdriver_port))
         capabilities = {'chromeOptions' : {'extensions' : base64_extensions}}
         self.driver = webdriver.Remote(webdriver_url, capabilities)
@@ -696,7 +759,6 @@ class DynamicAPConfigurator(web_driver_core_helpers.WebDriverCoreHelpers,
         self.configuration_success = ap_constants.CONFIG_FAIL
         if len(self._command_list) == 0:
             return
-
         # If all we are doing is powering down the router, don't mess with
         # starting up webdriver.
         if (len(self._command_list) == 1 and
@@ -705,6 +767,7 @@ class DynamicAPConfigurator(web_driver_core_helpers.WebDriverCoreHelpers,
             self._command_list.pop()
             self.destroy_driver_connection()
             return
+
         self.establish_driver_connection()
         # Pull items by page and then sort
         if self.get_number_of_pages() == -1:

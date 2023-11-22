@@ -145,6 +145,16 @@ public class ImageCache implements MemoryManageable {
     }
 
     /**
+     * Remove from memory cache.
+     *
+     * @param key Unique identifier for which item to remove
+     * @return The previous bitmap mapped by key
+     */
+    public ScaledBitmapInfo remove(String key) {
+        return mMemoryCache.remove(key);
+    }
+
+    /**
      * Calculates the memory cache size based on a percentage of the max available VM memory. Eg.
      * setting percent to 0.2 would set the memory cache to one fifth of the available memory.
      * Throws {@link IllegalArgumentException} if percent is < 0.05 or > .8. memCacheSize is stored

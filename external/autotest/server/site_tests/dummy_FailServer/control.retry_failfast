@@ -5,7 +5,6 @@ TEST_CATEGORY = 'Functional'
 TEST_CLASS = 'General'
 TEST_TYPE = 'server'
 ATTRIBUTES = "suite:dummyflake"
-SUITE = 'dummyflake'
 RETRIES = 5
 
 

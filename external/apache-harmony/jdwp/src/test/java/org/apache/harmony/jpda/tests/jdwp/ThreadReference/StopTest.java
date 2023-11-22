@@ -40,6 +40,7 @@ public class StopTest extends JDWPSyncTestCase {
 
     static String SIGNATURE = "Lorg/apache/harmony/jpda/tests/jdwp/ThreadReference/StopDebuggee;";
 
+    @Override
     protected String getDebuggeeClassName() {
         return "org.apache.harmony.jpda.tests.jdwp.ThreadReference.StopDebuggee";
     }

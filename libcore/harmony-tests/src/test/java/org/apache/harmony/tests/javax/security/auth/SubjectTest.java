@@ -19,12 +19,18 @@ package org.apache.harmony.tests.javax.security.auth;
 
 import junit.framework.TestCase;
 import javax.security.auth.Subject;
+import javax.security.auth.x500.X500Principal;
+
 import java.security.AccessControlContext;
 import java.security.AccessController;
+import java.security.Principal;
 import java.security.PrivilegedAction;
 import java.security.PrivilegedActionException;
 import java.security.PrivilegedExceptionAction;
 import java.security.ProtectionDomain;
+import java.util.HashSet;
+import java.util.Set;
+
 import org.apache.harmony.testframework.serialization.SerializationTest;
 
 /**
@@ -45,6 +51,29 @@ public class SubjectTest extends TestCase {
             assertTrue("Set of public credentials is not empty", s.getPublicCredentials().isEmpty());
         } catch (Exception e) {
             fail("Unexpected exception: " + e);
+        }
+    }
+
+    public void test_Constructor_failsWithNullArguments() {
+        try {
+            new Subject(false /* readOnly */,
+                    null /* principals */,
+                    new HashSet<Object>() /* pubCredentials */,
+                    new HashSet<Object>() /* privCredentials */);
+            fail();
+        } catch (NullPointerException expected) {
+        }
+
+        try {
+            new Subject(false , new HashSet<Principal>(), null, new HashSet<Object>());
+            fail();
+        } catch (NullPointerException expected) {
+        }
+
+        try {
+            new Subject(false , new HashSet<Principal>(), new HashSet<Object>(), null);
+            fail();
+        } catch (NullPointerException expected) {
         }
     }
 
@@ -232,6 +261,36 @@ public class SubjectTest extends TestCase {
 
     public void testSerializationGolden() throws Exception {
         SerializationTest.verifyGolden(this, getSerializationData());
+    }
+
+    public void testSerialization_nullPrincipalsAllowed() throws Exception {
+        Set<Principal> principalsSet = new HashSet<>();
+        principalsSet.add(new X500Principal("CN=SomePrincipal"));
+        principalsSet.add(null);
+        principalsSet.add(new X500Principal("CN=SomeOtherPrincipal"));
+        Subject subject = new Subject(
+                false /* readOnly */, principalsSet, new HashSet<Object>(), new HashSet<Object>());
+        SerializationTest.verifySelf(subject);
+    }
+
+    public void testSecureTest_removeAllNull_throwsException() throws Exception {
+        Subject subject = new Subject(
+                false, new HashSet<Principal>(), new HashSet<Object>(), new HashSet<Object>());
+        try {
+            subject.getPrincipals().removeAll(null);
+            fail();
+        } catch (NullPointerException expected) {
+        }
+    }
+
+    public void testSecureTest_retainAllNull_throwsException() throws Exception {
+        Subject subject = new Subject(
+                false, new HashSet<Principal>(), new HashSet<Object>(), new HashSet<Object>());
+        try {
+            subject.getPrincipals().retainAll(null);
+            fail();
+        } catch (NullPointerException expected) {
+        }
     }
 
     private Object[] getSerializationData() {

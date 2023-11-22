@@ -16,10 +16,9 @@
 
 package com.android.support.car.apitest;
 
-import android.content.ComponentName;
 import android.os.Looper;
 import android.support.car.Car;
-import android.support.car.ServiceConnectionListener;
+import android.support.car.CarConnectionCallback;
 import android.support.car.hardware.CarSensorManager;
 import android.test.AndroidTestCase;
 import android.test.suitebuilder.annotation.MediumTest;
@@ -33,25 +32,16 @@ public class CarTest extends AndroidTestCase {
 
     private final Semaphore mConnectionWait = new Semaphore(0);
 
-    private final ServiceConnectionListener mConnectionListener = new ServiceConnectionListener() {
+    private final CarConnectionCallback mConnectionCallbacks =
+            new CarConnectionCallback() {
 
         @Override
-        public void onServiceSuspended(int cause) {
+        public void onDisconnected(Car car) {
             assertMainThread();
         }
 
         @Override
-        public void onServiceDisconnected(ComponentName name) {
-            assertMainThread();
-        }
-
-        @Override
-        public void onServiceConnectionFailed(int cause) {
-            assertMainThread();
-        }
-
-        @Override
-        public void onServiceConnected(ComponentName name) {
+        public void onConnected(Car car) {
             assertMainThread();
             mConnectionWait.release();
         }
@@ -66,7 +56,7 @@ public class CarTest extends AndroidTestCase {
     }
 
     public void testCarConnection() throws Exception {
-        Car car = Car.createCar(getContext(), mConnectionListener);
+        Car car = Car.createCar(getContext(), mConnectionCallbacks);
         assertFalse(car.isConnected());
         assertFalse(car.isConnecting());
         car.connect();
@@ -91,13 +81,13 @@ public class CarTest extends AndroidTestCase {
     }
 
     public void testDoubleConnect() throws Exception {
-        Car car = Car.createCar(getContext(), mConnectionListener);
+        Car car = Car.createCar(getContext(), mConnectionCallbacks);
         assertFalse(car.isConnected());
         assertFalse(car.isConnecting());
         car.connect();
         try {
             car.connect();
-            fail("dobule connect should throw");
+            fail("double connect should throw an exception");
         } catch (IllegalStateException e) {
             // expected
         }

@@ -22,6 +22,7 @@ openjdk_javadoc_files := \
     ojluni/src/main/java/java/io/DataInputStream.java \
     ojluni/src/main/java/java/io/DataOutput.java \
     ojluni/src/main/java/java/io/DataOutputStream.java \
+    ojluni/src/main/java/java/io/DefaultFileSystem.java \
     ojluni/src/main/java/java/io/DeleteOnExitHook.java \
     ojluni/src/main/java/java/io/EOFException.java \
     ojluni/src/main/java/java/io/ExpiringCache.java \
@@ -100,19 +101,20 @@ openjdk_javadoc_files := \
     ojluni/src/main/java/java/lang/annotation/ElementType.java \
     ojluni/src/main/java/java/lang/annotation/IncompleteAnnotationException.java \
     ojluni/src/main/java/java/lang/annotation/Inherited.java \
+    ojluni/src/main/java/java/lang/annotation/Native.java \
     ojluni/src/main/java/java/lang/annotation/Retention.java \
     ojluni/src/main/java/java/lang/annotation/Repeatable.java \
     ojluni/src/main/java/java/lang/annotation/RetentionPolicy.java \
     ojluni/src/main/java/java/lang/annotation/Target.java \
     ojluni/src/main/java/java/lang/annotation/package-info.java \
     ojluni/src/main/java/java/lang/Appendable.java \
-    ojluni/src/main/java/java/lang/ApplicationShutdownHooks.java \
     ojluni/src/main/java/java/lang/ArithmeticException.java \
     ojluni/src/main/java/java/lang/ArrayIndexOutOfBoundsException.java \
     ojluni/src/main/java/java/lang/ArrayStoreException.java \
     ojluni/src/main/java/java/lang/AssertionError.java \
     ojluni/src/main/java/java/lang/AutoCloseable.java \
     ojluni/src/main/java/java/lang/Boolean.java \
+    ojluni/src/main/java/java/lang/BootstrapMethodError.java \
     ojluni/src/main/java/java/lang/Byte.java \
     ojluni/src/main/java/java/lang/Character.java \
     ojluni/src/main/java/java/lang/CharSequence.java \
@@ -178,6 +180,7 @@ openjdk_javadoc_files := \
     ojluni/src/main/java/java/lang/reflect/Array.java \
     ojluni/src/main/java/java/lang/reflect/Constructor.java \
     ojluni/src/main/java/java/lang/reflect/Field.java \
+    ojluni/src/main/java/java/lang/reflect/Executable.java \
     ojluni/src/main/java/java/lang/reflect/GenericArrayType.java \
     ojluni/src/main/java/java/lang/reflect/GenericDeclaration.java \
     ojluni/src/main/java/java/lang/reflect/GenericSignatureFormatError.java \
@@ -185,15 +188,18 @@ openjdk_javadoc_files := \
     ojluni/src/main/java/java/lang/reflect/InvocationTargetException.java \
     ojluni/src/main/java/java/lang/ReflectiveOperationException.java \
     ojluni/src/main/java/java/lang/reflect/MalformedParameterizedTypeException.java \
+    ojluni/src/main/java/java/lang/reflect/MalformedParametersException.java \
     ojluni/src/main/java/java/lang/reflect/Member.java \
     ojluni/src/main/java/java/lang/reflect/Method.java \
     ojluni/src/main/java/java/lang/reflect/Modifier.java \
+    ojluni/src/main/java/java/lang/reflect/Parameter.java \
     ojluni/src/main/java/java/lang/reflect/ParameterizedType.java \
     ojluni/src/main/java/java/lang/reflect/Proxy.java \
     ojluni/src/main/java/java/lang/reflect/ReflectPermission.java \
     ojluni/src/main/java/java/lang/reflect/Type.java \
     ojluni/src/main/java/java/lang/reflect/TypeVariable.java \
     ojluni/src/main/java/java/lang/reflect/UndeclaredThrowableException.java \
+    ojluni/src/main/java/java/lang/reflect/WeakCache.java \
     ojluni/src/main/java/java/lang/reflect/WildcardType.java \
     ojluni/src/main/java/java/lang/reflect/package-info.java \
     ojluni/src/main/java/java/lang/ref/PhantomReference.java \
@@ -234,6 +240,21 @@ openjdk_javadoc_files := \
     ojluni/src/main/java/java/lang/VerifyError.java \
     ojluni/src/main/java/java/lang/VirtualMachineError.java \
     ojluni/src/main/java/java/lang/Void.java \
+    ojluni/src/main/java/java/lang/invoke/LambdaConversionException.java \
+    ojluni/src/main/java/java/lang/invoke/CallSite.java \
+    ojluni/src/main/java/java/lang/invoke/ConstantCallSite.java \
+    ojluni/src/main/java/java/lang/invoke/MethodHandle.java \
+    ojluni/src/main/java/java/lang/invoke/MethodHandles.java \
+    ojluni/src/main/java/java/lang/invoke/MethodHandleImpl.java \
+    ojluni/src/main/java/java/lang/invoke/MethodHandleInfo.java \
+    ojluni/src/main/java/java/lang/invoke/MethodHandleStatics.java \
+    ojluni/src/main/java/java/lang/invoke/MethodType.java \
+    ojluni/src/main/java/java/lang/invoke/MethodTypeForm.java \
+    ojluni/src/main/java/java/lang/invoke/MutableCallSite.java \
+    ojluni/src/main/java/java/lang/invoke/Stable.java \
+    ojluni/src/main/java/java/lang/invoke/Transformers.java \
+    ojluni/src/main/java/java/lang/invoke/VolatileCallSite.java \
+    ojluni/src/main/java/java/lang/invoke/WrongMethodTypeException.java \
     ojluni/src/main/java/java/net/AbstractPlainDatagramSocketImpl.java \
     ojluni/src/main/java/java/net/AbstractPlainSocketImpl.java \
     ojluni/src/main/java/java/net/Authenticator.java \
@@ -261,6 +282,7 @@ openjdk_javadoc_files := \
     ojluni/src/main/java/java/net/Inet4Address.java \
     ojluni/src/main/java/java/net/Inet6AddressImpl.java \
     ojluni/src/main/java/java/net/Inet6Address.java \
+    ojluni/src/main/java/java/net/InetAddressContainer.java \
     ojluni/src/main/java/java/net/InetAddressImpl.java \
     ojluni/src/main/java/java/net/InetAddress.java \
     ojluni/src/main/java/java/net/InetSocketAddress.java \
@@ -270,7 +292,6 @@ openjdk_javadoc_files := \
     ojluni/src/main/java/java/net/MalformedURLException.java \
     ojluni/src/main/java/java/net/MulticastSocket.java \
     ojluni/src/main/java/java/net/NetPermission.java \
-    ojluni/src/main/java/java/net/NetUtil.java \
     ojluni/src/main/java/java/net/NetworkInterface.java \
     ojluni/src/main/java/java/net/NoRouteToHostException.java \
     ojluni/src/main/java/java/net/PasswordAuthentication.java \
@@ -294,6 +315,7 @@ openjdk_javadoc_files := \
     ojluni/src/main/java/java/net/SocketOptions.java \
     ojluni/src/main/java/java/net/SocketOutputStream.java \
     ojluni/src/main/java/java/net/SocketPermission.java \
+    ojluni/src/main/java/java/net/SocketSecrets.java \
     ojluni/src/main/java/java/net/SocketTimeoutException.java \
     ojluni/src/main/java/java/net/SocksConsts.java \
     ojluni/src/main/java/java/net/SocksSocketImpl.java \
@@ -310,18 +332,50 @@ openjdk_javadoc_files := \
     ojluni/src/main/java/java/net/URL.java \
     ojluni/src/main/java/java/net/URLStreamHandlerFactory.java \
     ojluni/src/main/java/java/net/URLStreamHandler.java \
+    ojluni/src/main/java/java/net/package-info.java \
     ojluni/src/main/java/java/nio/Bits.java \
     ojluni/src/main/java/java/nio/Buffer.java \
     ojluni/src/main/java/java/nio/BufferOverflowException.java \
     ojluni/src/main/java/java/nio/BufferUnderflowException.java \
-    ojluni/src/main/java/java/nio/ByteBuffer.java \
     ojluni/src/main/java/java/nio/ByteBufferAsCharBuffer.java \
     ojluni/src/main/java/java/nio/ByteBufferAsDoubleBuffer.java \
     ojluni/src/main/java/java/nio/ByteBufferAsFloatBuffer.java \
     ojluni/src/main/java/java/nio/ByteBufferAsIntBuffer.java \
     ojluni/src/main/java/java/nio/ByteBufferAsLongBuffer.java \
     ojluni/src/main/java/java/nio/ByteBufferAsShortBuffer.java \
+    ojluni/src/main/java/java/nio/ByteBuffer.java \
     ojluni/src/main/java/java/nio/ByteOrder.java \
+    ojluni/src/main/java/java/nio/channels/AcceptPendingException.java \
+    ojluni/src/main/java/java/nio/channels/AlreadyBoundException.java \
+    ojluni/src/main/java/java/nio/channels/AlreadyConnectedException.java \
+    ojluni/src/main/java/java/nio/channels/AsynchronousByteChannel.java \
+    ojluni/src/main/java/java/nio/channels/AsynchronousChannelGroup.java \
+    ojluni/src/main/java/java/nio/channels/AsynchronousChannel.java \
+    ojluni/src/main/java/java/nio/channels/AsynchronousCloseException.java \
+    ojluni/src/main/java/java/nio/channels/AsynchronousFileChannel.java \
+    ojluni/src/main/java/java/nio/channels/AsynchronousServerSocketChannel.java \
+    ojluni/src/main/java/java/nio/channels/AsynchronousSocketChannel.java \
+    ojluni/src/main/java/java/nio/channels/ByteChannel.java \
+    ojluni/src/main/java/java/nio/channels/CancelledKeyException.java \
+    ojluni/src/main/java/java/nio/channels/Channel.java \
+    ojluni/src/main/java/java/nio/channels/Channels.java \
+    ojluni/src/main/java/java/nio/channels/ClosedByInterruptException.java \
+    ojluni/src/main/java/java/nio/channels/ClosedChannelException.java \
+    ojluni/src/main/java/java/nio/channels/ClosedSelectorException.java \
+    ojluni/src/main/java/java/nio/channels/CompletionHandler.java \
+    ojluni/src/main/java/java/nio/channels/ConnectionPendingException.java \
+    ojluni/src/main/java/java/nio/channels/DatagramChannel.java \
+    ojluni/src/main/java/java/nio/channels/FileChannel.java \
+    ojluni/src/main/java/java/nio/channels/FileLockInterruptionException.java \
+    ojluni/src/main/java/java/nio/channels/FileLock.java \
+    ojluni/src/main/java/java/nio/channels/GatheringByteChannel.java \
+    ojluni/src/main/java/java/nio/channels/IllegalBlockingModeException.java \
+    ojluni/src/main/java/java/nio/channels/IllegalChannelGroupException.java \
+    ojluni/src/main/java/java/nio/channels/IllegalSelectorException.java \
+    ojluni/src/main/java/java/nio/channels/InterruptedByTimeoutException.java \
+    ojluni/src/main/java/java/nio/channels/InterruptibleChannel.java \
+    ojluni/src/main/java/java/nio/channels/MembershipKey.java \
+    ojluni/src/main/java/java/nio/channels/package-info.java \
     ojluni/src/main/java/java/nio/CharBuffer.java \
     ojluni/src/main/java/java/nio/CharBufferSpliterator.java \
     ojluni/src/main/java/java/nio/DirectByteBuffer.java \
@@ -341,26 +395,7 @@ openjdk_javadoc_files := \
     ojluni/src/main/java/java/nio/ReadOnlyBufferException.java \
     ojluni/src/main/java/java/nio/ShortBuffer.java \
     ojluni/src/main/java/java/nio/StringCharBuffer.java \
-    ojluni/src/main/java/java/nio/channels/AlreadyBoundException.java \
-    ojluni/src/main/java/java/nio/channels/AlreadyConnectedException.java \
-    ojluni/src/main/java/java/nio/channels/AsynchronousCloseException.java \
-    ojluni/src/main/java/java/nio/channels/ByteChannel.java \
-    ojluni/src/main/java/java/nio/channels/CancelledKeyException.java \
-    ojluni/src/main/java/java/nio/channels/Channel.java \
-    ojluni/src/main/java/java/nio/channels/Channels.java \
-    ojluni/src/main/java/java/nio/channels/ClosedByInterruptException.java \
-    ojluni/src/main/java/java/nio/channels/ClosedChannelException.java \
-    ojluni/src/main/java/java/nio/channels/ClosedSelectorException.java \
-    ojluni/src/main/java/java/nio/channels/ConnectionPendingException.java \
-    ojluni/src/main/java/java/nio/channels/DatagramChannel.java \
-    ojluni/src/main/java/java/nio/channels/FileChannel.java \
-    ojluni/src/main/java/java/nio/channels/FileLock.java \
-    ojluni/src/main/java/java/nio/channels/FileLockInterruptionException.java \
-    ojluni/src/main/java/java/nio/channels/GatheringByteChannel.java \
-    ojluni/src/main/java/java/nio/channels/IllegalBlockingModeException.java \
-    ojluni/src/main/java/java/nio/channels/IllegalSelectorException.java \
-    ojluni/src/main/java/java/nio/channels/InterruptibleChannel.java \
-    ojluni/src/main/java/java/nio/channels/package-info.java \
+    ojluni/src/main/java/java/nio/channels/MulticastChannel.java \
     ojluni/src/main/java/java/nio/channels/NetworkChannel.java \
     ojluni/src/main/java/java/nio/channels/NoConnectionPendingException.java \
     ojluni/src/main/java/java/nio/channels/NonReadableChannelException.java \
@@ -369,6 +404,7 @@ openjdk_javadoc_files := \
     ojluni/src/main/java/java/nio/channels/NotYetConnectedException.java \
     ojluni/src/main/java/java/nio/channels/OverlappingFileLockException.java \
     ojluni/src/main/java/java/nio/channels/Pipe.java \
+    ojluni/src/main/java/java/nio/channels/ReadPendingException.java \
     ojluni/src/main/java/java/nio/channels/ReadableByteChannel.java \
     ojluni/src/main/java/java/nio/channels/ScatteringByteChannel.java \
     ojluni/src/main/java/java/nio/channels/SeekableByteChannel.java \
@@ -376,14 +412,17 @@ openjdk_javadoc_files := \
     ojluni/src/main/java/java/nio/channels/SelectionKey.java \
     ojluni/src/main/java/java/nio/channels/Selector.java \
     ojluni/src/main/java/java/nio/channels/ServerSocketChannel.java \
+    ojluni/src/main/java/java/nio/channels/ShutdownChannelGroupException.java \
     ojluni/src/main/java/java/nio/channels/SocketChannel.java \
     ojluni/src/main/java/java/nio/channels/UnresolvedAddressException.java \
     ojluni/src/main/java/java/nio/channels/UnsupportedAddressTypeException.java \
     ojluni/src/main/java/java/nio/channels/WritableByteChannel.java \
+    ojluni/src/main/java/java/nio/channels/WritePendingException.java \
     ojluni/src/main/java/java/nio/channels/spi/AbstractInterruptibleChannel.java \
     ojluni/src/main/java/java/nio/channels/spi/AbstractSelectableChannel.java \
     ojluni/src/main/java/java/nio/channels/spi/AbstractSelectionKey.java \
     ojluni/src/main/java/java/nio/channels/spi/AbstractSelector.java \
+    ojluni/src/main/java/java/nio/channels/spi/AsynchronousChannelProvider.java \
     ojluni/src/main/java/java/nio/channels/spi/SelectorProvider.java \
     ojluni/src/main/java/java/nio/charset/CharacterCodingException.java \
     ojluni/src/main/java/java/nio/charset/Charset.java \
@@ -399,7 +438,82 @@ openjdk_javadoc_files := \
     ojluni/src/main/java/java/nio/charset/UnsupportedCharsetException.java \
     ojluni/src/main/java/java/nio/charset/package-info.java \
     ojluni/src/main/java/java/nio/charset/spi/CharsetProvider.java \
+    ojluni/src/main/java/java/nio/file/AccessDeniedException.java \
+    ojluni/src/main/java/java/nio/file/AccessMode.java \
+    ojluni/src/main/java/java/nio/file/AtomicMoveNotSupportedException.java \
+    ojluni/src/main/java/java/nio/file/ClosedDirectoryStreamException.java \
+    ojluni/src/main/java/java/nio/file/ClosedFileSystemException.java \
+    ojluni/src/main/java/java/nio/file/ClosedWatchServiceException.java \
+    ojluni/src/main/java/java/nio/file/CopyMoveHelper.java \
+    ojluni/src/main/java/java/nio/file/CopyOption.java \
+    ojluni/src/main/java/java/nio/file/DirectoryIteratorException.java \
+    ojluni/src/main/java/java/nio/file/DirectoryNotEmptyException.java \
+    ojluni/src/main/java/java/nio/file/DirectoryStream.java \
+    ojluni/src/main/java/java/nio/file/FileAlreadyExistsException.java \
+    ojluni/src/main/java/java/nio/file/FileStore.java \
+    ojluni/src/main/java/java/nio/file/FileSystem.java \
+    ojluni/src/main/java/java/nio/file/FileSystemAlreadyExistsException.java \
+    ojluni/src/main/java/java/nio/file/FileSystemException.java \
+    ojluni/src/main/java/java/nio/file/FileSystemLoopException.java \
+    ojluni/src/main/java/java/nio/file/FileSystemNotFoundException.java \
+    ojluni/src/main/java/java/nio/file/FileSystems.java \
+    ojluni/src/main/java/java/nio/file/FileTreeIterator.java \
+    ojluni/src/main/java/java/nio/file/FileTreeWalker.java \
+    ojluni/src/main/java/java/nio/file/FileVisitOption.java \
+    ojluni/src/main/java/java/nio/file/FileVisitResult.java \
+    ojluni/src/main/java/java/nio/file/FileVisitor.java \
+    ojluni/src/main/java/java/nio/file/Files.java \
+    ojluni/src/main/java/java/nio/file/InvalidPathException.java \
+    ojluni/src/main/java/java/nio/file/LinkOption.java \
+    ojluni/src/main/java/java/nio/file/LinkPermission.java \
+    ojluni/src/main/java/java/nio/file/NoSuchFileException.java \
+    ojluni/src/main/java/java/nio/file/NotDirectoryException.java \
+    ojluni/src/main/java/java/nio/file/NotLinkException.java \
+    ojluni/src/main/java/java/nio/file/OpenOption.java \
+    ojluni/src/main/java/java/nio/file/Path.java \
+    ojluni/src/main/java/java/nio/file/PathMatcher.java \
+    ojluni/src/main/java/java/nio/file/Paths.java \
+    ojluni/src/main/java/java/nio/file/ProviderMismatchException.java \
+    ojluni/src/main/java/java/nio/file/ProviderNotFoundException.java \
+    ojluni/src/main/java/java/nio/file/ReadOnlyFileSystemException.java \
+    ojluni/src/main/java/java/nio/file/SecureDirectoryStream.java \
+    ojluni/src/main/java/java/nio/file/SimpleFileVisitor.java \
+    ojluni/src/main/java/java/nio/file/StandardCopyOption.java \
+    ojluni/src/main/java/java/nio/file/StandardOpenOption.java \
+    ojluni/src/main/java/java/nio/file/StandardWatchEventKinds.java \
+    ojluni/src/main/java/java/nio/file/TempFileHelper.java \
+    ojluni/src/main/java/java/nio/file/WatchEvent.java \
+    ojluni/src/main/java/java/nio/file/WatchKey.java \
+    ojluni/src/main/java/java/nio/file/WatchService.java \
+    ojluni/src/main/java/java/nio/file/Watchable.java \
+    ojluni/src/main/java/java/nio/file/attribute/AclEntry.java \
+    ojluni/src/main/java/java/nio/file/attribute/AclEntryFlag.java \
+    ojluni/src/main/java/java/nio/file/attribute/AclEntryPermission.java \
+    ojluni/src/main/java/java/nio/file/attribute/AclEntryType.java \
+    ojluni/src/main/java/java/nio/file/attribute/AclFileAttributeView.java \
+    ojluni/src/main/java/java/nio/file/attribute/AttributeView.java \
+    ojluni/src/main/java/java/nio/file/attribute/BasicFileAttributeView.java \
+    ojluni/src/main/java/java/nio/file/attribute/BasicFileAttributes.java \
+    ojluni/src/main/java/java/nio/file/attribute/DosFileAttributeView.java \
+    ojluni/src/main/java/java/nio/file/attribute/DosFileAttributes.java \
+    ojluni/src/main/java/java/nio/file/attribute/FileAttribute.java \
+    ojluni/src/main/java/java/nio/file/attribute/FileAttributeView.java \
+    ojluni/src/main/java/java/nio/file/attribute/FileOwnerAttributeView.java \
+    ojluni/src/main/java/java/nio/file/attribute/FileStoreAttributeView.java \
+    ojluni/src/main/java/java/nio/file/attribute/FileTime.java \
+    ojluni/src/main/java/java/nio/file/attribute/GroupPrincipal.java \
+    ojluni/src/main/java/java/nio/file/attribute/PosixFileAttributeView.java \
+    ojluni/src/main/java/java/nio/file/attribute/PosixFileAttributes.java \
+    ojluni/src/main/java/java/nio/file/attribute/PosixFilePermission.java \
+    ojluni/src/main/java/java/nio/file/attribute/PosixFilePermissions.java \
+    ojluni/src/main/java/java/nio/file/attribute/UserDefinedFileAttributeView.java \
+    ojluni/src/main/java/java/nio/file/attribute/UserPrincipal.java \
+    ojluni/src/main/java/java/nio/file/attribute/UserPrincipalLookupService.java \
+    ojluni/src/main/java/java/nio/file/attribute/UserPrincipalNotFoundException.java \
+    ojluni/src/main/java/java/nio/file/spi/FileSystemProvider.java \
+    ojluni/src/main/java/java/nio/file/spi/FileTypeDetector.java \
     ojluni/src/main/java/java/nio/package-info.java \
+    ojluni/src/main/java/java/security/package-info.java \
     ojluni/src/main/java/java/security/AccessControlContext.java \
     ojluni/src/main/java/java/security/AccessControlException.java \
     ojluni/src/main/java/java/security/AccessController.java \
@@ -411,6 +525,7 @@ openjdk_javadoc_files := \
     ojluni/src/main/java/java/security/acl/NotOwnerException.java \
     ojluni/src/main/java/java/security/acl/Owner.java \
     ojluni/src/main/java/java/security/acl/Permission.java \
+    ojluni/src/main/java/java/security/acl/package-info.java \
     ojluni/src/main/java/java/security/AlgorithmConstraints.java \
     ojluni/src/main/java/java/security/AlgorithmParameterGenerator.java \
     ojluni/src/main/java/java/security/AlgorithmParameterGeneratorSpi.java \
@@ -469,6 +584,7 @@ openjdk_javadoc_files := \
     ojluni/src/main/java/java/security/cert/X509CRL.java \
     ojluni/src/main/java/java/security/cert/X509CRLSelector.java \
     ojluni/src/main/java/java/security/cert/X509Extension.java \
+    ojluni/src/main/java/java/security/cert/package-info.java \
     ojluni/src/main/java/java/security/CodeSigner.java \
     ojluni/src/main/java/java/security/CodeSource.java \
     ojluni/src/main/java/java/security/CryptoPrimitive.java \
@@ -476,6 +592,7 @@ openjdk_javadoc_files := \
     ojluni/src/main/java/java/security/DigestInputStream.java \
     ojluni/src/main/java/java/security/DigestOutputStream.java \
     ojluni/src/main/java/java/security/DomainCombiner.java \
+    ojluni/src/main/java/java/security/DomainLoadStoreParameter.java \
     ojluni/src/main/java/java/security/GeneralSecurityException.java \
     ojluni/src/main/java/java/security/GuardedObject.java \
     ojluni/src/main/java/java/security/Guard.java \
@@ -494,6 +611,7 @@ openjdk_javadoc_files := \
     ojluni/src/main/java/java/security/interfaces/RSAPrivateCrtKey.java \
     ojluni/src/main/java/java/security/interfaces/RSAPrivateKey.java \
     ojluni/src/main/java/java/security/interfaces/RSAPublicKey.java \
+    ojluni/src/main/java/java/security/interfaces/package-info.java \
     ojluni/src/main/java/java/security/InvalidAlgorithmParameterException.java \
     ojluni/src/main/java/java/security/InvalidKeyException.java \
     ojluni/src/main/java/java/security/InvalidParameterException.java \
@@ -513,6 +631,7 @@ openjdk_javadoc_files := \
     ojluni/src/main/java/java/security/MessageDigestSpi.java \
     ojluni/src/main/java/java/security/NoSuchAlgorithmException.java \
     ojluni/src/main/java/java/security/NoSuchProviderException.java \
+    ojluni/src/main/java/java/security/PKCS12Attribute.java \
     ojluni/src/main/java/java/security/PermissionCollection.java \
     ojluni/src/main/java/java/security/Permission.java \
     ojluni/src/main/java/java/security/Permissions.java \
@@ -564,6 +683,7 @@ openjdk_javadoc_files := \
     ojluni/src/main/java/java/security/spec/RSAPrivateKeySpec.java \
     ojluni/src/main/java/java/security/spec/RSAPublicKeySpec.java \
     ojluni/src/main/java/java/security/spec/X509EncodedKeySpec.java \
+    ojluni/src/main/java/java/security/spec/package-info.java \
     ojluni/src/main/java/java/security/Timestamp.java \
     ojluni/src/main/java/java/security/UnrecoverableEntryException.java \
     ojluni/src/main/java/java/security/UnrecoverableKeyException.java \
@@ -633,7 +753,6 @@ openjdk_javadoc_files := \
     ojluni/src/main/java/java/text/DateFormatSymbols.java \
     ojluni/src/main/java/java/text/DecimalFormat.java \
     ojluni/src/main/java/java/text/DecimalFormatSymbols.java \
-    ojluni/src/main/java/java/text/DigitList.java \
     ojluni/src/main/java/java/text/DontCareFieldPosition.java \
     ojluni/src/main/java/java/text/EntryPair.java \
     ojluni/src/main/java/java/text/FieldPosition.java \
@@ -649,6 +768,91 @@ openjdk_javadoc_files := \
     ojluni/src/main/java/java/text/RuleBasedCollator.java \
     ojluni/src/main/java/java/text/SimpleDateFormat.java \
     ojluni/src/main/java/java/text/StringCharacterIterator.java \
+    ojluni/src/main/java/java/time/YearMonth.java \
+    ojluni/src/main/java/java/time/LocalDate.java \
+    ojluni/src/main/java/java/time/Ser.java \
+    ojluni/src/main/java/java/time/DayOfWeek.java \
+    ojluni/src/main/java/java/time/chrono/HijrahChronology.java \
+    ojluni/src/main/java/java/time/chrono/Ser.java \
+    ojluni/src/main/java/java/time/chrono/IsoEra.java \
+    ojluni/src/main/java/java/time/chrono/JapaneseEra.java \
+    ojluni/src/main/java/java/time/chrono/ChronoPeriodImpl.java \
+    ojluni/src/main/java/java/time/chrono/ChronoLocalDate.java \
+    ojluni/src/main/java/java/time/chrono/Chronology.java \
+    ojluni/src/main/java/java/time/chrono/ChronoLocalDateTimeImpl.java \
+    ojluni/src/main/java/java/time/chrono/ThaiBuddhistChronology.java \
+    ojluni/src/main/java/java/time/chrono/MinguoChronology.java \
+    ojluni/src/main/java/java/time/chrono/JapaneseChronology.java \
+    ojluni/src/main/java/java/time/chrono/Era.java \
+    ojluni/src/main/java/java/time/chrono/ChronoZonedDateTimeImpl.java \
+    ojluni/src/main/java/java/time/chrono/JapaneseDate.java \
+    ojluni/src/main/java/java/time/chrono/AbstractChronology.java \
+    ojluni/src/main/java/java/time/chrono/ChronoLocalDateImpl.java \
+    ojluni/src/main/java/java/time/chrono/HijrahEra.java \
+    ojluni/src/main/java/java/time/chrono/HijrahDate.java \
+    ojluni/src/main/java/java/time/chrono/ThaiBuddhistDate.java \
+    ojluni/src/main/java/java/time/chrono/IsoChronology.java \
+    ojluni/src/main/java/java/time/chrono/MinguoEra.java \
+    ojluni/src/main/java/java/time/chrono/ChronoZonedDateTime.java \
+    ojluni/src/main/java/java/time/chrono/package-info.java \
+    ojluni/src/main/java/java/time/chrono/ChronoPeriod.java \
+    ojluni/src/main/java/java/time/chrono/ThaiBuddhistEra.java \
+    ojluni/src/main/java/java/time/chrono/ChronoLocalDateTime.java \
+    ojluni/src/main/java/java/time/chrono/MinguoDate.java \
+    ojluni/src/main/java/java/time/DateTimeException.java \
+    ojluni/src/main/java/java/time/ZoneRegion.java \
+    ojluni/src/main/java/java/time/LocalTime.java \
+    ojluni/src/main/java/java/time/Duration.java \
+    ojluni/src/main/java/java/time/LocalDateTime.java \
+    ojluni/src/main/java/java/time/OffsetDateTime.java \
+    ojluni/src/main/java/java/time/Instant.java \
+    ojluni/src/main/java/java/time/temporal/ValueRange.java \
+    ojluni/src/main/java/java/time/temporal/TemporalAmount.java \
+    ojluni/src/main/java/java/time/temporal/ChronoField.java \
+    ojluni/src/main/java/java/time/temporal/TemporalAccessor.java \
+    ojluni/src/main/java/java/time/temporal/TemporalAdjusters.java \
+    ojluni/src/main/java/java/time/temporal/ChronoUnit.java \
+    ojluni/src/main/java/java/time/temporal/UnsupportedTemporalTypeException.java \
+    ojluni/src/main/java/java/time/temporal/TemporalQueries.java \
+    ojluni/src/main/java/java/time/temporal/TemporalAdjuster.java \
+    ojluni/src/main/java/java/time/temporal/TemporalField.java \
+    ojluni/src/main/java/java/time/temporal/TemporalQuery.java \
+    ojluni/src/main/java/java/time/temporal/Temporal.java \
+    ojluni/src/main/java/java/time/temporal/TemporalUnit.java \
+    ojluni/src/main/java/java/time/temporal/package-info.java \
+    ojluni/src/main/java/java/time/temporal/JulianFields.java \
+    ojluni/src/main/java/java/time/temporal/WeekFields.java \
+    ojluni/src/main/java/java/time/temporal/IsoFields.java \
+    ojluni/src/main/java/java/time/ZoneOffset.java \
+    ojluni/src/main/java/java/time/zone/Ser.java \
+    ojluni/src/main/java/java/time/zone/ZoneOffsetTransition.java \
+    ojluni/src/main/java/java/time/zone/ZoneRulesException.java \
+    ojluni/src/main/java/java/time/zone/ZoneOffsetTransitionRule.java \
+    ojluni/src/main/java/java/time/zone/ZoneRules.java \
+    ojluni/src/main/java/java/time/zone/package-info.java \
+    ojluni/src/main/java/java/time/OffsetTime.java \
+    ojluni/src/main/java/java/time/Year.java \
+    ojluni/src/main/java/java/time/Clock.java \
+    ojluni/src/main/java/java/time/format/Parsed.java \
+    ojluni/src/main/java/java/time/format/DateTimeTextProvider.java \
+    ojluni/src/main/java/java/time/format/DateTimeParseException.java \
+    ojluni/src/main/java/java/time/format/DateTimeFormatterBuilder.java \
+    ojluni/src/main/java/java/time/format/ResolverStyle.java \
+    ojluni/src/main/java/java/time/format/FormatStyle.java \
+    ojluni/src/main/java/java/time/format/DecimalStyle.java \
+    ojluni/src/main/java/java/time/format/DateTimePrintContext.java \
+    ojluni/src/main/java/java/time/format/package-info.java \
+    ojluni/src/main/java/java/time/format/ZoneName.java \
+    ojluni/src/main/java/java/time/format/TextStyle.java \
+    ojluni/src/main/java/java/time/format/DateTimeFormatter.java \
+    ojluni/src/main/java/java/time/format/DateTimeParseContext.java \
+    ojluni/src/main/java/java/time/format/SignStyle.java \
+    ojluni/src/main/java/java/time/Period.java \
+    ojluni/src/main/java/java/time/ZonedDateTime.java \
+    ojluni/src/main/java/java/time/package-info.java \
+    ojluni/src/main/java/java/time/Month.java \
+    ojluni/src/main/java/java/time/ZoneId.java \
+    ojluni/src/main/java/java/time/MonthDay.java \
     ojluni/src/main/java/java/util/AbstractCollection.java \
     ojluni/src/main/java/java/util/AbstractList.java \
     ojluni/src/main/java/java/util/AbstractMap.java \
@@ -660,6 +864,7 @@ openjdk_javadoc_files := \
     ojluni/src/main/java/java/util/ArrayPrefixHelpers.java \
     ojluni/src/main/java/java/util/Arrays.java \
     ojluni/src/main/java/java/util/ArraysParallelSortHelpers.java \
+    ojluni/src/main/java/java/util/Base64.java \
     ojluni/src/main/java/java/util/BitSet.java \
     ojluni/src/main/java/java/util/Calendar.java \
     ojluni/src/main/java/java/util/Collection.java \
@@ -711,6 +916,95 @@ openjdk_javadoc_files := \
     ojluni/src/main/java/java/util/DoubleSummaryStatistics.java \
     ojluni/src/main/java/java/util/IntSummaryStatistics.java \
     ojluni/src/main/java/java/util/LongSummaryStatistics.java \
+    ojluni/src/main/java/java/util/concurrent/AbstractExecutorService.java \
+    ojluni/src/main/java/java/util/concurrent/ArrayBlockingQueue.java \
+    ojluni/src/main/java/java/util/concurrent/BlockingDeque.java \
+    ojluni/src/main/java/java/util/concurrent/BlockingQueue.java \
+    ojluni/src/main/java/java/util/concurrent/BrokenBarrierException.java \
+    ojluni/src/main/java/java/util/concurrent/Callable.java \
+    ojluni/src/main/java/java/util/concurrent/CancellationException.java \
+    ojluni/src/main/java/java/util/concurrent/CompletableFuture.java \
+    ojluni/src/main/java/java/util/concurrent/CompletionException.java \
+    ojluni/src/main/java/java/util/concurrent/CompletionService.java \
+    ojluni/src/main/java/java/util/concurrent/CompletionStage.java \
+    ojluni/src/main/java/java/util/concurrent/ConcurrentHashMap.java \
+    ojluni/src/main/java/java/util/concurrent/ConcurrentLinkedDeque.java \
+    ojluni/src/main/java/java/util/concurrent/ConcurrentLinkedQueue.java \
+    ojluni/src/main/java/java/util/concurrent/ConcurrentMap.java \
+    ojluni/src/main/java/java/util/concurrent/ConcurrentNavigableMap.java \
+    ojluni/src/main/java/java/util/concurrent/ConcurrentSkipListMap.java \
+    ojluni/src/main/java/java/util/concurrent/ConcurrentSkipListSet.java \
+    ojluni/src/main/java/java/util/concurrent/CopyOnWriteArrayList.java \
+    ojluni/src/main/java/java/util/concurrent/CopyOnWriteArraySet.java \
+    ojluni/src/main/java/java/util/concurrent/CountDownLatch.java \
+    ojluni/src/main/java/java/util/concurrent/CountedCompleter.java \
+    ojluni/src/main/java/java/util/concurrent/CyclicBarrier.java \
+    ojluni/src/main/java/java/util/concurrent/DelayQueue.java \
+    ojluni/src/main/java/java/util/concurrent/Delayed.java \
+    ojluni/src/main/java/java/util/concurrent/Exchanger.java \
+    ojluni/src/main/java/java/util/concurrent/ExecutionException.java \
+    ojluni/src/main/java/java/util/concurrent/Executor.java \
+    ojluni/src/main/java/java/util/concurrent/ExecutorCompletionService.java \
+    ojluni/src/main/java/java/util/concurrent/ExecutorService.java \
+    ojluni/src/main/java/java/util/concurrent/Executors.java \
+    ojluni/src/main/java/java/util/concurrent/ForkJoinPool.java \
+    ojluni/src/main/java/java/util/concurrent/ForkJoinTask.java \
+    ojluni/src/main/java/java/util/concurrent/ForkJoinWorkerThread.java \
+    ojluni/src/main/java/java/util/concurrent/Future.java \
+    ojluni/src/main/java/java/util/concurrent/FutureTask.java \
+    ojluni/src/main/java/java/util/concurrent/Helpers.java \
+    ojluni/src/main/java/java/util/concurrent/LinkedBlockingDeque.java \
+    ojluni/src/main/java/java/util/concurrent/LinkedBlockingQueue.java \
+    ojluni/src/main/java/java/util/concurrent/LinkedTransferQueue.java \
+    ojluni/src/main/java/java/util/concurrent/Phaser.java \
+    ojluni/src/main/java/java/util/concurrent/PriorityBlockingQueue.java \
+    ojluni/src/main/java/java/util/concurrent/RecursiveAction.java \
+    ojluni/src/main/java/java/util/concurrent/RecursiveTask.java \
+    ojluni/src/main/java/java/util/concurrent/RejectedExecutionException.java \
+    ojluni/src/main/java/java/util/concurrent/RejectedExecutionHandler.java \
+    ojluni/src/main/java/java/util/concurrent/RunnableFuture.java \
+    ojluni/src/main/java/java/util/concurrent/RunnableScheduledFuture.java \
+    ojluni/src/main/java/java/util/concurrent/ScheduledExecutorService.java \
+    ojluni/src/main/java/java/util/concurrent/ScheduledFuture.java \
+    ojluni/src/main/java/java/util/concurrent/ScheduledThreadPoolExecutor.java \
+    ojluni/src/main/java/java/util/concurrent/Semaphore.java \
+    ojluni/src/main/java/java/util/concurrent/SynchronousQueue.java \
+    ojluni/src/main/java/java/util/concurrent/ThreadFactory.java \
+    ojluni/src/main/java/java/util/concurrent/ThreadLocalRandom.java \
+    ojluni/src/main/java/java/util/concurrent/ThreadPoolExecutor.java \
+    ojluni/src/main/java/java/util/concurrent/TimeUnit.java \
+    ojluni/src/main/java/java/util/concurrent/TimeoutException.java \
+    ojluni/src/main/java/java/util/concurrent/TransferQueue.java \
+    ojluni/src/main/java/java/util/concurrent/atomic/AtomicBoolean.java \
+    ojluni/src/main/java/java/util/concurrent/atomic/AtomicInteger.java \
+    ojluni/src/main/java/java/util/concurrent/atomic/AtomicIntegerArray.java \
+    ojluni/src/main/java/java/util/concurrent/atomic/AtomicIntegerFieldUpdater.java \
+    ojluni/src/main/java/java/util/concurrent/atomic/AtomicLong.java \
+    ojluni/src/main/java/java/util/concurrent/atomic/AtomicLongArray.java \
+    ojluni/src/main/java/java/util/concurrent/atomic/AtomicLongFieldUpdater.java \
+    ojluni/src/main/java/java/util/concurrent/atomic/AtomicMarkableReference.java \
+    ojluni/src/main/java/java/util/concurrent/atomic/AtomicReference.java \
+    ojluni/src/main/java/java/util/concurrent/atomic/AtomicReferenceArray.java \
+    ojluni/src/main/java/java/util/concurrent/atomic/AtomicReferenceFieldUpdater.java \
+    ojluni/src/main/java/java/util/concurrent/atomic/AtomicStampedReference.java \
+    ojluni/src/main/java/java/util/concurrent/atomic/DoubleAccumulator.java \
+    ojluni/src/main/java/java/util/concurrent/atomic/DoubleAdder.java \
+    ojluni/src/main/java/java/util/concurrent/atomic/LongAccumulator.java \
+    ojluni/src/main/java/java/util/concurrent/atomic/LongAdder.java \
+    ojluni/src/main/java/java/util/concurrent/atomic/Striped64.java \
+    ojluni/src/main/java/java/util/concurrent/atomic/package-info.java \
+    ojluni/src/main/java/java/util/concurrent/locks/AbstractOwnableSynchronizer.java \
+    ojluni/src/main/java/java/util/concurrent/locks/AbstractQueuedLongSynchronizer.java \
+    ojluni/src/main/java/java/util/concurrent/locks/AbstractQueuedSynchronizer.java \
+    ojluni/src/main/java/java/util/concurrent/locks/Condition.java \
+    ojluni/src/main/java/java/util/concurrent/locks/Lock.java \
+    ojluni/src/main/java/java/util/concurrent/locks/LockSupport.java \
+    ojluni/src/main/java/java/util/concurrent/locks/ReadWriteLock.java \
+    ojluni/src/main/java/java/util/concurrent/locks/ReentrantLock.java \
+    ojluni/src/main/java/java/util/concurrent/locks/ReentrantReadWriteLock.java \
+    ojluni/src/main/java/java/util/concurrent/locks/StampedLock.java \
+    ojluni/src/main/java/java/util/concurrent/locks/package-info.java \
+    ojluni/src/main/java/java/util/concurrent/package-info.java \
     ojluni/src/main/java/java/util/function/BiConsumer.java \
     ojluni/src/main/java/java/util/function/BiFunction.java \
     ojluni/src/main/java/java/util/function/BinaryOperator.java \
@@ -754,6 +1048,7 @@ openjdk_javadoc_files := \
     ojluni/src/main/java/java/util/function/ToLongBiFunction.java \
     ojluni/src/main/java/java/util/function/ToLongFunction.java \
     ojluni/src/main/java/java/util/function/UnaryOperator.java \
+    ojluni/src/main/java/java/util/function/package-info.java \
     ojluni/src/main/java/java/util/jar/Attributes.java \
     ojluni/src/main/java/java/util/jar/JarEntry.java \
     ojluni/src/main/java/java/util/jar/JarException.java \
@@ -910,6 +1205,7 @@ openjdk_javadoc_files := \
     ojluni/src/main/java/java/util/zip/ZipFile.java \
     ojluni/src/main/java/java/util/zip/ZipInputStream.java \
     ojluni/src/main/java/java/util/zip/ZipOutputStream.java \
+    ojluni/src/main/java/java/util/zip/ZipUtils.java \
     ojluni/src/main/java/java/util/zip/ZStreamRef.java \
     ojluni/src/main/java/javax/crypto/AEADBadTagException.java \
     ojluni/src/main/java/javax/crypto/BadPaddingException.java \
@@ -1010,13 +1306,17 @@ openjdk_javadoc_files := \
     ojluni/src/main/java/javax/security/auth/callback/Callback.java \
     ojluni/src/main/java/javax/security/auth/callback/PasswordCallback.java \
     ojluni/src/main/java/javax/security/auth/callback/UnsupportedCallbackException.java \
+    ojluni/src/main/java/javax/security/auth/callback/package-info.java \
     ojluni/src/main/java/javax/security/auth/Destroyable.java \
     ojluni/src/main/java/javax/security/auth/DestroyFailedException.java \
     ojluni/src/main/java/javax/security/auth/login/LoginException.java \
+    ojluni/src/main/java/javax/security/auth/login/package-info.java \
     ojluni/src/main/java/javax/security/auth/PrivateCredentialPermission.java \
     ojluni/src/main/java/javax/security/auth/SubjectDomainCombiner.java \
     ojluni/src/main/java/javax/security/auth/Subject.java \
     ojluni/src/main/java/javax/security/auth/x500/X500Principal.java \
+    ojluni/src/main/java/javax/security/auth/x500/package-info.java \
+    ojluni/src/main/java/javax/security/auth/package-info.java \
     ojluni/src/main/java/javax/security/cert/CertificateEncodingException.java \
     ojluni/src/main/java/javax/security/cert/CertificateException.java \
     ojluni/src/main/java/javax/security/cert/CertificateExpiredException.java \
@@ -1024,6 +1324,7 @@ openjdk_javadoc_files := \
     ojluni/src/main/java/javax/security/cert/CertificateNotYetValidException.java \
     ojluni/src/main/java/javax/security/cert/CertificateParsingException.java \
     ojluni/src/main/java/javax/security/cert/X509Certificate.java \
+    ojluni/src/main/java/javax/security/cert/package-info.java \
     ojluni/src/main/java/javax/sql/CommonDataSource.java \
     ojluni/src/main/java/javax/sql/ConnectionEvent.java \
     ojluni/src/main/java/javax/sql/ConnectionEventListener.java \
@@ -1041,23 +1342,28 @@ openjdk_javadoc_files := \
     ojluni/src/main/java/javax/sql/StatementEventListener.java \
     ojluni/src/main/java/sun/reflect/CallerSensitive.java \
 
+# NOTE: Files in java/lang/invoke are listed here because they're not being made public
+# until the entire package is available for use.
 openjdk_java_files := \
     ojluni/src/main/java/com/sun/net/ssl/internal/ssl/X509ExtendedTrustManager.java \
     ojluni/src/main/java/com/sun/security/cert/internal/x509/X509V1CertImpl.java \
+    ojluni/src/main/java/com/sun/nio/file/ExtendedCopyOption.java \
+    ojluni/src/main/java/com/sun/nio/file/ExtendedOpenOption.java \
+    ojluni/src/main/java/com/sun/nio/file/ExtendedWatchEventModifier.java \
+    ojluni/src/main/java/com/sun/nio/file/SensitivityWatchEventModifier.java \
     ojluni/src/main/java/java/beans/ChangeListenerMap.java \
-    ojluni/src/main/java/java/lang/Shutdown.java \
-    ojluni/src/main/java/sun/misc/FDBigInt.java \
-    ojluni/src/main/java/java/lang/FloatingDecimal.java \
-    ojluni/src/main/java/java/text/spi/BreakIteratorProvider.java \
-    ojluni/src/main/java/java/text/spi/CollatorProvider.java \
-    ojluni/src/main/java/java/text/spi/DateFormatProvider.java \
-    ojluni/src/main/java/java/text/spi/DateFormatSymbolsProvider.java \
-    ojluni/src/main/java/java/text/spi/DecimalFormatSymbolsProvider.java \
-    ojluni/src/main/java/java/text/spi/NumberFormatProvider.java \
-    ojluni/src/main/java/java/util/spi/CurrencyNameProvider.java \
-    ojluni/src/main/java/java/util/spi/LocaleNameProvider.java \
-    ojluni/src/main/java/java/util/spi/LocaleServiceProvider.java \
-    ojluni/src/main/java/java/util/spi/TimeZoneNameProvider.java \
+    ojluni/src/main/java/java/time/zone/IcuZoneRulesProvider.java \
+    ojluni/src/main/java/java/time/zone/ZoneRulesProvider.java \
+    ojluni/src/main/java/java/util/JapaneseImperialCalendar.java \
+    ojluni/src/main/java/sun/misc/FDBigInteger.java \
+    ojluni/src/main/java/sun/misc/FloatingDecimal.java \
+    ojluni/src/main/java/jdk/net/ExtendedSocketOptions.java \
+    ojluni/src/main/java/jdk/net/NetworkPermission.java \
+    ojluni/src/main/java/jdk/net/SocketFlow.java \
+    ojluni/src/main/java/jdk/net/Sockets.java \
+    ojluni/src/main/java/sun/invoke/util/BytecodeDescriptor.java \
+    ojluni/src/main/java/sun/invoke/util/Wrapper.java \
+    ojluni/src/main/java/sun/invoke/util/VerifyAccess.java \
     ojluni/src/main/java/sun/misc/ASCIICaseInsensitiveComparator.java \
     ojluni/src/main/java/sun/misc/BASE64Decoder.java \
     ojluni/src/main/java/sun/misc/BASE64Encoder.java \
@@ -1075,10 +1381,9 @@ openjdk_java_files := \
     ojluni/src/main/java/sun/misc/Hashing.java \
     ojluni/src/main/java/sun/misc/HexDumpEncoder.java \
     ojluni/src/main/java/sun/misc/InvalidJarIndexException.java \
-    ojluni/src/main/java/sun/misc/IoTrace.java \
     ojluni/src/main/java/sun/misc/IOUtils.java \
     ojluni/src/main/java/sun/misc/JarIndex.java \
-    ojluni/src/main/java/sun/misc/JavaSecurityProtectionDomainAccess.java \
+    ojluni/src/main/java/sun/misc/JavaIOFileDescriptorAccess.java \
     ojluni/src/main/java/sun/misc/LRUCache.java \
     ojluni/src/main/java/sun/misc/MessageUtils.java \
     ojluni/src/main/java/sun/misc/MetaIndex.java \
@@ -1086,15 +1391,14 @@ openjdk_java_files := \
     ojluni/src/main/java/sun/misc/RegexpPool.java \
     ojluni/src/main/java/sun/misc/RegexpTarget.java \
     ojluni/src/main/java/sun/misc/Resource.java \
-    ojluni/src/main/java/sun/misc/ServiceConfigurationError.java \
-    ojluni/src/main/java/sun/misc/Service.java \
-    ojluni/src/main/java/sun/misc/SoftCache.java \
+    ojluni/src/main/java/sun/misc/SharedSecrets.java \
     ojluni/src/main/java/sun/misc/URLClassPath.java \
     ojluni/src/main/java/sun/misc/Unsafe.java \
     ojluni/src/main/java/sun/misc/Version.java \
     ojluni/src/main/java/sun/misc/VM.java \
     ojluni/src/main/java/sun/net/ApplicationProxy.java \
     ojluni/src/main/java/sun/net/ConnectionResetException.java \
+    ojluni/src/main/java/sun/net/ExtendedOptionsImpl.java \
     ojluni/src/main/java/sun/net/ftp/FtpClient.java \
     ojluni/src/main/java/sun/net/ftp/FtpClientProvider.java \
     ojluni/src/main/java/sun/net/ftp/FtpDirEntry.java \
@@ -1104,7 +1408,6 @@ openjdk_java_files := \
     ojluni/src/main/java/sun/net/ftp/FtpReplyCode.java \
     ojluni/src/main/java/sun/net/ftp/impl/DefaultFtpClientProvider.java \
     ojluni/src/main/java/sun/net/ftp/impl/FtpClient.java \
-    ojluni/src/main/java/sun/net/InetAddressCachePolicy.java \
     ojluni/src/main/java/sun/net/NetHooks.java \
     ojluni/src/main/java/sun/net/NetProperties.java \
     ojluni/src/main/java/sun/net/NetworkClient.java \
@@ -1113,80 +1416,46 @@ openjdk_java_files := \
     ojluni/src/main/java/sun/net/ProgressMeteringPolicy.java \
     ojluni/src/main/java/sun/net/ProgressMonitor.java \
     ojluni/src/main/java/sun/net/ProgressSource.java \
-    ojluni/src/main/java/sun/net/RegisteredDomain.java \
     ojluni/src/main/java/sun/net/ResourceManager.java \
-    ojluni/src/main/java/sun/net/smtp/SmtpClient.java \
-    ojluni/src/main/java/sun/net/smtp/SmtpProtocolException.java \
     ojluni/src/main/java/sun/net/SocksProxy.java \
     ojluni/src/main/java/sun/net/spi/DefaultProxySelector.java \
-    ojluni/src/main/java/sun/net/spi/nameservice/NameServiceDescriptor.java \
     ojluni/src/main/java/sun/net/spi/nameservice/NameService.java \
     ojluni/src/main/java/sun/net/TelnetInputStream.java \
     ojluni/src/main/java/sun/net/TelnetOutputStream.java \
     ojluni/src/main/java/sun/net/TelnetProtocolException.java \
-    ojluni/src/main/java/sun/net/TransferProtocolClient.java \
     ojluni/src/main/java/sun/net/util/IPAddressUtil.java \
     ojluni/src/main/java/sun/net/util/URLUtil.java \
-    ojluni/src/main/java/sun/net/www/ApplicationLaunchException.java \
-    ojluni/src/main/java/sun/net/www/HeaderParser.java \
-    ojluni/src/main/java/sun/net/www/http/ChunkedInputStream.java \
-    ojluni/src/main/java/sun/net/www/http/ChunkedOutputStream.java \
-    ojluni/src/main/java/sun/net/www/http/HttpCaptureInputStream.java \
-    ojluni/src/main/java/sun/net/www/http/HttpCapture.java \
-    ojluni/src/main/java/sun/net/www/http/HttpCaptureOutputStream.java \
-    ojluni/src/main/java/sun/net/www/http/HttpClient.java \
-    ojluni/src/main/java/sun/net/www/http/Hurryable.java \
-    ojluni/src/main/java/sun/net/www/http/KeepAliveCache.java \
-    ojluni/src/main/java/sun/net/www/http/KeepAliveStreamCleaner.java \
-    ojluni/src/main/java/sun/net/www/http/KeepAliveStream.java \
-    ojluni/src/main/java/sun/net/www/http/PosterOutputStream.java \
     ojluni/src/main/java/sun/net/www/MessageHeader.java \
     ojluni/src/main/java/sun/net/www/MeteredStream.java \
-    ojluni/src/main/java/sun/net/www/MimeEntry.java \
-    ojluni/src/main/java/sun/net/www/MimeLauncher.java \
-    ojluni/src/main/java/sun/net/www/MimeTable.java \
     ojluni/src/main/java/sun/net/www/ParseUtil.java \
+    ojluni/src/main/java/sun/net/www/URLConnection.java \
     ojluni/src/main/java/sun/net/www/protocol/file/FileURLConnection.java \
     ojluni/src/main/java/sun/net/www/protocol/file/Handler.java \
     ojluni/src/main/java/sun/net/www/protocol/ftp/FtpURLConnection.java \
     ojluni/src/main/java/sun/net/www/protocol/ftp/Handler.java \
-    ojluni/src/main/java/sun/net/www/protocol/gopher/GopherClient.java \
-    ojluni/src/main/java/sun/net/www/protocol/gopher/Handler.java \
-    ojluni/src/main/java/sun/net/www/protocol/http/AuthCacheImpl.java \
-    ojluni/src/main/java/sun/net/www/protocol/http/AuthCache.java \
-    ojluni/src/main/java/sun/net/www/protocol/http/AuthCacheValue.java \
-    ojluni/src/main/java/sun/net/www/protocol/http/AuthenticationHeader.java \
-    ojluni/src/main/java/sun/net/www/protocol/http/AuthenticationInfo.java \
-    ojluni/src/main/java/sun/net/www/protocol/http/AuthScheme.java \
-    ojluni/src/main/java/sun/net/www/protocol/http/BasicAuthentication.java \
-    ojluni/src/main/java/sun/net/www/protocol/http/DigestAuthentication.java \
-    ojluni/src/main/java/sun/net/www/protocol/http/Handler.java \
-    ojluni/src/main/java/sun/net/www/protocol/http/HttpAuthenticator.java \
-    ojluni/src/main/java/sun/net/www/protocol/http/HttpCallerInfo.java \
-    ojluni/src/main/java/sun/net/www/protocol/http/HttpURLConnection.java \
-    ojluni/src/main/java/sun/net/www/protocol/http/NegotiateAuthentication.java \
-    ojluni/src/main/java/sun/net/www/protocol/http/Negotiator.java \
-    ojluni/src/main/java/sun/net/www/protocol/http/NTLMAuthenticationProxy.java \
     ojluni/src/main/java/sun/net/www/protocol/jar/Handler.java \
     ojluni/src/main/java/sun/net/www/protocol/jar/JarFileFactory.java \
     ojluni/src/main/java/sun/net/www/protocol/jar/JarURLConnection.java \
-    ojluni/src/main/java/sun/net/www/protocol/jar/URLJarFileCallBack.java \
     ojluni/src/main/java/sun/net/www/protocol/jar/URLJarFile.java \
-    ojluni/src/main/java/sun/net/www/protocol/mailto/Handler.java \
-    ojluni/src/main/java/sun/net/www/protocol/mailto/MailToURLConnection.java \
-    ojluni/src/main/java/sun/net/www/protocol/netdoc/Handler.java \
-    ojluni/src/main/java/sun/net/www/URLConnection.java \
     ojluni/src/main/java/sun/nio/ByteBuffered.java \
     ojluni/src/main/java/sun/nio/ch/AbstractPollArrayWrapper.java \
     ojluni/src/main/java/sun/nio/ch/AbstractPollSelectorImpl.java \
     ojluni/src/main/java/sun/nio/ch/AllocatedNativeObject.java \
+    ojluni/src/main/java/sun/nio/ch/AsynchronousChannelGroupImpl.java \
+    ojluni/src/main/java/sun/nio/ch/AsynchronousFileChannelImpl.java \
+    ojluni/src/main/java/sun/nio/ch/AsynchronousServerSocketChannelImpl.java \
+    ojluni/src/main/java/sun/nio/ch/AsynchronousSocketChannelImpl.java \
+    ojluni/src/main/java/sun/nio/ch/Cancellable.java \
     ojluni/src/main/java/sun/nio/ch/ChannelInputStream.java \
     ojluni/src/main/java/sun/nio/ch/CompletedFuture.java \
     ojluni/src/main/java/sun/nio/ch/DatagramChannelImpl.java \
     ojluni/src/main/java/sun/nio/ch/DatagramDispatcher.java \
     ojluni/src/main/java/sun/nio/ch/DatagramSocketAdaptor.java \
+    ojluni/src/main/java/sun/nio/ch/DefaultAsynchronousChannelProvider.java \
     ojluni/src/main/java/sun/nio/ch/DefaultSelectorProvider.java \
     ojluni/src/main/java/sun/nio/ch/DirectBuffer.java \
+    ojluni/src/main/java/sun/nio/ch/EPoll.java \
+    ojluni/src/main/java/sun/nio/ch/EPollPort.java \
     ojluni/src/main/java/sun/nio/ch/ExtendedSocketOption.java \
     ojluni/src/main/java/sun/nio/ch/FileChannelImpl.java \
     ojluni/src/main/java/sun/nio/ch/FileDescriptorHolderSocketImpl.java \
@@ -1195,28 +1464,34 @@ openjdk_java_files := \
     ojluni/src/main/java/sun/nio/ch/FileKey.java \
     ojluni/src/main/java/sun/nio/ch/FileLockImpl.java \
     ojluni/src/main/java/sun/nio/ch/FileLockTable.java \
-    ojluni/src/main/java/sun/nio/ch/InheritedChannel.java \
+    ojluni/src/main/java/sun/nio/ch/Groupable.java \
     ojluni/src/main/java/sun/nio/ch/Interruptible.java \
+    ojluni/src/main/java/sun/nio/ch/Invoker.java \
     ojluni/src/main/java/sun/nio/ch/IOStatus.java \
     ojluni/src/main/java/sun/nio/ch/IOUtil.java \
     ojluni/src/main/java/sun/nio/ch/IOVecWrapper.java \
+    ojluni/src/main/java/sun/nio/ch/LinuxAsynchronousChannelProvider.java \
+    ojluni/src/main/java/sun/nio/ch/MembershipKeyImpl.java \
+    ojluni/src/main/java/sun/nio/ch/MembershipRegistry.java \
     ojluni/src/main/java/sun/nio/ch/NativeDispatcher.java \
     ojluni/src/main/java/sun/nio/ch/NativeObject.java \
     ojluni/src/main/java/sun/nio/ch/NativeThread.java \
     ojluni/src/main/java/sun/nio/ch/NativeThreadSet.java \
     ojluni/src/main/java/sun/nio/ch/Net.java \
     ojluni/src/main/java/sun/nio/ch/OptionKey.java \
+    ojluni/src/main/java/sun/nio/ch/PendingFuture.java \
     ojluni/src/main/java/sun/nio/ch/PipeImpl.java \
     ojluni/src/main/java/sun/nio/ch/PollArrayWrapper.java \
     ojluni/src/main/java/sun/nio/ch/PollSelectorImpl.java \
     ojluni/src/main/java/sun/nio/ch/PollSelectorProvider.java \
-    ojluni/src/main/java/sun/nio/ch/Reflect.java \
+    ojluni/src/main/java/sun/nio/ch/Port.java \
     ojluni/src/main/java/sun/nio/ch/SelChImpl.java \
     ojluni/src/main/java/sun/nio/ch/SelectionKeyImpl.java \
     ojluni/src/main/java/sun/nio/ch/SelectorImpl.java \
     ojluni/src/main/java/sun/nio/ch/SelectorProviderImpl.java \
     ojluni/src/main/java/sun/nio/ch/ServerSocketAdaptor.java \
     ojluni/src/main/java/sun/nio/ch/ServerSocketChannelImpl.java \
+    ojluni/src/main/java/sun/nio/ch/SimpleAsynchronousFileChannelImpl.java \
     ojluni/src/main/java/sun/nio/ch/SinkChannelImpl.java \
     ojluni/src/main/java/sun/nio/ch/SocketAdaptor.java \
     ojluni/src/main/java/sun/nio/ch/SocketChannelImpl.java \
@@ -1224,6 +1499,8 @@ openjdk_java_files := \
     ojluni/src/main/java/sun/nio/ch/SocketOptionRegistry.java \
     ojluni/src/main/java/sun/nio/ch/SourceChannelImpl.java \
     ojluni/src/main/java/sun/nio/ch/ThreadPool.java \
+    ojluni/src/main/java/sun/nio/ch/UnixAsynchronousServerSocketChannelImpl.java \
+    ojluni/src/main/java/sun/nio/ch/UnixAsynchronousSocketChannelImpl.java \
     ojluni/src/main/java/sun/nio/ch/Util.java \
     ojluni/src/main/java/sun/nio/cs/ArrayDecoder.java \
     ojluni/src/main/java/sun/nio/cs/ArrayEncoder.java \
@@ -1231,26 +1508,57 @@ openjdk_java_files := \
     ojluni/src/main/java/sun/nio/cs/StreamEncoder.java \
     ojluni/src/main/java/sun/nio/cs/HistoricallyNamedCharset.java \
     ojluni/src/main/java/sun/nio/cs/ThreadLocalCoders.java \
-    ojluni/src/main/java/sun/reflect/annotation/AnnotationType.java \
-    ojluni/src/main/java/sun/reflect/ConstructorAccessor.java \
+    ojluni/src/main/java/sun/nio/fs/AbstractBasicFileAttributeView.java \
+    ojluni/src/main/java/sun/nio/fs/AbstractFileSystemProvider.java \
+    ojluni/src/main/java/sun/nio/fs/AbstractFileTypeDetector.java \
+    ojluni/src/main/java/sun/nio/fs/AbstractPath.java \
+    ojluni/src/main/java/sun/nio/fs/AbstractPoller.java \
+    ojluni/src/main/java/sun/nio/fs/AbstractUserDefinedFileAttributeView.java \
+    ojluni/src/main/java/sun/nio/fs/AbstractWatchKey.java \
+    ojluni/src/main/java/sun/nio/fs/AbstractWatchService.java \
+    ojluni/src/main/java/sun/nio/fs/BasicFileAttributesHolder.java \
+    ojluni/src/main/java/sun/nio/fs/Cancellable.java \
+    ojluni/src/main/java/sun/nio/fs/DefaultFileSystemProvider.java \
+    ojluni/src/main/java/sun/nio/fs/DefaultFileTypeDetector.java \
+    ojluni/src/main/java/sun/nio/fs/DynamicFileAttributeView.java \
+    ojluni/src/main/java/sun/nio/fs/FileOwnerAttributeViewImpl.java \
+    ojluni/src/main/java/sun/nio/fs/Globs.java \
+    ojluni/src/main/java/sun/nio/fs/LinuxDosFileAttributeView.java \
+    ojluni/src/main/java/sun/nio/fs/LinuxFileStore.java \
+    ojluni/src/main/java/sun/nio/fs/LinuxFileSystem.java \
+    ojluni/src/main/java/sun/nio/fs/LinuxFileSystemProvider.java \
+    ojluni/src/main/java/sun/nio/fs/LinuxNativeDispatcher.java \
+    ojluni/src/main/java/sun/nio/fs/LinuxUserDefinedFileAttributeView.java \
+    ojluni/src/main/java/sun/nio/fs/LinuxWatchService.java \
+    ojluni/src/main/java/sun/nio/fs/MimeTypesFileTypeDetector.java \
+    ojluni/src/main/java/sun/nio/fs/NativeBuffer.java \
+    ojluni/src/main/java/sun/nio/fs/NativeBuffers.java \
+    ojluni/src/main/java/sun/nio/fs/PollingWatchService.java \
+    ojluni/src/main/java/sun/nio/fs/UnixChannelFactory.java \
+    ojluni/src/main/java/sun/nio/fs/UnixConstants.java \
+    ojluni/src/main/java/sun/nio/fs/UnixCopyFile.java \
+    ojluni/src/main/java/sun/nio/fs/UnixDirectoryStream.java \
+    ojluni/src/main/java/sun/nio/fs/UnixException.java \
+    ojluni/src/main/java/sun/nio/fs/UnixFileAttributeViews.java \
+    ojluni/src/main/java/sun/nio/fs/UnixFileAttributes.java \
+    ojluni/src/main/java/sun/nio/fs/UnixFileKey.java \
+    ojluni/src/main/java/sun/nio/fs/UnixFileModeAttribute.java \
+    ojluni/src/main/java/sun/nio/fs/UnixFileStore.java \
+    ojluni/src/main/java/sun/nio/fs/UnixFileStoreAttributes.java \
+    ojluni/src/main/java/sun/nio/fs/UnixFileSystem.java \
+    ojluni/src/main/java/sun/nio/fs/UnixFileSystemProvider.java \
+    ojluni/src/main/java/sun/nio/fs/UnixMountEntry.java \
+    ojluni/src/main/java/sun/nio/fs/UnixNativeDispatcher.java \
+    ojluni/src/main/java/sun/nio/fs/UnixPath.java \
+    ojluni/src/main/java/sun/nio/fs/UnixSecureDirectoryStream.java \
+    ojluni/src/main/java/sun/nio/fs/UnixUriUtils.java \
+    ojluni/src/main/java/sun/nio/fs/UnixUserPrincipals.java \
+    ojluni/src/main/java/sun/nio/fs/Util.java \
     ojluni/src/main/java/sun/reflect/misc/ReflectUtil.java \
     ojluni/src/main/java/sun/reflect/Reflection.java \
     ojluni/src/main/java/sun/security/action/GetBooleanAction.java \
     ojluni/src/main/java/sun/security/action/GetIntegerAction.java \
     ojluni/src/main/java/sun/security/action/GetPropertyAction.java \
-    ojluni/src/main/java/sun/security/action/LoadLibraryAction.java \
-    ojluni/src/main/java/sun/security/action/PutAllAction.java \
-    ojluni/src/main/java/sun/security/ec/ECKeyFactory.java \
-    ojluni/src/main/java/sun/security/ec/ECParameters.java \
-    ojluni/src/main/java/sun/security/ec/ECPrivateKeyImpl.java \
-    ojluni/src/main/java/sun/security/ec/ECPublicKeyImpl.java \
-    ojluni/src/main/java/sun/security/ec/NamedCurve.java \
-    ojluni/src/main/java/sun/security/internal/interfaces/TlsMasterSecret.java \
-    ojluni/src/main/java/sun/security/internal/spec/TlsKeyMaterialParameterSpec.java \
-    ojluni/src/main/java/sun/security/internal/spec/TlsKeyMaterialSpec.java \
-    ojluni/src/main/java/sun/security/internal/spec/TlsMasterSecretParameterSpec.java \
-    ojluni/src/main/java/sun/security/internal/spec/TlsPrfParameterSpec.java \
-    ojluni/src/main/java/sun/security/internal/spec/TlsRsaPremasterSecretParameterSpec.java \
     ojluni/src/main/java/sun/security/jca/GetInstance.java \
     ojluni/src/main/java/sun/security/jca/JCAUtil.java \
     ojluni/src/main/java/sun/security/jca/ProviderConfig.java \
@@ -1288,22 +1596,21 @@ openjdk_java_files := \
     ojluni/src/main/java/sun/security/provider/certpath/PKIXMasterCertPathValidator.java \
     ojluni/src/main/java/sun/security/provider/certpath/PolicyChecker.java \
     ojluni/src/main/java/sun/security/provider/certpath/PolicyNodeImpl.java \
-    ojluni/src/main/java/sun/security/provider/certpath/ReverseBuilder.java \
-    ojluni/src/main/java/sun/security/provider/certpath/ReverseState.java \
     ojluni/src/main/java/sun/security/provider/certpath/RevocationChecker.java \
     ojluni/src/main/java/sun/security/provider/certpath/State.java \
     ojluni/src/main/java/sun/security/provider/certpath/SunCertPathBuilder.java \
     ojluni/src/main/java/sun/security/provider/certpath/SunCertPathBuilderException.java \
-    ojluni/src/main/java/sun/security/provider/certpath/SunCertPathBuilderParameters.java \
     ojluni/src/main/java/sun/security/provider/certpath/SunCertPathBuilderResult.java \
     ojluni/src/main/java/sun/security/provider/certpath/URICertStore.java \
-    ojluni/src/main/java/sun/security/provider/certpath/UntrustedChecker.java \
     ojluni/src/main/java/sun/security/provider/certpath/Vertex.java \
     ojluni/src/main/java/sun/security/provider/certpath/X509CertPath.java \
     ojluni/src/main/java/sun/security/provider/certpath/X509CertificatePair.java \
     ojluni/src/main/java/sun/security/provider/X509Factory.java \
-    ojluni/src/main/java/sun/security/rsa/SunRsaSignEntries.java \
     ojluni/src/main/java/sun/security/timestamp/TimestampToken.java \
+    ojluni/src/main/java/sun/security/util/AnchorCertificates.java \
+    ojluni/src/main/java/sun/security/util/CertConstraintParameters.java \
+    ojluni/src/main/java/sun/security/util/AbstractAlgorithmConstraints.java \
+    ojluni/src/main/java/sun/security/util/AlgorithmDecomposer.java \
     ojluni/src/main/java/sun/security/util/BitArray.java \
     ojluni/src/main/java/sun/security/util/ByteArrayLexOrder.java \
     ojluni/src/main/java/sun/security/util/ByteArrayTagOrder.java \
@@ -1326,13 +1633,6 @@ openjdk_java_files := \
     ojluni/src/main/java/sun/security/util/ResourcesMgr.java \
     ojluni/src/main/java/sun/security/util/SecurityConstants.java \
     ojluni/src/main/java/sun/security/util/SignatureFileVerifier.java \
-    ojluni/src/main/java/sun/security/util/UntrustedCertificates.java \
-    ojluni/src/main/java/sun/security/validator/EndEntityChecker.java \
-    ojluni/src/main/java/sun/security/validator/KeyStores.java \
-    ojluni/src/main/java/sun/security/validator/PKIXValidator.java \
-    ojluni/src/main/java/sun/security/validator/SimpleValidator.java \
-    ojluni/src/main/java/sun/security/validator/ValidatorException.java \
-    ojluni/src/main/java/sun/security/validator/Validator.java \
     ojluni/src/main/java/sun/security/x509/AccessDescription.java \
     ojluni/src/main/java/sun/security/x509/AlgorithmId.java \
     ojluni/src/main/java/sun/security/x509/AttributeNameEnumeration.java \
@@ -1345,14 +1645,12 @@ openjdk_java_files := \
     ojluni/src/main/java/sun/security/x509/CertificateExtensions.java \
     ojluni/src/main/java/sun/security/x509/CertificateIssuerExtension.java \
     ojluni/src/main/java/sun/security/x509/CertificateIssuerName.java \
-    ojluni/src/main/java/sun/security/x509/CertificateIssuerUniqueIdentity.java \
     ojluni/src/main/java/sun/security/x509/CertificatePoliciesExtension.java \
     ojluni/src/main/java/sun/security/x509/CertificatePolicyId.java \
     ojluni/src/main/java/sun/security/x509/CertificatePolicyMap.java \
     ojluni/src/main/java/sun/security/x509/CertificatePolicySet.java \
     ojluni/src/main/java/sun/security/x509/CertificateSerialNumber.java \
     ojluni/src/main/java/sun/security/x509/CertificateSubjectName.java \
-    ojluni/src/main/java/sun/security/x509/CertificateSubjectUniqueIdentity.java \
     ojluni/src/main/java/sun/security/x509/CertificateValidity.java \
     ojluni/src/main/java/sun/security/x509/CertificateVersion.java \
     ojluni/src/main/java/sun/security/x509/CertificateX509Key.java \
@@ -1418,34 +1716,43 @@ openjdk_java_files := \
     ojluni/src/main/java/sun/util/calendar/ImmutableGregorianDate.java \
     ojluni/src/main/java/sun/util/calendar/JulianCalendar.java \
     ojluni/src/main/java/sun/util/calendar/LocalGregorianCalendar.java \
-    ojluni/src/main/java/sun/util/calendar/TzIDOldMapping.java \
     ojluni/src/main/java/sun/util/locale/BaseLocale.java \
     ojluni/src/main/java/sun/util/locale/Extension.java \
     ojluni/src/main/java/sun/util/locale/InternalLocaleBuilder.java \
     ojluni/src/main/java/sun/util/locale/LanguageTag.java \
+    ojluni/src/main/java/sun/util/locale/LocaleEquivalentMaps.java \
     ojluni/src/main/java/sun/util/locale/LocaleExtensions.java \
+    ojluni/src/main/java/sun/util/locale/LocaleMatcher.java \
     ojluni/src/main/java/sun/util/locale/LocaleObjectCache.java \
     ojluni/src/main/java/sun/util/locale/LocaleSyntaxException.java \
     ojluni/src/main/java/sun/util/locale/LocaleUtils.java \
     ojluni/src/main/java/sun/util/locale/ParseStatus.java \
-    ojluni/src/main/java/sun/util/LocaleServiceProviderPool.java \
     ojluni/src/main/java/sun/util/locale/StringTokenIterator.java \
     ojluni/src/main/java/sun/util/locale/UnicodeLocaleExtension.java \
+    ojluni/src/main/java/sun/util/locale/provider/CalendarDataUtility.java \
     ojluni/src/main/java/sun/util/logging/LoggingProxy.java \
     ojluni/src/main/java/sun/util/logging/LoggingSupport.java \
     ojluni/src/main/java/sun/util/logging/PlatformLogger.java \
     ojluni/src/main/java/sun/util/ResourceBundleEnumeration.java \
     ojluni/src/main/java/sun/util/resources/OpenListResourceBundle.java \
-    $(openjdk_javadoc_files)
+    $(openjdk_javadoc_files) \
+    $(openjdk_lambda_stub_files)
 
 # Stubs needed to satisfy javac's dependencies when compiling lambda code. These are
 # not used on Android devices or required by the Jack compiler.
+#
+# On aosp/master:
+# openjdk_lambda_stub_files : These are included in core-oj as stubs
+# openjdk_lambda_duplicate_stub_files : These contain complete implementations in core-oj.
+#
+# On older platforms : Both sets of stub files are used and core-oj does not contain
+# any of these classes.
 openjdk_lambda_stub_files := \
-    ojluni/src/lambda/java/java/lang/invoke/CallSite.java \
-    ojluni/src/lambda/java/java/lang/invoke/LambdaConversionException.java \
     ojluni/src/lambda/java/java/lang/invoke/LambdaMetafactory.java \
-    ojluni/src/lambda/java/java/lang/invoke/MethodHandle.java \
-    ojluni/src/lambda/java/java/lang/invoke/MethodHandleInfo.java \
-    ojluni/src/lambda/java/java/lang/invoke/MethodHandles.java \
-    ojluni/src/lambda/java/java/lang/invoke/MethodType.java \
     ojluni/src/lambda/java/java/lang/invoke/SerializedLambda.java
+openjdk_lambda_duplicate_stub_files := \
+    ojluni/src/lambda/java/java/lang/invoke/CallSite.java \
+    ojluni/src/lambda/java/java/lang/invoke/MethodHandles.java \
+    ojluni/src/lambda/java/java/lang/invoke/LambdaConversionException.java \
+    ojluni/src/lambda/java/java/lang/invoke/MethodHandle.java \
+    ojluni/src/lambda/java/java/lang/invoke/MethodType.java \

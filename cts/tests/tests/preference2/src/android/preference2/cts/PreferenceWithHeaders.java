@@ -19,8 +19,9 @@ package android.preference2.cts;
 import android.os.Bundle;
 import android.preference.PreferenceActivity;
 import android.preference.PreferenceFragment;
-import android.widget.Button;
 import android.preference2.cts.R;
+import android.widget.Button;
+
 import java.util.List;
 
 /**
@@ -29,6 +30,12 @@ import java.util.List;
  */
 
 public class PreferenceWithHeaders extends PreferenceActivity {
+
+    // For tests to verify if the headers were loaded.
+    List<Header> loadedHeaders;
+
+    boolean onCreateFinished;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -38,6 +45,7 @@ public class PreferenceWithHeaders extends PreferenceActivity {
             button.setText("Some action");
             setListFooter(button);
         }
+        onCreateFinished = true;
     }
 
     /*
@@ -45,7 +53,9 @@ public class PreferenceWithHeaders extends PreferenceActivity {
      * above.
      */
     protected boolean isValidFragment(String fragment) {
-        return PrefsOneFragment.class.getName().equals(fragment);
+        return PrefsOneFragment.class.getName().equals(fragment)
+                || PrefsTwoFragment.class.getName().equals(fragment)
+                || PrefsOneFragmentInner.class.getName().equals(fragment);
     }
 
     /**
@@ -53,6 +63,7 @@ public class PreferenceWithHeaders extends PreferenceActivity {
      */
     @Override
     public void onBuildHeaders(List<Header> target) {
+        loadedHeaders = target;
         loadHeadersFromResource(R.xml.preference_headers, target);
     }
 
@@ -61,6 +72,22 @@ public class PreferenceWithHeaders extends PreferenceActivity {
         public void onCreate(Bundle savedInstanceState) {
             super.onCreate(savedInstanceState);
             addPreferencesFromResource(R.xml.preferences);
+        }
+    }
+
+    public static class PrefsTwoFragment extends PreferenceFragment {
+        @Override
+        public void onCreate(Bundle savedInstanceState) {
+            super.onCreate(savedInstanceState);
+            addPreferencesFromResource(R.xml.preferences2);
+        }
+    }
+
+    public static class PrefsOneFragmentInner extends PreferenceFragment {
+        @Override
+        public void onCreate(Bundle savedInstanceState) {
+            super.onCreate(savedInstanceState);
+            addPreferencesFromResource(R.xml.fragmented_preferences_inner);
         }
     }
 }

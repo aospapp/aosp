@@ -36,7 +36,7 @@ probeconfig()
     #include <linux/sched.h>
     int x=CLONE_NEWNS|CLONE_NEWUTS|CLONE_NEWIPC|CLONE_NEWNET;
 
-    int main(int argc, char *argv[]) { return unshare(x); }
+    int main(int argc, char *argv[]) { setns(0,0); return unshare(x); }
 EOF
 
   probesymbol TOYBOX_FIFREEZE -c << EOF
@@ -90,12 +90,19 @@ EOF
     int main(int argc, char *argv[]) { return fork(); }
 EOF
   echo -e '\tdepends on !TOYBOX_MUSL_NOMMU_IS_BROKEN'
+
+  probesymbol TOYBOX_PRLIMIT << EOF
+    #include <sys/time.h>
+    #include <sys/resource.h>
+
+    int main(int argc, char *argv[]) { prlimit(0, 0, 0, 0); }
+EOF
 }
 
 genconfig()
 {
   # Reverse sort puts posix first, examples last.
-  for j in $(ls toys/*/README | sort -r)
+  for j in $(ls toys/*/README | sort -s -r)
   do
     DIR="$(dirname "$j")"
 
@@ -139,12 +146,9 @@ do
   [ "${FILE/pending//}" != "$FILE" ] &&
     PENDING="$PENDING $NAME" ||
     WORKING="$WORKING $NAME"
-done > .singlemake &&
-echo -e "clean::\n\trm -f $WORKING $PENDING" >> .singlemake &&
-echo -e "list:\n\t@echo $(echo $WORKING $PENDING | tr ' ' '\n' | sort | xargs)"\
-  >> .singlemake &&
-echo -e "list_working:\n\t@echo $(echo $WORKING | tr ' ' '\n' | sort | xargs)" \
-  >> .singlemake &&
-echo -e "list_pending:\n\t@echo $(echo $PENDING | tr ' ' '\n' | sort | xargs)" \
-  >> .singlemake
-)
+done &&
+echo -e "clean::\n\trm -f $WORKING $PENDING" &&
+echo -e "list:\n\t@echo $(echo $WORKING | tr ' ' '\n' | sort | xargs)" &&
+echo -e "list_pending:\n\t@echo $(echo $PENDING | tr ' ' '\n' | sort | xargs)" &&
+echo -e ".PHONY: $WORKING $PENDING" | sed 's/ \([^ ]\)/ test_\1/g'
+) > .singlemake

@@ -56,17 +56,40 @@ static inline MtpServer* getMtpServer(JNIEnv *env, jobject thiz) {
     return (MtpServer*)env->GetLongField(thiz, field_MtpServer_nativeContext);
 }
 
+static void android_mtp_configure(JNIEnv *, jobject, jboolean usePtp) {
+    MtpServer::configure(usePtp);
+}
+
 static void
-android_mtp_MtpServer_setup(JNIEnv *env, jobject thiz, jobject javaDatabase, jboolean usePtp)
+android_mtp_MtpServer_setup(JNIEnv *env, jobject thiz, jobject javaDatabase, jboolean usePtp,
+        jstring deviceInfoManufacturer,
+        jstring deviceInfoModel,
+        jstring deviceInfoDeviceVersion,
+        jstring deviceInfoSerialNumber)
 {
-    int fd = open("/dev/mtp_usb", O_RDWR);
-    if (fd >= 0) {
-        MtpServer* server = new MtpServer(fd, getMtpDatabase(env, javaDatabase),
-                usePtp, AID_MEDIA_RW, 0664, 0775);
-        env->SetLongField(thiz, field_MtpServer_nativeContext, (jlong)server);
-    } else {
-        ALOGE("could not open MTP driver, errno: %d", errno);
+    const char *deviceInfoManufacturerStr = env->GetStringUTFChars(deviceInfoManufacturer, NULL);
+    const char *deviceInfoModelStr = env->GetStringUTFChars(deviceInfoModel, NULL);
+    const char *deviceInfoDeviceVersionStr = env->GetStringUTFChars(deviceInfoDeviceVersion, NULL);
+    const char *deviceInfoSerialNumberStr = env->GetStringUTFChars(deviceInfoSerialNumber, NULL);
+    MtpServer* server = new MtpServer(getMtpDatabase(env, javaDatabase),
+            usePtp, AID_MEDIA_RW, 0664, 0775,
+            MtpString((deviceInfoManufacturerStr != NULL) ? deviceInfoManufacturerStr : ""),
+            MtpString((deviceInfoModelStr != NULL) ? deviceInfoModelStr : ""),
+            MtpString((deviceInfoDeviceVersionStr != NULL) ? deviceInfoDeviceVersionStr : ""),
+            MtpString((deviceInfoSerialNumberStr != NULL) ? deviceInfoSerialNumberStr : ""));
+    if (deviceInfoManufacturerStr != NULL) {
+        env->ReleaseStringUTFChars(deviceInfoManufacturer, deviceInfoManufacturerStr);
     }
+    if (deviceInfoModelStr != NULL) {
+        env->ReleaseStringUTFChars(deviceInfoModel, deviceInfoModelStr);
+    }
+    if (deviceInfoDeviceVersionStr != NULL) {
+        env->ReleaseStringUTFChars(deviceInfoDeviceVersion, deviceInfoDeviceVersionStr);
+    }
+    if (deviceInfoSerialNumberStr != NULL) {
+        env->ReleaseStringUTFChars(deviceInfoSerialNumber, deviceInfoSerialNumberStr);
+    }
+    env->SetLongField(thiz, field_MtpServer_nativeContext, (jlong)server);
 }
 
 static void
@@ -180,7 +203,8 @@ android_mtp_MtpServer_remove_storage(JNIEnv *env, jobject thiz, jint storageId)
 // ----------------------------------------------------------------------------
 
 static const JNINativeMethod gMethods[] = {
-    {"native_setup",                "(Landroid/mtp/MtpDatabase;Z)V",
+    {"native_configure",              "(Z)V",  (void *)android_mtp_configure},
+    {"native_setup",                "(Landroid/mtp/MtpDatabase;ZLjava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V",
                                             (void *)android_mtp_MtpServer_setup},
     {"native_run",                  "()V",  (void *)android_mtp_MtpServer_run},
     {"native_cleanup",              "()V",  (void *)android_mtp_MtpServer_cleanup},

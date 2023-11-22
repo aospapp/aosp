@@ -17,6 +17,7 @@
 package android.text.cts;
 
 import android.graphics.Color;
+import android.graphics.Paint;
 import android.graphics.Typeface;
 import android.test.AndroidTestCase;
 import android.text.TextPaint;
@@ -37,6 +38,11 @@ public class TextPaintTest extends AndroidTestCase {
         textPaint = new TextPaint(TextPaint.DITHER_FLAG);
         assertEquals((TextPaint.DITHER_FLAG | DEFAULT_PAINT_FLAGS),
                 textPaint.getFlags());
+
+        final Paint paint = new Paint();
+        paint.setTextSize(42f);
+        textPaint = new TextPaint(paint);
+        assertEquals(paint.getTextSize(), textPaint.getTextSize());
     }
 
     public void testSet() {

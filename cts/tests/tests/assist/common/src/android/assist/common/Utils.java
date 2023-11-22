@@ -15,13 +15,14 @@
  */
 package android.assist.common;
 
-import android.R;
 import android.content.ComponentName;
 import android.os.Bundle;
+import android.os.LocaleList;
 
-import org.json.JSONException;
 import org.json.JSONObject;
+
 import java.util.ArrayList;
+import java.util.Locale;
 
 public class Utils {
     public static final String TESTCASE_TYPE = "testcase_type";
@@ -53,6 +54,8 @@ public class Utils {
     /** Lifecycle Test intent constants */
     public static final String LIFECYCLE_PREFIX = ACTION_PREFIX + "lifecycle_";
     public static final String LIFECYCLE_HASRESUMED = LIFECYCLE_PREFIX + "hasResumed";
+    public static final String LIFECYCLE_HASFOCUS = LIFECYCLE_PREFIX + "hasFocus";
+    public static final String LIFECYCLE_LOSTFOCUS = LIFECYCLE_PREFIX + "lostFocus";
     public static final String LIFECYCLE_ONPAUSE = LIFECYCLE_PREFIX + "onpause";
     public static final String LIFECYCLE_ONSTOP = LIFECYCLE_PREFIX + "onstop";
     public static final String LIFECYCLE_ONDESTROY = LIFECYCLE_PREFIX + "ondestroy";
@@ -64,6 +67,7 @@ public class Utils {
     /** Flag Secure Test intent constants */
     public static final String FLAG_SECURE_HASRESUMED = ACTION_PREFIX + "flag_secure_hasResumed";
     public static final String APP_3P_HASRESUMED = ACTION_PREFIX + "app_3p_hasResumed";
+    public static final String APP_3P_HASDRAWED = ACTION_PREFIX + "app_3p_hasDrawed";
     public static final String TEST_ACTIVITY_LOADED = ACTION_PREFIX + "test_activity_hasResumed";
 
     /** Two second timeout for getting back assist context */
@@ -83,6 +87,7 @@ public class Utils {
     public static final String DISABLE_CONTEXT = "DISABLE_CONTEXT";
     public static final String FLAG_SECURE = "FLAG_SECURE";
     public static final String LIFECYCLE = "LIFECYCLE";
+    public static final String LIFECYCLE_NOUI = "LIFECYCLE_NOUI";
     public static final String SCREENSHOT = "SCREENSHOT";
     public static final String EXTRA_ASSIST = "EXTRA_ASSIST";
     public static final String VERIFY_CONTENT_VIEW = "VERIFY_CONTENT_VIEW";
@@ -94,7 +99,15 @@ public class Utils {
     /** Session intent constants */
     public static final String HIDE_SESSION = "android.intent.action.hide_session";
 
+    /** Lifecycle activity intent constants */
+    /** Session intent constants */
+    public static final String HIDE_LIFECYCLE_ACTIVITY
+            = "android.intent.action.hide_lifecycle_activity";
+
     /** Stub html view to load into WebView */
+    public static final String WEBVIEW_HTML_URL = "http://dev.null/thou/should?not=pass";
+    public static final String WEBVIEW_HTML_DOMAIN = "dev.null";
+    public static final LocaleList WEBVIEW_LOCALE_LIST = new LocaleList(Locale.ROOT, Locale.US);
     public static final String WEBVIEW_HTML_GREETING = "Hello WebView!";
     public static final String WEBVIEW_HTML = "<html><body><div><p>" + WEBVIEW_HTML_GREETING
             + "</p></div></body></html>";
@@ -147,6 +160,7 @@ public class Utils {
             case ASSIST_STRUCTURE:
             case FLAG_SECURE:
             case LIFECYCLE:
+            case LIFECYCLE_NOUI:
             case SCREENSHOT:
             case EXTRA_ASSIST:
             case VERIFY_CONTENT_VIEW:
@@ -176,6 +190,7 @@ public class Utils {
                 return new ComponentName(
                         "android.assist.testapp", "android.assist.testapp.SecureActivity");
             case LIFECYCLE:
+            case LIFECYCLE_NOUI:
                 return new ComponentName(
                         "android.assist.testapp", "android.assist.testapp.LifecycleActivity");
             case SCREENSHOT:

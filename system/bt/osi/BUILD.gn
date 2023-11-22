@@ -16,37 +16,34 @@
 
 static_library("osi") {
   sources = [
-    "src/alarm.c",
-    "src/allocation_tracker.c",
-    "src/allocator.c",
-    "src/array.c",
-    "src/buffer.c",
-    "src/compat.c",
-    "src/config.c",
-    "src/data_dispatcher.c",
-    "src/eager_reader.c",
-    "src/fixed_queue.c",
-    "src/future.c",
-    "src/hash_functions.c",
-    "src/hash_map.c",
-    "src/hash_map_utils.c",
-    "src/list.c",
-    "src/metrics_linux.cpp",
-    "src/mutex.c",
-    "src/osi.c",
-    "src/properties.c",
-    "src/reactor.c",
-    "src/ringbuffer.c",
-    "src/semaphore.c",
-    "src/socket.c",
+    "src/alarm.cc",
+    "src/allocation_tracker.cc",
+    "src/allocator.cc",
+    "src/array.cc",
+    "src/buffer.cc",
+    "src/compat.cc",
+    "src/config.cc",
+    "src/data_dispatcher.cc",
+    "src/fixed_queue.cc",
+    "src/future.cc",
+    "src/hash_map_utils.cc",
+    "src/list.cc",
+    "src/metrics_linux.cc",
+    "src/mutex.cc",
+    "src/osi.cc",
+    "src/properties.cc",
+    "src/reactor.cc",
+    "src/ringbuffer.cc",
+    "src/semaphore.cc",
+    "src/socket.cc",
 
     # TODO(mcchou): Remove these sources after platform specific
     # dependencies are abstracted.
-    "src/socket_utils/socket_local_client.c",
-    "src/socket_utils/socket_local_server.c",
-    "src/thread.c",
-    "src/time.c",
-    "src/wakelock.c",
+    "src/socket_utils/socket_local_client.cc",
+    "src/socket_utils/socket_local_server.cc",
+    "src/thread.cc",
+    "src/time.cc",
+    "src/wakelock.cc",
   ]
 
   include_dirs = [
@@ -54,30 +51,33 @@ static_library("osi") {
     "//utils/include",
     "//stack/include",
   ]
+
+  deps = [
+    "//third_party/libchrome:base",
+  ]
 }
 
 executable("net_test_osi") {
   testonly = true
   sources = [
-    "test/AlarmTestHarness.cpp",
-    "test/AllocationTestHarness.cpp",
-    "test/alarm_test.cpp",
-    "test/allocation_tracker_test.cpp",
-    "test/allocator_test.cpp",
-    "test/array_test.cpp",
-    "test/config_test.cpp",
-    "test/data_dispatcher_test.cpp",
-    "test/eager_reader_test.cpp",
-    "test/future_test.cpp",
-    "test/hash_map_test.cpp",
-    "test/hash_map_utils_test.cpp",
-    "test/list_test.cpp",
-    "test/properties_test.cpp",
-    "test/rand_test.cpp",
-    "test/reactor_test.cpp",
-    "test/ringbuffer_test.cpp",
-    "test/thread_test.cpp",
-    "test/time_test.cpp",
+    "test/AlarmTestHarness.cc",
+    "test/AllocationTestHarness.cc",
+    "test/alarm_test.cc",
+    "test/allocation_tracker_test.cc",
+    "test/allocator_test.cc",
+    "test/array_test.cc",
+    "test/config_test.cc",
+    "test/data_dispatcher_test.cc",
+    "test/future_test.cc",
+    "test/hash_map_utils_test.cc",
+    "test/leaky_bonded_queue_test.cc",
+    "test/list_test.cc",
+    "test/properties_test.cc",
+    "test/rand_test.cc",
+    "test/reactor_test.cc",
+    "test/ringbuffer_test.cc",
+    "test/thread_test.cc",
+    "test/time_test.cc",
   ]
 
   include_dirs = [
@@ -88,6 +88,8 @@ executable("net_test_osi") {
   deps = [
     "//osi",
     "//third_party/googletest:gtest_main",
+    "//third_party/googletest:gmock_main",
+    "//third_party/libchrome:base",
   ]
 
   libs = [

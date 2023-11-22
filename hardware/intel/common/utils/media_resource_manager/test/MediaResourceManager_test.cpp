@@ -53,7 +53,7 @@ protected:
                                            Resolution_1080,
                                            30);
             if (err == ArbitratorErrorInsufficientResources) {
-                ALOGE("%dth codec can not be added anymore.");
+                ALOGE("%dth codec can not be added anymore.", i);
                 return;
             }
         }

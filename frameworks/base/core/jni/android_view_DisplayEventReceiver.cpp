@@ -36,11 +36,6 @@
 
 namespace android {
 
-// Number of events to read at a time from the DisplayEventReceiver pipe.
-// The value should be large enough that we can quickly drain the pipe
-// using just a few large reads.
-static const size_t EVENT_BUFFER_SIZE = 100;
-
 static struct {
     jclass clazz;
 
@@ -52,7 +47,7 @@ static struct {
 class NativeDisplayEventReceiver : public DisplayEventDispatcher {
 public:
     NativeDisplayEventReceiver(JNIEnv* env,
-            jobject receiverWeak, const sp<MessageQueue>& messageQueue);
+            jobject receiverWeak, const sp<MessageQueue>& messageQueue, jint vsyncSource);
 
     void dispose();
 
@@ -63,7 +58,6 @@ private:
     jobject mReceiverWeakGlobal;
     sp<MessageQueue> mMessageQueue;
     DisplayEventReceiver mReceiver;
-    bool mWaitingForVsync;
 
     virtual void dispatchVsync(nsecs_t timestamp, int32_t id, uint32_t count);
     virtual void dispatchHotplug(nsecs_t timestamp, int32_t id, bool connected);
@@ -71,10 +65,11 @@ private:
 
 
 NativeDisplayEventReceiver::NativeDisplayEventReceiver(JNIEnv* env,
-        jobject receiverWeak, const sp<MessageQueue>& messageQueue) :
-        DisplayEventDispatcher(messageQueue->getLooper()),
+        jobject receiverWeak, const sp<MessageQueue>& messageQueue, jint vsyncSource) :
+        DisplayEventDispatcher(messageQueue->getLooper(),
+                static_cast<ISurfaceComposer::VsyncSource>(vsyncSource)),
         mReceiverWeakGlobal(env->NewGlobalRef(receiverWeak)),
-        mMessageQueue(messageQueue), mWaitingForVsync(false) {
+        mMessageQueue(messageQueue) {
     ALOGV("receiver %p ~ Initializing display event receiver.", this);
 }
 
@@ -119,7 +114,7 @@ void NativeDisplayEventReceiver::dispatchHotplug(nsecs_t timestamp, int32_t id, 
 
 
 static jlong nativeInit(JNIEnv* env, jclass clazz, jobject receiverWeak,
-        jobject messageQueueObj) {
+        jobject messageQueueObj, jint vsyncSource) {
     sp<MessageQueue> messageQueue = android_os_MessageQueue_getMessageQueue(env, messageQueueObj);
     if (messageQueue == NULL) {
         jniThrowRuntimeException(env, "MessageQueue is not initialized.");
@@ -127,7 +122,7 @@ static jlong nativeInit(JNIEnv* env, jclass clazz, jobject receiverWeak,
     }
 
     sp<NativeDisplayEventReceiver> receiver = new NativeDisplayEventReceiver(env,
-            receiverWeak, messageQueue);
+            receiverWeak, messageQueue, vsyncSource);
     status_t status = receiver->initialize();
     if (status) {
         String8 message;
@@ -162,12 +157,13 @@ static void nativeScheduleVsync(JNIEnv* env, jclass clazz, jlong receiverPtr) {
 static const JNINativeMethod gMethods[] = {
     /* name, signature, funcPtr */
     { "nativeInit",
-            "(Ljava/lang/ref/WeakReference;Landroid/os/MessageQueue;)J",
+            "(Ljava/lang/ref/WeakReference;Landroid/os/MessageQueue;I)J",
             (void*)nativeInit },
     { "nativeDispose",
             "(J)V",
             (void*)nativeDispose },
-    { "nativeScheduleVsync", "!(J)V",
+    // @FastNative
+    { "nativeScheduleVsync", "(J)V",
             (void*)nativeScheduleVsync }
 };
 

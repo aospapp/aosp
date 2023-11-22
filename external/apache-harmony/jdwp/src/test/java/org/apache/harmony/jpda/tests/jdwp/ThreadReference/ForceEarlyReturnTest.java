@@ -18,7 +18,6 @@
 
 package org.apache.harmony.jpda.tests.jdwp.ThreadReference;
 
-import org.apache.harmony.jpda.tests.framework.TestErrorException;
 import org.apache.harmony.jpda.tests.framework.jdwp.CommandPacket;
 import org.apache.harmony.jpda.tests.framework.jdwp.JDWPCommands;
 import org.apache.harmony.jpda.tests.framework.jdwp.JDWPConstants;
@@ -53,6 +52,7 @@ public class ForceEarlyReturnTest extends JDWPSyncTestCase {
 
     static final String debuggeeSignature = "Lorg/apache/harmony/jpda/tests/jdwp/ThreadReference/ForceEarlyReturnDebuggee;";
 
+    @Override
     protected String getDebuggeeClassName() {
         return "org.apache.harmony.jpda.tests.jdwp.ThreadReference.ForceEarlyReturnDebuggee";
     }
@@ -150,7 +150,7 @@ public class ForceEarlyReturnTest extends JDWPSyncTestCase {
     public void testForceEarlyReturn_ReturnInt() {
         thisTestName = "testForceEarlyReturn_ReturnInt";
         testThreadName = ForceEarlyReturnDebuggee.THREAD_INT;
-        expectedValue = new Value(EXPECTED_INT);
+        expectedValue = Value.createInt(EXPECTED_INT);
         RunTestForceEarlyReturn();
     }
 
@@ -166,7 +166,7 @@ public class ForceEarlyReturnTest extends JDWPSyncTestCase {
     public void testForceEarlyReturn_ReturnShort() {
         thisTestName = "testForceEarlyReturn_ReturnShort";
         testThreadName = ForceEarlyReturnDebuggee.THREAD_SHORT;
-        expectedValue = new Value(EXPECTED_SHORT);
+        expectedValue = Value.createShort(EXPECTED_SHORT);
         RunTestForceEarlyReturn();
     }
 
@@ -182,7 +182,7 @@ public class ForceEarlyReturnTest extends JDWPSyncTestCase {
     public void testForceEarlyReturn_ReturnByte() {
         thisTestName = "testForceEarlyReturn_ReturnByte";
         testThreadName = ForceEarlyReturnDebuggee.THREAD_BYTE;
-        expectedValue = new Value(EXPECTED_BYTE);
+        expectedValue = Value.createByte(EXPECTED_BYTE);
         RunTestForceEarlyReturn();
     }
 
@@ -198,7 +198,7 @@ public class ForceEarlyReturnTest extends JDWPSyncTestCase {
     public void testForceEarlyReturn_ReturnChar() {
         thisTestName = "testForceEarlyReturn_ReturnChar";
         testThreadName = ForceEarlyReturnDebuggee.THREAD_CHAR;
-        expectedValue = new Value(EXPECTED_CHAR);
+        expectedValue = Value.createChar(EXPECTED_CHAR);
         RunTestForceEarlyReturn();
     }
 
@@ -214,7 +214,7 @@ public class ForceEarlyReturnTest extends JDWPSyncTestCase {
     public void testForceEarlyReturn_ReturnBoolean() {
         thisTestName = "testForceEarlyReturn_ReturnBoolean";
         testThreadName = ForceEarlyReturnDebuggee.THREAD_BOOLEAN;
-        expectedValue = new Value(EXPECTED_BOOLEAN);
+        expectedValue = Value.createBoolean(EXPECTED_BOOLEAN);
         RunTestForceEarlyReturn();
     }
 
@@ -228,7 +228,7 @@ public class ForceEarlyReturnTest extends JDWPSyncTestCase {
     public void testForceEarlyReturn_NotSuspended() {
         thisTestName = "testForceEarlyReturn_NotSuspended";
         testThreadName = "test";
-        expectedValue = new Value(Tag.VOID_TAG, 0);
+        expectedValue = Value.createVoidValue();
 
         logWriter.println("==> " + thisTestName + " for " + thisCommandName
                 + ": START...");

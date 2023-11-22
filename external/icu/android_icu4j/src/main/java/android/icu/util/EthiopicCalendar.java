@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 2005-2016, International Business Machines Corporation and
@@ -22,7 +24,6 @@ import android.icu.util.ULocale.Category;
  * with the tag <code>"@calendar=ethiopic"</code>.</p>
  *
  * @see android.icu.util.Calendar
- * @hide Only a subset of ICU is exposed in Android
  */
 public final class EthiopicCalendar extends CECalendar 
 {

@@ -20,16 +20,20 @@
 #include <time.h>
 #include <unistd.h>
 
+#include "android-base/stringprintf.h"
+
 #include "atomic.h"
 #include "base/logging.h"
 #include "base/time_utils.h"
 #include "debugger.h"
 #include "jdwp/jdwp_priv.h"
-#include "scoped_thread_state_change.h"
+#include "scoped_thread_state_change-inl.h"
 
 namespace art {
 
 namespace JDWP {
+
+using android::base::StringPrintf;
 
 static void* StartJdwpThread(void* arg);
 
@@ -235,6 +239,7 @@ JdwpState::JdwpState(const JdwpOptions* options)
       shutdown_lock_("JDWP shutdown lock", kJdwpShutdownLock),
       shutdown_cond_("JDWP shutdown condition variable", shutdown_lock_),
       processing_request_(false) {
+  Locks::AddToExpectedMutexesOnWeakRefAccess(&event_list_lock_);
 }
 
 /*
@@ -251,7 +256,7 @@ JdwpState* JdwpState::Create(const JdwpOptions* options) {
     case kJdwpTransportSocket:
       InitSocketTransport(state.get(), options);
       break;
-#ifdef __ANDROID__
+#ifdef ART_TARGET_ANDROID
     case kJdwpTransportAndroidAdb:
       InitAdbTransport(state.get(), options);
       break;
@@ -377,6 +382,8 @@ JdwpState::~JdwpState() {
   CHECK(netState == nullptr);
 
   ResetState();
+
+  Locks::RemoveFromExpectedMutexesOnWeakRefAccess(&event_list_lock_);
 }
 
 /*

@@ -42,6 +42,7 @@ class JavaOptions final {
   static std::unique_ptr<JavaOptions> Parse(int argc, const char* const* argv);
 
   std::string DependencyFilePath() const;
+  bool DependencyFileNinja() const { return dep_file_ninja_; }
 
   int task{COMPILE_AIDL_TO_JAVA};
   bool fail_on_parcelable_{false};
@@ -52,6 +53,7 @@ class JavaOptions final {
   std::string output_base_folder_;
   std::string dep_file_name_;
   bool auto_dep_file_{false};
+  bool dep_file_ninja_{false};
   std::vector<std::string> files_to_preprocess_;
 
  private:
@@ -61,6 +63,7 @@ class JavaOptions final {
   FRIEND_TEST(AidlTest, FailOnParcelable);
   FRIEND_TEST(AidlTest, WritePreprocessedFile);
   FRIEND_TEST(AidlTest, WritesCorrectDependencyFile);
+  FRIEND_TEST(AidlTest, WritesCorrectDependencyFileNinja);
   FRIEND_TEST(AidlTest, WritesTrivialDependencyFileForParcelable);
 
   DISALLOW_COPY_AND_ASSIGN(JavaOptions);
@@ -82,6 +85,7 @@ class CppOptions final {
 
   std::vector<std::string> ImportPaths() const { return import_paths_; }
   std::string DependencyFilePath() const { return dep_file_name_; }
+  bool DependencyFileNinja() const { return dep_file_ninja_; }
 
  private:
   CppOptions() = default;
@@ -91,8 +95,10 @@ class CppOptions final {
   std::string output_header_dir_;
   std::string output_file_name_;
   std::string dep_file_name_;
+  bool dep_file_ninja_{false};
 
   FRIEND_TEST(CppOptionsTests, ParsesCompileCpp);
+  FRIEND_TEST(CppOptionsTests, ParsesCompileCppNinja);
   DISALLOW_COPY_AND_ASSIGN(CppOptions);
 };
 

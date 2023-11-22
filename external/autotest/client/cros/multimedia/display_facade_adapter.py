@@ -180,6 +180,11 @@ class DisplayFacadeLocalAdapter(object):
         self._display_component.hide_cursor()
 
 
+    def hide_typing_cursor(self):
+        """Hides typing cursor by moving outside typing bar."""
+        self._display_component.hide_typing_cursor()
+
+
     def set_content_protection(self, state):
         """Sets the content protection of the external screen.
 
@@ -245,9 +250,11 @@ class DisplayFacadeLocalAdapter(object):
     def get_internal_resolution(self):
         """Gets the resolution of the internal screen.
 
-        @return The resolution tuple (width, height)
+        @return The resolution tuple (width, height) or None if no internal
+                display.
         """
-        return tuple(self._display_component.get_internal_resolution())
+        resolution = self._display_component.get_internal_resolution()
+        return tuple(resolution) if resolution else None
 
 
     def set_resolution(self, display_index, width, height):
@@ -283,11 +290,37 @@ class DisplayFacadeLocalAdapter(object):
     def get_available_resolutions(self, display_index):
         """Gets the resolutions from the specified display.
 
+        @param display_index: index of the display to get modes from.
+
         @return a list of (width, height) tuples.
         """
         return [tuple(r) for r in
                 self._display_component.get_available_resolutions(
                     display_index)]
+
+
+    def get_display_rotation(self, display_index):
+        """Gets the display rotation for the specified display.
+
+        @param display_index: index of the display to get modes from.
+
+        @return: Degree of rotation.
+        """
+        return self._display_component.get_display_rotation(display_index)
+
+
+    def set_display_rotation(self, display_index, rotation,
+                             delay_before_rotation=0, delay_after_rotation=0):
+        """Sets the display rotation for the specified display.
+
+        @param display_index: index of the display to get modes from.
+        @param rotation: degree of rotation
+        @param delay_before_rotation: time in second for delay before rotation
+        @param delay_after_rotation: time in second for delay after rotation
+        """
+        self._display_component.set_display_rotation(
+                display_index, rotation, delay_before_rotation,
+                delay_after_rotation)
 
 
     def get_first_external_display_index(self):
@@ -296,3 +329,15 @@ class DisplayFacadeLocalAdapter(object):
         @return the index of the first external display; False if not found.
         """
         return self._display_component.get_first_external_display_index()
+
+
+    def reset_connector_if_applicable(self, connector_type):
+        """Resets video connector from host end if applicable.
+
+        This is the workaround method for remote display facade adapter only.
+        Put an empty method here in local adapter to prevent AttributeError of
+        client test.
+
+        @param connector_type: A string, like "VGA", "DVI", "HDMI", or "DP".
+        """
+        pass

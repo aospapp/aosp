@@ -30,7 +30,7 @@ class ANDROID_API Paint : public SkPaint {
 public:
     Paint();
     Paint(const Paint& paint);
-    Paint(const SkPaint& paint);
+    Paint(const SkPaint& paint);  // NOLINT(implicit)
     ~Paint();
 
     Paint& operator=(const Paint& other);
@@ -46,6 +46,14 @@ public:
 
     float getLetterSpacing() const {
         return mLetterSpacing;
+    }
+
+    void setWordSpacing(float wordSpacing) {
+        mWordSpacing = wordSpacing;
+    }
+
+    float getWordSpacing() const {
+        return mWordSpacing;
     }
 
     void setFontFeatureSettings(const std::string& fontFeatureSettings) {
@@ -64,11 +72,11 @@ public:
         return mMinikinLangListId;
     }
 
-    void setFontVariant(FontVariant variant) {
+    void setFontVariant(minikin::FontVariant variant) {
         mFontVariant = variant;
     }
 
-    FontVariant getFontVariant() const {
+    minikin::FontVariant getFontVariant() const {
         return mFontVariant;
     }
 
@@ -82,9 +90,10 @@ public:
 
 private:
     float mLetterSpacing = 0;
+    float mWordSpacing = 0;
     std::string mFontFeatureSettings;
     uint32_t mMinikinLangListId;
-    FontVariant mFontVariant;
+    minikin::FontVariant mFontVariant;
     uint32_t mHyphenEdit = 0;
 };
 

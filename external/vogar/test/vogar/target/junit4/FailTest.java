@@ -18,7 +18,7 @@ package vogar.target.junit4;
 
 import org.junit.Test;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.fail;
 
 public class FailTest {
     @Test

@@ -40,12 +40,12 @@ class CommandHandler;
 class RemoteAudio: public android::Thread {
 public:
 
-    RemoteAudio(ClientSocket& socket);
+    explicit RemoteAudio(ClientSocket& socket);
     virtual ~RemoteAudio();
 
     /** launch a thread, and connect to host */
     bool init(int port);
-    bool downloadData(const android::String8 name, android::sp<Buffer>& buffer, int& id);
+    bool downloadData(const android::String8& name, android::sp<Buffer>& buffer, int& id);
     // <0 : not found
     int getDataId(const android::String8& name);
     bool startPlayback(bool stereo, int samplingF, int mode, int volume,

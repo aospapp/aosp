@@ -23,8 +23,8 @@ LOCAL_JAVA_RESOURCE_DIRS := data mock_data
 LOCAL_MODULE := layoutlib-create-tests
 LOCAL_MODULE_TAGS := optional
 
-LOCAL_JAVA_LIBRARIES := layoutlib_create junit
-LOCAL_STATIC_JAVA_LIBRARIES := asm-5.0
+LOCAL_JAVA_LIBRARIES := layoutlib_create junit-host
+LOCAL_STATIC_JAVA_LIBRARIES := asm-5.2
 
 include $(BUILD_HOST_JAVA_LIBRARY)
 

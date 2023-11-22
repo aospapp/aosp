@@ -7,8 +7,9 @@
 #include <stdio.h>
 #include <unistd.h>
 
+#include <memory>
+
 #include <base/files/file_util.h>
-#include <base/memory/scoped_ptr.h>
 
 #include "glinterface.h"
 #include "md5.h"
@@ -50,17 +51,18 @@ double Bench(TestBase* test) {
   // bit of hysteresis as it might take too long to do a perfect job, which is
   // probably not required. But these parameters could be tuned.
   double initial_temperature = GetInitialMachineTemperature();
+  double cooldown_temperature = std::max(45.0, initial_temperature + 6.0);
   double temperature = 0;
   double wait = 0;
 
-  // By default we try to cool to initial + 5'C but don't wait longer than 30s.
-  // But in hasty mode we really don't want to spend too much time to get the
-  // numbers right, so we don't wait at all.
+  // By default we try to cool to initial + 6'C (don't bother below 45'C), but
+  // don't wait longer than 30s. In hasty mode we really don't want to spend
+  // too much time to get the numbers right, so we don't wait at all.
   if (!::g_notemp) {
-    wait = WaitForCoolMachine(initial_temperature + 5.0, 30.0, &temperature);
+    wait = WaitForCoolMachine(cooldown_temperature, 30.0, &temperature);
     printf("Bench: Cooled down to %.1f'C (initial=%.1f'C) after waiting %.1fs.\n",
            temperature, initial_temperature, wait);
-    if (temperature > initial_temperature + 10.0)
+    if (temperature > cooldown_temperature + 5.0)
       printf("Warning: Machine did not cool down enough for next test!");
   }
 
@@ -96,7 +98,7 @@ double Bench(TestBase* test) {
 
 void SaveImage(const char* name, const int width, const int height) {
   const int size = width * height * 4;
-  scoped_ptr<char[]> pixels(new char[size]);
+  std::unique_ptr<char[]> pixels(new char[size]);
   glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels.get());
   // I really think we want to use outdir as a straight argument
   base::FilePath dirname = base::FilePath(FLAGS_outdir);
@@ -110,7 +112,7 @@ void ComputeMD5(unsigned char digest[16], const int width, const int height) {
   MD5Context ctx;
   MD5Init(&ctx);
   const int size = width * height * 4;
-  scoped_ptr<char[]> pixels(new char[size]);
+  std::unique_ptr<char[]> pixels(new char[size]);
   glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels.get());
   MD5Update(&ctx, (unsigned char *)pixels.get(), size);
   MD5Final(digest, &ctx);

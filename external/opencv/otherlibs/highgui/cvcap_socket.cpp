@@ -47,14 +47,14 @@
 // capture video from a socket connection
 //
 
+#define LOG_TAG "CVJNI"
+#define LOGV(...) __android_log_print(ANDROID_LOG_SILENT, LOG_TAG, __VA_ARGS__)
+
 #include "_highgui.h"
 #include <android/log.h>
 #include <errno.h>
 #include <netdb.h>
 #include <unistd.h>
-
-#define LOGV(...) __android_log_print(ANDROID_LOG_SILENT, LOG_TAG, __VA_ARGS__)
-#define LOG_TAG "CVJNI"
 
 #ifdef NDEBUG
 #define CV_WARN(message)

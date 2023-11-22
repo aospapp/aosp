@@ -22,11 +22,11 @@ import com.android.cts.verifier.audio.wavelib.*;
 import com.android.compatibility.common.util.ReportLog;
 import com.android.compatibility.common.util.ResultType;
 import com.android.compatibility.common.util.ResultUnit;
+
 import android.content.Context;
 import android.content.BroadcastReceiver;
 import android.content.Intent;
 import android.content.IntentFilter;
-
 import android.media.AudioDeviceCallback;
 import android.media.AudioDeviceInfo;
 import android.media.AudioFormat;
@@ -34,17 +34,13 @@ import android.media.AudioManager;
 import android.media.AudioTrack;
 import android.media.AudioRecord;
 import android.media.MediaRecorder;
-
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
 import android.os.SystemClock;
-
 import android.util.Log;
-
 import android.view.View;
 import android.view.View.OnClickListener;
-
 import android.widget.Button;
 import android.widget.TextView;
 import android.widget.SeekBar;
@@ -59,25 +55,63 @@ public class AudioFrequencyUnprocessedActivity extends AudioFrequencyActivity im
     private static final String TAG = "AudioFrequencyUnprocessedActivity";
 
     private static final int TEST_STARTED = 900;
-    private static final int TEST_ENDED = 901;
-    private static final int TEST_MESSAGE = 902;
-    private static final int TEST1_MESSAGE = 903;
-    private static final int TEST1_ENDED = 904;
-    private static final double MIN_ENERGY_BAND_1 = -50.0;          //dB Full Scale
-    private static final double MAX_ENERGY_BAND_1_BASE = -60.0;     //dB Full Scale
-    private static final double MIN_FRACTION_POINTS_IN_BAND = 0.3;
+    private static final int TEST_MESSAGE = 903;
+    private static final int TEST_ENDED = 904;
+    private static final int TEST_ENDED_ERROR = 905;
+    private static final double MIN_FRACTION_POINTS_IN_BAND = 0.5;
+
+    private static final double TONE_RMS_EXPECTED = -36.0;
+    private static final double TONE_RMS_MAX_ERROR = 3.0;
+
     private static final double MAX_VAL = Math.pow(2, 15);
     private static final double CLIP_LEVEL = (MAX_VAL-10) / MAX_VAL;
+
+    private static final int SOURCE_TONE = 0;
+    private static final int SOURCE_NOISE = 1;
+
+    private static final int TEST_NONE = -1;
+    private static final int TEST_TONE = 0;
+    private static final int TEST_NOISE = 1;
+    private static final int TEST_USB_BACKGROUND = 2;
+    private static final int TEST_USB_NOISE = 3;
+    private static final int TEST_COUNT = 4;
+    private int mCurrentTest = TEST_NONE;
+    private boolean mTestsDone[] = new boolean[TEST_COUNT];
+
+    private static final int TEST_DURATION_DEFAULT = 2000;
+    private static final int TEST_DURATION_TONE = TEST_DURATION_DEFAULT;
+    private static final int TEST_DURATION_NOISE = TEST_DURATION_DEFAULT;
+    private static final int TEST_DURATION_USB_BACKGROUND = TEST_DURATION_DEFAULT;
+    private static final int TEST_DURATION_USB_NOISE = TEST_DURATION_DEFAULT;
 
     final OnBtnClickListener mBtnClickListener = new OnBtnClickListener();
     Context mContext;
 
-    Button mTest1Button;                //execute test 1
-    Button mTest2Button;                 //user to start test
-    String mUsbDevicesInfo;             //usb device info for report
-    LinearLayout mLayoutTest1;
-    TextView mTest1Result;
-    ProgressBar mProgressBar;
+    LinearLayout mLayoutTestTone;
+    Button mButtonTestTone;
+    ProgressBar mProgressTone;
+    TextView mResultTestTone;
+    Button mButtonPlayTone;
+
+    LinearLayout mLayoutTestNoise;
+    Button mButtonTestNoise;
+    ProgressBar mProgressNoise;
+    TextView mResultTestNoise;
+    Button mButtonPlayNoise;
+
+    LinearLayout mLayoutTestUsbBackground;
+    Button mButtonTestUsbBackground;
+    ProgressBar mProgressUsbBackground;
+    TextView mResultTestUsbBackground;
+
+    LinearLayout mLayoutTestUsbNoise;
+    Button mButtonTestUsbNoise;
+    ProgressBar mProgressUsbNoise;
+    TextView mResultTestUsbNoise;
+    Button mButtonPlayUsbNoise;
+
+    TextView mGlobalResultText;
+    TextView mTextViewUnprocessedStatus;
 
     private boolean mIsRecording = false;
     private final Object mRecordingLock = new Object();
@@ -95,6 +129,8 @@ public class AudioFrequencyUnprocessedActivity extends AudioFrequencyActivity im
 
     PipeShort mPipe = new PipeShort(65536);
 
+    SoundPlayerObject mSPlayer;
+
     private boolean mSupportsUnprocessed = false;
 
     private DspBufferComplex mC;
@@ -102,25 +138,27 @@ public class AudioFrequencyUnprocessedActivity extends AudioFrequencyActivity im
 
     private DspWindow mWindow;
     private DspFftServer mFftServer;
-    private VectorAverage mFreqAverageMain = new VectorAverage();
-    private VectorAverage mFreqAverageBuiltIn = new VectorAverage();
+    private VectorAverage mFreqAverageTone = new VectorAverage();
+    private VectorAverage mFreqAverageNoise = new VectorAverage();
+    private VectorAverage mFreqAverageUsbBackground = new VectorAverage();
+    private VectorAverage mFreqAverageUsbNoise = new VectorAverage();
 
-    int mBands = 4;
-    AudioBandSpecs[] bandSpecsArray = new AudioBandSpecs[mBands];
-    private TextView mTextViewUnprocessedStatus;
+    //RMS for tone:
+    private double mRMS;
+    private double mRMSMax;
 
-    private class OnBtnClickListener implements OnClickListener {
-        @Override
-        public void onClick(View v) {
-            switch (v.getId()) {
-            case R.id.audio_frequency_unprocessed_test1_btn:
-                setMaxLevel();
-                testMaxLevel();
-                startTest1();
-                break;
-            }
-        }
-    }
+    private double mRMSTone;
+    private double mRMSMaxTone;
+
+    int mBands = 3;
+    int mBandsTone = 3;
+    int mBandsBack = 3;
+    AudioBandSpecs[] mBandSpecsMic = new AudioBandSpecs[mBands];
+    AudioBandSpecs[] mBandSpecsTone = new AudioBandSpecs[mBandsTone];
+    AudioBandSpecs[] mBandSpecsBack = new AudioBandSpecs[mBandsBack];
+    private Results mResultsMic;
+    private Results mResultsTone;
+    private Results mResultsBack;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -139,13 +177,51 @@ public class AudioFrequencyUnprocessedActivity extends AudioFrequencyActivity im
                     getResources().getText(R.string.audio_frequency_unprocessed_not_defined));
         }
 
-        mTest1Button = (Button)findViewById(R.id.audio_frequency_unprocessed_test1_btn);
-        mTest1Button.setOnClickListener(mBtnClickListener);
-        mTest1Result = (TextView)findViewById(R.id.audio_frequency_unprocessed_results1_text);
-        mLayoutTest1 = (LinearLayout) findViewById(R.id.audio_frequency_unprocessed_layout_test1);
-        mProgressBar = (ProgressBar)findViewById(R.id.audio_frequency_unprocessed_progress_bar);
-        showWait(false);
-        enableLayout(mLayoutTest1, true);
+        mSPlayer = new SoundPlayerObject();
+        playerSetSource(SOURCE_TONE);
+
+        // Test tone
+        mLayoutTestTone = (LinearLayout) findViewById(R.id.unprocessed_layout_test_tone);
+        mButtonTestTone = (Button) findViewById(R.id.unprocessed_test_tone_btn);
+        mButtonTestTone.setOnClickListener(mBtnClickListener);
+        mProgressTone = (ProgressBar) findViewById(R.id.unprocessed_test_tone_progress_bar);
+        mResultTestTone = (TextView) findViewById(R.id.unprocessed_test_tone_result);
+        mButtonPlayTone = (Button) findViewById(R.id.unprocessed_play_tone_btn);
+        mButtonPlayTone.setOnClickListener(mBtnClickListener);
+        showWait(mProgressTone, false);
+
+        //Test Noise
+        mLayoutTestNoise = (LinearLayout) findViewById(R.id.unprocessed_layout_test_noise);
+        mButtonTestNoise = (Button) findViewById(R.id.unprocessed_test_noise_btn);
+        mButtonTestNoise.setOnClickListener(mBtnClickListener);
+        mProgressNoise = (ProgressBar) findViewById(R.id.unprocessed_test_noise_progress_bar);
+        mResultTestNoise = (TextView) findViewById(R.id.unprocessed_test_noise_result);
+        mButtonPlayNoise = (Button) findViewById(R.id.unprocessed_play_noise_btn);
+        mButtonPlayNoise.setOnClickListener(mBtnClickListener);
+        showWait(mProgressNoise, false);
+
+        //USB Background
+        mLayoutTestUsbBackground = (LinearLayout)
+                findViewById(R.id.unprocessed_layout_test_usb_background);
+        mButtonTestUsbBackground = (Button) findViewById(R.id.unprocessed_test_usb_background_btn);
+        mButtonTestUsbBackground.setOnClickListener(mBtnClickListener);
+        mProgressUsbBackground = (ProgressBar)
+                findViewById(R.id.unprocessed_test_usb_background_progress_bar);
+        mResultTestUsbBackground = (TextView)
+                findViewById(R.id.unprocessed_test_usb_background_result);
+        showWait(mProgressUsbBackground, false);
+
+        mLayoutTestUsbNoise = (LinearLayout) findViewById(R.id.unprocessed_layout_test_usb_noise);
+        mButtonTestUsbNoise = (Button) findViewById(R.id.unprocessed_test_usb_noise_btn);
+        mButtonTestUsbNoise.setOnClickListener(mBtnClickListener);
+        mProgressUsbNoise = (ProgressBar)findViewById(R.id.unprocessed_test_usb_noise_progress_bar);
+        mResultTestUsbNoise = (TextView) findViewById(R.id.unprocessed_test_usb_noise_result);
+        mButtonPlayUsbNoise = (Button) findViewById(R.id.unprocessed_play_usb_noise_btn);
+        mButtonPlayUsbNoise.setOnClickListener(mBtnClickListener);
+        showWait(mProgressUsbNoise, false);
+
+        setButtonPlayStatus(-1);
+        mGlobalResultText = (TextView) findViewById(R.id.unprocessed_test_global_result);
 
         //Init FFT stuff
         mAudioShortArray2 = new short[mBlockSizeSamples*2];
@@ -162,29 +238,141 @@ public class AudioFrequencyUnprocessedActivity extends AudioFrequencyActivity im
         setInfoResources(R.string.audio_frequency_unprocessed_test,
                 R.string.audio_frequency_unprocessed_info, -1);
 
-        //Init bands for BuiltIn/Reference test
-        bandSpecsArray[0] = new AudioBandSpecs(
-                2, 500,         /* frequency start,stop */
-                30.0, -50,     /* start top,bottom value */
-                30.0, -4.0       /* stop top,bottom value */);
+        //Init bands for Mic test
+        mBandSpecsMic[0] = new AudioBandSpecs(
+                5, 100,          /* frequency start,stop */
+                20.0, -20.0,     /* start top,bottom value */
+                20.0, -20.0      /* stop top,bottom value */);
 
-        bandSpecsArray[1] = new AudioBandSpecs(
-                500,4000,       /* frequency start,stop */
-                4.0, -4.0,      /* start top,bottom value */
-                4.0, -4.0        /* stop top,bottom value */);
+        mBandSpecsMic[1] = new AudioBandSpecs(
+                100, 7000,       /* frequency start,stop */
+                10.0, -10.0,     /* start top,bottom value */
+                10.0, -10.0      /* stop top,bottom value */);
 
-        bandSpecsArray[2] = new AudioBandSpecs(
-                4000, 12000,    /* frequency start,stop */
-                4.0, -4.0,      /* start top,bottom value */
-                5.0, -5.0       /* stop top,bottom value */);
+        mBandSpecsMic[2] = new AudioBandSpecs(
+                7000, 20000,     /* frequency start,stop */
+                30.0, -30.0,     /* start top,bottom value */
+                30.0, -30.0      /* stop top,bottom value */);
 
-        bandSpecsArray[3] = new AudioBandSpecs(
-                12000, 20000,   /* frequency start,stop */
-                5.0, -5.0,      /* start top,bottom value */
-                5.0, -30.0      /* stop top,bottom value */);
+        //Init bands for Tone test
+        mBandSpecsTone[0] = new AudioBandSpecs(
+                5, 900,          /* frequency start,stop */
+                -10.0, -100.0,     /* start top,bottom value */
+                -10.0, -100.0      /* stop top,bottom value */);
+
+        mBandSpecsTone[1] = new AudioBandSpecs(
+                900, 1100,       /* frequency start,stop */
+                10.0, -50.0,     /* start top,bottom value */
+                10.0, -10.0      /* stop top,bottom value */);
+
+        mBandSpecsTone[2] = new AudioBandSpecs(
+                1100, 20000,     /* frequency start,stop */
+                -30.0, -120.0,     /* start top,bottom value */
+                -30.0, -120.0      /* stop top,bottom value */);
+
+      //Init bands for Background test
+        mBandSpecsBack[0] = new AudioBandSpecs(
+                5, 100,          /* frequency start,stop */
+                10.0, -120.0,     /* start top,bottom value */
+                -10.0, -120.0      /* stop top,bottom value */);
+
+        mBandSpecsBack[1] = new AudioBandSpecs(
+                100, 7000,       /* frequency start,stop */
+                -10.0, -120.0,     /* start top,bottom value */
+                -50.0, -120.0      /* stop top,bottom value */);
+
+        mBandSpecsBack[2] = new AudioBandSpecs(
+                7000, 20000,     /* frequency start,stop */
+                -50.0, -120.0,     /* start top,bottom value */
+                -50.0, -120.0      /* stop top,bottom value */);
 
         mSupportsUnprocessed = supportsUnprocessed();
         Log.v(TAG, "Supports unprocessed: " + mSupportsUnprocessed);
+
+        mResultsMic =  new Results("mic_response", mBands);
+        mResultsTone = new Results("tone_response", mBandsTone);
+        mResultsBack = new Results("background_response", mBandsBack);
+    }
+
+    private void playerToggleButton(int buttonId, int sourceId) {
+        if (playerIsPlaying()) {
+            playerStopAll();
+        } else {
+            playerSetSource(sourceId);
+            playerTransport(true);
+            setButtonPlayStatus(buttonId);
+        }
+    }
+
+    private class OnBtnClickListener implements OnClickListener {
+        @Override
+        public void onClick(View v) {
+            int id = v.getId();
+            switch (id) {
+            case R.id.unprocessed_test_tone_btn:
+                startTest(TEST_TONE);
+                break;
+            case R.id.unprocessed_play_tone_btn:
+                playerToggleButton(id, SOURCE_TONE);
+                break;
+            case R.id.unprocessed_test_noise_btn:
+                startTest(TEST_NOISE);
+                break;
+            case R.id.unprocessed_play_noise_btn:
+                playerToggleButton(id, SOURCE_NOISE);
+                break;
+            case R.id.unprocessed_test_usb_background_btn:
+                startTest(TEST_USB_BACKGROUND);
+                break;
+            case R.id.unprocessed_test_usb_noise_btn:
+                startTest(TEST_USB_NOISE);
+                break;
+            case R.id.unprocessed_play_usb_noise_btn:
+                playerToggleButton(id, SOURCE_NOISE);
+                break;
+            }
+        }
+    }
+
+    private void setButtonPlayStatus(int playResId) {
+        String play = getResources().getText(R.string.unprocessed_play).toString();
+        String stop = getResources().getText(R.string.unprocessed_stop).toString();
+
+        mButtonPlayTone.setText(playResId == R.id.unprocessed_play_tone_btn ? stop : play);
+        mButtonPlayNoise.setText(playResId == R.id.unprocessed_play_noise_btn ? stop : play);
+        mButtonPlayUsbNoise.setText(playResId ==
+                R.id.unprocessed_play_usb_noise_btn ? stop : play);
+    }
+
+    private void playerSetSource(int sourceIndex) {
+        switch (sourceIndex) {
+            case SOURCE_TONE:
+                mSPlayer.setSoundWithResId(getApplicationContext(), R.raw.onekhztone);
+                break;
+            default:
+            case SOURCE_NOISE:
+                mSPlayer.setSoundWithResId(getApplicationContext(),
+                        R.raw.stereo_mono_white_noise_48);
+                break;
+        }
+    }
+
+    private void playerTransport(boolean play) {
+        if (!mSPlayer.isAlive()) {
+            mSPlayer.start();
+        }
+        mSPlayer.play(play);
+    }
+
+    private boolean playerIsPlaying() {
+       return mSPlayer.isPlaying();
+    }
+
+    private void playerStopAll() {
+        if (mSPlayer.isAlive() && mSPlayer.isPlaying()) {
+            mSPlayer.play(false);
+            setButtonPlayStatus(-1);
+        }
     }
 
     /**
@@ -197,14 +385,66 @@ public class AudioFrequencyUnprocessedActivity extends AudioFrequencyActivity im
         }
     }
 
-    /**
-     * show active progress bar
-     */
-    private void showWait(boolean show) {
+    private void showWait(ProgressBar pb, boolean show) {
         if (show) {
-            mProgressBar.setVisibility(View.VISIBLE);
+            pb.setVisibility(View.VISIBLE);
         } else {
-            mProgressBar.setVisibility(View.INVISIBLE);
+            pb.setVisibility(View.INVISIBLE);
+        }
+    }
+
+    private String getTestString(int testId) {
+        String name = "undefined";
+        switch(testId) {
+            case TEST_TONE:
+                name = "BuiltIn_tone";
+                break;
+            case TEST_NOISE:
+                name = "BuiltIn_noise";
+                break;
+            case TEST_USB_BACKGROUND:
+                name = "USB_background";
+                break;
+            case TEST_USB_NOISE:
+                name = "USB_noise";
+                break;
+        }
+        return name;
+    }
+
+    private void showWait(int testId, boolean show) {
+        switch(testId) {
+            case TEST_TONE:
+                showWait(mProgressTone, show);
+                break;
+            case TEST_NOISE:
+                showWait(mProgressNoise, show);
+                break;
+            case TEST_USB_BACKGROUND:
+                showWait(mProgressUsbBackground, show);
+                break;
+            case TEST_USB_NOISE:
+                showWait(mProgressUsbNoise, show);
+                break;
+        }
+    }
+
+    private void showMessage(int testId, String msg) {
+        if (msg != null && msg.length() > 0) {
+            switch(testId) {
+                case TEST_TONE:
+                    mResultTestTone.setText(msg);
+                    break;
+                case TEST_NOISE:
+                    mResultTestNoise.setText(msg);
+                    break;
+                case TEST_USB_BACKGROUND:
+                    mResultTestUsbBackground.setText(msg);
+                    break;
+                case TEST_USB_NOISE:
+                    mResultTestUsbNoise.setText(msg);
+                    break;
+            }
         }
     }
 
@@ -224,47 +464,320 @@ public class AudioFrequencyUnprocessedActivity extends AudioFrequencyActivity im
         return unprocessedSupport;
     }
 
-    /**
-     *  Start the loopback audio test
-     */
-    private void startTest1() {
+    private void computeAllResults() {
+        StringBuilder sb = new StringBuilder();
+
+        boolean allDone = true;
+
+        for (int i=0; i<TEST_COUNT; i++) {
+            allDone = allDone & mTestsDone[i];
+            sb.append(String.format("%s : %s\n", getTestString(i),
+                    mTestsDone[i] ? "DONE" :" NOT DONE"));
+        }
+
+        if (allDone) {
+            sb.append(computeResults());
+        } else {
+            sb.append("Please execute all tests for results\n");
+        }
+        mGlobalResultText.setText(sb.toString());
+    }
+
+    private void processSpectrum(Results results, AudioBandSpecs[] bandsSpecs, int anchorBand) {
+        int points = results.mValuesLog.length;
+        int bandCount = bandsSpecs.length;
+        int currentBand = 0;
+        for (int i = 0; i < points; i++) {
+            double freq = (double)mSamplingRate * i / (double)mBlockSizeSamples;
+            if (freq > bandsSpecs[currentBand].mFreqStop) {
+                currentBand++;
+                if (currentBand >= bandCount)
+                    break;
+            }
+
+            if (freq >= bandsSpecs[currentBand].mFreqStart) {
+                results.mAverageEnergyPerBand[currentBand] += results.mValuesLog[i];
+                results.mPointsPerBand[currentBand]++;
+            }
+        }
+
+        for (int b = 0; b < bandCount; b++) {
+            if (results.mPointsPerBand[b] > 0) {
+                results.mAverageEnergyPerBand[b] =
+                        results.mAverageEnergyPerBand[b] / results.mPointsPerBand[b];
+            }
+        }
+
+        //set offset relative to band anchor band level
+        for (int b = 0; b < bandCount; b++) {
+            if (anchorBand > -1 && anchorBand < bandCount) {
+                bandsSpecs[b].setOffset(results.mAverageEnergyPerBand[anchorBand]);
+            } else {
+                bandsSpecs[b].setOffset(0);
+            }
+        }
+
+        //test points in band.
+        currentBand = 0;
+        for (int i = 0; i < points; i++) {
+            double freq = (double) mSamplingRate * i / (double) mBlockSizeSamples;
+            if (freq >  bandsSpecs[currentBand].mFreqStop) {
+                currentBand++;
+                if (currentBand >= bandCount)
+                    break;
+            }
+
+            if (freq >= bandsSpecs[currentBand].mFreqStart) {
+                double value = results.mValuesLog[i];
+                if (bandsSpecs[currentBand].isInBounds(freq, value)) {
+                    results.mInBoundPointsPerBand[currentBand]++;
+                }
+            }
+        }
+    }
+
+    private String computeResults() {
+        StringBuilder sb = new StringBuilder();
+
+        int points = mFreqAverageNoise.getSize();
+        //mFreqAverageNoise size is determined by the latest data writen to it.
+        //Currently, this data is always mBlockSizeSamples/2.
+        if (points < 1) {
+            return "error: not enough points";
+        }
+
+        double[] tone = new double[points];
+        double[] noise = new double[points];
+        double[] reference = new double[points];
+        double[] background = new double[points];
+
+        mFreqAverageTone.getData(tone, false);
+        mFreqAverageNoise.getData(noise, false);
+        mFreqAverageUsbNoise.getData(reference, false);
+        mFreqAverageUsbBackground.getData(background, false);
+
+        //Convert to dB
+        double[] toneDb = new double[points];
+        double[] noiseDb = new double[points];
+        double[] referenceDb = new double[points];
+        double[] backgroundDb = new double[points];
+
+        double[] compensatedNoiseDb = new double[points];
+
+        for (int i = 0; i < points; i++) {
+            toneDb[i] = 20 * Math.log10(tone[i]);
+            noiseDb[i] = 20 * Math.log10(noise[i]);
+            referenceDb[i] = 20 * Math.log10(reference[i]);
+            backgroundDb[i] = 20 * Math.log10(background[i]);
+
+            compensatedNoiseDb[i] = noiseDb[i] - referenceDb[i];
+        }
+
+        mResultsMic.reset();
+        mResultsTone.reset();
+        mResultsBack.reset();
+
+        mResultsMic.mValuesLog = compensatedNoiseDb;
+        mResultsTone.mValuesLog = toneDb;
+        mResultsBack.mValuesLog = backgroundDb;
+
+        processSpectrum(mResultsMic, mBandSpecsMic, 1);
+        processSpectrum(mResultsTone, mBandSpecsTone, 1);
+        processSpectrum(mResultsBack, mBandSpecsBack, -1); //no reference for offset
+
+        //Tone test
+        boolean toneTestSuccess = true;
+        {
+            //rms level should be -36 dbfs +/- 3 db?
+            double rmsMaxDb =  20 * Math.log10(mRMSMaxTone);
+            sb.append(String.format("RMS level of tone: %.2f dBFS\n", rmsMaxDb));
+            sb.append(String.format("Target RMS level: %.2f dBFS +/- %.2f dB\n",
+                    TONE_RMS_EXPECTED,
+                    TONE_RMS_MAX_ERROR));
+            if (Math.abs(rmsMaxDb - TONE_RMS_EXPECTED) > TONE_RMS_MAX_ERROR) {
+                toneTestSuccess = false;
+                sb.append("RMS level test FAILED\n");
+            } else {
+                sb.append(" RMS level test SUCCESSFUL\n");
+            }
+            //check the spectrum is really a tone around 1 khz
+        }
+
+        sb.append("\n");
+        sb.append(mResultsTone.toString());
+        if (mResultsTone.testAll()) {
+            sb.append(" 1 Khz Tone Frequency Response Test SUCCESSFUL\n");
+        } else {
+            sb.append(" 1 Khz Tone Frequency Response Test FAILED\n");
+        }
+        sb.append("\n");
+
+        sb.append("\n");
+        sb.append(mResultsBack.toString());
+        if (mResultsBack.testAll()) {
+            sb.append(" Background environment Test SUCCESSFUL\n");
+        } else {
+            sb.append(" Background environment Test FAILED\n");
+        }
+
+        sb.append("\n");
+        sb.append(mResultsMic.toString());
+        if (mResultsMic.testAll()) {
+            sb.append(" Frequency Response Test SUCCESSFUL\n");
+        } else {
+            sb.append(" Frequency Response Test FAILED\n");
+        }
+        sb.append("\n");
+
+        recordTestResults(mResultsTone);
+        recordTestResults(mResultsMic);
+
+        boolean allTestsPassed = false;
+        if (mResultsMic.testAll() && mResultsTone.testAll() && toneTestSuccess &&
+                mResultsBack.testAll()) {
+            allTestsPassed = true;
+            String strSuccess = getResources().getString(R.string.audio_general_test_passed);
+            sb.append(strSuccess);
+        } else {
+            String strFailed = getResources().getString(R.string.audio_general_test_failed);
+            sb.append(strFailed);
+        }
+
+        sb.append("\n");
+        if (mSupportsUnprocessed) { //test is mandatory
+            sb.append(getResources().getText(
+                    R.string.audio_frequency_unprocessed_defined).toString());
+            if (allTestsPassed) {
+                getPassButton().setEnabled(true);
+            } else {
+                getPassButton().setEnabled(false);
+            }
+        } else {
+            //test optional
+            sb.append(getResources().getText(
+                    R.string.audio_frequency_unprocessed_not_defined).toString());
+            getPassButton().setEnabled(true);
+        }
+        return sb.toString();
+    }
+
+    Thread mTestThread;
+    private void startTest(int testId) {
         if (mTestThread != null && !mTestThread.isAlive()) {
             mTestThread = null; //kill it.
         }
 
         if (mTestThread == null) {
+            mRMS = 0;
+            mRMSMax = 0;
             Log.v(TAG,"Executing test Thread");
-            mTestThread = new Thread(mTest1Runnable);
+            switch(testId) {
+                case TEST_TONE:
+                    mTestThread = new Thread(new TestRunnable(TEST_TONE) {
+                        public void run() {
+                            super.run();
+                            if (!mUsbMicConnected) {
+                                sendMessage(mTestId, TEST_MESSAGE,
+                                        "Testing Built in Microphone: Tone");
+                                mRMSTone = 0;
+                                mRMSMaxTone = 0;
+                                mFreqAverageTone.reset();
+                                mFreqAverageTone.setCaptureType(VectorAverage.CAPTURE_TYPE_MAX);
+                                record(TEST_DURATION_TONE);
+                                sendMessage(mTestId, TEST_ENDED, "Testing Completed");
+                                mTestsDone[mTestId] = true;
+                            } else {
+                                sendMessage(mTestId, TEST_ENDED_ERROR,
+                                        "Please Unplug USB Microphone");
+                                mTestsDone[mTestId] = false;
+                            }
+                        }
+                    });
+                break;
+                case TEST_NOISE:
+                    mTestThread = new Thread(new TestRunnable(TEST_NOISE) {
+                        public void run() {
+                            super.run();
+                            if (!mUsbMicConnected) {
+                                sendMessage(mTestId, TEST_MESSAGE,
+                                        "Testing Built in Microphone: Noise");
+                                mFreqAverageNoise.reset();
+                                mFreqAverageNoise.setCaptureType(VectorAverage.CAPTURE_TYPE_MAX);
+                                record(TEST_DURATION_NOISE);
+                                sendMessage(mTestId, TEST_ENDED, "Testing Completed");
+                                mTestsDone[mTestId] = true;
+                            } else {
+                                sendMessage(mTestId, TEST_ENDED_ERROR,
+                                        "Please Unplug USB Microphone");
+                                mTestsDone[mTestId] = false;
+                            }
+                        }
+                    });
+                break;
+                case TEST_USB_BACKGROUND:
+                    playerStopAll();
+                    mTestThread = new Thread(new TestRunnable(TEST_USB_BACKGROUND) {
+                        public void run() {
+                            super.run();
+                            if (mUsbMicConnected) {
+                                sendMessage(mTestId, TEST_MESSAGE,
+                                        "Testing USB Microphone: background");
+                                mFreqAverageUsbBackground.reset();
+                                mFreqAverageUsbBackground.setCaptureType(
+                                        VectorAverage.CAPTURE_TYPE_AVERAGE);
+                                record(TEST_DURATION_USB_BACKGROUND);
+                                sendMessage(mTestId, TEST_ENDED, "Testing Completed");
+                                mTestsDone[mTestId] = true;
+                            } else {
+                                sendMessage(mTestId, TEST_ENDED_ERROR,
+                                        "USB Microphone not detected.");
+                                mTestsDone[mTestId] = false;
+                            }
+                        }
+                    });
+                break;
+                case TEST_USB_NOISE:
+                    mTestThread = new Thread(new TestRunnable(TEST_USB_NOISE) {
+                        public void run() {
+                            super.run();
+                            if (mUsbMicConnected) {
+                                sendMessage(mTestId, TEST_MESSAGE, "Testing USB Microphone: Noise");
+                                mFreqAverageUsbNoise.reset();
+                                mFreqAverageUsbNoise.setCaptureType(VectorAverage.CAPTURE_TYPE_MAX);
+                                record(TEST_DURATION_USB_NOISE);
+                                sendMessage(mTestId, TEST_ENDED, "Testing Completed");
+                                mTestsDone[mTestId] = true;
+                            } else {
+                                sendMessage(mTestId, TEST_ENDED_ERROR,
+                                        "USB Microphone not detected.");
+                                mTestsDone[mTestId] = false;
+                            }
+                        }
+                    });
+                break;
+            }
             mTestThread.start();
         } else {
             Log.v(TAG,"test Thread already running.");
         }
     }
-
-    Thread mTestThread;
-    Runnable mTest1Runnable = new Runnable() {
-        public void run() {
-            Message msg = Message.obtain();
-            msg.what = TEST_STARTED;
-            mMessageHandler.sendMessage(msg);
-
-            sendMessage("Testing Built in Microphone");
-            mFreqAverageBuiltIn.reset();
-            mFreqAverageBuiltIn.setCaptureType(VectorAverage.CAPTURE_TYPE_MAX);
-            play();
-
-            sendMessage("Testing Completed");
-
-            Message msg2 = Message.obtain();
-            msg2.what = TEST1_ENDED;
-            mMessageHandler.sendMessage(msg2);
+    public class TestRunnable implements Runnable {
+        public int mTestId;
+        public boolean mUsbMicConnected;
+        TestRunnable(int testId) {
+            Log.v(TAG,"New TestRunnable");
+            mTestId = testId;
         }
-
-        private void play() {
+        public void run() {
+            mCurrentTest = mTestId;
+            sendMessage(mTestId, TEST_STARTED,"");
+            mUsbMicConnected =
+                    UsbMicrophoneTester.getIsMicrophoneConnected(getApplicationContext());
+        };
+        public void record(int durationMs) {
             startRecording();
-
             try {
-                Thread.sleep(5000);
+                Thread.sleep(durationMs);
             } catch (InterruptedException e) {
                 e.printStackTrace();
                 //restore interrupted status
@@ -272,41 +785,40 @@ public class AudioFrequencyUnprocessedActivity extends AudioFrequencyActivity im
             }
             stopRecording();
         }
-
-        private void sendMessage(String str) {
+        public void sendMessage(int testId, int msgType, String str) {
             Message msg = Message.obtain();
-            msg.what = TEST1_MESSAGE;
+            msg.what = msgType;
             msg.obj = str;
+            msg.arg1 = testId;
             mMessageHandler.sendMessage(msg);
         }
-    };
+    }
 
     private Handler mMessageHandler = new Handler() {
         public void handleMessage(Message msg) {
             super.handleMessage(msg);
+            int testId = msg.arg1; //testId
+            String str = (String) msg.obj;
             switch (msg.what) {
             case TEST_STARTED:
-                showWait(true);
-                getPassButton().setEnabled(false);
+                showWait(testId, true);
+//                getPassButton().setEnabled(false);
+                break;
+            case TEST_MESSAGE:
+                    showMessage(testId, str);
                 break;
             case TEST_ENDED:
-                showWait(false);
-//                computeTest2Results();
+                showWait(testId, false);
+                playerStopAll();
+                showMessage(testId, str);
+                appendResultsToScreen(testId, "test finished");
+                computeAllResults();
                 break;
-            case TEST1_MESSAGE: {
-                    String str = (String)msg.obj;
-                    if (str != null) {
-                        mTest1Result.setText(str);
-                    }
-                }
-                break;
-            case TEST1_ENDED:
-                showWait(false);
-                computeTest1Results();
-                break;
-            case TEST_MESSAGE: {
-                }
-                break;
+            case TEST_ENDED_ERROR:
+                showWait(testId, false);
+                playerStopAll();
+                showMessage(testId, str);
+                computeAllResults();
             default:
                 Log.e(TAG, String.format("Unknown message: %d", msg.what));
             }
@@ -314,21 +826,32 @@ public class AudioFrequencyUnprocessedActivity extends AudioFrequencyActivity im
     };
 
     private class Results {
+        private int mBandCount;
         private String mLabel;
         public double[] mValuesLog;
-        int[] mPointsPerBand = new int[mBands];
-        double[] mAverageEnergyPerBand = new double[mBands];
-        int[] mInBoundPointsPerBand = new int[mBands];
-        public Results(String label) {
+        int[] mPointsPerBand; // = new int[mBands];
+        double[] mAverageEnergyPerBand;// = new double[mBands];
+        int[] mInBoundPointsPerBand;// = new int[mBands];
+        public Results(String label, int bandCount) {
             mLabel = label;
+            mBandCount = bandCount;
+            mPointsPerBand = new int[mBandCount];
+            mAverageEnergyPerBand = new double[mBandCount];
+            mInBoundPointsPerBand = new int[mBandCount];
+        }
+        public void reset() {
+            for (int i = 0; i < mBandCount; i++) {
+                mPointsPerBand[i] = 0;
+                mAverageEnergyPerBand[i] = 0;
+                mInBoundPointsPerBand[i] = 0;
+            }
         }
 
         //append results
         public String toString() {
             StringBuilder sb = new StringBuilder();
             sb.append(String.format("Channel %s\n", mLabel));
-            sb.append("Level in Band 1 : " + (testLevel() ? "OK" :"Not Optimal") + "\n");
-            for (int b = 0; b < mBands; b++) {
+            for (int b = 0; b < mBandCount; b++) {
                 double percent = 0;
                 if (mPointsPerBand[b] > 0) {
                     percent = 100.0 * (double) mInBoundPointsPerBand[b] / mPointsPerBand[b];
@@ -344,15 +867,8 @@ public class AudioFrequencyUnprocessedActivity extends AudioFrequencyActivity im
             return sb.toString();
         }
 
-        public boolean testLevel() {
-            if (mAverageEnergyPerBand[1] >= MIN_ENERGY_BAND_1) {
-                return true;
-            }
-            return false;
-        }
-
         public boolean testInBand(int b) {
-            if (b >= 0 && b < mBands && mPointsPerBand[b] > 0) {
+            if (b >= 0 && b < mBandCount && mPointsPerBand[b] > 0) {
                 if ((double) mInBoundPointsPerBand[b] / mPointsPerBand[b] >
                     MIN_FRACTION_POINTS_IN_BAND) {
                         return true;
@@ -362,10 +878,7 @@ public class AudioFrequencyUnprocessedActivity extends AudioFrequencyActivity im
         }
 
         public boolean testAll() {
-            if (!testLevel()) {
-                return false;
-            }
-            for (int b = 0; b < mBands; b++) {
+            for (int b = 0; b < mBandCount; b++) {
                 if (!testInBand(b)) {
                     return false;
                 }
@@ -375,103 +888,36 @@ public class AudioFrequencyUnprocessedActivity extends AudioFrequencyActivity im
     }
 
 
-    /**
-     * compute test1 results
-     */
-    private void computeTest1Results() {
-        Results resultsBuiltIn = new Results("BuiltIn");
-        if (computeResultsForVector(mFreqAverageBuiltIn, resultsBuiltIn, bandSpecsArray)) {
-            appendResultsToScreen(resultsBuiltIn.toString(), mTest1Result);
-            recordTestResults(resultsBuiltIn);
-        }
-        if (mSupportsUnprocessed) { //test is mandatory
-            appendResultsToScreen(getResources().getText(
-                    R.string.audio_frequency_unprocessed_defined).toString(), mTest1Result);
-            if (resultsBuiltIn.testAll()) {
-                //tst passed
-                getPassButton().setEnabled(true);
-                String strSuccess = getResources().getString(R.string.audio_general_test_passed);
-                appendResultsToScreen(strSuccess, mTest1Result);
-            } else {
-                getPassButton().setEnabled(false);
-                String strFailed = getResources().getString(R.string.audio_general_test_failed);
-                appendResultsToScreen(strFailed, mTest1Result);
-            }
-        } else {
-            //test optional
-            appendResultsToScreen(getResources().getText(
-                    R.string.audio_frequency_unprocessed_not_defined).toString(), mTest1Result);
-            getPassButton().setEnabled(true);
-        }
-    }
-
-    private boolean computeResultsForVector(VectorAverage freqAverage, Results results,
-            AudioBandSpecs[] bandSpecs) {
-
-        int points = freqAverage.getSize();
-        if (points > 0) {
-            //compute vector in db
-            double[] values = new double[points];
-            freqAverage.getData(values, false);
-            results.mValuesLog = new double[points];
-            for (int i = 0; i < points; i++) {
-                results.mValuesLog[i] = 20 * Math.log10(values[i]);
-            }
-
-            int currentBand = 0;
-            for (int i = 0; i < points; i++) {
-                double freq = (double)mSamplingRate * i / (double)mBlockSizeSamples;
-                if (freq > bandSpecs[currentBand].mFreqStop) {
-                    currentBand++;
-                    if (currentBand >= mBands)
-                        break;
-                }
-
-                if (freq >= bandSpecs[currentBand].mFreqStart) {
-                    results.mAverageEnergyPerBand[currentBand] += results.mValuesLog[i];
-                    results.mPointsPerBand[currentBand]++;
-                }
-            }
-
-            for (int b = 0; b < mBands; b++) {
-                if (results.mPointsPerBand[b] > 0) {
-                    results.mAverageEnergyPerBand[b] =
-                            results.mAverageEnergyPerBand[b] / results.mPointsPerBand[b];
-                }
-            }
-
-            //set offset relative to band 1 level
-            for (int b = 0; b < mBands; b++) {
-                bandSpecs[b].setOffset(results.mAverageEnergyPerBand[1]);
-            }
-
-            //test points in band.
-            currentBand = 0;
-            for (int i = 0; i < points; i++) {
-                double freq = (double)mSamplingRate * i / (double)mBlockSizeSamples;
-                if (freq >  bandSpecs[currentBand].mFreqStop) {
-                    currentBand++;
-                    if (currentBand >= mBands)
-                        break;
-                }
-
-                if (freq >= bandSpecs[currentBand].mFreqStart) {
-                    double value = results.mValuesLog[i];
-                    if (bandSpecs[currentBand].isInBounds(freq, value)) {
-                        results.mInBoundPointsPerBand[currentBand]++;
-                    }
-                }
-            }
-            return true;
-        } else {
-            return false;
-        }
-    }
+//    /**
+//     * compute test results
+//     */
+//    private void computeTestResults(int testId) {
+//        String testName = getTestString(testId);
+//        appendResultsToScreen(testId, "test finished");
+//    }
 
     //append results
     private void appendResultsToScreen(String str, TextView text) {
         String currentText = text.getText().toString();
         text.setText(currentText + "\n" + str);
+    }
+
+    private void appendResultsToScreen(int testId, String str) {
+        switch(testId) {
+            case TEST_TONE:
+                appendResultsToScreen(str, mResultTestTone);
+                showToneRMS();
+                break;
+            case TEST_NOISE:
+                appendResultsToScreen(str, mResultTestNoise);
+                break;
+            case TEST_USB_BACKGROUND:
+                appendResultsToScreen(str, mResultTestUsbBackground);
+                break;
+            case TEST_USB_NOISE:
+                appendResultsToScreen(str, mResultTestUsbNoise);
+                break;
+        }
     }
 
     /**
@@ -615,6 +1061,12 @@ public class AudioFrequencyUnprocessedActivity extends AudioFrequencyActivity im
         mRecorder.setPositionNotificationPeriod(mBlockSizeSamples / 2);
         return true;
     }
+    private void showToneRMS() {
+        String str = String.format("RMS: %.3f dBFS. Max RMS: %.3f dBFS",
+                20 * Math.log10(mRMSTone),
+                20 * Math.log10(mRMSMaxTone));
+        showMessage(TEST_TONE, str);
+    }
 
     // ---------------------------------------------------------
     // Implementation of AudioRecord.OnPeriodicNotificationListener
@@ -627,9 +1079,10 @@ public class AudioFrequencyUnprocessedActivity extends AudioFrequencyActivity im
 
             //compute stuff.
             int clipcount = 0;
-            double sum = 0;
+//            double sum = 0;
             double maxabs = 0;
             int i;
+            double rmsTempSum = 0;
 
             for (i = 0; i < samplesNeeded; i++) {
                 double value = mAudioShortArray2[i] / MAX_VAL;
@@ -643,9 +1096,17 @@ public class AudioFrequencyUnprocessedActivity extends AudioFrequencyActivity im
                     clipcount++;
                 }
 
-                sum += value * value;
+                rmsTempSum += value * value;
                 //fft stuff
                 mData.mData[i] = value;
+            }
+            double rms = Math.sqrt(rmsTempSum / samplesNeeded);
+
+            double alpha = 0.9;
+            double total_rms = rms * alpha + mRMS *(1-alpha);
+            mRMS = total_rms;
+            if (mRMS > mRMSMax) {
+                mRMSMax = mRMS;
             }
 
             //for the current frame, compute FFT and send to the viewer.
@@ -660,8 +1121,25 @@ public class AudioFrequencyUnprocessedActivity extends AudioFrequencyActivity im
                 halfMagnitude[i] = Math.sqrt(mC.mReal[i] * mC.mReal[i] + mC.mImag[i] * mC.mImag[i]);
             }
 
-            mFreqAverageMain.setData(halfMagnitude, false); //average all of them!
-            mFreqAverageBuiltIn.setData(halfMagnitude, false);
+            switch(mCurrentTest) {
+                case TEST_TONE: {
+                    mFreqAverageTone.setData(halfMagnitude, false);
+                    //Update realtime info on screen
+                    mRMSTone = mRMS;
+                    mRMSMaxTone = mRMSMax;
+                   showToneRMS();
+                }
+                    break;
+                case TEST_NOISE:
+                    mFreqAverageNoise.setData(halfMagnitude, false);
+                    break;
+                case TEST_USB_BACKGROUND:
+                    mFreqAverageUsbBackground.setData(halfMagnitude, false);
+                    break;
+                case TEST_USB_NOISE:
+                    mFreqAverageUsbNoise.setData(halfMagnitude, false);
+                    break;
+            }
         }
     }
 

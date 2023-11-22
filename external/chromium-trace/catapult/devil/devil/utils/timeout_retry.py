@@ -8,10 +8,11 @@
 import logging
 import threading
 import time
-import traceback
 
 from devil.utils import reraiser_thread
 from devil.utils import watchdog_timer
+
+logger = logging.getLogger(__name__)
 
 
 class TimeoutRetryThreadGroup(reraiser_thread.ReraiserThreadGroup):
@@ -103,7 +104,7 @@ def WaitFor(condition, wait_period=5, max_tries=None):
     if timeout_thread_group:
       # pylint: disable=no-member
       msg.append('(%.1fs)' % timeout_thread_group.GetElapsedTime())
-    logging.info(' '.join(msg))
+    logger.info(' '.join(msg))
     if result:
       return result
     if timeout_thread_group:
@@ -112,17 +113,6 @@ def WaitFor(condition, wait_period=5, max_tries=None):
           msg='Timed out waiting for %r' % condition_name)
     time.sleep(wait_period)
   return None
-
-
-def _LogLastException(thread_name, attempt, max_attempts, log_func):
-  log_func('*' * 80)
-  log_func('Exception on thread %s (attempt %d of %d)', thread_name,
-                   attempt, max_attempts)
-  log_func('*' * 80)
-  fmt_exc = ''.join(traceback.format_exc())
-  for line in fmt_exc.splitlines():
-    log_func(line.rstrip())
-  log_func('*' * 80)
 
 
 def AlwaysRetry(_exception):
@@ -152,6 +142,8 @@ def Run(func, timeout, retries, args=None, kwargs=None, desc=None,
     args = []
   if not kwargs:
     kwargs = {}
+  if not desc:
+    desc = func.__name__
 
   num_try = 1
   while True:
@@ -166,7 +158,7 @@ def Run(func, timeout, retries, args=None, kwargs=None, desc=None,
         thread_group.JoinAll(watcher=thread_group.GetWatcher(), timeout=60,
                              error_log_func=error_log_func)
         if thread_group.IsAlive():
-          logging.info('Still working on %s', desc if desc else func.__name__)
+          logger.info('Still working on %s', desc)
         else:
           return thread_group.GetAllReturnValues()[0]
     except reraiser_thread.TimeoutError as e:
@@ -177,5 +169,7 @@ def Run(func, timeout, retries, args=None, kwargs=None, desc=None,
     except Exception as e:  # pylint: disable=broad-except
       if num_try > retries or not retry_if_func(e):
         raise
-      _LogLastException(thread_name, num_try, retries + 1, error_log_func)
+      error_log_func(
+          '(%s) Exception on %s, attempt %d of %d: %r',
+          thread_name, desc, num_try, retries + 1, e)
     num_try += 1

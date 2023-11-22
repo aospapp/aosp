@@ -60,11 +60,12 @@ public class UiBenchTextJankTests extends JankTestBase {
     }
 
     // Measure jank metrics for EditText Typing
-    @JankTest(beforeTest = "openEditTextTyping", expectedFrames = EXPECTED_FRAMES)
-    @GfxMonitor(processName = PACKAGE_NAME)
-    public void testEditTextTyping() {
-        SystemClock.sleep(mHelper.LONG_TIMEOUT * 2);
-    }
+    // Reenable the test after b/62917134 is fixed
+    // @JankTest(beforeTest = "openEditTextTyping", expectedFrames = EXPECTED_FRAMES)
+    // @GfxMonitor(processName = PACKAGE_NAME)
+    // public void testEditTextTyping() {
+    //    SystemClock.sleep(UiBenchJankTestsHelper.FULL_TEST_DURATION);
+    //}
 
     // Open Layout Cache High Hitrate
     public void openLayoutCacheHighHitrate() {
@@ -80,7 +81,7 @@ public class UiBenchTextJankTests extends JankTestBase {
     @JankTest(beforeTest = "openLayoutCacheHighHitrate", expectedFrames = EXPECTED_FRAMES)
     @GfxMonitor(processName = PACKAGE_NAME)
     public void testLayoutCacheHighHitrateFling() {
-        mHelper.flingUpDown(mHelper.mContents, mHelper.SHORT_TIMEOUT, 3);
+        mHelper.flingUpDown(mHelper.mContents, 3);
     }
 
     // Open Layout Cache Low Hitrate
@@ -97,7 +98,7 @@ public class UiBenchTextJankTests extends JankTestBase {
     @JankTest(beforeTest = "openLayoutCacheLowHitrate", expectedFrames = EXPECTED_FRAMES)
     @GfxMonitor(processName = PACKAGE_NAME)
     public void testLayoutCacheLowHitrateFling() {
-        mHelper.flingUpDown(mHelper.mContents, mHelper.SHORT_TIMEOUT, 3);
+        mHelper.flingUpDown(mHelper.mContents, 3);
     }
 
 }

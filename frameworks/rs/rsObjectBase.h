@@ -35,7 +35,7 @@ public:
     static const bool gDebugLeaks = false;
     static const bool gDebugLifetime = false;
 
-    ObjectBase(Context *rsc);
+    ObjectBase(Context *rsc);  // NOLINT, implicit
 
     void incSysRef() const;
     bool decSysRef() const;
@@ -111,7 +111,7 @@ public:
         }
     }
 
-    ObjectBaseRef(T *ref) {
+    ObjectBaseRef(T *ref) {  // NOLINT, implicit
         mRef = ref;
         if (mRef) {
             ref->incSysRef();
@@ -162,8 +162,8 @@ protected:
     T * mRef;
 };
 
-}
-}
+} // namespace renderscript
+} // namespace android
 
 #endif //ANDROID_RS_OBJECT_BASE_H
 

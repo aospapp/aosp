@@ -2,29 +2,38 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import json
+import math
 import os
+import shutil
 import StringIO
 import sys
+import tempfile
 import unittest
 
-from catapult_base import cloud_storage  # pylint: disable=import-error
+from py_utils import cloud_storage  # pylint: disable=import-error
 
 from telemetry import benchmark
 from telemetry.core import exceptions
 from telemetry.core import util
 from telemetry import decorators
+from telemetry.internal.actions import page_action
+from telemetry.internal.results import page_test_results
 from telemetry.internal.results import results_options
 from telemetry.internal import story_runner
 from telemetry.internal.util import exception_formatter as ex_formatter_module
 from telemetry.page import page as page_module
-from telemetry.page import page_test
+from telemetry.page import legacy_page_test
 from telemetry import story as story_module
+from telemetry.testing import fakes
 from telemetry.testing import options_for_unittests
 from telemetry.testing import system_stub
 import mock
+from telemetry.value import failure
 from telemetry.value import improvement_direction
 from telemetry.value import list_of_scalar_values
 from telemetry.value import scalar
+from telemetry.value import skip
 from telemetry.value import summary as summary_module
 from telemetry.web_perf import story_test
 from telemetry.web_perf import timeline_based_measurement
@@ -33,11 +42,20 @@ from telemetry.wpr import archive_info
 # This linter complains if we define classes nested inside functions.
 # pylint: disable=bad-super-call
 
+# pylint: disable=too-many-lines
 
 class FakePlatform(object):
   def CanMonitorThermalThrottling(self):
     return False
 
+  def GetOSName(self):
+    pass
+
+  def WaitForTemperature(self, _):
+    pass
+
+  def GetDeviceTypeName(self):
+    return "GetDeviceTypeName"
 
 class TestSharedState(story_module.SharedState):
 
@@ -72,6 +90,9 @@ class TestSharedState(story_module.SharedState):
   def TearDownState(self):
     pass
 
+  def DumpStateUponFailure(self, story, results):
+    pass
+
 
 class TestSharedPageState(TestSharedState):
   def RunStory(self, results):
@@ -86,7 +107,7 @@ class BarStoryState(TestSharedPageState):
   pass
 
 
-class DummyTest(page_test.PageTest):
+class DummyTest(legacy_page_test.LegacyPageTest):
   def RunPage(self, *_):
     pass
 
@@ -111,19 +132,37 @@ class DummyLocalStory(story_module.Story):
   def is_local(self):
     return True
 
+  @property
+  def url(self):
+    return 'data:,'
+
+
 class MixedStateStorySet(story_module.StorySet):
   @property
   def allow_mixed_story_states(self):
     return True
+
 
 def SetupStorySet(allow_multiple_story_states, story_state_list):
   if allow_multiple_story_states:
     story_set = MixedStateStorySet()
   else:
     story_set = story_module.StorySet()
-  for story_state in story_state_list:
-    story_set.AddStory(DummyLocalStory(story_state))
+  for i, story_state in enumerate(story_state_list):
+    story_set.AddStory(DummyLocalStory(story_state,
+                                       name='story%d' % i))
   return story_set
+
+class FakeBenchmark(benchmark.Benchmark):
+  @classmethod
+  def Name(cls):
+    return 'fake'
+
+  test = DummyTest
+
+  def page_set(self):
+    return story_module.StorySet()
+
 
 def _GetOptionForUnittest():
   options = options_for_unittests.GetCopy()
@@ -151,8 +190,21 @@ class TestOnlyException(Exception):
   pass
 
 
-class StoryRunnerTest(unittest.TestCase):
+class FailureValueMatcher(object):
+  def __init__(self, expected_exception_message):
+    self._expected_exception_message = expected_exception_message
 
+  def __eq__(self, other):
+    return (isinstance(other, failure.FailureValue) and
+            other.exc_info[1].message == self._expected_exception_message)
+
+
+class SkipValueMatcher(object):
+  def __eq__(self, other):
+    return isinstance(other, skip.SkipValue)
+
+
+class StoryRunnerTest(unittest.TestCase):
   def setUp(self):
     self.fake_stdout = StringIO.StringIO()
     self.actual_stdout = sys.stdout
@@ -215,6 +267,14 @@ class StoryRunnerTest(unittest.TestCase):
     self.assertEquals(expected_successes,
                       GetNumberOfSuccessfulPageRuns(self.results))
 
+  def testRunStoryWithMissingArchiveFile(self):
+    story_set = story_module.StorySet(archive_data_file='data/hi.json')
+    story_set.AddStory(page_module.Page(
+        'http://www.testurl.com', story_set, story_set.base_dir))
+    test = DummyTest()
+    self.assertRaises(story_runner.ArchiveError, story_runner.Run, test,
+                      story_set, self.options, self.results)
+
   def testStoryTest(self):
     all_foo = [FooStoryState, FooStoryState, FooStoryState]
     one_bar = [FooStoryState, FooStoryState, BarStoryState]
@@ -225,6 +285,20 @@ class StoryRunnerTest(unittest.TestCase):
     story_set = SetupStorySet(False, all_foo)
     self.RunStoryTest(story_set, 9)
     story_set = SetupStorySet(False, one_bar)
+    test = DummyTest()
+    self.assertRaises(ValueError, story_runner.Run, test, story_set,
+                      self.options, self.results)
+
+  def testRunStoryWithLongName(self):
+    story_set = story_module.StorySet()
+    story_set.AddStory(DummyLocalStory(FooStoryState, name='l' * 182))
+    test = DummyTest()
+    self.assertRaises(ValueError, story_runner.Run, test, story_set,
+                      self.options, self.results)
+
+  def testRunStoryWithLongURLPage(self):
+    story_set = story_module.StorySet()
+    story_set.AddStory(page_module.Page('file://long' + 'g' * 180, story_set))
     test = DummyTest()
     self.assertRaises(ValueError, story_runner.Run, test, story_set,
                       self.options, self.results)
@@ -259,9 +333,9 @@ class StoryRunnerTest(unittest.TestCase):
     manager.attach_mock(test.DidRunStory, TEST_DID_RUN_STORY)
 
     story_set = story_module.StorySet()
-    story_set.AddStory(DummyLocalStory(TestSharedTbmState))
-    story_set.AddStory(DummyLocalStory(TestSharedTbmState))
-    story_set.AddStory(DummyLocalStory(TestSharedTbmState))
+    story_set.AddStory(DummyLocalStory(TestSharedTbmState, name='foo'))
+    story_set.AddStory(DummyLocalStory(TestSharedTbmState, name='bar'))
+    story_set.AddStory(DummyLocalStory(TestSharedTbmState, name='baz'))
     story_runner.Run(
         test, story_set, self.options, self.results)
     self.assertEquals(0, len(self.results.failures))
@@ -326,7 +400,7 @@ class StoryRunnerTest(unittest.TestCase):
     calls_in_order = GetCallsInOrder() # pylint: disable=no-value-for-parameter
     self.assertEquals(EXPECTED_CALLS_IN_ORDER, calls_in_order)
 
-  def testTearDownStateAfterEachStoryRun(self):
+  def testTearDownStateAfterEachStoryOrStorySetRun(self):
     class TestSharedStateForTearDown(TestSharedState):
       num_of_tear_downs = 0
 
@@ -337,9 +411,9 @@ class StoryRunnerTest(unittest.TestCase):
         TestSharedStateForTearDown.num_of_tear_downs += 1
 
     story_set = story_module.StorySet()
-    story_set.AddStory(DummyLocalStory(TestSharedStateForTearDown))
-    story_set.AddStory(DummyLocalStory(TestSharedStateForTearDown))
-    story_set.AddStory(DummyLocalStory(TestSharedStateForTearDown))
+    story_set.AddStory(DummyLocalStory(TestSharedStateForTearDown, name='foo'))
+    story_set.AddStory(DummyLocalStory(TestSharedStateForTearDown, name='bar'))
+    story_set.AddStory(DummyLocalStory(TestSharedStateForTearDown, name='baz'))
 
     TestSharedStateForTearDown.num_of_tear_downs = 0
     story_runner.Run(mock.MagicMock(), story_set, self.options, self.results)
@@ -347,8 +421,14 @@ class StoryRunnerTest(unittest.TestCase):
 
     TestSharedStateForTearDown.num_of_tear_downs = 0
     story_runner.Run(mock.MagicMock(), story_set, self.options, self.results,
-                     should_tear_down_state_after_each_story_run=True)
+                     tear_down_after_story=True)
     self.assertEquals(TestSharedStateForTearDown.num_of_tear_downs, 3)
+
+    self.options.pageset_repeat = 5
+    TestSharedStateForTearDown.num_of_tear_downs = 0
+    story_runner.Run(mock.MagicMock(), story_set, self.options, self.results,
+                     tear_down_after_story_set=True)
+    self.assertEquals(TestSharedStateForTearDown.num_of_tear_downs, 5)
 
   def testTearDownIsCalledOnceForEachStoryGroupWithPageSetRepeat(self):
     self.options.pageset_repeat = 3
@@ -432,7 +512,7 @@ class StoryRunnerTest(unittest.TestCase):
 
     # This erroneous test is set up to raise exception for the 2nd story
     # run.
-    class Test(page_test.PageTest):
+    class Test(legacy_page_test.LegacyPageTest):
       def __init__(self, *args):
         super(Test, self).__init__(*args)
         self.run_count = 0
@@ -446,8 +526,8 @@ class StoryRunnerTest(unittest.TestCase):
       def ValidateAndMeasurePage(self, page, tab, results):
         pass
 
-    s1 = DummyLocalStory(TestSharedPageState)
-    s2 = DummyLocalStory(TestSharedPageState)
+    s1 = DummyLocalStory(TestSharedPageState, name='foo')
+    s2 = DummyLocalStory(TestSharedPageState, name='bar')
     story_set.AddStory(s1)
     story_set.AddStory(s2)
     test = Test()
@@ -462,7 +542,7 @@ class StoryRunnerTest(unittest.TestCase):
     self.SuppressExceptionFormatting()
     story_set = story_module.StorySet()
 
-    class Test(page_test.PageTest):
+    class Test(legacy_page_test.LegacyPageTest):
       def __init__(self, *args):
         super(Test, self).__init__(*args)
         self.run_count = 0
@@ -477,8 +557,8 @@ class StoryRunnerTest(unittest.TestCase):
       def ValidateAndMeasurePage(self, page, tab, results):
         pass
 
-    story_set.AddStory(DummyLocalStory(TestSharedPageState))
-    story_set.AddStory(DummyLocalStory(TestSharedPageState))
+    story_set.AddStory(DummyLocalStory(TestSharedPageState, name='foo'))
+    story_set.AddStory(DummyLocalStory(TestSharedPageState, name='bar'))
     test = Test()
     story_runner.Run(
         test, story_set, self.options, self.results)
@@ -499,8 +579,11 @@ class StoryRunnerTest(unittest.TestCase):
         unit_test_events.append('tear-down-state')
         raise DidRunTestError
 
+      def DumpStateUponFailure(self, story, results):
+        unit_test_events.append('dump-state')
 
-    class Test(page_test.PageTest):
+
+    class Test(legacy_page_test.LegacyPageTest):
       def __init__(self, *args):
         super(Test, self).__init__(*args)
         self.run_count = 0
@@ -515,14 +598,15 @@ class StoryRunnerTest(unittest.TestCase):
       def ValidateAndMeasurePage(self, page, tab, results):
         pass
 
-    story_set.AddStory(DummyLocalStory(TestTearDownSharedState))
-    story_set.AddStory(DummyLocalStory(TestTearDownSharedState))
+    story_set.AddStory(DummyLocalStory(TestTearDownSharedState, name='foo'))
+    story_set.AddStory(DummyLocalStory(TestTearDownSharedState, name='bar'))
     test = Test()
 
     with self.assertRaises(DidRunTestError):
       story_runner.Run(
           test, story_set, self.options, self.results)
-    self.assertEqual(['app-crash', 'tear-down-state'], unit_test_events)
+    self.assertEqual(['app-crash', 'dump-state', 'tear-down-state'],
+                     unit_test_events)
     # The AppCrashException gets added as a failure.
     self.assertEquals(1, len(self.results.failures))
 
@@ -535,7 +619,7 @@ class StoryRunnerTest(unittest.TestCase):
     story_set.AddStory(blank_story)
     story_set.AddStory(green_story)
 
-    class Measurement(page_test.PageTest):
+    class Measurement(legacy_page_test.LegacyPageTest):
       i = 0
       def RunPage(self, page, _, results):
         self.i += 1
@@ -546,7 +630,6 @@ class StoryRunnerTest(unittest.TestCase):
       def ValidateAndMeasurePage(self, page, tab, results):
         pass
 
-    self.options.page_repeat = 1
     self.options.pageset_repeat = 2
     self.options.output_formats = []
     results = results_options.CreateResults(
@@ -563,7 +646,8 @@ class StoryRunnerTest(unittest.TestCase):
         green_story, 'metric', 'unit', [2, 4],
         improvement_direction=improvement_direction.UP)
     merged_value = list_of_scalar_values.ListOfScalarValues(
-        None, 'metric', 'unit', [1, 2, 3, 4],
+        None, 'metric', 'unit',
+        [1, 3, 2, 4], std=math.sqrt(2),  # Pooled standard deviation.
         improvement_direction=improvement_direction.UP)
 
     self.assertEquals(4, GetNumberOfSuccessfulPageRuns(results))
@@ -670,22 +754,29 @@ class StoryRunnerTest(unittest.TestCase):
       def TearDownState(self):
         pass
 
+      def DumpStateUponFailure(self, story, results):
+        pass
+
     class FailingStory(story_module.Story):
-      def __init__(self):
+      def __init__(self, name):
         super(FailingStory, self).__init__(
             shared_state_class=SimpleSharedState,
-            is_local=True)
+            is_local=True, name=name)
         self.was_run = False
 
       def Run(self, shared_state):
         self.was_run = True
-        raise page_test.Failure
+        raise legacy_page_test.Failure
+
+      @property
+      def url(self):
+        return 'data:,'
 
     self.SuppressExceptionFormatting()
 
     story_set = story_module.StorySet()
-    for _ in range(num_failing_stories):
-      story_set.AddStory(FailingStory())
+    for i in range(num_failing_stories):
+      story_set.AddStory(FailingStory(name='failing%d' % i))
 
     options = _GetOptionForUnittest()
     options.output_formats = ['none']
@@ -722,3 +813,271 @@ class StoryRunnerTest(unittest.TestCase):
     self._testMaxFailuresOptionIsRespectedAndOverridable(
         num_failing_stories=5, runner_max_failures=3,
         options_max_failures=1, expected_num_failures=2)
+
+  def _CreateErrorProcessingMock(self, method_exceptions=None,
+                                 legacy_test=False):
+    if legacy_test:
+      test_class = legacy_page_test.LegacyPageTest
+    else:
+      test_class = story_test.StoryTest
+
+    root_mock = mock.NonCallableMock(
+        story=mock.NonCallableMagicMock(story_module.Story),
+        results=mock.NonCallableMagicMock(page_test_results.PageTestResults),
+        test=mock.NonCallableMagicMock(test_class),
+        state=mock.NonCallableMagicMock(
+            story_module.SharedState,
+            CanRunStory=mock.Mock(return_value=True)))
+
+    if method_exceptions:
+      root_mock.configure_mock(**{
+          path + '.side_effect': exception
+          for path, exception in method_exceptions.iteritems()})
+
+    return root_mock
+
+  def testRunStoryAndProcessErrorIfNeeded_success(self):
+    root_mock = self._CreateErrorProcessingMock()
+
+    story_runner._RunStoryAndProcessErrorIfNeeded(
+        root_mock.story, root_mock.results, root_mock.state, root_mock.test)
+
+    self.assertEquals(root_mock.method_calls, [
+      mock.call.state.platform.GetOSName(),
+      mock.call.test.WillRunStory(root_mock.state.platform),
+      mock.call.state.WillRunStory(root_mock.story),
+      mock.call.state.CanRunStory(root_mock.story),
+      mock.call.state.RunStory(root_mock.results),
+      mock.call.test.Measure(root_mock.state.platform, root_mock.results),
+      mock.call.state.DidRunStory(root_mock.results),
+      mock.call.test.DidRunStory(root_mock.state.platform),
+      mock.call.state.platform.GetOSName(),
+    ])
+
+  def testRunStoryAndProcessErrorIfNeeded_successLegacy(self):
+    root_mock = self._CreateErrorProcessingMock(legacy_test=True)
+
+    story_runner._RunStoryAndProcessErrorIfNeeded(
+        root_mock.story, root_mock.results, root_mock.state, root_mock.test)
+
+    self.assertEquals(root_mock.method_calls, [
+      mock.call.state.platform.GetOSName(),
+      mock.call.state.WillRunStory(root_mock.story),
+      mock.call.state.CanRunStory(root_mock.story),
+      mock.call.state.RunStory(root_mock.results),
+      mock.call.state.DidRunStory(root_mock.results),
+      mock.call.test.DidRunPage(root_mock.state.platform),
+      mock.call.state.platform.GetOSName(),
+    ])
+
+  def testRunStoryAndProcessErrorIfNeeded_tryTimeout(self):
+    root_mock = self._CreateErrorProcessingMock(method_exceptions={
+      'state.WillRunStory': exceptions.TimeoutException('foo')
+    })
+
+    story_runner._RunStoryAndProcessErrorIfNeeded(
+        root_mock.story, root_mock.results, root_mock.state, root_mock.test)
+
+    self.assertEquals(root_mock.method_calls, [
+      mock.call.state.platform.GetOSName(),
+      mock.call.test.WillRunStory(root_mock.state.platform),
+      mock.call.state.WillRunStory(root_mock.story),
+      mock.call.state.DumpStateUponFailure(root_mock.story, root_mock.results),
+      mock.call.results.AddValue(FailureValueMatcher('foo')),
+      mock.call.state.DidRunStory(root_mock.results),
+      mock.call.test.DidRunStory(root_mock.state.platform),
+      mock.call.state.platform.GetOSName(),
+    ])
+
+  def testRunStoryAndProcessErrorIfNeeded_tryError(self):
+    root_mock = self._CreateErrorProcessingMock(method_exceptions={
+      'state.CanRunStory': exceptions.Error('foo')
+    })
+
+    with self.assertRaisesRegexp(exceptions.Error, 'foo'):
+      story_runner._RunStoryAndProcessErrorIfNeeded(
+          root_mock.story, root_mock.results, root_mock.state, root_mock.test)
+
+    self.assertEquals(root_mock.method_calls, [
+      mock.call.state.platform.GetOSName(),
+      mock.call.test.WillRunStory(root_mock.state.platform),
+      mock.call.state.WillRunStory(root_mock.story),
+      mock.call.state.CanRunStory(root_mock.story),
+      mock.call.state.DumpStateUponFailure(root_mock.story, root_mock.results),
+      mock.call.results.AddValue(FailureValueMatcher('foo')),
+      mock.call.state.DidRunStory(root_mock.results),
+      mock.call.test.DidRunStory(root_mock.state.platform),
+      mock.call.state.platform.GetOSName(),
+    ])
+
+  def testRunStoryAndProcessErrorIfNeeded_tryUnsupportedAction(self):
+    root_mock = self._CreateErrorProcessingMock(method_exceptions={
+      'state.RunStory': page_action.PageActionNotSupported('foo')
+    })
+
+    story_runner._RunStoryAndProcessErrorIfNeeded(
+        root_mock.story, root_mock.results, root_mock.state, root_mock.test)
+
+    self.assertEquals(root_mock.method_calls, [
+      mock.call.state.platform.GetOSName(),
+      mock.call.test.WillRunStory(root_mock.state.platform),
+      mock.call.state.WillRunStory(root_mock.story),
+      mock.call.state.CanRunStory(root_mock.story),
+      mock.call.state.RunStory(root_mock.results),
+      mock.call.results.AddValue(SkipValueMatcher()),
+      mock.call.state.DidRunStory(root_mock.results),
+      mock.call.test.DidRunStory(root_mock.state.platform),
+      mock.call.state.platform.GetOSName(),
+    ])
+
+  def testRunStoryAndProcessErrorIfNeeded_tryUnhandlable(self):
+    root_mock = self._CreateErrorProcessingMock(method_exceptions={
+      'test.WillRunStory': Exception('foo')
+    })
+
+    with self.assertRaisesRegexp(Exception, 'foo'):
+      story_runner._RunStoryAndProcessErrorIfNeeded(
+          root_mock.story, root_mock.results, root_mock.state, root_mock.test)
+
+    self.assertEquals(root_mock.method_calls, [
+      mock.call.state.platform.GetOSName(),
+      mock.call.test.WillRunStory(root_mock.state.platform),
+      mock.call.state.DumpStateUponFailure(root_mock.story, root_mock.results),
+      mock.call.results.AddValue(FailureValueMatcher('foo')),
+      mock.call.state.DidRunStory(root_mock.results),
+      mock.call.test.DidRunStory(root_mock.state.platform),
+      mock.call.state.platform.GetOSName(),
+    ])
+
+  def testRunStoryAndProcessErrorIfNeeded_finallyException(self):
+    root_mock = self._CreateErrorProcessingMock(method_exceptions={
+      'state.DidRunStory': Exception('bar')
+    })
+
+    with self.assertRaisesRegexp(Exception, 'bar'):
+      story_runner._RunStoryAndProcessErrorIfNeeded(
+          root_mock.story, root_mock.results, root_mock.state, root_mock.test)
+
+    self.assertEquals(root_mock.method_calls, [
+      mock.call.state.platform.GetOSName(),
+      mock.call.test.WillRunStory(root_mock.state.platform),
+      mock.call.state.WillRunStory(root_mock.story),
+      mock.call.state.CanRunStory(root_mock.story),
+      mock.call.state.RunStory(root_mock.results),
+      mock.call.test.Measure(root_mock.state.platform, root_mock.results),
+      mock.call.state.DidRunStory(root_mock.results),
+      mock.call.state.DumpStateUponFailure(root_mock.story, root_mock.results)
+    ])
+
+  def testRunStoryAndProcessErrorIfNeeded_tryTimeout_finallyException(self):
+    root_mock = self._CreateErrorProcessingMock(method_exceptions={
+      'state.RunStory': exceptions.TimeoutException('foo'),
+      'state.DidRunStory': Exception('bar')
+    })
+
+    story_runner._RunStoryAndProcessErrorIfNeeded(
+        root_mock.story, root_mock.results, root_mock.state, root_mock.test)
+
+    self.assertEquals(root_mock.method_calls, [
+      mock.call.state.platform.GetOSName(),
+      mock.call.test.WillRunStory(root_mock.state.platform),
+      mock.call.state.WillRunStory(root_mock.story),
+      mock.call.state.CanRunStory(root_mock.story),
+      mock.call.state.RunStory(root_mock.results),
+      mock.call.state.DumpStateUponFailure(root_mock.story, root_mock.results),
+      mock.call.results.AddValue(FailureValueMatcher('foo')),
+      mock.call.state.DidRunStory(root_mock.results)
+    ])
+
+  def testRunStoryAndProcessErrorIfNeeded_tryError_finallyException(self):
+    root_mock = self._CreateErrorProcessingMock(method_exceptions={
+      'state.WillRunStory': exceptions.Error('foo'),
+      'test.DidRunStory': Exception('bar')
+    })
+
+    with self.assertRaisesRegexp(exceptions.Error, 'foo'):
+      story_runner._RunStoryAndProcessErrorIfNeeded(
+          root_mock.story, root_mock.results, root_mock.state, root_mock.test)
+
+    self.assertEquals(root_mock.method_calls, [
+      mock.call.state.platform.GetOSName(),
+      mock.call.test.WillRunStory(root_mock.state.platform),
+      mock.call.state.WillRunStory(root_mock.story),
+      mock.call.state.DumpStateUponFailure(root_mock.story, root_mock.results),
+      mock.call.results.AddValue(FailureValueMatcher('foo')),
+      mock.call.state.DidRunStory(root_mock.results),
+      mock.call.test.DidRunStory(root_mock.state.platform)
+    ])
+
+  def testRunStoryAndProcessErrorIfNeeded_tryUnsupportedAction_finallyException(
+      self):
+    root_mock = self._CreateErrorProcessingMock(method_exceptions={
+      'test.WillRunStory': page_action.PageActionNotSupported('foo'),
+      'state.DidRunStory': Exception('bar')
+    })
+
+    story_runner._RunStoryAndProcessErrorIfNeeded(
+        root_mock.story, root_mock.results, root_mock.state, root_mock.test)
+
+    self.assertEquals(root_mock.method_calls, [
+      mock.call.state.platform.GetOSName(),
+      mock.call.test.WillRunStory(root_mock.state.platform),
+      mock.call.results.AddValue(SkipValueMatcher()),
+      mock.call.state.DidRunStory(root_mock.results)
+    ])
+
+  def testRunStoryAndProcessErrorIfNeeded_tryUnhandlable_finallyException(self):
+    root_mock = self._CreateErrorProcessingMock(method_exceptions={
+      'test.Measure': Exception('foo'),
+      'test.DidRunStory': Exception('bar')
+    })
+
+    with self.assertRaisesRegexp(Exception, 'foo'):
+      story_runner._RunStoryAndProcessErrorIfNeeded(
+          root_mock.story, root_mock.results, root_mock.state, root_mock.test)
+
+    self.assertEquals(root_mock.method_calls, [
+      mock.call.state.platform.GetOSName(),
+      mock.call.test.WillRunStory(root_mock.state.platform),
+      mock.call.state.WillRunStory(root_mock.story),
+      mock.call.state.CanRunStory(root_mock.story),
+      mock.call.state.RunStory(root_mock.results),
+      mock.call.test.Measure(root_mock.state.platform, root_mock.results),
+      mock.call.state.DumpStateUponFailure(root_mock.story, root_mock.results),
+      mock.call.results.AddValue(FailureValueMatcher('foo')),
+      mock.call.state.DidRunStory(root_mock.results),
+      mock.call.test.DidRunStory(root_mock.state.platform)
+    ])
+
+  def testRunBenchmarkTimeDuration(self):
+    fake_benchmark = FakeBenchmark()
+    options = fakes.CreateBrowserFinderOptions()
+    options.upload_results = None
+    options.suppress_gtest_report = False
+    options.results_label = None
+    options.use_live_sites = False
+    options.max_failures = 100
+    options.pageset_repeat = 1
+    options.output_formats = ['chartjson']
+
+    with mock.patch('telemetry.internal.story_runner.time.time') as time_patch:
+      # 3, because telemetry code asks for the time at some point
+      time_patch.side_effect = [1, 0, 61]
+      tmp_path = tempfile.mkdtemp()
+
+      try:
+        options.output_dir = tmp_path
+        story_runner.RunBenchmark(fake_benchmark, options)
+        with open(os.path.join(tmp_path, 'results-chart.json')) as f:
+          data = json.load(f)
+
+        self.assertEqual(len(data['charts']), 1)
+        charts = data['charts']
+        self.assertIn('BenchmarkDuration', charts)
+        duration = charts['BenchmarkDuration']
+        self.assertIn("summary", duration)
+        summary = duration['summary']
+        duration = summary['value']
+        self.assertAlmostEqual(duration, 1)
+      finally:
+        shutil.rmtree(tmp_path)

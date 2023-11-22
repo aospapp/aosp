@@ -25,7 +25,6 @@ CONTROLFILE_TEMPLATE = (
 AUTHOR = 'Chrome OS Team, chromeos-video@google.com'
 NAME = 'video_VDAStress.{1}.{2}.{3}'
 ATTRIBUTES = 'suite:video'
-SUITE = 'video'
 TIME = 'LENGTHY'
 TEST_CATEGORY = 'Stress'
 TEST_CLASS = 'video'

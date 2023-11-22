@@ -15,7 +15,6 @@
  */
 
 #define LOG_TAG "PointerController"
-
 //#define LOG_NDEBUG 0
 
 // Log debug messages about pointer updates
@@ -23,18 +22,42 @@
 
 #include "PointerController.h"
 
-#include <cutils/log.h>
+#include <log/log.h>
 
+// ToDo: Fix code to be warning free
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 #include <SkBitmap.h>
 #include <SkCanvas.h>
 #include <SkColor.h>
 #include <SkPaint.h>
-#include <SkXfermode.h>
+#include <SkBlendMode.h>
 #pragma GCC diagnostic pop
 
 namespace android {
+
+// --- WeakLooperCallback ---
+
+class WeakLooperCallback: public LooperCallback {
+protected:
+    virtual ~WeakLooperCallback() { }
+
+public:
+    WeakLooperCallback(const wp<LooperCallback>& callback) :
+        mCallback(callback) {
+    }
+
+    virtual int handleEvent(int fd, int events, void* data) {
+        sp<LooperCallback> callback = mCallback.promote();
+        if (callback != NULL) {
+            return callback->handleEvent(fd, events, data);
+        }
+        return 0; // the client is gone, remove the callback
+    }
+
+private:
+    wp<LooperCallback> mCallback;
+};
 
 // --- PointerController ---
 
@@ -57,10 +80,11 @@ PointerController::PointerController(const sp<PointerControllerPolicyInterface>&
         const sp<Looper>& looper, const sp<SpriteController>& spriteController) :
         mPolicy(policy), mLooper(looper), mSpriteController(spriteController) {
     mHandler = new WeakMessageHandler(this);
+    mCallback = new WeakLooperCallback(this);
 
     if (mDisplayEventReceiver.initCheck() == NO_ERROR) {
         mLooper->addFd(mDisplayEventReceiver.getFd(), Looper::POLL_CALLBACK,
-                       Looper::EVENT_INPUT, this, nullptr);
+                       Looper::EVENT_INPUT, mCallback, nullptr);
     } else {
         ALOGE("Failed to initialize DisplayEventReceiver.");
     }
@@ -84,7 +108,7 @@ PointerController::PointerController(const sp<PointerControllerPolicyInterface>&
     mLocked.pointerAlpha = 0.0f; // pointer is initially faded
     mLocked.pointerSprite = mSpriteController->createSprite();
     mLocked.pointerIconChanged = false;
-    mLocked.requestedPointerType= mPolicy->getDefaultPointerIconId();
+    mLocked.requestedPointerType = mPolicy->getDefaultPointerIconId();
 
     mLocked.animationFrameIndex = 0;
     mLocked.lastFrameUpdatedTime = 0;
@@ -607,7 +631,7 @@ void PointerController::updatePointerLocked() {
 
     if (mLocked.pointerIconChanged || mLocked.presentationChanged) {
         if (mLocked.presentation == PRESENTATION_POINTER) {
-            if (mLocked.requestedPointerType== mPolicy->getDefaultPointerIconId()) {
+            if (mLocked.requestedPointerType == mPolicy->getDefaultPointerIconId()) {
                 mLocked.pointerSprite->setIcon(mLocked.pointerIcon);
             } else {
                 std::map<int32_t, SpriteIcon>::const_iterator iter =

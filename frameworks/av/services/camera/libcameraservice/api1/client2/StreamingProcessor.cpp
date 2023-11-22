@@ -58,7 +58,7 @@ StreamingProcessor::~StreamingProcessor() {
     deleteRecordingStream();
 }
 
-status_t StreamingProcessor::setPreviewWindow(sp<Surface> window) {
+status_t StreamingProcessor::setPreviewWindow(const sp<Surface>& window) {
     ATRACE_CALL();
     status_t res;
 
@@ -72,7 +72,7 @@ status_t StreamingProcessor::setPreviewWindow(sp<Surface> window) {
     return OK;
 }
 
-status_t StreamingProcessor::setRecordingWindow(sp<Surface> window) {
+status_t StreamingProcessor::setRecordingWindow(const sp<Surface>& window) {
     ATRACE_CALL();
     status_t res;
 
@@ -114,16 +114,11 @@ status_t StreamingProcessor::updatePreviewRequest(const Parameters &params) {
         }
 
         // Use CAMERA3_TEMPLATE_ZERO_SHUTTER_LAG for ZSL streaming case.
-        if (client->getCameraDeviceVersion() >= CAMERA_DEVICE_API_VERSION_3_0) {
-            if (params.useZeroShutterLag() && !params.recordingHint) {
-                res = device->createDefaultRequest(CAMERA3_TEMPLATE_ZERO_SHUTTER_LAG,
-                        &mPreviewRequest);
-            } else {
-                res = device->createDefaultRequest(CAMERA3_TEMPLATE_PREVIEW,
-                        &mPreviewRequest);
-            }
+        if (params.useZeroShutterLag() && !params.recordingHint) {
+            res = device->createDefaultRequest(
+                    CAMERA3_TEMPLATE_ZERO_SHUTTER_LAG, &mPreviewRequest);
         } else {
-            res = device->createDefaultRequest(CAMERA2_TEMPLATE_PREVIEW,
+            res = device->createDefaultRequest(CAMERA3_TEMPLATE_PREVIEW,
                     &mPreviewRequest);
         }
 

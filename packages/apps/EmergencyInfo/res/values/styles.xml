@@ -16,30 +16,32 @@
 <resources>
     <style name="AppTheme" parent="Theme.AppCompat.Light.NoActionBar">
         <item name="android:preferenceCategoryStyle">@style/AppTheme.PreferenceCategoryStyle</item>
-        <item name="colorPrimary">@color/primary_color</item>
         <item name="colorPrimaryDark">@color/primary_dark_color</item>
-        <item name="colorAccent">@color/accent_color_light</item>
+        <item name="android:windowLightStatusBar">true</item>
         <item name="tabIndicatorColor">@color/accent_color_dark</item>
-        <item name="android:datePickerStyle">@style/AppTheme.DatePickerStyle</item>
+        <item name="textColorActionBar">?android:attr/textColorPrimary</item>
     </style>
+
     <!-- Base emergency theme. -->
     <style name="AppThemeEmergency" parent="Theme.AppCompat.Light.NoActionBar">
         <item name="android:preferenceCategoryStyle">@style/AppTheme.PreferenceCategoryStyle</item>
         <item name="colorPrimaryDark">@color/emergency_primary_dark</item>
         <item name="colorPrimary">@color/emergency_primary</item>
         <item name="colorAccent">@color/emergency_accent</item>
+        <item name="textColorActionBar">@color/tab_text_color</item>
         <item name="tabIndicatorColor">@color/emergency_accent</item>
     </style>
 
     <!-- ActionBar -->
-    <style name="ActionBarThemeOverlay" parent="ThemeOverlay.AppCompat.Dark.ActionBar">
+    <style name="ActionBarThemeOverlay" parent="ThemeOverlay.AppCompat.ActionBar">
         <item name="colorAccent">@color/accent_color_dark</item>
+        <item name="colorControlNormal">?attr/textColorActionBar</item>
     </style>
 
     <!-- Tabs -->
     <style name="AppTheme.TabLayout" parent="Widget.Design.TabLayout">
         <item name="tabTextAppearance">@style/AppTheme.TabText</item>
-        <item name="tabSelectedTextColor">@color/tab_text_color</item>
+        <item name="tabSelectedTextColor">?attr/textColorActionBar</item>
         <item name="tabIndicatorColor">?attr/tabIndicatorColor</item>
         <item name="tabIndicatorHeight">2dp</item>
         <item name="tabPaddingStart">24dp</item>
@@ -48,17 +50,12 @@
     </style>
 
     <style name="AppTheme.TabText" parent="TextAppearance.Design.Tab">
-        <item name="android:textColor">@color/tab_text_color</item>
+        <item name="android:textColor">?attr/textColorActionBar</item>
         <item name="android:textSize">14sp</item>
     </style>
 
     <!-- Preferences -->
     <style name="AppTheme.PreferenceCategoryStyle" parent="Preference.Category">
         <item name="android:layout">@layout/custom_preference_category_layout</item>
-    </style>
-
-    <!-- DatePicker -->
-    <style name="AppTheme.DatePickerStyle" parent="android:Widget.Material.DatePicker">
-        <item name="android:datePickerMode">spinner</item>
     </style>
 </resources>

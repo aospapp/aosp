@@ -17,11 +17,14 @@
 package android.view.animation.cts;
 
 import android.app.Instrumentation;
-import android.cts.util.PollingCheck;
+import android.os.SystemClock;
+import android.support.test.rule.ActivityTestRule;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.animation.Animation;
 import android.view.animation.LayoutAnimationController;
+
+import com.android.compatibility.common.util.PollingCheck;
 
 /**
  * The utility methods for animation test.
@@ -41,71 +44,58 @@ public final class AnimationTestUtils {
      * Assert run an animation successfully. Timeout is duration of animation.
      *
      * @param instrumentation to run animation.
+     * @param activityTestRule to run animation.
      * @param view view window to run animation.
      * @param animation will be run.
+     * @throws Throwable
      */
     public static void assertRunAnimation(final Instrumentation instrumentation,
-            final View view, final Animation animation) {
-        assertRunAnimation(instrumentation, view, animation, animation.getDuration());
+            final ActivityTestRule activityTestRule, final View view, final Animation animation)
+            throws Throwable {
+        assertRunAnimation(instrumentation, activityTestRule, view, animation,
+                animation.getDuration());
     }
 
     /**
      * Assert run an animation successfully.
      *
      * @param instrumentation to run animation.
+     * @param activityTestRule to run animation.
      * @param view window to run animation.
      * @param animation will be run.
      * @param duration in milliseconds.
+     * @throws Throwable
      */
     public static void assertRunAnimation(final Instrumentation instrumentation,
-            final View view, final Animation animation, final long duration) {
+            final ActivityTestRule activityTestRule, final View view, final Animation animation,
+            final long duration) throws Throwable {
 
-        instrumentation.runOnMainSync(new Runnable() {
-            public void run() {
-                view.startAnimation(animation);
-            }
-        });
+        activityTestRule.runOnUiThread(() -> view.startAnimation(animation));
 
         // check whether it has started
-        new PollingCheck() {
-            @Override
-            protected boolean check() {
-                return animation.hasStarted();
-            }
-        }.run();
+        PollingCheck.waitFor(animation::hasStarted);
 
         // check whether it has ended after duration
-        new PollingCheck(duration + TIMEOUT_DELTA) {
-            @Override
-            protected boolean check() {
-                return animation.hasEnded();
-            }
-        }.run();
+        PollingCheck.waitFor(duration + TIMEOUT_DELTA, animation::hasEnded);
 
         instrumentation.waitForIdleSync();
     }
 
     /**
-     * Assert run an AbsListView with LayoutAnimationController successfully.
-     * @param instrumentation
-     * @param view
-     * @param controller
-     * @param duration
-     * @throws InterruptedException
+     * Assert run an view with LayoutAnimationController successfully.
+     * @throws Throwable
      */
-    public static void assertRunController(final Instrumentation instrumentation,
+    public static void assertRunController(final ActivityTestRule activityTestRule,
             final ViewGroup view, final LayoutAnimationController controller,
-            final long duration) throws InterruptedException {
+            final long duration) throws Throwable {
 
-        instrumentation.runOnMainSync(new Runnable() {
-           public void run() {
-                view.setLayoutAnimation(controller);
-                view.requestLayout();
-           }
+        activityTestRule.runOnUiThread(() -> {
+            view.setLayoutAnimation(controller);
+            view.requestLayout();
         });
 
         // LayoutAnimationController.isDone() always returns true, it's no use for stopping
         // the running, so just using sleeping fixed time instead. we reported issue 1799434 for it.
-        Thread.sleep(duration + TIMEOUT_DELTA);
+        SystemClock.sleep(duration + TIMEOUT_DELTA);
     }
 }

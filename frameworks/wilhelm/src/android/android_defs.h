@@ -54,7 +54,9 @@ enum AndroidObjectState {
     // NUM_ANDROID_STATES       // unused
 };
 
-
+/**
+ * Must be one of the supported stream types that can be set through SLAndroidConfigurationItf
+ */
 #define ANDROID_DEFAULT_OUTPUT_STREAM_TYPE AUDIO_STREAM_MUSIC
 
 #define PLAYER_FAILURE ((int32_t) android::UNKNOWN_ERROR)
@@ -121,7 +123,7 @@ typedef size_t (*data_push_cbf_t)(const uint8_t *data, size_t size, CAudioPlayer
 /**
  * Time value when time is unknown. Used for instance for duration or playback position
  */
-#define ANDROID_UNKNOWN_TIME -1
+#define ANDROID_UNKNOWN_TIME (-1)
 
 /**
  * Event mask for MPEG-2 TS events associated with TS data

@@ -6,5 +6,5 @@
 /* in the file PATENTS.  All contributing project authors may */
 /* be found in the AUTHORS file in the root of the source tree. */
 #include "vpx/vpx_codec.h"
-static const char* const cfg = "--force-target=armv8-linux-gcc --enable-external-build --enable-realtime-only --enable-pic --disable-runtime-cpu-detect";
+static const char* const cfg = "--force-target=armv8-linux-gcc --enable-external-build --enable-realtime-only --enable-pic --disable-runtime-cpu-detect --disable-install-docs --size-limit=4096x3072";
 const char *vpx_codec_build_config(void) {return cfg;}

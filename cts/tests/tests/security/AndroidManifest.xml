@@ -24,6 +24,7 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
 
     <application>
@@ -35,8 +36,20 @@
                  android:isolatedProcess="true"
                  android:exported="true"/>
 
+        <service android:name="android.security.cts.IsolatedService"
+                 android:process=":Isolated"
+                 android:isolatedProcess="true"/>
+
         <service android:name="android.security.cts.activity.SecureRandomService"
                  android:process=":secureRandom"/>
+        <activity
+            android:name="android.security.cts.MotionEventTestActivity"
+            android:label="Test MotionEvent">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST"/>
+            </intent-filter>
+        </activity>
     </application>
 
     <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"

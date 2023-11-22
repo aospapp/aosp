@@ -41,15 +41,13 @@ __BEGIN_DECLS
 #endif
 
 /* internal function returning the address of the thread-specific errno */
-extern volatile int* __errno(void) __pure2;
+volatile int* __errno(void) __attribute_const__;
 
 /* a macro expanding to the errno l-value */
 #define  errno   (*__errno())
 
-#if __ANDROID_API__ < 21
-#include <android/legacy_errno_inlines.h>
-#endif
-
 __END_DECLS
+
+#include <android/legacy_errno_inlines.h>
 
 #endif /* _ERRNO_H */

@@ -16,10 +16,10 @@ import io.appium.droiddriver.uiautomation.UiAutomationDriver;
  * {@link #testSetTextForPassword} assumes the password_edit field is displayed
  * on screen.
  * <p>
- * Run it as (optionally with -e debug true)
+ * Run it with
  *
  * <pre>
- * adb shell am instrument -w io.appium.droiddriver.manualtest/io.appium.droiddriver.runner.TestRunner
+ * ../gradlew :connectedAndroidTest
  * </pre>
  */
 public class ManualTest extends BaseDroidDriverTest<Activity> {

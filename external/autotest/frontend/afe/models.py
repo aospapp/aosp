@@ -1,4 +1,4 @@
-# pylint: disable-msg=C0111
+# pylint: disable=missing-docstring
 
 import logging
 from datetime import datetime
@@ -124,16 +124,14 @@ class Label(model_logic.ModelWithInvalid, dbmodels.Model):
         self.test_set.clear()
 
 
-    def enqueue_job(self, job, atomic_group=None, is_template=False):
+    def enqueue_job(self, job, is_template=False):
         """Enqueue a job on any host of this label.
 
         @param job: A job to enqueue.
-        @param atomic_group: The associated atomic group.
         @param is_template: Whether the status should be "Template".
         """
         queue_entry = HostQueueEntry.create(meta_host=self, job=job,
-                                            is_template=is_template,
-                                            atomic_group=atomic_group)
+                                            is_template=is_template)
         queue_entry.save()
 
 
@@ -439,7 +437,6 @@ class Host(model_logic.ModelWithInvalid, rdb_model_extensions.AbstractHostModel,
 
     Internal:
     From AbstractHostModel:
-        synch_id: currently unused
         status: string describing status of host
         invalid: true if the host has been deleted
         protection: indicates what can be done to this host during repair
@@ -628,16 +625,14 @@ class Host(model_logic.ModelWithInvalid, rdb_model_extensions.AbstractHostModel,
         logging.info(self.hostname + ' -> ' + self.status)
 
 
-    def enqueue_job(self, job, atomic_group=None, is_template=False):
+    def enqueue_job(self, job, is_template=False):
         """Enqueue a job on this host.
 
         @param job: A job to enqueue.
-        @param atomic_group: The associated atomic group.
         @param is_template: Whther the status should be "Template".
         """
         queue_entry = HostQueueEntry.create(host=self, job=job,
-                                            is_template=is_template,
-                                            atomic_group=atomic_group)
+                                            is_template=is_template)
         # allow recovery of dead hosts from the frontend
         if not self.active_queue_entry() and self.is_dead():
             self.status = Host.Status.READY
@@ -677,6 +672,32 @@ class Host(model_logic.ModelWithInvalid, rdb_model_extensions.AbstractHostModel,
                 # we'll be able to see it
                 errors.append('Host %s already has a platform: %s' % (
                               host.hostname, ', '.join(platforms)))
+        if errors:
+            raise model_logic.ValidationError({'labels': '; '.join(errors)})
+
+
+    @classmethod
+    def check_board_labels_allowed(cls, hosts, new_labels=[]):
+        """Verify the specified hosts have valid board labels and the given
+        new board labels can be added.
+
+        @param cls: Implicit class object.
+        @param hosts: The hosts to verify.
+        @param new_labels: A list of labels to be added to the hosts.
+
+        @raises model_logic.ValidationError if any host has invalid board labels
+                or the given board labels cannot be added to the hsots.
+        """
+        Host.objects.populate_relationships(hosts, Label, 'label_list')
+        errors = []
+        for host in hosts:
+            boards = [label.name for label in host.label_list
+                      if label.name.startswith('board:')]
+            if not server_utils.board_labels_allowed(boards + new_labels):
+                # do a join, just in case this host has multiple boards,
+                # we'll be able to see it
+                errors.append('Host %s already has board labels: %s' % (
+                              host.hostname, ', '.join(boards)))
         if errors:
             raise model_logic.ValidationError({'labels': '; '.join(errors)})
 
@@ -1036,66 +1057,19 @@ class AclGroup(dbmodels.Model, model_logic.ModelExtensions):
         return unicode(self.name)
 
 
-class Kernel(dbmodels.Model):
-    """
-    A kernel configuration for a parameterized job
-    """
-    version = dbmodels.CharField(max_length=255)
-    cmdline = dbmodels.CharField(max_length=255, blank=True)
-
-    @classmethod
-    def create_kernels(cls, kernel_list):
-        """Creates all kernels in the kernel list.
-
-        @param cls: Implicit class object.
-        @param kernel_list: A list of dictionaries that describe the kernels,
-            in the same format as the 'kernel' argument to
-            rpc_interface.generate_control_file.
-        @return A list of the created kernels.
-        """
-        if not kernel_list:
-            return None
-        return [cls._create(kernel) for kernel in kernel_list]
-
-
-    @classmethod
-    def _create(cls, kernel_dict):
-        version = kernel_dict.pop('version')
-        cmdline = kernel_dict.pop('cmdline', '')
-
-        if kernel_dict:
-            raise Exception('Extraneous kernel arguments remain: %r'
-                            % kernel_dict)
-
-        kernel, _ = cls.objects.get_or_create(version=version,
-                                              cmdline=cmdline)
-        return kernel
-
-
-    class Meta:
-        """Metadata for class Kernel."""
-        db_table = 'afe_kernels'
-        unique_together = ('version', 'cmdline')
-
-    def __unicode__(self):
-        return u'%s %s' % (self.version, self.cmdline)
-
-
 class ParameterizedJob(dbmodels.Model):
     """
     Auxiliary configuration for a parameterized job.
+
+    This class is obsolete, and ought to be dead.  Due to a series of
+    unfortunate events, it can't be deleted:
+      * In `class Job` we're required to keep a reference to this class
+        for the sake of the scheduler unit tests.
+      * The existence of the reference in `Job` means that certain
+        methods here will get called from the `get_jobs` RPC.
+    So, the definitions below seem to be the minimum stub we can support
+    unless/until we change the database schema.
     """
-    test = dbmodels.ForeignKey(Test)
-    label = dbmodels.ForeignKey(Label, null=True)
-    use_container = dbmodels.BooleanField(default=False)
-    profile_only = dbmodels.BooleanField(default=False)
-    upload_kernel_config = dbmodels.BooleanField(default=False)
-
-    kernels = dbmodels.ManyToManyField(
-            Kernel, db_table='afe_parameterized_job_kernels')
-    profilers = dbmodels.ManyToManyField(
-            Profiler, through='ParameterizedJobProfiler')
-
 
     @classmethod
     def smart_get(cls, id_or_name, *args, **kwargs):
@@ -1122,59 +1096,6 @@ class ParameterizedJob(dbmodels.Model):
 
     def __unicode__(self):
         return u'%s (parameterized) - %s' % (self.test.name, self.job())
-
-
-class ParameterizedJobProfiler(dbmodels.Model):
-    """
-    A profiler to run on a parameterized job
-    """
-    parameterized_job = dbmodels.ForeignKey(ParameterizedJob)
-    profiler = dbmodels.ForeignKey(Profiler)
-
-    class Meta:
-        """Metedata for class ParameterizedJobProfiler."""
-        db_table = 'afe_parameterized_jobs_profilers'
-        unique_together = ('parameterized_job', 'profiler')
-
-
-class ParameterizedJobProfilerParameter(dbmodels.Model):
-    """
-    A parameter for a profiler in a parameterized job
-    """
-    parameterized_job_profiler = dbmodels.ForeignKey(ParameterizedJobProfiler)
-    parameter_name = dbmodels.CharField(max_length=255)
-    parameter_value = dbmodels.TextField()
-    parameter_type = dbmodels.CharField(
-            max_length=8, choices=model_attributes.ParameterTypes.choices())
-
-    class Meta:
-        """Metadata for class ParameterizedJobProfilerParameter."""
-        db_table = 'afe_parameterized_job_profiler_parameters'
-        unique_together = ('parameterized_job_profiler', 'parameter_name')
-
-    def __unicode__(self):
-        return u'%s - %s' % (self.parameterized_job_profiler.profiler.name,
-                             self.parameter_name)
-
-
-class ParameterizedJobParameter(dbmodels.Model):
-    """
-    Parameters for a parameterized job
-    """
-    parameterized_job = dbmodels.ForeignKey(ParameterizedJob)
-    test_parameter = dbmodels.ForeignKey(TestParameter)
-    parameter_value = dbmodels.TextField()
-    parameter_type = dbmodels.CharField(
-            max_length=8, choices=model_attributes.ParameterTypes.choices())
-
-    class Meta:
-        """Metadata for class ParameterizedJobParameter."""
-        db_table = 'afe_parameterized_job_parameters'
-        unique_together = ('parameterized_job', 'test_parameter')
-
-    def __unicode__(self):
-        return u'%s - %s' % (self.parameterized_job.job().name,
-                             self.test_parameter.name)
 
 
 class JobManager(model_logic.ExtendedManager):
@@ -1263,12 +1184,9 @@ class Job(dbmodels.Model, model_logic.ModelExtensions):
         '  (t1.id = t2.job_id AND t2.complete != 1 AND t2.active != 1 '
         '   %(check_known_jobs)s) '
         'LEFT OUTER JOIN afe_jobs_dependency_labels t3 ON (t1.id = t3.job_id) '
-        'WHERE (t3.label_id IN  '
-        '  (SELECT label_id FROM afe_shards_labels '
-        '   WHERE shard_id = %(shard_id)s) '
-        '  OR t2.meta_host IN '
-        '  (SELECT label_id FROM afe_shards_labels '
-        '   WHERE shard_id = %(shard_id)s))'
+        'JOIN afe_shards_labels t4 '
+        '  ON (t4.label_id = t3.label_id OR t4.label_id = t2.meta_host) '
+        'WHERE t4.shard_id = %(shard_id)s'
         )
 
     # Jobs can be created with assigned hosts and have no dependency
@@ -1382,6 +1300,13 @@ class Job(dbmodels.Model, model_logic.ModelExtensions):
     max_runtime_mins = dbmodels.IntegerField(default=DEFAULT_MAX_RUNTIME_MINS)
     drone_set = dbmodels.ForeignKey(DroneSet, null=True, blank=True)
 
+    # TODO(jrbarnette)  We have to keep `parameterized_job` around or it
+    # breaks the scheduler_models unit tests (and fixing the unit tests
+    # will break the scheduler, so don't do that).
+    #
+    # The ultimate fix is to delete the column from the database table
+    # at which point, you _must_ delete this.  Until you're ready to do
+    # that, DON'T MUCK WITH IT.
     parameterized_job = dbmodels.ForeignKey(ParameterizedJob, null=True,
                                             blank=True)
 
@@ -1420,41 +1345,6 @@ class Job(dbmodels.Model, model_logic.ModelExtensions):
 
 
     @classmethod
-    def parameterized_jobs_enabled(cls):
-        """Returns whether parameterized jobs are enabled.
-
-        @param cls: Implicit class object.
-        """
-        return global_config.global_config.get_config_value(
-                'AUTOTEST_WEB', 'parameterized_jobs', type=bool)
-
-
-    @classmethod
-    def check_parameterized_job(cls, control_file, parameterized_job):
-        """Checks that the job is valid given the global config settings.
-
-        First, either control_file must be set, or parameterized_job must be
-        set, but not both. Second, parameterized_job must be set if and only if
-        the parameterized_jobs option in the global config is set to True.
-
-        @param cls: Implict class object.
-        @param control_file: A control file.
-        @param parameterized_job: A parameterized job.
-        """
-        if not (bool(control_file) ^ bool(parameterized_job)):
-            raise Exception('Job must have either control file or '
-                            'parameterization, but not both')
-
-        parameterized_jobs_enabled = cls.parameterized_jobs_enabled()
-        if control_file and parameterized_jobs_enabled:
-            raise Exception('Control file specified, but parameterized jobs '
-                            'are enabled')
-        if parameterized_job and not parameterized_jobs_enabled:
-            raise Exception('Parameterized job specified, but parameterized '
-                            'jobs are not enabled')
-
-
-    @classmethod
     def create(cls, owner, options, hosts):
         """Creates a job.
 
@@ -1469,16 +1359,7 @@ class Job(dbmodels.Model, model_logic.ModelExtensions):
         AclGroup.check_for_acl_violation_hosts(hosts)
 
         control_file = options.get('control_file')
-        parameterized_job = options.get('parameterized_job')
 
-        # The current implementation of parameterized jobs requires that only
-        # control files or parameterized jobs are used. Using the image
-        # parameter on autoupdate_ParameterizedJob doesn't mix pure
-        # parameterized jobs and control files jobs, it does muck enough with
-        # normal jobs by adding a parameterized id to them that this check will
-        # fail. So for now we just skip this check.
-        # cls.check_parameterized_job(control_file=control_file,
-        #                             parameterized_job=parameterized_job)
         user = User.current_user()
         if options.get('reboot_before') is None:
             options['reboot_before'] = user.get_reboot_before_display()
@@ -1508,7 +1389,6 @@ class Job(dbmodels.Model, model_logic.ModelExtensions):
             parse_failed_repair=options.get('parse_failed_repair'),
             created_on=datetime.now(),
             drone_set=drone_set,
-            parameterized_job=parameterized_job,
             parent_job=options.get('parent_job_id'),
             test_retry=options.get('test_retry'),
             run_reset=options.get('run_reset'),
@@ -1581,55 +1461,20 @@ class Job(dbmodels.Model, model_logic.ModelExtensions):
         return []
 
 
-    def save(self, *args, **kwargs):
-        # The current implementation of parameterized jobs requires that only
-        # control files or parameterized jobs are used. Using the image
-        # parameter on autoupdate_ParameterizedJob doesn't mix pure
-        # parameterized jobs and control files jobs, it does muck enough with
-        # normal jobs by adding a parameterized id to them that this check will
-        # fail. So for now we just skip this check.
-        # cls.check_parameterized_job(control_file=self.control_file,
-        #                             parameterized_job=self.parameterized_job)
-        super(Job, self).save(*args, **kwargs)
-
-
-    def queue(self, hosts, atomic_group=None, is_template=False):
+    def queue(self, hosts, is_template=False):
         """Enqueue a job on the given hosts.
 
         @param hosts: The hosts to use.
-        @param atomic_group: The associated atomic group.
         @param is_template: Whether the status should be "Template".
         """
         if not hosts:
-            if atomic_group:
-                # No hosts or labels are required to queue an atomic group
-                # Job.  However, if they are given, we respect them below.
-                atomic_group.enqueue_job(self, is_template=is_template)
-            else:
-                # hostless job
-                entry = HostQueueEntry.create(job=self, is_template=is_template)
-                entry.save()
+            # hostless job
+            entry = HostQueueEntry.create(job=self, is_template=is_template)
+            entry.save()
             return
 
         for host in hosts:
-            host.enqueue_job(self, atomic_group=atomic_group,
-                             is_template=is_template)
-
-
-    def create_recurring_job(self, start_date, loop_period, loop_count, owner):
-        """Creates a recurring job.
-
-        @param start_date: The starting date of the job.
-        @param loop_period: How often to re-run the job, in seconds.
-        @param loop_count: The re-run count.
-        @param owner: The owner of the job.
-        """
-        rec = RecurringRun(job=self, start_date=start_date,
-                           loop_period=loop_period,
-                           loop_count=loop_count,
-                           owner=User.objects.get(login=owner))
-        rec.save()
-        return rec.id
+            host.enqueue_job(self, is_template=is_template)
 
 
     def user(self):
@@ -1764,6 +1609,8 @@ class HostQueueEntry(dbmodels.Model, model_logic.ModelExtensions):
     Status = host_queue_entry_states.Status
     ACTIVE_STATUSES = host_queue_entry_states.ACTIVE_STATUSES
     COMPLETE_STATUSES = host_queue_entry_states.COMPLETE_STATUSES
+    PRE_JOB_STATUSES = host_queue_entry_states.PRE_JOB_STATUSES
+    IDLE_PRE_JOB_STATUSES = host_queue_entry_states.IDLE_PRE_JOB_STATUSES
 
     job = dbmodels.ForeignKey(Job)
     host = dbmodels.ForeignKey(Host, blank=True, null=True)
@@ -1791,7 +1638,7 @@ class HostQueueEntry(dbmodels.Model, model_logic.ModelExtensions):
 
 
     @classmethod
-    def create(cls, job, host=None, meta_host=None, atomic_group=None,
+    def create(cls, job, host=None, meta_host=None,
                  is_template=False):
         """Creates a new host queue entry.
 
@@ -1799,7 +1646,6 @@ class HostQueueEntry(dbmodels.Model, model_logic.ModelExtensions):
         @param job: The associated job.
         @param host: The associated host.
         @param meta_host: The associated meta host.
-        @param atomic_group: The associated atomic group.
         @param is_template: Whether the status should be "Template".
         """
         if is_template:
@@ -1807,8 +1653,7 @@ class HostQueueEntry(dbmodels.Model, model_logic.ModelExtensions):
         else:
             status = cls.Status.QUEUED
 
-        return cls(job=job, host=host, meta_host=meta_host,
-                   atomic_group=atomic_group, status=status)
+        return cls(job=job, host=host, meta_host=meta_host, status=status)
 
 
     def save(self, *args, **kwargs):
@@ -1828,16 +1673,13 @@ class HostQueueEntry(dbmodels.Model, model_logic.ModelExtensions):
     def host_or_metahost_name(self):
         """Returns the first non-None name found in priority order.
 
-        The priority order checked is: (1) host name; (2) meta host name; and
-        (3) atomic group name.
+        The priority order checked is: (1) host name; (2) meta host name
         """
         if self.host:
             return self.host.hostname
-        elif self.meta_host:
-            return self.meta_host.name
         else:
-            assert self.atomic_group, "no host, meta_host or atomic group!"
-            return self.atomic_group.name
+            assert self.meta_host
+            return self.meta_host.name
 
 
     def _set_active_and_complete(self):
@@ -1973,33 +1815,6 @@ class AbortedHostQueueEntry(dbmodels.Model, model_logic.ModelExtensions):
     class Meta:
         """Metadata for class AbortedHostQueueEntry."""
         db_table = 'afe_aborted_host_queue_entries'
-
-
-class RecurringRun(dbmodels.Model, model_logic.ModelExtensions):
-    """\
-    job: job to use as a template
-    owner: owner of the instantiated template
-    start_date: Run the job at scheduled date
-    loop_period: Re-run (loop) the job periodically
-                 (in every loop_period seconds)
-    loop_count: Re-run (loop) count
-    """
-
-    job = dbmodels.ForeignKey(Job)
-    owner = dbmodels.ForeignKey(User)
-    start_date = dbmodels.DateTimeField()
-    loop_period = dbmodels.IntegerField(blank=True)
-    loop_count = dbmodels.IntegerField(blank=True)
-
-    objects = model_logic.ExtendedManager()
-
-    class Meta:
-        """Metadata for class RecurringRun."""
-        db_table = 'afe_recurring_run'
-
-    def __unicode__(self):
-        return u'RecurringRun(job %s, start %s, period %s, count %s)' % (
-            self.job.id, self.start_date, self.loop_period, self.loop_count)
 
 
 class SpecialTask(dbmodels.Model, model_logic.ModelExtensions):

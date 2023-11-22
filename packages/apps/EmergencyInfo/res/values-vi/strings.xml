@@ -86,9 +86,12 @@
     <!-- no translation found for organ_donor_entries:1 (4906312680266515592) -->
     <!-- no translation found for organ_donor_entries:2 (9037713957399818892) -->
     <string name="emergency_contacts_title" msgid="5462202017417821030">"Liên hệ khẩn cấp"</string>
-    <string name="add_emergency_contact" msgid="4063577069613981029">"Thêm địa chỉ liên hệ"</string>
+    <string name="add_emergency_contact" msgid="4063577069613981029">"Thêm liên hệ"</string>
+    <string name="fail_load_contact_picker" msgid="817205483833876726">"Không thể tìm thấy bộ chọn liên hệ"</string>
+    <string name="fail_display_contact" msgid="4128854688897045879">"Không thể hiển thị liên hệ"</string>
     <string name="remove_contact" msgid="6934983445723096759">"Xóa <xliff:g id="CONTACT_NAME">%1$s</xliff:g> khỏi liên hệ khẩn cấp của bạn?"</string>
     <string name="remove_contact_icon_text" msgid="4576641386490101363">"Xóa liên hệ"</string>
+    <string name="fail_add_contact" msgid="6511490846952942291">"Không thể đọc thông tin liên hệ bình thường"</string>
     <string name="remove" msgid="1243949503772376064">"Xóa"</string>
     <string name="cancel" msgid="7401575239009060939">"Hủy"</string>
     <string name="ok" msgid="163967937451981024">"OK"</string>
@@ -96,7 +99,8 @@
     <string name="user_emergency_info_title" msgid="7827058167207376581">"Thông tin khẩn cấp"</string>
     <string name="user_emergency_info_consent" msgid="5636028073450797246">"Thông tin bạn nhập ở đây có thể giúp người trả lời đầu tiên trong trường hợp khẩn cấp. Thông tin này chỉ được lưu trữ trên thiết bị của bạn nhưng bất cứ ai đều có thể đọc được từ trình quay số khẩn cấp mà không cần mở khóa điện thoại của bạn."</string>
     <string name="emergency_info_continue" msgid="5453201508537906087">"Tiếp tục"</string>
-    <string name="no_info_provided" msgid="6775035037534954056">"Không có thông tin khẩn cấp nào được cung cấp"</string>
+    <string name="no_info_provided" msgid="716200382010821001">"Không có thông tin nào về chủ sở hữu điện thoại"</string>
+    <string name="tap_pencil" msgid="2723698054265296934">"Nếu đây là điện thoại của bạn, hãy nhấn vào biểu tượng bút chì để thêm thông tin sẽ được hiển thị tại đây trong trường hợp khẩn cấp"</string>
     <string name="clear_all" msgid="8899013032870561633">"Xóa tất cả"</string>
     <string name="clear" msgid="3648880442502887163">"Xóa"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"Xóa tất cả thông tin và liên hệ?"</string>

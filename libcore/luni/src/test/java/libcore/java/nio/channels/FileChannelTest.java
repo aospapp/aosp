@@ -16,6 +16,11 @@
 
 package libcore.java.nio.channels;
 
+import static java.nio.file.StandardOpenOption.READ;
+import static java.nio.file.StandardOpenOption.WRITE;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
 import java.io.File;
 import java.io.FileDescriptor;
 import java.io.FileInputStream;
@@ -24,9 +29,24 @@ import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
+import java.nio.file.FileSystem;
+import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
+import java.nio.file.attribute.FileAttribute;
+import java.nio.file.spi.FileSystemProvider;
+import java.util.HashSet;
+import java.util.Set;
 import libcore.io.IoUtils;
+import libcore.junit.junit3.TestCaseWithRules;
+import libcore.junit.util.ResourceLeakageDetector;
+import libcore.junit.util.ResourceLeakageDetector.LeakageDetectorRule;
+import org.junit.Rule;
 
-public class FileChannelTest extends junit.framework.TestCase {
+public class FileChannelTest extends TestCaseWithRules {
+
+    @Rule
+    public LeakageDetectorRule guardRule = ResourceLeakageDetector.getRule();
+
     public void testReadOnlyByteArrays() throws Exception {
         ByteBuffer readOnly = ByteBuffer.allocate(1).asReadOnlyBuffer();
         File tmp = File.createTempFile("FileChannelTest", "tmp");
@@ -240,6 +260,23 @@ public class FileChannelTest extends junit.framework.TestCase {
         fosFromFd.close();
     }
 
+    public void test_closeGuardSupport_open_without_append() throws IOException {
+        File tmpFile = File.createTempFile("file", "txt");
+        try (FileInputStream fis = new FileInputStream(tmpFile)) {
+            try (FileChannel fc = fis.getChannel()) {
+                guardRule.assertUnreleasedResourceCount(fc, 1);
+            }
+        }
+    }
+
+    public void test_closeGuardSupport_open_with_append() throws IOException {
+        File tmpFile = File.createTempFile("file", "txt");
+        try (FileOutputStream fos = new FileOutputStream(tmpFile)) {
+            try (FileChannel fc = fos.getChannel()) {
+                guardRule.assertUnreleasedResourceCount(fc, 1);
+            }
+        }
+    }
 
     private static FileChannel createFileContainingBytes(byte[] bytes) throws IOException {
         File tmp = File.createTempFile("FileChannelTest", "tmp");
@@ -254,5 +291,56 @@ public class FileChannelTest extends junit.framework.TestCase {
         assertEquals(bytes.length, fc.size());
 
         return fc;
+    }
+
+    /**
+     * The test verifies that FileChannel#open(Path, Set<OpenOption>, FileAttribute ...) returns the
+     * same object returned by #newFileChannel(Path, Set<OpenOption>, FileAttribute ...) method
+     * in given Paths's FileSystemProvider.
+     */
+    public void test_open_Path_Set_FileAttributes() throws IOException {
+        Path mockPath = mock(Path.class);
+        FileSystem mockFileSystem = mock(FileSystem.class);
+        FileSystemProvider mockFileSystemProvider = mock(FileSystemProvider.class);
+        FileChannel mockFileChannel = mock(FileChannel.class);
+
+        FileAttribute mockFileAttribute1 = mock(FileAttribute.class);
+        FileAttribute mockFileAttribute2 = mock(FileAttribute.class);
+
+        Set<StandardOpenOption> standardOpenOptions = new HashSet<>();
+        standardOpenOptions.add(READ);
+        standardOpenOptions.add(WRITE);
+
+        when(mockPath.getFileSystem()).thenReturn(mockFileSystem);
+        when(mockFileSystem.provider()).thenReturn(mockFileSystemProvider);
+        when(mockFileSystemProvider.newFileChannel(mockPath, standardOpenOptions,
+                mockFileAttribute1, mockFileAttribute2)).thenReturn(mockFileChannel);
+
+        assertEquals(mockFileChannel, FileChannel.open(mockPath, standardOpenOptions,
+                mockFileAttribute1, mockFileAttribute2));
+    }
+
+    /**
+     * The test verifies that FileChannel#open(Path, OpenOption ...) returns the
+     * same object returned by #newFileChannel(Path, OpenOption ...) method
+     * in given Paths's FileSystemProvider.
+     */
+    public void test_open_Path_OpenOptions() throws IOException {
+
+        Path mockPath = mock(Path.class);
+        FileSystem mockFileSystem = mock(FileSystem.class);
+        FileSystemProvider mockFileSystemProvider = mock(FileSystemProvider.class);
+        FileChannel mockFileChannel = mock(FileChannel.class);
+
+        Set<StandardOpenOption> standardOpenOptions = new HashSet<>();
+        standardOpenOptions.add(READ);
+        standardOpenOptions.add(WRITE);
+
+        when(mockPath.getFileSystem()).thenReturn(mockFileSystem);
+        when(mockFileSystem.provider()).thenReturn(mockFileSystemProvider);
+        when(mockFileSystemProvider.newFileChannel(mockPath, standardOpenOptions))
+                .thenReturn(mockFileChannel);
+
+        assertEquals(mockFileChannel, FileChannel.open(mockPath, READ, WRITE));
     }
 }

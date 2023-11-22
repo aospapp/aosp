@@ -20,12 +20,8 @@
     <group>Wearable</group>
     <package>com.example.android.wearable.wear.weardrawers</package>
 
-    <minSdkVersionWear>23</minSdkVersionWear>minSdkVersionWear>
-    <targetSdkVersion>23</targetSdkVersion>
-    <targetSdkVersionWear>23</targetSdkVersionWear>
-
-    <provided_dependency_wearable>com.google.android.wearable:wearable:1.0.0</provided_dependency_wearable>
-    <preview_wearable_support_dependency>com.google.android.support:wearable:2.0.0-alpha1</preview_wearable_support_dependency>
+    <targetSdkVersion>25</targetSdkVersion>
+    <targetSdkVersionWear>25</targetSdkVersionWear>
 
     <strings>
         <intro>

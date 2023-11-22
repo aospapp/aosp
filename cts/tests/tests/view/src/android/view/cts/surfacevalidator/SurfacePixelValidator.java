@@ -16,6 +16,7 @@
 package android.view.cts.surfacevalidator;
 
 import android.content.Context;
+import android.graphics.Bitmap;
 import android.graphics.Point;
 import android.os.Handler;
 import android.os.HandlerThread;
@@ -25,11 +26,8 @@ import android.renderscript.Element;
 import android.renderscript.RenderScript;
 import android.renderscript.Type;
 import android.util.Log;
+import android.util.SparseArray;
 import android.view.Surface;
-import android.view.cts.surfacevalidator.PixelChecker;
-
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 
 public class SurfacePixelValidator {
     private static final String TAG = "SurfacePixelValidator";
@@ -43,6 +41,8 @@ public class SurfacePixelValidator {
     // If no channel is greater than this value, pixel will be considered 'blackish'.
     private static final short PIXEL_CHANNEL_THRESHOLD = 4;
 
+    private static final int MAX_CAPTURED_FAILURES = 5;
+
     private final int mWidth;
     private final int mHeight;
 
@@ -54,14 +54,13 @@ public class SurfacePixelValidator {
     private final RenderScript mRS;
 
     private final Allocation mInPixelsAllocation;
-    private final Allocation mInRowsAllocation;
-    private final Allocation mOutRowsAllocation;
     private final ScriptC_PixelCounter mScript;
 
 
     private final Object mResultLock = new Object();
     private int mResultSuccessFrames;
     private int mResultFailureFrames;
+    private SparseArray<Bitmap> mFirstFailures = new SparseArray<>(MAX_CAPTURED_FAILURES);
 
     private Runnable mConsumeRunnable = new Runnable() {
         int numSkipped = 0;
@@ -69,23 +68,18 @@ public class SurfacePixelValidator {
         public void run() {
             Trace.beginSection("consume buffer");
             mInPixelsAllocation.ioReceive();
-            mScript.set_image(mInPixelsAllocation);
             Trace.endSection();
 
-            Trace.beginSection("compare");
-            mScript.forEach_countBlackishPixels(mInRowsAllocation, mOutRowsAllocation);
-            Trace.endSection();
-
-            Trace.beginSection("sum");
-            int blackishPixelCount = sum1DIntAllocation(mOutRowsAllocation, mHeight);
+            Trace.beginSection("compare and sum");
+            int blackishPixelCount = mScript.reduce_countBlackishPixels(mInPixelsAllocation).get();
             Trace.endSection();
 
             boolean success = mPixelChecker.checkPixels(blackishPixelCount, mWidth, mHeight);
             synchronized (mResultLock) {
                 if (numSkipped < NUM_FIRST_FRAMES_SKIPPED) {
                     numSkipped++;
+                    Log.d(TAG, "skipped frame nr " + numSkipped + ", success = " + success);
                 } else {
-
                     if (success) {
                         mResultSuccessFrames++;
                     } else {
@@ -93,6 +87,15 @@ public class SurfacePixelValidator {
                         int totalFramesSeen = mResultSuccessFrames + mResultFailureFrames;
                         Log.d(TAG, "Failure (pixel count = " + blackishPixelCount
                                 + ") occurred on frame " + totalFramesSeen);
+
+                        if (mFirstFailures.size() < MAX_CAPTURED_FAILURES) {
+                            Log.d(TAG, "Capturing bitmap #" + mFirstFailures.size());
+                            // error, worth looking at...
+                            Bitmap capture = Bitmap.createBitmap(mWidth, mHeight,
+                                    Bitmap.Config.ARGB_8888);
+                            mInPixelsAllocation.copyTo(capture);
+                            mFirstFailures.put(totalFramesSeen, capture);
+                        }
                     }
                 }
             }
@@ -113,9 +116,6 @@ public class SurfacePixelValidator {
         mScript = new ScriptC_PixelCounter(mRS);
 
         mInPixelsAllocation = createBufferQueueAllocation();
-        mInRowsAllocation = createInputRowIndexAllocation();
-        mOutRowsAllocation = createOutputRowAllocation();
-        mScript.set_WIDTH(mWidth);
         mScript.set_THRESHOLD(PIXEL_CHANNEL_THRESHOLD);
 
         mInPixelsAllocation.setOnBufferAvailableListener(
@@ -126,41 +126,10 @@ public class SurfacePixelValidator {
         return mInPixelsAllocation.getSurface();
     }
 
-    static private int sum1DIntAllocation(Allocation array, int length) {
-        //Get the values returned from the function
-        int[] returnValue = new int[length];
-        array.copyTo(returnValue);
-        int sum = 0;
-        //If any row had any different pixels, then it fails
-        for (int i = 0; i < length; i++) {
-            sum += returnValue[i];
-        }
-        return sum;
-    }
-
-    /**
-     * Creates an allocation where the values in it are the indices of each row
-     */
-    private Allocation createInputRowIndexAllocation() {
-        //Create an array with the index of each row
-        int[] inputIndices = new int[mHeight];
-        for (int i = 0; i < mHeight; i++) {
-            inputIndices[i] = i;
-        }
-        //Create the allocation from that given array
-        Allocation inputAllocation = Allocation.createSized(mRS, Element.I32(mRS),
-                inputIndices.length, Allocation.USAGE_SCRIPT);
-        inputAllocation.copyFrom(inputIndices);
-        return inputAllocation;
-    }
-
-    private Allocation createOutputRowAllocation() {
-        return Allocation.createSized(mRS, Element.I32(mRS), mHeight, Allocation.USAGE_SCRIPT);
-    }
-
     private Allocation createBufferQueueAllocation() {
         return Allocation.createAllocations(mRS, Type.createXY(mRS,
-                Element.U8_4(mRS), mWidth, mHeight),
+                Element.RGBA_8888(mRS)
+                /*Element.U32(mRS)*/, mWidth, mHeight),
                 Allocation.USAGE_SCRIPT | Allocation.USAGE_IO_INPUT,
                 1)[0];
     }
@@ -177,6 +146,10 @@ public class SurfacePixelValidator {
             // Caller should only call this
             testResult.failFrames = mResultFailureFrames;
             testResult.passFrames = mResultSuccessFrames;
+
+            for (int i = 0; i < mFirstFailures.size(); i++) {
+                testResult.failures.put(mFirstFailures.keyAt(i), mFirstFailures.valueAt(i));
+            }
         }
         mWorkerThread.quitSafely();
     }

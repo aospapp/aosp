@@ -8,6 +8,7 @@ import shutil
 import sys
 import StringIO
 import tempfile
+import time
 import unittest
 
 from telemetry import benchmark
@@ -19,11 +20,12 @@ from telemetry.internal.browser import browser_finder
 from telemetry.internal.browser import user_agent
 from telemetry.internal.results import results_options
 from telemetry.internal import story_runner
-from telemetry.internal.testing.page_sets import example_domain
+from telemetry.internal.testing.test_page_sets import example_domain
 from telemetry.internal.util import exception_formatter
 from telemetry.page import page as page_module
-from telemetry.page import page_test
+from telemetry.page import legacy_page_test
 from telemetry.page import shared_page_state
+from telemetry.page import traffic_setting as traffic_setting_module
 from telemetry.util import image_util
 from telemetry.testing import fakes
 from telemetry.testing import options_for_unittests
@@ -40,7 +42,7 @@ SIMPLE_CREDENTIALS_STRING = """
 """
 
 
-class DummyTest(page_test.PageTest):
+class DummyTest(legacy_page_test.LegacyPageTest):
 
   def ValidateAndMeasurePage(self, *_):
     pass
@@ -143,13 +145,16 @@ class ActualPageRunEndToEndTests(unittest.TestCase):
     self.CaptureFormattedException()
     story_set = story.StorySet()
     story_set.AddStory(page_module.Page(
-        'file://blank.html', story_set, base_dir=util.GetUnittestDataDir()))
+        'file://blank.html', story_set, base_dir=util.GetUnittestDataDir(),
+        name='foo'))
     story_set.AddStory(page_module.Page(
-        'file://blank.html', story_set, base_dir=util.GetUnittestDataDir()))
+        'file://blank.html', story_set, base_dir=util.GetUnittestDataDir(),
+        name='bar'))
     story_set.AddStory(page_module.Page(
-        'file://blank.html', story_set, base_dir=util.GetUnittestDataDir()))
+        'file://blank.html', story_set, base_dir=util.GetUnittestDataDir(),
+        name='baz'))
 
-    class Test(page_test.PageTest):
+    class Test(legacy_page_test.LegacyPageTest):
 
       def __init__(self, *args):
         super(Test, self).__init__(
@@ -183,11 +188,13 @@ class ActualPageRunEndToEndTests(unittest.TestCase):
     self.CaptureFormattedException()
     story_set = story.StorySet()
     story_set.AddStory(page_module.Page(
-        'file://blank.html', story_set, base_dir=util.GetUnittestDataDir()))
+        'file://blank.html', story_set, base_dir=util.GetUnittestDataDir(),
+        name='foo'))
     story_set.AddStory(page_module.Page(
-        'file://blank.html', story_set, base_dir=util.GetUnittestDataDir()))
+        'file://blank.html', story_set, base_dir=util.GetUnittestDataDir(),
+        name='bar'))
 
-    class Test(page_test.PageTest):
+    class Test(legacy_page_test.LegacyPageTest):
 
       def __init__(self, *args, **kwargs):
         super(Test, self).__init__(*args, **kwargs)
@@ -241,7 +248,7 @@ class ActualPageRunEndToEndTests(unittest.TestCase):
 
         f.write(SIMPLE_CREDENTIALS_STRING)
 
-      class TestThatInstallsCredentialsBackend(page_test.PageTest):
+      class TestThatInstallsCredentialsBackend(legacy_page_test.LegacyPageTest):
 
         def __init__(self, credentials_backend):
           super(TestThatInstallsCredentialsBackend, self).__init__()
@@ -273,10 +280,11 @@ class ActualPageRunEndToEndTests(unittest.TestCase):
         shared_page_state_class=shared_page_state.SharedTabletPageState)
     story_set.AddStory(page)
 
-    class TestUserAgent(page_test.PageTest):
+    class TestUserAgent(legacy_page_test.LegacyPageTest):
       def ValidateAndMeasurePage(self, page, tab, results):
         del page, results  # unused
-        actual_user_agent = tab.EvaluateJavaScript('window.navigator.userAgent')
+        actual_user_agent = tab.EvaluateJavaScript(
+            'window.navigator.userAgent')
         expected_user_agent = user_agent.UA_TYPE_MAPPING['tablet']
         assert actual_user_agent.strip() == expected_user_agent
 
@@ -303,7 +311,7 @@ class ActualPageRunEndToEndTests(unittest.TestCase):
         'file://blank.html', story_set, base_dir=util.GetUnittestDataDir())
     story_set.AddStory(page)
 
-    class TestOneTab(page_test.PageTest):
+    class TestOneTab(legacy_page_test.LegacyPageTest):
 
       def DidStartBrowser(self, browser):
         browser.tabs.New()
@@ -320,6 +328,48 @@ class ActualPageRunEndToEndTests(unittest.TestCase):
     results = results_options.CreateResults(EmptyMetadataForTest(), options)
     story_runner.Run(test, story_set, options, results)
 
+  @decorators.Disabled('chromeos')  # crbug.com/652385
+  def testTrafficSettings(self):
+    story_set = story.StorySet()
+    slow_page = page_module.Page(
+        'file://green_rect.html', story_set, base_dir=util.GetUnittestDataDir(),
+        name='slow',
+        traffic_setting=traffic_setting_module.REGULAR_2G)
+    fast_page = page_module.Page(
+        'file://green_rect.html', story_set, base_dir=util.GetUnittestDataDir(),
+        name='fast',
+        traffic_setting=traffic_setting_module.WIFI)
+    story_set.AddStory(slow_page)
+    story_set.AddStory(fast_page)
+
+    latencies_by_page_in_ms = {}
+
+    class MeasureLatency(legacy_page_test.LegacyPageTest):
+      def __init__(self):
+        super(MeasureLatency, self).__init__()
+        self._will_navigate_time = None
+
+      def WillNavigateToPage(self, page, tab):
+        del page, tab # unused
+        self._will_navigate_time = time.time() * 1000
+
+      def ValidateAndMeasurePage(self, page, tab, results):
+        del results  # unused
+        latencies_by_page_in_ms[page.name] = (
+            time.time() * 1000 - self._will_navigate_time)
+
+    test = MeasureLatency()
+    options = options_for_unittests.GetCopy()
+    options.output_formats = ['none']
+    options.suppress_gtest_report = True
+    SetUpStoryRunnerArguments(options)
+    results = results_options.CreateResults(EmptyMetadataForTest(), options)
+    story_runner.Run(test, story_set, options, results)
+    # Slow page should be slower than fast page by at least 300 ms (roundtrip
+    # time of 2G) - 2 ms (roundtrip time of Wifi)
+    self.assertGreater(latencies_by_page_in_ms['slow'],
+                       latencies_by_page_in_ms['fast'] + 300 - 2)
+
   # Ensure that story_runner allows >1 tab for multi-tab test.
   @decorators.Enabled('has tabs')
   def testMultipleTabsOkayForMultiTabTest(self):
@@ -328,7 +378,7 @@ class ActualPageRunEndToEndTests(unittest.TestCase):
         'file://blank.html', story_set, base_dir=util.GetUnittestDataDir())
     story_set.AddStory(page)
 
-    class TestMultiTabs(page_test.PageTest):
+    class TestMultiTabs(legacy_page_test.LegacyPageTest):
       def TabForPage(self, page, browser):
         del page  # unused
         return browser.tabs.New()
@@ -353,7 +403,7 @@ class ActualPageRunEndToEndTests(unittest.TestCase):
         'file://blank.html', story_set, base_dir=util.GetUnittestDataDir())
     story_set.AddStory(page)
 
-    class TestBeforeLaunch(page_test.PageTest):
+    class TestBeforeLaunch(legacy_page_test.LegacyPageTest):
 
       def __init__(self):
         super(TestBeforeLaunch, self).__init__()
@@ -394,7 +444,7 @@ class ActualPageRunEndToEndTests(unittest.TestCase):
         startup_url='about:blank', shared_page_state_class=TestSharedState)
     story_set.AddStory(page)
 
-    class Measurement(page_test.PageTest):
+    class Measurement(legacy_page_test.LegacyPageTest):
 
       def __init__(self):
         super(Measurement, self).__init__()
@@ -403,7 +453,7 @@ class ActualPageRunEndToEndTests(unittest.TestCase):
         del page, tab, results  # not used
 
     options = options_for_unittests.GetCopy()
-    options.page_repeat = 2
+    options.pageset_repeat = 2
     options.output_formats = ['none']
     options.suppress_gtest_report = True
     if not browser_finder.FindBrowser(options):
@@ -425,14 +475,14 @@ class ActualPageRunEndToEndTests(unittest.TestCase):
         'file://blank.html', story_set, base_dir=util.GetUnittestDataDir())
     story_set.AddStory(page)
 
-    class Test(page_test.PageTest):
+    class Test(legacy_page_test.LegacyPageTest):
 
       def __init__(self):
         super(Test, self).__init__()
         self.did_call_clean_up = False
 
       def ValidateAndMeasurePage(self, *_):
-        raise page_test.Failure
+        raise legacy_page_test.Failure
 
       def DidRunPage(self, platform):
         del platform  # unused
@@ -464,7 +514,7 @@ class ActualPageRunEndToEndTests(unittest.TestCase):
         base_dir=util.GetUnittestDataDir(),
         shared_page_state_class=UnrunnableSharedState))
 
-    class Test(page_test.PageTest):
+    class Test(legacy_page_test.LegacyPageTest):
 
       def __init__(self, *args, **kwargs):
         super(Test, self).__init__(*args, **kwargs)
@@ -495,7 +545,7 @@ class ActualPageRunEndToEndTests(unittest.TestCase):
     story_set.AddStory(page_module.Page(
         'file://blank.html', story_set, base_dir=util.GetUnittestDataDir()))
 
-    class Measurement(page_test.PageTest):
+    class Measurement(legacy_page_test.LegacyPageTest):
 
       def ValidateAndMeasurePage(self, page, tab, results):
         pass
@@ -516,7 +566,7 @@ class ActualPageRunEndToEndTests(unittest.TestCase):
       self.assertEquals(0, len(results.failures))
       self.assertEquals(0, len(results.all_page_specific_values))
       self.assertTrue(os.path.isfile(
-          os.path.join(options.output_dir, 'blank_html.zip')))
+          os.path.join(options.output_dir, 'blank_html.html')))
     finally:
       shutil.rmtree(options.output_dir)
 
@@ -527,10 +577,10 @@ class ActualPageRunEndToEndTests(unittest.TestCase):
         raise exceptions.AppCrashException
 
     story_set = story.StorySet()
-    for _ in range(5):
+    for i in range(5):
       story_set.AddStory(
           TestPage('file://blank.html', story_set,
-                   base_dir=util.GetUnittestDataDir()))
+                   base_dir=util.GetUnittestDataDir(), name='foo%d' % i))
     options = options_for_unittests.GetCopy()
     options.output_formats = ['none']
     options.suppress_gtest_report = True
@@ -543,7 +593,7 @@ class ActualPageRunEndToEndTests(unittest.TestCase):
   def testSingleTabMeansCrashWillCauseFailureValue(self):
     self.CaptureFormattedException()
 
-    class SingleTabTest(page_test.PageTest):
+    class SingleTabTest(legacy_page_test.LegacyPageTest):
       # Test is not multi-tab because it does not override TabForPage.
 
       def ValidateAndMeasurePage(self, *_):
@@ -560,7 +610,7 @@ class ActualPageRunEndToEndTests(unittest.TestCase):
   def testMultipleTabsMeansCrashRaises(self):
     self.CaptureFormattedException()
 
-    class MultipleTabsTest(page_test.PageTest):
+    class MultipleTabsTest(legacy_page_test.LegacyPageTest):
       # Test *is* multi-tab because it overrides TabForPage.
 
       def TabForPage(self, page, browser):
@@ -570,7 +620,7 @@ class ActualPageRunEndToEndTests(unittest.TestCase):
         pass
 
     test = MultipleTabsTest()
-    with self.assertRaises(page_test.MultiTabTestAppCrashError):
+    with self.assertRaises(legacy_page_test.MultiTabTestAppCrashError):
       self._RunPageTestThatRaisesAppCrashException(test, max_failures=1)
     self.assertFormattedExceptionOnlyHas('AppCrashException')
 
@@ -578,7 +628,7 @@ class ActualPageRunEndToEndTests(unittest.TestCase):
     story_set = example_domain.ExampleDomainPageSet()
     body = []
 
-    class TestWpr(page_test.PageTest):
+    class TestWpr(legacy_page_test.LegacyPageTest):
       def ValidateAndMeasurePage(self, page, tab, results):
         del page, results  # unused
         body.append(tab.EvaluateJavaScript('document.body.innerText'))

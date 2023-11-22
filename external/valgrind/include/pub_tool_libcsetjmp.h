@@ -118,6 +118,14 @@ UWord VG_MINIMAL_SETJMP(VG_MINIMAL_JMP_BUF(_env));
 __attribute__((noreturn))
 void  VG_MINIMAL_LONGJMP(VG_MINIMAL_JMP_BUF(_env));
 
+#elif defined(ANDROID) && defined(__aarch64__)
+
+/* Android clang/llvm has no __builtin_{setjmp,longjmp} for aarch64. */
+/* Use the same setjmp/longjmp functions for both gcc and clang.     */
+#define VG_MINIMAL_JMP_BUF(_name) jmp_buf _name
+#define VG_MINIMAL_SETJMP(_env)   ((UWord)(setjmp((_env))))
+#define VG_MINIMAL_LONGJMP(_env)  longjmp((_env),1)
+
 #else
 
 /* The default implementation. */

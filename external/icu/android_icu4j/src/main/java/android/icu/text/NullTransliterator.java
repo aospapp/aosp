@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 1996-2010, International Business Machines Corporation and    *
@@ -14,8 +16,8 @@ class NullTransliterator extends Transliterator {
     /**
      * Package accessible IDs for this transliterator.
      */
-    static String SHORT_ID = "Null";
-    static String _ID      = "Any-Null";
+    static final String SHORT_ID = "Null";
+    static final String _ID      = "Any-Null";
 
     /**
      * Constructs a transliterator.
@@ -27,6 +29,7 @@ class NullTransliterator extends Transliterator {
     /**
      * Implements {@link Transliterator#handleTransliterate}.
      */
+    @Override
     protected void handleTransliterate(Replaceable text,
                                        Position offsets, boolean incremental) {
         offsets.start = offsets.limit;

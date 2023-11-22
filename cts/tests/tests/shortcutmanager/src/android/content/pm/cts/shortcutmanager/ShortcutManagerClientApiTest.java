@@ -357,7 +357,10 @@ public class ShortcutManagerClientApiTest extends ShortcutManagerCtsTestsBase {
                 getTestContext().getResources(), R.drawable.black_32x32));
         final Icon icon3 = loadPackageDrawableIcon(mPackageContext1, "black_64x16");
         final Icon icon4 = loadPackageDrawableIcon(mPackageContext1, "black_64x64");
-
+        final Icon icon5 = Icon.createWithAdaptiveBitmap(BitmapFactory.decodeResource(
+                getTestContext().getResources(), R.drawable.black_16x64));
+        final Icon icon6 = Icon.createWithAdaptiveBitmap(BitmapFactory.decodeResource(
+                getTestContext().getResources(), R.drawable.black_32x32));
         runWithCaller(mPackageContext1, () -> {
             final ShortcutInfo source = makeShortcutBuilder("s1")
                     .setShortLabel("shortlabel")
@@ -503,6 +506,42 @@ public class ShortcutManagerClientApiTest extends ShortcutManagerCtsTestsBase {
                     });
             assertIconDimensions(mLauncherContext1, mPackageContext1.getPackageName(), "s1",
                     icon4);
+        });
+        runWithCaller(mPackageContext1, () -> {
+            // No fields updated.
+            final ShortcutInfo updated = makeShortcutBuilder("s1")
+                    .setShortLabel("xxx")
+                    .setIntents(new Intent[]{new Intent("main").putExtra("k1", "yyy")})
+                    .setIcon(icon5)
+                    .build();
+
+            assertTrue(getManager().setDynamicShortcuts(list(updated)));
+
+            // Check each field.
+            assertWith(getManager().getDynamicShortcuts())
+                    .forShortcutWithId("s1", si ->{
+                        assertEquals("xxx", si.getShortLabel());
+                    });
+            assertIconDimensions(mLauncherContext1, mPackageContext1.getPackageName(), "s1",
+                    icon5);
+        });
+        runWithCaller(mPackageContext1, () -> {
+            // No fields updated.
+            final ShortcutInfo updated = makeShortcutBuilder("s1")
+                    .setShortLabel("xxx")
+                    .setIntents(new Intent[]{new Intent("main").putExtra("k1", "yyy")})
+                    .setIcon(icon6)
+                    .build();
+
+            assertTrue(getManager().setDynamicShortcuts(list(updated)));
+
+            // Check each field.
+            assertWith(getManager().getDynamicShortcuts())
+                    .forShortcutWithId("s1", si ->{
+                      assertEquals("xxx", si.getShortLabel());
+                    });
+            assertIconDimensions(mLauncherContext1, mPackageContext1.getPackageName(), "s1",
+                    icon6);
         });
     }
 

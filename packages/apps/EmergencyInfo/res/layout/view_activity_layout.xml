@@ -50,16 +50,36 @@
         android:layout_height="match_parent"
         android:elevation="@dimen/tab_elevation">
 
-        <TextView
-            android:id="@+id/no_info_text_view"
+        <LinearLayout
+            android:id="@+id/no_info"
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:layout_marginStart="16dp"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
             android:layout_marginEnd="16dp"
-            android:gravity="center"
-            android:text="@string/no_info_provided"
-            android:textColor="#9E9E9E"
-            android:textSize="16sp" />
+            android:layout_marginStart="16dp"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/no_info_text_view"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:gravity="center"
+                android:text="@string/no_info_provided"
+                android:textColor="#61000000"
+                android:textSize="16sp" />
+
+            <TextView
+                android:id="@+id/tap"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:layout_below="@id/no_info_text_view"
+                android:layout_marginTop="20dp"
+                android:gravity="center"
+                android:lineSpacingMultiplier="1.21905"
+                android:text="@string/tap_pencil"
+                android:textColor="#61000000"
+                android:textSize="14sp" />
+        </LinearLayout>
 
         <include
             android:id="@+id/tabs"

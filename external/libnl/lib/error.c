@@ -9,7 +9,7 @@
  * Copyright (c) 2008 Thomas Graf <tgraf@suug.ch>
  */
 
-#include <netlink-local.h>
+#include <netlink-private/netlink.h>
 #include <netlink/netlink.h>
 
 static const char *errmsg[NLE_MAX+1] = {
@@ -43,6 +43,10 @@ static const char *errmsg[NLE_MAX+1] = {
 [NLE_NOACCESS]		= "No Access",
 [NLE_PERM]		= "Operation not permitted",
 [NLE_PKTLOC_FILE]	= "Unable to open packet location file",
+[NLE_PARSE_ERR]		= "Unable to parse object",
+[NLE_NODEV]		= "No such device",
+[NLE_IMMUTABLE]		= "Immutable attribute",
+[NLE_DUMP_INTR]		= "Dump inconsistency detected, interrupted",
 };
 
 /**
@@ -86,6 +90,7 @@ int nl_syserr2nlerr(int error)
 	case EADDRINUSE:	return NLE_EXIST;
 	case EEXIST:		return NLE_EXIST;
 	case EADDRNOTAVAIL:	return NLE_NOADDR;
+	case ESRCH:		/* fall through */
 	case ENOENT:		return NLE_OBJ_NOTFOUND;
 	case EINTR:		return NLE_INTR;
 	case EAGAIN:		return NLE_AGAIN;
@@ -102,6 +107,7 @@ int nl_syserr2nlerr(int error)
 	case EPERM:		return NLE_PERM;
 	case EBUSY:		return NLE_BUSY;
 	case ERANGE:		return NLE_RANGE;
+	case ENODEV:		return NLE_NODEV;
 	default:		return NLE_FAILURE;
 	}
 }

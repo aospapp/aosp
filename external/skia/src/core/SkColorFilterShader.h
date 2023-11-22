@@ -11,27 +11,23 @@
 #include "SkColorFilter.h"
 #include "SkShader.h"
 
+class SkArenaAlloc;
+
 class SkColorFilterShader : public SkShader {
 public:
-    SkColorFilterShader(SkShader* shader, SkColorFilter* filter);
-    
-    size_t contextSize(const ContextRec&) const override;
-    
+    SkColorFilterShader(sk_sp<SkShader> shader, sk_sp<SkColorFilter> filter);
+
 #if SK_SUPPORT_GPU
-    const GrFragmentProcessor* asFragmentProcessor(GrContext*,
-                                                   const SkMatrix& viewM,
-                                                   const SkMatrix* localMatrix,
-                                                   SkFilterQuality) const override;
+    sk_sp<GrFragmentProcessor> asFragmentProcessor(const AsFPArgs&) const override;
 #endif
 
     class FilterShaderContext : public SkShader::Context {
     public:
         // Takes ownership of shaderContext and calls its destructor.
         FilterShaderContext(const SkColorFilterShader&, SkShader::Context*, const ContextRec&);
-        virtual ~FilterShaderContext();
-        
+
         uint32_t getFlags() const override;
-        
+
         void shadeSpan(int x, int y, SkPMColor[], int count) override;
         void shadeSpan4f(int x, int y, SkPM4f[], int count) override;
 
@@ -39,25 +35,24 @@ public:
             // forward to our proxy
             fShaderContext->set3DMask(mask);
         }
-        
+
     private:
         SkShader::Context* fShaderContext;
-        
+
         typedef SkShader::Context INHERITED;
     };
-    
+
     SK_TO_STRING_OVERRIDE()
     SK_DECLARE_PUBLIC_FLATTENABLE_DESERIALIZATION_PROCS(SkColorFilterShader)
-    
+
 protected:
     void flatten(SkWriteBuffer&) const override;
-    Context* onCreateContext(const ContextRec&, void* storage) const override;
-    
-    
+    Context* onMakeContext(const ContextRec&, SkArenaAlloc* alloc) const override;
+
 private:
-    SkAutoTUnref<SkShader>      fShader;
-    SkAutoTUnref<SkColorFilter> fFilter;
-    
+    sk_sp<SkShader>      fShader;
+    sk_sp<SkColorFilter> fFilter;
+
     typedef SkShader INHERITED;
 };
 

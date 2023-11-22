@@ -72,3 +72,9 @@ ssp_deploy_shadow_config.json
 
 # Shadow config for perf dashboard
 tko/perf_upload/perf_dashboard_shadow_config.json
+
+# HWID key file used by site_utils/hwid_lib.py
+hwid_key
+
+# suite_scheduler.ini is deployed by puppet
+suite_scheduler.ini

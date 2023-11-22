@@ -63,7 +63,7 @@ import common
 from autotest_lib.frontend import setup_django_environment
 
 from autotest_lib.client.common_lib import global_config
-from autotest_lib.client.common_lib.cros.graphite import autotest_stats
+from autotest_lib.client.common_lib import utils
 from autotest_lib.scheduler import email_manager
 from autotest_lib.scheduler import query_managers
 from autotest_lib.scheduler import rdb_lib
@@ -74,13 +74,21 @@ from autotest_lib.site_utils import job_overhead
 from autotest_lib.site_utils import metadata_reporter
 from autotest_lib.site_utils import server_manager_utils
 
+try:
+    from chromite.lib import metrics
+    from chromite.lib import ts_mon_config
+except ImportError:
+    metrics = utils.metrics_mock
+    ts_mon_config = utils.metrics_mock
+
+
 _db_manager = None
 _shutdown = False
 _tick_pause_sec = global_config.global_config.get_config_value(
         'SCHEDULER', 'tick_pause_sec', type=int, default=5)
 _monitor_db_host_acquisition = global_config.global_config.get_config_value(
         'SCHEDULER', 'inline_host_acquisition', type=bool, default=True)
-
+_METRICS_PREFIX = 'chromeos/autotest/host_scheduler'
 
 class SuiteRecorder(object):
     """Recording the host assignment for suites.
@@ -101,9 +109,6 @@ class SuiteRecorder(object):
     64-bit machine with python 2.7)
 
     """
-
-
-    _timer = autotest_stats.Timer('suite_recorder')
 
 
     def __init__(self, job_query_manager):
@@ -190,7 +195,6 @@ class BaseHostScheduler(object):
     """
 
 
-    _timer = autotest_stats.Timer('base_host_scheduler')
     host_assignment = collections.namedtuple('host_assignment', ['host', 'job'])
 
 
@@ -198,7 +202,6 @@ class BaseHostScheduler(object):
         self.host_query_manager = query_managers.AFEHostQueryManager()
 
 
-    @_timer.decorate
     def _release_hosts(self):
         """Release hosts to the RDB.
 
@@ -281,7 +284,6 @@ class BaseHostScheduler(object):
         return jobs_with_hosts
 
 
-    @_timer.decorate
     def tick(self):
         """Schedule core host management activities."""
         self._release_hosts()
@@ -289,8 +291,6 @@ class BaseHostScheduler(object):
 
 class HostScheduler(BaseHostScheduler):
     """A scheduler capable managing host acquisition for new jobs."""
-
-    _timer = autotest_stats.Timer('host_scheduler')
 
 
     def __init__(self):
@@ -319,11 +319,11 @@ class HostScheduler(BaseHostScheduler):
         self._suite_recorder.record_assignment(queue_entry)
 
 
-    @_timer.decorate
+    @metrics.SecondsTimerDecorator(
+            '%s/schedule_jobs_duration' % _METRICS_PREFIX)
     def _schedule_jobs(self):
         """Schedule new jobs against hosts."""
 
-        key = 'host_scheduler.jobs_per_tick'
         new_jobs_with_hosts = 0
         queue_entries = self.job_query_manager.get_pending_queue_entries(
                 only_hostless=False)
@@ -335,14 +335,16 @@ class HostScheduler(BaseHostScheduler):
             self.schedule_host_job(acquisition.host, acquisition.job)
             self._record_host_assignment(acquisition.host, acquisition.job)
             new_jobs_with_hosts += 1
-        autotest_stats.Gauge(key).send('new_jobs_with_hosts',
-                                       new_jobs_with_hosts)
-        autotest_stats.Gauge(key).send('new_jobs_without_hosts',
-                                       len(unverified_host_jobs) -
-                                       new_jobs_with_hosts)
+        metrics.Counter('%s/new_jobs_with_hosts' % _METRICS_PREFIX
+                        ).increment_by(new_jobs_with_hosts)
+
+        num_jobs_without_hosts = len(unverified_host_jobs) - new_jobs_with_hosts
+        metrics.Gauge('%s/current_jobs_without_hosts' % _METRICS_PREFIX
+                      ).set(num_jobs_without_hosts)
+        metrics.Counter('%s/tick' % _METRICS_PREFIX).increment()
 
 
-    @_timer.decorate
+    @metrics.SecondsTimerDecorator('%s/lease_hosts_duration' % _METRICS_PREFIX)
     def _lease_hosts_of_frontend_tasks(self):
         """Lease hosts of tasks scheduled through the frontend."""
         # We really don't need to get all the special tasks here, just the ones
@@ -381,7 +383,7 @@ class HostScheduler(BaseHostScheduler):
         return rdb_lib.acquire_hosts(host_jobs, suite_min_duts)
 
 
-    @_timer.decorate
+    @metrics.SecondsTimerDecorator('%s/tick_time' % _METRICS_PREFIX)
     def tick(self):
         logging.info('Calling new tick.')
         logging.info('Leasing hosts for frontend tasks.')
@@ -479,6 +481,8 @@ def main():
         # Start the thread to report metadata.
         metadata_reporter.start()
 
+        ts_mon_config.SetupTsMonGlobalState('autotest_host_scheduler')
+
         host_scheduler = HostScheduler()
         minimum_tick_sec = global_config.global_config.get_config_value(
                 'SCHEDULER', 'minimum_tick_sec', type=float)
@@ -490,6 +494,10 @@ def main():
                 time.sleep(minimum_tick_sec - curr_tick_sec)
             else:
                 time.sleep(0.0001)
+    except server_manager_utils.ServerActionError as e:
+        # This error is expected when the server is not in primary status
+        # for host-scheduler role. Thus do not send email for it.
+        raise
     except Exception:
         email_manager.manager.log_stacktrace(
                 'Uncaught exception; terminating host_scheduler.')

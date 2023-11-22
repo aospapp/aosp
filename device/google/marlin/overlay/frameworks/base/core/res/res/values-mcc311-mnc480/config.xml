@@ -21,10 +21,6 @@
      for different hardware and product builds. -->
 <resources>
 
-    <string-array translatable="false" name="config_default_vm_number">
-        <item>*86</item>
-    </string-array>
-
     <!-- Array of ConnectivityManager.TYPE_xxxx values allowable for tethering -->
     <!-- Common options are [1, 4] for TYPE_WIFI and TYPE_MOBILE_DUN or
     <!== [0,1,5,7] for TYPE_MOBILE, TYPE_WIFI, TYPE_MOBILE_HIPRI and TYPE_BLUETOOTH -->
@@ -59,8 +55,8 @@
 
     <!-- Entitlement APP provisioning for Tethering -->
     <string-array translatable="false" name="config_mobile_hotspot_provision_app">
-        <item>com.google.android.carrierentitlement</item>
-        <item>com.google.android.carrierentitlement.CarrierEntitlementActivity</item>
+        <item>com.google.android.tetheringentitlement</item>
+        <item>com.google.android.tetheringentitlement.CarrierEntitlementActivity</item>
     </string-array>
     <string translatable="false" name="config_mobile_hotspot_provision_app_no_ui">
          com.google.android.carrierentitlement.SILENT_ENTITLEMENT_CHECK

@@ -13,14 +13,18 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
-<android.support.v17.leanback.widget.NonOverlappingFrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<com.android.tv.settings.connectivity.setup.MessagePageFrameLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_height="match_parent"
-    android:layout_width="match_parent">
+    android:layout_width="match_parent"
+    android:paddingLeft="@dimen/setup_message_content_margin"
+    android:paddingRight="@dimen/setup_message_content_margin"
+    >
 
     <LinearLayout
-        android:layout_width="wrap_content"
+        android:id="@+id/message_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="@dimen/activity_progress_top_margin"
         android:layout_gravity="center_horizontal"
         android:orientation="vertical"
         android:gravity="bottom">
@@ -28,6 +32,8 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:gravity="center"
             android:lineSpacingMultiplier="@dimen/activity_progress_title_line_spacing"
             android:textAppearance="@style/Setup.ProgressTitle"
             android:id="@+id/status_text" />
@@ -45,4 +51,4 @@
 
     </LinearLayout>
 
-</android.support.v17.leanback.widget.NonOverlappingFrameLayout>
+</com.android.tv.settings.connectivity.setup.MessagePageFrameLayout>

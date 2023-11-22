@@ -8,8 +8,6 @@ PURPOSE = "Verify Chrome MSE/EME works for YouTube."
 CRITERIA = """
 This test will fail if timestamp offset is not calculated correctly.
 """
-ATTRIBUTES = "suite:youtube_mse_eme"
-SUITE = "youtube_mse_eme"
 TIME = "SHORT"
 TEST_CATEGORY = "General"
 TEST_CLASS = "video"

@@ -54,13 +54,16 @@
 #define _CTYPE_R (_CTYPE_P|_CTYPE_U|_CTYPE_L|_CTYPE_D|_CTYPE_B)
 #define _CTYPE_A (_CTYPE_L|_CTYPE_U)
 
+/* _CTYPE_N was added to NDK r10 and is expected by gnu-libstdc++ */
+#define _CTYPE_N _CTYPE_D
+
 __BEGIN_DECLS
 
-extern const char	*_ctype_;
+extern const char* _ctype_;
 
-#if defined(__GNUC__) || defined(_ANSI_LIBRARY) || defined(lint)
 int isalnum(int);
 int isalpha(int);
+int isblank(int);
 int iscntrl(int);
 int isdigit(int);
 int isgraph(int);
@@ -73,36 +76,29 @@ int isxdigit(int);
 int tolower(int);
 int toupper(int);
 
-#if __ANDROID_API__ >= 21
-int isalnum_l(int, locale_t);
-int isalpha_l(int, locale_t);
-int isblank_l(int, locale_t);
-int iscntrl_l(int, locale_t);
-int isdigit_l(int, locale_t);
-int isgraph_l(int, locale_t);
-int islower_l(int, locale_t);
-int isprint_l(int, locale_t);
-int ispunct_l(int, locale_t);
-int isspace_l(int, locale_t);
-int isupper_l(int, locale_t);
-int isxdigit_l(int, locale_t);
-int tolower_l(int, locale_t);
-int toupper_l(int, locale_t);
-#endif /* __ANDROID_API__ >= 21 */
-
-#if __BSD_VISIBLE || __ISO_C_VISIBLE >= 1999 || __POSIX_VISIBLE > 200112 \
-    || __XPG_VISIBLE > 600
-int isblank(int);
+#if __ANDROID_API__ >= __ANDROID_API_L__
+int isalnum_l(int, locale_t) __INTRODUCED_IN(21);
+int isalpha_l(int, locale_t) __INTRODUCED_IN(21);
+int isblank_l(int, locale_t) __INTRODUCED_IN(21);
+int iscntrl_l(int, locale_t) __INTRODUCED_IN(21);
+int isdigit_l(int, locale_t) __INTRODUCED_IN(21);
+int isgraph_l(int, locale_t) __INTRODUCED_IN(21);
+int islower_l(int, locale_t) __INTRODUCED_IN(21);
+int isprint_l(int, locale_t) __INTRODUCED_IN(21);
+int ispunct_l(int, locale_t) __INTRODUCED_IN(21);
+int isspace_l(int, locale_t) __INTRODUCED_IN(21);
+int isupper_l(int, locale_t) __INTRODUCED_IN(21);
+int isxdigit_l(int, locale_t) __INTRODUCED_IN(21);
+int tolower_l(int, locale_t) __INTRODUCED_IN(21);
+int toupper_l(int, locale_t) __INTRODUCED_IN(21);
+#else
+// Implemented as static inlines before 21.
 #endif
 
-#if __BSD_VISIBLE || __XPG_VISIBLE
 int isascii(int);
 int toascii(int);
-int _tolower(int);
-int _toupper(int);
-#endif /* __BSD_VISIBLE || __XPG_VISIBLE */
-
-#endif /* __GNUC__ || _ANSI_LIBRARY || lint */
+int _tolower(int) __INTRODUCED_IN(21);
+int _toupper(int) __INTRODUCED_IN(21);
 
 __END_DECLS
 

@@ -16,26 +16,25 @@
 package com.android.car.test;
 
 import android.car.Car;
-import android.car.test.VehicleHalEmulator;
 import android.car.hardware.radio.CarRadioEvent;
 import android.car.hardware.radio.CarRadioManager;
 import android.car.hardware.radio.CarRadioManager.CarRadioEventListener;
 import android.car.hardware.radio.CarRadioPreset;
 import android.hardware.radio.RadioManager;
+import android.hardware.automotive.vehicle.V2_0.VehiclePropValue;
+import android.hardware.automotive.vehicle.V2_0.VehicleProperty;
+import android.os.SystemClock;
 import android.test.suitebuilder.annotation.MediumTest;
 import android.util.Log;
 
-import com.android.car.vehiclenetwork.VehicleNetworkConsts;
-import com.android.car.vehiclenetwork.VehicleNetworkConsts.VehiclePropAccess;
-import com.android.car.vehiclenetwork.VehicleNetworkConsts.VehiclePropChangeMode;
-import com.android.car.vehiclenetwork.VehicleNetworkConsts.VehicleValueType;
-import com.android.car.vehiclenetwork.VehicleNetworkProto.VehiclePropValue;
-import com.android.car.vehiclenetwork.VehiclePropConfigUtil;
-import com.android.car.vehiclenetwork.VehiclePropValueUtil;
+import com.google.android.collect.Lists;
 
+import com.android.car.vehiclehal.VehiclePropValueBuilder;
+import com.android.car.vehiclehal.test.MockedVehicleHal.VehicleHalPropertyHandler;
+
+import java.util.HashMap;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
-import java.util.HashMap;
 
 @MediumTest
 public class CarRadioManagerTest extends MockedCarTestBase {
@@ -46,22 +45,19 @@ public class CarRadioManagerTest extends MockedCarTestBase {
     private Semaphore mAvailable;
 
     private static final int NUM_PRESETS = 2;
-    private final HashMap<Integer, CarRadioPreset> mRadioPresets =
-        new HashMap<Integer, CarRadioPreset>();
+    private final HashMap<Integer, CarRadioPreset> mRadioPresets = new HashMap<>();
 
     private CarRadioManager mCarRadioManager;
 
-    private class RadioPresetPropertyHandler
-            implements VehicleHalEmulator.VehicleHalPropertyHandler {
+    private class RadioPresetPropertyHandler implements VehicleHalPropertyHandler {
         public RadioPresetPropertyHandler() { }
 
         @Override
         public synchronized void onPropertySet(VehiclePropValue value) {
-            assertEquals(value.getProp(), VehicleNetworkConsts.VEHICLE_PROPERTY_RADIO_PRESET);
-            assertEquals(value.getValueType(), VehicleValueType.VEHICLE_VALUE_TYPE_INT32_VEC4);
+            assertEquals(value.prop, VehicleProperty.RADIO_PRESET);
 
             Integer[] valueList = new Integer[4];
-            value.getInt32ValuesList().toArray(valueList);
+            value.value.int32Values.toArray(valueList);
             assertFalse(
                 "Index out of range: " + valueList[0] + " (0, " + NUM_PRESETS + ")",
                 valueList[0] < 1);
@@ -82,28 +78,30 @@ public class CarRadioManagerTest extends MockedCarTestBase {
 
         @Override
         public synchronized VehiclePropValue onPropertyGet(VehiclePropValue value) {
-            assertEquals(value.getProp(), VehicleNetworkConsts.VEHICLE_PROPERTY_RADIO_PRESET);
-            assertEquals(value.getValueType(), VehicleValueType.VEHICLE_VALUE_TYPE_INT32_VEC4);
+            assertEquals(value.prop, VehicleProperty.RADIO_PRESET);
 
             Integer[] valueList = new Integer[4];
-            value.getInt32ValuesList().toArray(valueList);
+            value.value.int32Values.toArray(valueList);
 
             // Get the actual preset.
-            if (valueList[0] < 1 || valueList[0] > NUM_PRESETS) return null;
+            if (valueList[0] < 1 || valueList[0] > NUM_PRESETS) {
+                // VNS will call get method when subscribe is called, just return an empty
+                // value.
+                return value;
+            }
             CarRadioPreset preset = mRadioPresets.get(valueList[0]);
-            VehiclePropValue v =
-                VehiclePropValueUtil.createIntVectorValue(
-                    VehicleNetworkConsts.VEHICLE_PROPERTY_RADIO_PRESET,
-                    new int[] {
-                        preset.getPresetNumber(),
-                        preset.getBand(),
-                        preset.getChannel(),
-                        preset.getSubChannel()}, 0);
-            return v;
+            return VehiclePropValueBuilder.newBuilder(VehicleProperty.RADIO_PRESET)
+                    .setTimestamp(SystemClock.elapsedRealtimeNanos())
+                    .addIntValue(
+                            preset.getPresetNumber(),
+                            preset.getBand(),
+                            preset.getChannel(),
+                            preset.getSubChannel())
+                    .build();
         }
 
         @Override
-        public synchronized void onPropertySubscribe(int property, float sampleRate, int zones) {
+        public synchronized void onPropertySubscribe(int property, int zones, float sampleRate) {
             Log.d(TAG, "onPropertySubscribe property: " + property + " rate: " + sampleRate);
             if (mAvailable.availablePermits() != 0) {
                 Log.d(TAG, "Lock was free, should have been locked.");
@@ -134,20 +132,16 @@ public class CarRadioManagerTest extends MockedCarTestBase {
     }
 
     @Override
+    protected synchronized void configureMockedHal() {
+        addProperty(VehicleProperty.RADIO_PRESET, new RadioPresetPropertyHandler())
+                .setConfigArray(Lists.newArrayList(NUM_PRESETS));
+    }
+
+    @Override
     protected void setUp() throws Exception {
         super.setUp();
         mAvailable = new Semaphore(0);
-        getVehicleHalEmulator().addProperty(
-                VehiclePropConfigUtil.createProperty(
-                        VehicleNetworkConsts.VEHICLE_PROPERTY_RADIO_PRESET,
-                        VehiclePropAccess.VEHICLE_PROP_ACCESS_READ_WRITE,
-                        VehiclePropChangeMode.VEHICLE_PROP_CHANGE_MODE_ON_CHANGE,
-                        VehicleValueType.VEHICLE_VALUE_TYPE_INT32_VEC4,
-                        NUM_PRESETS),
-                new RadioPresetPropertyHandler());
-        getVehicleHalEmulator().start();
-        mCarRadioManager =
-                (CarRadioManager) getCar().getCarManager(Car.RADIO_SERVICE);
+        mCarRadioManager = (CarRadioManager) getCar().getCarManager(Car.RADIO_SERVICE);
     }
 
     public void testPresetCount() throws Exception {
@@ -171,24 +165,26 @@ public class CarRadioManagerTest extends MockedCarTestBase {
     }
 
     public void testSubscribe() throws Exception {
-        EventListener l = new EventListener();
+        EventListener listener = new EventListener();
         assertEquals("Lock should be freed by now.", 0, mAvailable.availablePermits());
-        mCarRadioManager.registerListener(l);
+        mCarRadioManager.registerListener(listener);
 
         // Wait for acquire to be available again, fail if timeout.
         boolean success = mAvailable.tryAcquire(5L, TimeUnit.SECONDS);
-        assertEquals("registerListener timeout", true, success);
+        assertEquals("addListener timeout", true, success);
 
         // Inject an event and wait for its callback in onPropertySet.
         CarRadioPreset preset = new CarRadioPreset(2, RadioManager.BAND_AM, 4321, -1);
-        VehiclePropValue v = VehiclePropValueUtil.createIntVectorValue(
-                    VehicleNetworkConsts.VEHICLE_PROPERTY_RADIO_PRESET,
-                    new int[] {
+
+        VehiclePropValue v = VehiclePropValueBuilder.newBuilder(VehicleProperty.RADIO_PRESET)
+                .setTimestamp(SystemClock.elapsedRealtimeNanos())
+                .addIntValue(
                         preset.getPresetNumber(),
                         preset.getBand(),
                         preset.getChannel(),
-                        preset.getSubChannel()}, 0);
-        getVehicleHalEmulator().injectEvent(v);
+                        preset.getSubChannel())
+                .build();
+        getMockedVehicleHal().injectEvent(v);
 
         success = mAvailable.tryAcquire(5L, TimeUnit.SECONDS);
         assertEquals("injectEvent, onEvent timeout!", true, success);

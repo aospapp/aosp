@@ -6,6 +6,7 @@ import common, logging, os, time
 
 from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
+from autotest_lib.client.common_lib import utils
 from autotest_lib.client.cros import constants
 
 # Log messages used to signal when we're restarting UI. Used to detect
@@ -92,13 +93,13 @@ def stop_and_wait_for_chrome_to_exit(timeout_secs=40):
 
 
 def stop(allow_fail=False):
-    return utils.system("stop ui", ignore_status=allow_fail)
+    return utils.stop_service("ui", ignore_status=allow_fail)
 
 
 def start(allow_fail=False, wait_for_login_prompt=True):
     """Start the login manager and wait for the prompt to show up."""
     session = get_chrome_session_ident()
-    result = utils.system("start ui", ignore_status=allow_fail)
+    result = utils.start_service("ui", ignore_status=allow_fail)
     # If allow_fail is set, the caller might be calling us when the UI job
     # is already running. In that case, the above command fails.
     if result == 0 and wait_for_login_prompt:
@@ -143,7 +144,7 @@ def nuke():
 
 def is_up():
     """Return True if the UI is up, False if not."""
-    return 'start/running' in utils.system_output('initctl status ui')
+    return utils.get_service_pid('ui')!=0
 
 
 def clear_respawn_state():

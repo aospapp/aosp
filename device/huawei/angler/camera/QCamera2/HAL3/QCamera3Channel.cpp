@@ -3571,6 +3571,8 @@ void QCamera3ReprocessChannel::streamCbRoutine(mm_camera_super_buf_t *super_fram
         *frame = *super_frame;
 
         /* Since reprocessing is done, send the callback to release the input buffer */
+        // Release offline buffers.
+        obj->releaseOfflineMemory(resultFrameNumber);
         if (mChannelCB) {
             mChannelCB(NULL, NULL, resultFrameNumber, true, mUserData);
         }
@@ -4240,6 +4242,14 @@ int32_t QCamera3ReprocessChannel::overrideFwkMetadata(
         }
     } else {
         ALOGE("%s: Input buffer memory map failed: %d", __func__, rc);
+    }
+
+    if (rc != NO_ERROR) {
+        //Try to recover by returning input with error status
+        camera3_stream_buffer_t result;
+        memset(&result, 0, sizeof(result));
+        result.status = CAMERA3_BUFFER_STATUS_ERROR;
+        mChannelCB(NULL, &result, frame->frameNumber, true, mUserData);
     }
 
     return rc;

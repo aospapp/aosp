@@ -34,6 +34,7 @@ import android.content.Intent;
 
 import com.android.ims.internal.Logger;
 import com.android.service.ims.presence.Contacts;
+import com.android.service.ims.presence.SharedPrefUtil;
 
 public class AlarmBroadcastReceiver extends BroadcastReceiver {
     private Logger logger = Logger.getLogger(this.getClass().getName());

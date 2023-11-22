@@ -124,29 +124,17 @@ class AdbHost(object):
         return ShellResult(p.returncode, stdout, stderr)
 
 
-def run_test(test_native, test_java, apk_path=None, refresh_binaries=False,
-             device_serial=None, verbose=False):
+def run_test(host, test_native, test_java):
     """Body of the test.
 
     Args:
+        host: AdbHost object to run tests on
         test_native: True iff we should test native Binder clients.
         test_java: True iff we shoudl test Java Binder clients.
-        apk_path: Optional path to an APK to install via `adb install`
-        refresh_binaries: True iff we should `adb sync` new binaries to the
-                device.
-        device_serial: Optional string containing the serial number of the
-                device under test.
-        verbose: True iff we should enable verbose output during the test.
     """
 
     print('Starting aidl integration testing...')
-    host = AdbHost(device_serial=device_serial, verbose=verbose)
-    if apk_path is not None:
-        host.adb('install -r %s' % apk_path)
-    if refresh_binaries:
-        host.adb('remount')
-        host.adb('sync')
-    host.run('setenforce 0')
+
     # Kill any previous test context
     host.run('rm -f %s' % JAVA_LOG_FILE, ignore_status=True)
     host.run('pkill %s' % NATIVE_TEST_SERVICE, ignore_status=True)
@@ -184,21 +172,20 @@ def run_test(test_native, test_java, apk_path=None, refresh_binaries=False,
 def main():
     """Main entry point."""
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--apk', dest='apk_path', type=str, default=None,
-                        help='Path to an APK to install on the device.')
-    parser.add_argument('--refresh-bins', action='store_true', default=False,
-                        help='Pass this flag to have the test run adb sync')
-    parser.add_argument('--serial', '-s', type=str, default=None,
-                        help='Serial number of device to test against')
     parser.add_argument(
             '--test-filter', default=TEST_FILTER_ALL,
             choices=[TEST_FILTER_ALL, TEST_FILTER_JAVA, TEST_FILTER_NATIVE])
     parser.add_argument('--verbose', '-v', action='store_true', default=False)
     args = parser.parse_args()
-    run_test(args.test_filter in (TEST_FILTER_ALL, TEST_FILTER_NATIVE),
-             args.test_filter in (TEST_FILTER_ALL, TEST_FILTER_JAVA),
-             apk_path=args.apk_path, refresh_binaries=args.refresh_bins,
-             device_serial=args.serial, verbose=args.verbose)
+    host = AdbHost(verbose=args.verbose)
+    try:
+        # Tragically, SELinux interferes with our testing
+        host.run('setenforce 0')
+        run_test(host,
+                 args.test_filter in (TEST_FILTER_ALL, TEST_FILTER_NATIVE),
+                 args.test_filter in (TEST_FILTER_ALL, TEST_FILTER_JAVA))
+    finally:
+        host.run('setenforce 1')
 
 
 if __name__ == '__main__':

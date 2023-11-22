@@ -16,14 +16,22 @@
 
 package android.util.cts;
 
+import static org.junit.Assert.assertEquals;
+
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.util.AndroidException;
-import android.test.AndroidTestCase;
 
-public class AndroidExceptionTest extends AndroidTestCase {
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class AndroidExceptionTest {
     private static final String NAME = "Test_AndroidException";
     private static final Exception CAUSE = new Exception();
 
+    @Test
     public void testAndroidException() {
         try {
             throw new AndroidException();

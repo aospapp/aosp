@@ -17,9 +17,14 @@
 
 package libcore.java.net;
 
-import junit.framework.TestCase;
+import libcore.junit.junit3.TestCaseWithRules;
+import libcore.junit.util.ResourceLeakageDetector;
+import org.junit.Rule;
+import org.junit.rules.TestRule;
 
-public abstract class OldSocketTestCase extends TestCase {
+public abstract class OldSocketTestCase extends TestCaseWithRules {
+    @Rule
+    public TestRule guardRule = ResourceLeakageDetector.getRule();
 
     public static final int SO_MULTICAST = 0;
 

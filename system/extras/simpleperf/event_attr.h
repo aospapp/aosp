@@ -19,11 +19,26 @@
 
 #include <stddef.h>
 
+#include <string>
+#include <vector>
+
 #include "perf_event.h"
 
 struct EventType;
 
+struct EventAttrWithId {
+  const perf_event_attr* attr;
+  std::vector<uint64_t> ids;
+};
+
 perf_event_attr CreateDefaultPerfEventAttr(const EventType& event_type);
 void DumpPerfEventAttr(const perf_event_attr& attr, size_t indent = 0);
+bool GetCommonEventIdPositionsForAttrs(std::vector<perf_event_attr>& attrs,
+                                       size_t* event_id_pos_in_sample_records,
+                                       size_t* event_id_reverse_pos_in_non_sample_records);
+bool IsTimestampSupported(const perf_event_attr& attr);
+bool IsCpuSupported(const perf_event_attr& attr);
+// Return event name with modifier if the event is found, otherwise return "unknown".
+std::string GetEventNameByAttr(const perf_event_attr& attr);
 
 #endif  // SIMPLE_PERF_EVENT_ATTR_H_

@@ -33,6 +33,7 @@ import org.apache.harmony.jpda.tests.share.SyncDebuggee;
  */
 public class HelloWorld extends SyncDebuggee implements HelloWorldInterface {
 
+    @Override
     public void run() {
         synchronizer.sendMessage(JPDADebuggeeSynchronizer.SGNL_READY);
         logWriter.println("Hello World");

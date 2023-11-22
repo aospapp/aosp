@@ -17,16 +17,28 @@ set(DEQP_VK_PIPELINE_SRCS
 	vktPipelineImageTests.hpp
 	vktPipelinePushConstantTests.cpp
 	vktPipelinePushConstantTests.hpp
+	vktPipelineSpecConstantTests.hpp
+	vktPipelineSpecConstantTests.cpp
+	vktPipelineSpecConstantUtil.hpp
+	vktPipelineSpecConstantUtil.cpp
 	vktPipelineImageUtil.cpp
 	vktPipelineImageUtil.hpp
 	vktPipelineImageViewTests.cpp
 	vktPipelineImageViewTests.hpp
+	vktPipelineMultisampleTestsUtil.cpp
+	vktPipelineMultisampleTestsUtil.hpp
 	vktPipelineMultisampleTests.cpp
 	vktPipelineMultisampleTests.hpp
+	vktPipelineMultisampleInterpolationTests.cpp
+	vktPipelineMultisampleInterpolationTests.hpp
+	vktPipelineMultisampleImageTests.cpp
+	vktPipelineMultisampleImageTests.hpp
 	vktPipelineInputAssemblyTests.cpp
 	vktPipelineInputAssemblyTests.hpp
 	vktPipelineReferenceRenderer.cpp
 	vktPipelineReferenceRenderer.hpp
+	vktPipelineRenderToImageTests.cpp
+	vktPipelineRenderToImageTests.hpp
 	vktPipelineSamplerTests.cpp
 	vktPipelineSamplerTests.hpp
 	vktPipelineStencilTests.cpp
@@ -40,10 +52,10 @@ set(DEQP_VK_PIPELINE_SRCS
 	vktPipelineTimestampTests.hpp
 	vktPipelineVertexUtil.cpp
 	vktPipelineVertexUtil.hpp
-	vktPipelineEarlyFragmentTests.cpp
-	vktPipelineEarlyFragmentTests.hpp
 	vktPipelineCacheTests.cpp
 	vktPipelineCacheTests.hpp
+	vktPipelineMakeUtil.cpp
+	vktPipelineMakeUtil.hpp
 	)
 
 set(DEQP_VK_PIPELINE_LIBS

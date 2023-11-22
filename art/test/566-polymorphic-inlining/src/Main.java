@@ -15,9 +15,9 @@
  */
 
 interface Itf {
-  public Class sameInvokeInterface();
-  public Class sameInvokeInterface2();
-  public Class sameInvokeInterface3();
+  public Class<?> sameInvokeInterface();
+  public Class<?> sameInvokeInterface2();
+  public Class<?> sameInvokeInterface3();
 }
 
 public class Main implements Itf {
@@ -41,6 +41,9 @@ public class Main implements Itf {
     itfs[1] = mains[1] = new Subclass();
     itfs[2] = mains[2] = new OtherSubclass();
 
+    // Create the profiling info eagerly to make sure they are filled.
+    ensureProfilingInfo566();
+
     // Make testInvokeVirtual and testInvokeInterface hot to get them jitted.
     // We pass Main and Subclass to get polymorphic inlining based on calling
     // the same method.
@@ -55,7 +58,7 @@ public class Main implements Itf {
       $noinline$testInlineToSameTarget(mains[1]);
     }
 
-    ensureJittedAndPolymorphicInline();
+    ensureJittedAndPolymorphicInline566();
 
     // At this point, the JIT should have compiled both methods, and inline
     // sameInvokeVirtual and sameInvokeInterface.
@@ -78,31 +81,31 @@ public class Main implements Itf {
     assertEquals(20001, counter);
   }
 
-  public Class sameInvokeVirtual() {
-    field.getClass(); // null check to ensure we get an inlined frame in the CodeInfo
+  public Class<?> sameInvokeVirtual() {
+    field.getClass(); // null check to ensure we get an inlined frame in the CodeInfo.
     return Main.class;
   }
 
-  public Class sameInvokeInterface() {
-    field.getClass(); // null check to ensure we get an inlined frame in the CodeInfo
-    return Itf.class;
-  }
-
-  public Class sameInvokeInterface2() {
+  public Class<?> sameInvokeInterface() {
     field.getClass(); // null check to ensure we get an inlined frame in the CodeInfo.
     return Itf.class;
   }
 
-  public Class sameInvokeInterface3() {
+  public Class<?> sameInvokeInterface2() {
     field.getClass(); // null check to ensure we get an inlined frame in the CodeInfo.
     return Itf.class;
   }
 
-  public static Class testInvokeInterface(Itf i) {
+  public Class<?> sameInvokeInterface3() {
+    field.getClass(); // null check to ensure we get an inlined frame in the CodeInfo.
+    return Itf.class;
+  }
+
+  public static Class<?> testInvokeInterface(Itf i) {
     return i.sameInvokeInterface();
   }
 
-  public static Class testInvokeInterface2(Itf i) {
+  public static Class<?> testInvokeInterface2(Itf i) {
     // Make three interface calls that will do a ClassTableGet to ensure bogus code
     // generation of ClassTableGet will crash.
     i.sameInvokeInterface();
@@ -110,7 +113,7 @@ public class Main implements Itf {
     return i.sameInvokeInterface3();
   }
 
-  public static Class testInvokeVirtual(Main m) {
+  public static Class<?> testInvokeVirtual(Main m) {
     return m.sameInvokeVirtual();
   }
 
@@ -121,9 +124,11 @@ public class Main implements Itf {
 
   public Object field = new Object();
 
-  public static native void ensureJittedAndPolymorphicInline();
+  public static native void ensureJittedAndPolymorphicInline566();
+  public static native void ensureProfilingInfo566();
 
   public void increment() {
+    field.getClass(); // null check to ensure we get an inlined frame in the CodeInfo
     counter++;
   }
   public static int counter = 0;
@@ -134,18 +139,18 @@ class Subclass extends Main {
 }
 
 class OtherSubclass extends Main {
-  public Class sameInvokeVirtual() {
+  public Class<?> sameInvokeVirtual() {
     return OtherSubclass.class;
   }
 
-  public Class sameInvokeInterface() {
+  public Class<?> sameInvokeInterface() {
     return OtherSubclass.class;
   }
 
-  public Class sameInvokeInterface2() {
+  public Class<?> sameInvokeInterface2() {
     return null;
   }
-  public Class sameInvokeInterface3() {
+  public Class<?> sameInvokeInterface3() {
     return null;
   }
 }

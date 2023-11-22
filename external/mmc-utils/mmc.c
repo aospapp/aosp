@@ -53,47 +53,47 @@ static struct Command commands[] = {
 	{ do_read_extcsd, -1,
 	  "extcsd read", "<device>\n"
 		"Print extcsd data from <device>.",
-	  NULL
+	  NULL, NULL, 0
 	},
 	{ do_writeprotect_get, -1,
 	  "writeprotect get", "<device>\n"
 		"Determine the eMMC writeprotect status of <device>.",
-	  NULL
+	  NULL, NULL, 0
 	},
 	{ do_writeprotect_set, -1,
 	  "writeprotect set", "<device>\n"
 		"Set the eMMC writeprotect status of <device>.\nThis sets the eMMC to be write-protected until next boot.",
-	  NULL
+	  NULL, NULL, 0
 	},
 	{ do_disable_512B_emulation, -1,
 	  "disable 512B emulation", "<device>\n"
 		"Set the eMMC data sector size to 4KB by disabling emulation on\n<device>.",
-	  NULL
+	  NULL, NULL, 0
 	},
 	{ do_create_gp_partition, -6,
 	  "gp create", "<-y|-n> " "<length KiB> " "<partition> " "<enh_attr> " "<ext_attr> " "<device>\n"
 		"create general purpose partition for the <device>.\nDry-run only unless -y is passed.\nNOTE!  This is a one-time programmable (unreversible) change.\nTo set enhanced attribute to general partition being created set\n <enh_attr> to 1 else set it to 0.\nTo set extended attribute to general partition\n set <ext_attr> to 1,2 else set it to 0",
-	  NULL
+	  NULL, NULL, 0
 	},
 	{ do_enh_area_set, -4,
 	  "enh_area set", "<-y|-n> " "<start KiB> " "<length KiB> " "<device>\n"
 		"Enable the enhanced user area for the <device>.\nDry-run only unless -y is passed.\nNOTE!  This is a one-time programmable (unreversible) change.",
-	  NULL
+	  NULL, NULL, 0
 	},
 	{ do_write_reliability_set, -2,
 	  "write_reliability set", "<-y|-n> " "<partition> " "<device>\n"
 		"Enable write reliability per partition for the <device>.\nDry-run only unless -y is passed.\nNOTE!  This is a one-time programmable (unreversible) change.",
-	  NULL
+	  NULL, NULL, 0
 	},
 	{ do_status_get, -1,
 	  "status get", "<device>\n"
 	  "Print the response to STATUS_SEND (CMD13).",
-	  NULL
+	  NULL, NULL, 0
 	},
 	{ do_write_boot_en, -3,
 	  "bootpart enable", "<boot_partition> " "<send_ack> " "<device>\n"
 		"Enable the boot partition for the <device>.\nTo receive acknowledgment of boot from the card set <send_ack>\nto 1, else set it to 0.",
-	  NULL
+	  NULL, NULL, 0
 	},
 	{ do_boot_bus_conditions_set, -4,
 	  "bootbus set", "<boot_mode> " "<reset_boot_bus_conditions> " "<boot_bus_width> " "<device>\n"
@@ -101,27 +101,27 @@ static struct Command commands[] = {
 	  "<boot_mode> must be \"single_backward|single_hs|dual\"\n"
 	  "<reset_boot_bus_conditions> must be \"x1|retain\"\n"
 	  "<boot_bus_width> must be \"x1|x4|x8\"",
-	  NULL
+	  NULL, NULL, 0
 	},
 	{ do_write_bkops_en, -1,
 	  "bkops enable", "<device>\n"
 		"Enable the eMMC BKOPS feature on <device>.\nNOTE!  This is a one-time programmable (unreversible) change.",
-	  NULL
+	  NULL, NULL, 0
 	},
 	{ do_hwreset_en, -1,
 	  "hwreset enable", "<device>\n"
 		"Permanently enable the eMMC H/W Reset feature on <device>.\nNOTE!  This is a one-time programmable (unreversible) change.",
-	  NULL
+	  NULL, NULL, 0
 	},
 	{ do_hwreset_dis, -1,
 	  "hwreset disable", "<device>\n"
 		"Permanently disable the eMMC H/W Reset feature on <device>.\nNOTE!  This is a one-time programmable (unreversible) change.",
-	  NULL
+	  NULL, NULL, 0
 	},
 	{ do_sanitize, -1,
 	  "sanitize", "<device>\n"
 		"Send Sanitize command to the <device>.\nThis will delete the unmapped memory region of the device.",
-	  NULL
+	  NULL, NULL, 0
 	},
 	{ do_rpmb_write_key, -1,
 	  "rpmb write-key", "<rpmb device> <key file>\n"
@@ -132,12 +132,12 @@ static struct Command commands[] = {
 		  "Example:\n"
 		  "  $ echo -n AAAABBBBCCCCDDDDEEEEFFFFGGGGHHHH | \\\n"
 		  "    mmc rpmb write-key /dev/mmcblk0rpmb -",
-	  NULL
+	  NULL, NULL, 0
 	},
 	{ do_rpmb_read_counter, -1,
 	  "rpmb read-counter", "<rpmb device>\n"
 		  "Counter value for the <rpmb device> will be read to stdout.",
-	  NULL
+	  NULL, NULL, 0
 	},
 	{ do_rpmb_read_block, -1,
 	  "rpmb read-block", "<rpmb device> <address> <blocks count> <output file> [key file]\n"
@@ -150,7 +150,7 @@ static struct Command commands[] = {
 		  "    mmc rpmb read-block /dev/mmcblk0rpmb 0x02 2 /tmp/block -\n"
 		  "or read two blocks without verification\n"
 		  "  $ mmc rpmb read-block /dev/mmcblk0rpmb 0x02 2 /tmp/block",
-	  NULL
+	  NULL, NULL, 0
 	},
 	{ do_rpmb_write_block, -1,
 	  "rpmb write-block", "<rpmb device> <address> <256 byte data file> <key file>\n"
@@ -161,21 +161,21 @@ static struct Command commands[] = {
 		  "  $ (awk 'BEGIN {while (c++<256) printf \"a\"}' | \\\n"
 		  "    echo -n AAAABBBBCCCCDDDDEEEEFFFFGGGGHHHH) | \\\n"
 		  "    mmc rpmb write-block /dev/mmcblk0rpmb 0x02 - -",
-	  NULL
+	  NULL, NULL, 0
 	},
 	{ do_cache_en, -1,
 	  "cache enable", "<device>\n"
 		"Enable the eMMC cache feature on <device>.\n"
 		"NOTE! The cache is an optional feature on devices >= eMMC4.5.",
-	  NULL
+	  NULL, NULL, 0
 	},
 	{ do_cache_dis, -1,
 	  "cache disable", "<device>\n"
 		"Disable the eMMC cache feature on <device>.\n"
 		"NOTE! The cache is an optional feature on devices >= eMMC4.5.",
-	  NULL
+	  NULL, NULL, 0
 	},
-	{ 0, 0, 0, 0 }
+	{ 0, 0, 0, 0, 0, 0, 0 }
 };
 
 static char *get_prgname(char *programname)

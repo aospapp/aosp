@@ -47,6 +47,11 @@ public class SampleHostTest extends DeviceTestCase {
             "am start -W -a android.intent.action.MAIN -n %s/%s.%s", PACKAGE, PACKAGE, CLASS);
 
     /**
+     * The command to clear the main activity.
+     */
+    private static final String CLEAR_COMMAND = String.format("pm clear %s", PACKAGE);
+
+    /**
      * The test string to look for.
      */
     private static final String TEST_STRING = "SampleTestString";
@@ -58,6 +63,8 @@ public class SampleHostTest extends DeviceTestCase {
      */
     public void testLogcat() throws Exception {
         ITestDevice device = getDevice();
+        // Clear activity
+        device.executeShellCommand(CLEAR_COMMAND);
         // Clear logcat.
         device.executeAdbCommand("logcat", "-c");
         // Start the APK and wait for it to complete.

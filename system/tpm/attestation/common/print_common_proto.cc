@@ -98,24 +98,26 @@ std::string GetProtoDebugStringWithIndent(const Quote& value, int indent_size) {
   }
   if (value.has_quoted_data()) {
     output += indent + "  quoted_data: ";
-    base::StringAppendF(&output, "%s",
-                        base::HexEncode(value.quoted_data().data(),
-                                        value.quoted_data().size()).c_str());
+    base::StringAppendF(
+        &output, "%s",
+        base::HexEncode(value.quoted_data().data(), value.quoted_data().size())
+            .c_str());
     output += "\n";
   }
   if (value.has_quoted_pcr_value()) {
     output += indent + "  quoted_pcr_value: ";
-    base::StringAppendF(
-        &output, "%s",
-        base::HexEncode(value.quoted_pcr_value().data(),
-                        value.quoted_pcr_value().size()).c_str());
+    base::StringAppendF(&output, "%s",
+                        base::HexEncode(value.quoted_pcr_value().data(),
+                                        value.quoted_pcr_value().size())
+                            .c_str());
     output += "\n";
   }
   if (value.has_pcr_source_hint()) {
     output += indent + "  pcr_source_hint: ";
-    base::StringAppendF(
-        &output, "%s", base::HexEncode(value.pcr_source_hint().data(),
-                                       value.pcr_source_hint().size()).c_str());
+    base::StringAppendF(&output, "%s",
+                        base::HexEncode(value.pcr_source_hint().data(),
+                                        value.pcr_source_hint().size())
+                            .c_str());
     output += "\n";
   }
   output += indent + "}\n";
@@ -134,9 +136,10 @@ std::string GetProtoDebugStringWithIndent(const EncryptedData& value,
 
   if (value.has_wrapped_key()) {
     output += indent + "  wrapped_key: ";
-    base::StringAppendF(&output, "%s",
-                        base::HexEncode(value.wrapped_key().data(),
-                                        value.wrapped_key().size()).c_str());
+    base::StringAppendF(
+        &output, "%s",
+        base::HexEncode(value.wrapped_key().data(), value.wrapped_key().size())
+            .c_str());
     output += "\n";
   }
   if (value.has_iv()) {
@@ -157,14 +160,16 @@ std::string GetProtoDebugStringWithIndent(const EncryptedData& value,
     output += indent + "  encrypted_data: ";
     base::StringAppendF(&output, "%s",
                         base::HexEncode(value.encrypted_data().data(),
-                                        value.encrypted_data().size()).c_str());
+                                        value.encrypted_data().size())
+                            .c_str());
     output += "\n";
   }
   if (value.has_wrapping_key_id()) {
     output += indent + "  wrapping_key_id: ";
-    base::StringAppendF(
-        &output, "%s", base::HexEncode(value.wrapping_key_id().data(),
-                                       value.wrapping_key_id().size()).c_str());
+    base::StringAppendF(&output, "%s",
+                        base::HexEncode(value.wrapping_key_id().data(),
+                                        value.wrapping_key_id().size())
+                            .c_str());
     output += "\n";
   }
   output += indent + "}\n";
@@ -190,9 +195,9 @@ std::string GetProtoDebugStringWithIndent(const SignedData& value,
   }
   if (value.has_signature()) {
     output += indent + "  signature: ";
-    base::StringAppendF(&output, "%s",
-                        base::HexEncode(value.signature().data(),
-                                        value.signature().size()).c_str());
+    base::StringAppendF(&output, "%s", base::HexEncode(value.signature().data(),
+                                                       value.signature().size())
+                                           .c_str());
     output += "\n";
   }
   output += indent + "}\n";
@@ -212,18 +217,18 @@ std::string GetProtoDebugStringWithIndent(
 
   if (value.has_asym_ca_contents()) {
     output += indent + "  asym_ca_contents: ";
-    base::StringAppendF(
-        &output, "%s",
-        base::HexEncode(value.asym_ca_contents().data(),
-                        value.asym_ca_contents().size()).c_str());
+    base::StringAppendF(&output, "%s",
+                        base::HexEncode(value.asym_ca_contents().data(),
+                                        value.asym_ca_contents().size())
+                            .c_str());
     output += "\n";
   }
   if (value.has_sym_ca_attestation()) {
     output += indent + "  sym_ca_attestation: ";
-    base::StringAppendF(
-        &output, "%s",
-        base::HexEncode(value.sym_ca_attestation().data(),
-                        value.sym_ca_attestation().size()).c_str());
+    base::StringAppendF(&output, "%s",
+                        base::HexEncode(value.sym_ca_attestation().data(),
+                                        value.sym_ca_attestation().size())
+                            .c_str());
     output += "\n";
   }
   output += indent + "}\n";

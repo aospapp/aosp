@@ -38,8 +38,9 @@ import getpass, logging, logging.handlers, optparse, os, re, signal, sys
 import traceback
 import common
 import board_enumerator, deduping_scheduler, driver, forgiving_config_parser
-import manifest_versions, sanity
+import manifest_versions, sanity, task
 from autotest_lib.client.common_lib import global_config
+from autotest_lib.client.common_lib import utils
 from autotest_lib.client.common_lib import logging_config, logging_manager
 from autotest_lib.server.cros.dynamic_suite import frontend_wrappers
 try:
@@ -51,6 +52,11 @@ except ImportError:
     server_manager_utils = None
     logging.debug('Could not load server_manager_utils module, expected '
                   'if you are running sanity check or pre-submit hook')
+
+try:
+    from chromite.lib import ts_mon_config
+except ImportError:
+    ts_mon_config = utils.metrics_mock
 
 
 CONFIG_SECTION = 'SCHEDULER'
@@ -170,6 +176,13 @@ def parse_options():
     parser.add_option('-i', '--build', dest='build',
                       help='If handling a list of events, the build to test.'\
                         ' Ignored otherwise.')
+    parser.add_option('-o', '--os_type', dest='os_type',
+                      default=task.OS_TYPE_CROS,
+                      help='If handling a list of events, the OS type to test.'\
+                        ' Ignored otherwise. This argument allows the test to '
+                        'know if it\'s testing ChromeOS or Launch Control '
+                        'builds. suite scheduler that runs without a build '
+                        'specified(using -i), does not need this argument.')
     parser.add_option('-d', '--log_dir', dest='log_dir',
                       help='Log to a file in the specified directory.')
     parser.add_option('-l', '--list_events', dest='list',
@@ -225,7 +238,7 @@ def main():
         tasks_per_event = d.TasksFromConfig(config)
         # flatten [[a]] -> [a]
         tasks = [x for y in tasks_per_event.values() for x in y]
-        control_files_exist = sanity.CheckControlFileExistance(tasks)
+        control_files_exist = sanity.CheckControlFileExistence(tasks)
         return control_files_exist
 
     logging_manager.configure_logging(SchedulerLoggingConfig(),
@@ -255,6 +268,9 @@ def main():
     d = driver.Driver(scheduler, enumerator)
     d.SetUpEventsAndTasks(config, mv)
 
+    # Set up metrics upload for Monarch.
+    ts_mon_config.SetupTsMonGlobalState('autotest_suite_scheduler')
+
     try:
         if options.events:
             # Act as though listed events have just happened.
@@ -265,7 +281,7 @@ def main():
                              'manifest repo set up. This is needed for suites '
                              'requiring firmware update.')
             logging.info('Forcing events: %r', keywords)
-            d.ForceEventsOnceForBuild(keywords, options.build)
+            d.ForceEventsOnceForBuild(keywords, options.build, options.os_type)
         else:
             if not options.tmp_repo_dir:
                 mv.Initialize()

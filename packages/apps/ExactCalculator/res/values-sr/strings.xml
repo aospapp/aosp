@@ -57,14 +57,18 @@
     <string name="desc_del" msgid="7879515781929311432">"избриши"</string>
     <string name="desc_inv_off" msgid="3672218250519616068">"прикажи инверзне функције"</string>
     <string name="desc_inv_on" msgid="2515675590767677178">"сакриј инверзне функције"</string>
+    <string name="desc_formula" msgid="8056588859637585007">"Нема формуле"</string>
+    <string name="desc_result" msgid="1794073190203126821">"Нема резултата"</string>
+    <string name="desc_num_pad" msgid="515720457459745571">"Бројеви и основне операције"</string>
+    <string name="desc_adv_pad" msgid="3794276256462677914">"Напредне операције"</string>
     <string name="error_nan" msgid="5674077944929888710">"Није број"</string>
     <string name="error_syntax" msgid="4786987111228645602">"Неисправан израз"</string>
     <string name="error_aborted" msgid="3402238176316342537">"Отказано је"</string>
     <string name="error_overflow" msgid="7800547394563434764">"Бесконачно?"</string>
     <string name="error_zero_divide" msgid="458040988686661801">"Нема дељења нулом"</string>
     <string name="text_copied_toast" msgid="2104264466812485425">"Текст је копиран"</string>
-    <string name="cancelled" msgid="1618889609742874632">"Израчунавање је отказано"</string>
-    <string name="timeout" msgid="802690170415591535">"Време чекања је истекло. Вредност је можда бесконачна или недефинисана."</string>
+    <string name="cancelled" msgid="2207323593183640994">"Израчунавање је отказано."</string>
+    <string name="timeout" msgid="5461892570729418573">"Вредност је можда бесконачна или недефинисана."</string>
     <string name="ok_remove_timeout" msgid="8344529153919268011">"Користи дужа времена чекања"</string>
     <string name="dismiss" msgid="7872443888515066216">"Одбаци"</string>
     <string name="exact" msgid="2597237880041789948">"(тачно)"</string>
@@ -72,4 +76,12 @@
     <string name="menu_leading" msgid="2338520833272667740">"Резултат са бројевима на почетку"</string>
     <string name="menu_fraction" msgid="1247477377840252234">"Резултат као разломак"</string>
     <string name="menu_licenses" msgid="1890541368064108592">"Лиценце отвореног кода"</string>
+    <string name="menu_history" msgid="9006222701220105452">"Историја"</string>
+    <string name="menu_clear_history" msgid="2336526604226069572">"Обриши"</string>
+    <string name="title_history" msgid="7820912156315181539">"Историја"</string>
+    <string name="desc_navigate_up" msgid="6208699569165589623">"Кретање нагоре"</string>
+    <string name="dialog_timeout" msgid="9069768442342329065">"Време чекања"</string>
+    <string name="dialog_clear" msgid="7137395395908350702">"Бришете историју и меморију?"</string>
+    <string name="title_current_expression" msgid="2442754548537900591">"Актуелни израз"</string>
+    <string name="no_history" msgid="4331262030447527188">"Нема историје"</string>
 </resources>

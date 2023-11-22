@@ -29,11 +29,11 @@ extern rs_allocation __attribute__((overloadable))
         rsgMeshGetVertexAllocation(rs_mesh m, uint32_t index) {
     Mesh_t *mesh = (Mesh_t *)m.p;
     if (mesh == NULL || index >= mesh->mHal.state.vertexBuffersCount) {
-        rs_allocation nullAlloc = {0};
+        rs_allocation nullAlloc = RS_NULL_OBJ;
         return nullAlloc;
     }
     rs_allocation returnAlloc = {mesh->mHal.state.vertexBuffers[index]};
-    rs_allocation rs_retval = {0};
+    rs_allocation rs_retval = RS_NULL_OBJ;
     rsSetObject(&rs_retval, returnAlloc);
     return rs_retval;
 }
@@ -42,11 +42,11 @@ extern rs_allocation __attribute__((overloadable))
         rsgMeshGetIndexAllocation(rs_mesh m, uint32_t index) {
     Mesh_t *mesh = (Mesh_t *)m.p;
     if (mesh == NULL || index >= mesh->mHal.state.primitivesCount) {
-        rs_allocation nullAlloc = {0};
+        rs_allocation nullAlloc = RS_NULL_OBJ;
         return nullAlloc;
     }
     rs_allocation returnAlloc = {mesh->mHal.state.indexBuffers[index]};
-    rs_allocation rs_retval = {0};
+    rs_allocation rs_retval = RS_NULL_OBJ;
     rsSetObject(&rs_retval, returnAlloc);
     return rs_retval;
 }
@@ -61,4 +61,3 @@ extern rs_primitive __attribute__((overloadable))
 }
 
 #endif
-

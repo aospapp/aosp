@@ -14,9 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  -->
-<ZoomButton xmlns:android="http://schemas.android.com/apk/res/android"
+<ZoomButton
+    xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/zoombutton_test"
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
-/>
+    android:src="@drawable/icon_red" />
 

@@ -17,8 +17,6 @@ package android.telephony.cts;
 
 
 import android.content.Context;
-import android.cts.util.ReadElf;
-import android.cts.util.TestThread;
 import android.os.Looper;
 import android.net.ConnectivityManager;
 import android.telephony.CellLocation;
@@ -28,6 +26,9 @@ import android.telephony.gsm.GsmCellLocation;
 import android.test.AndroidTestCase;
 import android.content.pm.PackageManager;
 import android.util.Log;
+
+import com.android.compatibility.common.util.ReadElf;
+import com.android.compatibility.common.util.TestThread;
 
 public class CellLocationTest extends AndroidTestCase{
     private boolean mOnCellLocationChangedCalled;

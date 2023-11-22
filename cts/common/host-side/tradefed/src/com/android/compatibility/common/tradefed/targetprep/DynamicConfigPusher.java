@@ -50,6 +50,7 @@ public class DynamicConfigPusher implements ITargetCleaner {
     }
 
     private static final String LOG_TAG = DynamicConfigPusher.class.getSimpleName();
+    private static final String TMP_FOLDER_DYNAMIC_FILES = "dynamic-config-files";
 
     @Option(name = "cleanup", description = "Whether to remove config files from the test " +
             "target after test completion.")
@@ -65,7 +66,7 @@ public class DynamicConfigPusher implements ITargetCleaner {
 
     @Option(name = "version", description = "The version of the configuration to retrieve " +
             "from the server, e.g. \"1.0\". Defaults to suite version string.")
-    private static String mVersion;
+    private String mVersion;
 
 
     private String mFilePushed;
@@ -87,8 +88,8 @@ public class DynamicConfigPusher implements ITargetCleaner {
         try {
             localConfigFile = DynamicConfig.getConfigFile(buildHelper.getTestsDir(), mModuleName);
         } catch (FileNotFoundException e) {
-            throw new TargetSetupError(
-                    "Cannot get local dynamic config file from test directory", e);
+            throw new TargetSetupError("Cannot get local dynamic config file from test directory",
+                    e, device.getDeviceDescriptor());
         }
 
         if (mVersion == null) {
@@ -119,7 +120,8 @@ public class DynamicConfigPusher implements ITargetCleaner {
             src = DynamicConfigHandler.getMergedDynamicConfigFile(
                     localConfigFile, apfeConfigInJson, mModuleName);
         } catch (IOException | XmlPullParserException | JSONException e) {
-            throw new TargetSetupError("Cannot get merged dynamic config file", e);
+            throw new TargetSetupError("Cannot get merged dynamic config file", e,
+                    device.getDeviceDescriptor());
         }
 
         switch (mTarget) {
@@ -128,7 +130,7 @@ public class DynamicConfigPusher implements ITargetCleaner {
                 if (!device.pushFile(src, deviceDest)) {
                     throw new TargetSetupError(String.format(
                             "Failed to push local '%s' to remote '%s'",
-                            src.getAbsolutePath(), deviceDest));
+                            src.getAbsolutePath(), deviceDest), device.getDeviceDescriptor());
                 } else {
                     mFilePushed = deviceDest;
                     buildHelper.addDynamicConfigFile(mModuleName, src);
@@ -136,18 +138,22 @@ public class DynamicConfigPusher implements ITargetCleaner {
                 break;
 
             case HOST:
-                File storageDir = new File(DynamicConfig.CONFIG_FOLDER_ON_HOST);
-                if (!storageDir.exists()) {
-                    storageDir.mkdir();
+                File storageDir = null;
+                try {
+                    storageDir = FileUtil.createTempDir(TMP_FOLDER_DYNAMIC_FILES);
+                } catch (IOException e) {
+                    throw new TargetSetupError("Fail to create a tmp folder for dynamic config "
+                            + "files", e, device.getDeviceDescriptor());
                 }
-                File hostDest = new File(DynamicConfig.CONFIG_FOLDER_ON_HOST + src.getName());
+                File hostDest = new File(storageDir, src.getName());
                 try {
                     FileUtil.copyFile(src, hostDest);
                 } catch (IOException e) {
                     throw new TargetSetupError(String.format("Failed to copy file from %s to %s",
-                            src.getAbsolutePath(), hostDest.getAbsolutePath()), e);
+                            src.getAbsolutePath(), hostDest.getAbsolutePath()), e,
+                            device.getDeviceDescriptor());
                 }
-                mFilePushed = hostDest.getAbsolutePath();
+                mFilePushed = storageDir.getAbsolutePath();
                 buildHelper.addDynamicConfigFile(mModuleName, src);
                 break;
         }
@@ -167,9 +173,8 @@ public class DynamicConfigPusher implements ITargetCleaner {
                 }
                 break;
             case HOST:
-                if (mFilePushed != null) {
-                    FileUtil.deleteFile(new File(mFilePushed));
-                }
+                FileUtil.recursiveDelete(new File(mFilePushed));
+                break;
         }
     }
 }

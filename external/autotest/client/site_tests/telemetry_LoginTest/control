@@ -11,7 +11,6 @@ the autotest extension doesn't load/is inaccessible, or if
 chrome.autotestPrivate.loginStatus doesn't work.
 """
 ATTRIBUTES = "suite:bvt-cq"
-SUITE = "bvt-cq"
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "login"

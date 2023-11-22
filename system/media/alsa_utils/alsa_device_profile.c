@@ -360,7 +360,7 @@ static int read_alsa_device_config(alsa_device_profile * profile, struct pcm_con
     if (config->rate < 48000 &&
         pcm_params_get_max(alsa_hw_params, PCM_PARAM_RATE) >= 48000) {
         config->rate = 48000;
-    } else if (config->rate < 441000 &&
+    } else if (config->rate < 44100 &&
                pcm_params_get_max(alsa_hw_params, PCM_PARAM_RATE) >= 44100) {
         config->rate = 44100;
     }

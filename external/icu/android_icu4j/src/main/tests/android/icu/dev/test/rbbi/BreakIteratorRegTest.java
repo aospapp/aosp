@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 1996-2010, International Business Machines Corporation and    *
@@ -11,18 +13,14 @@ import java.text.CharacterIterator;
 import java.util.Arrays;
 import java.util.Locale;
 
+import org.junit.Test;
+
 import android.icu.dev.test.TestFmwk;
 import android.icu.text.BreakIterator;
-import org.junit.runner.RunWith;
-import android.icu.junit.IcuTestFmwkRunner;
 
-@RunWith(IcuTestFmwkRunner.class)
 public class BreakIteratorRegTest extends TestFmwk
 {
-    public static void main(String[] args) throws Exception {
-        new BreakIteratorRegTest().run(args);
-    }
-
+    @Test
     public void TestRegUnreg() {
     Locale thailand_locale = new Locale("th", "TH", "");
     Locale foo_locale = new Locale("fu", "FU", "FOO");

@@ -32,7 +32,6 @@ public class UninstallPreference extends AppActionPreference {
     public UninstallPreference(Context context,
             ApplicationsState.AppEntry entry) {
         super(context, entry);
-        ConfirmationFragment.prepareArgs(getExtras(), entry.info.packageName);
         refresh();
     }
 
@@ -61,42 +60,12 @@ public class UninstallPreference extends AppActionPreference {
         return (mEntry.info.flags & ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0;
     }
 
-    public Intent getUninstallIntent() {
+    @Override
+    public Intent getIntent() {
         final Uri packageURI = Uri.parse("package:" + mEntry.info.packageName);
         final Intent uninstallIntent = new Intent(Intent.ACTION_UNINSTALL_PACKAGE, packageURI);
         uninstallIntent.putExtra(Intent.EXTRA_UNINSTALL_ALL_USERS, true);
-        uninstallIntent.putExtra(Intent.EXTRA_KEY_CONFIRM, true);
+        uninstallIntent.putExtra(Intent.EXTRA_RETURN_RESULT, true);
         return uninstallIntent;
-    }
-
-    @Override
-    public String getFragment() {
-        return ConfirmationFragment.class.getName();
-    }
-
-    public static class ConfirmationFragment extends AppActionPreference.ConfirmationFragment {
-        private static final String ARG_PACKAGE_NAME = "packageName";
-
-        private static void prepareArgs(@NonNull Bundle args, String packageName) {
-            args.putString(ARG_PACKAGE_NAME, packageName);
-        }
-
-        @NonNull
-        @Override
-        public GuidanceStylist.Guidance onCreateGuidance(Bundle savedInstanceState) {
-            final AppManagementFragment fragment = (AppManagementFragment) getTargetFragment();
-            return new GuidanceStylist.Guidance(
-                    getString(R.string.device_apps_app_management_uninstall),
-                    getString(R.string.device_apps_app_management_uninstall_desc),
-                    fragment.getAppName(),
-                    fragment.getAppIcon());
-        }
-
-        @Override
-        public void onOk() {
-            final AppManagementFragment fragment =
-                    (AppManagementFragment) getTargetFragment();
-            fragment.launchUninstall();
-        }
     }
 }

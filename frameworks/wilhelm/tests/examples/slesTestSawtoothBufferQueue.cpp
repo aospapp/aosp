@@ -50,10 +50,10 @@
 #define MAX_NUMBER_INTERFACES 3
 
 /* Local storage for Audio data in 16 bit words */
-#define AUDIO_DATA_STORAGE_SIZE 4096 * 100
+#define AUDIO_DATA_STORAGE_SIZE (4096 * 100)
 /* Audio data buffer size in 16 bit words. 8 data segments are used in
 this simple example */
-#define AUDIO_DATA_BUFFER_SIZE 4096/8
+#define AUDIO_DATA_BUFFER_SIZE (4096/8)
 
 /* Checks for error. If any errors exit the application! */
 void CheckErr( SLresult res )

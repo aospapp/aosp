@@ -30,7 +30,7 @@ namespace android {
 struct ABuffer;
 
 struct AnotherPacketSource : public MediaSource {
-    AnotherPacketSource(const sp<MetaData> &meta);
+    explicit AnotherPacketSource(const sp<MetaData> &meta);
 
     void setFormat(const sp<MetaData> &meta);
 
@@ -56,6 +56,9 @@ struct AnotherPacketSource : public MediaSource {
     // Returns the difference between the last and the first queued
     // presentation timestamps since the last discontinuity (if any).
     int64_t getBufferedDurationUs(status_t *finalResult);
+
+    // Returns the difference between the two largest timestamps queued
+    int64_t getEstimatedBufferDurationUs();
 
     status_t nextBufferTime(int64_t *timeUs);
 
@@ -113,6 +116,7 @@ private:
     bool mEnabled;
     sp<MetaData> mFormat;
     int64_t mLastQueuedTimeUs;
+    int64_t mEstimatedBufferDurationUs;
     List<sp<ABuffer> > mBuffers;
     status_t mEOSResult;
     sp<AMessage> mLatestEnqueuedMeta;

@@ -219,7 +219,7 @@ IHEVCD_ERROR_T ihevcd_parse_slice_header(codec_t *ps_codec,
 {
     IHEVCD_ERROR_T ret = (IHEVCD_ERROR_T)IHEVCD_SUCCESS;
     WORD32 value;
-    WORD32 i;
+    WORD32 i, j;
     WORD32 sps_id;
 
     pps_t *ps_pps;
@@ -257,10 +257,11 @@ IHEVCD_ERROR_T ihevcd_parse_slice_header(codec_t *ps_codec,
     {
         pps_t *ps_pps_ref = ps_codec->ps_pps_base;
         while(0 == ps_pps_ref->i1_pps_valid)
+        {
             ps_pps_ref++;
-
-        if((ps_pps_ref - ps_codec->ps_pps_base >= MAX_PPS_CNT - 1))
-            return IHEVCD_INVALID_HEADER;
+            if((ps_pps_ref - ps_codec->ps_pps_base >= MAX_PPS_CNT - 1))
+                return IHEVCD_INVALID_HEADER;
+        }
 
         ihevcd_copy_pps(ps_codec, pps_id, ps_pps_ref->i1_pps_id);
     }
@@ -468,9 +469,16 @@ IHEVCD_ERROR_T ihevcd_parse_slice_header(codec_t *ps_codec,
                     if(i < ps_slice_hdr->i1_num_long_term_sps)
                     {
                         /* Use CLZ to compute Ceil( Log2( num_long_term_ref_pics_sps ) ) */
-                        WORD32 num_bits = 32 - CLZ(ps_sps->i1_num_long_term_ref_pics_sps);
-                        BITS_PARSE("lt_idx_sps[ i ]", value, ps_bitstrm, num_bits);
-                        ps_slice_hdr->ai4_poc_lsb_lt[i] = ps_sps->ai1_lt_ref_pic_poc_lsb_sps[value];
+                        if (ps_sps->i1_num_long_term_ref_pics_sps > 1)
+                        {
+                            WORD32 num_bits = 32 - CLZ(ps_sps->i1_num_long_term_ref_pics_sps - 1);
+                            BITS_PARSE("lt_idx_sps[ i ]", value, ps_bitstrm, num_bits);
+                        }
+                        else
+                        {
+                            value = 0;
+                        }
+                        ps_slice_hdr->ai4_poc_lsb_lt[i] = ps_sps->au2_lt_ref_pic_poc_lsb_sps[value];
                         ps_slice_hdr->ai1_used_by_curr_pic_lt_flag[i] = ps_sps->ai1_used_by_curr_pic_lt_sps_flag[value];
 
                     }
@@ -729,11 +737,15 @@ IHEVCD_ERROR_T ihevcd_parse_slice_header(codec_t *ps_codec,
             {
                 if(ps_codec->i4_pic_present)
                 {
+                    slice_header_t *ps_slice_hdr_next;
                     ps_codec->i4_slice_error = 1;
                     ps_codec->s_parse.i4_cur_slice_idx--;
                     if(ps_codec->s_parse.i4_cur_slice_idx < 0)
                         ps_codec->s_parse.i4_cur_slice_idx = 0;
 
+                    ps_slice_hdr_next = ps_codec->s_parse.ps_slice_hdr_base + ((ps_codec->s_parse.i4_cur_slice_idx + 1) & (MAX_SLICE_HDR_CNT - 1));
+                    ps_slice_hdr_next->i2_ctb_x = slice_address % ps_sps->i2_pic_wd_in_ctb;
+                    ps_slice_hdr_next->i2_ctb_y = slice_address / ps_sps->i2_pic_wd_in_ctb;
                     return ret;
                 }
                 else
@@ -858,6 +870,9 @@ IHEVCD_ERROR_T ihevcd_parse_slice_header(codec_t *ps_codec,
 
     ihevcd_bits_flush_to_byte_boundary(ps_bitstrm);
 
+    if((UWORD8 *)ps_bitstrm->pu4_buf > ps_bitstrm->pu1_buf_max)
+        return IHEVCD_INVALID_PARAMETER;
+
     {
         dpb_mgr_t *ps_dpb_mgr = (dpb_mgr_t *)ps_codec->pv_dpb_mgr;
         WORD32 r_idx;
@@ -880,11 +895,11 @@ IHEVCD_ERROR_T ihevcd_parse_slice_header(codec_t *ps_codec,
                     ihevc_dpb_mgr_del_ref((dpb_mgr_t *)ps_codec->pv_dpb_mgr, (buf_mgr_t *)ps_codec->pv_pic_buf_mgr, ps_pic_buf->i4_abs_poc);
                     /* Find buffer id of the MV bank corresponding to the buffer being freed (Buffer with POC of u4_abs_poc) */
                     ps_mv_buf = (mv_buf_t *)ps_codec->ps_mv_buf;
-                    for(i = 0; i < BUF_MGR_MAX_CNT; i++)
+                    for(j = 0; j < ps_codec->i4_max_dpb_size; j++)
                     {
                         if(ps_mv_buf && ps_mv_buf->i4_abs_poc == ps_pic_buf->i4_abs_poc)
                         {
-                            ihevc_buf_mgr_release((buf_mgr_t *)ps_codec->pv_mv_buf_mgr, i, BUF_MGR_REF);
+                            ihevc_buf_mgr_release((buf_mgr_t *)ps_codec->pv_mv_buf_mgr, j, BUF_MGR_REF);
                             break;
                         }
                         ps_mv_buf++;
@@ -910,7 +925,11 @@ IHEVCD_ERROR_T ihevcd_parse_slice_header(codec_t *ps_codec,
         }
         else
         {
-            ihevcd_ref_list(ps_codec, ps_pps, ps_sps, ps_slice_hdr);
+            ret = ihevcd_ref_list(ps_codec, ps_pps, ps_sps, ps_slice_hdr);
+            if ((WORD32)IHEVCD_SUCCESS != ret)
+            {
+                return ret;
+            }
 
         }
 

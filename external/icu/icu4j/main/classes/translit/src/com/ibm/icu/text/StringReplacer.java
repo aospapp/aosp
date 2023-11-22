@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
 **********************************************************************
 *   Copyright (c) 2002-2007, International Business Machines Corporation
@@ -108,6 +110,7 @@ class StringReplacer implements UnicodeReplacer {
     /**
      * UnicodeReplacer API
      */
+    @Override
     public int replace(Replaceable text,
                        int start,
                        int limit,
@@ -222,7 +225,7 @@ class StringReplacer implements UnicodeReplacer {
 
             // Delete the old text (the key)
             text.replace(start + outLen, limit + outLen, "");
-        }        
+        }
 
         if (hasCursor) {
             // Adjust the cursor for positions outside the key.  These
@@ -262,6 +265,7 @@ class StringReplacer implements UnicodeReplacer {
     /**
      * UnicodeReplacer API
      */
+    @Override
     public String toReplacerPattern(boolean escapeUnprintable) {
         StringBuffer rule = new StringBuffer();
         StringBuffer quoteBuf = new StringBuffer();
@@ -316,6 +320,7 @@ class StringReplacer implements UnicodeReplacer {
      * into the given set.
      * @param toUnionTo the set into which to union the output characters
      */
+    @Override
     public void addReplacementSetTo(UnicodeSet toUnionTo) {
         int ch;
         for (int i=0; i<output.length(); i+=UTF16.getCharCount(ch)) {

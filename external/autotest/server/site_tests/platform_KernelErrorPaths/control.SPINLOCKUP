@@ -5,7 +5,6 @@
 NAME = "platform_KernelErrorPaths.SPINLOCKUP"
 AUTHOR = "Chrome OS Team"
 ATTRIBUTES = "suite:kernel_per-build_regression, suite:partners"
-SUITE = "kernel_per-build_regression, partners"
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "platform"

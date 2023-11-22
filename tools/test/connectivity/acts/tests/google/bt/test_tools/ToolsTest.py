@@ -111,12 +111,3 @@ class ToolsTest(BluetoothBaseTest):
                 phone_number, generate_id_by_size(int(message_size)), False)
             time.sleep(3)
         return True
-
-    @BluetoothBaseTest.bt_test_wrap
-    def test_continuously_log_battery_stats(self):
-        interval = input("Enter time interval to collect stats: ")
-        while True:
-            self.log.info(log_energy_info(
-                [self.android_devices[0]], "Log_time: {}".format(time.time())))
-            time.sleep(int(interval))
-        return True

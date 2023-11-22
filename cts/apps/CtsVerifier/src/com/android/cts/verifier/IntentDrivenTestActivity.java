@@ -2,10 +2,13 @@
 
 package com.android.cts.verifier;
 
+import android.app.AlertDialog;
+import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.os.Bundle;
 import android.os.Parcel;
 import android.os.Parcelable;
+import android.util.Log;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.view.ViewGroup;
@@ -26,6 +29,8 @@ import android.widget.TextView;
  *  button that was clicked.
  */
 public class IntentDrivenTestActivity extends PassFailButtons.Activity implements OnClickListener {
+    private static final String TAG = "IntentDrivenTestActivity";
+
     public static final String EXTRA_ID = "id";
     public static final String EXTRA_TITLE = "title";
     public static final String EXTRA_INFO = "info";
@@ -80,31 +85,44 @@ public class IntentDrivenTestActivity extends PassFailButtons.Activity implement
     public void onClick(View v) {
         final ButtonInfo buttonInfo = mButtonInfos[(Integer) v.getTag()];
         final Intent[] intents = buttonInfo.getIntents();
-        if (intents != null) {
-            for (Parcelable intent : intents) {
-                startActivity((Intent) intent);
-            }
-        } else {
-            final Class<?> factoryClass;
-            final String className = buttonInfo.getIntentFactoryClassName();
-            try {
-                factoryClass = Thread.currentThread().getContextClassLoader().loadClass(className);
-            } catch (ClassNotFoundException e) {
-                throw new IllegalArgumentException("Factory not found: " + className, e);
-            }
-            final IntentFactory factory;
-            try {
-                factory = (IntentFactory) factoryClass.newInstance();
-            } catch (InstantiationException e) {
-                throw new IllegalArgumentException("Can't create factory: " + className, e);
-            } catch (IllegalAccessException e) {
-                throw new IllegalArgumentException("Can't create factory: " + className, e);
-            }
+        try {
+            if (intents != null) {
+                for (Parcelable intent : intents) {
+                    startActivity((Intent) intent);
+                }
+            } else {
+                final Class<?> factoryClass;
+                final String className = buttonInfo.getIntentFactoryClassName();
+                try {
+                    factoryClass = Thread.currentThread().getContextClassLoader().loadClass(className);
+                } catch (ClassNotFoundException e) {
+                    throw new IllegalArgumentException("Factory not found: " + className, e);
+                }
+                final IntentFactory factory;
+                try {
+                    factory = (IntentFactory) factoryClass.newInstance();
+                } catch (InstantiationException e) {
+                    throw new IllegalArgumentException("Can't create factory: " + className, e);
+                } catch (IllegalAccessException e) {
+                    throw new IllegalArgumentException("Can't create factory: " + className, e);
+                }
 
-            for (Intent intent : factory.createIntents(mTestId, buttonInfo.getButtonText())) {
-                startActivity(intent);
+                for (Intent intent : factory.createIntents(mTestId, buttonInfo.getButtonText())) {
+                    startActivity(intent);
+                }
             }
+        } catch (ActivityNotFoundException e) {
+            // Instead of crashing, log and alert the user of that the Intent couldn't be resolved.
+            Log.w(TAG, "Could not resolve Intent.", e);
+            showFailedIntentResolution(e.getMessage());
         }
+    }
+
+    private void showFailedIntentResolution(String message) {
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.intent_not_resolved)
+                .setMessage(getString(R.string.intent_not_resolved_info, message))
+                .show();
     }
 
     @Override

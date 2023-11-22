@@ -49,13 +49,8 @@ public class NavTree {
       ClearPage.write(data, "gms_navtree_data.cs", "gms_navtree_data.js");
     } else if (refPrefix == "gcm-"){
       ClearPage.write(data, "gcm_navtree_data.cs", "gcm_navtree_data.js");
-    } else if ((Doclava.USE_DEVSITE_LOCALE_OUTPUT_PATHS)
-          && (Doclava.testSupportRef)){
-        ClearPage.write(data, "navtree_data.cs", dir + Doclava.testSupportPath
-          + "navtree_data.js");
-    } else if ((Doclava.USE_DEVSITE_LOCALE_OUTPUT_PATHS)
-          && (Doclava.wearableSupportRef)){
-        ClearPage.write(data, "navtree_data.cs", dir + Doclava.wearableSupportPath
+    } else if (Doclava.USE_DEVSITE_LOCALE_OUTPUT_PATHS && (Doclava.libraryRoot != null)) {
+        ClearPage.write(data, "navtree_data.cs", dir + Doclava.libraryRoot
           + "navtree_data.js");
     } else {
       ClearPage.write(data, "navtree_data.cs", "navtree_data.js");
@@ -88,11 +83,14 @@ public class NavTree {
     }
 
     data = makeYamlHDF(sorted, "docs.pages", data);
-    if ((Doclava.USE_DEVSITE_LOCALE_OUTPUT_PATHS) && (Doclava.testSupportRef)) {
-      dir = Doclava.ensureSlash(dir) + Doclava.testSupportPath;
-    } else if ((Doclava.USE_DEVSITE_LOCALE_OUTPUT_PATHS) && (Doclava.wearableSupportRef)) {
-      dir = Doclava.ensureSlash(dir) + Doclava.wearableSupportPath;
+
+    if (Doclava.USE_DEVSITE_LOCALE_OUTPUT_PATHS && (Doclava.libraryRoot != null)) {
+      dir = Doclava.ensureSlash(dir) + Doclava.libraryRoot;
     }
+
+    data.setValue("docs.classes.link", Doclava.ensureSlash(dir) + "classes.html");
+    data.setValue("docs.packages.link", Doclava.ensureSlash(dir) + "packages.html");
+
     ClearPage.write(data, "yaml_navtree.cs", Doclava.ensureSlash(dir) + fileName);
   }
 
@@ -115,35 +113,40 @@ public class NavTree {
       } else if (o instanceof ClassInfo) {
         ClassInfo cl = (ClassInfo) o;
 
-       // skip classes that are the child of another class, recursion will handle those.
-       if (cl.containingClass() == null){
+        // skip classes that are the child of another class, recursion will handle those.
+        if (cl.containingClass() == null) {
 
-         data.setValue("docs.pages." + i + ".id", "" + i);
-         data = makeYamlHDF(cl, "docs.pages."+i, data);
-       }
-     }
+          data.setValue("docs.pages." + i + ".id", "" + i);
+          data = makeYamlHDF(cl, "docs.pages."+i, data);
+        }
+      }
 
-     i++;
-   }
-   return data;
- }
-
- public static Data makeYamlHDF(ClassInfo cl, String base, Data data) {
-   data.setValue(base + ".label", cl.name());
-   data.setValue(base + ".shortname", cl.name().substring(cl.name().lastIndexOf(".")+1));
-   data.setValue(base + ".link", cl.htmlPage());
-   data.setValue(base + ".type", cl.kind());
-
-   if (cl.innerClasses().size() > 0){
-     int j = 0;
-     for (ClassInfo cl2 : cl.innerClasses()){
-       data = makeYamlHDF(cl2, base + ".children." + j, data);
-       j++;
-     }
-   }
+      i++;
+    }
 
     return data;
   }
+
+  public static Data makeYamlHDF(ClassInfo cl, String base, Data data) {
+    data.setValue(base + ".label", cl.name());
+    data.setValue(base + ".shortname", cl.name().substring(cl.name().lastIndexOf(".")+1));
+    data.setValue(base + ".link", cl.htmlPage());
+    data.setValue(base + ".type", cl.kind());
+
+    if (cl.innerClasses().size() > 0) {
+      int j = 0;
+      for (ClassInfo cl2 : cl.innerClasses()) {
+        if (cl2.isHiddenOrRemoved()) {
+          continue;
+        }
+        data = makeYamlHDF(cl2, base + ".children." + j, data);
+        j++;
+      }
+    }
+
+    return data;
+  }
+
   private static Node makePackageNode(PackageInfo pkg) {
     List<Node> children = new ArrayList<Node>();
 

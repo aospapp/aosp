@@ -31,7 +31,7 @@ class network_WiFi_DarkResumeActiveScans(
         @param mac: MAC address of the DUT.
         """
         logging.info('Stopping packet capture')
-        results = self.context.router.stop_capture()
+        results = self.context.capture_host.stop_capture()
         if len(results) != 1:
             raise error.TestError('Expected to generate one packet '
                                   'capture but got %d captures instead.' %
@@ -82,7 +82,7 @@ class network_WiFi_DarkResumeActiveScans(
 
                 # Start capture after suspend concludes in case probe requests
                 # are launched on the way to suspend.
-                self.context.router.start_capture(
+                self.context.capture_host.start_capture(
                         ap_config.frequency,
                         ht_type=ap_config.ht_packet_capture_mode)
 
@@ -121,7 +121,7 @@ class network_WiFi_DarkResumeActiveScans(
 
                 # Start capture after suspend concludes in case probe requests
                 # are launched on the way to suspend.
-                self.context.router.start_capture(
+                self.context.capture_host.start_capture(
                         ap_config.frequency,
                         ht_type=ap_config.ht_packet_capture_mode)
 

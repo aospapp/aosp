@@ -43,8 +43,10 @@
           </a>
         </div>
         <ul>
-          <li><a href="<?cs var:toroot ?>devices/accessories/headset/specification.html">Specification</a></li>
-          <li><a href="<?cs var:toroot ?>devices/accessories/headset/requirements.html">Requirements</a></li>
+          <li><a href="<?cs var:toroot ?>devices/accessories/headset/plug-headset-spec.html">3.5 mm Headset Spec</a></li>
+          <li><a href="<?cs var:toroot ?>devices/accessories/headset/jack-headset-spec.html">3.5 mm Jack Spec</a></li>
+          <li><a href="<?cs var:toroot ?>devices/accessories/headset/usb-headset-spec.html">USB Headset Spec</a></li>
+          <li><a href="<?cs var:toroot ?>devices/accessories/headset/expected-behavior.html">Expected Behavior</a></li>
           <li><a href="<?cs var:toroot ?>devices/accessories/headset/testing.html">Testing</a></li>
         </ul>
       </li>
@@ -274,6 +276,7 @@
         </div>
         <ul>
           <li><a href="<?cs var:toroot ?>devices/tv/HDMI-CEC.html">HDMI-CEC control service</a></li>
+          <li><a href="<?cs var:toroot ?>devices/tv/reference-tv-app.html">Reference TV App</a></li>
         </ul>
       </li>
     </ul>
@@ -312,6 +315,7 @@
         </div>
         <ul>
           <li><a href="<?cs var:toroot ?>devices/tech/config/carrier.html">Carrier Customization</a></li>
+          <li><a href="<?cs var:toroot ?>devices/tech/config/connect_tests.html">Connectivity Tests</a></li>
           <li><a href="<?cs var:toroot ?>devices/tech/config/filesystem.html">File System</a></li>
           <li><a href="<?cs var:toroot ?>devices/tech/config/kernel.html">Kernel Configuration</a></li>
           <li><a href="<?cs var:toroot ?>devices/tech/config/kernel_network_tests.html">Kernel Network Tests</a></li>
@@ -334,6 +338,7 @@
           <li><a href="<?cs var:toroot ?>devices/tech/connect/block-numbers.html">Block Phone Numbers</a></li>
           <li><a href="<?cs var:toroot ?>devices/tech/connect/call-notification.html">Call Notifications</a></li>
           <li><a href="<?cs var:toroot ?>devices/tech/connect/data-saver.html">Data Saver Mode</a></li>
+          <li><a href="<?cs var:toroot ?>devices/tech/connect/emergency-affordance.html">Emergency Affordance</a></li>
           <li><a href="<?cs var:toroot ?>devices/tech/connect/felica.html">Host Card Emulation of FeliCa</a></li>
           <li><a href="<?cs var:toroot ?>devices/tech/connect/ril.html">Radio Interface Layer (RIL)</a></li>
         </ul>
@@ -363,6 +368,7 @@
           </a>
         </div>
         <ul>
+          <li><a href="<?cs var:toroot ?>devices/tech/debug/native-crash.html">Diagnosing Native Crashes</a></li>
           <li><a href="<?cs var:toroot ?>devices/tech/debug/asan.html">AddressSanitizer</a></li>
           <li><a href="<?cs var:toroot ?>devices/tech/debug/dumpsys.html">Dumpsys</a></li>
           <li><a href="<?cs var:toroot ?>devices/tech/debug/native-memory.html">Native Memory Use</a></li>
@@ -394,9 +400,13 @@
               <span class="en">Display Settings</span></a>
         </div>
         <ul>
+          <li><a href="<?cs var:toroot ?>devices/tech/display/app-shortcuts.html">App Shortcuts</a></li>
+          <li><a href="<?cs var:toroot ?>devices/tech/display/circular-icons.html">Circular Icons</a></li>
           <li><a href="<?cs var:toroot ?>devices/tech/display/dnd.html">Do Not Disturb</a></li>
-          <li><a href="<?cs var:toroot ?>devices/tech/display/multi-window.html">Multi-Window</a></li>
           <li><a href="<?cs var:toroot ?>devices/tech/display/hdr.html">HDR Video</a></li>
+          <li><a href="<?cs var:toroot ?>devices/tech/display/multi-window.html">Multi-Window</a></li>
+          <li><a href="<?cs var:toroot ?>devices/tech/display/night-light.html">Night Light</a></li>
+          <li><a href="<?cs var:toroot ?>devices/tech/display/retail-mode.html">Retail Demo Mode</a></li>
         </ul>
       </li>
 
@@ -419,7 +429,9 @@
           <li><a href="<?cs var:toroot ?>devices/tech/ota/block.html">Block-based OTA</a></li>
           <li><a href="<?cs var:toroot ?>devices/tech/ota/inside_packages.html">Inside OTA Packages</a></li>
           <li><a href="<?cs var:toroot ?>devices/tech/ota/device_code.html">Device-Specific Code</a></li>
+          <li><a href="<?cs var:toroot ?>devices/tech/ota/reduce_size.html">Reducing OTA Size</a></li>
           <li><a href="<?cs var:toroot ?>devices/tech/ota/sign_builds.html">Signing Builds for Release</a></li>
+          <li><a href="<?cs var:toroot ?>devices/tech/ota/ab_updates.html">A/B System Updates</a></li>
         </ul>
       </li>
 
@@ -450,7 +462,8 @@
           <li><a href="<?cs var:toroot ?>devices/tech/test_infra/tradefed/fundamentals/lifecycle.html">Test Lifecycle</a></li>
           <li><a href="<?cs var:toroot ?>devices/tech/test_infra/tradefed/fundamentals/options.html">Option Handling</a></li>
           <li><a href="<?cs var:toroot ?>devices/tech/test_infra/tradefed/full_example.html">An End-to-End Example</a></li>
-          <li id="tradefed-tree-list" class="nav-section">
+          <li><a href="<?cs var:toroot ?>devices/tech/test_infra/tradefed/fundamentals/vts.html">Systems Testing With VTS</a></li>
+	  <li id="tradefed-tree-list" class="nav-section">
             <div class="nav-section-header">
               <a href="<?cs var:toroot ?>reference/packages.html">
                 <span class="en">Package Index</span>

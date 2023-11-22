@@ -15,9 +15,7 @@
 package com.android.bluetooth;
 
 import java.io.IOException;
-import java.util.concurrent.CountDownLatch;
 
-import javax.obex.ObexSession;
 import javax.obex.ResponseCodes;
 import javax.obex.ServerSession;
 
@@ -82,7 +80,20 @@ public class ObexServerSockets {
      */
     public static ObexServerSockets create(IObexConnectionHandler validator) {
         return create(validator, BluetoothAdapter.SOCKET_CHANNEL_AUTO_STATIC_NO_SDP,
-                BluetoothAdapter.SOCKET_CHANNEL_AUTO_STATIC_NO_SDP);
+                BluetoothAdapter.SOCKET_CHANNEL_AUTO_STATIC_NO_SDP, true);
+    }
+
+    /**
+     * Creates an Insecure RFCOMM {@link BluetoothServerSocket} and a L2CAP
+         *                  {@link BluetoothServerSocket}
+     * @param validator a reference to the {@link IObexConnectionHandler} object to call
+     *                  to validate an incoming connection.
+     * @return a reference to a {@link ObexServerSockets} object instance.
+     * @throws IOException if it occurs while creating the {@link BluetoothServerSocket}s.
+     */
+    public static ObexServerSockets createInsecure(IObexConnectionHandler validator) {
+        return create(validator, BluetoothAdapter.SOCKET_CHANNEL_AUTO_STATIC_NO_SDP,
+                BluetoothAdapter.SOCKET_CHANNEL_AUTO_STATIC_NO_SDP, false);
     }
 
     /**
@@ -92,14 +103,15 @@ public class ObexServerSockets {
      * {@link #getRfcommChannel()} in {@link ObexServerSockets}.
      * @param validator a reference to the {@link IObexConnectionHandler} object to call
      *                  to validate an incoming connection.
+     * @param isSecure boolean flag to determine whther socket would be secured or inseucure.
      * @return a reference to a {@link ObexServerSockets} object instance.
      * @throws IOException if it occurs while creating the {@link BluetoothServerSocket}s.
      *
      * TODO: Make public when it becomes possible to determine that the listen-call
      *       failed due to channel-in-use.
      */
-    private static ObexServerSockets create(IObexConnectionHandler validator,
-            int rfcommChannel, int l2capPsm) {
+    private static ObexServerSockets create(
+            IObexConnectionHandler validator, int rfcommChannel, int l2capPsm, boolean isSecure) {
         if(D) Log.d(STAG,"create(rfcomm = " +rfcommChannel + ", l2capPsm = " + l2capPsm +")");
         BluetoothAdapter bt = BluetoothAdapter.getDefaultAdapter();
         if(bt == null) {
@@ -115,10 +127,18 @@ public class ObexServerSockets {
             initSocketOK = true;
             try {
                 if(rfcommSocket == null) {
-                    rfcommSocket = bt.listenUsingRfcommOn(rfcommChannel);
+                    if (isSecure) {
+                        rfcommSocket = bt.listenUsingRfcommOn(rfcommChannel);
+                    } else {
+                        rfcommSocket = bt.listenUsingInsecureRfcommOn(rfcommChannel);
+                    }
                 }
                 if(l2capSocket == null) {
-                    l2capSocket = bt.listenUsingL2capOn(l2capPsm);
+                    if (isSecure) {
+                        l2capSocket = bt.listenUsingL2capOn(l2capPsm);
+                    } else {
+                        l2capSocket = bt.listenUsingInsecureL2capOn(l2capPsm);
+                    }
                 }
             } catch (IOException e) {
                 Log.e(STAG, "Error create ServerSockets ",e);
@@ -192,7 +212,7 @@ public class ObexServerSockets {
      * Set state to accept new incoming connection. Will cause the next incoming connection to be
      * Signaled through {@link IObexConnectionValidator#onConnect()};
      */
-    public void prepareForNewConnect() {
+    synchronized public void prepareForNewConnect() {
         if(D) Log.d(TAG, "prepareForNewConnect()");
         mConAccepted = false;
     }
@@ -221,9 +241,12 @@ public class ObexServerSockets {
      * Signal to the {@link IObexConnectionHandler} that an error have occurred.
      */
     synchronized private void onAcceptFailed() {
-        Log.w(TAG,"onAcceptFailed() calling shutdown...");
-        mConHandler.onAcceptFailed();
         shutdown(false);
+        BluetoothAdapter mAdapter = BluetoothAdapter.getDefaultAdapter();
+        if ((mAdapter != null) && (mAdapter.getState() == BluetoothAdapter.STATE_ON)) {
+            Log.d(TAG, "onAcceptFailed() calling shutdown...");
+            mConHandler.onAcceptFailed();
+        }
     }
 
     /**
@@ -382,5 +405,4 @@ public class ObexServerSockets {
             }
         }
     }
-
 }

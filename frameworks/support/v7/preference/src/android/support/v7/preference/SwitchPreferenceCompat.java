@@ -16,8 +16,11 @@
 
 package android.support.v7.preference;
 
+import static android.support.annotation.RestrictTo.Scope.LIBRARY_GROUP;
+
 import android.content.Context;
 import android.content.res.TypedArray;
+import android.support.annotation.RestrictTo;
 import android.support.v4.content.res.TypedArrayUtils;
 import android.support.v7.widget.SwitchCompat;
 import android.util.AttributeSet;
@@ -198,6 +201,7 @@ public class SwitchPreferenceCompat extends TwoStatePreference {
     /**
      * @hide
      */
+    @RestrictTo(LIBRARY_GROUP)
     @Override
     protected void performClick(View view) {
         super.performClick(view);

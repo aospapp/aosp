@@ -1,6 +1,8 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
- * Copyright (C) 2003-2015, International Business Machines Corporation and    *
+ * Copyright (C) 2003-2016, International Business Machines Corporation and    *
  * others. All Rights Reserved.                                                *
  *******************************************************************************
  */
@@ -8,6 +10,9 @@ package com.ibm.icu.dev.test.util;
 
 import java.util.Arrays;
 import java.util.HashSet;
+
+import org.junit.Before;
+import org.junit.Test;
 
 import com.ibm.icu.dev.test.TestFmwk;
 import com.ibm.icu.impl.ICUResourceBundle;
@@ -25,18 +30,17 @@ import com.ibm.icu.util.ULocale;
  * Window>Preferences>Java>Code Generation>Code and Comments
  */
 public class LocaleDataTest extends TestFmwk{
-
-    public static void main(String[] args) throws Exception{
-        new LocaleDataTest().run(args);
-    }
-
     private ULocale[] availableLocales = null;
 
     public LocaleDataTest(){
     }
-    protected void init(){
+    
+    @Before
+    public void init() {
         availableLocales = ICUResourceBundle.getAvailableULocales();
     }
+    
+    @Test
     public void TestPaperSize(){
         for(int i = 0; i < availableLocales.length; i++){
             ULocale locale = availableLocales[i];
@@ -74,6 +78,7 @@ public class LocaleDataTest extends TestFmwk{
             }
         }
     }
+    @Test
     public void TestMeasurementSystem(){
         for(int i=0; i<availableLocales.length; i++){
             ULocale locale = availableLocales[i];
@@ -106,7 +111,34 @@ public class LocaleDataTest extends TestFmwk{
         }
     }
 
+    @Test
+    public void TestMeasurementSysForSpecificLocales(){
+        class TestMeasurementSysItem {
+            public String localeID;
+            public LocaleData.MeasurementSystem measureSys;
+            public TestMeasurementSysItem(String locID, LocaleData.MeasurementSystem ms) {
+                localeID = locID;
+                measureSys = ms;
+            }
+        };
+        final TestMeasurementSysItem[] items = {
+            new TestMeasurementSysItem("fr_FR",             LocaleData.MeasurementSystem.SI),
+            new TestMeasurementSysItem("en",                LocaleData.MeasurementSystem.US),
+            new TestMeasurementSysItem("en_GB",             LocaleData.MeasurementSystem.UK),
+            new TestMeasurementSysItem("fr_FR@rg=GBZZZZ",   LocaleData.MeasurementSystem.UK),
+            new TestMeasurementSysItem("en@rg=frzzzz",      LocaleData.MeasurementSystem.SI),
+            new TestMeasurementSysItem("en_GB@rg=USZZZZ",   LocaleData.MeasurementSystem.US),
+        };
+        for (TestMeasurementSysItem item: items) {
+            LocaleData.MeasurementSystem ms = LocaleData.getMeasurementSystem(new ULocale(item.localeID));
+            if (ms != item.measureSys) {
+                errln("For locale " + item.localeID + ", expected " + item.measureSys + ", got " + ms);
+            }
+        }
+    }
+
     // Simple test case for checking exemplar character type coverage
+    @Test
     public void TestEnglishExemplarCharacters() {
         final char[] testChars = {
                 0x61,   // standard
@@ -160,6 +192,7 @@ public class LocaleDataTest extends TestFmwk{
         }
     }
 
+    @Test
     public void TestExemplarSet(){
         HashSet  testedExemplars = new HashSet();
         int equalCount = 0;
@@ -230,6 +263,7 @@ public class LocaleDataTest extends TestFmwk{
         assertTrue("case-folded is sometimes a strict superset, and sometimes equal",
                 equalCount > 0 && equalCount < availableLocales.length);
     }
+    @Test
     public void TestExemplarSet2(){
         int equalCount = 0;
         HashSet  testedExemplars = new HashSet();
@@ -314,6 +348,7 @@ public class LocaleDataTest extends TestFmwk{
 
     // Test case created for checking type coverage of static getExemplarSet method.
     // See #9785, #9794 and #9795
+    @Test
     public void TestExemplarSetTypes() {
         final String[] testLocales = {
                 "am",   // No auxiliary / index exemplars as of ICU 50
@@ -357,6 +392,7 @@ public class LocaleDataTest extends TestFmwk{
         }
     }
 
+    @Test
     public void TestCoverage(){
         LocaleData ld = LocaleData.getInstance();
         boolean t = ld.getNoSubstitute();
@@ -371,6 +407,7 @@ public class LocaleDataTest extends TestFmwk{
         logln(ld.getDelimiter(LocaleData.ALT_QUOTATION_END));
     }
 
+    @Test
     public void TestFallback(){
         LocaleData fr_FR = LocaleData.getInstance(ULocale.FRANCE);
         LocaleData fr_CH = LocaleData.getInstance(new ULocale("fr_CH"));
@@ -382,6 +419,7 @@ public class LocaleDataTest extends TestFmwk{
         assertNotEquals("Alt end quotes are equals", fr_FR.getDelimiter(LocaleData.ALT_QUOTATION_END), fr_CH.getDelimiter(LocaleData.ALT_QUOTATION_END));
     }
 
+    @Test
     public void TestLocaleDisplayPattern(){
         ULocale locale = ULocale.ENGLISH;
         LocaleData ld = LocaleData.getInstance(locale);
@@ -405,7 +443,7 @@ public class LocaleDataTest extends TestFmwk{
             errln("Unexpected LocaleDisplayPattern for locale: "+ locale);
         }
         logln("LocaleSeparator for locale " + locale + ": " + separator);
-        if (!separator.equals("\u3001")) {
+        if (!separator.equals("\uFF0C")) {
             errln("Unexpected LocaleSeparator for locale: "+ locale);
         }
 

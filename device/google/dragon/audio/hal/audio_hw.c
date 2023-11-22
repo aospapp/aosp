@@ -1885,8 +1885,7 @@ static int out_set_parameters(struct audio_stream *stream, const char *kvpairs)
     struct str_parms *parms;
     char value[32];
     int ret, val = 0;
-    struct audio_usecase *uc_info;
-    bool do_standby = false;
+    bool devices_changed;
     struct pcm_device *pcm_device;
     struct pcm_device_profile *pcm_profile;
 #ifdef PREPROCESSING_ENABLED
@@ -1915,24 +1914,11 @@ static int out_set_parameters(struct audio_stream *stream, const char *kvpairs)
         }
 #endif
         if (val != 0) {
+            devices_changed = out->devices != (audio_devices_t)val;
             out->devices = val;
 
             if (!out->standby) {
-                uc_info = get_usecase_from_id(adev, out->usecase);
-                if (uc_info == NULL) {
-                    ALOGE("%s: Could not find the usecase (%d) in the list",
-                          __func__, out->usecase);
-                } else {
-                    list_for_each(node, &out->pcm_dev_list) {
-                        pcm_device = node_to_item(node, struct pcm_device, stream_list_node);
-                        if ((pcm_device->pcm_profile->devices & val) == 0)
-                            do_standby = true;
-                        val &= ~pcm_device->pcm_profile->devices;
-                    }
-                    if (val != 0)
-                        do_standby = true;
-                }
-                if (do_standby)
+                if (devices_changed)
                     do_out_standby_l(out);
                 else
                     select_devices(adev, out->usecase);
@@ -2867,15 +2853,16 @@ static int adev_set_parameters(struct audio_hw_device *dev, const char *kvpairs)
     if (ret >= 0) {
         bool reverse_speakers = false;
         switch(val) {
-        /* FIXME: note that the code below assumes that the speakers are in the correct placement
-             relative to the user when the device is rotated 90deg from its default rotation. This
-             assumption is device-specific, not platform-specific like this code. */
-        case 270:
+        /* Assume 0deg rotation means the front camera is up with the usb port
+         * on the lower left when the user is facing the screen. This assumption
+         * is device-specific, not platform-specific like this code.
+         */
+        case 180:
             reverse_speakers = true;
             break;
         case 0:
         case 90:
-        case 180:
+        case 270:
             break;
         default:
             ALOGE("%s: unexpected rotation of %d", __func__, val);
@@ -2883,17 +2870,12 @@ static int adev_set_parameters(struct audio_hw_device *dev, const char *kvpairs)
         pthread_mutex_lock(&adev->lock);
         if (adev->speaker_lr_swap != reverse_speakers) {
             adev->speaker_lr_swap = reverse_speakers;
-            /* only update the selected device if there is active pcm playback */
-            struct audio_usecase *usecase;
-            struct listnode *node;
-            list_for_each(node, &adev->usecase_list) {
-                usecase = node_to_item(node, struct audio_usecase, adev_list_node);
-                if (usecase->type == PCM_PLAYBACK) {
-                    select_devices(adev, usecase->id);
-                    /* TODO(dgreid) speaker flip */
-                    break;
-                }
-            }
+            struct mixer_card *mixer_card;
+            mixer_card = adev_get_mixer_for_card(adev, SOUND_CARD);
+            if (mixer_card)
+                audio_route_apply_and_update_path(mixer_card->audio_route,
+                        reverse_speakers ? "speaker-lr-reverse" :
+                                           "speaker-lr-normal");
         }
         pthread_mutex_unlock(&adev->lock);
     }

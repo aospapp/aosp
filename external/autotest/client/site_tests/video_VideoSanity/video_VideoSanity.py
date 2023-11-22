@@ -1,118 +1,71 @@
-# Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
+# Copyright 2016 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import logging, time
+import os
+import shutil
+import logging
 
 from autotest_lib.client.bin import test, utils
-from autotest_lib.client.common_lib import error
-from autotest_lib.client.common_lib.cros import chrome
-from autotest_lib.client.cros import httpd
-
-
-WAIT_TIMEOUT_S = 5
-PLAYBACK_TEST_TIME_S = 5
-MEDIA_SUPPORT_AVAILABLE = 'maybe'
-
+from autotest_lib.client.common_lib.cros import chrome, arc_common
+from autotest_lib.client.cros.video import constants
+from autotest_lib.client.cros.video import native_html5_player
 
 class video_VideoSanity(test.test):
     """This test verify the media elements and video sanity.
 
-    - verify support for mp4, ogg and webm media.
+    - verify support for mp4, vp8 and vp9  media.
     - verify html5 video playback.
 
     """
     version = 2
 
 
-    def initialize(self):
-        self._testServer = httpd.HTTPListener(8000, docroot=self.bindir)
-        self._testServer.run()
+    def run_once(self, video_file, arc_mode=False):
+        """
+        Tests whether the requested video is playable
 
-
-    def cleanup(self):
-        if self._testServer:
-            self._testServer.stop()
-
-
-    def video_current_time(self):
-        """Returns video's current playback time.
-
-        Returns:
-            returns the current playback location in seconds (int).
+        @param video_file: Sample video file to be played in Chrome.
 
         """
-        return self.tab.EvaluateJavaScript('testvideo.currentTime')
+        blacklist = [
+            # (board, arc_mode) # None means don't care
+            ('x86-mario', None),
+            ('x86-zgb', None),
+            # The result on elm and oak is flaky in arc mode.
+            # TODO(wuchengli): remove them once crbug.com/679864 is fixed.
+            ('elm', True),
+            ('oak', True)]
 
-
-    def video_duration(self):
-        """Returns video total length.
-
-        Returns:
-            returns the total video length in seconds (int).
-
-        """
-        return self.tab.EvaluateJavaScript('testvideo.duration')
-
-
-    def run_video_sanity_test(self, browser):
-        """Run the video sanity test.
-
-        @param browser: The Browser object to run the test with.
-
-        """
-        self.tab = browser.tabs[0]
-        # Verifying <video> support.
-        video_containers = ('mp4', 'ogg', 'webm')
-        self.tab.Navigate('http://localhost:8000/video.html')
-        for container in video_containers:
-            logging.info('Verifying video support for %s.', container)
-            js_script = ("document.createElement('video').canPlayType"
-                         "('video/" + container + "')")
-            status = self.tab.EvaluateJavaScript(js_script)
-            if status != MEDIA_SUPPORT_AVAILABLE:
-                raise error.TestError('No media support available for %s.'
-                                       % container)
-        # Waiting for test video to load.
-        wait_time = 0 # seconds
-        current_time_js = ("typeof videoCurTime != 'undefined' ? "
-                           "videoCurTime.innerHTML : 0")
-        while float(self.tab.EvaluateJavaScript(current_time_js)) < 1.0:
-            time.sleep(1)
-            wait_time = wait_time + 1
-            if wait_time > WAIT_TIMEOUT_S:
-                raise error.TestError('Video failed to load.')
-        # Muting the video.
-        self.tab.EvaluateJavaScript('testvideo.volume=0')
-
-
-        playback_test_count = 0
-        prev_time_s = -1
-        duration = self.video_duration()
-
-        while True:
-            current_time_s = self.video_current_time()
-
-            if (current_time_s >= duration
-                or playback_test_count >= PLAYBACK_TEST_TIME_S):
+        dut_board = utils.get_current_board()
+        for (blacklist_board, blacklist_arc_mode) in blacklist:
+            if blacklist_board == dut_board:
+                if blacklist_arc_mode is None or blacklist_arc_mode == arc_mode:
+                    logging.info("Skipping test run on this board.")
+                    return
                 break
 
-            if current_time_s <= prev_time_s:
-                msg = ("Current time is %.3fs while Previous time was %.3fs. "
-                       "Video is not playing" % (current_time_s, prev_time_s))
-                raise error.TestError(msg)
+        if arc_mode:
+            arc_mode_str = arc_common.ARC_MODE_ENABLED
+        else:
+            arc_mode_str = arc_common.ARC_MODE_DISABLED
+        with chrome.Chrome(arc_mode=arc_mode_str,
+                           init_network_controller=True) as cr:
+             shutil.copy2(constants.VIDEO_HTML_FILEPATH, self.bindir)
+             video_path = os.path.join(constants.CROS_VIDEO_DIR,
+                                       'files', video_file)
+             shutil.copy2(video_path, self.bindir)
+             cr.browser.platform.SetHTTPServerDirectories(self.bindir)
+             tab = cr.browser.tabs.New()
+             html_fullpath = os.path.join(self.bindir, 'video.html')
+             url = cr.browser.platform.http_server.UrlOf(html_fullpath)
 
-            prev_time_s = current_time_s
-            playback_test_count += 1
-            time.sleep(1)
-
-
-    def run_once(self):
-        boards_to_skip = ['x86-mario', 'x86-zgb']
-        # TODO(scottz): Remove this when crbug.com/220147 is fixed.
-        dut_board = utils.get_current_board()
-        if dut_board in boards_to_skip:
-            logging.info("Skipping test run on this board.")
-            return
-        with chrome.Chrome() as cr:
-            self.run_video_sanity_test(cr.browser)
+             player = native_html5_player.NativeHtml5Player(
+                     tab,
+                     full_url = url,
+                     video_id = 'video',
+                     video_src_path = video_file,
+                     event_timeout = 120)
+             player.load_video()
+             player.play()
+             player.verify_video_can_play(constants.PLAYBACK_TEST_TIME_S)

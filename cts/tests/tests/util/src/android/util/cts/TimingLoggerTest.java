@@ -16,13 +16,20 @@
 package android.util.cts;
 
 
-import android.test.AndroidTestCase;
+import android.support.test.filters.LargeTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.util.TimingLogger;
 
-public class TimingLoggerTest extends AndroidTestCase{
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+@LargeTest
+@RunWith(AndroidJUnit4.class)
+public class TimingLoggerTest {
     private static final String LOG_TAG = "TimingLoggerTest";
     private static final int SLEEPING_MSEC = 100;
 
+    @Test
     public void testTimingLogger() {
         TimingLogger timings = new TimingLogger(LOG_TAG, "testTimingLogger");
 
@@ -34,7 +41,7 @@ public class TimingLoggerTest extends AndroidTestCase{
             }
 
             sleep();
-            timings.addSplit("fisrt sleep");
+            timings.addSplit("first sleep");
 
             sleep();
             timings.addSplit("second sleep");

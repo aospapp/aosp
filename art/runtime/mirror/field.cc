@@ -27,7 +27,7 @@ namespace mirror {
 GcRoot<Class> Field::static_class_;
 GcRoot<Class> Field::array_class_;
 
-void Field::SetClass(Class* klass) {
+void Field::SetClass(ObjPtr<Class> klass) {
   CHECK(static_class_.IsNull()) << static_class_.Read() << " " << klass;
   CHECK(klass != nullptr);
   static_class_ = GcRoot<Class>(klass);
@@ -38,7 +38,7 @@ void Field::ResetClass() {
   static_class_ = GcRoot<Class>(nullptr);
 }
 
-void Field::SetArrayClass(Class* klass) {
+void Field::SetArrayClass(ObjPtr<Class> klass) {
   CHECK(array_class_.IsNull()) << array_class_.Read() << " " << klass;
   CHECK(klass != nullptr);
   array_class_ = GcRoot<Class>(klass);
@@ -68,8 +68,16 @@ ArtField* Field::GetArtField() {
     }
   }
   mirror::DexCache* const dex_cache = declaring_class->GetDexCache();
-  ArtField* const art_field = dex_cache->GetResolvedField(GetDexFieldIndex(), sizeof(void*));
-  CHECK(art_field != nullptr);
+  ArtField* art_field = dex_cache->GetResolvedField(GetDexFieldIndex(), kRuntimePointerSize);
+  if (UNLIKELY(art_field == nullptr)) {
+    if (IsStatic()) {
+      art_field = declaring_class->FindDeclaredStaticField(dex_cache, GetDexFieldIndex());
+    } else {
+      art_field = declaring_class->FindInstanceField(dex_cache, GetDexFieldIndex());
+    }
+    CHECK(art_field != nullptr);
+    dex_cache->SetResolvedField(GetDexFieldIndex(), art_field, kRuntimePointerSize);
+  }
   CHECK_EQ(declaring_class, art_field->GetDeclaringClass());
   return art_field;
 }

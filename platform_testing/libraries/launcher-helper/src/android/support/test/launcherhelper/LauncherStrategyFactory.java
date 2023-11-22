@@ -43,7 +43,10 @@ public class LauncherStrategyFactory {
         registerLauncherStrategy(GoogleExperienceLauncherStrategy.class);
         registerLauncherStrategy(Launcher3Strategy.class);
         registerLauncherStrategy(NexusLauncherStrategy.class);
+        registerLauncherStrategy(PixelCLauncherStrategy.class);
         registerLauncherStrategy(LeanbackLauncherStrategy.class);
+        registerLauncherStrategy(WearLauncherStrategy.class);
+        registerLauncherStrategy(TvLauncherStrategy.class);
     }
 
     /**
@@ -84,16 +87,22 @@ public class LauncherStrategyFactory {
      * {@link ILauncherStrategy} maybe registered via
      * {@link LauncherStrategyFactory#registerLauncherStrategy(Class)} by identifying the
      * launcher package name supported
+     * @throw RuntimeException if no valid launcher strategy is found
      * @return
      */
     public ILauncherStrategy getLauncherStrategy() {
         String launcherPkg = mUiDevice.getLauncherPackageName();
-        return mInstanceMap.get(launcherPkg);
+        if (mInstanceMap.containsKey(launcherPkg)) {
+            return mInstanceMap.get(launcherPkg);
+        } else {
+            throw new RuntimeException(String.format(
+                    "Could not find a launcher strategy for package, %s", launcherPkg));
+        }
     }
 
     /**
-     * Retrieves a {@link ILeanbackLauncherStrategy} that supports the current default leanback
-     * launcher
+     * Retrieves a {@link ILeanbackLauncherStrategy} that supports the current default launcher
+     * for TV. Either Leanback Launcher or new TV Launcher
      * @return
      */
     public ILeanbackLauncherStrategy getLeanbackLauncherStrategy() {
@@ -101,6 +110,6 @@ public class LauncherStrategyFactory {
         if (launcherStrategy instanceof ILeanbackLauncherStrategy) {
             return (ILeanbackLauncherStrategy)launcherStrategy;
         }
-        throw new RuntimeException("This LauncherStrategy is not for leanback launcher.");
+        throw new RuntimeException("This LauncherStrategy is suitable for TV.");
     }
 }

@@ -17,11 +17,11 @@
 
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
     android:title="@string/system_security">
-    <SwitchPreference
+    <Preference
         android:key="unknown_sources"
         android:title="@string/security_unknown_sources_title"
         android:summary="@string/security_unknown_sources_desc"
-        android:fragment="com.android.tv.settings.system.UnknownSourcesConfirmationFragment" />
+        android:fragment="com.android.tv.settings.device.apps.specialaccess.ManageExternalSources" />
     <SwitchPreference
         android:key="verify_apps"
         android:title="@string/security_verify_apps_title"

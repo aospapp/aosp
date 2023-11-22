@@ -77,7 +77,7 @@ void initUtils(const TCHAR *appName) {
             }
         }
     }
-    delete fviBuffer;
+    delete[] fviBuffer;
 }
 
 CString getAppName() {

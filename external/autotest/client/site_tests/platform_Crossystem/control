@@ -6,8 +6,8 @@ NAME = "platform_Crossystem"
 AUTHOR = "The Chromium OS Authors"
 PURPOSE = "Ensure crossystem works"
 CRITERIA = "Fails if any basic functionality of crossystem is missing"
+# TODO(semenzato) promote to bvt-inline after testing
 ATTRIBUTES = "suite:bvt-perbuild"
-SUITE = "bvt-perbuild"  # TODO(semenzato) promote to bvt-inline after testing
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "platform"

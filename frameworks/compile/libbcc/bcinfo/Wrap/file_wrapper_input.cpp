@@ -60,5 +60,5 @@ off_t FileWrapperInput::Size() {
 }
 
 bool FileWrapperInput::Seek(uint32_t pos) {
-  return fseek(_file, (long) pos, SEEK_SET) == 0;
+  return fseek(_file, (long) pos, SEEK_SET) == 0; // NOLINT
 }

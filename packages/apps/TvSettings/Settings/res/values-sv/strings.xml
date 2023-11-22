@@ -44,7 +44,7 @@
     <string name="connectivity_wifi" msgid="489974791299647708">"Wi-Fi"</string>
     <string name="connectivity_ethernet" msgid="2182407318634700320">"Ethernet"</string>
     <string name="wifi_setting_always_scan" msgid="8883713018717323351">"Nätverkssökning alltid tillgänglig"</string>
-    <string name="wifi_setting_always_scan_context" msgid="5588180043357910712">"Tillåt att Googles platstjänst och andra appar söker efter nätverk, även när Wi-Fi inte har aktiverats"</string>
+    <string name="wifi_setting_always_scan_context" msgid="398651204440349752">"Tillåt att Googles platstjänst och andra appar söker efter nätverk, även när Wi-Fi inte har aktiverats"</string>
     <string name="wifi_setting_enable_wifi" msgid="9214100840401870408">"Wi-Fi"</string>
     <string name="device_daydream" msgid="3354366974209179614">"Skärmsläckare"</string>
     <string name="device_display" msgid="101455384386372747">"Visning"</string>
@@ -72,6 +72,8 @@
     <string name="accessory_battery" msgid="7021788232835772126">"Batteri <xliff:g id="PERCENTAGE">%1$d</xliff:g> %%"</string>
     <string name="accessory_unpairing" msgid="7568241162181184667">"Kopplingen tas bort ..."</string>
     <string name="accessory_connected" msgid="2156489304110030393">"Anslutet"</string>
+    <string name="accessory_change_name" msgid="8958916008739792785">"Byt namn"</string>
+    <string name="accessory_change_name_title" msgid="4630819456923061184">"Ge tillbehöret ett nytt namn"</string>
     <string name="accessories_add_title" msgid="6940361421891873321">"Söker efter tillbehör …"</string>
     <string name="accessories_add_bluetooth_inst" msgid="5892952745770640383">"Innan du kopplar ihop dina Bluetooth-enheter kontrollerar du att de är i kopplingsläge"</string>
     <string name="accessories_autopair_msg" msgid="8618829246837821752">"En enhet hittades och kopplas automatiskt om <xliff:g id="COUNTDOWN">%1$s</xliff:g> sekunder"</string>
@@ -91,6 +93,7 @@
     <string name="system_keyboard" msgid="7680159735294672514">"Tangentbord"</string>
     <string name="system_home" msgid="2858989138172296012">"Startskärm"</string>
     <string name="system_search" msgid="2837264654143247611">"Sök"</string>
+    <string name="system_google" msgid="8560404305602209622">"Google"</string>
     <string name="system_security" msgid="8230080273993484407">"Säkerhet och begränsningar"</string>
     <string name="system_speech" msgid="8128688499687306982">"Tal"</string>
     <string name="system_inputs" msgid="2413907183796651102">"Ingångar"</string>
@@ -98,6 +101,7 @@
     <string name="system_developer_options" msgid="3237985523474863638">"Utvecklaralternativ"</string>
     <string name="accessibility_none" msgid="3441648940134070004">"Inga"</string>
     <string name="system_diagnostic" msgid="7269638365915225701">"Användning och diagnostik"</string>
+    <string name="tutorials" msgid="3731493987558093244">"Självstudier"</string>
     <string name="about_system_update" msgid="7282772247661356586">"Systemuppdatering"</string>
     <string name="about_preference" msgid="4131396784531360434">"Om"</string>
     <string name="device_name" msgid="2670488158531273028">"Enhetens namn"</string>
@@ -372,6 +376,7 @@
     <string name="display_options" msgid="5504549024985225774">"Visningsalternativ"</string>
     <string name="captions_configure" msgid="5537548915977371014">"Konfigurera"</string>
     <string name="captions_language" msgid="2835554055388996343">"Språk"</string>
+    <string name="captions_language_default" msgid="8113979489252033676">"Standard"</string>
     <string name="captions_textsize" msgid="4828195509546070971">"Textstorlek"</string>
     <string name="captions_captionstyle" msgid="7423638523487868230">"Textstil"</string>
     <string name="captions_customoptions" msgid="2699780648112330911">"Anpassade alternativ"</string>
@@ -448,7 +453,6 @@
     <string name="system_transition_animation_scale" msgid="2964817709721784757">"Skala för övergångsanimering"</string>
     <string name="system_animator_duration_scale" msgid="7413512458963984521">"Längdskala för Animator"</string>
     <string name="system_strict_mode_enabled" msgid="5728680397806673270">"Strikt läge aktiverat"</string>
-    <string name="system_show_cpu_usage" msgid="4797599582027671138">"Visa CPU-användning"</string>
     <string name="system_profile_gpu_rendering" msgid="3438771015102629799">"Profilens GPU-rendering"</string>
     <string name="system_enable_traces" msgid="4038210655699986482">"Aktivera spår"</string>
     <string name="system_dont_keep_activities" msgid="7906911077198718958">"Behåll inte aktiviteter"</string>
@@ -466,7 +470,6 @@
     <string name="system_desc_show_gpu_overdraw" msgid="8204945204510618865">"Från bäst till sämst: blå, grön, ljusröd, röd"</string>
     <string name="system_desc_show_surface_updates" msgid="8177734845253807688">"Hela fönstret blinkar vid uppdatering"</string>
     <string name="system_desc_strict_mode_enabled" msgid="4647420860235689510">"Tänd skärmen när appen gör större åtgärd i huvudtråden"</string>
-    <string name="system_desc_show_cpu_usage" msgid="6151280238151381703">"Överlagring på skärmen med aktuell CPU-användning"</string>
     <string name="system_desc_profile_gpu_rendering" msgid="2836283129486718887">"Mät tid för rendering i adb shell dumpsys gfxinfo"</string>
     <string name="action_on_title" msgid="6852389884236870765">"På"</string>
     <string name="action_off_title" msgid="3157728958166559966">"Av"</string>
@@ -598,7 +601,6 @@
     <string name="device_apps_app_management_force_stop" msgid="9195433885986760867">"Tvingad avslutning"</string>
     <string name="device_apps_app_management_force_stop_desc" msgid="3616902338964109665">"Om du tvingar appen att avslutas kanske den inte fungerar som den ska."</string>
     <string name="device_apps_app_management_uninstall" msgid="531427430753359746">"Avinstallera"</string>
-    <string name="device_apps_app_management_uninstall_desc" msgid="1104982472633576960">"Vill du avinstallera appen?"</string>
     <string name="device_apps_app_management_uninstall_updates" msgid="5151008748970915803">"Avinstallera uppdateringar"</string>
     <string name="device_apps_app_management_uninstall_updates_desc" msgid="9165160845303755321">"Alla uppdateringar för Android-systemappen kommer att avinstalleras."</string>
     <string name="device_apps_app_management_disable" msgid="6136528600052941589">"Inaktivera"</string>
@@ -615,6 +617,7 @@
     <string name="device_apps_app_management_clear_cache" msgid="5392413180421013865">"Rensa cacheminnet"</string>
     <string name="device_apps_app_management_notifications" msgid="7291960671957440729">"Meddelanden"</string>
     <string name="device_apps_app_management_permissions" msgid="1829808830974726081">"Behörigheter"</string>
+    <string name="device_apps_app_management_not_available" msgid="1249731776661207047">"Appen är inte tillgänglig"</string>
     <string name="settings_ok" msgid="3321630456511355983">"Ok"</string>
     <string name="settings_cancel" msgid="304280412158061225">"Avbryt"</string>
     <string name="settings_on" msgid="6892236264945435013">"På"</string>
@@ -638,17 +641,14 @@
     <string name="confirm_factory_reset_description" msgid="1049842658625287303">"Vill du radera alla personliga uppgifter och alla hämtade appar? Åtgärden kan inte ångras."</string>
     <string name="confirm_factory_reset_device" msgid="8923287482399582268">"Radera allt"</string>
     <string name="select_device_name_title" msgid="5165800500130943604">"Välj ett namn på din <xliff:g id="DEVICEMODEL">%1$s</xliff:g>"</string>
-    <string name="select_device_name_description" msgid="2697127827643821315">"Ett namn hjälper dig att identifiera din <xliff:g id="DEVICEMODEL">%1$s</xliff:g> när du behöver få åtkomst till den via andra enheter, t.ex. mobilen, surfplattan eller datorn."</string>
+    <string name="select_device_name_description" msgid="6890879006777364213">"Ge din <xliff:g id="DEVICEMODEL">%1$s</xliff:g> ett namn så att det blir lättare att identifiera den när du castar eller ansluter till den från andra enheter."</string>
   <string-array name="rooms">
-    <item msgid="7085399612393981553">"Vardagsrum"</item>
-    <item msgid="3722089849939477581">"Medierum"</item>
-    <item msgid="6108590585438763574">"Allrum"</item>
-    <item msgid="2581035245390468625">"Matrum"</item>
-    <item msgid="3127487827308695324">"Gillestuga"</item>
-    <item msgid="6172018430592195063">"Sovrum"</item>
-    <item msgid="8120010459866284578">"Kök"</item>
+    <item msgid="9056203990862307284">"Android-TV"</item>
+    <item msgid="7449352861592960712">"TV:n i vardagsrummet"</item>
+    <item msgid="8122798759665439456">"TV:n i familjerummet"</item>
+    <item msgid="1389347662738182100">"TV:n i sovrummet"</item>
   </string-array>
-    <string name="custom_room" msgid="8991561978321502549">"Ange eget namn …"</string>
+    <string name="custom_room" msgid="8655516733933892458">"Ange eget namn …"</string>
     <string name="device_rename_title" msgid="2629557295786267185">"Byt namn på <xliff:g id="DEVICEMODEL">%1$s</xliff:g>"</string>
     <string name="device_rename_description" msgid="2461752788563877107">"Din <xliff:g id="DEVICEMODEL">%1$s</xliff:g> har för närvarande namnet <xliff:g id="DEVICENAME">%2$s</xliff:g>"</string>
     <string name="change_setting" msgid="2047402388786162246">"Ändra"</string>
@@ -663,4 +663,7 @@
     <string name="reboot_safemode_action" msgid="8129550438717110406">"Starta om i felsäkert läge"</string>
     <string name="reboot_safemode_confirm" msgid="3329475617645192086">"Vill du starta om enheten i felsäkert läge?"</string>
     <string name="reboot_safemode_desc" msgid="5031024337104679492">"Det här alternativet inaktiverar alla appar från tredje part som du har installerat. Apparna återställs när du startar om enheten igen."</string>
+    <string name="capturing_bugreport" msgid="3291125403411239592">"Felrapport skapas"</string>
+    <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"Tillgängliga virtuella tangentbord"</string>
+    <string name="manage_keyboards" msgid="1905379263117016795">"Hantera tangentbord"</string>
 </resources>

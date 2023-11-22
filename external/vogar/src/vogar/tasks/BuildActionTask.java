@@ -163,6 +163,7 @@ public final class BuildActionTask extends Task {
 
         compiler.outputJack(jackFile.getPath())
                 .importResource(resourcesDir.getPath())
+                .extra(run.jackArgs)
                 .compile(sourceFiles);
     }
 
@@ -184,7 +185,6 @@ public final class BuildActionTask extends Task {
      */
     private void fillInProperties(Properties properties, Action action) {
         properties.setProperty(TestProperties.TEST_CLASS_OR_PACKAGE, action.getTargetClass());
-        properties.setProperty(TestProperties.QUALIFIED_NAME, action.getName());
         properties.setProperty(TestProperties.MONITOR_PORT, Integer.toString(run.firstMonitorPort));
         properties.setProperty(TestProperties.TIMEOUT, Integer.toString(run.timeoutSeconds));
         properties.setProperty(TestProperties.PROFILE, Boolean.toString(run.profile));
@@ -194,6 +194,6 @@ public final class BuildActionTask extends Task {
         properties.setProperty(TestProperties.PROFILE_FILE, run.profileFile.getName());
         properties.setProperty(TestProperties.PROFILE_THREAD_GROUP,
                 Boolean.toString(run.profileThreadGroup));
-        properties.setProperty(TestProperties.TEST_ONLY, Boolean.toString(run.testOnly));
+        properties.setProperty(TestProperties.RUNNER_TYPE, run.runnerType.toString());
     }
 }

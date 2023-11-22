@@ -24,6 +24,7 @@ import android.media.IAudioService;
 import android.os.IBinder;
 import android.os.PowerManager;
 import android.os.ServiceManager;
+import android.telecom.Log;
 
 import com.android.internal.telephony.CallerInfoAsyncQuery;
 import com.android.server.telecom.AsyncRingtonePlayer;
@@ -31,21 +32,22 @@ import com.android.server.telecom.BluetoothAdapterProxy;
 import com.android.server.telecom.BluetoothPhoneServiceImpl;
 import com.android.server.telecom.CallerInfoAsyncQueryFactory;
 import com.android.server.telecom.CallsManager;
+import com.android.server.telecom.DefaultDialerCache;
 import com.android.server.telecom.HeadsetMediaButton;
 import com.android.server.telecom.HeadsetMediaButtonFactory;
 import com.android.server.telecom.InCallWakeLockControllerFactory;
 import com.android.server.telecom.CallAudioManager;
 import com.android.server.telecom.PhoneAccountRegistrar;
-import com.android.server.telecom.PhoneNumberUtilsAdapter;
 import com.android.server.telecom.PhoneNumberUtilsAdapterImpl;
 import com.android.server.telecom.ProximitySensorManagerFactory;
 import com.android.server.telecom.InCallWakeLockController;
-import com.android.server.telecom.Log;
 import com.android.server.telecom.ProximitySensorManager;
 import com.android.server.telecom.TelecomSystem;
 import com.android.server.telecom.TelecomWakeLock;
 import com.android.server.telecom.Timeouts;
+import com.android.server.telecom.ui.IncomingCallNotifier;
 import com.android.server.telecom.ui.MissedCallNotifierImpl;
+import com.android.server.telecom.ui.NotificationChannelManager;
 
 /**
  * Implementation of the ITelecom interface.
@@ -73,6 +75,9 @@ public class TelecomService extends Service implements TelecomSystem.Component {
      */
     static void initializeTelecomSystem(Context context) {
         if (TelecomSystem.getInstance() == null) {
+            NotificationChannelManager notificationChannelManager =
+                    new NotificationChannelManager();
+            notificationChannelManager.createChannels(context);
             TelecomSystem.setInstance(
                     new TelecomSystem(
                             context,
@@ -81,9 +86,9 @@ public class TelecomService extends Service implements TelecomSystem.Component {
                                 public MissedCallNotifierImpl makeMissedCallNotifierImpl(
                                         Context context,
                                         PhoneAccountRegistrar phoneAccountRegistrar,
-                                        PhoneNumberUtilsAdapter phoneNumberUtilsAdapter) {
+                                        DefaultDialerCache defaultDialerCache) {
                                     return new MissedCallNotifierImpl(context,
-                                            phoneAccountRegistrar, phoneNumberUtilsAdapter);
+                                            phoneAccountRegistrar, defaultDialerCache);
                                 }
                             },
                             new CallerInfoAsyncQueryFactory() {
@@ -124,7 +129,7 @@ public class TelecomService extends Service implements TelecomSystem.Component {
                             new InCallWakeLockControllerFactory() {
                                 @Override
                                 public InCallWakeLockController create(Context context,
-                                        CallsManager callsManager) {
+                                                                       CallsManager callsManager) {
                                     return new InCallWakeLockController(
                                             new TelecomWakeLock(context,
                                                     PowerManager.FULL_WAKE_LOCK,
@@ -152,7 +157,8 @@ public class TelecomService extends Service implements TelecomSystem.Component {
                             },
                             new Timeouts.Adapter(),
                             new AsyncRingtonePlayer(),
-                            new PhoneNumberUtilsAdapterImpl()
+                            new PhoneNumberUtilsAdapterImpl(),
+                            new IncomingCallNotifier(context)
                     ));
         }
         if (BluetoothAdapter.getDefaultAdapter() != null) {

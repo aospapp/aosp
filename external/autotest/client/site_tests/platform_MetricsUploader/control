@@ -12,7 +12,6 @@ periodically.
 """
 
 ATTRIBUTES = "suite:experimental"
-SUITE = "experimental"
 TIME = "FAST"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "platform"

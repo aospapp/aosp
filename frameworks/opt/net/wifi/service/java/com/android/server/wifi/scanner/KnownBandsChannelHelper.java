@@ -198,6 +198,12 @@ public class KnownBandsChannelHelper extends ChannelHelper {
         }
 
         @Override
+        public boolean isAllChannels() {
+            return getAvailableScanChannels(WifiScanner.WIFI_BAND_BOTH_WITH_DFS).length ==
+                    mChannels.size();
+        }
+
+        @Override
         public void clear() {
             mAllBands = 0;
             mExactBands = 0;
@@ -257,7 +263,7 @@ public class KnownBandsChannelHelper extends ChannelHelper {
         }
 
         @Override
-        public Set<Integer> getSupplicantScanFreqs() {
+        public Set<Integer> getScanFreqs() {
             if (mExactBands == WifiScanner.WIFI_BAND_BOTH_WITH_DFS) {
                 return null;
             } else {

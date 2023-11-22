@@ -14,8 +14,8 @@ TIME='MEDIUM'
 TEST_CATEGORY = 'Microphone'
 TEST_CLASS = 'audio'
 TEST_TYPE = 'client'
-ATTRIBUTES = "suite:bvt-perbuild, suite:partners"
-SUITE = 'bvt-perbuild, partners'
+ATTRIBUTES = "suite:bvt-cq, suite:partners"
+JOB_RETRIES = 2
 
 DOC = """
 This test run multiple cmdline tools to verify that microphone works correctly.

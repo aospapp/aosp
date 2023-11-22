@@ -98,6 +98,9 @@ class platform_PowerStatusStress(test.test):
             self.host.power_off()
         time.sleep(_WAIT_SECS_AFTER_SWITCH)
 
+        # Suspend/resume
+        self.do_suspend_resume()
+
         # Get power_supply_info output
         psi_output = self.host.run('power_supply_info').stdout.strip()
         psi_output = psi_output.replace('\n', '')
@@ -127,7 +130,7 @@ class platform_PowerStatusStress(test.test):
         if self.host.has_power():
             self.host.power_on()
         else:
-            raise error.TestFail('No RPM is setup to device')
+            raise error.TestError('No RPM is setup to device')
 
         # Check if DUT has lid.
         self.has_lid = True
@@ -137,7 +140,7 @@ class platform_PowerStatusStress(test.test):
             # Check if lid_open control is good.
             self.host.servo.lid_open()
             if self.host.servo.get('lid_open') != 'yes':
-                raise error.TestError('BAD lid_open control. Reset servo!')
+                self.has_lid = False
 
         # Login to device
         self.action_login()
@@ -146,16 +149,10 @@ class platform_PowerStatusStress(test.test):
         for i in xrange(loop_count):
             logging.info('--- Iteration %d', (i + 1))
 
-            # Suspend/resume
-            self.do_suspend_resume()
-
             # Discharging state
             expected = ('no', 'Disconnected', 'Discharging')
             self.switch_power_and_verify(False, expected)
 
-            # Suspend/resume
-            self.do_suspend_resume()
-
             # Charging state - it could be any of the three below
-            expected = ('yes', 'AC', '(Charging|Fully charged|Discharging)')
+            expected = ('yes', 'AC', '(Charging|Fully charged)')
             self.switch_power_and_verify(True, expected)

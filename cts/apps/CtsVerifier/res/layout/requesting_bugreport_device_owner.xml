@@ -1,5 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!-- Copyright (C) 2016 The Android Open Source Project
+<?xml version="1.0" encoding="utf-8"?><!-- Copyright (C) 2016 The Android Open Source Project
 
      Licensed under the Apache License, Version 2.0 (the "License");
      you may not use this file except in compliance with the License.
@@ -14,36 +13,38 @@
      limitations under the License.
 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-        android:orientation="vertical"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        >
+    style="@style/RootLayoutPadding"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
 
     <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+        <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="100dp"
-            android:layout_weight="2">
-        <TextView
+            android:layout_height="match_parent"
+            android:orientation="vertical">
+
+            <TextView
                 android:id="@+id/requesting_bugreport_device_owner_instructions"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:padding="10dip"
                 android:text="@string/device_owner_requesting_bugreport_tests_info"
                 android:textSize="18dip" />
+
+            <Button
+                android:id="@+id/set_device_owner_button"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/set_device_owner_button_label" />
+
+            <ListView
+                android:id="@+id/android:list"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content" />
+
+            <include layout="@layout/pass_fail_buttons" />
+        </LinearLayout>
     </ScrollView>
-
-    <Button
-        android:id="@+id/set_device_owner_button"
-        android:layout_width="204dp"
-        android:layout_height="wrap_content"
-        android:text="@string/set_device_owner_button_label" />
-
-    <ListView
-        android:id="@+id/android:list"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_weight="3" />
-
-    <include layout="@layout/pass_fail_buttons" />
-
 </LinearLayout>

@@ -229,21 +229,6 @@ def assert_users_on_whitelist(settings, users):
         raise OwnershipError('No user whitelist.')
 
 
-def assert_proxy_settings(settings, proxies):
-    """Assert that given protobuf has given proxy settings.
-
-    @param settings: a ChromeDeviceSettingsProto protobuf.
-    @param proxies: dict { 'proxy_mode': <mode string> }
-    @raises OwnershipError if settings doesn't enforce the provided setting.
-    """
-    if not settings.HasField("device_proxy_settings"):
-        raise OwnershipError('No proxy settings protobuf.')
-    if not settings.device_proxy_settings.HasField("proxy_mode"):
-        raise OwnershipError('No proxy_mode setting.')
-    if settings.device_proxy_settings.proxy_mode != proxies['proxy_mode']:
-        raise OwnershipError('Incorrect proxies: %s' % proxies)
-
-
 def __user_nssdb(user):
     """Returns the path to the NSSDB for the provided user.
 

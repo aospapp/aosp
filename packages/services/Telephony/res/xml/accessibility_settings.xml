@@ -26,7 +26,7 @@
         android:entries="@array/tty_mode_entries"
         android:entryValues="@array/tty_mode_values"/>
 
-    <CheckBoxPreference
+    <SwitchPreference
         android:key="button_hac_key"
         android:title="@string/hac_mode_title"
         android:persistent="true"

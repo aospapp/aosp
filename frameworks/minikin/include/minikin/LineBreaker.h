@@ -29,7 +29,7 @@
 #include "minikin/Hyphenator.h"
 #include "minikin/WordBreaker.h"
 
-namespace android {
+namespace minikin {
 
 enum BreakStrategy {
     kBreakStrategy_Greedy = 0,
@@ -147,6 +147,8 @@ class LineBreaker {
 
         void setStrategy(BreakStrategy strategy) { mStrategy = strategy; }
 
+        void setJustified(bool justified) { mJustified = justified; }
+
         HyphenationFrequency getHyphenationFrequency() const { return mHyphenationFrequency; }
 
         void setHyphenationFrequency(HyphenationFrequency frequency) {
@@ -157,8 +159,8 @@ class LineBreaker {
         // Minikin to do the shaping of the strings. The main thing that would need to be changed
         // is having some kind of callback (or virtual class, or maybe even template), which could
         // easily be instantiated with Minikin's Layout. Future work for when needed.
-        float addStyleRun(MinikinPaint* paint, const FontCollection* typeface, FontStyle style,
-                size_t start, size_t end, bool isRtl);
+        float addStyleRun(MinikinPaint* paint, const std::shared_ptr<FontCollection>& typeface,
+                FontStyle style, size_t start, size_t end, bool isRtl);
 
         void addReplacement(size_t start, size_t end, float width);
 
@@ -189,23 +191,28 @@ class LineBreaker {
         struct Candidate {
             size_t offset;  // offset to text buffer, in code units
             size_t prev;  // index to previous break
-            ParaWidth preBreak;
-            ParaWidth postBreak;
+            ParaWidth preBreak;  // width of text until this point, if we decide to not break here
+            ParaWidth postBreak;  // width of text until this point, if we decide to break here
             float penalty;  // penalty of this break (for example, hyphen penalty)
             float score;  // best score found for this break
             size_t lineNumber;  // only updated for non-constant line widths
-            uint8_t hyphenEdit;
+            size_t preSpaceCount;  // preceding space count before breaking
+            size_t postSpaceCount;  // preceding space count after breaking
+            HyphenationType hyphenType;
         };
 
         float currentLineWidth() const;
 
-        void addWordBreak(size_t offset, ParaWidth preBreak, ParaWidth postBreak, float penalty,
-                uint8_t hyph);
+        void addWordBreak(size_t offset, ParaWidth preBreak, ParaWidth postBreak,
+                size_t preSpaceCount, size_t postSpaceCount, float penalty, HyphenationType hyph);
 
         void addCandidate(Candidate cand);
+        void pushGreedyBreak();
 
         // push an actual break to the output. Takes care of setting flags for tab
-        void pushBreak(int offset, float width, uint8_t hyph);
+        void pushBreak(int offset, float width, uint8_t hyphenEdit);
+
+        float getSpaceWidth() const;
 
         void computeBreaksGreedy();
 
@@ -214,15 +221,17 @@ class LineBreaker {
         void finishBreaksOptimal();
 
         WordBreaker mWordBreaker;
+        icu::Locale mLocale;
         std::vector<uint16_t>mTextBuf;
         std::vector<float>mCharWidths;
 
         Hyphenator* mHyphenator;
-        std::vector<uint8_t> mHyphBuf;
+        std::vector<HyphenationType> mHyphBuf;
 
         // layout parameters
         BreakStrategy mStrategy = kBreakStrategy_Greedy;
         HyphenationFrequency mHyphenationFrequency = kHyphenationFrequency_Normal;
+        bool mJustified;
         LineWidths mLineWidths;
         TabStops mTabStops;
 
@@ -240,9 +249,11 @@ class LineBreaker {
         size_t mBestBreak;
         float mBestScore;
         ParaWidth mPreBreak;  // prebreak of last break
+        uint32_t mLastHyphenation;  // hyphen edit of last break kept for next line
         int mFirstTabIndex;
+        size_t mSpaceCount;
 };
 
-}  // namespace android
+}  // namespace minikin
 
 #endif  // MINIKIN_LINE_BREAKER_H

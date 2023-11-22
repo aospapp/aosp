@@ -33,19 +33,20 @@ import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
 import org.apache.harmony.jpda.tests.share.JPDATestOptions;
 
 /**
- * This test case exercises possibility of debugge to invoke debugger on demand with "onthrow" option.
+ * This test case exercises possibility of debuggee to invoke debugger
+ * on demand with "onthrow" option.
  *
- * @see org.apache.harmony.jpda.tests.jdwp.DebuggerOnDemand.OnthowDebuggerLaunchDebuggee
+ * @see org.apache.harmony.jpda.tests.jdwp.DebuggerOnDemand.OnthrowDebuggerLaunchDebuggee
  * @see org.apache.harmony.jpda.tests.jdwp.DebuggerOnDemand.OnthrowLaunchDebugger001
  * @see org.apache.harmony.jpda.tests.jdwp.DebuggerOnDemand.OnthrowLaunchDebugger002
  */
 public class OnthrowDebuggerLaunchTest extends JDWPRawTestCase {
 
     public static final String EXCEPTION_CLASS_FOR_DEBUGGER =
-                   "org.apache.harmony.jpda.tests.jdwp.DebuggerOnDemand.ExceptionForDebugger";
+        "org.apache.harmony.jpda.tests.jdwp.DebuggerOnDemand.ExceptionForDebugger";
 
     public static final String DEBUGGEE_CLASS =
-                   "org.apache.harmony.jpda.tests.jdwp.DebuggerOnDemand.OnthowDebuggerLaunchDebuggee";
+        "org.apache.harmony.jpda.tests.jdwp.DebuggerOnDemand.OnthrowDebuggerLaunchDebuggee";
 
     /**
      * Test launches debuggee (without establishing synchronization connection)
@@ -132,7 +133,7 @@ public class OnthrowDebuggerLaunchTest extends JDWPRawTestCase {
      * loop from debugger. Messages of three types: OK, FAIL, END. In case of
      * FAIL or END messages, loop is ended.
      *
-     * @param DEBUGGER_NAME
+     * @param debuggerName
      *            name of debugger that debuggee will launch
      * @param isSuspendDebuggee
      *            option defines should debuggee be suspended on start
@@ -192,6 +193,7 @@ public class OnthrowDebuggerLaunchTest extends JDWPRawTestCase {
 
     ////////////////////////////////////////////////////////////////////////////////////////////
 
+    @Override
     protected String getDebuggeeClassName() {
         return DEBUGGEE_CLASS;
     }
@@ -213,10 +215,12 @@ public class OnthrowDebuggerLaunchTest extends JDWPRawTestCase {
     /**
      * Creates wrapper object for accessing test options;
      */
+    @Override
     protected JPDATestOptions createTestOptions() {
         return new LaunchedDebugger.JPDADebuggerOnDemandOptions();
     }
 
+    @Override
     protected void internalSetUp() throws Exception {
         super.internalSetUp();
 
@@ -249,6 +253,7 @@ public class OnthrowDebuggerLaunchTest extends JDWPRawTestCase {
      * Overrides inherited method to stop started debuggee VM and close all
      * connections.
      */
+    @Override
     protected void internalTearDown() {
         if (debuggerSynchronizer != null) {
             logWriter.println("Close synch connection with debugger");
@@ -265,8 +270,8 @@ public class OnthrowDebuggerLaunchTest extends JDWPRawTestCase {
     /**
      * Prepares command line for launching debuggee.
      *
-     * @param debuggerCmd cmd to launch debugger. Value of parameter "launch"
-     * @param agentAddress address for connection with debugger
+     * @param debuggerName name of debugger that debuggee will launch
+     * @param transportAddress address for connection with debugger
      * @param isSuspendDebuggee should debuggee be suspended on start
      * @param isOnuncaught should debuggee waits for uncaught exception (see JDWP agent launch options)
      * @return command line for launching debuggee
@@ -290,7 +295,7 @@ public class OnthrowDebuggerLaunchTest extends JDWPRawTestCase {
      * Prepares command line for launching debuggee.
      *
      * @param debuggerCmd cmd to launch debugger. Value of parameter "launch"
-     * @param agentAddress address for connection with debugger
+     * @param transportAddress address for connection with debugger
      * @param isSuspendDebuggee should debuggee be suspended on start
      * @param isOnuncaught should debuggee waits for uncaught exception (see JDWP agent launch options)
      * @return command line for launching debuggee

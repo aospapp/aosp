@@ -245,6 +245,10 @@ public interface Opcodes {
     int OP_SHL_INT_LIT8                 = 0x00e0;
     int OP_SHR_INT_LIT8                 = 0x00e1;
     int OP_USHR_INT_LIT8                = 0x00e2;
+    int OP_INVOKE_POLYMORPHIC           = 0x00fa;
+    int OP_INVOKE_POLYMORPHIC_RANGE     = 0x00fb;
+    int OP_INVOKE_CUSTOM                = 0x00fc;
+    int OP_INVOKE_CUSTOM_RANGE          = 0x00fd;
     // END(libcore-opcodes)
 
     /** Never implemented; do not use. */

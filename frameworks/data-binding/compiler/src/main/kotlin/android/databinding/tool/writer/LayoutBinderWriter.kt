@@ -13,16 +13,22 @@
 
 package android.databinding.tool.writer
 
+import android.databinding.tool.Binding
 import android.databinding.tool.BindingTarget
+import android.databinding.tool.CallbackWrapper
 import android.databinding.tool.InverseBinding
 import android.databinding.tool.LayoutBinder
 import android.databinding.tool.expr.Expr
 import android.databinding.tool.expr.ExprModel
 import android.databinding.tool.expr.FieldAccessExpr
 import android.databinding.tool.expr.IdentifierExpr
+import android.databinding.tool.expr.LambdaExpr
 import android.databinding.tool.expr.ListenerExpr
 import android.databinding.tool.expr.ResourceExpr
 import android.databinding.tool.expr.TernaryExpr
+import android.databinding.tool.expr.localizeGlobalVariables
+import android.databinding.tool.expr.shouldLocalizeInCallbacks
+import android.databinding.tool.expr.toCode
 import android.databinding.tool.ext.androidId
 import android.databinding.tool.ext.br
 import android.databinding.tool.ext.joinToCamelCaseAsVar
@@ -30,7 +36,9 @@ import android.databinding.tool.ext.lazyProp
 import android.databinding.tool.ext.versionedLazy
 import android.databinding.tool.processing.ErrorMessages
 import android.databinding.tool.reflection.ModelAnalyzer
+import android.databinding.tool.reflection.ModelClass
 import android.databinding.tool.util.L
+import android.databinding.tool.util.Preconditions
 import java.util.ArrayList
 import java.util.Arrays
 import java.util.BitSet
@@ -39,11 +47,30 @@ import java.util.HashMap
 fun String.stripNonJava() = this.split("[^a-zA-Z0-9]".toRegex()).map{ it.trim() }.joinToCamelCaseAsVar()
 
 enum class Scope {
+    GLOBAL,
     FIELD,
     METHOD,
     FLAG,
     EXECUTE_PENDING_METHOD,
-    CONSTRUCTOR_PARAM
+    CONSTRUCTOR_PARAM,
+    CALLBACK;
+    companion object {
+        var currentScope = GLOBAL;
+        private val scopeStack = arrayListOf<Scope>()
+        fun enter(scope : Scope) {
+            scopeStack.add(currentScope)
+            currentScope = scope
+        }
+
+        fun exit() {
+            currentScope = scopeStack.removeAt(scopeStack.size - 1)
+        }
+
+        fun reset() {
+            scopeStack.clear()
+            currentScope = GLOBAL
+        }
+    }
 }
 
 class ExprModelExt {
@@ -51,6 +78,9 @@ class ExprModelExt {
     init {
         Scope.values().forEach { usedFieldNames[it] = hashSetOf<String>() }
     }
+
+    internal val forceLocalize = hashSetOf<Expr>()
+
     val localizedFlags = arrayListOf<FlagSet>()
 
     fun localizeFlag(set : FlagSet, name:String) : FlagSet {
@@ -66,6 +96,9 @@ class ExprModelExt {
             candidateBase = candidateBase.substring(0, 20);
         }
         var candidate = candidateBase
+        if (scope == Scope.CALLBACK || scope == Scope.EXECUTE_PENDING_METHOD) {
+            candidate = candidate.decapitalize()
+        }
         var i = 0
         while (usedFieldNames[scope]!!.contains(candidate)) {
             i ++
@@ -76,20 +109,17 @@ class ExprModelExt {
     }
 }
 
-val ExprModel.ext by lazyProp { target : ExprModel ->
-    ExprModelExt()
-}
-
+fun ModelClass.defaultValue() = ModelAnalyzer.getInstance().getDefaultValue(toJavaCode())
 fun ExprModel.getUniqueFieldName(base : String, isPublic : kotlin.Boolean) : String = ext.getUniqueName(base, Scope.FIELD, isPublic)
 fun ExprModel.getUniqueMethodName(base : String, isPublic : kotlin.Boolean) : String = ext.getUniqueName(base, Scope.METHOD, isPublic)
 fun ExprModel.getConstructorParamName(base : String) : String = ext.getUniqueName(base, Scope.CONSTRUCTOR_PARAM, false)
-
 fun ExprModel.localizeFlag(set : FlagSet, base : String) : FlagSet = ext.localizeFlag(set, base)
 
 val Expr.needsLocalField by lazyProp { expr : Expr ->
     expr.canBeEvaluatedToAVariable() && !(expr.isVariable() && !expr.isUsed) && (expr.isDynamic || expr is ResourceExpr)
 }
 
+fun Expr.isForcedToLocalize() = model.ext.forceLocalize.contains(this)
 
 // not necessarily unique. Uniqueness is solved per scope
 val BindingTarget.readableName by lazyProp { target: BindingTarget ->
@@ -143,7 +173,7 @@ val BindingTarget.constructorParamName by lazyProp { target : BindingTarget ->
 
 // not necessarily unique. Uniqueness is decided per scope
 val Expr.readableName by lazyProp { expr : Expr ->
-    val stripped = "${expr.uniqueKey.stripNonJava()}"
+    val stripped = expr.uniqueKey.stripNonJava()
     L.d("readableUniqueName for [%s] %s is %s", System.identityHashCode(expr), expr.uniqueKey, stripped)
     stripped
 }
@@ -166,8 +196,18 @@ val Expr.oldValueName by lazyProp { expr : Expr ->
     expr.model.getUniqueFieldName("mOld${expr.readableName.capitalize()}", false)
 }
 
+fun Expr.scopedName() : String = when(Scope.currentScope) {
+    Scope.CALLBACK -> callbackLocalName
+    else -> executePendingLocalName
+}
+
+val Expr.callbackLocalName by lazyProp { expr : Expr ->
+    if(expr.shouldLocalizeInCallbacks()) "${expr.model.ext.getUniqueName(expr.readableName, Scope.CALLBACK, false)}"
+    else expr.toCode().generate()
+}
+
 val Expr.executePendingLocalName by lazyProp { expr : Expr ->
-    if(expr.needsLocalField) "${expr.model.ext.getUniqueName(expr.readableName, Scope.EXECUTE_PENDING_METHOD, false)}"
+    if(expr.isDynamic || expr.needsLocalField) "${expr.model.ext.getUniqueName(expr.readableName, Scope.EXECUTE_PENDING_METHOD, false)}"
     else expr.toCode().generate()
 }
 
@@ -204,6 +244,17 @@ val Expr.shouldReadWithConditionalsFlagSet by versionedLazy { expr : Expr ->
 val Expr.conditionalFlags by lazyProp { expr : Expr ->
     arrayListOf(FlagSet(expr.getRequirementFlagIndex(false)),
             FlagSet(expr.getRequirementFlagIndex(true)))
+}
+
+fun Binding.toAssignmentCode() : String {
+    val fieldName: String
+    if (this.target.viewClass.
+            equals(this.target.interfaceType)) {
+        fieldName = "this.${this.target.fieldName}"
+    } else {
+        fieldName = "((${this.target.viewClass}) this.${this.target.fieldName})"
+    }
+    return this.toJavaCode(fieldName, "this.mBindingComponent")
 }
 
 val LayoutBinder.requiredComponent by lazyProp { layoutBinder: LayoutBinder ->
@@ -287,10 +338,15 @@ class LayoutBinderWriter(val layoutBinder : LayoutBinder) {
     }
 
     val usedVariables by lazy {
-        variables.filter {it.isUsed }
+        variables.filter {it.isUsed || it.isIsUsedInCallback }
+    }
+
+    val callbacks by lazy {
+        model.exprMap.values.filterIsInstance(LambdaExpr::class.java)
     }
 
     public fun write(minSdk : kotlin.Int) : String  {
+        Scope.reset()
         layoutBinder.resolveWhichExpressionsAreUsed()
         calculateIndices();
         return kcode("package ${layoutBinder.`package`};") {
@@ -303,33 +359,56 @@ class LayoutBinderWriter(val layoutBinder : LayoutBinder) {
             } else {
                 classDeclaration = "$className extends android.databinding.ViewDataBinding"
             }
-            nl("public class $classDeclaration {") {
-                tab(declareIncludeViews())
-                tab(declareViews())
-                tab(declareVariables())
-                tab(declareBoundValues())
-                tab(declareListeners())
-                tab(declareInverseBindingImpls());
-                tab(declareConstructor(minSdk))
-                tab(declareInvalidateAll())
-                tab(declareHasPendingBindings())
-                tab(declareSetVariable())
-                tab(variableSettersAndGetters())
-                tab(onFieldChange())
-
-                tab(executePendingBindings())
-
-                tab(declareListenerImpls())
-                tab(declareDirtyFlags())
-                if (!layoutBinder.hasVariations()) {
-                    tab(declareFactories())
+            block("public class $classDeclaration ${buildImplements()}") {
+                nl(declareIncludeViews())
+                nl(declareViews())
+                nl(declareVariables())
+                nl(declareBoundValues())
+                nl(declareListeners())
+                try {
+                    Scope.enter(Scope.GLOBAL)
+                    nl(declareInverseBindingImpls());
+                } finally {
+                    Scope.exit()
                 }
+                nl(declareConstructor(minSdk))
+                nl(declareInvalidateAll())
+                nl(declareHasPendingBindings())
+                nl(declareSetVariable())
+                nl(variableSettersAndGetters())
+                nl(onFieldChange())
+                try {
+                    Scope.enter(Scope.GLOBAL)
+                    nl(executePendingBindings())
+                } finally {
+                    Scope.exit()
+                }
+
+                nl(declareListenerImpls())
+                try {
+                    Scope.enter(Scope.CALLBACK)
+                    nl(declareCallbackImplementations())
+                } finally {
+                    Scope.exit()
+                }
+
+                nl(declareDirtyFlags())
+                if (!layoutBinder.hasVariations()) {
+                    nl(declareFactories())
+                }
+                nl(flagMapping())
+                nl("//end")
             }
-            nl("}")
-            tab(flagMapping())
-            tab("//end")
         }.generate()
     }
+    fun buildImplements() : String {
+        return if (callbacks.isEmpty()) {
+            ""
+        } else {
+            "implements " + callbacks.map { it.callbackWrapper.cannonicalListenerName }.distinct().joinToString(", ")
+        }
+    }
+
     fun calculateIndices() : Unit {
         val taggedViews = layoutBinder.bindingTargets.filter{
             it.isUsed && it.tag != null && !it.isBinder
@@ -481,8 +560,74 @@ class LayoutBinderWriter(val layoutBinder : LayoutBinder) {
             }
         }
         tab("setRootTag(root);")
+        tab(declareCallbackInstances())
         tab("invalidateAll();");
         nl("}")
+    }
+
+    fun declareCallbackInstances() = kcode("// listeners") {
+        callbacks.groupBy { it.callbackWrapper.minApi }
+                .forEach {
+                    if (it.key > 1) {
+                        block("if(getBuildSdkInt() < ${it.key})") {
+                            it.value.forEach { lambda ->
+                                nl("${lambda.fieldName} = null;")
+                            }
+                        }
+                        block("else") {
+                            it.value.forEach { lambda ->
+                                nl("${lambda.fieldName} = ${lambda.generateConstructor()};")
+                            }
+                        }
+                    } else {
+                        it.value.forEach { lambda ->
+                            nl("${lambda.fieldName} = ${lambda.generateConstructor()};")
+                        }
+                    }
+                }
+    }
+
+    fun declareCallbackImplementations() = kcode("// callback impls") {
+        callbacks.groupBy { it.callbackWrapper }.forEach {
+            val wrapper = it.key
+            val lambdas = it.value
+            val shouldReturn = !wrapper.method.returnType.isVoid
+            if (shouldReturn) {
+                lambdas.forEach {
+                    it.callbackExprModel.ext.forceLocalize.add(it.expr)
+                }
+            }
+            block("public final ${wrapper.method.returnType.canonicalName} ${wrapper.listenerMethodName}(${wrapper.allArgsWithTypes()})") {
+                Preconditions.check(lambdas.size > 0, "bindings list should not be empty")
+                if (lambdas.size == 1) {
+                    val lambda = lambdas[0]
+                    nl(lambda.callbackExprModel.localizeGlobalVariables(lambda))
+                    nl(lambda.executionPath.toCode())
+                    if (shouldReturn) {
+                        nl("return ${lambda.expr.scopedName()};")
+                    }
+                } else {
+                    block("switch(${CallbackWrapper.SOURCE_ID})") {
+                        lambdas.forEach { lambda ->
+                            block("case ${lambda.callbackId}:") {
+                                nl(lambda.callbackExprModel.localizeGlobalVariables(lambda))
+                                nl(lambda.executionPath.toCode())
+                                if (shouldReturn) {
+                                    nl("return ${lambda.expr.scopedName()};")
+                                } else {
+                                    nl("break;")
+                                }
+                            }
+                        }
+                        if (shouldReturn) {
+                            block("default:") {
+                                nl("return ${wrapper.method.returnType.defaultValue()};")
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     fun fieldConversion(target : BindingTarget) : String {
@@ -497,20 +642,19 @@ class LayoutBinderWriter(val layoutBinder : LayoutBinder) {
 
     fun declareInvalidateAll() = kcode("") {
         nl("@Override")
-        nl("public void invalidateAll() {") {
+        block("public void invalidateAll()") {
             val fs = FlagSet(layoutBinder.model.invalidateAnyBitSet,
                     layoutBinder.model.flagBucketCount);
-            tab("synchronized(this) {") {
+            block("synchronized(this)") {
                 for (i in (0..(mDirtyFlags.buckets.size - 1))) {
                     tab("${mDirtyFlags.localValue(i)} = ${fs.localValue(i)};")
                 }
-            } tab("}")
-            includedBinders.filter{it.isUsed }.forEach { binder ->
-                tab("${binder.fieldName}.invalidateAll();")
             }
-            tab("requestRebind();");
+            includedBinders.filter{it.isUsed }.forEach { binder ->
+                nl("${binder.fieldName}.invalidateAll();")
+            }
+            nl("requestRebind();");
         }
-        nl("}")
     }
 
     fun declareHasPendingBindings()  = kcode("") {
@@ -548,7 +692,7 @@ class LayoutBinderWriter(val layoutBinder : LayoutBinder) {
                         tab("return true;")
                     }
                 }
-                val declaredOnly = variables.filter { !it.isUsed && it.isDeclared };
+                val declaredOnly = variables.filter { !it.isUsed && !it.isIsUsedInCallback && it.isDeclared };
                 declaredOnly.forEachIndexed { i, identifierExpr ->
                     tab ("case ${identifierExpr.name.br()} :") {
                         if (i == declaredOnly.size - 1) {
@@ -564,7 +708,7 @@ class LayoutBinderWriter(val layoutBinder : LayoutBinder) {
     }
 
     fun variableSettersAndGetters() = kcode("") {
-        variables.filterNot{it.isUsed }.forEach {
+        variables.filterNot{ usedVariables.contains(it) }.forEach {
             nl("public void ${it.setterName}(${it.resolvedType.toJavaCode()} ${it.readableName}) {") {
                 tab("// not used, ignore")
             }
@@ -577,30 +721,28 @@ class LayoutBinderWriter(val layoutBinder : LayoutBinder) {
         }
         usedVariables.forEach {
             if (it.userDefinedType != null) {
-                nl("public void ${it.setterName}(${it.resolvedType.toJavaCode()} ${it.readableName}) {") {
+                block("public void ${it.setterName}(${it.resolvedType.toJavaCode()} ${it.readableName})") {
                     if (it.isObservable) {
-                        tab("updateRegistration(${it.id}, ${it.readableName});");
+                        nl("updateRegistration(${it.id}, ${it.readableName});");
                     }
-                    tab("this.${it.fieldName} = ${it.readableName};")
+                    nl("this.${it.fieldName} = ${it.readableName};")
                     // set dirty flags!
                     val flagSet = it.invalidateFlagSet
-                    tab("synchronized(this) {") {
+                    block("synchronized(this)") {
                         mDirtyFlags.mapOr(flagSet) { suffix, index ->
-                            tab("${mDirtyFlags.localName}$suffix |= ${flagSet.localValue(index)};")
+                            nl("${mDirtyFlags.localName}$suffix |= ${flagSet.localValue(index)};")
                         }
-                    } tab ("}")
+                    }
                     // TODO: Remove this condition after releasing version 1.1 of SDK
                     if (ModelAnalyzer.getInstance().findClass("android.databinding.ViewDataBinding", null).isObservable) {
-                        tab("notifyPropertyChanged(${it.name.br()});")
+                        nl("notifyPropertyChanged(${it.name.br()});")
                     }
-                    tab("super.requestRebind();")
+                    nl("super.requestRebind();")
                 }
-                nl("}")
                 nl("")
-                nl("public ${it.resolvedType.toJavaCode()} ${it.getterName}() {") {
-                    tab("return ${it.fieldName};")
+                block("public ${it.resolvedType.toJavaCode()} ${it.getterName}()") {
+                    nl("return ${it.fieldName};")
                 }
-                nl("}")
             }
         }
     }
@@ -622,42 +764,39 @@ class LayoutBinderWriter(val layoutBinder : LayoutBinder) {
         nl("")
 
         model.observables.forEach {
-            nl("private boolean ${it.onChangeName}(${it.resolvedType.toJavaCode()} ${it.readableName}, int fieldId) {") {
-                tab("switch (fieldId) {", {
+            block("private boolean ${it.onChangeName}(${it.resolvedType.toJavaCode()} ${it.readableName}, int fieldId)") {
+                block("switch (fieldId)", {
                     val accessedFields: List<FieldAccessExpr> = it.parents.filterIsInstance(FieldAccessExpr::class.java)
-                    accessedFields.filter { it.hasBindableAnnotations() }
+                    accessedFields.filter { it.isUsed && it.hasBindableAnnotations() }
                             .groupBy { it.brName }
                             .forEach {
                                 // If two expressions look different but resolve to the same method,
                                 // we are not yet able to merge them. This is why we merge their
                                 // flags below.
-                                tab("case ${it.key}:") {
-                                    tab("synchronized(this) {") {
+                                block("case ${it.key}:") {
+                                    block("synchronized(this)") {
                                         val flagSet = it.value.foldRight(FlagSet()) { l, r -> l.invalidateFlagSet.or(r) }
 
                                         mDirtyFlags.mapOr(flagSet) { suffix, index ->
                                             tab("${mDirtyFlags.localValue(index)} |= ${flagSet.localValue(index)};")
                                         }
-                                    } tab("}")
-                                    tab("return true;")
+                                    }
+                                    nl("return true;")
                                 }
 
                             }
-                    tab("case ${"".br()}:") {
+                    block("case ${"".br()}:") {
                         val flagSet = it.invalidateFlagSet
-                        tab("synchronized(this) {") {
+                        block("synchronized(this)") {
                             mDirtyFlags.mapOr(flagSet) { suffix, index ->
                                 tab("${mDirtyFlags.localName}$suffix |= ${flagSet.localValue(index)};")
                             }
-                        } tab("}")
-                        tab("return true;")
+                        }
+                        nl("return true;")
                     }
-
                 })
-                tab("}")
-                tab("return false;")
+                nl("return false;")
             }
-            nl("}")
             nl("")
         }
     }
@@ -679,13 +818,17 @@ class LayoutBinderWriter(val layoutBinder : LayoutBinder) {
         usedVariables.forEach {
             nl("private ${it.resolvedType.toJavaCode()} ${it.fieldName};")
         }
+        callbacks.forEach {
+            val wrapper = it.callbackWrapper
+            nl("private final ${wrapper.klass.canonicalName} ${it.fieldName}").app(";")
+        }
     }
 
     fun declareBoundValues() = kcode("// values") {
         layoutBinder.sortedTargets.filter { it.isUsed }
                 .flatMap { it.bindings }
                 .filter { it.requiresOldValue() }
-                .flatMap{ it.componentExpressions.toArrayList() }
+                .flatMap{ it.componentExpressions.toList() }
                 .groupBy { it }
                 .forEach {
                     val expr = it.key
@@ -714,14 +857,30 @@ class LayoutBinderWriter(val layoutBinder : LayoutBinder) {
                     className = "android.databinding.InverseBindingListener"
                     param = ""
                 }
-                nl("private $className ${inverseBinding.fieldName} = new $className($param) {") {
-                    tab("@Override")
-                    tab("public void onChange() {") {
-                        tab(inverseBinding.toJavaCode("mBindingComponent", mDirtyFlags)).app(";");
+                block("private $className ${inverseBinding.fieldName} = new $className($param)") {
+                    nl("@Override")
+                    block("public void onChange()") {
+                        if (inverseBinding.inverseExpr != null) {
+                            val valueExpr = inverseBinding.variableExpr
+                            val getterCall = inverseBinding.getterCall
+                            nl("// Inverse of ${inverseBinding.expr}")
+                            nl("//         is ${inverseBinding.inverseExpr}")
+                            nl("${valueExpr.resolvedType.toJavaCode()} ${valueExpr.name} = ${getterCall.toJava("mBindingComponent", target.fieldName)};")
+                            nl(inverseBinding.callbackExprModel.localizeGlobalVariables(valueExpr))
+                            nl(inverseBinding.executionPath.toCode())
+                        } else {
+                            block("synchronized(this)") {
+                                val flagSet = inverseBinding.chainedExpressions.fold(FlagSet(), { initial, expr ->
+                                    initial.or(FlagSet(expr.id))
+                                })
+                                mDirtyFlags.mapOr(flagSet) { suffix, index ->
+                                    tab("${mDirtyFlags.localValue(index)} |= ${flagSet.binaryCode(index)};")
+                                }
+                            }
+                            nl("requestRebind();")
+                        }
                     }
-                    tab("}")
-                }
-                nl("};")
+                }.app(";")
             }
         }
     }
@@ -739,7 +898,7 @@ class LayoutBinderWriter(val layoutBinder : LayoutBinder) {
         if (model.flagMapping != null) {
             val mapping = model.flagMapping
             for (i in mapping.indices) {
-                tab("flag $i: ${mapping[i]}")
+                tab("flag $i (${longToBinary(1L + i)}): ${model.findFlagExpression(i)}")
             }
         }
         nl("flag mapping end*/")
@@ -747,24 +906,24 @@ class LayoutBinderWriter(val layoutBinder : LayoutBinder) {
 
     fun executePendingBindings() = kcode("") {
         nl("@Override")
-        nl("protected void executeBindings() {") {
+        block("protected void executeBindings()") {
             val tmpDirtyFlags = FlagSet(mDirtyFlags.buckets)
             tmpDirtyFlags.localName = "dirtyFlags";
             for (i in (0..mDirtyFlags.buckets.size - 1)) {
-                tab("${tmpDirtyFlags.type} ${tmpDirtyFlags.localValue(i)} = 0;")
+                nl("${tmpDirtyFlags.type} ${tmpDirtyFlags.localValue(i)} = 0;")
             }
-            tab("synchronized(this) {") {
+            block("synchronized(this)") {
                 for (i in (0..mDirtyFlags.buckets.size - 1)) {
-                    tab("${tmpDirtyFlags.localValue(i)} = ${mDirtyFlags.localValue(i)};")
-                    tab("${mDirtyFlags.localValue(i)} = 0;")
+                    nl("${tmpDirtyFlags.localValue(i)} = ${mDirtyFlags.localValue(i)};")
+                    nl("${mDirtyFlags.localValue(i)} = 0;")
                 }
-            } tab("}")
+            }
             model.pendingExpressions.filter { it.needsLocalField }.forEach {
-                tab("${it.resolvedType.toJavaCode()} ${it.executePendingLocalName} = ${if (it.isVariable()) it.fieldName else it.defaultValue};")
+                nl("${it.resolvedType.toJavaCode()} ${it.executePendingLocalName} = ${if (it.isVariable()) it.fieldName else it.defaultValue};")
             }
             L.d("writing executePendingBindings for %s", className)
             do {
-                val batch = ExprModel.filterShouldRead(model.pendingExpressions).toArrayList()
+                val batch = ExprModel.filterShouldRead(model.pendingExpressions)
                 val justRead = arrayListOf<Expr>()
                 L.d("batch: %s", batch)
                 while (!batch.none()) {
@@ -776,10 +935,10 @@ class LayoutBinderWriter(val layoutBinder : LayoutBinder) {
                     nl(readWithDependants(readNow, justRead, batch, tmpDirtyFlags))
                     batch.removeAll(justRead)
                 }
-                tab("// batch finished")
+                nl("// batch finished")
             } while (model.markBitsRead())
             // verify everything is read.
-            val batch = ExprModel.filterShouldRead(model.pendingExpressions).toArrayList()
+            val batch = ExprModel.filterShouldRead(model.pendingExpressions)
             if (batch.isNotEmpty()) {
                 L.e("could not generate code for %s. This might be caused by circular dependencies."
                         + "Please report on b.android.com. %d %s %s", layoutBinder.layoutname,
@@ -793,32 +952,23 @@ class LayoutBinderWriter(val layoutBinder : LayoutBinder) {
                             "(${tmpDirtyFlags.localValue(index)} & ${it.expr.dirtyFlagSet.localValue(index)}) != 0"
                         }.joinToString(" || ") }"
                     }.forEach {
-                tab("if (${it.key}) {") {
+                block("if (${it.key})") {
                     it.value.groupBy { Math.max(1, it.minApi) }.forEach {
                         val setterValues = kcode("") {
                             it.value.forEach { binding ->
-                                val fieldName: String
-                                if (binding.target.viewClass.
-                                        equals(binding.target.interfaceType)) {
-                                    fieldName = "this.${binding.target.fieldName}"
-                                } else {
-                                    fieldName = "((${binding.target.viewClass}) this.${binding.target.fieldName})"
-                                }
-                                tab(binding.toJavaCode(fieldName, "this.mBindingComponent")).app(";")
+                                nl(binding.toAssignmentCode()).app(";")
                             }
                         }
-                        tab("// api target ${it.key}")
+                        nl("// api target ${it.key}")
                         if (it.key > 1) {
-                            tab("if(getBuildSdkInt() >= ${it.key}) {") {
-                                app("", setterValues)
+                            block("if(getBuildSdkInt() >= ${it.key})") {
+                                nl(setterValues)
                             }
-                            tab("}")
                         } else {
-                            app("", setterValues)
+                            nl(setterValues)
                         }
                     }
                 }
-                tab("}")
             }
 
 
@@ -829,28 +979,25 @@ class LayoutBinderWriter(val layoutBinder : LayoutBinder) {
                         "(${tmpDirtyFlags.localValue(index)} & ${it.expr.dirtyFlagSet.localValue(index)}) != 0"
                     }.joinToString(" || ")
                     }"}.forEach {
-                tab("if (${it.key}) {") {
+                block("if (${it.key})") {
                     it.value.groupBy { it.expr }.map { it.value.first() }.forEach {
                         it.componentExpressions.forEach { expr ->
-                            tab("this.${expr.oldValueName} = ${expr.toCode().generate()};")
+                            nl("this.${expr.oldValueName} = ${expr.toCode().generate()};")
                         }
                     }
                 }
-                tab("}")
             }
             includedBinders.filter{it.isUsed }.forEach { binder ->
-                tab("${binder.fieldName}.executePendingBindings();")
+                nl("${binder.fieldName}.executePendingBindings();")
             }
             layoutBinder.sortedTargets.filter{
                 it.isUsed && it.resolvedType != null && it.resolvedType.extendsViewStub()
             }.forEach {
-                tab("if (${it.fieldName}.getBinding() != null) {") {
-                    tab("${it.fieldName}.getBinding().executePendingBindings();")
+                block("if (${it.fieldName}.getBinding() != null)") {
+                    nl("${it.fieldName}.getBinding().executePendingBindings();")
                 }
-                tab("}")
             }
         }
-        nl("}")
     }
 
     fun readWithDependants(expressionList: List<Expr>, justRead: MutableList<Expr>,
@@ -872,7 +1019,7 @@ class LayoutBinderWriter(val layoutBinder : LayoutBinder) {
                     if (!assignedValues.isEmpty()) {
                         val assignment = kcode("") {
                             assignedValues.forEach { expr: Expr ->
-                                tab("// read ${expr.uniqueKey}")
+                                tab("// read ${expr}")
                                 tab("${expr.executePendingLocalName}").app(" = ", expr.toFullCode()).app(";")
                             }
                         }
@@ -891,7 +1038,7 @@ class LayoutBinderWriter(val layoutBinder : LayoutBinder) {
 
                     it.value.forEach { expr: Expr ->
                         justRead.add(expr)
-                        L.d("%s / readWithDependants %s", className, expr.uniqueKey);
+                        L.d("%s / readWithDependants %s", className, expr);
                         L.d("flag set:%s . inherited flags: %s. need another if: %s", flagSet, inheritedFlags, needsIfWrapper);
 
                         // if I am the condition for an expression, set its flag
@@ -973,13 +1120,11 @@ class LayoutBinderWriter(val layoutBinder : LayoutBinder) {
             }
 
             if (needsIfWrapper) {
-                tab(ifClause) {
-                    app(" {")
-                    app("", readCode)
+                block(ifClause) {
+                    nl(readCode)
                 }
-                tab("}")
             } else {
-                app("", readCode)
+                nl(readCode)
             }
         }
     }
@@ -1013,9 +1158,9 @@ class LayoutBinderWriter(val layoutBinder : LayoutBinder) {
                 extendsImplements = "extends"
             }
             nl("public static class ${expr.listenerClassName} $extendsImplements ${listenerType.canonicalName}{") {
-                if (expr.child.isDynamic) {
-                    tab("private ${expr.child.resolvedType.toJavaCode()} value;")
-                    tab("public ${expr.listenerClassName} setValue(${expr.child.resolvedType.toJavaCode()} value) {") {
+                if (expr.target.isDynamic) {
+                    tab("private ${expr.target.resolvedType.toJavaCode()} value;")
+                    tab("public ${expr.listenerClassName} setValue(${expr.target.resolvedType.toJavaCode()} value) {") {
                         tab("this.value = value;")
                         tab("return value == null ? null : this;")
                     }
@@ -1023,7 +1168,7 @@ class LayoutBinderWriter(val layoutBinder : LayoutBinder) {
                 }
                 val listenerMethod = expr.method
                 val parameterTypes = listenerMethod.parameterTypes
-                val returnType = listenerMethod.getReturnType(parameterTypes.toArrayList())
+                val returnType = listenerMethod.getReturnType(parameterTypes.toList())
                 tab("@Override")
                 tab("public $returnType ${listenerMethod.name}(${
                     parameterTypes.withIndex().map {
@@ -1031,10 +1176,10 @@ class LayoutBinderWriter(val layoutBinder : LayoutBinder) {
                     }.joinToString(", ")
                 }) {") {
                     val obj : String
-                    if (expr.child.isDynamic) {
+                    if (expr.target.isDynamic) {
                         obj = "this.value"
                     } else {
-                        obj = expr.child.toCode().generate();
+                        obj = expr.target.toCode().generate();
                     }
                     val returnStr : String
                     if (!returnType.isVoid) {
@@ -1054,35 +1199,28 @@ class LayoutBinderWriter(val layoutBinder : LayoutBinder) {
     }
 
     fun declareFactories() = kcode("") {
-        nl("public static $baseClassName inflate(android.view.LayoutInflater inflater, android.view.ViewGroup root, boolean attachToRoot) {") {
-            tab("return inflate(inflater, root, attachToRoot, android.databinding.DataBindingUtil.getDefaultComponent());")
+        block("public static $baseClassName inflate(android.view.LayoutInflater inflater, android.view.ViewGroup root, boolean attachToRoot)") {
+            nl("return inflate(inflater, root, attachToRoot, android.databinding.DataBindingUtil.getDefaultComponent());")
         }
-        nl("}")
-        nl("public static $baseClassName inflate(android.view.LayoutInflater inflater, android.view.ViewGroup root, boolean attachToRoot, android.databinding.DataBindingComponent bindingComponent) {") {
-            tab("return android.databinding.DataBindingUtil.<$baseClassName>inflate(inflater, ${layoutBinder.modulePackage}.R.layout.${layoutBinder.layoutname}, root, attachToRoot, bindingComponent);")
+        block("public static $baseClassName inflate(android.view.LayoutInflater inflater, android.view.ViewGroup root, boolean attachToRoot, android.databinding.DataBindingComponent bindingComponent)") {
+            nl("return android.databinding.DataBindingUtil.<$baseClassName>inflate(inflater, ${layoutBinder.modulePackage}.R.layout.${layoutBinder.layoutname}, root, attachToRoot, bindingComponent);")
         }
-        nl("}")
         if (!layoutBinder.isMerge) {
-            nl("public static $baseClassName inflate(android.view.LayoutInflater inflater) {") {
-                tab("return inflate(inflater, android.databinding.DataBindingUtil.getDefaultComponent());")
+            block("public static $baseClassName inflate(android.view.LayoutInflater inflater)") {
+                nl("return inflate(inflater, android.databinding.DataBindingUtil.getDefaultComponent());")
             }
-            nl("}")
-            nl("public static $baseClassName inflate(android.view.LayoutInflater inflater, android.databinding.DataBindingComponent bindingComponent) {") {
-                tab("return bind(inflater.inflate(${layoutBinder.modulePackage}.R.layout.${layoutBinder.layoutname}, null, false), bindingComponent);")
+            block("public static $baseClassName inflate(android.view.LayoutInflater inflater, android.databinding.DataBindingComponent bindingComponent)") {
+                nl("return bind(inflater.inflate(${layoutBinder.modulePackage}.R.layout.${layoutBinder.layoutname}, null, false), bindingComponent);")
             }
-            nl("}")
-            nl("public static $baseClassName bind(android.view.View view) {") {
-                tab("return bind(view, android.databinding.DataBindingUtil.getDefaultComponent());")
+            block("public static $baseClassName bind(android.view.View view)") {
+                nl("return bind(view, android.databinding.DataBindingUtil.getDefaultComponent());")
             }
-            nl("}")
-            nl("public static $baseClassName bind(android.view.View view, android.databinding.DataBindingComponent bindingComponent) {") {
-                tab("if (!\"${layoutBinder.tag}_0\".equals(view.getTag())) {") {
-                    tab("throw new RuntimeException(\"view tag isn't correct on view:\" + view.getTag());")
+            block("public static $baseClassName bind(android.view.View view, android.databinding.DataBindingComponent bindingComponent)") {
+                block("if (!\"${layoutBinder.tag}_0\".equals(view.getTag()))") {
+                    nl("throw new RuntimeException(\"view tag isn't correct on view:\" + view.getTag());")
                 }
-                tab("}")
-                tab("return new $baseClassName(bindingComponent, view);")
+                nl("return new $baseClassName(bindingComponent, view);")
             }
-            nl("}")
         }
     }
 
@@ -1091,6 +1229,7 @@ class LayoutBinderWriter(val layoutBinder : LayoutBinder) {
      */
     public fun writeBaseClass(forLibrary : Boolean) : String =
         kcode("package ${layoutBinder.`package`};") {
+            Scope.reset()
             nl("import android.databinding.Bindable;")
             nl("import android.databinding.DataBindingUtil;")
             nl("import android.databinding.ViewDataBinding;")

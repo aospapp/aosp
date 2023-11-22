@@ -5,7 +5,6 @@
 AUTHOR = 'bsimonnet, gauravsh'
 NAME = 'platform_CheckMetricsProcesses'
 ATTRIBUTES = "suite:bvt-cq"
-SUITE = 'bvt-cq'
 TIME = 'SHORT'
 TEST_TYPE = 'client'
 JOB_RETRIES = 2

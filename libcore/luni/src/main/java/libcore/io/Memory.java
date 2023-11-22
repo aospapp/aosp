@@ -17,6 +17,7 @@
 
 package libcore.io;
 
+import dalvik.annotation.optimization.FastNative;
 import java.io.FileDescriptor;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -150,6 +151,7 @@ public final class Memory {
      */
     public static native void memmove(Object dstObject, int dstOffset, Object srcObject, int srcOffset, long byteCount);
 
+    @FastNative
     public static native byte peekByte(long address);
 
     public static int peekInt(long address, boolean swap) {
@@ -159,6 +161,7 @@ public final class Memory {
         }
         return result;
     }
+    @FastNative
     private static native int peekIntNative(long address);
 
     public static long peekLong(long address, boolean swap) {
@@ -168,6 +171,7 @@ public final class Memory {
         }
         return result;
     }
+    @FastNative
     private static native long peekLongNative(long address);
 
     public static short peekShort(long address, boolean swap) {
@@ -177,6 +181,7 @@ public final class Memory {
         }
         return result;
     }
+    @FastNative
     private static native short peekShortNative(long address);
 
     public static native void peekByteArray(long address, byte[] dst, int dstOffset, int byteCount);
@@ -187,6 +192,7 @@ public final class Memory {
     public static native void peekLongArray(long address, long[] dst, int dstOffset, int longCount, boolean swap);
     public static native void peekShortArray(long address, short[] dst, int dstOffset, int shortCount, boolean swap);
 
+    @FastNative
     public static native void pokeByte(long address, byte value);
 
     public static void pokeInt(long address, int value, boolean swap) {
@@ -195,6 +201,7 @@ public final class Memory {
         }
         pokeIntNative(address, value);
     }
+    @FastNative
     private static native void pokeIntNative(long address, int value);
 
     public static void pokeLong(long address, long value, boolean swap) {
@@ -203,6 +210,7 @@ public final class Memory {
         }
         pokeLongNative(address, value);
     }
+    @FastNative
     private static native void pokeLongNative(long address, long value);
 
     public static void pokeShort(long address, short value, boolean swap) {
@@ -211,6 +219,7 @@ public final class Memory {
         }
         pokeShortNative(address, value);
     }
+    @FastNative
     private static native void pokeShortNative(long address, short value);
 
     public static native void pokeByteArray(long address, byte[] src, int offset, int count);

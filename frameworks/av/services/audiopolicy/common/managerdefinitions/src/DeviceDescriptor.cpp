@@ -128,7 +128,7 @@ audio_devices_t DeviceVector::getDevicesFromHwModule(audio_module_handle_t modul
     return devices;
 }
 
-sp<DeviceDescriptor> DeviceVector::getDevice(audio_devices_t type, String8 address) const
+sp<DeviceDescriptor> DeviceVector::getDevice(audio_devices_t type, const String8& address) const
 {
     sp<DeviceDescriptor> device;
     for (size_t i = 0; i < size(); i++) {
@@ -177,7 +177,7 @@ DeviceVector DeviceVector::getDevicesFromType(audio_devices_t type) const
 }
 
 DeviceVector DeviceVector::getDevicesFromTypeAddr(
-        audio_devices_t type, String8 address) const
+        audio_devices_t type, const String8& address) const
 {
     DeviceVector devices;
     for (size_t i = 0; i < size(); i++) {
@@ -263,7 +263,7 @@ void DeviceDescriptor::toAudioPort(struct audio_port *port) const
     strncpy(port->ext.device.address, mAddress.string(), AUDIO_DEVICE_MAX_ADDRESS_LEN);
 }
 
-void DeviceDescriptor::importAudioPort(const sp<AudioPort> port) {
+void DeviceDescriptor::importAudioPort(const sp<AudioPort>& port) {
     AudioPort::importAudioPort(port);
     port->pickAudioProfile(mSamplingRate, mChannelMask, mFormat);
 }
@@ -285,7 +285,7 @@ status_t DeviceDescriptor::dump(int fd, int spaces, int index, bool verbose) con
         result.append(buffer);
     }
     std::string deviceLiteral;
-    if (DeviceConverter::toString(mDeviceType, deviceLiteral)) {
+    if (deviceToString(mDeviceType, deviceLiteral)) {
         snprintf(buffer, SIZE, "%*s- type: %-48s\n", spaces, "", deviceLiteral.c_str());
         result.append(buffer);
     }
@@ -302,7 +302,7 @@ status_t DeviceDescriptor::dump(int fd, int spaces, int index, bool verbose) con
 void DeviceDescriptor::log() const
 {
     std::string device;
-    DeviceConverter::toString(mDeviceType, device);
+    deviceToString(mDeviceType, device);
     ALOGI("Device id:%d type:0x%X:%s, addr:%s", mId,  mDeviceType, device.c_str(),
           mAddress.string());
 

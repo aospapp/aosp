@@ -18,33 +18,18 @@
 
 #include "HbFontCache.h"
 
-#include <cutils/log.h>
+#include <log/log.h>
+#include <utils/LruCache.h>
+
 #include <hb.h>
 #include <hb-ot.h>
-#include <utils/LruCache.h>
 
 #include <minikin/MinikinFont.h>
 #include "MinikinInternal.h"
 
-namespace android {
+namespace minikin {
 
-static hb_blob_t* referenceTable(hb_face_t* /* face */, hb_tag_t tag, void* userData) {
-    MinikinFont* font = reinterpret_cast<MinikinFont*>(userData);
-    MinikinDestroyFunc destroy = 0;
-    size_t size = 0;
-    const void* buffer = font->GetTable(tag, &size, &destroy);
-    if (buffer == nullptr) {
-        return nullptr;
-    }
-#ifdef VERBOSE_DEBUG
-    ALOGD("referenceTable %c%c%c%c length=%zd",
-        (tag >>24)&0xff, (tag>>16)&0xff, (tag>>8)&0xff, tag&0xff, size);
-#endif
-    return hb_blob_create(reinterpret_cast<const char*>(buffer), size,
-            HB_MEMORY_MODE_READONLY, const_cast<void*>(buffer), destroy);
-}
-
-class HbFontCache : private OnEntryRemoved<int32_t, hb_font_t*> {
+class HbFontCache : private android::OnEntryRemoved<int32_t, hb_font_t*> {
 public:
     HbFontCache() : mCache(kMaxEntries) {
         mCache.setOnEntryRemovedListener(this);
@@ -74,7 +59,7 @@ public:
 private:
     static const size_t kMaxEntries = 100;
 
-    LruCache<int32_t, hb_font_t*> mCache;
+    android::LruCache<int32_t, hb_font_t*> mCache;
 };
 
 HbFontCache* getFontCacheLocked() {
@@ -99,7 +84,7 @@ void purgeHbFontLocked(const MinikinFont* minikinFont) {
 
 // Returns a new reference to a hb_font_t object, caller is
 // responsible for calling hb_font_destroy() on it.
-hb_font_t* getHbFontLocked(MinikinFont* minikinFont) {
+hb_font_t* getHbFontLocked(const MinikinFont* minikinFont) {
     assertMinikinLocked();
     // TODO: get rid of nullFaceFont
     static hb_font_t* nullFaceFont = nullptr;
@@ -119,15 +104,12 @@ hb_font_t* getHbFontLocked(MinikinFont* minikinFont) {
 
     hb_face_t* face;
     const void* buf = minikinFont->GetFontData();
-    if (buf == nullptr) {
-        face = hb_face_create_for_tables(referenceTable, minikinFont, nullptr);
-    } else {
-        size_t size = minikinFont->GetFontSize();
-        hb_blob_t* blob = hb_blob_create(reinterpret_cast<const char*>(buf), size,
-            HB_MEMORY_MODE_READONLY, nullptr, nullptr);
-        face = hb_face_create(blob, minikinFont->GetFontIndex());
-        hb_blob_destroy(blob);
-    }
+    size_t size = minikinFont->GetFontSize();
+    hb_blob_t* blob = hb_blob_create(reinterpret_cast<const char*>(buf), size,
+        HB_MEMORY_MODE_READONLY, nullptr, nullptr);
+    face = hb_face_create(blob, minikinFont->GetFontIndex());
+    hb_blob_destroy(blob);
+
     hb_font_t* parent_font = hb_font_create(face);
     hb_ot_font_set_funcs(parent_font);
 
@@ -135,10 +117,15 @@ hb_font_t* getHbFontLocked(MinikinFont* minikinFont) {
     hb_font_set_scale(parent_font, upem, upem);
 
     font = hb_font_create_sub_font(parent_font);
+    std::vector<hb_variation_t> variations;
+    for (const FontVariation& variation : minikinFont->GetAxes()) {
+        variations.push_back({variation.axisTag, variation.value});
+    }
+    hb_font_set_variations(font, variations.data(), variations.size());
     hb_font_destroy(parent_font);
     hb_face_destroy(face);
     fontCache->put(fontId, font);
     return hb_font_reference(font);
 }
 
-}  // namespace android
+}  // namespace minikin

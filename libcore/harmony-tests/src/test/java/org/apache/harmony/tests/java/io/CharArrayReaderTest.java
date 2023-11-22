@@ -168,6 +168,15 @@ public class CharArrayReaderTest extends junit.framework.TestCase {
     }
 
     /**
+     * java.io.CharArrayReader#skip(long) overflow
+     */
+    public void test_skipOverflow() throws IOException {
+        cr = new CharArrayReader(hw);
+        assertEquals(1L, cr.skip(1L));
+        assertEquals(hw.length - 1, cr.skip(Long.MAX_VALUE));
+    }
+
+    /**
      * Tears down the fixture, for example, close a network connection. This
      * method is called after a test is executed.
      */

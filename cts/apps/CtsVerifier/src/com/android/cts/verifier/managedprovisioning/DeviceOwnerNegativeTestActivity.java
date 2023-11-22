@@ -22,6 +22,7 @@ import android.content.ComponentName;
 import android.content.Intent;
 import android.database.DataSetObserver;
 import android.os.Bundle;
+import android.provider.Settings;
 
 import com.android.cts.verifier.ArrayTestListAdapter;
 import com.android.cts.verifier.IntentDrivenTestActivity;
@@ -31,43 +32,32 @@ import com.android.cts.verifier.PassFailButtons;
 import com.android.cts.verifier.R;
 import com.android.cts.verifier.TestListAdapter.TestListItem;
 
+import static com.android.cts.verifier.managedprovisioning.Utils.createInteractiveTestItem;
+
 /**
  * Activity that lists all device owner negative tests.
  */
 public class DeviceOwnerNegativeTestActivity extends PassFailButtons.TestListActivity {
 
-    private static final String DEVICE_OWNER_NEGATIVE_TEST = "DEVICE_OWNER_PROVISIONING_NEGATIVE";
+    private static final String DEVICE_OWNER_PROVISIONING_NEGATIVE
+            = "DEVICE_OWNER_PROVISIONING_NEGATIVE";
+    private static final String ENTERPRISE_PRIVACY_QUICK_SETTINGS_NEGATIVE
+            = "ENTERPRISE_PRIVACY_QUICK_SETTINGS_NEGATIVE";
+    private static final String ENTERPRISE_PRIVACY_KEYGUARD_NEGATIVE
+            = "ENTERPRISE_PRIVACY_KEYGUARD_NEGATIVE";
+    private static final String ENTERPRISE_PRIVACY_ADD_ACCOUNT_NEGATIVE
+            = "ENTERPRISE_PRIVACY_ADD_ACCOUNT_NEGATIVE";
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.pass_fail_list);
-        setInfoResources(R.string.device_owner_provisioning_tests,
-                R.string.device_owner_provisioning_tests_info, 0);
         setPassFailButtonClickListeners();
 
-        TestInfo deviceOwnerNegativeTestInfo = new TestInfo(
-                DEVICE_OWNER_NEGATIVE_TEST,
-                R.string.device_owner_negative_test,
-                R.string.device_owner_negative_test_info,
-                new ButtonInfo(
-                        R.string.start_device_owner_provisioning_button,
-                        new Intent(this, TrampolineActivity.class)));
-
         final ArrayTestListAdapter adapter = new ArrayTestListAdapter(this);
-        adapter.add(TestListItem.newCategory(this, R.string.device_owner_provisioning_category));
+        adapter.add(TestListItem.newCategory(this, R.string.device_owner_negative_category));
 
-        Intent startTestIntent = new Intent(this, IntentDrivenTestActivity.class)
-                    .putExtra(IntentDrivenTestActivity.EXTRA_ID,
-                            deviceOwnerNegativeTestInfo.getTestId())
-                    .putExtra(IntentDrivenTestActivity.EXTRA_TITLE,
-                            deviceOwnerNegativeTestInfo.getTitle())
-                    .putExtra(IntentDrivenTestActivity.EXTRA_INFO,
-                            deviceOwnerNegativeTestInfo.getInfoText())
-                    .putExtra(IntentDrivenTestActivity.EXTRA_BUTTONS,
-                            deviceOwnerNegativeTestInfo.getButtons());
-
-        adapter.add(TestListItem.newTest(this, deviceOwnerNegativeTestInfo.getTitle(),
-                deviceOwnerNegativeTestInfo.getTestId(), startTestIntent, null));
+        addTestsToAdapter(adapter);
 
         adapter.registerDataSetObserver(new DataSetObserver() {
             @Override
@@ -77,6 +67,45 @@ public class DeviceOwnerNegativeTestActivity extends PassFailButtons.TestListAct
         });
 
         setTestListAdapter(adapter);
+    }
+
+    private void addTestsToAdapter(final ArrayTestListAdapter adapter) {
+        final TestInfo provisioningNegativeTestInfo = new TestInfo(
+                DEVICE_OWNER_PROVISIONING_NEGATIVE,
+                R.string.device_owner_provisioning_negative,
+                R.string.device_owner_provisioning_negative_info,
+                new ButtonInfo(
+                        R.string.start_device_owner_provisioning_button,
+                        new Intent(this, TrampolineActivity.class)));
+        final Intent startTestIntent = new Intent(this, IntentDrivenTestActivity.class)
+                    .putExtra(IntentDrivenTestActivity.EXTRA_ID,
+                            provisioningNegativeTestInfo.getTestId())
+                    .putExtra(IntentDrivenTestActivity.EXTRA_TITLE,
+                            provisioningNegativeTestInfo.getTitle())
+                    .putExtra(IntentDrivenTestActivity.EXTRA_INFO,
+                            provisioningNegativeTestInfo.getInfoText())
+                    .putExtra(IntentDrivenTestActivity.EXTRA_BUTTONS,
+                            provisioningNegativeTestInfo.getButtons());
+        adapter.add(TestListItem.newTest(this, provisioningNegativeTestInfo.getTitle(),
+                provisioningNegativeTestInfo.getTestId(), startTestIntent, null));
+        adapter.add(TestListItem.newTest(this, R.string.enterprise_privacy_quick_settings_negative,
+                ENTERPRISE_PRIVACY_QUICK_SETTINGS_NEGATIVE,
+                new Intent(this, EnterprisePrivacyInfoOnlyTestActivity.class)
+                        .putExtra(EnterprisePrivacyInfoOnlyTestActivity.EXTRA_ID,
+                                ENTERPRISE_PRIVACY_QUICK_SETTINGS_NEGATIVE)
+                        .putExtra(EnterprisePrivacyInfoOnlyTestActivity.EXTRA_TITLE,
+                                R.string.enterprise_privacy_quick_settings_negative)
+                        .putExtra(EnterprisePrivacyInfoOnlyTestActivity.EXTRA_INFO,
+                                R.string.enterprise_privacy_quick_settings_negative_info),
+                        null));
+        adapter.add(createInteractiveTestItem(this, ENTERPRISE_PRIVACY_KEYGUARD_NEGATIVE,
+                R.string.enterprise_privacy_keyguard_negative,
+                R.string.enterprise_privacy_keyguard_negative_info,
+                new ButtonInfo(R.string.go_button_text, new Intent(Settings.ACTION_SETTINGS))));
+        adapter.add(createInteractiveTestItem(this, ENTERPRISE_PRIVACY_ADD_ACCOUNT_NEGATIVE,
+                R.string.enterprise_privacy_add_account_negative,
+                R.string.enterprise_privacy_add_account_negative_info,
+                new ButtonInfo(R.string.go_button_text, new Intent(Settings.ACTION_ADD_ACCOUNT))));
     }
 
     /**

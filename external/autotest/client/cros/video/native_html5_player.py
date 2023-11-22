@@ -33,6 +33,17 @@ class NativeHtml5Player(video_player.VideoPlayer):
         return self.tab.EvaluateJavaScript('canplay()')
 
 
+    def is_javascript_ready(self):
+        """
+        returns: True if javascript variables and functions have been defined,
+
+        else False.
+
+        """
+        return self.tab.EvaluateJavaScript(
+                    'typeof script_ready!="undefined" && script_ready == true')
+
+
     def play(self):
         """
         Plays the video.
@@ -99,4 +110,52 @@ class NativeHtml5Player(video_player.VideoPlayer):
         Determines if the video has any errors
 
         """
-        return self.tab.WaitForJavaScriptExpression('errorDetected();', 30)
+        return self.tab.WaitForJavaScriptCondition('errorDetected();',
+                                                   timeout=30)
+
+
+    def reload_page(self):
+        """
+        Reloads current page
+
+        """
+        self.tab.ExecuteJavaScript('location.reload()')
+
+
+    def enable_VideoControls(self):
+        """
+        For enabling controls
+
+        """
+        self.tab.ExecuteJavaScript('setControls()')
+
+
+    def dropped_frame_count(self):
+        """
+        Gets the number of dropped frames.
+
+        @returns: An integer indicates the number of dropped frame.
+
+        """
+        cmd = "%s.webkitDroppedFrameCount" % self.video_id
+        return self.tab.EvaluateJavaScript(cmd)
+
+
+    def duration(self):
+        """
+        Gets the duration of the video.
+
+        @returns: An number indicates the duration of the video.
+
+        """
+        cmd = "%s.duration" % self.video_id
+        return self.tab.EvaluateJavaScript(cmd)
+
+
+    def wait_video_ended(self):
+        """
+        Waits until the video playback is ended.
+
+        """
+        cmd = "%s.ended" % self.video_id
+        self.tab.WaitForJavaScriptCondition(cmd, timeout=(self.duration() * 2))

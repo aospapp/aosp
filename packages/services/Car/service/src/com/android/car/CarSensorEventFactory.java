@@ -21,21 +21,21 @@ import android.car.hardware.CarSensorEvent;
 //TODO add memory pool and recycling
 public class CarSensorEventFactory {
 
-    public static CarSensorEvent createBooleanEvent(int sensorType, long timeStampNs,
+    public static CarSensorEvent createBooleanEvent(int sensorType, long timestamp,
             boolean value) {
-        CarSensorEvent event = new CarSensorEvent(sensorType, timeStampNs, 0, 1);
+        CarSensorEvent event = new CarSensorEvent(sensorType, timestamp, 0, 1);
         event.intValues[0] = value ? 1 : 0;
         return event;
     }
 
-    public static CarSensorEvent createIntEvent(int sensorType, long timeStampNs, int value) {
-        CarSensorEvent event = new CarSensorEvent(sensorType, timeStampNs, 0, 1);
+    public static CarSensorEvent createIntEvent(int sensorType, long timestamp, int value) {
+        CarSensorEvent event = new CarSensorEvent(sensorType, timestamp, 0, 1);
         event.intValues[0] = value;
         return event;
     }
 
-    public static CarSensorEvent createFloatEvent(int sensorType, long timeStampNs, float value) {
-        CarSensorEvent event = new CarSensorEvent(sensorType, timeStampNs, 1, 0);
+    public static CarSensorEvent createFloatEvent(int sensorType, long timestamp, float value) {
+        CarSensorEvent event = new CarSensorEvent(sensorType, timestamp, 1, 0);
         event.floatValues[0] = value;
         return event;
     }

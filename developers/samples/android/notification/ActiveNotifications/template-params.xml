@@ -16,7 +16,7 @@
 -->
 <sample>
     <name>ActiveNotifications</name>
-    <group>Android N Preview</group>
+    <group>Notification</group>
     <package>com.example.android.activenotifications</package>
 
     <minSdk>24</minSdk>
@@ -44,8 +44,8 @@ via a PendingIntent.
     <common src="logger" />
 
     <metadata>
-        <status>DRAFT</status>
-        <categories>Getting Started, Notification, Android N Preview</categories>
+        <status>PUBLISHED</status>
+        <categories>Notification</categories>
         <technologies>Android</technologies>
         <languages>Java</languages>
         <solutions>Mobile</solutions>

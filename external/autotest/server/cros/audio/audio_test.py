@@ -3,14 +3,11 @@
 # found in the LICENSE file.
 
 import logging
-import os
 
 from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
-from autotest_lib.client.cros import constants
 from autotest_lib.server import site_utils
 from autotest_lib.server import test
-from autotest_lib.server.cros.multimedia import remote_facade_factory
 from autotest_lib.site_utils import lxc
 
 
@@ -29,39 +26,6 @@ class AudioTest(test.test):
         # test.test is an old-style class.
         test.test.warmup(self)
         audio_test_requirement()
-
-
-    def create_remote_facade_factory(self, host):
-        """Creates a remote facade factory to access multimedia server.
-
-        @param host: A CrosHost object to access Cros device.
-
-        @returns: A RemoteFacadeFactory object to create different facade for
-                  different functionalities provided by multimedia server.
-
-        """
-        return create_remote_facade_factory(host, self.resultsdir)
-
-
-def create_remote_facade_factory(host, result_dir):
-    """Creates a remote facade factory to access multimedia server.
-
-    @param host: A CrosHost object to access Cros device.
-    @param result_dir: A directory to store multimedia server init log.
-
-    @returns: A RemoteFacadeFactory object to create different facade for
-              different functionalities provided by multimedia server.
-
-    """
-    try:
-        factory = remote_facade_factory.RemoteFacadeFactory(host)
-    finally:
-        host.get_file(
-                constants.MULTIMEDIA_XMLRPC_SERVER_LOG_FILE,
-                os.path.join(
-                        result_dir,
-                        'multimedia_xmlrpc_server.log.init'))
-    return factory
 
 
 def audio_test_requirement():

@@ -33,96 +33,120 @@ import org.apache.harmony.jpda.tests.framework.jdwp.JDWPConstants;
  */
 public class Value {
 
-    private byte tag;
-
-    private Number numberValue;
-
-    private boolean booleanValue;
-
-    private char charValue;
-
     /**
-     * Creates new value with no tag.
+     * Creates new boolean value.
      */
-    public Value() {
-        tag = JDWPConstants.Tag.NO_TAG;
-    }
-
-    /**
-     * Creates new ID value with specified tag.
-     */
-    public Value(byte tag, long value) {
-        this.tag = tag;
-        this.numberValue = new Long(value);
+    public static Value createBoolean(boolean value) {
+        return new Value(value);
     }
 
     /**
      * Creates new byte value.
      */
-    public Value(byte value) {
-        this.tag = JDWPConstants.Tag.BYTE_TAG;
-        this.numberValue = new Byte(value);
-    }
-
-    /**
-     * Creates new short value.
-     */
-    public Value(short value) {
-        this.tag = JDWPConstants.Tag.SHORT_TAG;
-        this.numberValue = new Short(value);
-    }
-
-    /**
-     * Creates new int value.
-     */
-    public Value(int value) {
-        this.tag = JDWPConstants.Tag.INT_TAG;
-        this.numberValue = new Integer(value);
-    }
-
-    /**
-     * Creates new long value.
-     */
-    public Value(long value) {
-        this.tag = JDWPConstants.Tag.LONG_TAG;
-        this.numberValue = new Long(value);
-    }
-
-    /**
-     * Creates new short value.
-     */
-    public Value(float value) {
-        this.tag = JDWPConstants.Tag.FLOAT_TAG;
-        this.numberValue = new Float(value);
-    }
-
-    /**
-     * Creates new double value.
-     */
-    public Value(double value) {
-        this.tag = JDWPConstants.Tag.DOUBLE_TAG;
-        this.numberValue = new Double(value);
-    }
-
-    /**
-     * Creates new boolean value.
-     */
-    public Value(boolean value) {
-        this.tag = JDWPConstants.Tag.BOOLEAN_TAG;
-        this.booleanValue = value;
+    public static Value createByte(byte value) {
+        return new Value(JDWPConstants.Tag.BYTE_TAG, Byte.valueOf(value));
     }
 
     /**
      * Creates new char value.
      */
-    public Value(char value) {
+    public static Value createChar(char value) {
+        return new Value(value);
+    }
+
+    /**
+     * Creates new short value.
+     */
+    public static Value createShort(short value) {
+        return new Value(JDWPConstants.Tag.SHORT_TAG, Short.valueOf(value));
+    }
+
+    /**
+     * Creates new int value.
+     */
+    public static Value createInt(int value) {
+        return new Value(JDWPConstants.Tag.INT_TAG, Integer.valueOf(value));
+    }
+
+    /**
+     * Creates new long value.
+     */
+    public static Value createLong(long value) {
+        return new Value(JDWPConstants.Tag.LONG_TAG, Long.valueOf(value));
+    }
+
+    /**
+     * Creates new float value.
+     */
+    public static Value createFloat(float value) {
+        return new Value(JDWPConstants.Tag.FLOAT_TAG, Float.valueOf(value));
+    }
+
+    /**
+     * Creates new double value.
+     */
+    public static Value createDouble(double value) {
+        return new Value(JDWPConstants.Tag.DOUBLE_TAG, Double.valueOf(value));
+    }
+
+    /**
+     * Creates void value.
+     */
+    public static Value createVoidValue() {
+        return new Value(JDWPConstants.Tag.VOID_TAG, Long.valueOf(0));
+    }
+
+    /**
+     * Creates object value.
+     */
+    public static Value createObjectValue(byte tag, long value) {
+        if (isPrimitiveTag(tag)) {
+            throw new AssertionError(JDWPConstants.Tag.getName(tag) + " is primitive");
+        }
+        return new Value(tag, Long.valueOf(value));
+    }
+
+    private final byte tag;
+
+    private final Number numberValue;
+
+    private final boolean booleanValue;
+
+    private final char charValue;
+
+    /**
+     * Creates new value.
+     */
+    private Value(byte tag, Number numberValue) {
+        this.tag = tag;
+        this.numberValue = numberValue;
+        this.booleanValue = false;
+        this.charValue = 0;
+    }
+
+    /**
+     * Creates new boolean value.
+     */
+    private Value(boolean value) {
+        this.tag = JDWPConstants.Tag.BOOLEAN_TAG;
+        this.booleanValue = value;
+        this.numberValue = null;
+        this.charValue = 0;
+    }
+
+    /**
+     * Creates new char value.
+     */
+    private Value(char value) {
         this.tag = JDWPConstants.Tag.CHAR_TAG;
         this.charValue = value;
+        this.numberValue = null;
+        this.booleanValue = false;
     }
 
     /**
      * Returns tag of this value.
-     * 
+     *
      * @return Returns the tag.
      */
     public byte getTag() {
@@ -131,7 +155,7 @@ public class Value {
 
     /**
      * Returns byte representation of this value.
-     * 
+     *
      * @return byte value
      */
     public byte getByteValue() {
@@ -140,7 +164,7 @@ public class Value {
 
     /**
      * Returns short representation of this value.
-     * 
+     *
      * @return short value
      */
     public short getShortValue() {
@@ -149,7 +173,7 @@ public class Value {
 
     /**
      * Returns int representation of this value.
-     * 
+     *
      * @return int value
      */
     public int getIntValue() {
@@ -158,7 +182,7 @@ public class Value {
 
     /**
      * Returns long representation of this value.
-     * 
+     *
      * @return long value
      */
     public long getLongValue() {
@@ -167,7 +191,7 @@ public class Value {
 
     /**
      * Returns float representation of this value.
-     * 
+     *
      * @return float value
      */
     public float getFloatValue() {
@@ -176,7 +200,7 @@ public class Value {
 
     /**
      * Returns double representation of this value.
-     * 
+     *
      * @return double value
      */
     public double getDoubleValue() {
@@ -185,7 +209,7 @@ public class Value {
 
     /**
      * Returns boolean representation of this value.
-     * 
+     *
      * @return boolean value
      */
     public boolean getBooleanValue() {
@@ -194,22 +218,49 @@ public class Value {
 
     /**
      * Returns char representation of this value.
-     * 
+     *
      * @return char value
      */
     public char getCharValue() {
         return charValue;
     }
 
+    private static boolean isPrimitiveTag(byte tag) {
+        switch (tag) {
+            case JDWPConstants.Tag.BOOLEAN_TAG:
+            case JDWPConstants.Tag.BYTE_TAG:
+            case JDWPConstants.Tag.CHAR_TAG:
+            case JDWPConstants.Tag.SHORT_TAG:
+            case JDWPConstants.Tag.INT_TAG:
+            case JDWPConstants.Tag.LONG_TAG:
+            case JDWPConstants.Tag.FLOAT_TAG:
+            case JDWPConstants.Tag.DOUBLE_TAG:
+            case JDWPConstants.Tag.VOID_TAG:
+                return true;
+            case JDWPConstants.Tag.NO_TAG:
+            case JDWPConstants.Tag.ARRAY_TAG:
+            case JDWPConstants.Tag.CLASS_LOADER_TAG:
+            case JDWPConstants.Tag.CLASS_OBJECT_TAG:
+            case JDWPConstants.Tag.OBJECT_TAG:
+            case JDWPConstants.Tag.STRING_TAG:
+            case JDWPConstants.Tag.THREAD_TAG:
+            case JDWPConstants.Tag.THREAD_GROUP_TAG:
+                return false;
+            default:
+                throw new TestErrorException("Illegal tag value: " + tag);
+        }
+    }
+
     /**
      * Compares with other value.
      */
+    @Override
     public boolean equals(Object arg0) {
         if (!(arg0 instanceof Value))
             return false;
 
         Value value0 = (Value) arg0;
-        if (value0.tag != value0.tag)
+        if (tag != value0.tag)
             return false;
 
         switch (tag) {
@@ -251,6 +302,7 @@ public class Value {
     /**
      * Converts this value to string representation for printing.
      */
+    @Override
     public String toString() {
 
         switch (tag) {
@@ -273,8 +325,7 @@ public class Value {
         case JDWPConstants.Tag.STRING_TAG:
             return "StringID: " + getLongValue();
         case JDWPConstants.Tag.ARRAY_TAG:
-            return "ObjectID: " + getLongValue();
-
+            return "ArrayID: " + getLongValue();
         case JDWPConstants.Tag.CLASS_LOADER_TAG:
             return "ClassLoaderID: " + getLongValue();
         case JDWPConstants.Tag.CLASS_OBJECT_TAG:

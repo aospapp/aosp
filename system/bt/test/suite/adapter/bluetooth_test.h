@@ -18,13 +18,7 @@
 
 #pragma once
 
-#include "service/hal/bluetooth_interface.h"
-
 #include <gtest/gtest.h>
-#include <map>
-#include <string>
-
-extern "C" {
 #include <hardware/bluetooth.h>
 #include <hardware/bt_gatt.h>
 #include <hardware/bt_pan.h>
@@ -32,9 +26,10 @@ extern "C" {
 #include <hardware/hardware.h>
 #include <signal.h>
 #include <time.h>
-
+#include <map>
+#include <string>
 #include "osi/include/semaphore.h"
-}
+#include "service/hal/bluetooth_interface.h"
 
 namespace bttest {
 
@@ -59,6 +54,10 @@ class BluetoothTest : public ::testing::Test,
   // Get the value of a specific property
   bt_property_t* GetProperty(bt_property_type_t type);
 
+  // Get the value of a specific remote device property
+  bt_property_t* GetRemoteDeviceProperty(const bt_bdaddr_t* addr,
+                                         bt_property_type_t type);
+
   // Get the current discovery state
   bt_discovery_state_t GetDiscoveryState();
 
@@ -79,20 +78,25 @@ class BluetoothTest : public ::testing::Test,
   void TearDown() override;
 
   // A callback that is called when a property changes
-  void AdapterPropertiesCallback(
-      bt_status_t status,
-      int num_properties,
-      bt_property_t *properties);
+  void AdapterPropertiesCallback(bt_status_t status, int num_properties,
+                                 bt_property_t* properties) override;
+
+  // A callback that is called when the remote device's property changes
+  void RemoteDevicePropertiesCallback(bt_status_t status,
+                                      bt_bdaddr_t* remote_bd_addr,
+                                      int num_properties,
+                                      bt_property_t* properties) override;
 
   // A callback that is called when the adapter state changes
-  void AdapterStateChangedCallback(bt_state_t state);
+  void AdapterStateChangedCallback(bt_state_t state) override;
 
   // A callback that is called when the Discovery state changes
-  void DiscoveryStateChangedCallback(bt_discovery_state_t state);
+  void DiscoveryStateChangedCallback(bt_discovery_state_t state) override;
 
   // Semaphores used to wait for specific callback execution. Each callback
   // has its own semaphore associated with it.
   semaphore_t* adapter_properties_callback_sem_;
+  semaphore_t* remote_device_properties_callback_sem_;
   semaphore_t* adapter_state_changed_callback_sem_;
   semaphore_t* discovery_state_changed_callback_sem_;
 
@@ -102,7 +106,10 @@ class BluetoothTest : public ::testing::Test,
 
   bt_state_t state_;
   int properties_changed_count_;
-  bt_property_t *last_changed_properties_;
+  bt_property_t* last_changed_properties_;
+  bt_bdaddr_t curr_remote_device_;
+  int remote_device_properties_changed_count_;
+  bt_property_t* remote_device_last_changed_properties_;
   bt_discovery_state_t discovery_state_;
   bt_acl_state_t acl_state_;
   bt_bond_state_t bond_state_;

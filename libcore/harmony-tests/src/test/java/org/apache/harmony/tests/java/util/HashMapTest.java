@@ -848,6 +848,7 @@ public class HashMapTest extends junit.framework.TestCase {
 
         SpliteratorTester.runSizedTests(keys.spliterator(), 16);
         SpliteratorTester.runDistinctTests(keys);
+        SpliteratorTester.assertSupportsTrySplit(keys);
     }
 
     public void test_spliterator_valueSet() {
@@ -879,6 +880,7 @@ public class HashMapTest extends junit.framework.TestCase {
         assertTrue(values.spliterator().hasCharacteristics(Spliterator.SIZED));
 
         SpliteratorTester.runSizedTests(values.spliterator(), 16);
+        SpliteratorTester.assertSupportsTrySplit(values);
     }
 
     public void test_spliterator_entrySet() {
@@ -914,6 +916,7 @@ public class HashMapTest extends junit.framework.TestCase {
 
         SpliteratorTester.runSizedTests(values.spliterator(), 16);
         SpliteratorTester.runDistinctTests(values);
+        SpliteratorTester.assertSupportsTrySplit(values);
     }
 
     /**

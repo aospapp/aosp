@@ -25,7 +25,6 @@ import com.android.internal.util.FastXmlSerializer;
 import org.xmlpull.v1.XmlSerializer;
 
 import android.util.Log;
-import android.util.Xml;
 
 public class BluetoothMapMessageListing {
     private boolean hasUnread = false;

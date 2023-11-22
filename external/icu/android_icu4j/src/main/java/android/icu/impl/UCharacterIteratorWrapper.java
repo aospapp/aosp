@@ -1,11 +1,13 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 1996-2010, International Business Machines Corporation and    *
  * others. All Rights Reserved.                                                *
  *******************************************************************************
  */
- 
+
 package android.icu.impl;
 
 import java.text.CharacterIterator;
@@ -13,17 +15,17 @@ import java.text.CharacterIterator;
 import android.icu.text.UCharacterIterator;
 
 /**
- * This class is a wrapper around UCharacterIterator and implements the 
+ * This class is a wrapper around UCharacterIterator and implements the
  * CharacterIterator protocol
  * @author ram
  * @hide Only a subset of ICU is exposed in Android
  */
 public class UCharacterIteratorWrapper implements CharacterIterator{
-    
+
     public UCharacterIteratorWrapper(UCharacterIterator iter){
         this.iterator = iter;
     }
-    
+
     private UCharacterIterator iterator;
 
 
@@ -33,6 +35,7 @@ public class UCharacterIteratorWrapper implements CharacterIterator{
      * @return the first character in the text, or DONE if the text is empty
      * @see #getBeginIndex()
      */
+    @Override
     public char first(){
         //UCharacterIterator always iterates from 0 to length
         iterator.setToStart();
@@ -45,6 +48,7 @@ public class UCharacterIteratorWrapper implements CharacterIterator{
      * @return the last character in the text, or DONE if the text is empty
      * @see #getEndIndex()
      */
+    @Override
     public char last(){
         iterator.setToLimit();
         return (char)iterator.previous();
@@ -56,6 +60,7 @@ public class UCharacterIteratorWrapper implements CharacterIterator{
      * position is off the end of the text.
      * @see #getIndex()
      */
+    @Override
     public char current(){
         return (char) iterator.current();
     }
@@ -68,6 +73,7 @@ public class UCharacterIteratorWrapper implements CharacterIterator{
      * @return the character at the new position or DONE if the new
      * position is off the end of the text range.
      */
+    @Override
     public char next(){
         //pre-increment
         iterator.next();
@@ -81,6 +87,7 @@ public class UCharacterIteratorWrapper implements CharacterIterator{
      * @return the character at the new position or DONE if the current
      * position is equal to getBeginIndex().
      */
+    @Override
     public char previous(){
         //pre-decrement
         return (char) iterator.previous();
@@ -94,6 +101,7 @@ public class UCharacterIteratorWrapper implements CharacterIterator{
      * if an invalid value is supplied.
      * @return the character at the specified position or DONE if the specified position is equal to getEndIndex()
      */
+    @Override
     public char setIndex(int position){
         iterator.setIndex(position);
         return (char) iterator.current();
@@ -103,6 +111,7 @@ public class UCharacterIteratorWrapper implements CharacterIterator{
      * Returns the start index of the text.
      * @return the index at which the text begins.
      */
+    @Override
     public int getBeginIndex(){
         //UCharacterIterator always starts from 0
         return 0;
@@ -113,6 +122,7 @@ public class UCharacterIteratorWrapper implements CharacterIterator{
      * character following the end of the text.
      * @return the index after the last character in the text
      */
+    @Override
     public int getEndIndex(){
         return iterator.getLength();
     }
@@ -121,6 +131,7 @@ public class UCharacterIteratorWrapper implements CharacterIterator{
      * Returns the current index.
      * @return the current index.
      */
+    @Override
     public int getIndex(){
         return iterator.getIndex();
     }
@@ -129,15 +140,16 @@ public class UCharacterIteratorWrapper implements CharacterIterator{
      * Create a copy of this iterator
      * @return A copy of this
      */
+    @Override
     public Object clone(){
         try {
             UCharacterIteratorWrapper result = (UCharacterIteratorWrapper) super.clone();
             result.iterator = (UCharacterIterator)this.iterator.clone();
             return result;
-        } catch (CloneNotSupportedException e) {      
+        } catch (CloneNotSupportedException e) {
             return null; // only invoked if bad underlying character iterator
         }
-    }   
+    }
 
 }
 

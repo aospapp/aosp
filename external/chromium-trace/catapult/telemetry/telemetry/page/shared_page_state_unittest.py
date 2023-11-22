@@ -6,7 +6,7 @@ import unittest
 
 from telemetry.internal import story_runner
 from telemetry.page import page
-from telemetry.page import page_test
+from telemetry.page import legacy_page_test
 from telemetry.page import shared_page_state
 from telemetry import story as story_module
 from telemetry.testing import fakes
@@ -20,7 +20,7 @@ def SetUpPageRunnerArguments(options):
   story_runner.ProcessCommandLineArgs(parser, options)
 
 
-class DummyTest(page_test.PageTest):
+class DummyTest(legacy_page_test.LegacyPageTest):
 
   def ValidateAndMeasurePage(self, *_):
     pass
@@ -41,6 +41,7 @@ class SharedPageStateTests(unittest.TestCase):
     self.assertTrue(run_state.platform.network_controller.is_open)
     self.assertEquals(run_state.platform.network_controller.wpr_mode,
                       wpr_modes.WPR_OFF)
+    self.assertTrue(run_state.platform.network_controller.use_live_traffic)
 
   def testUseLiveSitesFlagUnset(self):
     run_state = shared_page_state.SharedPageState(
@@ -48,6 +49,16 @@ class SharedPageStateTests(unittest.TestCase):
     self.assertTrue(run_state.platform.network_controller.is_open)
     self.assertEquals(run_state.platform.network_controller.wpr_mode,
                       wpr_modes.WPR_REPLAY)
+    self.assertFalse(run_state.platform.network_controller.use_live_traffic)
+
+  def testWPRRecordEnable(self):
+    self.options.browser_options.wpr_mode = wpr_modes.WPR_RECORD
+    run_state = shared_page_state.SharedPageState(
+        DummyTest(), self.options, story_module.StorySet())
+    self.assertTrue(run_state.platform.network_controller.is_open)
+    self.assertEquals(run_state.platform.network_controller.wpr_mode,
+                      wpr_modes.WPR_RECORD)
+    self.assertFalse(run_state.platform.network_controller.use_live_traffic)
 
   def testConstructorCallsSetOptions(self):
     test = DummyTest()

@@ -62,7 +62,26 @@ extern "C"
 #define BIT_29              0x20000000
 #define BIT_30              0x40000000
 #define BIT_31              0x80000000
-typedef u8 SirMacAddr[NAN_MAC_ADDR_LEN];
+
+/** macro to convert FW MAC address from WMI word format to User Space MAC char array */
+#define FW_MAC_ADDR_TO_CHAR_ARRAY(fw_mac_addr, mac_addr) do { \
+     (mac_addr)[0] =    ((fw_mac_addr).mac_addr31to0) & 0xff; \
+     (mac_addr)[1] =  (((fw_mac_addr).mac_addr31to0) >> 8) & 0xff; \
+     (mac_addr)[2] =  (((fw_mac_addr).mac_addr31to0) >> 16) & 0xff; \
+     (mac_addr)[3] =  (((fw_mac_addr).mac_addr31to0) >> 24) & 0xff; \
+     (mac_addr)[4] =    ((fw_mac_addr).mac_addr47to32) & 0xff; \
+     (mac_addr)[5] =  (((fw_mac_addr).mac_addr47to32) >> 8) & 0xff; \
+} while (0)
+
+/** macro to convert User space MAC address from char array to FW WMI word format */
+#define CHAR_ARRAY_TO_MAC_ADDR(mac_addr, fw_mac_addr)  do { \
+    (fw_mac_addr).mac_addr31to0  =                   \
+         ((mac_addr)[0] | ((mac_addr)[1] << 8)            \
+           | ((mac_addr)[2] << 16) | ((mac_addr)[3] << 24));          \
+    (fw_mac_addr).mac_addr47to32  =                  \
+         ((mac_addr)[4] | ((mac_addr)[5] << 8));          \
+} while (0)
+
 /*---------------------------------------------------------------------------
 * WLAN NAN CONSTANTS
 *--------------------------------------------------------------------------*/
@@ -103,7 +122,12 @@ typedef enum
     NAN_MSG_ID_BEACON_SDF_RSP               = 31,
     NAN_MSG_ID_BEACON_SDF_IND               = 32,
     NAN_MSG_ID_CAPABILITIES_REQ             = 33,
-    NAN_MSG_ID_CAPABILITIES_RSP             = 34
+    NAN_MSG_ID_CAPABILITIES_RSP             = 34,
+    NAN_MSG_ID_SELF_TRANSMIT_FOLLOWUP_IND   = 35,
+    NAN_MSG_ID_RANGING_REQUEST_RECEVD_IND   = 36,
+    NAN_MSG_ID_RANGING_RESULT_IND           = 37,
+    NAN_MSG_ID_TESTMODE_REQ                 = 1025,
+    NAN_MSG_ID_TESTMODE_RSP                 = 1026
 } NanMsgId;
 
 /*
@@ -127,6 +151,24 @@ typedef enum
     NAN_TLV_TYPE_POST_NAN_CONNECTIVITY_CAPABILITIES_RECEIVE = 8,
     NAN_TLV_TYPE_POST_NAN_DISCOVERY_ATTRIBUTE_RECEIVE = 9,
     NAN_TLV_TYPE_BEACON_SDF_PAYLOAD_RECEIVE = 10,
+    NAN_TLV_TYPE_NAN_DATA_PATH_PARAMS = 11,
+    NAN_TLV_TYPE_NAN_DATA_SUPPORTED_BAND = 12,
+    NAN_TLV_TYPE_2G_COMMITTED_DW = 13,
+    NAN_TLV_TYPE_5G_COMMITTED_DW = 14,
+    NAN_TLV_TYPE_NAN_DATA_RESPONDER_MODE = 15,
+    NAN_TLV_TYPE_NAN_DATA_ENABLED_IN_MATCH = 16,
+    NAN_TLV_TYPE_NAN_SERVICE_ACCEPT_POLICY = 17,
+    NAN_TLV_TYPE_NAN_CSID = 18,
+    NAN_TLV_TYPE_NAN_SCID = 19,
+    NAN_TLV_TYPE_NAN_PMK = 20,
+    NAN_TLV_TYPE_SDEA_CTRL_PARAMS = 21,
+    NAN_TLV_TYPE_NAN_RANGING_CFG = 22,
+    NAN_TLV_TYPE_CONFIG_DISCOVERY_INDICATIONS = 23,
+    NAN_TLV_TYPE_NAN20_RANGING_REQUEST = 24,
+    NAN_TLV_TYPE_NAN20_RANGING_RESULT = 25,
+    NAN_TLV_TYPE_NAN20_RANGING_REQUEST_RECEIVED = 26,
+    NAN_TLV_TYPE_NAN_PASSPHRASE = 27,
+    NAN_TLV_TYPE_SDEA_SERVICE_SPECIFIC_INFO = 28,
     NAN_TLV_TYPE_SDF_LAST = 4095,
 
     /* Configuration types */
@@ -167,6 +209,8 @@ typedef enum
     NAN_TLV_TYPE_FURTHER_AVAILABILITY,
     NAN_TLV_TYPE_24G_CHANNEL,
     NAN_TLV_TYPE_5G_CHANNEL,
+    NAN_TLV_TYPE_DISC_MAC_ADDR_RANDOM_INTERVAL,
+    NAN_TLV_TYPE_RANGING_AUTO_RESPONSE_CFG = 4134,
     NAN_TLV_TYPE_CONFIG_LAST = 8191,
 
     /* Attributes types */
@@ -203,6 +247,11 @@ typedef enum
     NAN_TLV_TYPE_DE_DW_STATS,
     NAN_TLV_TYPE_DE_STATS,
     NAN_TLV_TYPE_STATS_LAST = 36863,
+
+    /* Testmode types */
+    NAN_TLV_TYPE_TESTMODE_FIRST = 36864,
+    NAN_TLV_TYPE_TESTMODE_GENERIC_CMD = NAN_TLV_TYPE_TESTMODE_FIRST,
+    NAN_TLV_TYPE_TESTMODE_LAST = 37000,
 
     NAN_TLV_TYPE_LAST = 65535
 } NanTlvType;
@@ -603,6 +652,15 @@ typedef struct PACKED
         SIZEOF_TLV_HDR + sizeof(u8)  /* Master Pref   */        \
     )
 
+/* Config Discovery Indication */
+ typedef struct PACKED
+ {
+    u32 disableDiscoveryMacAddressEvent:1;
+    u32 disableDiscoveryStartedClusterEvent:1;
+    u32 disableDiscoveryJoinedClusterEvent:1;
+    u32 reserved:29;
+ } NanConfigDiscoveryIndications;
+
 /* NAN Enable Req */
 typedef struct PACKED
 {
@@ -881,6 +939,7 @@ typedef struct PACKED
     u32 discBeaconTxAttempts;
     u32 discBeaconTxFailures;
     u32 amHopCountExpireCount;
+    u32 ndpChannelFreq;
 } FwNanSyncStats, *pFwNanSyncStats;
 
 /* NAN Misc DE Statistics */
@@ -924,20 +983,11 @@ typedef enum {
     NAN_INDICATION_DISABLED                =7,
     NAN_INDICATION_TCA                     =8,
     NAN_INDICATION_BEACON_SDF_PAYLOAD      =9,
+    NAN_INDICATION_SELF_TRANSMIT_FOLLOWUP  =10,
+    NAN_INDICATION_RANGING_REQUEST_RECEIVED =11,
+    NAN_INDICATION_RANGING_RESULT           =12,
     NAN_INDICATION_UNKNOWN                 =0xFFFF
 } NanIndicationType;
-
-typedef struct {
-  /* NAN master rank being advertised by DE */
-  u64 master_rank;
-  /* NAN master preference being advertised by DE */
-  u8 master_pref;
-  /* random value being advertised by DE */
-  u8 random_factor;
-  /* hop_count from anchor master */
-  u8 hop_count;
-  u32 beacon_transmit_time;
-} NanStaParameter;
 
 /* NAN Capabilities Req */
 typedef struct PACKED
@@ -964,15 +1014,227 @@ typedef struct PACKED
     u32 max_ndi_interfaces;
     u32 max_ndp_sessions;
     u32 max_app_info_len;
+    u32 max_queued_transmit_followup_msgs;
+    u32 ndp_supported_bands;
+    u32 cipher_suites_supported;
+    u32 max_scid_len;
+    u32 is_ndp_security_supported:1;
+    u32 max_sdea_service_specific_info_len:16;
+    u32 reserved:15;
+    u32 max_subscribe_address;
 } NanCapabilitiesRspMsg, *pNanCapabilitiesRspMsg;
 
+/* NAN Self Transmit Followup */
+typedef struct PACKED
+{
+    NanMsgHeader fwHeader;
+    u32 reason;
+} NanSelfTransmitFollowupIndMsg, *pNanSelfTransmitFollowupIndMsg;
+
+/* NAN Cipher Suite Shared Key */
+typedef struct PACKED
+{
+    u32 csid_type;
+} NanCsidType;
+
+/* Service Discovery Extended Attribute params */
+typedef struct PACKED
+{
+    u32 fsd_required:1;
+    u32 fsd_with_gas:1;
+    u32 data_path_required:1;
+    u32 data_path_type:1;
+    u32 multicast_type:1;
+    u32 qos_required:1;
+    u32 security_required:1;
+    u32 ranging_required:1;
+    u32 range_limit_present:1;
+    u32 range_report:1;
+    u32 reserved:22;
+} NanFWSdeaCtrlParams;
+
+/* NAN Ranging Configuration params */
+typedef struct PACKED
+{
+    u32  inner_threshold;
+    u32  outer_threshold;
+} NanFWGeoFenceDescriptor;
+
+typedef struct PACKED
+{
+    u32 range_resolution;
+    u32 range_interval;
+    u32 ranging_indication_event;
+    NanFWGeoFenceDescriptor geo_fence_threshold;
+} NanFWRangeConfigParams;
+
+typedef struct PACKED
+{
+    NanMsgHeader fwHeader;
+    /*
+      Excludes TLVs
+      Optional: Nan Availability
+    */
+    u8 ptlv[];
+} NanTestModeReqMsg, *pNanTestModeReqMsg;
+
 /*
-    Function to get the sta_parameter expected by Sigma
-    as per CAPI spec.
+  NAN Status codes exchanged between firmware
+  and WifiHal.
 */
-wifi_error nan_get_sta_parameter(wifi_request_id id,
-                                 wifi_interface_handle iface,
-                                 NanStaParameter* msg);
+typedef enum {
+    /* NAN Protocol Response Codes */
+    NAN_I_STATUS_SUCCESS = 0,
+    NAN_I_STATUS_TIMEOUT = 1,
+    NAN_I_STATUS_DE_FAILURE = 2,
+    NAN_I_STATUS_INVALID_MSG_VERSION = 3,
+    NAN_I_STATUS_INVALID_MSG_LEN = 4,
+    NAN_I_STATUS_INVALID_MSG_ID = 5,
+    NAN_I_STATUS_INVALID_HANDLE = 6,
+    NAN_I_STATUS_NO_SPACE_AVAILABLE = 7,
+    NAN_I_STATUS_INVALID_PUBLISH_TYPE = 8,
+    NAN_I_STATUS_INVALID_TX_TYPE = 9,
+    NAN_I_STATUS_INVALID_MATCH_ALGORITHM = 10,
+    NAN_I_STATUS_DISABLE_IN_PROGRESS = 11,
+    NAN_I_STATUS_INVALID_TLV_LEN = 12,
+    NAN_I_STATUS_INVALID_TLV_TYPE = 13,
+    NAN_I_STATUS_MISSING_TLV_TYPE = 14,
+    NAN_I_STATUS_INVALID_TOTAL_TLVS_LEN = 15,
+    NAN_I_STATUS_INVALID_REQUESTER_INSTANCE_ID= 16,
+    NAN_I_STATUS_INVALID_TLV_VALUE = 17,
+    NAN_I_STATUS_INVALID_TX_PRIORITY = 18,
+    NAN_I_STATUS_INVALID_CONNECTION_MAP = 19,
+    NAN_I_STATUS_INVALID_THRESHOLD_CROSSING_ALERT_ID = 20,
+    NAN_I_STATUS_INVALID_STATS_ID = 21,
+    NAN_I_STATUS_NAN_NOT_ALLOWED = 22,
+    NAN_I_STATUS_NO_OTA_ACK = 23,
+    NAN_I_STATUS_TX_FAIL = 24,
+    NAN_I_STATUS_NAN_ALREADY_ENABLED = 25,
+    NAN_I_STATUS_FOLLOWUP_QUEUE_FULL = 26,
+    /* 27-4095 Reserved */
+    /* NAN Configuration Response codes */
+    NAN_I_STATUS_INVALID_RSSI_CLOSE_VALUE = 4096,
+    NAN_I_STATUS_INVALID_RSSI_MIDDLE_VALUE = 4097,
+    NAN_I_STATUS_INVALID_HOP_COUNT_LIMIT = 4098,
+    NAN_I_STATUS_INVALID_MASTER_PREFERENCE_VALUE = 4099,
+    NAN_I_STATUS_INVALID_LOW_CLUSTER_ID_VALUE = 4100,
+    NAN_I_STATUS_INVALID_HIGH_CLUSTER_ID_VALUE = 4101,
+    NAN_I_STATUS_INVALID_BACKGROUND_SCAN_PERIOD = 4102,
+    NAN_I_STATUS_INVALID_RSSI_PROXIMITY_VALUE = 4103,
+    NAN_I_STATUS_INVALID_SCAN_CHANNEL = 4104,
+    NAN_I_STATUS_INVALID_POST_NAN_CONNECTIVITY_CAPABILITIES_BITMAP = 4105,
+    NAN_I_STATUS_INVALID_FURTHER_AVAILABILITY_MAP_NUMCHAN_VALUE = 4106,
+    NAN_I_STATUS_INVALID_FURTHER_AVAILABILITY_MAP_DURATION_VALUE = 4107,
+    NAN_I_STATUS_INVALID_FURTHER_AVAILABILITY_MAP_CLASS_VALUE = 4108,
+    NAN_I_STATUS_INVALID_FURTHER_AVAILABILITY_MAP_CHANNEL_VALUE = 4109,
+    NAN_I_STATUS_INVALID_FURTHER_AVAILABILITY_MAP_AVAILABILITY_INTERVAL_BITMAP_VALUE = 4110,
+    NAN_I_STATUS_INVALID_FURTHER_AVAILABILITY_MAP_MAP_ID = 4111,
+    NAN_I_STATUS_INVALID_POST_NAN_DISCOVERY_CONN_TYPE_VALUE = 4112,
+    NAN_I_STATUS_INVALID_POST_NAN_DISCOVERY_DEVICE_ROLE_VALUE = 4113,
+    NAN_I_STATUS_INVALID_POST_NAN_DISCOVERY_DURATION_VALUE = 4114,
+    NAN_I_STATUS_INVALID_POST_NAN_DISCOVERY_BITMAP_VALUE = 4115,
+    NAN_I_STATUS_MISSING_FUTHER_AVAILABILITY_MAP = 4116,
+    NAN_I_STATUS_INVALID_BAND_CONFIG_FLAGS = 4117,
+    NAN_I_STATUS_INVALID_RANDOM_FACTOR_UPDATE_TIME_VALUE = 4118,
+    NAN_I_STATUS_INVALID_ONGOING_SCAN_PERIOD = 4119,
+    NAN_I_STATUS_INVALID_DW_INTERVAL_VALUE = 4120,
+    NAN_I_STATUS_INVALID_DB_INTERVAL_VALUE = 4121,
+    /* 4122-8191 RESERVED */
+    NAN_I_PUBLISH_SUBSCRIBE_TERMINATED_REASON_INVALID = 8192,
+    NAN_I_PUBLISH_SUBSCRIBE_TERMINATED_REASON_TIMEOUT = 8193,
+    NAN_I_PUBLISH_SUBSCRIBE_TERMINATED_REASON_USER_REQUEST = 8194,
+    NAN_I_PUBLISH_SUBSCRIBE_TERMINATED_REASON_FAILURE = 8195,
+    NAN_I_PUBLISH_SUBSCRIBE_TERMINATED_REASON_COUNT_REACHED = 8196,
+    NAN_I_PUBLISH_SUBSCRIBE_TERMINATED_REASON_DE_SHUTDOWN = 8197,
+    NAN_I_PUBLISH_SUBSCRIBE_TERMINATED_REASON_DISABLE_IN_PROGRESS = 8198,
+    NAN_I_PUBLISH_SUBSCRIBE_TERMINATED_REASON_POST_DISC_ATTR_EXPIRED = 8199,
+    NAN_I_PUBLISH_SUBSCRIBE_TERMINATED_REASON_POST_DISC_LEN_EXCEEDED = 8200,
+    NAN_I_PUBLISH_SUBSCRIBE_TERMINATED_REASON_FURTHER_AVAIL_MAP_EMPTY = 8201,
+    /* 9000-9500 NDP Status type */
+    NDP_I_UNSUPPORTED_CONCURRENCY = 9000,
+    NDP_I_NAN_DATA_IFACE_CREATE_FAILED = 9001,
+    NDP_I_NAN_DATA_IFACE_DELETE_FAILED = 9002,
+    NDP_I_DATA_INITIATOR_REQUEST_FAILED = 9003,
+    NDP_I_DATA_RESPONDER_REQUEST_FAILED = 9004,
+    NDP_I_INVALID_SERVICE_INSTANCE_ID = 9005,
+    NDP_I_INVALID_NDP_INSTANCE_ID = 9006,
+    NDP_I_INVALID_RESPONSE_CODE = 9007,
+    NDP_I_INVALID_APP_INFO_LEN = 9008,
+    /* OTA failures and timeouts during negotiation */
+    NDP_I_MGMT_FRAME_REQUEST_FAILED = 9009,
+    NDP_I_MGMT_FRAME_RESPONSE_FAILED = 9010,
+    NDP_I_MGMT_FRAME_CONFIRM_FAILED = 9011,
+    NDP_I_END_FAILED = 9012,
+    NDP_I_MGMT_FRAME_END_REQUEST_FAILED = 9013,
+
+    /* 9500 onwards vendor specific error codes */
+    NDP_I_VENDOR_SPECIFIC_ERROR = 9500
+} NanInternalStatusType;
+
+/* This is the TLV used for range report */
+typedef struct PACKED
+{
+    u32 publish_id;
+    u32 event_type;
+    u32 range_measurement;
+} NanFWRangeReportParams;
+
+typedef struct PACKED
+{
+    NanMsgHeader fwHeader;
+    /*TLV Required:
+        MANDATORY
+            1. MAC_ADDRESS
+            2. NanFWRangeReportParams
+        OPTIONAL:
+            1. A_UINT32 event type
+    */
+    u8 ptlv[1];
+} NanFWRangeReportInd, *pNanFWRangeReportInd;
+
+/** 2 word representation of MAC addr */
+typedef struct {
+    /** upper 4 bytes of  MAC address */
+    u32 mac_addr31to0;
+    /** lower 2 bytes of  MAC address */
+    u32 mac_addr47to32;
+} fw_mac_addr;
+
+/* This is the TLV used to trigger ranging requests*/
+typedef struct PACKED
+{
+    fw_mac_addr  range_mac_addr;
+    u32 range_id; //Match handle in match_ind, publish_id in result ind
+    u32 ranging_accept:1;
+    u32 ranging_reject:1;
+    u32 ranging_cancel:1;
+    u32 reserved:29;
+} NanFWRangeReqMsg, *pNanFWRangeReqMsg;
+
+typedef struct PACKED
+{
+    fw_mac_addr  range_mac_addr;
+    u32 range_id;//This will publish_id in case of receiving publish.
+} NanFWRangeReqRecvdMsg, *pNanFWRangeReqRecvdMsg;
+
+typedef struct PACKED
+{
+    NanMsgHeader fwHeader;
+    /*TLV Required
+       1. t_nan_range_req_recvd_msg
+    */
+    u8 ptlv[1];
+} NanFWRangeReqRecvdInd, *pNanFWRangeReqRecvdInd;
+
+/* Function for NAN error translation
+   For NanResponse, NanPublishTerminatedInd, NanSubscribeTerminatedInd,
+   NanDisabledInd, NanTransmitFollowupInd:
+   function to translate firmware specific errors
+   to generic freamework error along with the error string
+*/
+void NanErrorTranslation(NanInternalStatusType firmwareErrorRecvd,
+                         u32 valueRcvd,
+                         void *pRsp);
 
 #ifdef __cplusplus
 }

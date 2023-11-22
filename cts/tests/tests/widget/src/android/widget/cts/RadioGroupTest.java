@@ -16,15 +16,19 @@
 
 package android.widget.cts;
 
-import android.widget.cts.R;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
-
-import org.xmlpull.v1.XmlPullParser;
-import org.xmlpull.v1.XmlPullParserException;
-
+import android.app.Activity;
 import android.content.Context;
-import android.test.InstrumentationTestCase;
-import android.test.UiThreadTest;
+import android.support.test.annotation.UiThreadTest;
+import android.support.test.filters.SmallTest;
+import android.support.test.rule.ActivityTestRule;
+import android.support.test.runner.AndroidJUnit4;
 import android.util.AttributeSet;
 import android.util.Xml;
 import android.view.Gravity;
@@ -34,9 +38,16 @@ import android.view.ViewGroup.OnHierarchyChangeListener;
 import android.widget.LinearLayout;
 import android.widget.RadioButton;
 import android.widget.RadioGroup;
-import android.widget.RelativeLayout;
 import android.widget.RadioGroup.LayoutParams;
 import android.widget.RadioGroup.OnCheckedChangeListener;
+import android.widget.RelativeLayout;
+
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.xmlpull.v1.XmlPullParser;
+import org.xmlpull.v1.XmlPullParserException;
 
 import java.io.IOException;
 import java.util.Vector;
@@ -44,64 +55,62 @@ import java.util.Vector;
 /**
  * Test {@link RadioGroup}.
  */
-public class RadioGroupTest extends InstrumentationTestCase {
-    private static final int BUTTON_ID_0 = 0;
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class RadioGroupTest {
+    private Activity mActivity;
+    private RadioGroup mRadioGroup;
 
-    private static final int BUTTON_ID_1 = 1;
+    @Rule
+    public ActivityTestRule<RadioGroupCtsActivity> mActivityRule =
+            new ActivityTestRule<>(RadioGroupCtsActivity.class);
 
-    private static final int BUTTON_ID_2 = 2;
-
-    private static final int BUTTON_ID_3 = 3;
-
-    /** the IDs of the buttons inside the group are 0, 1, 2, 3. */
-    private RadioGroup mDefaultRadioGroup;
-
-    private Context mContext;
-
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mContext = getInstrumentation().getTargetContext();
-        // the IDs of the buttons inside the group are 0, 1, 2, 3
-        mDefaultRadioGroup = createDefaultRadioGroup();
+    @Before
+    public void setup() {
+        mActivity = mActivityRule.getActivity();
+        mRadioGroup = (RadioGroup) mActivity.findViewById(R.id.radio_group);
     }
 
+    @Test
     public void testConstructors() {
-        new RadioGroup(mContext);
+        new RadioGroup(mActivity);
 
         AttributeSet attrs = getAttributeSet(R.layout.radiogroup_1);
-        new RadioGroup(mContext, attrs);
-        new RadioGroup(mContext, null);
+        new RadioGroup(mActivity, attrs);
+        new RadioGroup(mActivity, null);
     }
 
+    @UiThreadTest
+    @Test
     public void testSetOnHierarchyChangeListener() {
         MockOnHierarchyChangeListener listener = new MockOnHierarchyChangeListener();
-        mDefaultRadioGroup.setOnHierarchyChangeListener(listener);
+        mRadioGroup.setOnHierarchyChangeListener(listener);
 
-        View button3 = mDefaultRadioGroup.findViewById(BUTTON_ID_3);
+        View button3 = mRadioGroup.findViewById(R.id.radio_button_3);
         listener.reset();
-        mDefaultRadioGroup.removeView(button3);
-        assertSame(mDefaultRadioGroup, listener.getOnChildViewRemovedParentParam());
+        mRadioGroup.removeView(button3);
+        assertSame(mRadioGroup, listener.getOnChildViewRemovedParentParam());
         assertSame(button3, listener.getOnChildViewRemovedChildParam());
 
         listener.reset();
-        mDefaultRadioGroup.addView(button3);
-        assertSame(mDefaultRadioGroup, listener.getOnChildViewAddedParentParam());
+        mRadioGroup.addView(button3);
+        assertSame(mRadioGroup, listener.getOnChildViewAddedParentParam());
         assertSame(button3, listener.getOnChildViewAddedChildParam());
 
         // Set listener to null
-        mDefaultRadioGroup.setOnHierarchyChangeListener(null);
+        mRadioGroup.setOnHierarchyChangeListener(null);
         // and no exceptions thrown in the following method calls
-        mDefaultRadioGroup.removeView(button3);
-        mDefaultRadioGroup.addView(button3);
+        mRadioGroup.removeView(button3);
+        mRadioGroup.addView(button3);
     }
 
+    @UiThreadTest
+    @Test
     public void testInternalPassThroughHierarchyChangeListener() {
-        mDefaultRadioGroup = new RadioGroup(mContext);
-        RadioButton newButton = new RadioButton(mContext);
+        RadioButton newButton = new RadioButton(mActivity);
 
         assertEquals(View.NO_ID, newButton.getId());
-        mDefaultRadioGroup.addView(newButton, new RadioGroup.LayoutParams(
+        mRadioGroup.addView(newButton, new RadioGroup.LayoutParams(
                 RadioGroup.LayoutParams.WRAP_CONTENT, RadioGroup.LayoutParams.WRAP_CONTENT));
         // aapt-generated IDs have a nonzero high byte; check that the ID generated by
         // RadioGroup falls within a range that will not collide with aapt IDs.
@@ -109,15 +118,15 @@ public class RadioGroupTest extends InstrumentationTestCase {
     }
 
     @UiThreadTest
+    @Test
     public void testInternalCheckedStateTracker() {
-        mDefaultRadioGroup = new RadioGroup(mContext);
-        RadioButton newButton = new RadioButton(mContext);
+        RadioButton newButton = new RadioButton(mActivity);
         // inject the tracker to the button when the button is added by
         // CompoundButton#setOnCheckedChangeWidgetListener(OnCheckedChangeListener)
-        mDefaultRadioGroup.addView(newButton, new RadioGroup.LayoutParams(
+        mRadioGroup.addView(newButton, new RadioGroup.LayoutParams(
                 RadioGroup.LayoutParams.WRAP_CONTENT, RadioGroup.LayoutParams.WRAP_CONTENT));
         MockOnCheckedChangeListener listener = new MockOnCheckedChangeListener();
-        mDefaultRadioGroup.setOnCheckedChangeListener(listener);
+        mRadioGroup.setOnCheckedChangeListener(listener);
 
         listener.reset();
         newButton.setChecked(true);
@@ -130,7 +139,7 @@ public class RadioGroupTest extends InstrumentationTestCase {
         assertHasCalledOnCheckedChanged(listener);
 
         // remove the tracker from the button when the button is removed
-        mDefaultRadioGroup.removeView(newButton);
+        mRadioGroup.removeView(newButton);
         listener.reset();
         newButton.setChecked(true);
         assertHaveNotCalledOnCheckedChanged(listener);
@@ -141,152 +150,156 @@ public class RadioGroupTest extends InstrumentationTestCase {
     }
 
     @UiThreadTest
+    @Test
     public void testGetCheckedRadioButtonId() {
-        assertEquals(-1, mDefaultRadioGroup.getCheckedRadioButtonId());
+        assertEquals(-1, mRadioGroup.getCheckedRadioButtonId());
 
-        mDefaultRadioGroup.check(BUTTON_ID_0);
-        assertEquals(BUTTON_ID_0, mDefaultRadioGroup.getCheckedRadioButtonId());
+        mRadioGroup.check(R.id.radio_button_0);
+        assertEquals(R.id.radio_button_0, mRadioGroup.getCheckedRadioButtonId());
 
-        mDefaultRadioGroup.check(BUTTON_ID_3);
-        assertEquals(BUTTON_ID_3, mDefaultRadioGroup.getCheckedRadioButtonId());
+        mRadioGroup.check(R.id.radio_button_3);
+        assertEquals(R.id.radio_button_3, mRadioGroup.getCheckedRadioButtonId());
 
         // None of the buttons inside the group has of of the following IDs
-        mDefaultRadioGroup.check(4);
-        assertEquals(4, mDefaultRadioGroup.getCheckedRadioButtonId());
+        mRadioGroup.check(4);
+        assertEquals(4, mRadioGroup.getCheckedRadioButtonId());
 
-        mDefaultRadioGroup.check(-1);
-        assertEquals(-1, mDefaultRadioGroup.getCheckedRadioButtonId());
+        mRadioGroup.check(-1);
+        assertEquals(-1, mRadioGroup.getCheckedRadioButtonId());
 
-        mDefaultRadioGroup.check(-3);
-        assertEquals(-3, mDefaultRadioGroup.getCheckedRadioButtonId());
+        mRadioGroup.check(-3);
+        assertEquals(-3, mRadioGroup.getCheckedRadioButtonId());
     }
 
     @UiThreadTest
+    @Test
     public void testClearCheck() {
         MockOnCheckedChangeListener listener = new MockOnCheckedChangeListener();
-        mDefaultRadioGroup.setOnCheckedChangeListener(listener);
+        mRadioGroup.setOnCheckedChangeListener(listener);
 
-        mDefaultRadioGroup.check(BUTTON_ID_3);
-        assertEquals(BUTTON_ID_3, mDefaultRadioGroup.getCheckedRadioButtonId());
+        mRadioGroup.check(R.id.radio_button_3);
+        assertEquals(R.id.radio_button_3, mRadioGroup.getCheckedRadioButtonId());
 
         listener.reset();
-        mDefaultRadioGroup.clearCheck();
-        assertEquals(-1, mDefaultRadioGroup.getCheckedRadioButtonId());
+        mRadioGroup.clearCheck();
+        assertEquals(-1, mRadioGroup.getCheckedRadioButtonId());
         assertHasCalledOnCheckedChanged(listener);
         // uncheck the original button
-        assertOnCheckedChangedParams(listener, 0, mDefaultRadioGroup, BUTTON_ID_3);
+        assertOnCheckedChangedParams(listener, 0, mRadioGroup, R.id.radio_button_3);
 
         // None of the buttons inside the group has of of the following IDs
-        mDefaultRadioGroup.check(4);
-        assertEquals(4, mDefaultRadioGroup.getCheckedRadioButtonId());
+        mRadioGroup.check(4);
+        assertEquals(4, mRadioGroup.getCheckedRadioButtonId());
 
         listener.reset();
-        mDefaultRadioGroup.clearCheck();
-        assertEquals(-1, mDefaultRadioGroup.getCheckedRadioButtonId());
+        mRadioGroup.clearCheck();
+        assertEquals(-1, mRadioGroup.getCheckedRadioButtonId());
         // why the method is called while none of the button is checked or unchecked?
         assertHasCalledOnCheckedChanged(listener);
-        assertOnCheckedChangedParams(listener, 0, mDefaultRadioGroup, -1);
+        assertOnCheckedChangedParams(listener, 0, mRadioGroup, -1);
 
-        mDefaultRadioGroup.check(-1);
-        assertEquals(-1, mDefaultRadioGroup.getCheckedRadioButtonId());
+        mRadioGroup.check(-1);
+        assertEquals(-1, mRadioGroup.getCheckedRadioButtonId());
 
         listener.reset();
-        mDefaultRadioGroup.clearCheck();
-        assertEquals(-1, mDefaultRadioGroup.getCheckedRadioButtonId());
+        mRadioGroup.clearCheck();
+        assertEquals(-1, mRadioGroup.getCheckedRadioButtonId());
         // why the method is called while none of the button is checked or unchecked?
         assertHasCalledOnCheckedChanged(listener);
-        assertOnCheckedChangedParams(listener, 0, mDefaultRadioGroup, -1);
+        assertOnCheckedChangedParams(listener, 0, mRadioGroup, -1);
     }
 
     @UiThreadTest
+    @Test
     public void testCheck() {
         MockOnCheckedChangeListener listener = new MockOnCheckedChangeListener();
-        mDefaultRadioGroup.setOnCheckedChangeListener(listener);
-        assertEquals(-1, mDefaultRadioGroup.getCheckedRadioButtonId());
+        mRadioGroup.setOnCheckedChangeListener(listener);
+        assertEquals(-1, mRadioGroup.getCheckedRadioButtonId());
 
         listener.reset();
-        mDefaultRadioGroup.check(BUTTON_ID_0);
+        mRadioGroup.check(R.id.radio_button_0);
         assertHasCalledOnCheckedChanged(listener);
-        assertOnCheckedChangedParams(listener, 0, mDefaultRadioGroup, BUTTON_ID_0);
+        assertOnCheckedChangedParams(listener, 0, mRadioGroup, R.id.radio_button_0);
 
         listener.reset();
-        mDefaultRadioGroup.check(BUTTON_ID_1);
+        mRadioGroup.check(R.id.radio_button_1);
         assertHasCalledOnCheckedChanged(listener);
         // uncheck the original button
-        assertOnCheckedChangedParams(listener, 0, mDefaultRadioGroup, BUTTON_ID_0);
+        assertOnCheckedChangedParams(listener, 0, mRadioGroup, R.id.radio_button_0);
         // check the new button
-        assertOnCheckedChangedParams(listener, 1, mDefaultRadioGroup, BUTTON_ID_1);
+        assertOnCheckedChangedParams(listener, 1, mRadioGroup, R.id.radio_button_1);
 
         listener.reset();
-        mDefaultRadioGroup.check(-1);
+        mRadioGroup.check(-1);
         assertHasCalledOnCheckedChanged(listener);
         // uncheck the original button
-        assertOnCheckedChangedParams(listener, 0, mDefaultRadioGroup, BUTTON_ID_1);
-        assertOnCheckedChangedParams(listener, 1, mDefaultRadioGroup, -1);
+        assertOnCheckedChangedParams(listener, 0, mRadioGroup, R.id.radio_button_1);
+        assertOnCheckedChangedParams(listener, 1, mRadioGroup, -1);
 
         // None of the buttons inside the group has of of the following IDs
         listener.reset();
-        mDefaultRadioGroup.check(-1);
+        mRadioGroup.check(-1);
         // why the method is called while none of the inside buttons has been changed
         assertHasCalledOnCheckedChanged(listener);
-        assertOnCheckedChangedParams(listener, 0, mDefaultRadioGroup, -1);
+        assertOnCheckedChangedParams(listener, 0, mRadioGroup, -1);
 
         listener.reset();
-        mDefaultRadioGroup.check(4);
+        mRadioGroup.check(4);
         // why the method is called while none of the inside buttons has been changed
         assertHasCalledOnCheckedChanged(listener);
-        assertOnCheckedChangedParams(listener, 0, mDefaultRadioGroup, 4);
+        assertOnCheckedChangedParams(listener, 0, mRadioGroup, 4);
 
         // Set listener to null
-        mDefaultRadioGroup.setOnCheckedChangeListener(null);
+        mRadioGroup.setOnCheckedChangeListener(null);
         // no exceptions thrown during the following method
-        mDefaultRadioGroup.check(0);
+        mRadioGroup.check(0);
     }
 
     @UiThreadTest
+    @Test
     public void testSetOnCheckedChangeListener() {
         MockOnCheckedChangeListener listener = new MockOnCheckedChangeListener();
-        mDefaultRadioGroup.setOnCheckedChangeListener(listener);
+        mRadioGroup.setOnCheckedChangeListener(listener);
 
         listener.reset();
-        mDefaultRadioGroup.check(BUTTON_ID_0);
+        mRadioGroup.check(R.id.radio_button_0);
         assertHasCalledOnCheckedChanged(listener);
 
         // does not call the method if the button the id is already checked
         listener.reset();
-        mDefaultRadioGroup.check(BUTTON_ID_0);
+        mRadioGroup.check(R.id.radio_button_0);
         assertHaveNotCalledOnCheckedChanged(listener);
 
         // call the method if none of the buttons inside the group has the id
         listener.reset();
-        mDefaultRadioGroup.check(-3);
+        mRadioGroup.check(-3);
         assertHasCalledOnCheckedChanged(listener);
 
         // does not call the method if the button the id is already checked
         // and none of the buttons inside the group has the id
         listener.reset();
-        mDefaultRadioGroup.check(-3);
+        mRadioGroup.check(-3);
         assertHaveNotCalledOnCheckedChanged(listener);
 
         // always call the method if the checked id is -1
         listener.reset();
-        mDefaultRadioGroup.clearCheck();
+        mRadioGroup.clearCheck();
         assertHasCalledOnCheckedChanged(listener);
 
         listener.reset();
-        mDefaultRadioGroup.check(-1);
+        mRadioGroup.check(-1);
         assertHasCalledOnCheckedChanged(listener);
 
         // Set listener to null
-        mDefaultRadioGroup.setOnCheckedChangeListener(null);
+        mRadioGroup.setOnCheckedChangeListener(null);
         // no exceptions thrown during the following method
-        mDefaultRadioGroup.check(0);
+        mRadioGroup.check(0);
     }
 
+    @Test
     public void testGenerateLayoutParams() {
-        mDefaultRadioGroup = new RadioGroup(mContext);
         RadioGroup.LayoutParams layoutParams =
-            mDefaultRadioGroup.generateLayoutParams((AttributeSet) null);
+            mRadioGroup.generateLayoutParams((AttributeSet) null);
         assertNotNull(layoutParams);
         // default values
         assertEquals(0.0, layoutParams.weight, 0);
@@ -299,7 +312,7 @@ public class RadioGroupTest extends InstrumentationTestCase {
         assertEquals(LayoutParams.WRAP_CONTENT, layoutParams.height);
 
         AttributeSet attrs = getAttributeSet(R.layout.radiogroup_1);
-        layoutParams = mDefaultRadioGroup.generateLayoutParams(attrs);
+        layoutParams = mRadioGroup.generateLayoutParams(attrs);
         // values from layout
         assertNotNull(layoutParams);
         assertEquals(0.5, layoutParams.weight, 0);
@@ -312,8 +325,9 @@ public class RadioGroupTest extends InstrumentationTestCase {
         assertEquals(LayoutParams.MATCH_PARENT, layoutParams.height);
     }
 
+    @Test
     public void testCheckLayoutParams() {
-        MockRadioGroup mRadioGroupWrapper = new MockRadioGroup(mContext);
+        MockRadioGroup mRadioGroupWrapper = new MockRadioGroup(mActivity);
 
         assertFalse(mRadioGroupWrapper.checkLayoutParams(null));
 
@@ -330,8 +344,9 @@ public class RadioGroupTest extends InstrumentationTestCase {
         assertTrue(mRadioGroupWrapper.checkLayoutParams(radioParams));
     }
 
+    @Test
     public void testGenerateDefaultLayoutParams() {
-        MockRadioGroup radioGroupWrapper = new MockRadioGroup(mContext);
+        MockRadioGroup radioGroupWrapper = new MockRadioGroup(mActivity);
         LinearLayout.LayoutParams p = radioGroupWrapper.generateDefaultLayoutParams();
 
         assertTrue(p instanceof RadioGroup.LayoutParams);
@@ -340,13 +355,14 @@ public class RadioGroupTest extends InstrumentationTestCase {
     }
 
     @UiThreadTest
+    @Test
     public void testOnFinishInflate() {
-        MockRadioGroup radioGroup = new MockRadioGroup(mContext);
+        MockRadioGroup radioGroup = new MockRadioGroup(mActivity);
         int checkId = 100;
         radioGroup.check(checkId);
         // the button is added after the check(int)method
         // and it not checked though it has exactly the checkId
-        RadioButton button = new RadioButton(mContext);
+        RadioButton button = new RadioButton(mActivity);
         button.setId(checkId);
         radioGroup.addView(button, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT));
@@ -361,8 +377,8 @@ public class RadioGroupTest extends InstrumentationTestCase {
         assertHasCalledOnCheckedChanged(listener);
         assertEquals(checkId, radioGroup.getCheckedRadioButtonId());
 
-        radioGroup = new MockRadioGroup(mContext);
-        button = new RadioButton(mContext);
+        radioGroup = new MockRadioGroup(mActivity);
+        button = new RadioButton(mActivity);
         radioGroup.addView(button, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT));
         listener = new MockOnCheckedChangeListener();
@@ -379,55 +395,24 @@ public class RadioGroupTest extends InstrumentationTestCase {
     }
 
     @UiThreadTest
+    @Test
     public void testAddView() {
-        mDefaultRadioGroup.check(BUTTON_ID_0);
-        assertEquals(BUTTON_ID_0, mDefaultRadioGroup.getCheckedRadioButtonId());
-        assertEquals(4, mDefaultRadioGroup.getChildCount());
+        mRadioGroup.check(R.id.radio_button_0);
+        assertEquals(R.id.radio_button_0, mRadioGroup.getCheckedRadioButtonId());
+        assertEquals(4, mRadioGroup.getChildCount());
 
-        int id = BUTTON_ID_3 + 10;
-        RadioButton choice4 = new RadioButton(mContext);
+        int id = R.id.radio_button_3 + 10;
+        RadioButton choice4 = new RadioButton(mActivity);
         choice4.setText("choice4");
         choice4.setId(id);
         choice4.setChecked(true);
-        mDefaultRadioGroup.addView(choice4, 4, new ViewGroup.LayoutParams(100, 200));
-        assertEquals(id, mDefaultRadioGroup.getCheckedRadioButtonId());
-        assertEquals(5, mDefaultRadioGroup.getChildCount());
-    }
-
-    /**
-     * Initialises the group with 4 RadioButtons which IDs are
-     * BUTTON_ID_0, BUTTON_ID_1, BUTTON_ID_2, BUTTON_ID_3.
-     */
-    private RadioGroup createDefaultRadioGroup() {
-        RadioGroup radioGroup = new RadioGroup(mContext);
-        RadioGroup.LayoutParams params = new RadioGroup.LayoutParams(
-                RadioGroup.LayoutParams.WRAP_CONTENT, RadioGroup.LayoutParams.WRAP_CONTENT);
-
-        RadioButton choice0 = new RadioButton(mContext);
-        choice0.setText("choice0");
-        choice0.setId(BUTTON_ID_0);
-        radioGroup.addView(choice0, params);
-
-        RadioButton choice1 = new RadioButton(mContext);
-        choice1.setText("choice1");
-        choice1.setId(BUTTON_ID_1);
-        radioGroup.addView(choice1, params);
-
-        RadioButton choice2 = new RadioButton(mContext);
-        choice2.setText("choice2");
-        choice2.setId(BUTTON_ID_2);
-        radioGroup.addView(choice2, params);
-
-        RadioButton choice3 = new RadioButton(mContext);
-        choice3.setText("choice3");
-        choice3.setId(BUTTON_ID_3);
-        radioGroup.addView(choice3, params);
-
-        return radioGroup;
+        mRadioGroup.addView(choice4, 4, new ViewGroup.LayoutParams(100, 200));
+        assertEquals(id, mRadioGroup.getCheckedRadioButtonId());
+        assertEquals(5, mRadioGroup.getChildCount());
     }
 
     private AttributeSet getAttributeSet(int resId) {
-        XmlPullParser parser = mContext.getResources().getLayout(resId);
+        XmlPullParser parser = mActivity.getResources().getLayout(resId);
         assertNotNull(parser);
         int type = 0;
         try {
@@ -531,7 +516,7 @@ public class RadioGroupTest extends InstrumentationTestCase {
         }
     }
 
-    private class MockRadioGroup extends RadioGroup {
+    public static class MockRadioGroup extends RadioGroup {
         public MockRadioGroup(Context context) {
             super(context);
         }

@@ -18,6 +18,6 @@
 
 .method public foo(I)V
 .registers 2
-    sput v1, LMain;->staticField:Ljava/lang/String;
+    sput v1, LMain;->staticFinalField:Ljava/lang/String;
     return-void
 .end method

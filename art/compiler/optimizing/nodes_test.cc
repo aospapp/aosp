@@ -35,7 +35,7 @@ TEST(Node, RemoveInstruction) {
   graph->AddBlock(entry);
   graph->SetEntryBlock(entry);
   HInstruction* parameter = new (&allocator) HParameterValue(
-      graph->GetDexFile(), 0, 0, Primitive::kPrimNot);
+      graph->GetDexFile(), dex::TypeIndex(0), 0, Primitive::kPrimNot);
   entry->AddInstruction(parameter);
   entry->AddInstruction(new (&allocator) HGoto());
 
@@ -52,7 +52,7 @@ TEST(Node, RemoveInstruction) {
   exit_block->AddInstruction(new (&allocator) HExit());
 
   HEnvironment* environment = new (&allocator) HEnvironment(
-      &allocator, 1, graph->GetDexFile(), graph->GetMethodIdx(), 0, kStatic, null_check);
+      &allocator, 1, graph->GetArtMethod(), 0, null_check);
   null_check->SetRawEnvironment(environment);
   environment->SetRawEnvAt(0, parameter);
   parameter->AddEnvUseAt(null_check->GetEnvironment(), 0);
@@ -78,9 +78,9 @@ TEST(Node, InsertInstruction) {
   graph->AddBlock(entry);
   graph->SetEntryBlock(entry);
   HInstruction* parameter1 = new (&allocator) HParameterValue(
-      graph->GetDexFile(), 0, 0, Primitive::kPrimNot);
+      graph->GetDexFile(), dex::TypeIndex(0), 0, Primitive::kPrimNot);
   HInstruction* parameter2 = new (&allocator) HParameterValue(
-      graph->GetDexFile(), 0, 0, Primitive::kPrimNot);
+      graph->GetDexFile(), dex::TypeIndex(0), 0, Primitive::kPrimNot);
   entry->AddInstruction(parameter1);
   entry->AddInstruction(parameter2);
   entry->AddInstruction(new (&allocator) HExit());
@@ -106,7 +106,7 @@ TEST(Node, AddInstruction) {
   graph->AddBlock(entry);
   graph->SetEntryBlock(entry);
   HInstruction* parameter = new (&allocator) HParameterValue(
-      graph->GetDexFile(), 0, 0, Primitive::kPrimNot);
+      graph->GetDexFile(), dex::TypeIndex(0), 0, Primitive::kPrimNot);
   entry->AddInstruction(parameter);
 
   ASSERT_FALSE(parameter->HasUses());
@@ -127,7 +127,7 @@ TEST(Node, ParentEnvironment) {
   graph->AddBlock(entry);
   graph->SetEntryBlock(entry);
   HInstruction* parameter1 = new (&allocator) HParameterValue(
-      graph->GetDexFile(), 0, 0, Primitive::kPrimNot);
+      graph->GetDexFile(), dex::TypeIndex(0), 0, Primitive::kPrimNot);
   HInstruction* with_environment = new (&allocator) HNullCheck(parameter1, 0);
   entry->AddInstruction(parameter1);
   entry->AddInstruction(with_environment);
@@ -137,7 +137,7 @@ TEST(Node, ParentEnvironment) {
   ASSERT_TRUE(parameter1->GetUses().HasExactlyOneElement());
 
   HEnvironment* environment = new (&allocator) HEnvironment(
-      &allocator, 1, graph->GetDexFile(), graph->GetMethodIdx(), 0, kStatic, with_environment);
+      &allocator, 1, graph->GetArtMethod(), 0, with_environment);
   ArenaVector<HInstruction*> array(allocator.Adapter());
   array.push_back(parameter1);
 
@@ -148,13 +148,13 @@ TEST(Node, ParentEnvironment) {
   ASSERT_TRUE(parameter1->GetEnvUses().HasExactlyOneElement());
 
   HEnvironment* parent1 = new (&allocator) HEnvironment(
-      &allocator, 1, graph->GetDexFile(), graph->GetMethodIdx(), 0, kStatic, nullptr);
+      &allocator, 1, graph->GetArtMethod(), 0, nullptr);
   parent1->CopyFrom(array);
 
   ASSERT_EQ(parameter1->GetEnvUses().SizeSlow(), 2u);
 
   HEnvironment* parent2 = new (&allocator) HEnvironment(
-      &allocator, 1, graph->GetDexFile(), graph->GetMethodIdx(), 0, kStatic, nullptr);
+      &allocator, 1, graph->GetArtMethod(), 0, nullptr);
   parent2->CopyFrom(array);
   parent1->SetAndCopyParentChain(&allocator, parent2);
 

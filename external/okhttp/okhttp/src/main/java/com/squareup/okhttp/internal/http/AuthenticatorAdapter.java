@@ -43,7 +43,7 @@ public final class AuthenticatorAdapter implements Authenticator {
       if (!"Basic".equalsIgnoreCase(challenge.getScheme())) continue;
 
       PasswordAuthentication auth = java.net.Authenticator.requestPasswordAuthentication(
-          url.rfc2732host(), getConnectToInetAddress(proxy, url), url.port(), url.scheme(),
+          url.host(), getConnectToInetAddress(proxy, url), url.port(), url.scheme(),
           challenge.getRealm(), challenge.getScheme(), url.url(), RequestorType.SERVER);
       if (auth == null) continue;
 

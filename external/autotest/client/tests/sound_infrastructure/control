@@ -6,12 +6,12 @@ NAME = "Sound System Validation"
 AUTHOR = "dgreid"
 PURPOSE = "Ensure minimal sound devices are present."
 CRITERIA = "Pass if files exist."
-ATTRIBUTES = "suite:kernel_per-build_regression"
-SUITE = "kernel_per-build_regression"
+ATTRIBUTES = "suite:bvt-cq"
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "General"
 TEST_TYPE = "client"
+JOB_RETRIES = 2
 
 DOC = """
 This tests that the sound infrastructure such as device and control names

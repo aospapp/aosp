@@ -14,7 +14,10 @@
  * limitations under the License.
  */
 
+#define LOG_TAG "debuggerd-signal"
+
 #include <errno.h>
+#include <pthread.h>
 #include <signal.h>
 #include <stdlib.h>
 #include <string.h>
@@ -24,7 +27,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-#include <log/logger.h>
+#include <log/log.h>
 
 #include "signal_sender.h"
 

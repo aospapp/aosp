@@ -45,6 +45,7 @@ import android.telephony.ServiceState;
 import android.telephony.SubscriptionManager;
 import android.util.Log;
 import android.widget.Toast;
+
 import com.android.internal.telephony.Call;
 import com.android.internal.telephony.CallManager;
 import com.android.internal.telephony.IccCardConstants;
@@ -56,7 +57,7 @@ import com.android.internal.telephony.TelephonyCapabilities;
 import com.android.internal.telephony.TelephonyIntents;
 import com.android.phone.common.CallLogAsync;
 import com.android.phone.settings.SettingsConstants;
-import com.android.services.telephony.activation.SimActivationManager;
+import com.android.phone.vvm.CarrierVvmPackageInstalledReceiver;
 import com.android.services.telephony.sip.SipUtil;
 
 /**
@@ -128,7 +129,6 @@ public class PhoneGlobals extends ContextWrapper {
     CallerInfoCache callerInfoCache;
     NotificationMgr notificationMgr;
     public PhoneInterfaceManager phoneMgr;
-    public SimActivationManager simActivationManager;
     CarrierConfigLoader configLoader;
 
     private CallGatewayManager callGatewayManager;
@@ -160,25 +160,8 @@ public class PhoneGlobals extends ContextWrapper {
     // Broadcast receiver for various intent broadcasts (see onCreate())
     private final BroadcastReceiver mReceiver = new PhoneAppBroadcastReceiver();
 
-    /**
-     * The singleton OtaUtils instance used for OTASP calls.
-     *
-     * The OtaUtils instance is created lazily the first time we need to
-     * make an OTASP call, regardless of whether it's an interactive or
-     * non-interactive OTASP call.
-     */
-    public OtaUtils otaUtils;
-
-    // Following are the CDMA OTA information Objects used during OTA Call.
-    // cdmaOtaProvisionData object store static OTA information that needs
-    // to be maintained even during Slider open/close scenarios.
-    // cdmaOtaConfigData object stores configuration info to control visiblity
-    // of each OTA Screens.
-    // cdmaOtaScreenState object store OTA Screen State information.
-    public OtaUtils.CdmaOtaProvisionData cdmaOtaProvisionData;
-    public OtaUtils.CdmaOtaConfigData cdmaOtaConfigData;
-    public OtaUtils.CdmaOtaScreenState cdmaOtaScreenState;
-    public OtaUtils.CdmaOtaInCallScreenUiState cdmaOtaInCallScreenUiState;
+    private final CarrierVvmPackageInstalledReceiver mCarrierVvmPackageInstalledReceiver =
+            new CarrierVvmPackageInstalledReceiver();
 
     Handler mHandler = new Handler() {
         @Override
@@ -356,8 +339,10 @@ public class PhoneGlobals extends ContextWrapper {
             intentFilter.addAction(TelephonyIntents.ACTION_EMERGENCY_CALLBACK_MODE_CHANGED);
             registerReceiver(mReceiver, intentFilter);
 
+            mCarrierVvmPackageInstalledReceiver.register(this);
+
             //set the default values for the preferences in the phone.
-            PreferenceManager.setDefaultValues(this, R.xml.network_setting, false);
+            PreferenceManager.setDefaultValues(this, R.xml.network_setting_fragment, false);
 
             PreferenceManager.setDefaultValues(this, R.xml.call_feature_setting, false);
 
@@ -366,13 +351,6 @@ public class PhoneGlobals extends ContextWrapper {
             // correctly, given the current state of the phone.
             PhoneUtils.setAudioMode(mCM);
         }
-
-        cdmaOtaProvisionData = new OtaUtils.CdmaOtaProvisionData();
-        cdmaOtaConfigData = new OtaUtils.CdmaOtaConfigData();
-        cdmaOtaScreenState = new OtaUtils.CdmaOtaScreenState();
-        cdmaOtaInCallScreenUiState = new OtaUtils.CdmaOtaInCallScreenUiState();
-
-        simActivationManager = new SimActivationManager();
 
         // XXX pre-load the SimProvider so that it's ready
         resolver.getType(Uri.parse("content://icc/adn"));
@@ -434,43 +412,6 @@ public class PhoneGlobals extends ContextWrapper {
 
     public PersistableBundle getCarrierConfigForSubId(int subId) {
         return configLoader.getConfigForSubId(subId);
-    }
-
-    /**
-     * Handles OTASP-related events from the telephony layer.
-     *
-     * While an OTASP call is active, the CallNotifier forwards
-     * OTASP-related telephony events to this method.
-     */
-    void handleOtaspEvent(Message msg) {
-        if (DBG) Log.d(LOG_TAG, "handleOtaspEvent(message " + msg + ")...");
-
-        if (otaUtils == null) {
-            // We shouldn't be getting OTASP events without ever
-            // having started the OTASP call in the first place!
-            Log.w(LOG_TAG, "handleOtaEvents: got an event but otaUtils is null! "
-                  + "message = " + msg);
-            return;
-        }
-
-        otaUtils.onOtaProvisionStatusChanged((AsyncResult) msg.obj);
-    }
-
-    /**
-     * Similarly, handle the disconnect event of an OTASP call
-     * by forwarding it to the OtaUtils instance.
-     */
-    /* package */ void handleOtaspDisconnect() {
-        if (DBG) Log.d(LOG_TAG, "handleOtaspDisconnect()...");
-
-        if (otaUtils == null) {
-            // We shouldn't be getting OTASP events without ever
-            // having started the OTASP call in the first place!
-            Log.w(LOG_TAG, "handleOtaspDisconnect: otaUtils is null!");
-            return;
-        }
-
-        otaUtils.onOtaspDisconnect();
     }
 
     /**
@@ -621,15 +562,8 @@ public class PhoneGlobals extends ContextWrapper {
         PhoneUtils.displayMMIComplete(mmiCode.getPhone(), getInstance(), mmiCode, null, null);
     }
 
-    private void initForNewRadioTechnology(int phoneId) {
+    private void initForNewRadioTechnology() {
         if (DBG) Log.d(LOG_TAG, "initForNewRadioTechnology...");
-
-        final Phone phone = PhoneFactory.getPhone(phoneId);
-        if (phone == null || !TelephonyCapabilities.supportsOtasp(phone)) {
-            // Clean up OTA for non-CDMA since it is only valid for CDMA.
-            clearOtaState();
-        }
-
         notifier.updateCallNotifierRegistrationsAfterRadioTechnologyChange();
     }
 
@@ -665,6 +599,7 @@ public class PhoneGlobals extends ContextWrapper {
         Log.i(LOG_TAG, "Turning radio off - airplane");
         Settings.Global.putInt(context.getContentResolver(), Settings.Global.CELL_ON,
                  PhoneConstants.CELL_OFF_DUE_TO_AIRPLANE_MODE_FLAG);
+        SystemProperties.set("persist.radio.airplane_mode_on", "1");
         Settings.Global.putInt(getContentResolver(), Settings.Global.ENABLE_CELLULAR_ON_BOOT, 0);
         PhoneUtils.setRadioPower(false);
     }
@@ -675,6 +610,7 @@ public class PhoneGlobals extends ContextWrapper {
                 PhoneConstants.CELL_ON_FLAG);
         Settings.Global.putInt(getContentResolver(), Settings.Global.ENABLE_CELLULAR_ON_BOOT,
                 1);
+        SystemProperties.set("persist.radio.airplane_mode_on", "0");
         PhoneUtils.setRadioPower(true);
     }
 
@@ -721,30 +657,43 @@ public class PhoneGlobals extends ContextWrapper {
                 int subId = intent.getIntExtra(PhoneConstants.SUBSCRIPTION_KEY,
                         SubscriptionManager.INVALID_SUBSCRIPTION_ID);
                 int phoneId = SubscriptionManager.getPhoneId(subId);
-                String state = intent.getStringExtra(PhoneConstants.STATE_KEY);
+                final String apnType = intent.getStringExtra(PhoneConstants.DATA_APN_TYPE_KEY);
+                final String state = intent.getStringExtra(PhoneConstants.STATE_KEY);
+                final String reason = intent.getStringExtra(PhoneConstants.STATE_CHANGE_REASON_KEY);
                 if (VDBG) {
                     Log.d(LOG_TAG, "mReceiver: ACTION_ANY_DATA_CONNECTION_STATE_CHANGED");
                     Log.d(LOG_TAG, "- state: " + state);
-                    Log.d(LOG_TAG, "- reason: "
-                    + intent.getStringExtra(PhoneConstants.STATE_CHANGE_REASON_KEY));
+                    Log.d(LOG_TAG, "- reason: " + reason);
                     Log.d(LOG_TAG, "- subId: " + subId);
-                    Log.d(LOG_TAG, "- phoneId: " + phoneId);
                 }
                 Phone phone = SubscriptionManager.isValidPhoneId(phoneId) ?
                         PhoneFactory.getPhone(phoneId) : PhoneFactory.getDefaultPhone();
 
+                // If the apn type of data connection state changed event is NOT default,
+                // ignore the broadcast intent and avoid action.
+                if (!PhoneConstants.APN_TYPE_DEFAULT.equals(apnType)) {
+                    if (VDBG) Log.d(LOG_TAG, "Ignore broadcast intent as not default apn type");
+                    return;
+                }
+
                 // The "data disconnected due to roaming" notification is shown
                 // if (a) you have the "data roaming" feature turned off, and
                 // (b) you just lost data connectivity because you're roaming.
-                boolean disconnectedDueToRoaming =
-                        !phone.getDataRoamingEnabled()
-                        && PhoneConstants.DataState.DISCONNECTED.equals(state)
-                        && Phone.REASON_ROAMING_ON.equals(
-                            intent.getStringExtra(PhoneConstants.STATE_CHANGE_REASON_KEY));
-                if (mDataDisconnectedDueToRoaming != disconnectedDueToRoaming) {
-                    mDataDisconnectedDueToRoaming = disconnectedDueToRoaming;
-                    mHandler.sendEmptyMessage(disconnectedDueToRoaming
-                            ? EVENT_DATA_ROAMING_DISCONNECTED : EVENT_DATA_ROAMING_OK);
+                // (c) if we haven't shown the notification for this disconnection earlier.
+                if (!mDataDisconnectedDueToRoaming
+                        && PhoneConstants.DataState.DISCONNECTED.name().equals(state)
+                        && Phone.REASON_ROAMING_ON.equals(reason)
+                        && !phone.getDataRoamingEnabled()) {
+                    // Notify the user that data call is disconnected due to roaming. Note that
+                    // calling this multiple times will not cause multiple notifications.
+                    mHandler.sendEmptyMessage(EVENT_DATA_ROAMING_DISCONNECTED);
+                    mDataDisconnectedDueToRoaming = true;
+                } else if (mDataDisconnectedDueToRoaming
+                        && PhoneConstants.DataState.CONNECTED.name().equals(state)) {
+                    // Cancel the notification when data is available. Note it is okay to call this
+                    // even if the notification doesn't exist.
+                    mHandler.sendEmptyMessage(EVENT_DATA_ROAMING_OK);
+                    mDataDisconnectedDueToRoaming = false;
                 }
             } else if ((action.equals(TelephonyIntents.ACTION_SIM_STATE_CHANGED)) &&
                     (mPUKEntryActivity != null)) {
@@ -756,16 +705,13 @@ public class PhoneGlobals extends ContextWrapper {
                         intent.getStringExtra(IccCardConstants.INTENT_KEY_ICC_STATE)));
             } else if (action.equals(TelephonyIntents.ACTION_RADIO_TECHNOLOGY_CHANGED)) {
                 String newPhone = intent.getStringExtra(PhoneConstants.PHONE_NAME_KEY);
-                int phoneId = intent.getIntExtra(PhoneConstants.PHONE_KEY,
-                        SubscriptionManager.INVALID_PHONE_INDEX);
-                Log.d(LOG_TAG, "Radio technology switched. Now " + newPhone + " (" + phoneId
-                        + ") is active.");
-                initForNewRadioTechnology(phoneId);
+                Log.d(LOG_TAG, "Radio technology switched. Now " + newPhone + " is active.");
+                initForNewRadioTechnology();
             } else if (action.equals(TelephonyIntents.ACTION_SERVICE_STATE_CHANGED)) {
                 handleServiceStateChanged(intent);
             } else if (action.equals(TelephonyIntents.ACTION_EMERGENCY_CALLBACK_MODE_CHANGED)) {
                 int phoneId = intent.getIntExtra(PhoneConstants.PHONE_KEY, 0);
-                phoneInEcm = getPhone(phoneId);
+                phoneInEcm = PhoneFactory.getPhone(phoneId);
                 Log.d(LOG_TAG, "Emergency Callback Mode. phoneId:" + phoneId);
                 if (phoneInEcm != null) {
                     if (TelephonyCapabilities.supportsEcm(phoneInEcm)) {
@@ -805,26 +751,10 @@ public class PhoneGlobals extends ContextWrapper {
             ServiceState ss = ServiceState.newFromBundle(extras);
             if (ss != null) {
                 int state = ss.getState();
-                notificationMgr.updateNetworkSelection(state);
+                int subId = intent.getIntExtra(PhoneConstants.SUBSCRIPTION_KEY,
+                        SubscriptionManager.INVALID_SUBSCRIPTION_ID);
+                notificationMgr.updateNetworkSelection(state, subId);
             }
-        }
-    }
-
-    // it is safe to call clearOtaState() even if the InCallScreen isn't active
-    public void clearOtaState() {
-        if (DBG) Log.d(LOG_TAG, "- clearOtaState ...");
-        if (otaUtils != null) {
-            otaUtils.cleanOtaScreen(true);
-            if (DBG) Log.d(LOG_TAG, "  - clearOtaState clears OTA screen");
-        }
-    }
-
-    // it is safe to call dismissOtaDialogs() even if the InCallScreen isn't active
-    public void dismissOtaDialogs() {
-        if (DBG) Log.d(LOG_TAG, "- dismissOtaDialogs ...");
-        if (otaUtils != null) {
-            otaUtils.dismissAllOtaDialogs();
-            if (DBG) Log.d(LOG_TAG, "  - dismissOtaDialogs clears OTA dialogs");
         }
     }
 
@@ -855,5 +785,24 @@ public class PhoneGlobals extends ContextWrapper {
         } else {
             phone.setVoiceMessageCount(0);
         }
+    }
+
+    /**
+     * Enables or disables the visual voicemail check for message waiting indicator. Default value
+     * is true. MWI is the traditional voicemail notification which should be suppressed if visual
+     * voicemail is active. {@link NotificationMgr#updateMwi(int, boolean, boolean)} currently
+     * checks the {@link android.provider.VoicemailContract.Status#CONFIGURATION_STATE} to suppress
+     * the MWI, but there are several issues. b/31229016 is a bug that when the device boots the
+     * configuration state will be cleared and the MWI for voicemail that arrives when the device
+     * is offline will be cleared, even if the account cannot be activated. A full solution will be
+     * adding a setMwiEnabled() method and stop checking the configuration state, but that is too
+     * risky at this moment. This is a temporary workaround to shut down the configuration state
+     * check if visual voicemail cannot be activated.
+     * <p>TODO(twyen): implement the setMwiEnabled() mentioned above.
+     *
+     * @param subId the account to set the enabled state
+     */
+    public void setShouldCheckVisualVoicemailConfigurationForMwi(int subId, boolean enabled) {
+        notificationMgr.setShouldCheckVisualVoicemailConfigurationForMwi(subId, enabled);
     }
 }

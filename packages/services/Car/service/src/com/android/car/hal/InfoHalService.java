@@ -16,23 +16,23 @@
 package com.android.car.hal;
 
 import android.car.CarInfoManager;
+import android.hardware.automotive.vehicle.V2_0.VehiclePropConfig;
+import android.hardware.automotive.vehicle.V2_0.VehiclePropValue;
+import android.hardware.automotive.vehicle.V2_0.VehicleProperty;
+import android.os.Bundle;
 import android.util.Log;
 
 import com.android.car.CarLog;
-import com.android.car.vehiclenetwork.VehicleNetworkConsts;
-import com.android.car.vehiclenetwork.VehicleNetworkProto.VehiclePropConfig;
-import com.android.car.vehiclenetwork.VehicleNetworkProto.VehiclePropValue;
 
 import java.io.PrintWriter;
-import java.util.HashMap;
+import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
 
 public class InfoHalService extends HalServiceBase {
 
     private final VehicleHal mHal;
-    private final HashMap<String, VehiclePropConfig> mInfoNameToHalPropertyMap =
-            new HashMap<String, VehiclePropConfig>();
+    private Bundle mBasicInfo = new Bundle();
 
     public InfoHalService(VehicleHal hal) {
         mHal = hal;
@@ -45,101 +45,60 @@ public class InfoHalService extends HalServiceBase {
 
     @Override
     public synchronized void release() {
-        mInfoNameToHalPropertyMap.clear();
+        mBasicInfo = new Bundle();
     }
 
     @Override
-    public synchronized List<VehiclePropConfig> takeSupportedProperties(
-            List<VehiclePropConfig> allProperties) {
-        List<VehiclePropConfig> supported = new LinkedList<VehiclePropConfig>();
+    public synchronized Collection<VehiclePropConfig> takeSupportedProperties(
+            Collection<VehiclePropConfig> allProperties) {
+        List<VehiclePropConfig> supported = new LinkedList<>();
         for (VehiclePropConfig p: allProperties) {
-            String infoName = getInfoStringFromProperty(p.getProp());
-            if (infoName != null) {
-                supported.add(p);
-                mInfoNameToHalPropertyMap.put(infoName, p);
+            switch (p.prop) {
+                case VehicleProperty.INFO_MAKE:
+                    readPropertyToBundle(p.prop, CarInfoManager.BASIC_INFO_KEY_MANUFACTURER);
+                    break;
+                case VehicleProperty.INFO_MODEL:
+                    readPropertyToBundle(p.prop, CarInfoManager.BASIC_INFO_KEY_MODEL);
+                    break;
+                case VehicleProperty.INFO_MODEL_YEAR:
+                    readPropertyToBundle(p.prop, CarInfoManager.BASIC_INFO_KEY_MODEL_YEAR);
+                    break;
+                default: // not supported
+                    break;
             }
         }
         return supported;
     }
 
+    private void readPropertyToBundle(int prop, String key) {
+        String value = "";
+        try {
+            value = mHal.get(String.class, prop);
+        } catch (PropertyTimeoutException e) {
+            Log.e(CarLog.TAG_INFO, "Unable to read property", e);
+        }
+        mBasicInfo.putString(key, value);
+    }
+
     @Override
     public void handleHalEvents(List<VehiclePropValue> values) {
         for (VehiclePropValue v : values) {
-            logUnexpectedEvent(v.getProp());
+            logUnexpectedEvent(v.prop);
         }
     }
 
     @Override
     public void dump(PrintWriter writer) {
         writer.println("*InfoHal*");
-        writer.println("**Supported properties**");
-        for (VehiclePropConfig p : mInfoNameToHalPropertyMap.values()) {
-            //TODO fix toString
-            writer.println(p.toString());
-        }
+        writer.println("**BasicInfo:" + mBasicInfo);
     }
 
-    public int[] getInt(String key) {
-        VehiclePropConfig prop = getHalPropertyFromInfoString(key);
-        if (prop == null) {
-            return null;
-        }
-        // no lock here as get can take time and multiple get should be possible.
-        int v = mHal.getVehicleNetwork().getIntProperty(prop.getProp());
-        return new int[] { v };
-    }
-
-    public long[] getLong(String key) {
-        VehiclePropConfig prop = getHalPropertyFromInfoString(key);
-        if (prop == null) {
-            return null;
-        }
-        // no lock here as get can take time and multiple get should be possible.
-        long v = mHal.getVehicleNetwork().getLongProperty(prop.getProp());
-        return new long[] { v };
-    }
-
-    public float[] getFloat(String key) {
-        VehiclePropConfig prop = getHalPropertyFromInfoString(key);
-        if (prop == null) {
-            return null;
-        }
-        // no lock here as get can take time and multiple get should be possible.
-        float v = mHal.getVehicleNetwork().getFloatProperty(prop.getProp());
-        return new float[] { v };
-    }
-
-    public String getString(String key) {
-        VehiclePropConfig prop = getHalPropertyFromInfoString(key);
-        if (prop == null) {
-            return null;
-        }
-        // no lock here as get can take time and multiple get should be possible.
-        return mHal.getVehicleNetwork().getStringProperty(prop.getProp());
-    }
-
-    private synchronized VehiclePropConfig getHalPropertyFromInfoString(String key) {
-        return mInfoNameToHalPropertyMap.get(key);
+    public synchronized Bundle getBasicInfo() {
+        return mBasicInfo;
     }
 
     private void logUnexpectedEvent(int property) {
        Log.w(CarLog.TAG_INFO, "unexpected HAL event for property 0x" +
                Integer.toHexString(property));
-    }
-
-    private static String getInfoStringFromProperty(int property) {
-        switch (property) {
-            case VehicleNetworkConsts.VEHICLE_PROPERTY_INFO_MAKE:
-                return CarInfoManager.KEY_MANUFACTURER;
-            case VehicleNetworkConsts.VEHICLE_PROPERTY_INFO_MODEL:
-                return CarInfoManager.KEY_MODEL;
-            case VehicleNetworkConsts.VEHICLE_PROPERTY_INFO_MODEL_YEAR:
-                return CarInfoManager.KEY_MODEL_YEAR;
-            case VehicleNetworkConsts.VEHICLE_PROPERTY_INFO_VIN:
-                return CarInfoManager.KEY_VEHICLE_ID;
-            //TODO add more properties
-            default:
-                return null;
-        }
     }
 }

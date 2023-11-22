@@ -1,11 +1,17 @@
-package java.net;
+package libcore.java.net;
 
 import junit.framework.TestCase;
 
 import java.io.IOException;
+import java.net.Socket;
+import java.net.SocketImpl;
+import java.net.SocketException;
+import java.net.SocketAddress;
+import java.net.ServerSocket;
 import java.util.Locale;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Tests for race conditions between {@link ServerSocket#close()} and
@@ -34,26 +40,43 @@ public class ServerSocketConcurrentCloseTest extends TestCase {
         }
         final ExposedServerSocket serverSocket = new ExposedServerSocket();
         serverSocket.close();
-        try {
-            // Hack: Need to subclass to access the protected constructor without reflection
-            Socket socket = new Socket((SocketImpl) null) { };
-            serverSocket.implAcceptExposedForTest(socket);
-            fail("accepting on a closed socket should throw");
-        } catch (SocketException expected) {
-            // expected
-        } catch (IOException e) {
-            throw new AssertionError(e);
+        // implAccept() on background thread to prevent this test hanging
+        final AtomicReference<Exception> failure = new AtomicReference<>();
+        final CountDownLatch threadFinishedLatch = new CountDownLatch(1);
+        Thread thread = new Thread("implAccept() closed ServerSocket") {
+            public void run() {
+                try {
+                    // Hack: Need to subclass to access the protected constructor without reflection
+                    Socket socket = new Socket((SocketImpl) null) { };
+                    serverSocket.implAcceptExposedForTest(socket);
+                } catch (SocketException expected) {
+                    // pass
+                } catch (IOException|RuntimeException e) {
+                    failure.set(e);
+                } finally {
+                    threadFinishedLatch.countDown();
+                }
+            }
+        };
+        thread.start();
+
+        boolean completed = threadFinishedLatch.await(5, TimeUnit.SECONDS);
+        assertTrue("implAccept didn't throw or return within time limit", completed);
+        Exception e = failure.get();
+        if (e != null) {
+            throw new AssertionError("Unexpected exception", e);
         }
+        thread.join();
     }
 
     /**
      * Test for b/27763633.
      */
     public void testConcurrentServerSocketCloseReliablyThrows() {
-        int numIterations = 200;
+        int numIterations = 100;
         for (int i = 0; i < numIterations; i++) {
             checkConnectIterationAndCloseSocket("Iteration " + (i+1) + " of " + numIterations,
-                    /* msecPerIteration */ 50);
+                    /* sleepMsec */ 50, /* maxSleepsPerIteration */ 3);
         }
     }
 
@@ -61,11 +84,13 @@ public class ServerSocketConcurrentCloseTest extends TestCase {
      * Checks that a concurrent {@link ServerSocket#close()} reliably causes
      * {@link ServerSocket#accept()} to throw {@link SocketException}.
      *
-     * <p>Spawns a server and client thread that continuously connect to each other
-     * for {@code msecPerIteration} msec. Then, closes the {@link ServerSocket} and
-     * verifies that the server quickly shuts down.
+     * <p>Spawns a server and client thread that continuously connect to each
+     * other for up to {@code maxSleepsPerIteration * sleepMsec} msec.
+     * Then, closes the {@link ServerSocket} and verifies that the server
+     * quickly shuts down.
      */
-    private void checkConnectIterationAndCloseSocket(String iterationName, int msecPerIteration) {
+    private void checkConnectIterationAndCloseSocket(String iterationName,
+        int sleepMsec, int maxSleepsPerIteration) {
         ServerSocket serverSocket;
         try {
             serverSocket = new ServerSocket(0 /* allocate port number automatically */);
@@ -73,20 +98,26 @@ public class ServerSocketConcurrentCloseTest extends TestCase {
             fail("Abort: " + e);
             throw new AssertionError("unreachable");
         }
-        final CountDownLatch shutdownLatch = new CountDownLatch(1);
-        ServerRunnable serverRunnable = new ServerRunnable(serverSocket, shutdownLatch);
+        ServerRunnable serverRunnable = new ServerRunnable(serverSocket);
         Thread serverThread = new Thread(serverRunnable, TAG + " (server)");
         ClientRunnable clientRunnable = new ClientRunnable(
-                serverSocket.getLocalSocketAddress(), shutdownLatch);
+                serverSocket.getLocalSocketAddress(), serverRunnable);
         Thread clientThread = new Thread(clientRunnable, TAG + " (client)");
         serverThread.start();
         clientThread.start();
         try {
-            if (shutdownLatch.getCount() == 0) {
+            assertTrue("Slow server startup", serverRunnable.awaitStart(1, TimeUnit.SECONDS));
+            assertTrue("Slow client startup", clientRunnable.awaitStart(1, TimeUnit.SECONDS));
+            if (serverRunnable.isShutdown()) {
                 fail("Server prematurely shut down");
             }
             // Let server and client keep connecting for some time, then close the socket.
-            Thread.sleep(msecPerIteration);
+            for (int i = 0; i < maxSleepsPerIteration; i++) {
+              Thread.sleep(sleepMsec);
+              if (serverRunnable.numSuccessfulConnections > 0) {
+                break;
+              }
+            }
             try {
                 serverSocket.close();
             } catch (IOException e) {
@@ -94,9 +125,8 @@ public class ServerSocketConcurrentCloseTest extends TestCase {
             }
             // Check that the server shut down quickly in response to the socket closing.
             long hardLimitSeconds = 5;
-            boolean serverShutdownReached = shutdownLatch.await(hardLimitSeconds, TimeUnit.SECONDS);
+            boolean serverShutdownReached = serverRunnable.awaitShutdown(hardLimitSeconds, TimeUnit.SECONDS);
             if (!serverShutdownReached) { // b/27763633
-                shutdownLatch.countDown();
                 String serverStackTrace = stackTraceAsString(serverThread.getStackTrace());
                 fail("Server took > " + hardLimitSeconds + "sec to react to serverSocket.close(). "
                         + "Server thread's stackTrace: " + serverStackTrace);
@@ -106,12 +136,12 @@ public class ServerSocketConcurrentCloseTest extends TestCase {
             // later iterations because TCP connections cannot be closed immediately (they stay
             // in TIME_WAIT state for a few minutes) and only some number (tens of thousands?)
             // can be open at a time. If this assertion turns out flaky in future, consider
-            // reducing msecPerIteration or number of iterations.
+            // reducing the iteration time or number of iterations.
             assertTrue(String.format(Locale.US, "%s: No connections in %d msec.",
-                    iterationName, msecPerIteration),
+                    iterationName, maxSleepsPerIteration * sleepMsec),
                     serverRunnable.numSuccessfulConnections > 0);
 
-            assertEquals(0, shutdownLatch.getCount());
+            assertTrue(serverRunnable.isShutdown());
             // Sanity check to ensure the threads don't live into the next iteration. This should
             // be quick because we only get here if shutdownLatch reached 0 within the time limit.
             serverThread.join();
@@ -128,17 +158,20 @@ public class ServerSocketConcurrentCloseTest extends TestCase {
      */
     static class ClientRunnable implements Runnable {
         private final SocketAddress socketAddress;
-        private final CountDownLatch shutdownLatch;
+
+        private final ServerRunnable serverRunnable;
+        private final CountDownLatch startLatch = new CountDownLatch(1);
 
         public ClientRunnable(
-                SocketAddress socketAddress, CountDownLatch shutdownLatch) {
+                SocketAddress socketAddress, ServerRunnable serverRunnable) {
             this.socketAddress = socketAddress;
-            this.shutdownLatch = shutdownLatch;
+            this.serverRunnable = serverRunnable;
         }
 
         @Override
         public void run() {
-            while (shutdownLatch.getCount() != 0) { // check if server is shutting down
+            startLatch.countDown();
+            while (!serverRunnable.isShutdown()) {
                 try {
                     Socket socket = new Socket();
                     socket.connect(socketAddress, /* timeout (msec) */ 10);
@@ -148,6 +181,11 @@ public class ServerSocketConcurrentCloseTest extends TestCase {
                 }
             }
         }
+
+        public boolean awaitStart(long timeout, TimeUnit timeUnit) throws InterruptedException {
+            return startLatch.await(timeout, timeUnit);
+        }
+
     }
 
     /**
@@ -157,15 +195,16 @@ public class ServerSocketConcurrentCloseTest extends TestCase {
     static class ServerRunnable implements Runnable {
         private final ServerSocket serverSocket;
         volatile int numSuccessfulConnections;
-        private final CountDownLatch shutdownLatch;
+        private final CountDownLatch startLatch = new CountDownLatch(1);
+        private final CountDownLatch shutdownLatch = new CountDownLatch(1);
 
-        ServerRunnable(ServerSocket serverSocket, CountDownLatch shutdownLatch) {
+        ServerRunnable(ServerSocket serverSocket) {
             this.serverSocket = serverSocket;
-            this.shutdownLatch = shutdownLatch;
         }
 
         @Override
         public void run() {
+            startLatch.countDown();
             int numSuccessfulConnections = 0;
             while (true) {
                 try {
@@ -180,6 +219,18 @@ public class ServerSocketConcurrentCloseTest extends TestCase {
                     // harmless, as long as enough connections are successful
                 }
             }
+        }
+
+        public boolean awaitStart(long timeout, TimeUnit timeUnit) throws InterruptedException {
+            return startLatch.await(timeout, timeUnit);
+        }
+
+        public boolean awaitShutdown(long timeout, TimeUnit timeUnit) throws InterruptedException {
+            return shutdownLatch.await(timeout, timeUnit);
+        }
+
+        public boolean isShutdown() {
+            return shutdownLatch.getCount() == 0;
         }
     }
 

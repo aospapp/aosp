@@ -96,7 +96,9 @@ static int gralloc_register_buffer(gralloc_module_t const *module, buffer_handle
 
 	if (hnd->flags & private_handle_t::PRIV_FLAGS_FRAMEBUFFER)
 	{
-		AERR("Can't register buffer 0x%p as it is a framebuffer", handle);
+		AINF("Register framebuffer 0x%p is no-op", handle);
+		retval = 0;
+
 	}
 	else if (hnd->flags & private_handle_t::PRIV_FLAGS_USES_UMP)
 	{

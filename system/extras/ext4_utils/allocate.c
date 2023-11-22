@@ -14,13 +14,14 @@
  * limitations under the License.
  */
 
-#include "ext4_utils.h"
 #include "allocate.h"
-
-#include <sparse/sparse.h>
 
 #include <stdio.h>
 #include <stdlib.h>
+
+#include <sparse/sparse.h>
+
+#include "ext4_utils/ext4_utils.h"
 
 struct xattr_list_element {
 	struct ext4_inode *inode;
@@ -233,6 +234,18 @@ static void free_blocks(struct block_group_info *bg, u32 block, u32 num_blocks)
 	for (i = 0; i < num_blocks; i++, block--)
 		bg->block_bitmap[block / 8] &= ~(1 << (block % 8));
 	bg->free_blocks += num_blocks;
+	for (i = bg->chunk_count; i > 0 ;) {
+		--i;
+		if (bg->chunks[i].len >= num_blocks && bg->chunks[i].block <= block) {
+			if (bg->chunks[i].block == block) {
+				bg->chunks[i].block += num_blocks;
+				bg->chunks[i].len -= num_blocks;
+			} else if (bg->chunks[i].block + bg->chunks[i].len - 1 == block + num_blocks) {
+				bg->chunks[i].len -= num_blocks;
+			}
+			break;
+		}
+	}
 }
 
 /* Reduces an existing allocation by len blocks by return the last blocks
@@ -351,7 +364,8 @@ u32 allocate_block()
 
 static struct region *ext4_allocate_best_fit_partial(u32 len)
 {
-	unsigned int i, j;
+	unsigned int i;
+	int j;
 	unsigned int found_bg = 0, found_prev_chunk = 0, found_block = 0;
 	u32 found_allocate_len = 0;
 	bool minimize = false;

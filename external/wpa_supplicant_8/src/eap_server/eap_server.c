@@ -415,7 +415,7 @@ static void eap_server_erp_init(struct eap_sm *sm)
 	u8 *emsk = NULL;
 	size_t emsk_len = 0;
 	u8 EMSKname[EAP_EMSK_NAME_LEN];
-	u8 len[2];
+	u8 len[2], ctx[3];
 	const char *domain;
 	size_t domain_len, nai_buf_len;
 	struct eap_server_erp_key *erp = NULL;
@@ -452,7 +452,7 @@ static void eap_server_erp_init(struct eap_sm *sm)
 
 	wpa_hexdump_key(MSG_DEBUG, "EAP: EMSK", emsk, emsk_len);
 
-	WPA_PUT_BE16(len, 8);
+	WPA_PUT_BE16(len, EAP_EMSK_NAME_LEN);
 	if (hmac_sha256_kdf(sm->eap_if.eapSessionId, sm->eap_if.eapSessionIdLen,
 			    "EMSK", len, sizeof(len),
 			    EMSKname, EAP_EMSK_NAME_LEN) < 0) {
@@ -476,9 +476,11 @@ static void eap_server_erp_init(struct eap_sm *sm)
 	erp->rRK_len = emsk_len;
 	wpa_hexdump_key(MSG_DEBUG, "EAP: ERP rRK", erp->rRK, erp->rRK_len);
 
+	ctx[0] = EAP_ERP_CS_HMAC_SHA256_128;
+	WPA_PUT_BE16(&ctx[1], erp->rRK_len);
 	if (hmac_sha256_kdf(erp->rRK, erp->rRK_len,
-			    "EAP Re-authentication Integrity Key@ietf.org",
-			    len, sizeof(len), erp->rIK, erp->rRK_len) < 0) {
+			    "Re-authentication Integrity Key@ietf.org",
+			    ctx, sizeof(ctx), erp->rIK, erp->rRK_len) < 0) {
 		wpa_printf(MSG_DEBUG, "EAP: Could not derive rIK for ERP");
 		goto fail;
 	}
@@ -1965,6 +1967,44 @@ const u8 * eap_get_identity(struct eap_sm *sm, size_t *len)
 {
 	*len = sm->identity_len;
 	return sm->identity;
+}
+
+
+void eap_erp_update_identity(struct eap_sm *sm, const u8 *eap, size_t len)
+{
+#ifdef CONFIG_ERP
+	const struct eap_hdr *hdr;
+	const u8 *pos, *end;
+	struct erp_tlvs parse;
+
+	if (len < sizeof(*hdr) + 1)
+		return;
+	hdr = (const struct eap_hdr *) eap;
+	end = eap + len;
+	pos = (const u8 *) (hdr + 1);
+	if (hdr->code != EAP_CODE_INITIATE || *pos != EAP_ERP_TYPE_REAUTH)
+		return;
+	pos++;
+	if (pos + 3 > end)
+		return;
+
+	/* Skip Flags and SEQ */
+	pos += 3;
+
+	if (erp_parse_tlvs(pos, end, &parse, 1) < 0 || !parse.keyname)
+		return;
+	wpa_hexdump_ascii(MSG_DEBUG,
+			  "EAP: Update identity based on EAP-Initiate/Re-auth keyName-NAI",
+			  parse.keyname, parse.keyname_len);
+	os_free(sm->identity);
+	sm->identity = os_malloc(parse.keyname_len);
+	if (sm->identity) {
+		os_memcpy(sm->identity, parse.keyname, parse.keyname_len);
+		sm->identity_len = parse.keyname_len;
+	} else {
+		sm->identity_len = 0;
+	}
+#endif /* CONFIG_ERP */
 }
 
 

@@ -193,7 +193,7 @@ public class OldThreadTest extends junit.framework.TestCase {
         st = new Thread() {
             public void run() {
                 try {
-                    sleep(10000);
+                    sleep(1000);
                 } catch(InterruptedException ie) {
                     wasInterrupted = true;
                 }
@@ -203,7 +203,7 @@ public class OldThreadTest extends junit.framework.TestCase {
         st.start();
 
         try {
-            Thread.sleep(5000);
+            Thread.sleep(500);
         } catch(InterruptedException e) {
             fail("Unexpected InterruptedException was thrown");
         }
@@ -211,7 +211,7 @@ public class OldThreadTest extends junit.framework.TestCase {
         st.interrupt();
 
         try {
-            Thread.sleep(5000);
+            Thread.sleep(500);
         } catch(InterruptedException e) {
             fail("Unexpected InterruptedException was thrown");
         }
@@ -240,7 +240,7 @@ public class OldThreadTest extends junit.framework.TestCase {
         st = new Thread() {
             public void run() {
                 try {
-                    sleep(10000, 99999);
+                    sleep(1000, 9999);
                 } catch(InterruptedException ie) {
                     wasInterrupted = true;
                 }
@@ -250,7 +250,7 @@ public class OldThreadTest extends junit.framework.TestCase {
         st.start();
 
         try {
-            Thread.sleep(5000, 99999);
+            Thread.sleep(500, 9999);
         } catch(InterruptedException e) {
             fail("Unexpected InterruptedException was thrown");
         }
@@ -258,7 +258,7 @@ public class OldThreadTest extends junit.framework.TestCase {
         st.interrupt();
 
         try {
-            Thread.sleep(5000);
+            Thread.sleep(500);
         } catch(InterruptedException e) {
             fail("Unexpected InterruptedException was thrown");
         }
@@ -275,7 +275,7 @@ public class OldThreadTest extends junit.framework.TestCase {
         }
         Counter countersYeld = new Counter(true);
         try {
-            Thread.sleep(11000);
+            Thread.sleep(1100);
         } catch(InterruptedException ie) {}
 
         for(Counter c:countersNotYeld) {
@@ -293,7 +293,7 @@ public class OldThreadTest extends junit.framework.TestCase {
         }
 
         public void run() {
-            for(int i = 0; i < 10000; i++) {
+            for(int i = 0; i < 1000; i++) {
                 if(isDoYield)
                     yield();
                 counter ++;

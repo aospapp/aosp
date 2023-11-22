@@ -52,18 +52,26 @@ char *fdt_read_string(const char *prop)
 	fseek(file, 0, SEEK_END);
 	size = ftell(file);
 	data = malloc(size + 1);
-	if (!data)
-		return NULL;
+	if (!data) {
+		goto out_close;
+	}
 	data[size] = '\0';
 
 	rewind(file);
 	if (fread(data, 1, size, file) != size) {
 		ALOGD("Unable to read FDT property %s\n", prop);
-		return NULL;
+		goto out_free;
 	}
 	fclose(file);
 
 	return data;
+
+out_free:
+	free(data);
+
+out_close:
+	fclose(file);
+	return NULL;
 }
 
 uint32_t fdt_read_u32(const char *prop)
@@ -80,6 +88,7 @@ uint32_t fdt_read_u32(const char *prop)
 	}
 	if (fread(&data, 1, sizeof(data), file) != sizeof(data)) {
 		ALOGD("Unable to read FDT property %s\n", prop);
+		fclose(file);
 		return -1U;
 	}
 	fclose(file);

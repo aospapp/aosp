@@ -70,7 +70,7 @@ if [ -n "${STATUS}" ]; then
   STATUS_OPT="-s ${STATUS}"
 fi
 
-if [ -z "${ROLE}" ] && [ -z "${STATUS}" ] && [ -z "${HOSTNAME}"]; then
+if [ -z "${ROLE}" ] && [ -z "${STATUS}" ] && [ -z "${HOSTNAME}" ]; then
   echo "You must specify at least one of -r, -s or -n"
   exit 1
 fi

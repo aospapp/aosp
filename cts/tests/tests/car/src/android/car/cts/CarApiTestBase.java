@@ -26,6 +26,7 @@ import android.test.AndroidTestCase;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
+
 public class CarApiTestBase extends AndroidTestCase {
     protected static final long DEFAULT_WAIT_TIMEOUT_MS = 1000;
 

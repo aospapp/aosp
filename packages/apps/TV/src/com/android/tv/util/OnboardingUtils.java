@@ -36,12 +36,12 @@ public final class OnboardingUtils {
     private static final String PREF_KEY_ONBOARDING_VERSION_CODE = "pref_onbaording_versionCode";
     private static final int ONBOARDING_VERSION = 1;
 
-    private static final String MERCHANT_COLLECTION_URL_STRING =
-            "TODO: put a market link to show TV input apps";
+    private static final String MERCHANT_COLLECTION_URL_STRING = getMerchantCollectionUrl();
+
     /**
-     * Intent to show merchant collection in play store.
+     * Intent to show merchant collection in online store.
      */
-    public static final Intent PLAY_STORE_INTENT = new Intent(Intent.ACTION_VIEW,
+    public static final Intent ONLINE_STORE_INTENT = new Intent(Intent.ACTION_VIEW,
             Uri.parse(MERCHANT_COLLECTION_URL_STRING));
 
     /**
@@ -111,5 +111,12 @@ public final class OnboardingUtils {
     public static boolean areInputsAvailable(Context context) {
         return TvApplication.getSingletons(context).getTvInputManagerHelper()
                 .getTvInputInfos(true, false).size() > 0;
+    }
+
+    /**
+     * Returns merchant collection URL.
+     */
+    private static String getMerchantCollectionUrl() {
+        return "TODO: add a merchant collection url";
     }
 }

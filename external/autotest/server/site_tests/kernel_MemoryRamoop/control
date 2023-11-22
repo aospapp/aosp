@@ -9,7 +9,6 @@ TIME = 'SHORT'
 TEST_CLASS = 'kernel'
 TEST_TYPE = 'server'
 ATTRIBUTES = "suite:experimental"
-SUITE = 'experimental'
 
 DOC = """
 This test verify that /dev/pstore/console-ramoops is preserved correctly

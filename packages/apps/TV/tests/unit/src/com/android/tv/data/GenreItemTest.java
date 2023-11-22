@@ -18,9 +18,8 @@ package com.android.tv.data;
 
 import android.media.tv.TvContract.Programs.Genres;
 import android.os.Build;
-import android.support.test.filters.SdkSuppress;
+import android.support.test.filters.SmallTest;
 import android.test.AndroidTestCase;
-import android.test.suitebuilder.annotation.SmallTest;
 
 /**
  * Tests for {@link Channel}.

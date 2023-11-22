@@ -32,6 +32,7 @@ import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v7.widget.RecyclerView;
 import android.support.v7.widget.RecyclerView.RecycledViewPool;
+import android.text.Html;
 import android.text.Spannable;
 import android.text.SpannableString;
 import android.text.TextUtils;
@@ -41,13 +42,22 @@ import android.util.TypedValue;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewParent;
+import android.view.ViewTreeObserver;
+import android.view.accessibility.AccessibilityManager;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import com.android.tv.R;
 import com.android.tv.TvApplication;
+import com.android.tv.common.feature.CommonFeatures;
 import com.android.tv.data.Channel;
 import com.android.tv.data.Program;
+import com.android.tv.data.Program.CriticScore;
+import com.android.tv.dvr.DvrDataManager;
+import com.android.tv.dvr.DvrManager;
+import com.android.tv.dvr.ScheduledRecording;
 import com.android.tv.guide.ProgramManager.TableEntriesUpdatedListener;
 import com.android.tv.parental.ParentalControlSettings;
 import com.android.tv.ui.HardwareLayerAnimatorListenerAdapter;
@@ -70,11 +80,16 @@ public class ProgramTableAdapter extends RecyclerView.Adapter<ProgramTableAdapte
 
     private final Context mContext;
     private final TvInputManagerHelper mTvInputManagerHelper;
+    private final DvrManager mDvrManager;
+    private final DvrDataManager mDvrDataManager;
     private final ProgramManager mProgramManager;
+    private final AccessibilityManager mAccessibilityManager;
     private final ProgramGuide mProgramGuide;
     private final Handler mHandler = new Handler();
     private final List<ProgramListAdapter> mProgramListAdapters = new ArrayList<>();
     private final RecycledViewPool mRecycledViewPool;
+    // views to be be reused when displaying critic scores
+    private final List<LinearLayout> mCriticScoreViews;
 
     private final int mChannelLogoWidth;
     private final int mChannelLogoHeight;
@@ -89,11 +104,27 @@ public class ProgramTableAdapter extends RecyclerView.Adapter<ProgramTableAdapte
     private final int mAnimationDuration;
     private final int mDetailPadding;
     private final TextAppearanceSpan mEpisodeTitleStyle;
+    private final String mProgramRecordableText;
+    private final String mRecordingScheduledText;
+    private final String mRecordingConflictText;
+    private final String mRecordingFailedText;
+    private final String mRecordingInProgressText;
+    private final int mDvrPaddingStartWithTrack;
+    private final int mDvrPaddingStartWithOutTrack;
 
     public ProgramTableAdapter(Context context, ProgramManager programManager,
             ProgramGuide programGuide) {
         mContext = context;
+        mAccessibilityManager =
+                (AccessibilityManager) context.getSystemService(Context.ACCESSIBILITY_SERVICE);
         mTvInputManagerHelper = TvApplication.getSingletons(context).getTvInputManagerHelper();
+        if (CommonFeatures.DVR.isEnabled(context)) {
+            mDvrManager = TvApplication.getSingletons(context).getDvrManager();
+            mDvrDataManager = TvApplication.getSingletons(context).getDvrDataManager();
+        } else {
+            mDvrManager = null;
+            mDvrDataManager = null;
+        }
         mProgramManager = programManager;
         mProgramGuide = programGuide;
 
@@ -110,26 +141,36 @@ public class ProgramTableAdapter extends RecyclerView.Adapter<ProgramTableAdapte
                 R.string.program_title_for_no_information);
         mProgramTitleForBlockedChannel = res.getString(
                 R.string.program_title_for_blocked_channel);
-        mChannelTextColor = Utils.getColor(res,
-                R.color.program_guide_table_header_column_channel_number_text_color);
-        mChannelBlockedTextColor = Utils.getColor(res,
-                R.color.program_guide_table_header_column_channel_number_blocked_text_color);
-        mDetailTextColor = Utils.getColor(res,
-                R.color.program_guide_table_detail_title_text_color);
-        mDetailGrayedTextColor = Utils.getColor(res,
-                R.color.program_guide_table_detail_title_grayed_text_color);
+        mChannelTextColor = res.getColor(
+                R.color.program_guide_table_header_column_channel_number_text_color, null);
+        mChannelBlockedTextColor = res.getColor(
+                R.color.program_guide_table_header_column_channel_number_blocked_text_color, null);
+        mDetailTextColor = res.getColor(
+                R.color.program_guide_table_detail_title_text_color, null);
+        mDetailGrayedTextColor = res.getColor(
+                R.color.program_guide_table_detail_title_grayed_text_color, null);
         mAnimationDuration =
                 res.getInteger(R.integer.program_guide_table_detail_fade_anim_duration);
         mDetailPadding = res.getDimensionPixelOffset(
                 R.dimen.program_guide_table_detail_padding);
+        mProgramRecordableText = res.getString(R.string.dvr_epg_program_recordable);
+        mRecordingScheduledText = res.getString(R.string.dvr_epg_program_recording_scheduled);
+        mRecordingConflictText = res.getString(R.string.dvr_epg_program_recording_conflict);
+        mRecordingFailedText = res.getString(R.string.dvr_epg_program_recording_failed);
+        mRecordingInProgressText = res.getString(R.string.dvr_epg_program_recording_in_progress);
+        mDvrPaddingStartWithTrack = res.getDimensionPixelOffset(
+                R.dimen.program_guide_table_detail_dvr_margin_start);
+        mDvrPaddingStartWithOutTrack = res.getDimensionPixelOffset(
+                R.dimen.program_guide_table_detail_dvr_margin_start_without_track);
 
         int episodeTitleSize = res.getDimensionPixelSize(
                 R.dimen.program_guide_table_detail_episode_title_text_size);
         ColorStateList episodeTitleColor = ColorStateList.valueOf(
-                Utils.getColor(res, R.color.program_guide_table_detail_episode_title_text_color));
+                res.getColor(R.color.program_guide_table_detail_episode_title_text_color, null));
         mEpisodeTitleStyle = new TextAppearanceSpan(null, 0, episodeTitleSize,
                 episodeTitleColor, null);
 
+        mCriticScoreViews = new ArrayList<>();
         mRecycledViewPool = new RecycledViewPool();
         mRecycledViewPool.setMaxRecycledViews(R.layout.program_guide_table_item,
                 context.getResources().getInteger(
@@ -137,12 +178,7 @@ public class ProgramTableAdapter extends RecyclerView.Adapter<ProgramTableAdapte
         mProgramManager.addListener(new ProgramManager.ListenerAdapter() {
             @Override
             public void onChannelsUpdated() {
-                mHandler.post(new Runnable() {
-                    @Override
-                    public void run() {
-                        update();
-                    }
-                });
+                update();
             }
         });
         update();
@@ -180,6 +216,15 @@ public class ProgramTableAdapter extends RecyclerView.Adapter<ProgramTableAdapte
     }
 
     @Override
+    public void onBindViewHolder(ProgramRowHolder holder, int position, List<Object> payloads) {
+        if (!payloads.isEmpty()) {
+            holder.updateDetailView();
+        } else {
+            super.onBindViewHolder(holder, position, payloads);
+        }
+    }
+
+    @Override
     public ProgramRowHolder onCreateViewHolder(ViewGroup parent, int viewType) {
         View itemView = LayoutInflater.from(parent.getContext()).inflate(viewType, parent, false);
         ProgramRow programRow = (ProgramRow) itemView.findViewById(R.id.row);
@@ -193,6 +238,17 @@ public class ProgramTableAdapter extends RecyclerView.Adapter<ProgramTableAdapte
         int pos = mProgramManager.getProgramIdIndex(tableEntry.channelId, tableEntry.getId());
         if (DEBUG) Log.d(TAG, "update(" + channelIndex + ", " + pos + ")");
         mProgramListAdapters.get(channelIndex).notifyItemChanged(pos, tableEntry);
+        notifyItemChanged(channelIndex, true);
+    }
+
+    @Override
+    public void onViewAttachedToWindow(ProgramRowHolder holder) {
+        holder.onAttachedToWindow();
+    }
+
+    @Override
+    public void onViewDetachedFromWindow(ProgramRowHolder holder) {
+        holder.onDetachedFromWindow();
     }
 
     // TODO: make it static
@@ -222,15 +278,29 @@ public class ProgramTableAdapter extends RecyclerView.Adapter<ProgramTableAdapte
             }
         };
 
+        private final ViewTreeObserver.OnGlobalFocusChangeListener mGlobalFocusChangeListener =
+                new ViewTreeObserver.OnGlobalFocusChangeListener() {
+                    @Override
+                    public void onGlobalFocusChanged(View oldFocus, View newFocus) {
+                        onChildFocus(isChild(oldFocus) ? oldFocus : null,
+                                isChild(newFocus) ? newFocus : null);
+                    }
+                };
+
         // Members of Program Details
         private final ViewGroup mDetailView;
         private final ImageView mImageView;
         private final ImageView mBlockView;
         private final TextView mTitleView;
         private final TextView mTimeView;
+        private final LinearLayout mCriticScoresLayout;
         private final TextView mDescriptionView;
         private final TextView mAspectRatioView;
         private final TextView mResolutionView;
+        private final ImageView mDvrIconView;
+        private final TextView mDvrTextIconView;
+        private final TextView mDvrStatusView;
+        private final ViewGroup mDvrIndicator;
 
         // Members of Channel Header
         private Channel mChannel;
@@ -257,6 +327,11 @@ public class ProgramTableAdapter extends RecyclerView.Adapter<ProgramTableAdapte
             mDescriptionView = (TextView) mDetailView.findViewById(R.id.desc);
             mAspectRatioView = (TextView) mDetailView.findViewById(R.id.aspect_ratio);
             mResolutionView = (TextView) mDetailView.findViewById(R.id.resolution);
+            mDvrIconView = (ImageView) mDetailView.findViewById(R.id.dvr_icon);
+            mDvrTextIconView = (TextView) mDetailView.findViewById(R.id.dvr_text_icon);
+            mDvrStatusView = (TextView) mDetailView.findViewById(R.id.dvr_status);
+            mDvrIndicator = (ViewGroup) mContainer.findViewById(R.id.dvr_indicator);
+            mCriticScoresLayout = (LinearLayout) mDetailView.findViewById(R.id.critic_scores);
 
             mChannelHeaderView = mContainer.findViewById(R.id.header_column);
             mChannelNumberView = (TextView) mContainer.findViewById(R.id.channel_number);
@@ -264,6 +339,16 @@ public class ProgramTableAdapter extends RecyclerView.Adapter<ProgramTableAdapte
             mChannelLogoView = (ImageView) mContainer.findViewById(R.id.channel_logo);
             mChannelBlockView = (ImageView) mContainer.findViewById(R.id.channel_block);
             mInputLogoView = (ImageView) mContainer.findViewById(R.id.input_logo);
+            mDetailView.setFocusable(mAccessibilityManager.isEnabled());
+            mChannelHeaderView.setFocusable(mAccessibilityManager.isEnabled());
+            mAccessibilityManager.addAccessibilityStateChangeListener(
+                    new AccessibilityManager.AccessibilityStateChangeListener() {
+                        @Override
+                        public void onAccessibilityStateChanged(boolean enable) {
+                            mDetailView.setFocusable(enable);
+                            mChannelHeaderView.setFocusable(enable);
+                        }
+                    });
         }
 
         public void onBind(int position) {
@@ -331,12 +416,32 @@ public class ProgramTableAdapter extends RecyclerView.Adapter<ProgramTableAdapte
             }
         }
 
+        public boolean isChild(View view) {
+            if (view == null) {
+                return false;
+            }
+            for (ViewParent p = view.getParent(); p != null; p = p.getParent()) {
+                if (p == mContainer) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
         @Override
         public void onChildFocus(View oldFocus, View newFocus) {
             if (newFocus == null) {
                 return;
             }
-            mSelectedEntry = ((ProgramItemView) newFocus).getTableEntry();
+            // When the accessibility service is enabled, focus might be put on channel's header or
+            // detail view, besides program items.
+            if (newFocus == mChannelHeaderView) {
+                mSelectedEntry = ((ProgramItemView) mProgramRow.getChildAt(0)).getTableEntry();
+            } else if (newFocus == mDetailView) {
+                return;
+            } else {
+                mSelectedEntry = ((ProgramItemView) newFocus).getTableEntry();
+            }
             if (oldFocus == null) {
                 updateDetailView();
                 return;
@@ -403,7 +508,23 @@ public class ProgramTableAdapter extends RecyclerView.Adapter<ProgramTableAdapte
                     });
         }
 
+        private void onAttachedToWindow() {
+            mContainer.getViewTreeObserver()
+                    .addOnGlobalFocusChangeListener(mGlobalFocusChangeListener);
+        }
+
+        private void onDetachedFromWindow() {
+            mContainer.getViewTreeObserver()
+                    .removeOnGlobalFocusChangeListener(mGlobalFocusChangeListener);
+        }
+
         private void updateDetailView() {
+            if (mSelectedEntry == null) {
+                // The view holder is never on focus before.
+                return;
+            }
+            if (DEBUG) Log.d(TAG, "updateDetailView");
+            mCriticScoresLayout.removeAllViews();
             if (Program.isValid(mSelectedEntry.program)) {
                 mTitleView.setTextColor(mDetailTextColor);
                 Context context = itemView.getContext();
@@ -417,11 +538,11 @@ public class ProgramTableAdapter extends RecyclerView.Adapter<ProgramTableAdapte
                             createProgramPosterArtCallback(this, program));
                 }
 
-                if (TextUtils.isEmpty(program.getEpisodeTitle())) {
+                String episodeTitle = program.getEpisodeDisplayTitle(mContext);
+                if (TextUtils.isEmpty(episodeTitle)) {
                     mTitleView.setText(program.getTitle());
                 } else {
                     String title = program.getTitle();
-                    String episodeTitle = program.getEpisodeDisplayTitle(mContext);
                     String fullTitle = title + "  " + episodeTitle;
 
                     SpannableString text = new SpannableString(fullTitle);
@@ -435,6 +556,65 @@ public class ProgramTableAdapter extends RecyclerView.Adapter<ProgramTableAdapte
                         program.getStartTimeUtcMillis(),
                         program.getEndTimeUtcMillis(), false));
 
+                boolean trackMetaDataVisible = false;
+                trackMetaDataVisible |=
+                        updateTextView(mAspectRatioView, Utils.getAspectRatioString(
+                        program.getVideoWidth(), program.getVideoHeight()));
+
+                int videoDefinitionLevel = Utils.getVideoDefinitionLevelFromSize(
+                        program.getVideoWidth(), program.getVideoHeight());
+                trackMetaDataVisible |=
+                        updateTextView(mResolutionView, Utils.getVideoDefinitionLevelString(
+                        context, videoDefinitionLevel));
+
+                if (mDvrManager != null && mDvrManager.isProgramRecordable(program)) {
+                    ScheduledRecording scheduledRecording =
+                            mDvrDataManager.getScheduledRecordingForProgramId(program.getId());
+                    String statusText = mProgramRecordableText;
+                    int iconResId = 0;
+                    if (scheduledRecording != null) {
+                        if (mDvrManager.isConflicting(scheduledRecording)) {
+                            iconResId = R.drawable.ic_warning_white_12dp;
+                            statusText = mRecordingConflictText;
+                        } else {
+                            switch (scheduledRecording.getState()) {
+                                case ScheduledRecording.STATE_RECORDING_IN_PROGRESS:
+                                    iconResId = R.drawable.ic_recording_program;
+                                    statusText = mRecordingInProgressText;
+                                    break;
+                                case ScheduledRecording.STATE_RECORDING_NOT_STARTED:
+                                    iconResId = R.drawable.ic_scheduled_white;
+                                    statusText = mRecordingScheduledText;
+                                    break;
+                                case ScheduledRecording.STATE_RECORDING_FAILED:
+                                    iconResId = R.drawable.ic_warning_white_12dp;
+                                    statusText = mRecordingFailedText;
+                                    break;
+                                default:
+                                    iconResId = 0;
+                            }
+                        }
+                    }
+                    if (iconResId == 0) {
+                        mDvrIconView.setVisibility(View.GONE);
+                        mDvrTextIconView.setVisibility(View.VISIBLE);
+                    } else {
+                        mDvrTextIconView.setVisibility(View.GONE);
+                        mDvrIconView.setImageResource(iconResId);
+                        mDvrIconView.setVisibility(View.VISIBLE);
+                    }
+                    if (!trackMetaDataVisible) {
+                        mDvrIndicator.setPaddingRelative(mDvrPaddingStartWithOutTrack, 0, 0, 0);
+                    } else {
+                        mDvrIndicator.setPaddingRelative(mDvrPaddingStartWithTrack, 0, 0, 0);
+                    }
+                    mDvrIndicator.setVisibility(View.VISIBLE);
+                    mDvrStatusView.setText(statusText);
+                } else {
+                    mDvrIndicator.setVisibility(View.GONE);
+                }
+
+
                 if (blockedRating == null) {
                     mBlockView.setVisibility(View.GONE);
                     updateTextView(mDescriptionView, program.getDescription());
@@ -442,14 +622,6 @@ public class ProgramTableAdapter extends RecyclerView.Adapter<ProgramTableAdapte
                     mBlockView.setVisibility(View.VISIBLE);
                     updateTextView(mDescriptionView, getBlockedDescription(blockedRating));
                 }
-
-                updateTextView(mAspectRatioView, Utils.getAspectRatioString(
-                        program.getVideoWidth(), program.getVideoHeight()));
-
-                int videoDefinitionLevel = Utils.getVideoDefinitionLevelFromSize(
-                        program.getVideoWidth(), program.getVideoHeight());
-                updateTextView(mResolutionView, Utils.getVideoDefinitionLevelString(
-                        context, videoDefinitionLevel));
             } else {
                 mTitleView.setTextColor(mDetailGrayedTextColor);
                 if (mSelectedEntry.isBlocked()) {
@@ -460,6 +632,7 @@ public class ProgramTableAdapter extends RecyclerView.Adapter<ProgramTableAdapte
                 mImageView.setVisibility(View.GONE);
                 mBlockView.setVisibility(View.GONE);
                 mTimeView.setVisibility(View.GONE);
+                mDvrIndicator.setVisibility(View.GONE);
                 mDescriptionView.setVisibility(View.GONE);
                 mAspectRatioView.setVisibility(View.GONE);
                 mResolutionView.setVisibility(View.GONE);
@@ -526,12 +699,16 @@ public class ProgramTableAdapter extends RecyclerView.Adapter<ProgramTableAdapte
             }
         }
 
-        private void updateTextView(TextView textView, String text) {
+        // The return value of this method will indicate the target view is visible (true)
+        // or gone (false).
+        private boolean updateTextView(TextView textView, String text) {
             if (!TextUtils.isEmpty(text)) {
                 textView.setVisibility(View.VISIBLE);
                 textView.setText(text);
+                return true;
             } else {
                 textView.setVisibility(View.GONE);
+                return false;
             }
         }
 
@@ -554,12 +731,49 @@ public class ProgramTableAdapter extends RecyclerView.Adapter<ProgramTableAdapte
             mInputLogoView.setVisibility(View.VISIBLE);
         }
 
+        private void updateCriticScoreView(ProgramRowHolder holder, final long programId,
+                CriticScore criticScore, View view) {
+            TextView criticScoreSource = (TextView) view.findViewById(R.id.critic_score_source);
+            TextView criticScoreText = (TextView) view.findViewById(R.id.critic_score_score);
+            ImageView criticScoreLogo = (ImageView) view.findViewById(R.id.critic_score_logo);
+
+            //set the appropriate information in the views
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+                criticScoreSource.setText(Html.fromHtml(criticScore.source,
+                        Html.FROM_HTML_MODE_LEGACY));
+            } else {
+                criticScoreSource.setText(Html.fromHtml(criticScore.source));
+            }
+            criticScoreText.setText(criticScore.score);
+            criticScoreSource.setVisibility(View.VISIBLE);
+            criticScoreText.setVisibility(View.VISIBLE);
+            ImageLoader.loadBitmap(mContext, criticScore.logoUrl,
+                    createCriticScoreLogoCallback(holder, programId, criticScoreLogo));
+        }
+
         private void onHorizontalScrolled() {
             if (mDetailInAnimator != null) {
                 mHandler.removeCallbacks(mDetailInStarter);
                 mHandler.postDelayed(mDetailInStarter, mAnimationDuration);
             }
         }
+    }
+
+    private static ImageLoaderCallback<ProgramRowHolder> createCriticScoreLogoCallback(
+            ProgramRowHolder holder, final long programId, ImageView logoView) {
+        return new ImageLoaderCallback<ProgramRowHolder>(holder) {
+            @Override
+            public void onBitmapLoaded(ProgramRowHolder holder, @Nullable Bitmap logoImage) {
+                if (logoImage == null || holder.mSelectedEntry == null
+                        || holder.mSelectedEntry.program == null
+                        || holder.mSelectedEntry.program.getId() != programId) {
+                    logoView.setVisibility(View.GONE);
+                } else {
+                    logoView.setImageBitmap(logoImage);
+                    logoView.setVisibility(View.VISIBLE);
+                }
+            }
+        };
     }
 
     private static ImageLoaderCallback<ProgramRowHolder> createProgramPosterArtCallback(
@@ -599,7 +813,7 @@ public class ProgramTableAdapter extends RecyclerView.Adapter<ProgramTableAdapte
         return new ImageLoaderCallback<ProgramRowHolder>(holder) {
             @Override
             public void onBitmapLoaded(ProgramRowHolder holder, @Nullable Bitmap logo) {
-                if (logo != null && info.getId()
+                if (logo != null && holder.mChannel != null && info.getId()
                         .equals(holder.mChannel.getInputId())) {
                     holder.updateInputLogoInternal(logo);
                 }

@@ -63,10 +63,12 @@ public class InstancesDebuggee extends SyncDebuggee {
 }
 
 class MockClass {
-	private boolean isReachable;
-	MockClass(boolean isReachable){
-		this.isReachable = isReachable;
-	}
+    @SuppressWarnings("unused")
+    private boolean isReachable;
+
+    MockClass(boolean isReachable) {
+        this.isReachable = isReachable;
+    }
 }
 
 

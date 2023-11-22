@@ -64,6 +64,8 @@ public class DatabaseUtilsTest extends AndroidTestCase {
                 "name TEXT, age INTEGER, address TEXT);");
         mDatabase.execSQL(
                 "CREATE TABLE blob_test (_id INTEGER PRIMARY KEY, name TEXT, data BLOB)");
+        mDatabase.execSQL(
+                "CREATE TABLE boolean_test (_id INTEGER PRIMARY KEY, value BOOLEAN)");
     }
 
     @Override
@@ -264,6 +266,22 @@ public class DatabaseUtilsTest extends AndroidTestCase {
         assertEquals("Mike", (String) contentValues.get("name"));
         assertEquals("20", (String) contentValues.get("age"));
         assertEquals("LA", (String) contentValues.get("address"));
+
+        mDatabase.execSQL("INSERT INTO boolean_test (value)" +
+                " VALUES (0);");
+        mDatabase.execSQL("INSERT INTO boolean_test (value)" +
+                " VALUES (1);");
+        cursor = mDatabase.query("boolean_test", new String[] {"value"},
+                null, null, null, null, null);
+        assertNotNull(cursor);
+
+        contentValues = new ContentValues();
+        cursor.moveToNext();
+        DatabaseUtils.cursorRowToContentValues(cursor, contentValues);
+        assertFalse(contentValues.getAsBoolean("value"));
+        cursor.moveToNext();
+        DatabaseUtils.cursorRowToContentValues(cursor, contentValues);
+        assertTrue(contentValues.getAsBoolean("value"));
     }
 
     public void testCursorStringToContentValues() {

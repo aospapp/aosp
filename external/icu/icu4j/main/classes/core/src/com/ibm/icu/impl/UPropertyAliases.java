@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  **********************************************************************
  * Copyright (c) 2002-2015, International Business Machines
@@ -67,6 +69,7 @@ public final class UPropertyAliases {
 
     private static final class IsAcceptable implements ICUBinary.Authenticate {
         // @Override when we switch to Java 6
+        @Override
         public boolean isDataVersionAcceptable(byte version[]) {
             return version[0]==2;
         }
@@ -184,7 +187,7 @@ public final class UPropertyAliases {
         // Find the end of this name.
         int nameStart=nameGroupsIndex;
         while(0!=nameGroups.charAt(nameGroupsIndex)) {
-            ++nameGroupsIndex;            
+            ++nameGroupsIndex;
         }
         if(nameStart==nameGroupsIndex) {
             return null;  // no name (Property[Value]Aliases.txt has "n/a")

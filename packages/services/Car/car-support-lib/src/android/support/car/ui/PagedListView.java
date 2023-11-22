@@ -38,6 +38,7 @@ import android.widget.TextView;
  * Custom {@link android.support.v7.widget.RecyclerView} that displays a list of items that
  * resembles a {@link android.widget.ListView} but also has page up and page down arrows
  * on the right side.
+ * @hide
  */
 public class PagedListView extends FrameLayout {
     private static final String TAG = "PagedListView";
@@ -84,6 +85,8 @@ public class PagedListView extends FrameLayout {
      * </pre>
      */
     public interface ItemCap {
+        public static final int UNLIMITED = -1;
+
         /**
          * Sets the maximum number of items available in the adapter. A value less than '0'
          * means the list should not be capped.

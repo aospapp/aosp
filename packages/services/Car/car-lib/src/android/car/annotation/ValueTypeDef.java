@@ -24,9 +24,10 @@ import java.lang.annotation.Target;
 /**
  * Annotation for specifying value type for key - value pair.
  * Key definition will have this annotation to specify what kind of value is expected from the key.
+ * @hide
  */
 @Target(ElementType.FIELD)
-@Retention(RetentionPolicy.RUNTIME)
+@Retention(RetentionPolicy.SOURCE)
 public @interface ValueTypeDef {
     Class type() default Object.class;
 }

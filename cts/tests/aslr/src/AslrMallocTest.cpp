@@ -17,7 +17,6 @@
 #define LOG_NDEBUG 0
 #define LOG_TAG "AslrMallocTest"
 
-#if !defined(BUILD_ONLY)
 #include <android-base/file.h>
 #include <android-base/parseint.h>
 #include <android-base/stringprintf.h>
@@ -30,7 +29,6 @@
 #include <sys/wait.h>
 #include <unistd.h>
 #include <unordered_set>
-#endif
 
 #include <gtest/gtest.h>
 #include <string>
@@ -50,7 +48,6 @@ const size_t allocSizes[] = {
  * performs malloc(size) and prints out the address */
 static const std::string argPrint = "--print-malloc-address";
 
-#if !defined(BUILD_ONLY)
 class AslrMallocTest : public ::testing::Test
 {
 protected:
@@ -135,13 +132,6 @@ protected:
         }
     }
 };
-#else /* defined(BUILD_ONLY) */
-class AslrMallocTest : public ::testing::Test
-{
-protected:
-    void TestRandomization() {}
-};
-#endif
 
 TEST_F(AslrMallocTest, testMallocRandomization) {
     TestRandomization();
@@ -149,7 +139,6 @@ TEST_F(AslrMallocTest, testMallocRandomization) {
 
 int main(int argc, char **argv)
 {
-#if !defined(BUILD_ONLY)
     if (argc == 3 && argPrint == argv[1]) {
         size_t size;
 
@@ -157,10 +146,11 @@ int main(int argc, char **argv)
             return EXIT_FAILURE;
         }
 
-        printf("%p", malloc(size));
+        void* p = malloc(size);
+        printf("%p", p);
+        free(p);
         return EXIT_SUCCESS;
     }
-#endif
 
     testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();

@@ -36,6 +36,7 @@ import android.widget.EditText;
 
 /**
  * Base class for a car app which wants to use a drawer.
+ * @hide
  */
 public abstract class CarDrawerActivity extends CarFragmentActivity {
     private static final String TAG = "CarDrawerActivity";

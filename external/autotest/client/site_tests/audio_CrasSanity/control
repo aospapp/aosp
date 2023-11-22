@@ -10,7 +10,6 @@ Test will fail if 1. cras is not running 2. cras crashes 3. active stream count
 does not match.
 '''
 ATTRIBUTES = "suite:bvt-cq, suite:partners"
-SUITE = 'bvt-cq, partners'
 TIME = 'MEDIUM'
 TEST_CATEGORY = 'General'
 TEST_CLASS = 'audio'
@@ -18,7 +17,8 @@ TEST_TYPE = 'client'
 JOB_RETRIES = 2
 BUG_TEMPLATE = {
     'owner': 'rohitbm@chromium.org',
-    'labels': ['Cr-OS-Kernel-Audio', 'OS-Chrome']
+    'labels': ['OS-Chrome'],
+    'components': ['OS>Kernel>Audio'],
 }
 
 DOC = '''

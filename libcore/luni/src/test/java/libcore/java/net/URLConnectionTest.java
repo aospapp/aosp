@@ -16,26 +16,31 @@
 
 package libcore.java.net;
 
-import com.android.okhttp.AndroidShimResponseCache;
-
 import com.google.mockwebserver.Dispatcher;
 import com.google.mockwebserver.MockResponse;
 import com.google.mockwebserver.MockWebServer;
 import com.google.mockwebserver.RecordedRequest;
 import com.google.mockwebserver.SocketPolicy;
-import org.mockito.invocation.InvocationOnMock;
-import org.mockito.stubbing.Answer;
+
+import com.android.okhttp.AndroidShimResponseCache;
+import com.android.okhttp.internal.Platform;
+import com.android.okhttp.internal.tls.TrustRootIndex;
+
+import junit.framework.TestCase;
+
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileDescriptor;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.Authenticator;
 import java.net.CacheRequest;
 import java.net.CacheResponse;
+import java.net.CookieHandler;
+import java.net.CookieManager;
 import java.net.HttpRetryException;
 import java.net.HttpURLConnection;
-import java.net.Inet6Address;
 import java.net.InetAddress;
 import java.net.PasswordAuthentication;
 import java.net.ProtocolException;
@@ -82,8 +87,8 @@ import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
 import libcore.java.security.TestKeyStore;
-import libcore.java.util.AbstractResourceLeakageDetectorTestCase;
 import libcore.javax.net.ssl.TestSSLContext;
+
 import tests.net.DelegatingSocketFactory;
 
 import static com.google.mockwebserver.SocketPolicy.DISCONNECT_AT_END;
@@ -91,21 +96,21 @@ import static com.google.mockwebserver.SocketPolicy.DISCONNECT_AT_START;
 import static com.google.mockwebserver.SocketPolicy.FAIL_HANDSHAKE;
 import static com.google.mockwebserver.SocketPolicy.SHUTDOWN_INPUT_AT_END;
 import static com.google.mockwebserver.SocketPolicy.SHUTDOWN_OUTPUT_AT_END;
-import static org.mockito.Matchers.any;
-import static org.mockito.Matchers.anyInt;
-import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.spy;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.fail;
 
-public final class URLConnectionTest extends AbstractResourceLeakageDetectorTestCase {
+public final class URLConnectionTest extends TestCase {
 
     private MockWebServer server;
     private AndroidShimResponseCache cache;
     private String hostName;
+    private List<TestSSLContext> testSSLContextsToClose;
 
     @Override protected void setUp() throws Exception {
         super.setUp();
         server = new MockWebServer();
         hostName = server.getHostName();
+        testSSLContextsToClose = new ArrayList<>();
     }
 
     @Override protected void tearDown() throws Exception {
@@ -122,6 +127,9 @@ public final class URLConnectionTest extends AbstractResourceLeakageDetectorTest
         if (cache != null) {
             cache.delete();
             cache = null;
+        }
+        for (TestSSLContext testSSLContext : testSSLContextsToClose) {
+            testSSLContext.close();
         }
         super.tearDown();
     }
@@ -150,7 +158,20 @@ public final class URLConnectionTest extends AbstractResourceLeakageDetectorTest
         // allow (but strip) trailing \n, \r and \r\n
         // assertForbiddenRequestHeaderValue("\r");
         // End of workaround
-        assertForbiddenRequestHeaderValue("\t");
+
+        // '\t' in header values can either be (a) forbidden or (b) allowed.
+        // The original version of Android N (API 23) implemented behavior
+        // (a), but OEMs can backport a fix that changes the behavior to (b).
+        // Therefore, this test has been relaxed for Android N CTS to allow
+        // either behavior. It is planned that future versions of Android only
+        // allow behavior (b).
+        try {
+            // throws IAE in case (a), passes in case (b)
+            assertEquals("a valid\tvalue", setAndReturnRequestHeaderValue("a valid\tvalue"));
+        } catch (IllegalArgumentException tolerated) {
+            // verify case (a)
+            assertForbiddenRequestHeaderValue("\t");
+        }
         assertForbiddenRequestHeaderValue("\u001f");
         assertForbiddenRequestHeaderValue("\u007f");
 
@@ -521,7 +542,7 @@ public final class URLConnectionTest extends AbstractResourceLeakageDetectorTest
     }
 
     public void testConnectViaHttps() throws IOException, InterruptedException {
-        TestSSLContext testSSLContext = TestSSLContext.create();
+        TestSSLContext testSSLContext = createDefaultTestSSLContext();
 
         server.useHttps(testSSLContext.serverContext.getSocketFactory(), false);
         server.enqueue(new MockResponse().setBody("this response comes via HTTPS"));
@@ -538,7 +559,7 @@ public final class URLConnectionTest extends AbstractResourceLeakageDetectorTest
     }
 
     public void testConnectViaHttpsReusingConnections() throws IOException, InterruptedException {
-        TestSSLContext testSSLContext = TestSSLContext.create();
+        TestSSLContext testSSLContext = createDefaultTestSSLContext();
         SSLSocketFactory clientSocketFactory = testSSLContext.clientContext.getSocketFactory();
 
         server.useHttps(testSSLContext.serverContext.getSocketFactory(), false);
@@ -560,7 +581,7 @@ public final class URLConnectionTest extends AbstractResourceLeakageDetectorTest
 
     public void testConnectViaHttpsReusingConnectionsDifferentFactories()
             throws IOException, InterruptedException {
-        TestSSLContext testSSLContext = TestSSLContext.create();
+        TestSSLContext testSSLContext = createDefaultTestSSLContext();
 
         server.useHttps(testSSLContext.serverContext.getSocketFactory(), false);
         server.enqueue(new MockResponse().setBody("this response comes via HTTPS"));
@@ -588,6 +609,7 @@ public final class URLConnectionTest extends AbstractResourceLeakageDetectorTest
     public void testConnectViaHttpsToUntrustedServer() throws IOException, InterruptedException {
         TestSSLContext testSSLContext = TestSSLContext.create(TestKeyStore.getClientCA2(),
                                                               TestKeyStore.getServer());
+        testSSLContextsToClose.add(testSSLContext);
 
         server.useHttps(testSSLContext.serverContext.getSocketFactory(), false);
         server.enqueue(new MockResponse()); // unused
@@ -604,49 +626,39 @@ public final class URLConnectionTest extends AbstractResourceLeakageDetectorTest
         assertEquals(0, server.getRequestCount());
     }
 
-    public void testConnectViaProxyUsingProxyArg() throws Exception {
-        testConnectViaProxy(ProxyConfig.CREATE_ARG, "http://android.com/foo", "android.com");
-    }
-
-    public void testConnectViaProxyUsingProxySystemProperty() throws Exception {
-        testConnectViaProxy(
-                ProxyConfig.PROXY_SYSTEM_PROPERTY, "http://android.com/foo", "android.com");
-    }
-
-    public void testConnectViaProxyUsingHttpProxySystemProperty() throws Exception {
-        testConnectViaProxy(
-                ProxyConfig.HTTP_PROXY_SYSTEM_PROPERTY, "http://android.com/foo", "android.com");
-    }
-
-    // Regression test for http://b/29983827 : ensure that a trailing "/" is not added to the
-    // HTTP request line when using a proxy.
     public void testConnectViaProxy_emptyPath() throws Exception {
-        testConnectViaProxy(
-                ProxyConfig.HTTP_PROXY_SYSTEM_PROPERTY, "http://android.com", "android.com");
-    }
-
-    public void testConnectViaProxy_rootPath() throws Exception {
-        testConnectViaProxy(
-                ProxyConfig.HTTP_PROXY_SYSTEM_PROPERTY, "http://android.com/", "android.com");
-    }
-
-    public void testConnectViaProxy_pathWithoutTrailingSlash() throws Exception {
-        testConnectViaProxy(
-                ProxyConfig.HTTP_PROXY_SYSTEM_PROPERTY, "http://android.com/foo", "android.com");
-    }
-
-    public void testConnectViaProxy_pathWithTrailingSlash() throws Exception {
-        testConnectViaProxy(
-                ProxyConfig.HTTP_PROXY_SYSTEM_PROPERTY, "http://android.com/foo/", "android.com");
+        // expected normalization http://android -> http://android/ per b/30107354
+        checkConnectViaProxy(
+                ProxyConfig.HTTP_PROXY_SYSTEM_PROPERTY, "http://android.com",
+                "http://android.com/", "android.com");
     }
 
     public void testConnectViaProxy_complexUrlWithNoPath() throws Exception {
-        testConnectViaProxy(ProxyConfig.HTTP_PROXY_SYSTEM_PROPERTY,
-                "http://android.com:8080?height=100&width=42", "android.com:8080");
+        checkConnectViaProxy(ProxyConfig.HTTP_PROXY_SYSTEM_PROPERTY,
+                "http://android.com:8080?height=100&width=42",
+                "http://android.com:8080/?height=100&width=42",
+                "android.com:8080");
     }
 
-    private void testConnectViaProxy(ProxyConfig proxyConfig, String urlString, String expectedHost)
-            throws Exception {
+    public void testConnectViaProxyUsingProxyArg() throws Exception {
+        checkConnectViaProxy(ProxyConfig.CREATE_ARG);
+    }
+
+    public void testConnectViaProxyUsingProxySystemProperty() throws Exception {
+        checkConnectViaProxy(ProxyConfig.PROXY_SYSTEM_PROPERTY);
+    }
+
+    public void testConnectViaProxyUsingHttpProxySystemProperty() throws Exception {
+        checkConnectViaProxy(ProxyConfig.HTTP_PROXY_SYSTEM_PROPERTY);
+    }
+
+    private void checkConnectViaProxy(ProxyConfig proxyConfig) throws Exception {
+        checkConnectViaProxy(proxyConfig,
+                "http://android.com/foo", "http://android.com/foo", "android.com");
+    }
+
+    private void checkConnectViaProxy(ProxyConfig proxyConfig, String urlString,
+            String expectedUrlInRequestLine, String expectedHost) throws Exception {
         MockResponse mockResponse = new MockResponse().setBody("this response comes via a proxy");
         server.enqueue(mockResponse);
         server.play();
@@ -656,7 +668,7 @@ public final class URLConnectionTest extends AbstractResourceLeakageDetectorTest
         assertContent("this response comes via a proxy", connection);
 
         RecordedRequest request = server.takeRequest();
-        assertEquals("GET " + urlString + " HTTP/1.1", request.getRequestLine());
+        assertEquals("GET " + expectedUrlInRequestLine + " HTTP/1.1", request.getRequestLine());
         assertContains(request.getHeaders(), "Host: " + expectedHost);
     }
 
@@ -696,7 +708,7 @@ public final class URLConnectionTest extends AbstractResourceLeakageDetectorTest
     }
 
     private void testConnectViaDirectProxyToHttps(ProxyConfig proxyConfig) throws Exception {
-        TestSSLContext testSSLContext = TestSSLContext.create();
+        TestSSLContext testSSLContext = createDefaultTestSSLContext();
 
         server.useHttps(testSSLContext.serverContext.getSocketFactory(), false);
         server.enqueue(new MockResponse().setBody("this response comes via HTTPS"));
@@ -734,7 +746,7 @@ public final class URLConnectionTest extends AbstractResourceLeakageDetectorTest
      * through a proxy. http://b/3097277
      */
     private void testConnectViaHttpProxyToHttps(ProxyConfig proxyConfig) throws Exception {
-        TestSSLContext testSSLContext = TestSSLContext.create();
+        TestSSLContext testSSLContext = createDefaultTestSSLContext();
         RecordingHostnameVerifier hostnameVerifier = new RecordingHostnameVerifier();
 
         server.useHttps(testSSLContext.serverContext.getSocketFactory(), true);
@@ -754,7 +766,7 @@ public final class URLConnectionTest extends AbstractResourceLeakageDetectorTest
         RecordedRequest connect = server.takeRequest();
         assertEquals("Connect line failure on proxy",
                 "CONNECT android.com:443 HTTP/1.1", connect.getRequestLine());
-        assertContains(connect.getHeaders(), "Host: android.com");
+        assertContains(connect.getHeaders(), "Host: android.com:443");
 
         RecordedRequest get = server.takeRequest();
         assertEquals("GET /foo HTTP/1.1", get.getRequestLine());
@@ -767,7 +779,7 @@ public final class URLConnectionTest extends AbstractResourceLeakageDetectorTest
      * Tolerate bad https proxy response when using HttpResponseCache. http://b/6754912
      */
     public void testConnectViaHttpProxyToHttpsUsingBadProxyAndHttpResponseCache() throws Exception {
-        TestSSLContext testSSLContext = TestSSLContext.create();
+        TestSSLContext testSSLContext = createDefaultTestSSLContext();
 
         initResponseCache();
 
@@ -793,7 +805,7 @@ public final class URLConnectionTest extends AbstractResourceLeakageDetectorTest
 
         RecordedRequest connect = server.takeRequest();
         assertEquals("CONNECT android.com:443 HTTP/1.1", connect.getRequestLine());
-        assertContains(connect.getHeaders(), "Host: android.com");
+        assertContains(connect.getHeaders(), "Host: android.com:443");
     }
 
     private void initResponseCache() throws IOException {
@@ -941,10 +953,14 @@ public final class URLConnectionTest extends AbstractResourceLeakageDetectorTest
      */
     public void testProxyConnectIncludesProxyHeadersOnly()
             throws IOException, InterruptedException {
+        Authenticator.setDefault(new SimpleAuthenticator());
         RecordingHostnameVerifier hostnameVerifier = new RecordingHostnameVerifier();
-        TestSSLContext testSSLContext = TestSSLContext.create();
+        TestSSLContext testSSLContext = createDefaultTestSSLContext();
 
         server.useHttps(testSSLContext.serverContext.getSocketFactory(), true);
+        server.enqueue(new MockResponse()
+                .setResponseCode(407)
+                .addHeader("Proxy-Authenticate: Basic realm=\"localhost\""));
         server.enqueue(new MockResponse()
                 .setSocketPolicy(SocketPolicy.UPGRADE_TO_SSL_AT_END)
                 .clearHeaders());
@@ -955,18 +971,34 @@ public final class URLConnectionTest extends AbstractResourceLeakageDetectorTest
         HttpsURLConnection connection = (HttpsURLConnection) url.openConnection(
                 server.toProxyAddress());
         connection.addRequestProperty("Private", "Secret");
-        connection.addRequestProperty("Proxy-Authorization", "bar");
         connection.addRequestProperty("User-Agent", "baz");
         connection.setSSLSocketFactory(testSSLContext.clientContext.getSocketFactory());
         connection.setHostnameVerifier(hostnameVerifier);
         assertContent("encrypted response from the origin server", connection);
 
-        RecordedRequest connect = server.takeRequest();
-        assertContainsNoneMatching(connect.getHeaders(), "Private.*");
-        assertContains(connect.getHeaders(), "Proxy-Authorization: bar");
-        assertContains(connect.getHeaders(), "User-Agent: baz");
-        assertContains(connect.getHeaders(), "Host: android.com");
-        assertContains(connect.getHeaders(), "Proxy-Connection: Keep-Alive");
+        // connect1 and connect2 are tunnel requests which potentially tunnel multiple requests;
+        // Thus we can't expect its headers to exactly match those of the wrapped request.
+        // See https://github.com/square/okhttp/commit/457fb428a729c50c562822571ea9b13e689648f3
+
+        {
+            RecordedRequest connect1 = server.takeRequest();
+            List<String> headers = connect1.getHeaders();
+            assertContainsNoneMatching(headers, "Private.*");
+            assertContainsNoneMatching(headers, "Proxy\\-Authorization.*");
+            assertHeaderPresent(connect1, "User-Agent");
+            assertContains(headers, "Host: android.com:443");
+            assertContains(headers, "Proxy-Connection: Keep-Alive");
+        }
+
+        {
+            RecordedRequest connect2 = server.takeRequest();
+            List<String> headers = connect2.getHeaders();
+            assertContainsNoneMatching(headers, "Private.*");
+            assertHeaderPresent(connect2, "Proxy-Authorization");
+            assertHeaderPresent(connect2, "User-Agent");
+            assertContains(headers, "Host: android.com:443");
+            assertContains(headers, "Proxy-Connection: Keep-Alive");
+        }
 
         RecordedRequest get = server.takeRequest();
         assertContains(get.getHeaders(), "Private: Secret");
@@ -975,7 +1007,7 @@ public final class URLConnectionTest extends AbstractResourceLeakageDetectorTest
 
     public void testProxyAuthenticateOnConnect() throws Exception {
         Authenticator.setDefault(new SimpleAuthenticator());
-        TestSSLContext testSSLContext = TestSSLContext.create();
+        TestSSLContext testSSLContext = createDefaultTestSSLContext();
         server.useHttps(testSSLContext.serverContext.getSocketFactory(), true);
         server.enqueue(new MockResponse()
                 .setResponseCode(407)
@@ -1010,7 +1042,7 @@ public final class URLConnectionTest extends AbstractResourceLeakageDetectorTest
     // Don't disconnect after building a tunnel with CONNECT
     // http://code.google.com/p/android/issues/detail?id=37221
     public void testProxyWithConnectionClose() throws IOException {
-        TestSSLContext testSSLContext = TestSSLContext.create();
+        TestSSLContext testSSLContext = createDefaultTestSSLContext();
         server.useHttps(testSSLContext.serverContext.getSocketFactory(), true);
         server.enqueue(new MockResponse()
                 .setSocketPolicy(SocketPolicy.UPGRADE_TO_SSL_AT_END)
@@ -1045,6 +1077,67 @@ public final class URLConnectionTest extends AbstractResourceLeakageDetectorTest
             in.read();
             fail("Expected a connection closed exception");
         } catch (IOException expected) {
+        }
+    }
+
+    // http://b/33763156
+    public void testDisconnectDuringConnect_getInputStream() throws IOException {
+        checkDisconnectDuringConnect(HttpURLConnection::getInputStream);
+    }
+
+    // http://b/33763156
+    public void testDisconnectDuringConnect_getOutputStream() throws IOException {
+        checkDisconnectDuringConnect(HttpURLConnection::getOutputStream);
+    }
+
+    // http://b/33763156
+    public void testDisconnectDuringConnect_getResponseCode() throws IOException {
+        checkDisconnectDuringConnect(HttpURLConnection::getResponseCode);
+    }
+
+    // http://b/33763156
+    public void testDisconnectDuringConnect_getResponseMessage() throws IOException {
+        checkDisconnectDuringConnect(HttpURLConnection::getResponseMessage);
+    }
+
+    interface ConnectStrategy {
+        /**
+         * Causes the given {@code connection}, which was previously disconnected,
+         * to initiate the connection.
+         */
+        void connect(HttpURLConnection connection) throws IOException;
+    }
+
+    // http://b/33763156
+    private void checkDisconnectDuringConnect(ConnectStrategy connectStrategy) throws IOException {
+        server.enqueue(new MockResponse().setBody("This should never be sent"));
+        server.play();
+
+        final AtomicReference<HttpURLConnection> connectionHolder = new AtomicReference<>();
+        class DisconnectingCookieHandler extends CookieManager {
+            @Override
+            public Map<String, List<String>> get(URI uri, Map<String, List<String>> map)
+                    throws IOException {
+                Map<String, List<String>> result = super.get(uri, map);
+                connectionHolder.get().disconnect();
+                return result;
+            }
+        }
+        CookieHandler defaultCookieHandler = CookieHandler.getDefault();
+        try {
+            CookieHandler.setDefault(new DisconnectingCookieHandler());
+            HttpURLConnection connection = (HttpURLConnection) server.getUrl("/").openConnection();
+            connectionHolder.set(connection);
+            try {
+                connectStrategy.connect(connection);
+                fail();
+            } catch (IOException expected) {
+                assertEquals("Canceled", expected.getMessage());
+            } finally {
+                connection.disconnect();
+            }
+        } finally {
+            CookieHandler.setDefault(defaultCookieHandler);
         }
     }
 
@@ -1479,7 +1572,7 @@ public final class URLConnectionTest extends AbstractResourceLeakageDetectorTest
      * http://code.google.com/p/android/issues/detail?id=12860
      */
     private void testSecureStreamingPost(StreamingMode streamingMode) throws Exception {
-        TestSSLContext testSSLContext = TestSSLContext.create();
+        TestSSLContext testSSLContext = createDefaultTestSSLContext();
         server.useHttps(testSSLContext.serverContext.getSocketFactory(), false);
         server.enqueue(new MockResponse().setBody("Success!"));
         server.play();
@@ -1690,7 +1783,7 @@ public final class URLConnectionTest extends AbstractResourceLeakageDetectorTest
     }
 
     public void testRedirectedOnHttps() throws IOException, InterruptedException {
-        TestSSLContext testSSLContext = TestSSLContext.create();
+        TestSSLContext testSSLContext = createDefaultTestSSLContext();
         server.useHttps(testSSLContext.serverContext.getSocketFactory(), false);
         server.enqueue(new MockResponse()
                 .setResponseCode(HttpURLConnection.HTTP_MOVED_TEMP)
@@ -1712,7 +1805,7 @@ public final class URLConnectionTest extends AbstractResourceLeakageDetectorTest
     }
 
     public void testNotRedirectedFromHttpsToHttp() throws IOException, InterruptedException {
-        TestSSLContext testSSLContext = TestSSLContext.create();
+        TestSSLContext testSSLContext = createDefaultTestSSLContext();
         server.useHttps(testSSLContext.serverContext.getSocketFactory(), false);
         server.enqueue(new MockResponse()
                 .setResponseCode(HttpURLConnection.HTTP_MOVED_TEMP)
@@ -1831,8 +1924,10 @@ public final class URLConnectionTest extends AbstractResourceLeakageDetectorTest
 
             // The first URI will be the initial request. We want to inspect the redirect.
             URI uri = proxySelectorUris.get(1);
-            // The HttpURLConnectionImpl converts %0 -> %250. i.e. it escapes the %.
-            assertEquals(redirectPath + "?foo=%250&bar=%00", uri.toString());
+            // The proxy is selected by Address alone (not the whole target URI).
+            // In OkHttp, HttpEngine.createAddress() converts to an Address and the
+            // RouteSelector converts back to address.url().
+            assertEquals(server2.getUrl("/").toString(), uri.toString());
         } finally {
             ProxySelector.setDefault(originalSelector);
             server2.shutdown();
@@ -1949,7 +2044,7 @@ public final class URLConnectionTest extends AbstractResourceLeakageDetectorTest
         SSLSocketFactory defaultSSLSocketFactory = HttpsURLConnection.getDefaultSSLSocketFactory();
         HttpsURLConnection.setDefaultSSLSocketFactory(sc.getSocketFactory());
         try {
-            TestSSLContext testSSLContext = TestSSLContext.create();
+            TestSSLContext testSSLContext = createDefaultTestSSLContext();
             server.useHttps(testSSLContext.serverContext.getSocketFactory(), false);
             server.enqueue(new MockResponse().setBody("ABC"));
             server.enqueue(new MockResponse().setBody("DEF"));
@@ -2000,22 +2095,15 @@ public final class URLConnectionTest extends AbstractResourceLeakageDetectorTest
                 @Override
                 protected Socket configureSocket(Socket socket) throws IOException {
                     final int attemptNumber = socketCreationCount[0]++;
-                    Answer socketConnectAnswer = new Answer() {
-                        @Override public Object answer(InvocationOnMock invocation)
-                                throws Throwable {
-                            int timeoutArg = (int) invocation.getArguments()[1];
-                            socketConnectTimeouts[attemptNumber] = timeoutArg;
-                            throw new SocketTimeoutException(
-                                "Simulated timeout after " + timeoutArg);
+                    Socket socketWrapper = new DelegatingSocket(socket) {
+                        @Override
+                        public void connect(SocketAddress endpoint, int timeout)
+                                throws IOException {
+                            socketConnectTimeouts[attemptNumber] = timeout;
+                            throw new SocketTimeoutException("Simulated timeout after " + timeout);
                         }
                     };
-
-                    Socket socketSpy = spy(socket);
-                    // Create a partial mock that wraps the actual socket and intercepts the
-                    // connect(SocketAddress, int) method.
-                    doAnswer(socketConnectAnswer)
-                        .when(socketSpy).connect(any(SocketAddress.class), anyInt());
-                    return socketSpy;
+                    return socketWrapper;
                 }
             });
 
@@ -2283,8 +2371,13 @@ public final class URLConnectionTest extends AbstractResourceLeakageDetectorTest
         testUrlToRequestMapping("$", "$", "$");
         testUrlToUriMapping("&", "&", "&", "&", "&");
         testUrlToRequestMapping("&", "&", "&");
-        testUrlToUriMapping("'", "'", "'", "%27", "'");
-        testUrlToRequestMapping("'", "'", "%27");
+
+        // http://b/30405333 - upstream OkHttp encodes single quote (') as %27 in query parameters
+        // but this breaks iTunes remote apps: iTunes currently does not accept %27 so we have a
+        // local patch to retain the historic Android behavior of not encoding single quote.
+        testUrlToUriMapping("'", "'", "'", "'", "'");
+        testUrlToRequestMapping("'", "'", "'");
+
         testUrlToUriMapping("(", "(", "(", "(", "(");
         testUrlToRequestMapping("(", "(", "(");
         testUrlToUriMapping(")", ")", ")", ")", ")");
@@ -2685,6 +2778,14 @@ public final class URLConnectionTest extends AbstractResourceLeakageDetectorTest
         }
     }
 
+    public void testConnectIpv6() throws Exception {
+        server.enqueue(new MockResponse().setBody("testConnectIpv6 body"));
+        server.play();
+        URL url = new URL("http://[::1]:" + server.getPort() + "/");
+        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+        assertContent("testConnectIpv6 body", connection);
+    }
+
     // http://code.google.com/p/android/issues/detail?id=16895
     public void testUrlWithSpaceInHost() throws Exception {
         URLConnection urlConnection = new URL("http://and roid.com/").openConnection();
@@ -2710,98 +2811,55 @@ public final class URLConnectionTest extends AbstractResourceLeakageDetectorTest
         }
     }
 
-    public void testSslFallback_allSupportedProtocols() throws Exception {
-        TestSSLContext testSSLContext = TestSSLContext.create();
+    /** Checks that if the first TLS handshake fails, no fallback is attempted. */
+    private void checkNoFallbackOnFailedHandshake(SSLSocketFactory clientSocketFactory,
+            SSLSocketFactory serverSocketFactory,
+            String... expectedProtocols)
+            throws Exception {
+        server.useHttps(serverSocketFactory, false);
+        server.enqueue(new MockResponse().setSocketPolicy(FAIL_HANDSHAKE));
+        server.enqueue(new MockResponse().setBody("This required fallbacks"));
+        server.play();
 
-        String[] allSupportedProtocols = { "TLSv1.2", "TLSv1.1", "TLSv1", "SSLv3" };
+        HttpsURLConnection connection = (HttpsURLConnection) server.getUrl("/").openConnection();
+        // Keeps track of the client sockets created so that we can interrogate them.
+        final boolean disableFallbackScsv = true;
+        FallbackTestClientSocketFactory fallbackTestClientSocketFactory =
+                new FallbackTestClientSocketFactory(clientSocketFactory, disableFallbackScsv);
+        connection.setSSLSocketFactory(fallbackTestClientSocketFactory);
+        try {
+            connection.getInputStream().read();
+            fail();
+        } catch (SSLHandshakeException expected) {
+        }
+        List<SSLSocket> createdSockets = fallbackTestClientSocketFactory.getCreatedSockets();
+        assertEquals(1, createdSockets.size());
+        assertSslSocket((TlsFallbackDisabledScsvSSLSocket) createdSockets.get(0),
+                false /* expectedWasFallbackScsvSet */, expectedProtocols);
+    }
+
+    public void testNoSslFallback_specifiedProtocols() throws Exception {
+        String[] enabledProtocols = { "TLSv1.2", "TLSv1.1" };
+        TestSSLContext testSSLContext = createDefaultTestSSLContext();
         SSLSocketFactory serverSocketFactory =
                 new LimitedProtocolsSocketFactory(
                         testSSLContext.serverContext.getSocketFactory(),
-                        allSupportedProtocols);
-        server.useHttps(serverSocketFactory, false);
-        server.enqueue(new MockResponse().setSocketPolicy(FAIL_HANDSHAKE));
-        server.enqueue(new MockResponse().setSocketPolicy(FAIL_HANDSHAKE));
-        server.enqueue(new MockResponse().setSocketPolicy(FAIL_HANDSHAKE));
-        server.enqueue(new MockResponse().setBody("This required fallbacks"));
-        server.play();
-
-        HttpsURLConnection connection = (HttpsURLConnection) server.getUrl("/").openConnection();
-        // Keeps track of the client sockets created so that we can interrogate them.
-        final boolean disableFallbackScsv = true;
-        FallbackTestClientSocketFactory clientSocketFactory = new FallbackTestClientSocketFactory(
-                new LimitedProtocolsSocketFactory(
-                        testSSLContext.clientContext.getSocketFactory(), allSupportedProtocols),
-                disableFallbackScsv);
-        connection.setSSLSocketFactory(clientSocketFactory);
-        assertEquals("This required fallbacks",
-                readAscii(connection.getInputStream(), Integer.MAX_VALUE));
-
-        // Confirm the server accepted a single connection.
-        RecordedRequest retry = server.takeRequest();
-        assertEquals(0, retry.getSequenceNumber());
-        assertEquals("SSLv3", retry.getSslProtocol());
-
-        // Confirm the client fallback looks ok.
-        List<SSLSocket> createdSockets = clientSocketFactory.getCreatedSockets();
-        assertEquals(4, createdSockets.size());
-        TlsFallbackDisabledScsvSSLSocket clientSocket1 =
-                (TlsFallbackDisabledScsvSSLSocket) createdSockets.get(0);
-        assertSslSocket(clientSocket1,
-                false /* expectedWasFallbackScsvSet */, "TLSv1.2", "TLSv1.1", "TLSv1", "SSLv3");
-
-        TlsFallbackDisabledScsvSSLSocket clientSocket2 =
-                (TlsFallbackDisabledScsvSSLSocket) createdSockets.get(1);
-        assertSslSocket(clientSocket2,
-                true /* expectedWasFallbackScsvSet */, "TLSv1.1", "TLSv1", "SSLv3");
-
-        TlsFallbackDisabledScsvSSLSocket clientSocket3 =
-                (TlsFallbackDisabledScsvSSLSocket) createdSockets.get(2);
-        assertSslSocket(clientSocket3, true /* expectedWasFallbackScsvSet */, "TLSv1", "SSLv3");
-
-        TlsFallbackDisabledScsvSSLSocket clientSocket4 =
-                (TlsFallbackDisabledScsvSSLSocket) createdSockets.get(3);
-        assertSslSocket(clientSocket4, true /* expectedWasFallbackScsvSet */, "SSLv3");
+                        enabledProtocols);
+        SSLSocketFactory clientSocketFactory = new LimitedProtocolsSocketFactory(
+                testSSLContext.clientContext.getSocketFactory(), enabledProtocols);
+        checkNoFallbackOnFailedHandshake(clientSocketFactory, serverSocketFactory,
+                enabledProtocols);
     }
 
-    public void testSslFallback_defaultProtocols() throws Exception {
-        TestSSLContext testSSLContext = TestSSLContext.create();
+    public void testNoSslFallback_defaultProtocols() throws Exception {
+        // Will need to be updated if the enabled protocols in Android's SSLSocketFactory change
+        String[] expectedEnabledProtocols = { "TLSv1.2", "TLSv1.1", "TLSv1" };
 
-        server.useHttps(testSSLContext.serverContext.getSocketFactory(), false);
-        server.enqueue(new MockResponse().setSocketPolicy(FAIL_HANDSHAKE));
-        server.enqueue(new MockResponse().setSocketPolicy(FAIL_HANDSHAKE));
-        server.enqueue(new MockResponse().setBody("This required fallbacks"));
-        server.play();
-
-        HttpsURLConnection connection = (HttpsURLConnection) server.getUrl("/").openConnection();
-        // Keeps track of the client sockets created so that we can interrogate them.
-        final boolean disableFallbackScsv = true;
-        FallbackTestClientSocketFactory clientSocketFactory = new FallbackTestClientSocketFactory(
-                testSSLContext.clientContext.getSocketFactory(),
-                disableFallbackScsv);
-        connection.setSSLSocketFactory(clientSocketFactory);
-        assertEquals("This required fallbacks",
-                readAscii(connection.getInputStream(), Integer.MAX_VALUE));
-
-        // Confirm the server accepted a single connection.
-        RecordedRequest retry = server.takeRequest();
-        assertEquals(0, retry.getSequenceNumber());
-        assertEquals("TLSv1", retry.getSslProtocol());
-
-        // Confirm the client fallback looks ok.
-        List<SSLSocket> createdSockets = clientSocketFactory.getCreatedSockets();
-        assertEquals(3, createdSockets.size());
-        TlsFallbackDisabledScsvSSLSocket clientSocket1 =
-                (TlsFallbackDisabledScsvSSLSocket) createdSockets.get(0);
-        assertSslSocket(clientSocket1,
-                false /* expectedWasFallbackScsvSet */, "TLSv1.2", "TLSv1.1", "TLSv1");
-
-        TlsFallbackDisabledScsvSSLSocket clientSocket2 =
-                (TlsFallbackDisabledScsvSSLSocket) createdSockets.get(1);
-        assertSslSocket(clientSocket2, true /* expectedWasFallbackScsvSet */, "TLSv1.1", "TLSv1");
-
-        TlsFallbackDisabledScsvSSLSocket clientSocket3 =
-                (TlsFallbackDisabledScsvSSLSocket) createdSockets.get(2);
-        assertSslSocket(clientSocket3, true /* expectedWasFallbackScsvSet */, "TLSv1");
+        TestSSLContext testSSLContext = createDefaultTestSSLContext();
+        SSLSocketFactory serverSocketFactory = testSSLContext.serverContext.getSocketFactory();
+        SSLSocketFactory clientSocketFactory = testSSLContext.clientContext.getSocketFactory();
+        checkNoFallbackOnFailedHandshake(clientSocketFactory, serverSocketFactory,
+                expectedEnabledProtocols);
     }
 
     private static void assertSslSocket(TlsFallbackDisabledScsvSSLSocket socket,
@@ -2814,7 +2872,7 @@ public final class URLConnectionTest extends AbstractResourceLeakageDetectorTest
     }
 
     public void testInspectSslBeforeConnect() throws Exception {
-        TestSSLContext testSSLContext = TestSSLContext.create();
+        TestSSLContext testSSLContext = createDefaultTestSSLContext();
         server.useHttps(testSSLContext.serverContext.getSocketFactory(), false);
         server.enqueue(new MockResponse());
         server.play();
@@ -2849,7 +2907,7 @@ public final class URLConnectionTest extends AbstractResourceLeakageDetectorTest
      * http://code.google.com/p/android/issues/detail?id=24431
      */
     public void testInspectSslAfterConnect() throws Exception {
-        TestSSLContext testSSLContext = TestSSLContext.create();
+        TestSSLContext testSSLContext = createDefaultTestSSLContext();
         server.useHttps(testSSLContext.serverContext.getSocketFactory(), false);
         server.enqueue(new MockResponse());
         server.play();
@@ -2868,43 +2926,63 @@ public final class URLConnectionTest extends AbstractResourceLeakageDetectorTest
         }
     }
 
-    // http://b/26769689
-    public void testSSLSocketFactoryWithIpv6LiteralHostname() throws Exception {
-        TestSSLContext testSSLContext = TestSSLContext.create();
-        server.useHttps(testSSLContext.serverContext.getSocketFactory(), false);
-        server.enqueue(new MockResponse());
-        server.play();
-
-        final AtomicReference<String> hostNameUsed = new AtomicReference<>(null);
-
-        SSLSocketFactory factory = new DelegatingSSLSocketFactory(
-                testSSLContext.clientContext.getSocketFactory()) {
-            @Override
-            public SSLSocket createSocket(Socket s, String host, int port, boolean autoClose)
-                    throws IOException {
-                hostNameUsed.set(host);
-                return (SSLSocket) delegate.createSocket(s, host, port, autoClose);
-            }
-        };
-
-        HttpsURLConnection urlConnection = (HttpsURLConnection)
-                new URL("https://[" + Inet6Address.getLoopbackAddress().getHostAddress() + "]:"
-                        + server.getPort() + "/").openConnection();
-        urlConnection.setSSLSocketFactory(factory);
+    /**
+     * Checks that OkHttp's certificate pinning logic is not used for the common case
+     * of HttpsUrlConnections.
+     *
+     * <p>OkHttp 2.7 introduced logic for Certificate Pinning. We deliberately don't
+     * expose any API surface that would interact with OkHttp's implementation because
+     * Android has its own API / implementation for certificate pinning. We can't
+     * easily test that there is *no* code path that would invoke OkHttp's certificate
+     * pinning logic, so this test only covers the *common* code path of a
+     * HttpsURLConnection as a sanity check.
+     *
+     * <p>To check whether OkHttp performs certificate pinning under the hood, this
+     * test disables two {@link Platform} methods. In OkHttp 2.7.5, these two methods
+     * are exclusively used in relation to certificate pinning. Android only provides
+     * the minimal implementation of these methods to get OkHttp's tests to pass, so
+     * they should never be invoked outside of OkHttp's tests.
+     */
+    public void testTrustManagerAndTrustRootIndex_unusedForHttpsConnection() throws Exception {
+        Platform platform = Platform.getAndSetForTest(new PlatformWithoutTrustManager());
         try {
-            urlConnection.connect();
-            fail();
-        } catch (IOException expected) {
-            // We expect the connection to fail with a cert validation exception because we're
-            // using a literal address.
+            testConnectViaHttps();
         } finally {
-            urlConnection.disconnect();
+            Platform.getAndSetForTest(platform);
         }
+    }
 
-        // Note that the square brackets around the literal address were crucial. Whatsapp
-        // wouldn't function properly without them.
-        assertEquals("[" + Inet6Address.getLoopbackAddress().getHostAddress() + "]",
-                hostNameUsed.get());
+    /**
+     * Similar to {@link #testTrustManagerAndTrustRootIndex_unusedForHttpsConnection()},
+     * but for the HTTP case. In the HTTP case, no certificate or trust management
+     * related logic should ever be involved at all, so some pretty basic things must
+     * be going wrong in order for this test to (unexpectedly) invoke the corresponding
+     * Platform methods.
+     */
+    public void testTrustManagerAndTrustRootIndex_unusedForHttpConnection() throws Exception {
+        Platform platform = Platform.getAndSetForTest(new PlatformWithoutTrustManager());
+        try {
+            server.enqueue(new MockResponse().setBody("response").setResponseCode(200));
+            server.play();
+            HttpURLConnection urlConnection =
+                    (HttpURLConnection) server.getUrl("/").openConnection();
+            assertEquals(200, urlConnection.getResponseCode());
+        } finally {
+            Platform.getAndSetForTest(platform);
+        }
+    }
+
+    /**
+     * A {@link Platform} that doesn't support two methods that, in OkHttp 2.7.5,
+     * are exclusively used to provide custom CertificatePinning.
+     */
+    static class PlatformWithoutTrustManager extends Platform {
+        @Override public X509TrustManager trustManager(SSLSocketFactory sslSocketFactory) {
+            throw new AssertionError("Unexpected call");
+        }
+        @Override public TrustRootIndex trustRootIndex(X509TrustManager trustManager) {
+            throw new AssertionError("Unexpected call");
+        }
     }
 
     /**
@@ -2933,6 +3011,11 @@ public final class URLConnectionTest extends AbstractResourceLeakageDetectorTest
         assertContent(expected, connection, Integer.MAX_VALUE);
     }
 
+    private static void assertHeaderPresent(RecordedRequest request, String headerName) {
+        assertNotNull(headerName + " missing: " + request.getHeaders(),
+                request.getHeader(headerName));
+    }
+
     private void assertContains(List<String> list, String value) {
         assertTrue(list.toString(), list.contains(value));
     }
@@ -2947,6 +3030,12 @@ public final class URLConnectionTest extends AbstractResourceLeakageDetectorTest
 
     private Set<String> newSet(String... elements) {
         return new HashSet<String>(Arrays.asList(elements));
+    }
+
+    private TestSSLContext createDefaultTestSSLContext() {
+        TestSSLContext result = TestSSLContext.create();
+        testSSLContextsToClose.add(result);
+        return result;
     }
 
     enum TransferKind {
@@ -3204,6 +3293,64 @@ public final class URLConnectionTest extends AbstractResourceLeakageDetectorTest
             socket.setEnabledProtocols(protocols);
             return socket;
         }
+    }
+
+    /**
+     * A Socket that forwards all calls to public or protected methods, except for those
+     * that Socket inherits from Object, to a delegate.
+     */
+    private static abstract class DelegatingSocket extends Socket {
+        private final Socket delegate;
+
+        public DelegatingSocket(Socket delegate) {
+            if (delegate == null) {
+                throw new NullPointerException();
+            }
+            this.delegate = delegate;
+        }
+
+        @Override public void bind(SocketAddress bindpoint) throws IOException { delegate.bind(bindpoint); }
+        @Override public void close() throws IOException { delegate.close(); }
+        @Override public void connect(SocketAddress endpoint) throws IOException { delegate.connect(endpoint); }
+        @Override public void connect(SocketAddress endpoint, int timeout) throws IOException { delegate.connect(endpoint, timeout); }
+        @Override public SocketChannel getChannel() { return delegate.getChannel(); }
+        @Override public FileDescriptor getFileDescriptor$() { return delegate.getFileDescriptor$(); }
+        @Override public InetAddress getInetAddress() { return delegate.getInetAddress(); }
+        @Override public InputStream getInputStream() throws IOException { return delegate.getInputStream(); }
+        @Override public boolean getKeepAlive() throws SocketException { return delegate.getKeepAlive(); }
+        @Override public InetAddress getLocalAddress() { return delegate.getLocalAddress(); }
+        @Override public int getLocalPort() { return delegate.getLocalPort(); }
+        @Override public SocketAddress getLocalSocketAddress() { return delegate.getLocalSocketAddress(); }
+        @Override public boolean getOOBInline() throws SocketException { return delegate.getOOBInline(); }
+        @Override public OutputStream getOutputStream() throws IOException { return delegate.getOutputStream(); }
+        @Override public int getPort() { return delegate.getPort(); }
+        @Override public int getReceiveBufferSize() throws SocketException { return delegate.getReceiveBufferSize(); }
+        @Override public SocketAddress getRemoteSocketAddress() { return delegate.getRemoteSocketAddress(); }
+        @Override public boolean getReuseAddress() throws SocketException { return delegate.getReuseAddress(); }
+        @Override public int getSendBufferSize() throws SocketException { return delegate.getSendBufferSize(); }
+        @Override public int getSoLinger() throws SocketException { return delegate.getSoLinger(); }
+        @Override public int getSoTimeout() throws SocketException { return delegate.getSoTimeout(); }
+        @Override public boolean getTcpNoDelay() throws SocketException { return delegate.getTcpNoDelay(); }
+        @Override public int getTrafficClass() throws SocketException { return delegate.getTrafficClass(); }
+        @Override public boolean isBound() { return delegate.isBound(); }
+        @Override public boolean isClosed() { return delegate.isClosed(); }
+        @Override public boolean isConnected() { return delegate.isConnected(); }
+        @Override public boolean isInputShutdown() { return delegate.isInputShutdown(); }
+        @Override public boolean isOutputShutdown() { return delegate.isOutputShutdown(); }
+        @Override public void sendUrgentData(int data) throws IOException { delegate.sendUrgentData(data); }
+        @Override public void setKeepAlive(boolean on) throws SocketException { delegate.setKeepAlive(on); }
+        @Override public void setOOBInline(boolean on) throws SocketException { delegate.setOOBInline(on); }
+        @Override public void setPerformancePreferences(int connectionTime, int latency, int bandwidth) { delegate.setPerformancePreferences(connectionTime, latency, bandwidth); }
+        @Override public void setReceiveBufferSize(int size) throws SocketException { delegate.setReceiveBufferSize(size); }
+        @Override public void setReuseAddress(boolean on) throws SocketException { delegate.setReuseAddress(on); }
+        @Override public void setSendBufferSize(int size) throws SocketException { delegate.setSendBufferSize(size); }
+        @Override public void setSoLinger(boolean on, int linger) throws SocketException { delegate.setSoLinger(on, linger); }
+        @Override public void setSoTimeout(int timeout) throws SocketException { delegate.setSoTimeout(timeout); }
+        @Override public void setTcpNoDelay(boolean on) throws SocketException { delegate.setTcpNoDelay(on); }
+        @Override public void setTrafficClass(int tc) throws SocketException { delegate.setTrafficClass(tc); }
+        @Override public void shutdownInput() throws IOException { delegate.shutdownInput(); }
+        @Override public void shutdownOutput() throws IOException { delegate.shutdownOutput(); }
+        @Override public String toString() { return delegate.toString(); }
     }
 
     /**

@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 2008-2015, International Business Machines Corporation and
@@ -9,6 +11,9 @@ package com.ibm.icu.dev.test.format;
 import java.text.ParseException;
 import java.text.ParsePosition;
 import java.util.Locale;
+
+import org.junit.Ignore;
+import org.junit.Test;
 
 import com.ibm.icu.dev.test.TestFmwk;
 import com.ibm.icu.math.BigDecimal;
@@ -26,10 +31,7 @@ import com.ibm.icu.util.ULocale;
  *
  */
 public class TimeUnitTest extends TestFmwk {
-    public static void main(String[] args) throws Exception{
-        new TimeUnitTest().run(args);
-    }
-    
+    @Test
     public void Test10219FractionalPlurals() {
         TimeUnitFormat tuf = new TimeUnitFormat(ULocale.ENGLISH, TimeUnitFormat.FULL_NAME);
         String[] expected = {"1 minute", "1.5 minutes", "1.58 minutes"};
@@ -42,6 +44,7 @@ public class TimeUnitTest extends TestFmwk {
         }   
     }
     
+    @Test
     public void Test10219FactionalPluralsParse() throws ParseException {
         TimeUnitFormat tuf = new TimeUnitFormat(ULocale.ENGLISH, TimeUnitFormat.FULL_NAME);
         ParsePosition ppos = new ParsePosition(0);
@@ -54,6 +57,7 @@ public class TimeUnitTest extends TestFmwk {
         assertEquals("Test10219FractionalPluralParse", parseString.length(), ppos.getIndex());
     }
 
+    @Test
     public void TestBasic() {
         String[] locales = {"en", "sl", "fr", "zh", "ar", "ru", "zh_Hant"};
         for ( int locIndex = 0; locIndex < locales.length; ++locIndex ) {
@@ -92,6 +96,7 @@ public class TimeUnitTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestAPI() {
         TimeUnitFormat format = new TimeUnitFormat();
         format.setLocale(new ULocale("pt_BR"));
@@ -117,6 +122,7 @@ public class TimeUnitTest extends TestFmwk {
         formatParsing(format);
     }
     
+    @Test
     public void TestClone() {
         TimeUnitFormat tuf = new TimeUnitFormat(ULocale.ENGLISH, TimeUnitFormat.ABBREVIATED_NAME);
         NumberFormat nf = NumberFormat.getInstance();
@@ -126,6 +132,7 @@ public class TimeUnitTest extends TestFmwk {
         assertEquals("", "1 hr", tufClone.format(new TimeUnitAmount(1, TimeUnit.HOUR)));
     }
     
+    @Test
     public void TestEqHashCode() {
         TimeUnitFormat tf = new TimeUnitFormat(ULocale.ENGLISH, TimeUnitFormat.FULL_NAME);
         MeasureFormat tfeq = new TimeUnitFormat(ULocale.ENGLISH, TimeUnitFormat.FULL_NAME);
@@ -136,6 +143,7 @@ public class TimeUnitTest extends TestFmwk {
         verifyEqualsHashCode(tf, tfeq, tfne2);
     }
     
+    @Test
     public void TestGetLocale() {
         TimeUnitFormat tf = new TimeUnitFormat(ULocale.GERMAN);
         assertEquals("", ULocale.GERMAN, tf.getLocale(ULocale.VALID_LOCALE));
@@ -147,6 +155,7 @@ public class TimeUnitTest extends TestFmwk {
      * to long unit names for a locale where the locale data does not 
      * provide short unit names. As of CLDR 1.9, Greek is one such language.
      */
+    @Test
     public void TestGreek() {
         String[] locales = {"el_GR", "el"};
         final TimeUnit[] units = new TimeUnit[]{
@@ -263,6 +272,7 @@ public class TimeUnitTest extends TestFmwk {
      * Without data sanitization, setNumberFormat() would crash. 
      * As of CLDR shiped in ICU4.8, Greek is one such language. 
      */ 
+    @Test
     public void TestGreekWithSanitization() {
         ULocale loc = new ULocale("el");
         NumberFormat numfmt = NumberFormat.getInstance(loc);
@@ -271,6 +281,10 @@ public class TimeUnitTest extends TestFmwk {
         tuf.setNumberFormat(numfmt);        
     }
 
+    // Android-changed: Added @Ignore to suppress the test; it consumes a lot of heap, permanently,
+    // affecting later tests. http://b/62374714
+    @Ignore
+    @Test
     public void TestBritishShortHourFallback() {
         // See ticket #11986 "incomplete fallback in MeasureFormat".
         Object oneHour = new TimeUnitAmount(1, TimeUnit.HOUR);
@@ -315,6 +329,7 @@ public class TimeUnitTest extends TestFmwk {
      * Tests the method public TimeUnitFormat(ULocale locale, int style), public TimeUnitFormat(Locale locale, int style)
      */
     @SuppressWarnings("unused")
+    @Test
     public void TestTimeUnitFormat() {
         // Tests when "if (style < FULL_NAME || style >= TOTAL_STYLES)" is true
         // TOTAL_STYLES is 2
@@ -340,6 +355,7 @@ public class TimeUnitTest extends TestFmwk {
     /*
      * Tests the method public TimeUnitFormat setLocale(ULocale locale) public TimeUnitFormat setLocale(Locale locale)
      */
+    @Test
     public void TestSetLocale() {
         // Tests when "if ( locale != this.locale )" is false
         TimeUnitFormat tuf = new TimeUnitFormat(new ULocale("en_US"));
@@ -352,6 +368,7 @@ public class TimeUnitTest extends TestFmwk {
     /*
      * Tests the method public TimeUnitFormat setNumberFormat(NumberFormat format)
      */
+    @Test
     public void TestSetNumberFormat() {
         TimeUnitFormat tuf = new TimeUnitFormat();
 
@@ -382,6 +399,7 @@ public class TimeUnitTest extends TestFmwk {
     /*
      * Tests the method public StringBuffer format(Object obj, ...
      */
+    @Test
     public void TestFormat() {
         TimeUnitFormat tuf = new TimeUnitFormat();
         try {
@@ -397,6 +415,7 @@ public class TimeUnitTest extends TestFmwk {
      * public Object parseObject(String source, ParsePosition pos)
      * 
      */
+    @Test
     public void TestSetup(){
         TimeUnitFormat tuf = new TimeUnitFormat();
         tuf.parseObject("", new ParsePosition(0));
@@ -406,6 +425,7 @@ public class TimeUnitTest extends TestFmwk {
         tuf1.parseObject("", new ParsePosition(0));
     }
     
+    @Test
     public void TestStandInForMeasureFormat() {
         TimeUnitFormat tuf = new TimeUnitFormat(ULocale.FRENCH, TimeUnitFormat.ABBREVIATED_NAME);
         Measure measure = new Measure(23, MeasureUnit.CELSIUS);

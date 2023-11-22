@@ -16,17 +16,26 @@
 
 package android.text.cts;
 
-import android.test.AndroidTestCase;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
+import android.text.Layout.Alignment;
 import android.text.SpannableStringBuilder;
 import android.text.Spanned;
 import android.text.StaticLayout;
 import android.text.TextDirectionHeuristics;
 import android.text.TextPaint;
-import android.text.Layout.Alignment;
 import android.text.style.MetricAffectingSpan;
 import android.util.Log;
 
-public class StaticLayoutLineBreakingTest extends AndroidTestCase {
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class StaticLayoutLineBreakingTest {
     // Span test are currently not supported because text measurement uses the MeasuredText
     // internal mWorkPaint instead of the provided MockTestPaint.
     private static final boolean SPAN_TESTS_SUPPORTED = false;
@@ -37,8 +46,8 @@ public class StaticLayoutLineBreakingTest extends AndroidTestCase {
     private static final int WIDTH = 100;
     private static final Alignment ALIGN = Alignment.ALIGN_LEFT;
 
-    final static char SURR_FIRST = '\uD800';
-    final static char SURR_SECOND = '\uDF31';
+    private static final char SURR_FIRST = '\uD800';
+    private static final char SURR_SECOND = '\uDF31';
 
     private static final int[] NO_BREAK = new int[] {};
 
@@ -116,12 +125,12 @@ public class StaticLayoutLineBreakingTest extends AndroidTestCase {
     private static void debugLayout(CharSequence source, StaticLayout staticLayout) {
         if (DEBUG) {
             int count = staticLayout.getLineCount();
-            Log.i("StaticLayoutLineBreakingTest", "\"" + source.toString() + "\": " +
+            Log.i("SLLBTest", "\"" + source.toString() + "\": " +
                     count + " lines");
             for (int line = 0; line < count; line++) {
                 int lineStart = staticLayout.getLineStart(line);
                 int lineEnd = staticLayout.getLineEnd(line);
-                Log.i("StaticLayoutLineBreakingTest", "Line " + line + " [" + lineStart + ".." +
+                Log.i("SLLBTest", "Line " + line + " [" + lineStart + ".." +
                         lineEnd + "]\t" + source.subSequence(lineStart, lineEnd));
             }
         }
@@ -164,8 +173,7 @@ public class StaticLayoutLineBreakingTest extends AndroidTestCase {
 
         debugLayout(source, staticLayout);
 
-        int lineCount = staticLayout.getLineCount();
-        assertTrue("Number of lines", lineCount <= maxLines);
+        final int lineCount = staticLayout.getLineCount();
 
         for (int line = 0; line < lineCount; line++) {
             int lineStart = staticLayout.getLineStart(line);
@@ -185,9 +193,9 @@ public class StaticLayoutLineBreakingTest extends AndroidTestCase {
         }
     }
 
-    final static int MAX_SPAN_COUNT = 10;
-    final static int[] spanStarts = new int[MAX_SPAN_COUNT];
-    final static int[] spanEnds = new int[MAX_SPAN_COUNT];
+    private final static int MAX_SPAN_COUNT = 10;
+    private final static int[] spanStarts = new int[MAX_SPAN_COUNT];
+    private final static int[] spanEnds = new int[MAX_SPAN_COUNT];
 
     private static MetricAffectingSpan getMetricAffectingSpan() {
         return new MetricAffectingSpan() {
@@ -231,6 +239,7 @@ public class StaticLayoutLineBreakingTest extends AndroidTestCase {
         return result;
     }
 
+    @Test
     public void testNoLineBreak() {
         // Width lower than WIDTH
         layout("", NO_BREAK);
@@ -262,6 +271,7 @@ public class StaticLayoutLineBreakingTest extends AndroidTestCase {
         //      01234567890
     }
 
+    @Test
     public void testOneLineBreak() {
         //      01234567890
         layout("XX XXX XXXX", new int[] {7});
@@ -281,6 +291,7 @@ public class StaticLayoutLineBreakingTest extends AndroidTestCase {
         layout("CC", new int[] {1});
     }
 
+    @Test
     public void testSpaceAtBreak() {
         //      0123456789012
         layout("XXXX XXXXX X", new int[] {11});
@@ -289,6 +300,7 @@ public class StaticLayoutLineBreakingTest extends AndroidTestCase {
         layout("C X", new int[] {2});
     }
 
+    @Test
     public void testMultipleSpacesAtBreak() {
         //      0123456789012
         layout("LXX XXXX", new int[] {4});
@@ -298,6 +310,7 @@ public class StaticLayoutLineBreakingTest extends AndroidTestCase {
         layout("LXX     XXXX", new int[] {8});
     }
 
+    @Test
     public void testZeroWidthCharacters() {
         //      0123456789012345678901234
         layout("X_X_X_X_X_X_X_X_X_X", NO_BREAK);
@@ -312,6 +325,7 @@ public class StaticLayoutLineBreakingTest extends AndroidTestCase {
      * To be able to use the fake mTextPaint and make this test pass, use mPaint instead of
      * mWorkPaint in MeasuredText#addStyleRun
      */
+    @Test
     public void testWithSpans() {
         if (!SPAN_TESTS_SUPPORTED) return;
 
@@ -332,6 +346,7 @@ public class StaticLayoutLineBreakingTest extends AndroidTestCase {
     /*
      * Adding a span to the string should not change the layout, since the metrics are unchanged.
      */
+    @Test
     public void testWithOneSpan() {
         if (!SPAN_TESTS_SUPPORTED) return;
 
@@ -356,6 +371,7 @@ public class StaticLayoutLineBreakingTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testWithTwoSpans() {
         if (!SPAN_TESTS_SUPPORTED) return;
 
@@ -392,18 +408,7 @@ public class StaticLayoutLineBreakingTest extends AndroidTestCase {
         return string.replaceAll(String.valueOf(c), String.valueOf(r));
     }
 
-    public void testReplacementSpan() {
-        // Add ReplacementSpan to the string
-    }
-
-    public void testParagraphs() {
-        // Add \n to the text
-    }
-
-    public void testWithEmoji() {
-        // Surrogate emoji characters get replaced by a bitmap
-    }
-
+    @Test
     public void testWithSurrogate() {
         layout("LX" + SURR_FIRST + SURR_SECOND, NO_BREAK);
         layout("LXXXX" + SURR_FIRST + SURR_SECOND, NO_BREAK);
@@ -418,6 +423,7 @@ public class StaticLayoutLineBreakingTest extends AndroidTestCase {
         layout("C" + SURR_FIRST + SURR_SECOND, new int[] {1});
     }
 
+    @Test
     public void testNarrowWidth() {
         int[] widths = new int[] { 0, 4, 10 };
         String[] texts = new String[] { "", "X", " ", "XX", " X", "XXX" };
@@ -433,6 +439,7 @@ public class StaticLayoutLineBreakingTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testNarrowWidthZeroWidth() {
         int[] widths = new int[] { 1, 4 };
         for (int width: widths) {
@@ -449,6 +456,7 @@ public class StaticLayoutLineBreakingTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testMaxLines() {
         layoutMaxLines("C", NO_BREAK, 1);
         layoutMaxLines("C C", new int[] {2}, 1);

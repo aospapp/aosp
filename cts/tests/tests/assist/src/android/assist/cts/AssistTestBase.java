@@ -16,42 +16,32 @@
 
 package android.assist.cts;
 
-import android.assist.cts.TestStartActivity;
-import android.assist.common.Utils;
-
 import android.app.ActivityManager;
 import android.app.assist.AssistContent;
 import android.app.assist.AssistStructure;
 import android.app.assist.AssistStructure.ViewNode;
-import android.app.assist.AssistStructure.WindowNode;
+import android.assist.common.Utils;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.content.res.Resources;
-import android.content.res.XmlResourceParser;
-import android.cts.util.SystemUtil;
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
-import android.graphics.Color;
 import android.graphics.Point;
-import android.graphics.Rect;
 import android.os.Bundle;
+import android.os.LocaleList;
 import android.provider.Settings;
 import android.test.ActivityInstrumentationTestCase2;
 import android.util.Log;
 import android.view.Display;
-import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.Window;
-import android.view.accessibility.AccessibilityNodeInfo;
 import android.webkit.WebView;
 import android.widget.EditText;
 import android.widget.TextView;
 
-import java.lang.Math;
+import com.android.compatibility.common.util.SystemUtil;
+
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
@@ -244,7 +234,6 @@ public class AssistTestBase extends ActivityInstrumentationTestCase2<TestStartAc
 
     /**
      * Verifies the view hierarchy of the backgroundApp matches the assist structure.
-     *
      * @param backgroundApp ComponentName of app the assistant is invoked upon
      * @param isSecureWindow Denotes whether the activity has FLAG_SECURE set
      */
@@ -252,7 +241,11 @@ public class AssistTestBase extends ActivityInstrumentationTestCase2<TestStartAc
         // Check component name matches
         assertEquals(backgroundApp.flattenToString(),
                 mAssistStructure.getActivityComponent().flattenToString());
-
+        long acquisitionStart = mAssistStructure.getAcquisitionStartTime();
+        long acquisitionEnd = mAssistStructure.getAcquisitionEndTime();
+        assertTrue(acquisitionStart > 0);
+        assertTrue(acquisitionEnd > 0);
+        assertTrue(acquisitionEnd >= acquisitionStart);
         Log.i(TAG, "Traversing down structure for: " + backgroundApp.flattenToString());
         mView = mTestActivity.findViewById(android.R.id.content).getRootView();
         verifyHierarchy(mAssistStructure, isSecureWindow);
@@ -389,11 +382,46 @@ public class AssistTestBase extends ActivityInstrumentationTestCase2<TestStartAc
     }
 
     /**
+     * Return true if the expected domain is found in the WebView, else fail.
+     */
+    protected void verifyAssistStructureHasWebDomain(String domain) {
+        assertTrue(traverse(mAssistStructure.getWindowNodeAt(0).getRootViewNode(), (n) -> {
+            return n.getWebDomain() != null && domain.equals(n.getWebDomain());
+        }));
+    }
+
+    /**
+     * Return true if the expected LocaleList is found in the WebView, else fail.
+     */
+    protected void verifyAssistStructureHasLocaleList(LocaleList localeList) {
+        assertTrue(traverse(mAssistStructure.getWindowNodeAt(0).getRootViewNode(), (n) -> {
+            return n.getLocaleList() != null && localeList.equals(n.getLocaleList());
+        }));
+    }
+
+    interface ViewNodeVisitor {
+        boolean visit(ViewNode node);
+    }
+
+    private boolean traverse(ViewNode parentNode, ViewNodeVisitor visitor) {
+        if (visitor.visit(parentNode)) {
+            return true;
+        }
+        for (int i = parentNode.getChildCount() - 1; i >= 0; i--) {
+            if (traverse(parentNode.getChildAt(i), visitor)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * Compare view properties of the view hierarchy with that reported in the assist structure.
      */
     private void verifyViewProperties(View parentView, ViewNode parentNode) {
         assertEquals("Left positions do not match.", parentView.getLeft(), parentNode.getLeft());
         assertEquals("Top positions do not match.", parentView.getTop(), parentNode.getTop());
+        assertEquals("Opaque flags do not match.", parentView.isOpaque(), parentNode.isOpaque());
 
         int viewId = parentView.getId();
 
@@ -421,9 +449,11 @@ public class AssistTestBase extends ActivityInstrumentationTestCase2<TestStartAc
         if (parentView instanceof TextView) {
             if (parentView instanceof EditText) {
                 assertEquals("Text selection start does not match",
-                    ((EditText)parentView).getSelectionStart(), parentNode.getTextSelectionStart());
+                        ((EditText) parentView).getSelectionStart(),
+                        parentNode.getTextSelectionStart());
                 assertEquals("Text selection end does not match",
-                        ((EditText)parentView).getSelectionEnd(), parentNode.getTextSelectionEnd());
+                        ((EditText) parentView).getSelectionEnd(),
+                        parentNode.getTextSelectionEnd());
             }
             TextView textView = (TextView) parentView;
             assertEquals(textView.getTextSize(), parentNode.getTextSize());

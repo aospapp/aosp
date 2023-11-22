@@ -54,13 +54,13 @@
 #define MBYTE 1048576
 
 #define GETCRITICAL(bytes, env, obj) { \
-    bytes = (*env)->GetPrimitiveArrayCritical(env, obj, NULL); \
-    if (bytes == NULL) \
+    (bytes) = (*(env))->GetPrimitiveArrayCritical(env, obj, NULL); \
+    if ((bytes) == NULL) \
         JNU_ThrowInternalError(env, "Unable to get array"); \
 }
 
 #define RELEASECRITICAL(bytes, env, obj, mode) { \
-    (*env)->ReleasePrimitiveArrayCritical(env, obj, bytes, mode); \
+    (*(env))->ReleasePrimitiveArrayCritical(env, obj, bytes, mode); \
 }
 
 #define SWAPSHORT(x) ((jshort)(((x) << 8) | (((x) >> 8) & 0xff)))

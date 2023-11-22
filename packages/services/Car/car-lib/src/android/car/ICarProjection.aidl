@@ -16,7 +16,7 @@
 
 package android.car;
 
-import android.car.ICarProjectionListener;
+import android.car.ICarProjectionCallback;
 import android.content.Intent;
 
 /**
@@ -39,13 +39,13 @@ interface ICarProjection {
     void unregisterProjectionRunner(in Intent serviceIntent) = 1;
 
     /**
-     * Registers projection listener.
-     * Re-registering same listener with different filter will cause only filter to update.
+     * Registers projection callback.
+     * Re-registering same callback with different filter will cause only filter to update.
      */
-    void regsiterProjectionListener(ICarProjectionListener listener, int filter) = 2;
+    void regsiterProjectionListener(ICarProjectionCallback callback, int filter) = 2;
 
     /**
-     * Unregisters projection listener.
+     * Unregisters projection callback.
      */
-    void unregsiterProjectionListener(ICarProjectionListener listener) = 3;
+    void unregsiterProjectionListener(ICarProjectionCallback callback) = 3;
 }

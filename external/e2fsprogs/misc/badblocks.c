@@ -33,6 +33,7 @@
 #define _GNU_SOURCE /* for O_DIRECT */
 #endif
 
+#include "config.h"
 #include <errno.h>
 #include <fcntl.h>
 #ifdef HAVE_GETOPT_H
@@ -58,11 +59,14 @@ extern int optind;
 #include "ext2fs/ext2_io.h"
 #include "ext2fs/ext2_fs.h"
 #include "ext2fs/ext2fs.h"
-#include "nls-enable.h"
+#include "support/nls-enable.h"
 
 #ifndef O_LARGEFILE
 #define O_LARGEFILE 0
 #endif
+
+/* Maximum number of bad blocks we support */
+#define MAX_BAD_BLOCKS (INT_MAX/2)
 
 static const char * program_name = "badblocks";
 static const char * done_string = N_("done                                                 \n");
@@ -77,7 +81,9 @@ static int t_max;			/* allocated test patterns */
 static unsigned int *t_patts;		/* test patterns */
 static int use_buffered_io;
 static int exclusive_ok;
-static unsigned int max_bb;		/* Abort test if more than this number of bad blocks has been encountered */
+static unsigned int max_bb = MAX_BAD_BLOCKS;	/* Abort test if more than this
+						 * number of bad blocks has been
+						 * encountered */
 static unsigned int d_flag;		/* delay factor between reads */
 static struct timeval time_start;
 
@@ -299,7 +305,8 @@ static void set_o_direct(int dev, unsigned char *buffer, size_t size,
 		flag = fcntl(dev, F_GETFL);
 		if (flag > 0) {
 			flag = (flag & ~O_DIRECT) | new_flag;
-			fcntl(dev, F_SETFL, flag);
+			if (fcntl(dev, F_SETFL, flag) < 0)
+				perror("set_o_direct");
 		}
 		current_O_DIRECT = new_flag;
 	}
@@ -524,7 +531,7 @@ static unsigned int test_ro (int dev, blk_t last_block,
 		alarm_intr(SIGALRM);
 	while (currently_testing < last_block)
 	{
-		if (max_bb && bb_count >= max_bb) {
+		if (bb_count >= max_bb) {
 			if (s_flag || v_flag) {
 				fputs(_("Too many bad blocks, aborting test\n"), stderr);
 			}
@@ -631,7 +638,7 @@ static unsigned int test_rw (int dev, blk_t last_block,
 
 		try = blocks_at_once;
 		while (currently_testing < last_block) {
-			if (max_bb && bb_count >= max_bb) {
+			if (bb_count >= max_bb) {
 				if (s_flag || v_flag) {
 					fputs(_("Too many bad blocks, aborting test\n"), stderr);
 				}
@@ -673,7 +680,7 @@ static unsigned int test_rw (int dev, blk_t last_block,
 
 		try = blocks_at_once;
 		while (currently_testing < last_block) {
-			if (max_bb && bb_count >= max_bb) {
+			if (bb_count >= max_bb) {
 				if (s_flag || v_flag) {
 					fputs(_("Too many bad blocks, aborting test\n"), stderr);
 				}
@@ -820,7 +827,7 @@ static unsigned int test_nd (int dev, blk_t last_block,
 			alarm_intr(SIGALRM);
 
 		while (currently_testing < last_block) {
-			if (max_bb && bb_count >= max_bb) {
+			if (bb_count >= max_bb) {
 				if (s_flag || v_flag) {
 					fputs(_("Too many bad blocks, aborting test\n"), stderr);
 				}
@@ -1115,6 +1122,16 @@ int main (int argc, char ** argv)
 			break;
 		case 'e':
 			max_bb = parse_uint(optarg, "max bad block count");
+			if (max_bb > MAX_BAD_BLOCKS) {
+				com_err (program_name, 0,
+					 _("Too big max bad blocks count %u - "
+					   "maximum is %u"), max_bb,
+					   MAX_BAD_BLOCKS);
+				exit (1);
+			}
+			/* 0 really means unlimited but we cannot do that much... */
+			if (max_bb == 0)
+				max_bb = MAX_BAD_BLOCKS;
 			break;
 		case 'd':
 			d_flag = parse_uint(optarg, "read delay factor");

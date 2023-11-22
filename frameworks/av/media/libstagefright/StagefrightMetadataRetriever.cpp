@@ -27,8 +27,8 @@
 
 #include <media/ICrypto.h>
 #include <media/IMediaHTTPService.h>
+#include <media/MediaCodecBuffer.h>
 
-#include <media/stagefright/foundation/ABuffer.h>
 #include <media/stagefright/foundation/ADebug.h>
 #include <media/stagefright/foundation/AMessage.h>
 #include <media/stagefright/ColorConverter.h>
@@ -55,8 +55,6 @@ StagefrightMetadataRetriever::StagefrightMetadataRetriever()
     : mParsedMetaData(false),
       mAlbumArt(NULL) {
     ALOGV("StagefrightMetadataRetriever()");
-
-    DataSource::RegisterDefaultSniffers();
 }
 
 StagefrightMetadataRetriever::~StagefrightMetadataRetriever() {
@@ -158,11 +156,14 @@ static VideoFrame *extractVideoFrame(
     // TODO: Use Flexible color instead
     videoFormat->setInt32("color-format", OMX_COLOR_FormatYUV420Planar);
 
-    // For the thumbnail extraction case, try to allocate single buffer
-    // in both input and output ports. NOTE: This request may fail if
-    // component requires more than that for decoding.
-    videoFormat->setInt32("android._num-input-buffers", 1);
-    videoFormat->setInt32("android._num-output-buffers", 1);
+    // For the thumbnail extraction case, try to allocate single buffer in both
+    // input and output ports, if seeking to a sync frame. NOTE: This request may
+    // fail if component requires more than that for decoding.
+    bool isSeekingClosest = (seekMode == MediaSource::ReadOptions::SEEK_CLOSEST);
+    if (!isSeekingClosest) {
+        videoFormat->setInt32("android._num-input-buffers", 1);
+        videoFormat->setInt32("android._num-output-buffers", 1);
+    }
 
     status_t err;
     sp<ALooper> looper = new ALooper;
@@ -220,7 +221,7 @@ static VideoFrame *extractVideoFrame(
         return NULL;
     }
 
-    Vector<sp<ABuffer> > inputBuffers;
+    Vector<sp<MediaCodecBuffer> > inputBuffers;
     err = decoder->getInputBuffers(&inputBuffers);
     if (err != OK) {
         ALOGW("failed to get input buffers: %d (%s)", err, asString(err));
@@ -229,7 +230,7 @@ static VideoFrame *extractVideoFrame(
         return NULL;
     }
 
-    Vector<sp<ABuffer> > outputBuffers;
+    Vector<sp<MediaCodecBuffer> > outputBuffers;
     err = decoder->getOutputBuffers(&outputBuffers);
     if (err != OK) {
         ALOGW("failed to get output buffers: %d (%s)", err, asString(err));
@@ -254,11 +255,14 @@ static VideoFrame *extractVideoFrame(
     bool isAvcOrHevc = !strcasecmp(mime, MEDIA_MIMETYPE_VIDEO_AVC)
             || !strcasecmp(mime, MEDIA_MIMETYPE_VIDEO_HEVC);
 
+    bool firstSample = true;
+    int64_t targetTimeUs = -1ll;
+
     do {
         size_t inputIndex = -1;
         int64_t ptsUs = 0ll;
         uint32_t flags = 0;
-        sp<ABuffer> codecBuffer = NULL;
+        sp<MediaCodecBuffer> codecBuffer = NULL;
 
         while (haveMoreInputs) {
             err = decoder->dequeueInputBuffer(&inputIndex, kBufferTimeOutUs);
@@ -280,6 +284,11 @@ static VideoFrame *extractVideoFrame(
                 haveMoreInputs = false;
                 break;
             }
+            if (firstSample && isSeekingClosest) {
+                mediaBuffer->meta_data()->findInt64(kKeyTargetTime, &targetTimeUs);
+                ALOGV("Seeking closest: targetTimeUs=%lld", (long long)targetTimeUs);
+            }
+            firstSample = false;
 
             if (mediaBuffer->range_length() > codecBuffer->capacity()) {
                 ALOGE("buffer size (%zu) too large for codec input size (%zu)",
@@ -292,8 +301,9 @@ static VideoFrame *extractVideoFrame(
                 memcpy(codecBuffer->data(),
                         (const uint8_t*)mediaBuffer->data() + mediaBuffer->range_offset(),
                         mediaBuffer->range_length());
-                if (isAvcOrHevc && IsIDR(codecBuffer)) {
-                    // Only need to decode one IDR frame.
+                if (isAvcOrHevc && IsIDR(codecBuffer) && !isSeekingClosest) {
+                    // Only need to decode one IDR frame, unless we're seeking with CLOSEST
+                    // option, in which case we need to actually decode to targetTimeUs.
                     haveMoreInputs = false;
                     flags |= MediaCodec::BUFFER_FLAG_EOS;
                 }
@@ -340,8 +350,13 @@ static VideoFrame *extractVideoFrame(
                     ALOGV("Timed-out waiting for output.. retries left = %zu", retriesLeft);
                     err = OK;
                 } else if (err == OK) {
-                    ALOGV("Received an output buffer");
-                    done = true;
+                    // If we're seeking with CLOSEST option and obtained a valid targetTimeUs
+                    // from the extractor, decode to the specified frame. Otherwise we're done.
+                    done = (targetTimeUs < 0ll) || (timeUs >= targetTimeUs);
+                    ALOGV("Received an output buffer, timeUs=%lld", (long long)timeUs);
+                    if (!done) {
+                        err = decoder->releaseOutputBuffer(index);
+                    }
                 } else {
                     ALOGW("Received error %d (%s) instead of output", err, asString(err));
                     done = true;
@@ -359,7 +374,7 @@ static VideoFrame *extractVideoFrame(
     }
 
     ALOGV("successfully decoded video frame.");
-    sp<ABuffer> videoFrameBuffer = outputBuffers.itemAt(index);
+    sp<MediaCodecBuffer> videoFrameBuffer = outputBuffers.itemAt(index);
 
     if (thumbNailTime >= 0) {
         if (timeUs != thumbNailTime) {
@@ -401,6 +416,22 @@ static VideoFrame *extractVideoFrame(
             && trackMeta->findInt32(kKeySARHeight, &sarHeight)
             && sarHeight != 0) {
         frame->mDisplayWidth = (frame->mDisplayWidth * sarWidth) / sarHeight;
+    } else {
+        int32_t width, height;
+        if (trackMeta->findInt32(kKeyDisplayWidth, &width)
+                && trackMeta->findInt32(kKeyDisplayHeight, &height)
+                && frame->mDisplayWidth > 0 && frame->mDisplayHeight > 0
+                && width > 0 && height > 0) {
+            if (frame->mDisplayHeight * (int64_t)width / height > (int64_t)frame->mDisplayWidth) {
+                frame->mDisplayHeight =
+                        (int32_t)(height * (int64_t)frame->mDisplayWidth / width);
+            } else {
+                frame->mDisplayWidth =
+                        (int32_t)(frame->mDisplayHeight * (int64_t)width / height);
+            }
+            ALOGV("thumbNail width and height are overridden to %d x %d",
+                    frame->mDisplayWidth, frame->mDisplayHeight);
+        }
     }
 
     int32_t srcFormat;
@@ -737,9 +768,9 @@ void StagefrightMetadataRetriever::parseMetaData() {
 
     if (numTracks == 1) {
         const char *fileMIME;
-        CHECK(meta->findCString(kKeyMIMEType, &fileMIME));
 
-        if (!strcasecmp(fileMIME, "video/x-matroska")) {
+        if (meta->findCString(kKeyMIMEType, &fileMIME) &&
+                !strcasecmp(fileMIME, "video/x-matroska")) {
             sp<MetaData> trackMeta = mExtractor->getTrackMetaData(0);
             const char *trackMIME;
             CHECK(trackMeta->findCString(kKeyMIMEType, &trackMIME));
@@ -751,11 +782,6 @@ void StagefrightMetadataRetriever::parseMetaData() {
                         METADATA_KEY_MIMETYPE, String8("audio/x-matroska"));
             }
         }
-    }
-
-    // To check whether the media file is drm-protected
-    if (mExtractor->getDrmFlag()) {
-        mMetaData.add(METADATA_KEY_IS_DRM, String8("1"));
     }
 }
 

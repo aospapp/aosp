@@ -16,6 +16,9 @@
 
 package com.android.cellbroadcastreceiver;
 
+import static com.android.cellbroadcastreceiver.CellBroadcastReceiver.DBG;
+import static com.android.cellbroadcastreceiver.CellBroadcastReceiver.VDBG;
+
 import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Context;
@@ -38,8 +41,6 @@ import android.util.Log;
 
 import java.util.Locale;
 import java.util.MissingResourceException;
-
-import static com.android.cellbroadcastreceiver.CellBroadcastReceiver.DBG;
 
 /**
  * Manages alert audio and vibration and text-to-speech. Runs as a service so that
@@ -186,7 +187,7 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
      */
     @Override
     public void onInit(int status) {
-        if (DBG) log("onInit() TTS engine status: " + status);
+        if (VDBG) log("onInit() TTS engine status: " + status);
         if (status == TextToSpeech.SUCCESS) {
             mTtsEngineReady = true;
             mTts.setOnUtteranceCompletedListener(this);
@@ -300,23 +301,22 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
         mMessagePreferredLanguage = intent.getStringExtra(ALERT_AUDIO_MESSAGE_PREFERRED_LANGUAGE);
         mMessageDefaultLanguage = intent.getStringExtra(ALERT_AUDIO_MESSAGE_DEFAULT_LANGUAGE);
 
+        // retrieve the vibrate settings from cellbroadcast receiver settings.
         mEnableVibrate = intent.getBooleanExtra(ALERT_AUDIO_VIBRATE_EXTRA, true);
-        if (intent.getBooleanExtra(ALERT_AUDIO_ETWS_VIBRATE_EXTRA, false)) {
-            mEnableVibrate = true;  // force enable vibration for ETWS alerts
-        }
 
         switch (mAudioManager.getRingerMode()) {
             case AudioManager.RINGER_MODE_SILENT:
                 if (DBG) log("Ringer mode: silent");
                 mEnableAudio = false;
-                mEnableVibrate = false;
+                // If the device is in silent mode, do not vibrate (except ETWS).
+                if (!intent.getBooleanExtra(ALERT_AUDIO_ETWS_VIBRATE_EXTRA, false)) {
+                    mEnableVibrate = false;
+                }
                 break;
-
             case AudioManager.RINGER_MODE_VIBRATE:
                 if (DBG) log("Ringer mode: vibrate");
                 mEnableAudio = false;
                 break;
-
             case AudioManager.RINGER_MODE_NORMAL:
             default:
                 if (DBG) log("Ringer mode: normal");
@@ -363,6 +363,9 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
 
         log("playAlertTone: toneType=" + toneType);
 
+        // Vibration duration in milliseconds
+        long vibrateDuration = 0;
+
         // Start the vibration first.
         if (mEnableVibrate) {
 
@@ -372,6 +375,7 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
 
             for (int i = 0; i < patternArray.length; i++) {
                 vibrationPattern[i] = patternArray[i];
+                vibrateDuration += patternArray[i];
             }
 
             mVibrator.vibrate(vibrationPattern, -1);
@@ -427,6 +431,7 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
                     case ETWS_DEFAULT:
                         setDataSourceFromResource(getResources(), mMediaPlayer,
                                 R.raw.etws_default);
+                        break;
                     case CMAS_DEFAULT:
                     default:
                         setDataSourceFromResource(getResources(), mMediaPlayer,
@@ -444,7 +449,17 @@ public class CellBroadcastAlertAudio extends Service implements TextToSpeech.OnI
 
             } catch (Exception ex) {
                 loge("Failed to play alert sound: " + ex);
+                // Immediately move into the next state ALERT_SOUND_FINISHED.
+                mHandler.sendMessage(mHandler.obtainMessage(ALERT_SOUND_FINISHED));
             }
+        } else {
+            // In normal mode (playing tone + vibration), this service will stop after audio
+            // playback is done. However, if the device is in vibrate only mode, we need to stop
+            // the service right after vibration because there won't be any audio complete callback
+            // to stop the service. Unfortunately it's not like MediaPlayer has onCompletion()
+            // callback that we can use, we'll have to use our own timer to stop the service.
+            mHandler.sendMessageDelayed(mHandler.obtainMessage(ALERT_SOUND_FINISHED),
+                    vibrateDuration);
         }
 
         mState = STATE_ALERTING;

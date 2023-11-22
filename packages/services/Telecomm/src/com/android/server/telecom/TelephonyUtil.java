@@ -94,8 +94,8 @@ public final class TelephonyUtil {
                 int subId2 = telephonyManager.getSubIdForPhoneAccount(account2);
                 if (subId1 != SubscriptionManager.INVALID_SUBSCRIPTION_ID &&
                         subId2 != SubscriptionManager.INVALID_SUBSCRIPTION_ID) {
-                    retval = (SubscriptionManager.getSlotId(subId1) <
-                            SubscriptionManager.getSlotId(subId2)) ? -1 : 1;
+                    retval = (SubscriptionManager.getSlotIndex(subId1) <
+                            SubscriptionManager.getSlotIndex(subId2)) ? -1 : 1;
                 }
 
                 // Then order by package

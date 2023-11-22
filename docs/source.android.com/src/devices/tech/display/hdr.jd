@@ -123,8 +123,6 @@ basically the information in the EDID Static Metadata Data Block as defined
 in CTA-861.3:</p>
 
 <ul>
-<li><code>public Display.HdrCapabilities getHdrCapabilities()</code><br>
-Returns the display's HDR capabilities.</li>
 
 <li><code>public Display.HdrCapabilities getHdrCapabilities()</code><br>
 Returns the display's HDR capabilities.</li>
@@ -396,17 +394,19 @@ scene to the required display signals to produce that scene.
 
 <h4>Display discovery</h4>
 
-<p>HDR display discovery is only supported via HWC2. Partners must selectively
-enable the HWC2 adapter that is released with Android 7.0 for this feature
-to work. Therefore, platforms must add support for HWC2 or extend the AOSP
-framework to allow a way to provide this information. HWC2 exposes a new
+<p>HDR display discovery is only supported via HWC2. Device implementers must
+selectively enable the HWC2 adapter that is released with Android 7.0 for this
+feature to work. Therefore, platforms must add support for HWC2 or extend the
+AOSP framework to allow a way to provide this information. HWC2 exposes a new
 API to propagate HDR Static Data to the framework and the application.</p>
 
 <h4>HDMI</h4>
 
 <ul>
 <li>A connected HDMI display advertises
-its HDR capability through HDMI EDID as defined in CTA-861.3
+its HDR capability through HDMI EDID as defined in
+<a href="https://standards.cta.tech/kwspub/published_docs/CTA-861.3-Preview.pdf">
+CTA-861.3</a>
 section 4.2.</li>
 <li>The following EOTF mapping shall be used:<ul>
 <li>ET_0 Traditional gamma - SDR Luminance Range: not mapped to any HDR

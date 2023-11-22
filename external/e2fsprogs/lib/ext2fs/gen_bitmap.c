@@ -10,6 +10,7 @@
  */
 
 
+#include "config.h"
 #include <stdio.h>
 #include <string.h>
 #if HAVE_UNISTD_H
@@ -526,6 +527,28 @@ errcode_t ext2fs_find_first_zero_generic_bitmap(ext2fs_generic_bitmap bitmap,
 	return ENOENT;
 }
 
+errcode_t ext2fs_find_first_set_generic_bitmap(ext2fs_generic_bitmap bitmap,
+					       __u32 start, __u32 end,
+					       __u32 *out)
+{
+	blk_t b;
+
+	if (start < bitmap->start || end > bitmap->end || start > end) {
+		ext2fs_warn_bitmap2(bitmap, EXT2FS_TEST_ERROR, start);
+		return EINVAL;
+	}
+
+	while (start <= end) {
+		b = ext2fs_test_bit(start - bitmap->start, bitmap->bitmap);
+		if (b) {
+			*out = start;
+			return 0;
+		}
+		start++;
+	}
+
+	return ENOENT;
+}
 
 int ext2fs_test_block_bitmap_range(ext2fs_block_bitmap bitmap,
 				   blk_t block, int num)
@@ -541,7 +564,7 @@ int ext2fs_test_block_bitmap_range(ext2fs_block_bitmap bitmap,
 }
 
 int ext2fs_test_inode_bitmap_range(ext2fs_inode_bitmap bitmap,
-				   ino_t inode, int num)
+				   ext2_ino_t inode, int num)
 {
 	EXT2_CHECK_MAGIC(bitmap, EXT2_ET_MAGIC_INODE_BITMAP);
 	if ((inode < bitmap->start) || (inode+num-1 > bitmap->real_end)) {

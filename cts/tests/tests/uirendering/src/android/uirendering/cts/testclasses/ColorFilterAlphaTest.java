@@ -17,21 +17,26 @@ package android.uirendering.cts.testclasses;
 
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Point;
 import android.graphics.PorterDuff;
-import android.graphics.PorterDuffXfermode;
 import android.graphics.PorterDuffColorFilter;
-import android.test.suitebuilder.annotation.LargeTest;
+import android.graphics.PorterDuffXfermode;
+import android.graphics.drawable.ColorDrawable;
+import android.support.test.filters.LargeTest;
 import android.uirendering.cts.bitmapverifiers.SamplePointVerifier;
 import android.uirendering.cts.testinfrastructure.ActivityTestBase;
 import android.uirendering.cts.testinfrastructure.CanvasClient;
+
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 
 import java.util.List;
 
-@LargeTest // large while non-parameterized
-//@RunWith(Parameterized.class) // TODO: Reenable when CTS supports parameterized tests
+@LargeTest // Temporarily hidden from presubmit
+@RunWith(Parameterized.class)
 public class ColorFilterAlphaTest extends ActivityTestBase {
     // We care about one point in each of the four rectangles of different alpha values, as well as
     // the area outside the rectangles
@@ -84,12 +89,16 @@ public class ColorFilterAlphaTest extends ActivityTestBase {
                 0xFFC21A1A, 0xFFC93333, 0xFFD04D4D, 0xFFD66666, 0xFFBB0000 } },
     };
 
-    //@Parameterized.Parameters(name = "{0}")
+    @Parameterized.Parameters(name = "{0}")
     public static List<XfermodeTest.Config> configs() {
         return XfermodeTest.configs(MODES_AND_EXPECTED_COLORS);
     }
 
-    private XfermodeTest.Config mConfig;
+    private final XfermodeTest.Config mConfig;
+
+    public ColorFilterAlphaTest(XfermodeTest.Config config) {
+        mConfig = config;
+    }
 
     private static final int[] BLOCK_COLORS = new int[] {
             0x33808080,
@@ -113,12 +122,25 @@ public class ColorFilterAlphaTest extends ActivityTestBase {
         return bitmap;
     }
 
+
+    @Override
+    public void setUp() {
+        super.setUp();
+
+        // temporary - ensure test isn't capturing window bg only
+        getInstrumentation().runOnMainSync(() -> getActivity().getWindow().setBackgroundDrawable(
+                        new ColorDrawable(Color.GREEN)));
+
+    }
+
     private CanvasClient mCanvasClient = new CanvasClient() {
         final Paint mPaint = new Paint();
         private final Bitmap mBitmap = createMultiRectBitmap();
 
         @Override
         public void draw(Canvas canvas, int width, int height) {
+            canvas.drawColor(Color.WHITE); // temporary - ensure test isn't capturing window bg only
+
             mPaint.setColorFilter(new PorterDuffColorFilter(FILTER_COLOR, mConfig.mode));
             canvas.drawBitmap(mBitmap, 0, 0, mPaint);
         }
@@ -126,12 +148,9 @@ public class ColorFilterAlphaTest extends ActivityTestBase {
 
     @Test
     public void test() {
-        for (XfermodeTest.Config config : configs()) {
-            mConfig = config;
-            createTest()
-                    .addCanvasClient(mCanvasClient, mConfig.hardwareAccelerated)
-                    .runWithVerifier(new SamplePointVerifier(TEST_POINTS, mConfig.expectedColors));
-        }
+        createTest()
+                .addCanvasClient(mCanvasClient, mConfig.hardwareAccelerated)
+                .runWithVerifier(new SamplePointVerifier(TEST_POINTS, mConfig.expectedColors));
     }
 }
 

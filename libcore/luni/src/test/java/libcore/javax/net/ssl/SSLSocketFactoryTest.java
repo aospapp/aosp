@@ -187,6 +187,9 @@ public class SSLSocketFactoryTest extends TestCase {
         }
     }
 
+    /**
+     * Should only run on Android.
+     */
     private String resetSslProvider() {
         String origProvider = Security.getProperty(SSL_PROPERTY);
 
@@ -195,7 +198,8 @@ public class SSLSocketFactoryTest extends TestCase {
             field_secprops.setAccessible(true);
             Properties secprops = (Properties) field_secprops.get(null);
             secprops.remove(SSL_PROPERTY);
-            Security.increaseVersion();
+            Method m_increaseVersion = Security.class.getDeclaredMethod("increaseVersion");
+            m_increaseVersion.invoke(null);
         } catch (Exception e) {
             e.printStackTrace();
             throw new RuntimeException("Could not clear security provider", e);

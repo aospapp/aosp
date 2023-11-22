@@ -28,7 +28,11 @@ namespace tpm_manager {
 
 struct NvSpace {
   std::string data;
-  bool written;
+  bool read_locked;
+  bool write_locked;
+  std::vector<NvramSpaceAttribute> attributes;
+  std::string authorization_value;
+  NvramSpacePolicy policy;
 };
 
 class MockTpmNvram : public TpmNvram {
@@ -36,22 +40,53 @@ class MockTpmNvram : public TpmNvram {
   MockTpmNvram();
   ~MockTpmNvram() override;
 
-  MOCK_METHOD2(DefineNvram, bool(uint32_t, size_t));
-  MOCK_METHOD1(DestroyNvram, bool(uint32_t));
-  MOCK_METHOD2(WriteNvram, bool(uint32_t, const std::string&));
-  MOCK_METHOD2(ReadNvram, bool(uint32_t, std::string*));
-  MOCK_METHOD2(IsNvramDefined, bool(uint32_t, bool*));
-  MOCK_METHOD2(IsNvramLocked, bool(uint32_t, bool*));
-  MOCK_METHOD2(GetNvramSize, bool(uint32_t, size_t*));
+  MOCK_METHOD5(DefineSpace,
+               NvramResult(uint32_t,
+                           size_t,
+                           const std::vector<NvramSpaceAttribute>&,
+                           const std::string&,
+                           NvramSpacePolicy));
+  MOCK_METHOD1(DestroySpace, NvramResult(uint32_t));
+  MOCK_METHOD3(WriteSpace,
+               NvramResult(uint32_t, const std::string&, const std::string&));
+  MOCK_METHOD3(ReadSpace,
+               NvramResult(uint32_t, std::string*, const std::string&));
+  MOCK_METHOD4(LockSpace,
+               NvramResult(uint32_t, bool, bool, const std::string&));
+  MOCK_METHOD1(ListSpaces, NvramResult(std::vector<uint32_t>*));
+  MOCK_METHOD6(GetSpaceInfo,
+               NvramResult(uint32_t,
+                           size_t*,
+                           bool*,
+                           bool*,
+                           std::vector<NvramSpaceAttribute>*,
+                           NvramSpacePolicy*));
 
  private:
-  bool FakeDefineNvram(uint32_t index, size_t length);
-  bool FakeDestroyNvram(uint32_t index);
-  bool FakeWriteNvram(uint32_t index, const std::string& data);
-  bool FakeReadNvram(uint32_t index, std::string* data);
-  bool FakeIsNvramDefined(uint32_t index, bool* defined);
-  bool FakeIsNvramLocked(uint32_t index, bool* locked);
-  bool FakeGetNvramSize(uint32_t index, size_t* size);
+  NvramResult FakeDefineSpace(
+      uint32_t index,
+      size_t size,
+      const std::vector<NvramSpaceAttribute>& attributes,
+      const std::string& authorization_value,
+      NvramSpacePolicy policy);
+  NvramResult FakeDestroySpace(uint32_t index);
+  NvramResult FakeWriteSpace(uint32_t index,
+                             const std::string& data,
+                             const std::string& authorization_value);
+  NvramResult FakeReadSpace(uint32_t index,
+                            std::string* data,
+                            const std::string& authorization_value);
+  NvramResult FakeLockSpace(uint32_t index,
+                            bool lock_read,
+                            bool lock_write,
+                            const std::string& authorization_value);
+  NvramResult FakeListSpaces(std::vector<uint32_t>* index_list);
+  NvramResult FakeGetSpaceInfo(uint32_t index,
+                               size_t* size,
+                               bool* is_read_locked,
+                               bool* is_write_locked,
+                               std::vector<NvramSpaceAttribute>* attributes,
+                               NvramSpacePolicy* policy);
 
   std::map<uint32_t, NvSpace> nvram_map_;
 };

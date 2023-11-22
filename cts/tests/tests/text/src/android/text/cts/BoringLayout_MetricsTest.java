@@ -16,11 +16,19 @@
 
 package android.text.cts;
 
-import android.test.AndroidTestCase;
+import static org.junit.Assert.assertNotNull;
+
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.text.BoringLayout;
 
-public class BoringLayout_MetricsTest extends AndroidTestCase {
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class BoringLayout_MetricsTest {
+    @Test
     public void testMetrics() {
         BoringLayout.Metrics bm = new BoringLayout.Metrics();
         assertNotNull(bm.toString());

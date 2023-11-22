@@ -397,7 +397,8 @@ public class X509CertSelectorTest extends TestCase {
         selector.setIssuer(iss1);
         assertTrue("The returned issuer should be equal to specified",
                    Arrays.equals(name1, selector.getIssuerAsBytes()));
-        assertFalse("The returned issuer should differ", name2.equals(selector.getIssuerAsBytes()));
+        assertFalse("The returned issuer should differ",
+                   Arrays.equals(name2, selector.getIssuerAsBytes()));
         selector.setIssuer(iss2);
         assertTrue("The returned issuer should be equal to specified",
                    Arrays.equals(name2, selector.getIssuerAsBytes()));
@@ -682,7 +683,7 @@ public class X509CertSelectorTest extends TestCase {
         assertTrue("The returned issuer should be equal to specified",
                    Arrays.equals(name1, selector.getSubjectAsBytes()));
         assertFalse("The returned issuer should differ",
-                    name2.equals(selector.getSubjectAsBytes()));
+                    Arrays.equals(name2, selector.getSubjectAsBytes()));
         selector.setSubject(sub2);
         assertTrue("The returned issuer should be equal to specified",
                    Arrays.equals(name2, selector.getSubjectAsBytes()));
@@ -858,6 +859,7 @@ public class X509CertSelectorTest extends TestCase {
         for (int i = 0; i < invalidValues.length; i++) {
             try {
                 selector.setBasicConstraints(-3);
+                fail();
             } catch (IllegalArgumentException expected) {
             }
         }

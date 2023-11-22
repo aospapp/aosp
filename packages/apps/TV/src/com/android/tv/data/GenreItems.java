@@ -16,10 +16,8 @@
 
 package com.android.tv.data;
 
-import android.annotation.SuppressLint;
 import android.content.Context;
 import android.media.tv.TvContract.Programs.Genres;
-import android.os.Build;
 
 import com.android.tv.R;
 
@@ -29,23 +27,7 @@ public class GenreItems {
      */
     public static final int ID_ALL_CHANNELS = 0;
 
-    private static final String[] CANONICAL_GENRES_L = {
-        null, // All channels
-        Genres.FAMILY_KIDS,
-        Genres.SPORTS,
-        Genres.SHOPPING,
-        Genres.MOVIES,
-        Genres.COMEDY,
-        Genres.TRAVEL,
-        Genres.DRAMA,
-        Genres.EDUCATION,
-        Genres.ANIMAL_WILDLIFE,
-        Genres.NEWS,
-        Genres.GAMING
-    };
-
-    @SuppressLint("InlinedApi")
-    private static final String[] CANONICAL_GENRES_L_MR1 = {
+    private static final String[] CANONICAL_GENRES = {
         null, // All channels
         Genres.FAMILY_KIDS,
         Genres.SPORTS,
@@ -66,25 +48,13 @@ public class GenreItems {
         Genres.TECH_SCIENCE
     };
 
-    private static final String[] CANONICAL_GENRES = createGenres();
-
-    private static String[] createGenres() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP_MR1) {
-            return CANONICAL_GENRES_L;
-        } else {
-            return CANONICAL_GENRES_L_MR1;
-        }
-    }
-
     private GenreItems() { }
 
     /**
      * Returns array of all genre labels.
      */
     public static String[] getLabels(Context context) {
-        String[] items = Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP_MR1
-                ? context.getResources().getStringArray(R.array.genre_labels_l)
-                : context.getResources().getStringArray(R.array.genre_labels_l_mr1);
+        String[] items = context.getResources().getStringArray(R.array.genre_labels);
         if (items.length != CANONICAL_GENRES.length) {
             throw new IllegalArgumentException("Genre data mismatch");
         }

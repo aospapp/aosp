@@ -167,7 +167,7 @@ public class DefaultProxySelector extends ProxySelector {
             // HTTPS uses the same property as HTTP, for backward
             // compatibility
             //
-            // Android changed : Allow a different set of flags for https hosts.
+            // Android-changed: Allow a different set of flags for https hosts.
             pinfo = NonProxyInfo.httpsNonProxyInfo;
         } else if ("ftp".equalsIgnoreCase(protocol)) {
             pinfo = NonProxyInfo.ftpNonProxyInfo;

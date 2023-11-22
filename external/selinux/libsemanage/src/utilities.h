@@ -105,7 +105,7 @@ int semanage_cmp_plist_t(const semanage_list_t ** x,
  * @param      what  a charachter
  * @returns    the number of times the char appears in the string
  */
-int semanage_str_count(char *data, char what);
+int semanage_str_count(const char *data, char what);
 /**
  * @param      - a string
  * @param            the charachter to trim to
@@ -114,6 +114,16 @@ int semanage_str_count(char *data, char what);
  *             the end of the string.
  */
 void semanage_rtrim(char *str, char trim_to);
+
+/**
+ * @param      value being searched for
+ * @param      replacement value that replaces found search values
+ * @param      string being searched and replaced on
+ * @param      maximum number of value occurences (zero for unlimited)
+ * @return     newly-allocated string with the replaced values
+ */
+char *semanage_str_replace(const char *search, const char *replace,
+			   const char *src, size_t lim);
 
 /**
  * @param data    some string

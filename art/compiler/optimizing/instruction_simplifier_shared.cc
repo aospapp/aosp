@@ -226,4 +226,123 @@ bool TryMergeNegatedInput(HBinaryOperation* op) {
   return false;
 }
 
+
+bool TryExtractArrayAccessAddress(HInstruction* access,
+                                  HInstruction* array,
+                                  HInstruction* index,
+                                  size_t data_offset) {
+  if (index->IsConstant() ||
+      (index->IsBoundsCheck() && index->AsBoundsCheck()->GetIndex()->IsConstant())) {
+    // When the index is a constant all the addressing can be fitted in the
+    // memory access instruction, so do not split the access.
+    return false;
+  }
+  if (access->IsArraySet() &&
+      access->AsArraySet()->GetValue()->GetType() == Primitive::kPrimNot) {
+    // The access may require a runtime call or the original array pointer.
+    return false;
+  }
+  if (kEmitCompilerReadBarrier &&
+      access->IsArrayGet() &&
+      access->GetType() == Primitive::kPrimNot) {
+    // For object arrays, the read barrier instrumentation requires
+    // the original array pointer.
+    return false;
+  }
+
+  // Proceed to extract the base address computation.
+  HGraph* graph = access->GetBlock()->GetGraph();
+  ArenaAllocator* arena = graph->GetArena();
+
+  HIntConstant* offset = graph->GetIntConstant(data_offset);
+  HIntermediateAddress* address = new (arena) HIntermediateAddress(array, offset, kNoDexPc);
+  // TODO: Is it ok to not have this on the intermediate address?
+  // address->SetReferenceTypeInfo(array->GetReferenceTypeInfo());
+  access->GetBlock()->InsertInstructionBefore(address, access);
+  access->ReplaceInput(address, 0);
+  // Both instructions must depend on GC to prevent any instruction that can
+  // trigger GC to be inserted between the two.
+  access->AddSideEffects(SideEffects::DependsOnGC());
+  DCHECK(address->GetSideEffects().Includes(SideEffects::DependsOnGC()));
+  DCHECK(access->GetSideEffects().Includes(SideEffects::DependsOnGC()));
+  // TODO: Code generation for HArrayGet and HArraySet will check whether the input address
+  // is an HIntermediateAddress and generate appropriate code.
+  // We would like to replace the `HArrayGet` and `HArraySet` with custom instructions (maybe
+  // `HArm64Load` and `HArm64Store`,`HArmLoad` and `HArmStore`). We defer these changes
+  // because these new instructions would not bring any advantages yet.
+  // Also see the comments in
+  // `InstructionCodeGeneratorARM::VisitArrayGet()`
+  // `InstructionCodeGeneratorARM::VisitArraySet()`
+  // `InstructionCodeGeneratorARM64::VisitArrayGet()`
+  // `InstructionCodeGeneratorARM64::VisitArraySet()`.
+  return true;
+}
+
+bool TryCombineVecMultiplyAccumulate(HVecMul* mul, InstructionSet isa) {
+  Primitive::Type type = mul->GetPackedType();
+  switch (isa) {
+    case kArm64:
+      if (!(type == Primitive::kPrimByte ||
+            type == Primitive::kPrimChar ||
+            type == Primitive::kPrimShort ||
+            type == Primitive::kPrimInt)) {
+        return false;
+      }
+      break;
+    default:
+      return false;
+  }
+
+  ArenaAllocator* arena = mul->GetBlock()->GetGraph()->GetArena();
+
+  if (mul->HasOnlyOneNonEnvironmentUse()) {
+    HInstruction* use = mul->GetUses().front().GetUser();
+    if (use->IsVecAdd() || use->IsVecSub()) {
+      // Replace code looking like
+      //    VECMUL tmp, x, y
+      //    VECADD/SUB dst, acc, tmp
+      // with
+      //    VECMULACC dst, acc, x, y
+      // Note that we do not want to (unconditionally) perform the merge when the
+      // multiplication has multiple uses and it can be merged in all of them.
+      // Multiple uses could happen on the same control-flow path, and we would
+      // then increase the amount of work. In the future we could try to evaluate
+      // whether all uses are on different control-flow paths (using dominance and
+      // reverse-dominance information) and only perform the merge when they are.
+      HInstruction* accumulator = nullptr;
+      HVecBinaryOperation* binop = use->AsVecBinaryOperation();
+      HInstruction* binop_left = binop->GetLeft();
+      HInstruction* binop_right = binop->GetRight();
+      // This is always true since the `HVecMul` has only one use (which is checked above).
+      DCHECK_NE(binop_left, binop_right);
+      if (binop_right == mul) {
+        accumulator = binop_left;
+      } else if (use->IsVecAdd()) {
+        DCHECK_EQ(binop_left, mul);
+        accumulator = binop_right;
+      }
+
+      HInstruction::InstructionKind kind =
+          use->IsVecAdd() ? HInstruction::kAdd : HInstruction::kSub;
+      if (accumulator != nullptr) {
+        HVecMultiplyAccumulate* mulacc =
+            new (arena) HVecMultiplyAccumulate(arena,
+                                               kind,
+                                               accumulator,
+                                               mul->GetLeft(),
+                                               mul->GetRight(),
+                                               binop->GetPackedType(),
+                                               binop->GetVectorLength());
+
+        binop->GetBlock()->ReplaceAndRemoveInstructionWith(binop, mulacc);
+        DCHECK(!mul->HasUses());
+        mul->GetBlock()->RemoveInstruction(mul);
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
 }  // namespace art

@@ -43,7 +43,7 @@ static char buf[DEF_BUF_SIZE];
 /* selinuxfs mount point */
 extern char *selinux_mnt;
 
-static __attribute__((__format__(printf,1,2))) void die(const char *msg, ...)
+static __attribute__((__format__(printf,1,2),__noreturn__)) void die(const char *msg, ...)
 {
 	va_list args;
 
@@ -203,7 +203,7 @@ int main(int argc, char **argv)
 		if (!parsed)
 			die("unable to parse \'%s\': no data", avcstatfile);
 
-		if (cumulative || (!cumulative && !i))
+		if (cumulative || !i)
 			printf("%10Lu %10Lu %10Lu %10Lu %10Lu %10Lu\n",
 			       tot.lookups, tot.hits, tot.misses,
 			       tot.allocations, tot.reclaims, tot.frees);

@@ -38,7 +38,6 @@ import java.io.FileDescriptor;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
-import java.io.FileWriter;
 import java.io.FilenameFilter;
 import java.io.IOException;
 import java.io.InputStream;
@@ -316,6 +315,16 @@ public class FileUtils {
         stringToFile(file.getAbsolutePath(), string);
     }
 
+    /*
+     * Writes the bytes given in {@code content} to the file whose absolute path
+     * is {@code filename}.
+     */
+    public static void bytesToFile(String filename, byte[] content) throws IOException {
+        try (FileOutputStream fos = new FileOutputStream(filename)) {
+            fos.write(content);
+        }
+    }
+
     /**
      * Writes string to file. Basically same as "echo -n $string > $filename"
      *
@@ -324,12 +333,7 @@ public class FileUtils {
      * @throws IOException
      */
     public static void stringToFile(String filename, String string) throws IOException {
-        FileWriter out = new FileWriter(filename);
-        try {
-            out.write(string);
-        } finally {
-            out.close();
-        }
+        bytesToFile(filename, string.getBytes(StandardCharsets.UTF_8));
     }
 
     /**
@@ -380,7 +384,7 @@ public class FileUtils {
         Arrays.sort(files, new Comparator<File>() {
             @Override
             public int compare(File lhs, File rhs) {
-                return (int) (rhs.lastModified() - lhs.lastModified());
+                return Long.compare(rhs.lastModified(), lhs.lastModified());
             }
         });
 
@@ -428,14 +432,13 @@ public class FileUtils {
      */
     public static boolean contains(File dir, File file) {
         if (dir == null || file == null) return false;
+        return contains(dir.getAbsolutePath(), file.getAbsolutePath());
+    }
 
-        String dirPath = dir.getAbsolutePath();
-        String filePath = file.getAbsolutePath();
-
+    public static boolean contains(String dirPath, String filePath) {
         if (dirPath.equals(filePath)) {
             return true;
         }
-
         if (!dirPath.endsWith("/")) {
             dirPath += "/";
         }
@@ -605,6 +608,22 @@ public class FileUtils {
         return null;
     }
 
+    private static File buildUniqueFileWithExtension(File parent, String name, String ext)
+            throws FileNotFoundException {
+        File file = buildFile(parent, name, ext);
+
+        // If conflicting file, try adding counter suffix
+        int n = 0;
+        while (file.exists()) {
+            if (n++ >= 32) {
+                throw new FileNotFoundException("Failed to create unique file");
+            }
+            file = buildFile(parent, name + " (" + n + ")", ext);
+        }
+
+        return file;
+    }
+
     /**
      * Generates a unique file name under the given parent directory. If the display name doesn't
      * have an extension that matches the requested MIME type, the default extension for that MIME
@@ -619,20 +638,29 @@ public class FileUtils {
     public static File buildUniqueFile(File parent, String mimeType, String displayName)
             throws FileNotFoundException {
         final String[] parts = splitFileName(mimeType, displayName);
-        final String name = parts[0];
-        final String ext = parts[1];
-        File file = buildFile(parent, name, ext);
+        return buildUniqueFileWithExtension(parent, parts[0], parts[1]);
+    }
 
-        // If conflicting file, try adding counter suffix
-        int n = 0;
-        while (file.exists()) {
-            if (n++ >= 32) {
-                throw new FileNotFoundException("Failed to create unique file");
-            }
-            file = buildFile(parent, name + " (" + n + ")", ext);
+    /**
+     * Generates a unique file name under the given parent directory, keeping
+     * any extension intact.
+     */
+    public static File buildUniqueFile(File parent, String displayName)
+            throws FileNotFoundException {
+        final String name;
+        final String ext;
+
+        // Extract requested extension from display name
+        final int lastDot = displayName.lastIndexOf('.');
+        if (lastDot >= 0) {
+            name = displayName.substring(0, lastDot);
+            ext = displayName.substring(lastDot + 1);
+        } else {
+            name = displayName;
+            ext = null;
         }
 
-        return file;
+        return buildUniqueFileWithExtension(parent, name, ext);
     }
 
     /**
@@ -726,5 +754,38 @@ public class FileUtils {
 
     public static @Nullable File newFileOrNull(@Nullable String path) {
         return (path != null) ? new File(path) : null;
+    }
+
+    /**
+     * Creates a directory with name {@code name} under an existing directory {@code baseDir}.
+     * Returns a {@code File} object representing the directory on success, {@code null} on
+     * failure.
+     */
+    public static @Nullable File createDir(File baseDir, String name) {
+        final File dir = new File(baseDir, name);
+
+        if (dir.exists()) {
+            return dir.isDirectory() ? dir : null;
+        }
+
+        return dir.mkdir() ? dir : null;
+    }
+
+    /**
+     * Round the given size of a storage device to a nice round power-of-two
+     * value, such as 256MB or 32GB. This avoids showing weird values like
+     * "29.5GB" in UI.
+     */
+    public static long roundStorageSize(long size) {
+        long val = 1;
+        long pow = 1;
+        while ((val * pow) < size) {
+            val <<= 1;
+            if (val > 512) {
+                val = 1;
+                pow *= 1000;
+            }
+        }
+        return val * pow;
     }
 }

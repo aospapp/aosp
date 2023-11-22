@@ -4,14 +4,17 @@
 
 import logging
 import os
+import posixpath
 import re
 import subprocess
 import tempfile
 
+from battor import battor_wrapper
 from telemetry.core import android_platform
 from telemetry.core import exceptions
 from telemetry.core import util
 from telemetry import decorators
+from telemetry.internal import forwarders
 from telemetry.internal.forwarders import android_forwarder
 from telemetry.internal.image_processing import video
 from telemetry.internal.platform import android_device
@@ -24,6 +27,7 @@ from telemetry.internal.platform.power_monitor import (
   android_power_monitor_controller)
 from telemetry.internal.platform.power_monitor import sysfs_power_monitor
 from telemetry.internal.platform.profiler import android_prebuilt_profiler_helper
+from telemetry.internal.util import binary_manager
 from telemetry.internal.util import external_modules
 
 psutil = external_modules.ImportOptionalModule('psutil')
@@ -40,11 +44,21 @@ from devil.android.sdk import version_codes
 from devil.android.tools import video_recorder
 
 try:
+  # devil.android.forwarder uses fcntl, which doesn't exist on Windows.
+  from devil.android import forwarder
+except ImportError:
+  forwarder = None
+
+try:
   from devil.android.perf import surface_stats_collector
 except Exception:
   surface_stats_collector = None
 
 
+_ARCH_TO_STACK_TOOL_ARCH = {
+  'armeabi-v7a': 'arm',
+  'arm64-v8a': 'arm64',
+}
 _DEVICE_COPY_SCRIPT_FILE = os.path.abspath(os.path.join(
     os.path.dirname(__file__), 'efficient_android_directory_copy.sh'))
 _DEVICE_COPY_SCRIPT_LOCATION = (
@@ -88,12 +102,8 @@ class AndroidPlatformBackend(
     self._perf_tests_setup = perf_control.PerfControl(self._device)
     self._thermal_throttle = thermal_throttle.ThermalThrottle(self._device)
     self._raw_display_frame_rate_measurements = []
-    try:
-      self._can_access_protected_file_contents = (
-          self._device.HasRoot() or self._device.NeedsSU())
-    except Exception:
-      logging.exception('New exception caused by DeviceUtils conversion')
-      raise
+    self._can_elevate_privilege = (
+        self._device.HasRoot() or self._device.NeedsSU())
     self._device_copy_script = None
     self._power_monitor = (
       android_power_monitor_controller.AndroidPowerMonitorController([
@@ -139,6 +149,9 @@ class AndroidPlatformBackend(
   def device(self):
     return self._device
 
+  def Initialize(self):
+    self.EnsureBackgroundApkInstalled()
+
   def GetSystemUi(self):
     if self._system_ui is None:
       self._system_ui = app_ui.AppUi(self.device, 'com.android.systemui')
@@ -150,6 +163,9 @@ class AndroidPlatformBackend(
       return 'svelte' in description
     else:
       return False
+
+  def GetRemotePort(self, port):
+    return forwarder.Forwarder.DevicePortForHostPort(port) or 0
 
   def IsDisplayTracingSupported(self):
     return bool(self.GetOSVersionName() >= 'J')
@@ -212,13 +228,13 @@ class AndroidPlatformBackend(
     return self._thermal_throttle.HasBeenThrottled()
 
   def GetCpuStats(self, pid):
-    if not self._can_access_protected_file_contents:
+    if not self._can_elevate_privilege:
       logging.warning('CPU stats cannot be retrieved on non-rooted device.')
       return {}
     return super(AndroidPlatformBackend, self).GetCpuStats(pid)
 
   def GetCpuTimestamp(self):
-    if not self._can_access_protected_file_contents:
+    if not self._can_elevate_privilege:
       logging.warning('CPU timestamp cannot be retrieved on non-rooted device.')
       return {}
     return super(AndroidPlatformBackend, self).GetCpuTimestamp()
@@ -231,35 +247,40 @@ class AndroidPlatformBackend(
     if not android_prebuilt_profiler_helper.InstallOnDevice(
         self._device, 'memtrack_helper'):
       raise Exception('Error installing memtrack_helper.')
-    try:
-      cmd = android_prebuilt_profiler_helper.GetDevicePath('memtrack_helper')
-      cmd += ' -d'
-      self._device.RunShellCommand(cmd, as_root=True, check_return=True)
-    except Exception:
-      logging.exception('New exception caused by DeviceUtils conversion')
-      raise
+    self._device.RunShellCommand([
+      android_prebuilt_profiler_helper.GetDevicePath('memtrack_helper'),
+      '-d'], as_root=True, check_return=True)
+
+  def EnsureBackgroundApkInstalled(self):
+    app = 'push_apps_to_background_apk'
+    arch_name = self._device.GetABI()
+    host_path = binary_manager.FetchPath(app, arch_name, 'android')
+    if not host_path:
+      raise Exception('Error installing PushAppsToBackground.apk.')
+    self.InstallApplication(host_path)
 
   def PurgeUnpinnedMemory(self):
     """Purges the unpinned ashmem memory for the whole system.
 
     This can be used to make memory measurements more stable. Requires root.
     """
-    if not self._can_access_protected_file_contents:
+    if not self._can_elevate_privilege:
       logging.warning('Cannot run purge_ashmem. Requires a rooted device.')
       return
 
     if not android_prebuilt_profiler_helper.InstallOnDevice(
         self._device, 'purge_ashmem'):
       raise Exception('Error installing purge_ashmem.')
-    try:
-      output = self._device.RunShellCommand(
-          android_prebuilt_profiler_helper.GetDevicePath('purge_ashmem'))
-    except Exception:
-      logging.exception('New exception caused by DeviceUtils conversion')
-      raise
+    output = self._device.RunShellCommand([
+      android_prebuilt_profiler_helper.GetDevicePath('purge_ashmem')],
+      check_return=True)
     for l in output:
       logging.info(l)
 
+  @decorators.Deprecated(
+      2017, 11, 4,
+      'Clients should use tracing and memory-infra in new Telemetry '
+      'benchmarks. See for context: https://crbug.com/632021')
   def GetMemoryStats(self, pid):
     memory_usage = self._device.GetMemoryUsageForPid(pid)
     if not memory_usage:
@@ -305,6 +326,9 @@ class AndroidPlatformBackend(
   def CanFlushIndividualFilesFromSystemCache(self):
     return False
 
+  def SupportFlushEntireSystemCache(self):
+    return self._can_elevate_privilege
+
   def FlushEntireSystemCache(self):
     cache = cache_control.CacheControl(self._device)
     cache.DropRamCaches()
@@ -313,7 +337,8 @@ class AndroidPlatformBackend(
     raise NotImplementedError()
 
   def FlushDnsCache(self):
-    self._device.RunShellCommand('ndc resolver flushdefaultif', as_root=True)
+    self._device.RunShellCommand(
+        ['ndc', 'resolver', 'flushdefaultif'], as_root=True, check_return=True)
 
   def StopApplication(self, application):
     """Stop the given |application|.
@@ -345,10 +370,12 @@ class AndroidPlatformBackend(
     """
     if elevate_privilege:
       raise NotImplementedError("elevate_privilege isn't supported on android.")
-    if not parameters:
-      parameters = ''
-    result_lines = self._device.RunShellCommand('am start %s %s' %
-                                                (parameters, application))
+    # TODO(catapult:#3215): Migrate to StartActivity.
+    cmd = ['am', 'start']
+    if parameters:
+      cmd.extend(parameters)
+    cmd.append(application)
+    result_lines = self._device.RunShellCommand(cmd, check_return=True)
     for line in result_lines:
       if line.startswith('Error: '):
         raise ValueError('Failed to start "%s" with error\n  %s' %
@@ -360,7 +387,7 @@ class AndroidPlatformBackend(
   def CanLaunchApplication(self, application):
     if not self._installed_applications:
       self._installed_applications = self._device.RunShellCommand(
-          'pm list packages')
+          ['pm', 'list', 'packages'], check_return=True)
     return 'package:' + application in self._installed_applications
 
   def InstallApplication(self, application):
@@ -420,31 +447,33 @@ class AndroidPlatformBackend(
         device_path, timeout=timeout, retries=retries)
 
   def GetFileContents(self, fname):
-    if not self._can_access_protected_file_contents:
-      logging.warning('%s cannot be retrieved on non-rooted device.' % fname)
+    if not self._can_elevate_privilege:
+      logging.warning('%s cannot be retrieved on non-rooted device.', fname)
       return ''
     return self._device.ReadFile(fname, as_root=True)
 
   def GetPsOutput(self, columns, pid=None):
     assert columns == ['pid', 'name'] or columns == ['pid'], \
         'Only know how to return pid and name. Requested: ' + columns
-    command = 'ps'
-    if pid:
-      command += ' -p %d' % pid
-    ps = self._device.RunShellCommand(command, large_output=True)[1:]
+    if pid is not None:
+      pid = str(pid)
+    procs_pids = self._device.GetPids()
     output = []
-    for line in ps:
-      data = line.split()
-      curr_pid = data[1]
-      curr_name = data[-1]
-      if columns == ['pid', 'name']:
-        output.append([curr_pid, curr_name])
-      else:
-        output.append([curr_pid])
+    for curr_name, pids_list in procs_pids.iteritems():
+      for curr_pid in pids_list:
+        if columns == ['pid', 'name']:
+          row = [curr_pid, curr_name]
+        else:
+          row = [curr_pid]
+        if pid is not None:
+          if curr_pid == pid:
+            return [row]
+        else:
+          output.append(row)
     return output
 
   def RunCommand(self, command):
-    return '\n'.join(self._device.RunShellCommand(command))
+    return '\n'.join(self._device.RunShellCommand(command, check_return=True))
 
   @staticmethod
   def ParseCStateSample(sample):
@@ -478,14 +507,15 @@ class AndroidPlatformBackend(
     self._device.adb.Forward('tcp:%d' % host_port, device_port)
 
   def StopForwardingHost(self, host_port):
-    for line in self._device.adb.ForwardList().strip().splitlines():
-      line = line.split(' ')
-      if line[0] == self._device and line[1] == 'tcp:%s' % host_port:
-        self._device.adb.ForwardRemove('tcp:%d' % host_port)
-        break
-    else:
-      logging.warning('Port %s not found in adb forward --list for device %s',
-                      host_port, self._device)
+    # This used to run `adb forward --list` to check that the requested
+    # port was actually being forwarded to self._device. Unfortunately,
+    # starting in adb 1.0.36, a bug (b/31811775) keeps this from working.
+    # For now, try to remove the port forwarding and ignore failures.
+    try:
+      self._device.adb.ForwardRemove('tcp:%d' % host_port)
+    except device_errors.AdbCommandFailedError:
+      logging.critical(
+          'Attempted to unforward port tcp:%d but failed.', host_port)
 
   def DismissCrashDialogIfNeeded(self):
     """Dismiss any error dialogs.
@@ -523,7 +553,8 @@ class AndroidPlatformBackend(
       logging.warning('Test certificate authority is already installed.')
       return
     self._device_cert_util = adb_install_cert.AndroidCertInstaller(
-        self._device.adb.GetDeviceSerial(), None, ca_cert_path)
+        self._device.adb.GetDeviceSerial(), None, ca_cert_path,
+        adb_path=self._device.adb.GetAdbPath())
     self._device_cert_util.install_cert(overwrite_cert=True)
 
   def RemoveTestCa(self):
@@ -561,32 +592,33 @@ class AndroidPlatformBackend(
     self._device.PushChangedFiles([(new_profile_dir, saved_profile_location)])
 
     profile_dir = self._GetProfileDir(package)
-    try:
-      self._EfficientDeviceDirectoryCopy(
-          saved_profile_location, profile_dir)
-    except Exception:
-      logging.exception('New exception caused by DeviceUtils conversion')
-      raise
-    dumpsys = self._device.RunShellCommand('dumpsys package %s' % package)
+    self._EfficientDeviceDirectoryCopy(
+        saved_profile_location, profile_dir)
+    dumpsys = self._device.RunShellCommand(
+        ['dumpsys', 'package', package], check_return=True)
     id_line = next(line for line in dumpsys if 'userId=' in line)
     uid = re.search(r'\d+', id_line).group()
-    files = self._device.RunShellCommand(
-        'ls "%s"' % profile_dir, as_root=True)
-    files.remove('lib')
-    paths = ['%s%s' % (profile_dir, f) for f in files]
+    files = self._device.ListDirectory(profile_dir, as_root=True)
+    paths = [posixpath.join(profile_dir, f) for f in files if f != 'lib']
     for path in paths:
+      # TODO(crbug.com/628617): Implement without ignoring shell errors.
+      # Note: need to pass command as a string for the shell to expand the *'s.
       extended_path = '%s %s/* %s/*/* %s/*/*/*' % (path, path, path, path)
       self._device.RunShellCommand(
-          'chown %s.%s %s' % (uid, uid, extended_path))
+          'chown %s.%s %s' % (uid, uid, extended_path),
+          check_return=False, shell=True)
 
   def _EfficientDeviceDirectoryCopy(self, source, dest):
     if not self._device_copy_script:
       self._device.adb.Push(
           _DEVICE_COPY_SCRIPT_FILE,
           _DEVICE_COPY_SCRIPT_LOCATION)
-      self._device_copy_script = _DEVICE_COPY_SCRIPT_FILE
+      self._device_copy_script = _DEVICE_COPY_SCRIPT_LOCATION
     self._device.RunShellCommand(
-        ['sh', self._device_copy_script, source, dest])
+        ['sh', self._device_copy_script, source, dest], check_return=True)
+
+  def GetPortPairForForwarding(self, local_port):
+    return forwarders.PortPair(local_port=local_port, remote_port=0)
 
   def RemoveProfile(self, package, ignore_list):
     """Delete application profile on device.
@@ -597,11 +629,15 @@ class AndroidPlatformBackend(
       ignore_list: List of files to keep.
     """
     profile_dir = self._GetProfileDir(package)
-    files = self._device.RunShellCommand(
-        'ls "%s"' % profile_dir, as_root=True)
-    paths = ['"%s%s"' % (profile_dir, f) for f in files
-             if f not in ignore_list]
-    self._device.RunShellCommand('rm -r %s' % ' '.join(paths), as_root=True)
+    if not self._device.PathExists(profile_dir):
+      return
+    files = [
+      posixpath.join(profile_dir, f)
+      for f in self._device.ListDirectory(profile_dir, as_root=True)
+      if f not in ignore_list]
+    if not files:
+      return
+    self._device.RemovePath(files, recursive=True, as_root=True)
 
   def PullProfile(self, package, output_profile_path):
     """Copy application profile from device to host machine.
@@ -618,20 +654,24 @@ class AndroidPlatformBackend(
     # pulled down is really needed e.g. .pak files.
     if not os.path.exists(output_profile_path):
       os.makedirs(output_profile_path)
-    try:
-      files = self._device.RunShellCommand(['ls', profile_dir])
-    except Exception:
-      logging.exception('New exception caused by DeviceUtils conversion')
-      raise
-    for f in files:
+    problem_files = []
+    for filename in self._device.ListDirectory(profile_dir, as_root=True):
       # Don't pull lib, since it is created by the installer.
-      if f != 'lib':
-        source = '%s%s' % (profile_dir, f)
-        dest = os.path.join(output_profile_path, f)
-        try:
-          self._device.PullFile(source, dest, timeout=240)
-        except device_errors.CommandFailedError:
-          logging.exception('Failed to pull %s to %s', source, dest)
+      if filename == 'lib':
+        continue
+      source = posixpath.join(profile_dir, filename)
+      dest = os.path.join(output_profile_path, filename)
+      try:
+        self._device.PullFile(source, dest, timeout=240)
+      except device_errors.CommandFailedError:
+        problem_files.append(source)
+    if problem_files:
+      # Some paths (e.g. 'files', 'app_textures') consistently fail to be
+      # pulled from the device.
+      logging.warning(
+          'There were errors retrieving the following paths from the profile:')
+      for filepath in problem_files:
+        logging.warning('- %s', filepath)
 
   def _GetProfileDir(self, package):
     """Returns the on-device location where the application profile is stored
@@ -650,7 +690,9 @@ class AndroidPlatformBackend(
     """
     if self._device.IsUserBuild():
       logging.debug('User build device, setting debug app')
-      self._device.RunShellCommand('am set-debug-app --persistent %s' % package)
+      self._device.RunShellCommand(
+          ['am', 'set-debug-app', '--persistent', package],
+          check_return=True)
 
   def GetLogCat(self, number_of_lines=500):
     """Returns most recent lines of logcat dump.
@@ -658,11 +700,21 @@ class AndroidPlatformBackend(
     Args:
       number_of_lines: Number of lines of log to return.
     """
-    return '\n'.join(self._device.RunShellCommand(
-        'logcat -d -t %d' % number_of_lines))
+    def decode_line(line):
+      try:
+        uline = unicode(line, encoding='utf-8')
+        return uline.encode('ascii', 'backslashreplace')
+      except Exception:
+        logging.error('Error encoding UTF-8 logcat line as ASCII.')
+        return '<MISSING LOGCAT LINE: FAILED TO ENCODE>'
+
+    logcat_output = self._device.RunShellCommand(
+        ['logcat', '-d', '-t', str(number_of_lines)],
+        check_return=True, large_output=True)
+    return '\n'.join(decode_line(l) for l in logcat_output)
 
   def GetStandardOutput(self):
-    return None
+    return 'Cannot get standard output on Android'
 
   def GetStackTrace(self):
     """Returns stack trace.
@@ -672,15 +724,21 @@ class AndroidPlatformBackend(
     """
     def Decorate(title, content):
       return "%s\n%s\n%s\n" % (title, content, '*' * 80)
+
+    # Get the UI nodes that can be found on the screen
+    ret = Decorate('UI dump', '\n'.join(self.GetSystemUi().ScreenDump()))
+
     # Get the last lines of logcat (large enough to contain stacktrace)
     logcat = self.GetLogCat()
-    ret = Decorate('Logcat', logcat)
+    ret += Decorate('Logcat', logcat)
     stack = os.path.join(util.GetChromiumSrcDir(), 'third_party',
                          'android_platform', 'development', 'scripts', 'stack')
     # Try to symbolize logcat.
     if os.path.exists(stack):
       cmd = [stack]
-      cmd.append('--arch=%s' % self.GetArchName())
+      arch = self.GetArchName()
+      arch = _ARCH_TO_STACK_TOOL_ARCH.get(arch, arch)
+      cmd.append('--arch=%s' % arch)
       p = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
       ret += Decorate('Stack from Logcat', p.communicate(input=logcat)[0])
 
@@ -688,11 +746,18 @@ class AndroidPlatformBackend(
     tombstones = os.path.join(util.GetChromiumSrcDir(), 'build', 'android',
                               'tombstones.py')
     if os.path.exists(tombstones):
+      tombstones_cmd = [
+          tombstones, '-w',
+          '--device', self._device.adb.GetDeviceSerial(),
+          '--adb-path', self._device.adb.GetAdbPath(),
+      ]
       ret += Decorate('Tombstones',
-                      subprocess.Popen([tombstones, '-w', '--device',
-                                        self._device.adb.GetDeviceSerial()],
+                      subprocess.Popen(tombstones_cmd,
                                        stdout=subprocess.PIPE).communicate()[0])
-    return ret
+    return (True, ret)
+
+  def GetMinidumpPath(self):
+    return None
 
   def IsScreenOn(self):
     """Determines if device screen is on."""
@@ -728,9 +793,27 @@ class AndroidPlatformBackend(
 
   def IsScreenLocked(self):
     """Determines if device screen is locked."""
-    input_methods = self._device.RunShellCommand('dumpsys input_method',
+    input_methods = self._device.RunShellCommand(['dumpsys', 'input_method'],
                                                  check_return=True)
     return self._IsScreenLocked(input_methods)
+
+  def HasBattOrConnected(self):
+    # Use linux instead of Android because when determining what tests to run on
+    # a bot the individual device could be down, which would make BattOr tests
+    # not run on any device. BattOrs communicate with the host and not android
+    # devices.
+    return battor_wrapper.IsBattOrConnected('linux')
+
+  def Log(self, message):
+    """Prints line to logcat."""
+    TELEMETRY_LOGCAT_TAG = 'Telemetry'
+    self._device.RunShellCommand(
+        ['log', '-p', 'i', '-t', TELEMETRY_LOGCAT_TAG, message],
+        check_return=True)
+
+  def WaitForTemperature(self, temp):
+    # Temperature is in tenths of a degree C, so we convert to that scale.
+    self._battery.LetBatteryCoolToTemperature(temp * 10)
 
 def _FixPossibleAdbInstability():
   """Host side workaround for crbug.com/268450 (adb instability).

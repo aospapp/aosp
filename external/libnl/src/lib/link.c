@@ -6,7 +6,7 @@
  *	License as published by the Free Software Foundation version 2.1
  *	of the License.
  *
- * Copyright (c) 2008-2009 Thomas Graf <tgraf@suug.ch>
+ * Copyright (c) 2008-2010 Thomas Graf <tgraf@suug.ch>
  */
 
 /**
@@ -18,6 +18,7 @@
 
 #include <netlink/cli/utils.h>
 #include <netlink/cli/link.h>
+#include <linux/if.h>
 
 struct rtnl_link *nl_cli_link_alloc(void)
 {
@@ -30,11 +31,30 @@ struct rtnl_link *nl_cli_link_alloc(void)
 	return link;
 }
 
+struct nl_cache *nl_cli_link_alloc_cache_family(struct nl_sock *sock, int family)
+{
+	struct nl_cache *cache;
+	int err;
+
+	if ((err = rtnl_link_alloc_cache(sock, family, &cache)) < 0)
+		nl_cli_fatal(err, "Unable to allocate link cache: %s",
+			     nl_geterror(err));
+
+	nl_cache_mngt_provide(cache);
+
+	return cache;
+}
+
+struct nl_cache *nl_cli_link_alloc_cache(struct nl_sock *sock)
+{
+	return nl_cli_link_alloc_cache_family(sock, AF_UNSPEC);
+}
+
 void nl_cli_link_parse_family(struct rtnl_link *link, char *arg)
 {
 	int family;
 
-	if ((family = nl_str2af(arg)) == AF_UNSPEC)
+	if ((family = nl_str2af(arg)) < 0)
 		nl_cli_fatal(EINVAL,
 			     "Unable to translate address family \"%s\"", arg);
 
@@ -66,8 +86,16 @@ void nl_cli_link_parse_txqlen(struct rtnl_link *link, char *arg)
 
 void nl_cli_link_parse_weight(struct rtnl_link *link, char *arg)
 {
-	uint32_t weight = nl_cli_parse_u32(arg);
-	rtnl_link_set_weight(link, weight);
+}
+
+void nl_cli_link_parse_ifalias(struct rtnl_link *link, char *arg)
+{
+	if (strlen(arg) > IFALIASZ)
+		nl_cli_fatal(ERANGE,
+			"Link ifalias too big, must not exceed %u in length.",
+			IFALIASZ);
+
+	rtnl_link_set_ifalias(link, arg);
 }
 
 /** @} */

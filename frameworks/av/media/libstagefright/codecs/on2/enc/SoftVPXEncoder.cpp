@@ -18,6 +18,9 @@
 #define LOG_TAG "SoftVPXEncoder"
 #include "SoftVPXEncoder.h"
 
+#include "SoftVP8Encoder.h"
+#include "SoftVP9Encoder.h"
+
 #include <utils/Log.h>
 #include <utils/misc.h>
 
@@ -42,7 +45,6 @@ static void InitOMXParams(T *params) {
     params->nVersion.s.nStep = 0;
 }
 
-
 static int GetCPUCoreCount() {
     int cpuCoreCount = 1;
 #if defined(_SC_NPROCESSORS_ONLN)
@@ -55,30 +57,26 @@ static int GetCPUCoreCount() {
     return cpuCoreCount;
 }
 
-static const CodecProfileLevel kProfileLevels[] = {
-    { OMX_VIDEO_VP8ProfileMain, OMX_VIDEO_VP8Level_Version0 },
-    { OMX_VIDEO_VP8ProfileMain, OMX_VIDEO_VP8Level_Version1 },
-    { OMX_VIDEO_VP8ProfileMain, OMX_VIDEO_VP8Level_Version2 },
-    { OMX_VIDEO_VP8ProfileMain, OMX_VIDEO_VP8Level_Version3 },
-};
-
 SoftVPXEncoder::SoftVPXEncoder(const char *name,
                                const OMX_CALLBACKTYPE *callbacks,
                                OMX_PTR appData,
-                               OMX_COMPONENTTYPE **component)
+                               OMX_COMPONENTTYPE **component,
+                               const char* role,
+                               OMX_VIDEO_CODINGTYPE codingType,
+                               const char* mimeType,
+                               int32_t minCompressionRatio,
+                               const CodecProfileLevel *profileLevels,
+                               size_t numProfileLevels)
     : SoftVideoEncoderOMXComponent(
-            name, "video_encoder.vp8", OMX_VIDEO_CodingVP8,
-            kProfileLevels, NELEM(kProfileLevels),
+            name, role, codingType, profileLevels, numProfileLevels,
             176 /* width */, 144 /* height */,
             callbacks, appData, component),
       mCodecContext(NULL),
       mCodecConfiguration(NULL),
       mCodecInterface(NULL),
       mBitrateUpdated(false),
-      mBitrateControlMode(VPX_VBR),  // variable bitrate
-      mDCTPartitions(0),
+      mBitrateControlMode(VPX_VBR),
       mErrorResilience(OMX_FALSE),
-      mLevel(OMX_VIDEO_VP8Level_Version0),
       mKeyFrameInterval(0),
       mMinQuantizer(0),
       mMaxQuantizer(0),
@@ -96,9 +94,8 @@ SoftVPXEncoder::SoftVPXEncoder(const char *name,
 
     initPorts(
             kNumBuffers, kNumBuffers, kMinOutputBufferSize,
-            MEDIA_MIMETYPE_VIDEO_VP8, 2 /* minCompressionRatio */);
+            mimeType, minCompressionRatio);
 }
-
 
 SoftVPXEncoder::~SoftVPXEncoder() {
     releaseEncoder();
@@ -108,18 +105,18 @@ status_t SoftVPXEncoder::initEncoder() {
     vpx_codec_err_t codec_return;
     status_t result = UNKNOWN_ERROR;
 
-    mCodecInterface = vpx_codec_vp8_cx();
+    setCodecSpecificInterface();
     if (mCodecInterface == NULL) {
         goto CLEAN_UP;
     }
-    ALOGD("VP8: initEncoder. BRMode: %u. TSLayers: %zu. KF: %u. QP: %u - %u",
+    ALOGD("VPx: initEncoder. BRMode: %u. TSLayers: %zu. KF: %u. QP: %u - %u",
           (uint32_t)mBitrateControlMode, mTemporalLayers, mKeyFrameInterval,
           mMinQuantizer, mMaxQuantizer);
 
     mCodecConfiguration = new vpx_codec_enc_cfg_t;
     codec_return = vpx_codec_enc_config_default(mCodecInterface,
                                                 mCodecConfiguration,
-                                                0);  // Codec specific flags
+                                                0);
 
     if (codec_return != VPX_CODEC_OK) {
         ALOGE("Error populating default configuration for vpx encoder.");
@@ -131,27 +128,6 @@ status_t SoftVPXEncoder::initEncoder() {
     mCodecConfiguration->g_threads = GetCPUCoreCount();
     mCodecConfiguration->g_error_resilient = mErrorResilience;
 
-    switch (mLevel) {
-        case OMX_VIDEO_VP8Level_Version0:
-            mCodecConfiguration->g_profile = 0;
-            break;
-
-        case OMX_VIDEO_VP8Level_Version1:
-            mCodecConfiguration->g_profile = 1;
-            break;
-
-        case OMX_VIDEO_VP8Level_Version2:
-            mCodecConfiguration->g_profile = 2;
-            break;
-
-        case OMX_VIDEO_VP8Level_Version3:
-            mCodecConfiguration->g_profile = 3;
-            break;
-
-        default:
-            mCodecConfiguration->g_profile = 0;
-    }
-
     // OMX timebase unit is microsecond
     // g_timebase is in seconds (i.e. 1/1000000 seconds)
     mCodecConfiguration->g_timebase.num = 1;
@@ -161,6 +137,8 @@ status_t SoftVPXEncoder::initEncoder() {
     mCodecConfiguration->rc_end_usage = mBitrateControlMode;
     // Disable frame drop - not allowed in MediaCodec now.
     mCodecConfiguration->rc_dropframe_thresh = 0;
+    // Disable lagged encoding.
+    mCodecConfiguration->g_lag_in_frames = 0;
     if (mBitrateControlMode == VPX_CBR) {
         // Disable spatial resizing.
         mCodecConfiguration->rc_resize_allowed = 0;
@@ -181,8 +159,6 @@ status_t SoftVPXEncoder::initEncoder() {
         mCodecConfiguration->rc_buf_sz = 1000;
         // Enable error resilience - needed for packet loss.
         mCodecConfiguration->g_error_resilient = 1;
-        // Disable lagged encoding.
-        mCodecConfiguration->g_lag_in_frames = 0;
         // Maximum key frame interval - for CBR boost to 3000
         mCodecConfiguration->kf_max_dist = 3000;
         // Encoder determines optimal key frame placement automatically.
@@ -253,7 +229,6 @@ status_t SoftVPXEncoder::initEncoder() {
             goto CLEAN_UP;
         }
     }
-
     // Set bitrate values for each layer
     for (size_t i = 0; i < mCodecConfiguration->ts_number_layers; i++) {
         mCodecConfiguration->ts_target_bitrate[i] =
@@ -271,7 +246,7 @@ status_t SoftVPXEncoder::initEncoder() {
     if (mMaxQuantizer > 0) {
         mCodecConfiguration->rc_max_quantizer = mMaxQuantizer;
     }
-
+    setCodecSpecificConfiguration();
     mCodecContext = new vpx_codec_ctx_t;
     codec_return = vpx_codec_enc_init(mCodecContext,
                                       mCodecInterface,
@@ -280,14 +255,6 @@ status_t SoftVPXEncoder::initEncoder() {
 
     if (codec_return != VPX_CODEC_OK) {
         ALOGE("Error initializing vpx encoder");
-        goto CLEAN_UP;
-    }
-
-    codec_return = vpx_codec_control(mCodecContext,
-                                     VP8E_SET_TOKEN_PARTITIONS,
-                                     mDCTPartitions);
-    if (codec_return != VPX_CODEC_OK) {
-        ALOGE("Error setting dct partitions for vpx encoder.");
         goto CLEAN_UP;
     }
 
@@ -318,6 +285,13 @@ status_t SoftVPXEncoder::initEncoder() {
         }
     }
 
+    codec_return = setCodecSpecificControls();
+
+    if (codec_return != VPX_CODEC_OK) {
+        // The codec specific method would have logged the error.
+        goto CLEAN_UP;
+    }
+
     if (mColorFormat != OMX_COLOR_FormatYUV420Planar || mInputDataIsMeta) {
         free(mConversionBuffer);
         mConversionBuffer = NULL;
@@ -337,7 +311,6 @@ CLEAN_UP:
     releaseEncoder();
     return result;
 }
-
 
 status_t SoftVPXEncoder::releaseEncoder() {
     if (mCodecContext != NULL) {
@@ -361,7 +334,6 @@ status_t SoftVPXEncoder::releaseEncoder() {
 
     return OK;
 }
-
 
 OMX_ERRORTYPE SoftVPXEncoder::internalGetParameter(OMX_INDEXTYPE index,
                                                    OMX_PTR param) {
@@ -393,53 +365,14 @@ OMX_ERRORTYPE SoftVPXEncoder::internalGetParameter(OMX_INDEXTYPE index,
             return OMX_ErrorNone;
         }
 
-        // VP8 specific parameters that use extension headers
-        case OMX_IndexParamVideoVp8: {
-            OMX_VIDEO_PARAM_VP8TYPE *vp8Params =
-                (OMX_VIDEO_PARAM_VP8TYPE *)param;
-
-            if (!isValidOMXParam(vp8Params)) {
-                return OMX_ErrorBadParameter;
-            }
-
-            if (vp8Params->nPortIndex != kOutputPortIndex) {
-                return OMX_ErrorUnsupportedIndex;
-            }
-
-            vp8Params->eProfile = OMX_VIDEO_VP8ProfileMain;
-            vp8Params->eLevel = mLevel;
-            vp8Params->nDCTPartitions = mDCTPartitions;
-            vp8Params->bErrorResilientMode = mErrorResilience;
-            return OMX_ErrorNone;
-        }
-
-        case OMX_IndexParamVideoAndroidVp8Encoder: {
-            OMX_VIDEO_PARAM_ANDROID_VP8ENCODERTYPE *vp8AndroidParams =
-                (OMX_VIDEO_PARAM_ANDROID_VP8ENCODERTYPE *)param;
-
-            if (!isValidOMXParam(vp8AndroidParams)) {
-                return OMX_ErrorBadParameter;
-            }
-
-            if (vp8AndroidParams->nPortIndex != kOutputPortIndex) {
-                return OMX_ErrorUnsupportedIndex;
-            }
-
-            vp8AndroidParams->nKeyFrameInterval = mKeyFrameInterval;
-            vp8AndroidParams->eTemporalPattern = mTemporalPatternType;
-            vp8AndroidParams->nTemporalLayerCount = mTemporalLayers;
-            vp8AndroidParams->nMinQuantizer = mMinQuantizer;
-            vp8AndroidParams->nMaxQuantizer = mMaxQuantizer;
-            memcpy(vp8AndroidParams->nTemporalLayerBitrateRatio,
-                   mTemporalLayerBitrateRatio, sizeof(mTemporalLayerBitrateRatio));
-            return OMX_ErrorNone;
-        }
+        case OMX_IndexParamVideoAndroidVp8Encoder:
+            return internalGetAndroidVpxParams(
+                (OMX_VIDEO_PARAM_ANDROID_VP8ENCODERTYPE *)param);
 
         default:
             return SoftVideoEncoderOMXComponent::internalGetParameter(index, param);
     }
 }
-
 
 OMX_ERRORTYPE SoftVPXEncoder::internalSetParameter(OMX_INDEXTYPE index,
                                                    const OMX_PTR param) {
@@ -458,27 +391,9 @@ OMX_ERRORTYPE SoftVPXEncoder::internalSetParameter(OMX_INDEXTYPE index,
             return internalSetBitrateParams(bitRate);
         }
 
-        case OMX_IndexParamVideoVp8: {
-            const OMX_VIDEO_PARAM_VP8TYPE *vp8Params =
-                (const OMX_VIDEO_PARAM_VP8TYPE*) param;
-
-            if (!isValidOMXParam(vp8Params)) {
-                return OMX_ErrorBadParameter;
-            }
-
-            return internalSetVp8Params(vp8Params);
-        }
-
-        case OMX_IndexParamVideoAndroidVp8Encoder: {
-            const OMX_VIDEO_PARAM_ANDROID_VP8ENCODERTYPE *vp8AndroidParams =
-                (const OMX_VIDEO_PARAM_ANDROID_VP8ENCODERTYPE*) param;
-
-            if (!isValidOMXParam(vp8AndroidParams)) {
-                return OMX_ErrorBadParameter;
-            }
-
-            return internalSetAndroidVp8Params(vp8AndroidParams);
-        }
+        case OMX_IndexParamVideoAndroidVp8Encoder:
+            return internalSetAndroidVpxParams(
+                (const OMX_VIDEO_PARAM_ANDROID_VP8ENCODERTYPE *)param);
 
         default:
             return SoftVideoEncoderOMXComponent::internalSetParameter(index, param);
@@ -530,77 +445,21 @@ OMX_ERRORTYPE SoftVPXEncoder::setConfig(
     }
 }
 
-OMX_ERRORTYPE SoftVPXEncoder::internalSetVp8Params(
-        const OMX_VIDEO_PARAM_VP8TYPE* vp8Params) {
-    if (vp8Params->nPortIndex != kOutputPortIndex) {
+OMX_ERRORTYPE SoftVPXEncoder::internalGetBitrateParams(
+        OMX_VIDEO_PARAM_BITRATETYPE* bitrate) {
+    if (bitrate->nPortIndex != kOutputPortIndex) {
         return OMX_ErrorUnsupportedIndex;
     }
 
-    if (vp8Params->eProfile != OMX_VIDEO_VP8ProfileMain) {
-        return OMX_ErrorBadParameter;
-    }
+    bitrate->nTargetBitrate = mBitrate;
 
-    if (vp8Params->eLevel == OMX_VIDEO_VP8Level_Version0 ||
-        vp8Params->eLevel == OMX_VIDEO_VP8Level_Version1 ||
-        vp8Params->eLevel == OMX_VIDEO_VP8Level_Version2 ||
-        vp8Params->eLevel == OMX_VIDEO_VP8Level_Version3) {
-        mLevel = vp8Params->eLevel;
+    if (mBitrateControlMode == VPX_VBR) {
+        bitrate->eControlRate = OMX_Video_ControlRateVariable;
+    } else if (mBitrateControlMode == VPX_CBR) {
+        bitrate->eControlRate = OMX_Video_ControlRateConstant;
     } else {
-        return OMX_ErrorBadParameter;
+        return OMX_ErrorUnsupportedSetting;
     }
-
-    if (vp8Params->nDCTPartitions <= kMaxDCTPartitions) {
-        mDCTPartitions = vp8Params->nDCTPartitions;
-    } else {
-        return OMX_ErrorBadParameter;
-    }
-
-    mErrorResilience = vp8Params->bErrorResilientMode;
-    return OMX_ErrorNone;
-}
-
-OMX_ERRORTYPE SoftVPXEncoder::internalSetAndroidVp8Params(
-        const OMX_VIDEO_PARAM_ANDROID_VP8ENCODERTYPE* vp8AndroidParams) {
-    if (vp8AndroidParams->nPortIndex != kOutputPortIndex) {
-        return OMX_ErrorUnsupportedIndex;
-    }
-    if (vp8AndroidParams->eTemporalPattern != OMX_VIDEO_VPXTemporalLayerPatternNone &&
-        vp8AndroidParams->eTemporalPattern != OMX_VIDEO_VPXTemporalLayerPatternWebRTC) {
-        return OMX_ErrorBadParameter;
-    }
-    if (vp8AndroidParams->nTemporalLayerCount > OMX_VIDEO_ANDROID_MAXVP8TEMPORALLAYERS) {
-        return OMX_ErrorBadParameter;
-    }
-    if (vp8AndroidParams->nMinQuantizer > vp8AndroidParams->nMaxQuantizer) {
-        return OMX_ErrorBadParameter;
-    }
-
-    mTemporalPatternType = vp8AndroidParams->eTemporalPattern;
-    if (vp8AndroidParams->eTemporalPattern == OMX_VIDEO_VPXTemporalLayerPatternWebRTC) {
-        mTemporalLayers = vp8AndroidParams->nTemporalLayerCount;
-    } else if (vp8AndroidParams->eTemporalPattern == OMX_VIDEO_VPXTemporalLayerPatternNone) {
-        mTemporalLayers = 0;
-    }
-    // Check the bitrate distribution between layers is in increasing order
-    if (mTemporalLayers > 1) {
-        for (size_t i = 0; i < mTemporalLayers - 1; i++) {
-            if (vp8AndroidParams->nTemporalLayerBitrateRatio[i + 1] <=
-                    vp8AndroidParams->nTemporalLayerBitrateRatio[i]) {
-                ALOGE("Wrong bitrate ratio - should be in increasing order.");
-                return OMX_ErrorBadParameter;
-            }
-        }
-    }
-    mKeyFrameInterval = vp8AndroidParams->nKeyFrameInterval;
-    mMinQuantizer = vp8AndroidParams->nMinQuantizer;
-    mMaxQuantizer = vp8AndroidParams->nMaxQuantizer;
-    memcpy(mTemporalLayerBitrateRatio, vp8AndroidParams->nTemporalLayerBitrateRatio,
-            sizeof(mTemporalLayerBitrateRatio));
-    ALOGD("VP8: internalSetAndroidVp8Params. BRMode: %u. TS: %zu. KF: %u."
-          " QP: %u - %u BR0: %u. BR1: %u. BR2: %u",
-          (uint32_t)mBitrateControlMode, mTemporalLayers, mKeyFrameInterval,
-          mMinQuantizer, mMaxQuantizer, mTemporalLayerBitrateRatio[0],
-          mTemporalLayerBitrateRatio[1], mTemporalLayerBitrateRatio[2]);
     return OMX_ErrorNone;
 }
 
@@ -623,71 +482,134 @@ OMX_ERRORTYPE SoftVPXEncoder::internalSetBitrateParams(
     return OMX_ErrorNone;
 }
 
+OMX_ERRORTYPE SoftVPXEncoder::internalGetAndroidVpxParams(
+        OMX_VIDEO_PARAM_ANDROID_VP8ENCODERTYPE *vpxAndroidParams) {
+    if (vpxAndroidParams->nPortIndex != kOutputPortIndex) {
+        return OMX_ErrorUnsupportedIndex;
+    }
+
+    vpxAndroidParams->nKeyFrameInterval = mKeyFrameInterval;
+    vpxAndroidParams->eTemporalPattern = mTemporalPatternType;
+    vpxAndroidParams->nTemporalLayerCount = mTemporalLayers;
+    vpxAndroidParams->nMinQuantizer = mMinQuantizer;
+    vpxAndroidParams->nMaxQuantizer = mMaxQuantizer;
+    memcpy(vpxAndroidParams->nTemporalLayerBitrateRatio,
+           mTemporalLayerBitrateRatio, sizeof(mTemporalLayerBitrateRatio));
+    return OMX_ErrorNone;
+}
+
+OMX_ERRORTYPE SoftVPXEncoder::internalSetAndroidVpxParams(
+        const OMX_VIDEO_PARAM_ANDROID_VP8ENCODERTYPE *vpxAndroidParams) {
+    if (vpxAndroidParams->nPortIndex != kOutputPortIndex) {
+        return OMX_ErrorUnsupportedIndex;
+    }
+    if (vpxAndroidParams->eTemporalPattern != OMX_VIDEO_VPXTemporalLayerPatternNone &&
+            vpxAndroidParams->eTemporalPattern != OMX_VIDEO_VPXTemporalLayerPatternWebRTC) {
+        return OMX_ErrorBadParameter;
+    }
+    if (vpxAndroidParams->nTemporalLayerCount > OMX_VIDEO_ANDROID_MAXVP8TEMPORALLAYERS) {
+        return OMX_ErrorBadParameter;
+    }
+    if (vpxAndroidParams->nMinQuantizer > vpxAndroidParams->nMaxQuantizer) {
+        return OMX_ErrorBadParameter;
+    }
+
+    mTemporalPatternType = vpxAndroidParams->eTemporalPattern;
+    if (vpxAndroidParams->eTemporalPattern == OMX_VIDEO_VPXTemporalLayerPatternWebRTC) {
+        mTemporalLayers = vpxAndroidParams->nTemporalLayerCount;
+    } else if (vpxAndroidParams->eTemporalPattern == OMX_VIDEO_VPXTemporalLayerPatternNone) {
+        mTemporalLayers = 0;
+    }
+    // Check the bitrate distribution between layers is in increasing order
+    if (mTemporalLayers > 1) {
+        for (size_t i = 0; i < mTemporalLayers - 1; i++) {
+            if (vpxAndroidParams->nTemporalLayerBitrateRatio[i + 1] <=
+                    vpxAndroidParams->nTemporalLayerBitrateRatio[i]) {
+                ALOGE("Wrong bitrate ratio - should be in increasing order.");
+                return OMX_ErrorBadParameter;
+            }
+        }
+    }
+    mKeyFrameInterval = vpxAndroidParams->nKeyFrameInterval;
+    mMinQuantizer = vpxAndroidParams->nMinQuantizer;
+    mMaxQuantizer = vpxAndroidParams->nMaxQuantizer;
+    memcpy(mTemporalLayerBitrateRatio, vpxAndroidParams->nTemporalLayerBitrateRatio,
+            sizeof(mTemporalLayerBitrateRatio));
+    ALOGD("VPx: internalSetAndroidVpxParams. BRMode: %u. TS: %zu. KF: %u."
+            " QP: %u - %u BR0: %u. BR1: %u. BR2: %u",
+            (uint32_t)mBitrateControlMode, mTemporalLayers, mKeyFrameInterval,
+            mMinQuantizer, mMaxQuantizer, mTemporalLayerBitrateRatio[0],
+            mTemporalLayerBitrateRatio[1], mTemporalLayerBitrateRatio[2]);
+    return OMX_ErrorNone;
+}
+
 vpx_enc_frame_flags_t SoftVPXEncoder::getEncodeFlags() {
     vpx_enc_frame_flags_t flags = 0;
-    int patternIdx = mTemporalPatternIdx % mTemporalPatternLength;
-    mTemporalPatternIdx++;
-    switch (mTemporalPattern[patternIdx]) {
-        case kTemporalUpdateLast:
-            flags |= VP8_EFLAG_NO_UPD_GF;
-            flags |= VP8_EFLAG_NO_UPD_ARF;
-            flags |= VP8_EFLAG_NO_REF_GF;
-            flags |= VP8_EFLAG_NO_REF_ARF;
-            break;
-        case kTemporalUpdateGoldenWithoutDependency:
-            flags |= VP8_EFLAG_NO_REF_GF;
-            // Deliberately no break here.
-        case kTemporalUpdateGolden:
-            flags |= VP8_EFLAG_NO_REF_ARF;
-            flags |= VP8_EFLAG_NO_UPD_ARF;
-            flags |= VP8_EFLAG_NO_UPD_LAST;
-            break;
-        case kTemporalUpdateAltrefWithoutDependency:
-            flags |= VP8_EFLAG_NO_REF_ARF;
-            flags |= VP8_EFLAG_NO_REF_GF;
-            // Deliberately no break here.
-        case kTemporalUpdateAltref:
-            flags |= VP8_EFLAG_NO_UPD_GF;
-            flags |= VP8_EFLAG_NO_UPD_LAST;
-            break;
-        case kTemporalUpdateNoneNoRefAltref:
-            flags |= VP8_EFLAG_NO_REF_ARF;
-            // Deliberately no break here.
-        case kTemporalUpdateNone:
-            flags |= VP8_EFLAG_NO_UPD_GF;
-            flags |= VP8_EFLAG_NO_UPD_ARF;
-            flags |= VP8_EFLAG_NO_UPD_LAST;
-            flags |= VP8_EFLAG_NO_UPD_ENTROPY;
-            break;
-        case kTemporalUpdateNoneNoRefGoldenRefAltRef:
-            flags |= VP8_EFLAG_NO_REF_GF;
-            flags |= VP8_EFLAG_NO_UPD_GF;
-            flags |= VP8_EFLAG_NO_UPD_ARF;
-            flags |= VP8_EFLAG_NO_UPD_LAST;
-            flags |= VP8_EFLAG_NO_UPD_ENTROPY;
-            break;
-        case kTemporalUpdateGoldenWithoutDependencyRefAltRef:
-            flags |= VP8_EFLAG_NO_REF_GF;
-            flags |= VP8_EFLAG_NO_UPD_ARF;
-            flags |= VP8_EFLAG_NO_UPD_LAST;
-            break;
-        case kTemporalUpdateLastRefAltRef:
-            flags |= VP8_EFLAG_NO_UPD_GF;
-            flags |= VP8_EFLAG_NO_UPD_ARF;
-            flags |= VP8_EFLAG_NO_REF_GF;
-            break;
-        case kTemporalUpdateGoldenRefAltRef:
-            flags |= VP8_EFLAG_NO_UPD_ARF;
-            flags |= VP8_EFLAG_NO_UPD_LAST;
-            break;
-        case kTemporalUpdateLastAndGoldenRefAltRef:
-            flags |= VP8_EFLAG_NO_UPD_ARF;
-            flags |= VP8_EFLAG_NO_REF_GF;
-            break;
-        case kTemporalUpdateLastRefAll:
-            flags |= VP8_EFLAG_NO_UPD_ARF;
-            flags |= VP8_EFLAG_NO_UPD_GF;
-            break;
+    if (mTemporalPatternLength > 0) {
+      int patternIdx = mTemporalPatternIdx % mTemporalPatternLength;
+      mTemporalPatternIdx++;
+      switch (mTemporalPattern[patternIdx]) {
+          case kTemporalUpdateLast:
+              flags |= VP8_EFLAG_NO_UPD_GF;
+              flags |= VP8_EFLAG_NO_UPD_ARF;
+              flags |= VP8_EFLAG_NO_REF_GF;
+              flags |= VP8_EFLAG_NO_REF_ARF;
+              break;
+          case kTemporalUpdateGoldenWithoutDependency:
+              flags |= VP8_EFLAG_NO_REF_GF;
+              // Deliberately no break here.
+          case kTemporalUpdateGolden:
+              flags |= VP8_EFLAG_NO_REF_ARF;
+              flags |= VP8_EFLAG_NO_UPD_ARF;
+              flags |= VP8_EFLAG_NO_UPD_LAST;
+              break;
+          case kTemporalUpdateAltrefWithoutDependency:
+              flags |= VP8_EFLAG_NO_REF_ARF;
+              flags |= VP8_EFLAG_NO_REF_GF;
+              // Deliberately no break here.
+          case kTemporalUpdateAltref:
+              flags |= VP8_EFLAG_NO_UPD_GF;
+              flags |= VP8_EFLAG_NO_UPD_LAST;
+              break;
+          case kTemporalUpdateNoneNoRefAltref:
+              flags |= VP8_EFLAG_NO_REF_ARF;
+              // Deliberately no break here.
+          case kTemporalUpdateNone:
+              flags |= VP8_EFLAG_NO_UPD_GF;
+              flags |= VP8_EFLAG_NO_UPD_ARF;
+              flags |= VP8_EFLAG_NO_UPD_LAST;
+              flags |= VP8_EFLAG_NO_UPD_ENTROPY;
+              break;
+          case kTemporalUpdateNoneNoRefGoldenRefAltRef:
+              flags |= VP8_EFLAG_NO_REF_GF;
+              flags |= VP8_EFLAG_NO_UPD_GF;
+              flags |= VP8_EFLAG_NO_UPD_ARF;
+              flags |= VP8_EFLAG_NO_UPD_LAST;
+              flags |= VP8_EFLAG_NO_UPD_ENTROPY;
+              break;
+          case kTemporalUpdateGoldenWithoutDependencyRefAltRef:
+              flags |= VP8_EFLAG_NO_REF_GF;
+              flags |= VP8_EFLAG_NO_UPD_ARF;
+              flags |= VP8_EFLAG_NO_UPD_LAST;
+              break;
+          case kTemporalUpdateLastRefAltRef:
+              flags |= VP8_EFLAG_NO_UPD_GF;
+              flags |= VP8_EFLAG_NO_UPD_ARF;
+              flags |= VP8_EFLAG_NO_REF_GF;
+              break;
+          case kTemporalUpdateGoldenRefAltRef:
+              flags |= VP8_EFLAG_NO_UPD_ARF;
+              flags |= VP8_EFLAG_NO_UPD_LAST;
+              break;
+          case kTemporalUpdateLastAndGoldenRefAltRef:
+              flags |= VP8_EFLAG_NO_UPD_ARF;
+              flags |= VP8_EFLAG_NO_REF_GF;
+              break;
+          case kTemporalUpdateLastRefAll:
+              flags |= VP8_EFLAG_NO_UPD_ARF;
+              flags |= VP8_EFLAG_NO_UPD_GF;
+              break;
+      }
     }
     return flags;
 }
@@ -765,10 +687,7 @@ void SoftVPXEncoder::onQueueFilled(OMX_U32 /* portIndex */) {
         vpx_img_wrap(&raw_frame, VPX_IMG_FMT_I420, mWidth, mHeight,
                      kInputBufferAlignment, (uint8_t *)source);
 
-        vpx_enc_frame_flags_t flags = 0;
-        if (mTemporalPatternLength > 0) {
-            flags = getEncodeFlags();
-        }
+        vpx_enc_frame_flags_t flags = getEncodeFlags();
         if (mKeyFrameRequested) {
             flags |= VPX_EFLAG_FORCE_KF;
             mKeyFrameRequested = false;
@@ -779,7 +698,7 @@ void SoftVPXEncoder::onQueueFilled(OMX_U32 /* portIndex */) {
             vpx_codec_err_t res = vpx_codec_enc_config_set(mCodecContext,
                                                            mCodecConfiguration);
             if (res != VPX_CODEC_OK) {
-                ALOGE("vp8 encoder failed to update bitrate: %s",
+                ALOGE("vpx encoder failed to update bitrate: %s",
                       vpx_codec_err_to_string(res));
                 notify(OMX_EventError,
                        OMX_ErrorUndefined,
@@ -793,7 +712,9 @@ void SoftVPXEncoder::onQueueFilled(OMX_U32 /* portIndex */) {
         if (inputBufferHeader->nTimeStamp > mLastTimestamp) {
             frameDuration = (uint32_t)(inputBufferHeader->nTimeStamp - mLastTimestamp);
         } else {
-            frameDuration = (uint32_t)(((uint64_t)1000000 << 16) / mFramerate);
+            // Use default of 30 fps in case of 0 frame rate.
+            uint32_t framerate = mFramerate ?: (30 << 16);
+            frameDuration = (uint32_t)(((uint64_t)1000000 << 16) / framerate);
         }
         mLastTimestamp = inputBufferHeader->nTimeStamp;
         codec_return = vpx_codec_encode(
@@ -847,11 +768,22 @@ void SoftVPXEncoder::onQueueFilled(OMX_U32 /* portIndex */) {
     }
 }
 
-}  // namespace android
+void SoftVPXEncoder::onReset() {
+    releaseEncoder();
+    mLastTimestamp = 0x7FFFFFFFFFFFFFFFLL;
+}
 
+}  // namespace android
 
 android::SoftOMXComponent *createSoftOMXComponent(
         const char *name, const OMX_CALLBACKTYPE *callbacks,
         OMX_PTR appData, OMX_COMPONENTTYPE **component) {
-    return new android::SoftVPXEncoder(name, callbacks, appData, component);
+  if (!strcmp(name, "OMX.google.vp8.encoder")) {
+      return new android::SoftVP8Encoder(name, callbacks, appData, component);
+  } else if (!strcmp(name, "OMX.google.vp9.encoder")) {
+      return new android::SoftVP9Encoder(name, callbacks, appData, component);
+  } else {
+      CHECK(!"Unknown component");
+  }
+  return NULL;
 }

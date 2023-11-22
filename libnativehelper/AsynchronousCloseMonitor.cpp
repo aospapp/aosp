@@ -23,6 +23,8 @@
 #include <signal.h>
 #include <string.h>
 
+#include <mutex>
+
 /**
  * We use an intrusive doubly-linked list to keep track of blocked threads.
  * This gives us O(1) insertion and removal, and means we don't need to do any allocation.
@@ -31,7 +33,7 @@
  * of blocked threads (not the number of threads actually blocked on the file descriptor in
  * question). For now at least, this seems like a good compromise for Android.
  */
-static pthread_mutex_t blockedThreadListMutex = PTHREAD_MUTEX_INITIALIZER;
+static std::mutex blockedThreadListMutex;
 static AsynchronousCloseMonitor* blockedThreadList = NULL;
 
 /**
@@ -59,7 +61,7 @@ void AsynchronousCloseMonitor::init() {
 }
 
 void AsynchronousCloseMonitor::signalBlockedThreads(int fd) {
-    ScopedPthreadMutexLock lock(&blockedThreadListMutex);
+    std::lock_guard<std::mutex> lock(blockedThreadListMutex);
     for (AsynchronousCloseMonitor* it = blockedThreadList; it != NULL; it = it->mNext) {
         if (it->mFd == fd) {
             it->mSignaled = true;
@@ -74,7 +76,7 @@ bool AsynchronousCloseMonitor::wasSignaled() const {
 }
 
 AsynchronousCloseMonitor::AsynchronousCloseMonitor(int fd) {
-    ScopedPthreadMutexLock lock(&blockedThreadListMutex);
+    std::lock_guard<std::mutex> lock(blockedThreadListMutex);
     // Who are we, and what are we waiting for?
     mThread = pthread_self();
     mFd = fd;
@@ -89,7 +91,7 @@ AsynchronousCloseMonitor::AsynchronousCloseMonitor(int fd) {
 }
 
 AsynchronousCloseMonitor::~AsynchronousCloseMonitor() {
-    ScopedPthreadMutexLock lock(&blockedThreadListMutex);
+    std::lock_guard<std::mutex> lock(blockedThreadListMutex);
     // Unlink ourselves from the intrusive doubly-linked list...
     if (mNext != NULL) {
         mNext->mPrev = mPrev;

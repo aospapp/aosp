@@ -18,6 +18,8 @@ package android.telecom.cts;
 
 import static android.telecom.cts.TestUtils.shouldTestTelecom;
 
+import com.android.compatibility.common.util.ApiLevelUtil;
+
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -88,7 +90,7 @@ public class ConnectionTest extends AndroidTestCase {
      * {@link UnsupportedOperationException} is only thrown in L MR1+.
      */
     public void testFailedState() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP_MR1) {
+        if (ApiLevelUtil.isBefore(Build.VERSION_CODES.LOLLIPOP_MR1)) {
             return;
         }
         Connection connection = Connection.createFailedConnection(
@@ -107,7 +109,7 @@ public class ConnectionTest extends AndroidTestCase {
      * {@link UnsupportedOperationException} is only thrown in L MR1+.
      */
     public void testCanceledState() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP_MR1) {
+        if (ApiLevelUtil.isBefore(Build.VERSION_CODES.LOLLIPOP_MR1)) {
             return;
         }
         Connection connection = Connection.createCanceledConnection();

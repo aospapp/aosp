@@ -148,17 +148,20 @@ struct SfinaeTag {};
 template <typename T> struct RemoveSfinaeTag;
 template <typename T> struct RemoveSfinaeTag<SfinaeTag&(*)(T)> { typedef T Type; };
 
+// NOLINT: Do not add parentheses around 'type'.
 #define RAPIDJSON_REMOVEFPTR_(type) \
     typename ::RAPIDJSON_NAMESPACE::internal::RemoveSfinaeTag \
-        < ::RAPIDJSON_NAMESPACE::internal::SfinaeTag&(*) type>::Type
+        < ::RAPIDJSON_NAMESPACE::internal::SfinaeTag&(*) type>::Type  // NOLINT
 
+// NOLINT: Do not add parentheses around a statement.
 #define RAPIDJSON_ENABLEIF(cond) \
     typename ::RAPIDJSON_NAMESPACE::internal::EnableIf \
-        <RAPIDJSON_REMOVEFPTR_(cond)>::Type * = NULL
+        <RAPIDJSON_REMOVEFPTR_(cond)>::Type * = NULL  // NOLINT
 
+// NOLINT: Do not add parentheses around a statement.
 #define RAPIDJSON_DISABLEIF(cond) \
     typename ::RAPIDJSON_NAMESPACE::internal::DisableIf \
-        <RAPIDJSON_REMOVEFPTR_(cond)>::Type * = NULL
+        <RAPIDJSON_REMOVEFPTR_(cond)>::Type * = NULL  // NOLINT
 
 #define RAPIDJSON_ENABLEIF_RETURN(cond,returntype) \
     typename ::RAPIDJSON_NAMESPACE::internal::EnableIf \

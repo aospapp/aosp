@@ -27,7 +27,9 @@ page.title=Hardware-backed Keystore
 <p>The availability of a trusted execution environment in a system on a chip (SoC)
 offers an opportunity for Android devices to provide hardware-backed, strong
 security services to the Android OS, to platform services, and even to
-third-party apps.</p>
+third-party apps. Developers seeking the Android-specific extensions should go
+to <a
+href="https://developer.android.com/reference/android/security/keystore/KeyGenParameterSpec.html">android.security.keystore</a>.</p>
 
 <p>Keystore has been <a href="features.html">significantly enhanced</a> in
 Android 6.0 with the addition of symmetric cryptographic primitives, AES and
@@ -81,7 +83,7 @@ multiple layers (e.g. app, framework, Keystore daemon), but that can be ignored
 for the purposes of this document. This means that the described Keymaster HAL
 API is low-level, used by platform-internal components, and not exposed to app
 developers. The higher-level API, for API level 23, is described on the <a
-href="http://developer.android.com/reference/java/security/KeyStore.html">Android
+href="https://developer.android.com/reference/android/security/keystore/KeyGenParameterSpec.html">Android
 Developer site</a>.</p>
 
 <p>The purpose of the Keymaster HAL is not to implement the security-sensitive

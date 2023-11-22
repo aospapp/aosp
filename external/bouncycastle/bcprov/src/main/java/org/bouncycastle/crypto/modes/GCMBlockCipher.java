@@ -38,6 +38,7 @@ public class GCMBlockCipher
     // These fields are set by init and not modified by processing
     private boolean             forEncryption;
     private int                 macSize;
+    private byte[]              lastKey;
     private byte[]              nonce;
     private byte[]              initialAssociatedText;
     private byte[]              H;
@@ -48,6 +49,7 @@ public class GCMBlockCipher
     private byte[]      macBlock;
     private byte[]      S, S_at, S_atPre;
     private byte[]      counter;
+    private int         blocksRemaining;
     private int         bufOff;
     private long        totalLength;
     private byte[]      atBlock;
@@ -99,12 +101,13 @@ public class GCMBlockCipher
         this.macBlock = null;
 
         KeyParameter keyParam;
+        byte[] newNonce = null;
 
         if (params instanceof AEADParameters)
         {
             AEADParameters param = (AEADParameters)params;
 
-            nonce = param.getNonce();
+            newNonce = param.getNonce();
             initialAssociatedText = param.getAssociatedText();
 
             int macSizeBits = param.getMacSize();
@@ -120,7 +123,7 @@ public class GCMBlockCipher
         {
             ParametersWithIV param = (ParametersWithIV)params;
 
-            nonce = param.getIV();
+            newNonce = param.getIV();
             initialAssociatedText  = null;
             macSize = 16;
             keyParam = (KeyParameter)param.getParameters();
@@ -133,9 +136,30 @@ public class GCMBlockCipher
         int bufLength = forEncryption ? BLOCK_SIZE : (BLOCK_SIZE + macSize);
         this.bufBlock = new byte[bufLength];
 
-        if (nonce == null || nonce.length < 1)
+        if (newNonce == null || newNonce.length < 1)
         {
             throw new IllegalArgumentException("IV must be at least 1 byte");
+        }
+
+        if (forEncryption)
+        {
+            if (nonce != null && Arrays.areEqual(nonce, newNonce))
+            {
+                if (keyParam == null)
+                {
+                    throw new IllegalArgumentException("cannot reuse nonce for GCM encryption");
+                }
+                if (lastKey != null && Arrays.areEqual(lastKey, keyParam.getKey()))
+                {
+                    throw new IllegalArgumentException("cannot reuse nonce for GCM encryption");
+                }
+            }
+        }
+
+        nonce = newNonce;
+        if (keyParam != null)
+        {
+            lastKey = keyParam.getKey();
         }
 
         // TODO Restrict macSize to 16 if nonce length not 12?
@@ -181,6 +205,7 @@ public class GCMBlockCipher
         this.atLength = 0;
         this.atLengthPre = 0;
         this.counter = Arrays.clone(J0);
+        this.blocksRemaining = -2;      // page 8, len(P) <= 2^39 - 256, 1 block used by tag but done on J0
         this.bufOff = 0;
         this.totalLength = 0;
 
@@ -192,6 +217,10 @@ public class GCMBlockCipher
 
     public byte[] getMac()
     {
+        if (macBlock == null)
+        {
+            return new byte[macSize];
+        }
         return Arrays.clone(macBlock);
     }
 
@@ -481,6 +510,8 @@ public class GCMBlockCipher
     {
         cipher.reset();
 
+        // note: we do not reset the nonce.
+
         S = new byte[BLOCK_SIZE];
         S_at = new byte[BLOCK_SIZE];
         S_atPre = new byte[BLOCK_SIZE];
@@ -489,6 +520,7 @@ public class GCMBlockCipher
         atLength = 0;
         atLengthPre = 0;
         counter = Arrays.clone(J0);
+        blocksRemaining = -2;
         bufOff = 0;
         totalLength = 0;
 
@@ -555,6 +587,12 @@ public class GCMBlockCipher
 
     private byte[] getNextCounterBlock()
     {
+        if (blocksRemaining == 0)
+        {
+            throw new IllegalStateException("Attempt to process too many blocks");
+        }
+        blocksRemaining--;
+
         int c = 1;
         c += counter[15] & 0xFF; counter[15] = (byte)c; c >>>= 8;
         c += counter[14] & 0xFF; counter[14] = (byte)c; c >>>= 8;

@@ -54,10 +54,6 @@ public class ReportLogCollector implements ITargetCleaner {
         prepareReportLogContainers(device, buildInfo);
     }
 
-    private void addBuildInfo(ITestDevice device, IBuildInfo buildInfo, String key, String value)
-            throws DeviceNotAvailableException {
-    }
-
     private void prepareReportLogContainers(ITestDevice device, IBuildInfo buildInfo) {
         CompatibilityBuildHelper buildHelper = new CompatibilityBuildHelper(buildInfo);
         try {

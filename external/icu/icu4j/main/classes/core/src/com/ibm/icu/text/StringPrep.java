@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 2003-2015, International Business Machines Corporation and
@@ -225,8 +227,6 @@ public final class StringPrep {
     private int[] indexes;
     // mapping data read from the data file
     private char[] mappingData;
-    // format version of the data file
-    //private byte[] formatVersion;
     // the version of Unicode supported by the data file
     private VersionInfo sprepUniVer;
     // the Unicode version of last entry in the
@@ -284,9 +284,6 @@ public final class StringPrep {
         //indexes[INDEX_MAPPING_DATA_SIZE] store the size of mappingData in bytes
         // load the rest of the data data and initialize the data members
         mappingData = reader.read(indexes[INDEX_MAPPING_DATA_SIZE]/2);
-
-        // get the data format version
-        /*formatVersion = */reader.getDataFormatVersion();
 
         // get the options
         doNFKC            = ((indexes[OPTIONS] & NORMALIZATION_ON) > 0);

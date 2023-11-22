@@ -123,6 +123,20 @@ class Backend : public clang::ASTConsumer {
   // rsForEachWithOptions().
   void LowerRSForEachCall(clang::FunctionDecl* FD, bool isKernel);
 
+  // Insert explicit padding fields into struct to follow the current
+  // layout as defined by the RenderScript ABI (32-bit or 64-bit ARM).
+  //
+  // The padding does not change field offset or structure size -- it
+  // makes explicit any padding that was implicit due to the ABI.
+  // This ensures that if the frontend compiles for an ABI with
+  // stricter alignment requirements than the backend compiles for,
+  // the frontend and backend will still agree on structure layout
+  // (field offset and structure size).  This is important for 32-bit
+  // x86: The frontend compiles for 32-bit ARM ABI, in which 64-bit
+  // scalars are 64-bit aligned; but the 32-bit x86 ABI says that
+  // 64-bit scalars are only 32-bit aligned.
+  void PadStruct(clang::RecordDecl* RD);
+
  protected:
   llvm::LLVMContext &mLLVMContext;
   clang::DiagnosticsEngine &mDiagEngine;

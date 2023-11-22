@@ -16,12 +16,14 @@
 
 package android.support.v4.os;
 
+import static android.support.annotation.RestrictTo.Scope.LIBRARY_GROUP;
+
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.os.RemoteException;
-import android.support.v4.os.IResultReceiver;
+import android.support.annotation.RestrictTo;
 
 /**
  * Generic interface for receiving a callback result from someone.  Use this
@@ -37,27 +39,28 @@ import android.support.v4.os.IResultReceiver;
  * break if your process goes away for any reason, etc.</p>
  * @hide
  */
+@RestrictTo(LIBRARY_GROUP)
 public class ResultReceiver implements Parcelable {
     final boolean mLocal;
     final Handler mHandler;
-    
+
     IResultReceiver mReceiver;
-    
+
     class MyRunnable implements Runnable {
         final int mResultCode;
         final Bundle mResultData;
-        
+
         MyRunnable(int resultCode, Bundle resultData) {
             mResultCode = resultCode;
             mResultData = resultData;
         }
-        
+
         @Override
         public void run() {
             onReceiveResult(mResultCode, mResultData);
         }
     }
-    
+
     class MyResultReceiver extends IResultReceiver.Stub {
         @Override
         public void send(int resultCode, Bundle resultData) {
@@ -68,7 +71,7 @@ public class ResultReceiver implements Parcelable {
             }
         }
     }
-    
+
     /**
      * Create a new ResultReceive to receive results.  Your
      * {@link #onReceiveResult} method will be called from the thread running
@@ -78,7 +81,7 @@ public class ResultReceiver implements Parcelable {
         mLocal = true;
         mHandler = handler;
     }
-    
+
     /**
      * Deliver a result to this receiver.  Will call {@link #onReceiveResult},
      * always asynchronously if the receiver has supplied a Handler in which
@@ -95,7 +98,7 @@ public class ResultReceiver implements Parcelable {
             }
             return;
         }
-        
+
         if (mReceiver != null) {
             try {
                 mReceiver.send(resultCode, resultData);
@@ -103,17 +106,17 @@ public class ResultReceiver implements Parcelable {
             }
         }
     }
-    
+
     /**
      * Override to receive results delivered to this object.
-     * 
+     *
      * @param resultCode Arbitrary result code delivered by the sender, as
      * defined by the sender.
      * @param resultData Any additional data provided by the sender.
      */
     protected void onReceiveResult(int resultCode, Bundle resultData) {
     }
-    
+
     @Override
     public int describeContents() {
         return 0;
@@ -134,7 +137,7 @@ public class ResultReceiver implements Parcelable {
         mHandler = null;
         mReceiver = IResultReceiver.Stub.asInterface(in.readStrongBinder());
     }
-    
+
     public static final Creator<ResultReceiver> CREATOR
             = new Creator<ResultReceiver>() {
         @Override

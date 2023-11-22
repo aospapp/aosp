@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
 *******************************************************************************
 * Copyright (C) 2013-2014, International Business Machines
@@ -16,6 +18,7 @@ import java.util.Iterator;
 
 import android.icu.impl.Normalizer2Impl.Hangul;
 import android.icu.impl.Trie2;
+import android.icu.impl.Utility;
 import android.icu.text.UnicodeSet;
 import android.icu.util.CharsTrie;
 import android.icu.util.CharsTrie.Entry;
@@ -258,7 +261,7 @@ public final class TailoredSet {
                     bp = none;
                 }
             }
-            if (tp == none && bp == none) {
+            if (Utility.sameObjects(tp, none) && Utility.sameObjects(bp, none)) {
                 break;
             }
             int cmp = tp.compareTo(bp);
@@ -315,7 +318,7 @@ public final class TailoredSet {
                     bs = none;
                 }
             }
-            if (ts == none && bs == none) {
+            if (Utility.sameObjects(ts, none) && Utility.sameObjects(bs, none)) {
                 break;
             }
             int cmp = ts.compareTo(bs);

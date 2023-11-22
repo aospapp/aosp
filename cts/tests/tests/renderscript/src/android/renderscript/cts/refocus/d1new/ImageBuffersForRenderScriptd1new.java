@@ -47,6 +47,17 @@ public class ImageBuffersForRenderScriptd1new extends
   public Allocation sharpActiveAllocation;
   public Allocation sharpMatteAllocation;
 
+  public void destroy() {
+      super.destroy();
+    sharpRGBAAllocation.destroy();
+    fuzzyRGBAAllocation.destroy();
+    integralRGBAAllocation.destroy();
+    sharpActualDepthAllocation.destroy();
+    sharpDilatedDepthAllocation.destroy();
+    sharpActiveAllocation.destroy();
+    sharpMatteAllocation.destroy();
+  }
+
   /**
    * A constructor that allocates memory buffers in Java and binds the buffers
    * with the global pointers in the Render Script.

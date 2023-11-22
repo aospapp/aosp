@@ -20,18 +20,14 @@ import android.app.ActivityManager;
 import android.app.ActivityManager.RunningTaskInfo;
 import android.app.AlertDialog;
 import android.app.Notification;
+import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
 import android.app.Activity;
-import android.app.ActivityManager;
-import android.app.ActivityManager.RecentTaskInfo;
-import android.app.ActivityManager.RunningAppProcessInfo;
-import android.content.ComponentName;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
-import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
@@ -40,30 +36,26 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
 import android.os.Message;
+import android.os.PersistableBundle;
 import android.os.PowerManager;
 import android.os.SystemProperties;
 import android.provider.Settings;
+import android.telephony.CarrierConfigManager;
 import android.telephony.TelephonyManager;
 import android.text.TextUtils;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
-import android.view.Window;
 import android.view.WindowManager;
 import android.widget.ImageView;
-import android.widget.RemoteViews;
 import android.widget.TextView;
 import android.widget.Toast;
-import android.content.BroadcastReceiver;
 import android.content.IntentFilter;
-import android.content.pm.ApplicationInfo;
-import android.content.pm.PackageManager.NameNotFoundException;
 
 import com.android.internal.telephony.cat.AppInterface;
 import com.android.internal.telephony.cat.LaunchBrowserMode;
 import com.android.internal.telephony.cat.Menu;
 import com.android.internal.telephony.cat.Item;
-import com.android.internal.telephony.cat.Input;
 import com.android.internal.telephony.cat.ResultCode;
 import com.android.internal.telephony.cat.CatCmdMessage;
 import com.android.internal.telephony.cat.CatCmdMessage.BrowserSettings;
@@ -72,11 +64,7 @@ import com.android.internal.telephony.cat.CatLog;
 import com.android.internal.telephony.cat.CatResponseMessage;
 import com.android.internal.telephony.cat.TextMessage;
 import com.android.internal.telephony.uicc.IccRefreshResponse;
-import com.android.internal.telephony.uicc.IccCardStatus.CardState;
 import com.android.internal.telephony.PhoneConstants;
-import com.android.internal.telephony.TelephonyIntents;
-import com.android.internal.telephony.IccCardConstants;
-import com.android.internal.telephony.uicc.UiccController;
 import com.android.internal.telephony.GsmAlphabet;
 import com.android.internal.telephony.cat.CatService;
 
@@ -236,6 +224,9 @@ public class StkAppService extends Service implements Runnable {
     private static final String STK_DIALOG_ACTIVITY_NAME = PACKAGE_NAME + ".StkDialogActivity";
     // Notification id used to display Idle Mode text in NotificationManager.
     private static final int STK_NOTIFICATION_ID = 333;
+    // Notification channel containing all mobile service messages notifications.
+    private static final String STK_NOTIFICATION_CHANNEL_ID = "mobileServiceMessages";
+
     private static final String LOG_TAG = new Object(){}.getClass().getEnclosingClass().getName();
 
     // Inner class used for queuing telephony messages (proactive commands,
@@ -313,6 +304,7 @@ public class StkAppService extends Service implements Runnable {
                 //If all StkServices are not available, stop itself and uninstall apk.
                 for (i = PhoneConstants.SIM_ID_1; i < mSimCount; i++) {
                     if (i != slotId
+                            && (mStkService[i] != null)
                             && (mStkContext[i].mStkServiceState == STATE_UNKNOWN
                             || mStkContext[i].mStkServiceState == STATE_EXIST)) {
                        break;
@@ -584,6 +576,8 @@ public class StkAppService extends Service implements Runnable {
                 for (int slot = PhoneConstants.SIM_ID_1; slot < mSimCount; slot++) {
                     checkForSetupEvent(LANGUAGE_SELECTION_EVENT, (Bundle) msg.obj, slot);
                 }
+                // rename all registered notification channels on locale change
+                createAllChannels();
                 break;
             case OP_ALPHA_NOTIFY:
                 handleAlphaNotify((Bundle) msg.obj);
@@ -797,15 +791,40 @@ public class StkAppService extends Service implements Runnable {
 
     // returns true if any Stk related activity already has focus on the screen
     private boolean isTopOfStack() {
-        ActivityManager mAcivityManager = (ActivityManager) mContext
+        ActivityManager mActivityManager = (ActivityManager) mContext
                 .getSystemService(ACTIVITY_SERVICE);
-        String currentPackageName = mAcivityManager.getRunningTasks(1).get(0).topActivity
-                .getPackageName();
+        String currentPackageName = null;
+        List<RunningTaskInfo> tasks = mActivityManager.getRunningTasks(1);
+        if (tasks == null || tasks.get(0).topActivity == null) {
+            return false;
+        }
+        currentPackageName = tasks.get(0).topActivity.getPackageName();
         if (null != currentPackageName) {
             return currentPackageName.equals(PACKAGE_NAME);
         }
-
         return false;
+    }
+
+    /**
+     * Get the boolean config from carrier config manager.
+     *
+     * @param context the context to get carrier service
+     * @param key config key defined in CarrierConfigManager
+     * @return boolean value of corresponding key.
+     */
+    private static boolean getBooleanCarrierConfig(Context context, String key) {
+        CarrierConfigManager configManager = (CarrierConfigManager) context.getSystemService(
+                Context.CARRIER_CONFIG_SERVICE);
+        PersistableBundle b = null;
+        if (configManager != null) {
+            b = configManager.getConfig();
+        }
+        if (b != null) {
+            return b.getBoolean(key);
+        } else {
+            // Return static default defined in CarrierConfigManager.
+            return CarrierConfigManager.getDefaultConfig().getBoolean(key);
+        }
     }
 
     private void handleCmd(CatCmdMessage cmdMsg, int slotId) {
@@ -918,6 +937,22 @@ public class StkAppService extends Service implements Runnable {
             launchEventMessage(slotId);
             break;
         case LAUNCH_BROWSER:
+            // The device setup process should not be interrupted by launching browser.
+            if (Settings.Global.getInt(mContext.getContentResolver(),
+                    Settings.Global.DEVICE_PROVISIONED, 0) == 0) {
+                CatLog.d(this, "The command is not performed if the setup has not been completed.");
+                sendScreenBusyResponse(slotId);
+                break;
+            }
+
+            /* Check if Carrier would not want to launch browser */
+            if (getBooleanCarrierConfig(mContext,
+                    CarrierConfigManager.KEY_STK_DISABLE_LAUNCH_BROWSER_BOOL)) {
+                CatLog.d(this, "Browser is not launched as per carrier.");
+                sendResponse(RES_ID_DONE, slotId, true);
+                break;
+            }
+
             TextMessage alphaId = mStkContext[slotId].mCurrentCmd.geTextMessage();
             if ((mStkContext[slotId].mCurrentCmd.getBrowserSettings().mode
                     == LaunchBrowserMode.LAUNCH_IF_NOT_ALREADY_LAUNCHED) &&
@@ -1077,8 +1112,6 @@ public class StkAppService extends Service implements Runnable {
                 resMsg.setResultCode(ResultCode.OK);
                 resMsg.setConfirmation(confirmed);
                 if (confirmed) {
-                    CatLog.d(this, "Going back to mainMenu before starting a call.");
-                    launchMenuActivity(null, slotId);
                     launchEventMessage(slotId,
                             mStkContext[slotId].mCurrentCmd.getCallSettings().callMsg);
                 }
@@ -1522,7 +1555,7 @@ public class StkAppService extends Service implements Runnable {
         // this is good for scenarios where a related DISPLAY TEXT command is
         // followed immediately.
         try {
-            Thread.sleep(10000);
+            Thread.sleep(3000);
         } catch (InterruptedException e) {}
     }
 
@@ -1541,9 +1574,9 @@ public class StkAppService extends Service implements Runnable {
             CatLog.d(LOG_TAG, "Add IdleMode text");
             PendingIntent pendingIntent = PendingIntent.getService(mContext, 0,
                     new Intent(mContext, StkAppService.class), 0);
-
+            createAllChannels();
             final Notification.Builder notificationBuilder = new Notification.Builder(
-                    StkAppService.this);
+                    StkAppService.this, STK_NOTIFICATION_CHANNEL_ID);
             if (mStkContext[slotId].mMainCmd != null &&
                     mStkContext[slotId].mMainCmd.getMenu() != null) {
                 notificationBuilder.setContentTitle(mStkContext[slotId].mMainCmd.getMenu().title);
@@ -1572,6 +1605,17 @@ public class StkAppService extends Service implements Runnable {
                     com.android.internal.R.color.system_notification_accent_color));
             mNotificationManager.notify(getNotificationId(slotId), notificationBuilder.build());
         }
+    }
+
+    /** Creates the notification channel and registers it with NotificationManager.
+     * If a channel with the same ID is already registered, NotificationManager will
+     * ignore this call.
+     */
+    private void createAllChannels() {
+        mNotificationManager.createNotificationChannel(new NotificationChannel(
+                STK_NOTIFICATION_CHANNEL_ID,
+                getResources().getString(R.string.stk_channel_name),
+                NotificationManager.IMPORTANCE_MIN));
     }
 
     private void launchToneDialog(int slotId) {

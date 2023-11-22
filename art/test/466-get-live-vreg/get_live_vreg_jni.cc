@@ -18,7 +18,7 @@
 #include "art_method-inl.h"
 #include "jni.h"
 #include "oat_quick_method_header.h"
-#include "scoped_thread_state_change.h"
+#include "scoped_thread_state_change-inl.h"
 #include "stack.h"
 #include "thread.h"
 
@@ -28,10 +28,10 @@ namespace {
 
 class TestVisitor : public StackVisitor {
  public:
-  TestVisitor(Thread* thread, Context* context) SHARED_REQUIRES(Locks::mutator_lock_)
+  TestVisitor(Thread* thread, Context* context) REQUIRES_SHARED(Locks::mutator_lock_)
       : StackVisitor(thread, context, StackVisitor::StackWalkKind::kIncludeInlinedFrames) {}
 
-  bool VisitFrame() SHARED_REQUIRES(Locks::mutator_lock_) {
+  bool VisitFrame() REQUIRES_SHARED(Locks::mutator_lock_) {
     ArtMethod* m = GetMethod();
     std::string m_name(m->GetName());
 
@@ -47,7 +47,7 @@ class TestVisitor : public StackVisitor {
       uint32_t value = 0;
       if (GetCurrentQuickFrame() != nullptr &&
           GetCurrentOatQuickMethodHeader()->IsOptimized() &&
-          !Runtime::Current()->IsDebuggable()) {
+          !Runtime::Current()->IsJavaDebuggable()) {
         CHECK_EQ(GetVReg(m, dex_register_of_first_parameter, kIntVReg, &value), false);
       } else {
         CHECK(GetVReg(m, dex_register_of_first_parameter, kIntVReg, &value));

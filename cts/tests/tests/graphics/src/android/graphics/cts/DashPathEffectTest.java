@@ -15,21 +15,27 @@
  */
 package android.graphics.cts;
 
+import static org.junit.Assert.assertEquals;
 
 import android.graphics.Bitmap;
+import android.graphics.Bitmap.Config;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.DashPathEffect;
 import android.graphics.Paint;
+import android.graphics.Paint.Style;
 import android.graphics.Path;
 import android.graphics.PathEffect;
-import android.graphics.Bitmap.Config;
-import android.graphics.Paint.Style;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.util.Log;
 
-import junit.framework.TestCase;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
-public class DashPathEffectTest extends TestCase {
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class DashPathEffectTest {
     private static final int BITMAP_WIDTH = 200;
     private static final int BITMAP_HEIGHT = 20;
     private static final int START_X = 10;
@@ -40,6 +46,7 @@ public class DashPathEffectTest extends TestCase {
     private static final int BACKGROUND = Color.TRANSPARENT;
     private static final int FOREGROUND = Color.GREEN;
 
+    @Test
     public void testDashPathEffect() {
         PathEffect effect = new DashPathEffect(PATTERN, OFFSET);
         Bitmap bitmap = Bitmap.createBitmap(BITMAP_WIDTH, BITMAP_HEIGHT, Config.ARGB_8888);

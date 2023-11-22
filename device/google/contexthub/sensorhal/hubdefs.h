@@ -24,7 +24,7 @@
 namespace android {
 
 #define CONTEXTHUB_SETTINGS_PATH        "/persist/sensorcal.json"
-#define CONTEXTHUB_SAVED_SETTINGS_PATH  "/data/misc/sensorcal_saved.json"
+#define CONTEXTHUB_SAVED_SETTINGS_PATH  "/data/vendor/sensor/sensorcal_saved.json"
 #define MAG_BIAS_FILE_PATH              "/sys/class/power_supply/battery/compass_compensation"
 
 static const uint32_t kMinClockRateHz = 960000;
@@ -45,42 +45,53 @@ enum comms_sensor_t {
     COMMS_SENSOR_NO_MOTION                   = 11,
     COMMS_SENSOR_SIGNIFICANT_MOTION          = 12,
     COMMS_SENSOR_FLAT                        = 13,
-    COMMS_SENSOR_ACTIVITY                    = 14,
-    COMMS_SENSOR_GRAVITY                     = 15,
-    COMMS_SENSOR_LINEAR_ACCEL                = 16,
-    COMMS_SENSOR_ROTATION_VECTOR             = 17,
-    COMMS_SENSOR_HALL                        = 18,
-    COMMS_SENSOR_GEO_MAG                     = 19,
-    COMMS_SENSOR_GAME_ROTATION_VECTOR        = 20,
-    COMMS_SENSOR_GESTURE                     = 21,
-    COMMS_SENSOR_TILT                        = 22,
-    COMMS_SENSOR_MAG_BIAS                    = 23,
-    COMMS_SENSOR_STEP_COUNTER                = 24,
-    COMMS_SENSOR_MAG_UNCALIBRATED            = 25,
-    COMMS_SENSOR_GYRO_UNCALIBRATED           = 26,
-    COMMS_SENSOR_GYRO_BIAS                   = 27,
-    COMMS_SENSOR_SYNC                        = 28,
-    COMMS_SENSOR_DOUBLE_TWIST                = 29,
-    COMMS_SENSOR_DOUBLE_TAP                  = 30,
-    COMMS_SENSOR_WINDOW_ORIENTATION          = 31,
-    COMMS_SENSOR_WRIST_TILT                  = 32,
-    COMMS_SENSOR_ACTIVITY_IN_VEHICLE_START   = 33,
-    COMMS_SENSOR_ACTIVITY_IN_VEHICLE_STOP    = 34,
-    COMMS_SENSOR_ACTIVITY_ON_BICYCLE_START   = 35,
-    COMMS_SENSOR_ACTIVITY_ON_BICYCLE_STOP    = 36,
-    COMMS_SENSOR_ACTIVITY_WALKING_START      = 37,
-    COMMS_SENSOR_ACTIVITY_WALKING_STOP       = 38,
-    COMMS_SENSOR_ACTIVITY_RUNNING_START      = 39,
-    COMMS_SENSOR_ACTIVITY_RUNNING_STOP       = 40,
-    COMMS_SENSOR_ACTIVITY_STILL_START        = 41,
-    COMMS_SENSOR_ACTIVITY_STILL_STOP         = 42,
-    COMMS_SENSOR_ACTIVITY_TILTING            = 43,
-    COMMS_SENSOR_ACCEL_BIAS                  = 44,
+    COMMS_SENSOR_GRAVITY                     = 14,
+    COMMS_SENSOR_LINEAR_ACCEL                = 15,
+    COMMS_SENSOR_ROTATION_VECTOR             = 16,
+    COMMS_SENSOR_HALL                        = 17,
+    COMMS_SENSOR_GEO_MAG                     = 18,
+    COMMS_SENSOR_GAME_ROTATION_VECTOR        = 19,
+    COMMS_SENSOR_GESTURE                     = 20,
+    COMMS_SENSOR_TILT                        = 21,
+    COMMS_SENSOR_MAG_BIAS                    = 22,
+    COMMS_SENSOR_STEP_COUNTER                = 23,
+    COMMS_SENSOR_MAG_UNCALIBRATED            = 24,
+    COMMS_SENSOR_GYRO_UNCALIBRATED           = 25,
+    COMMS_SENSOR_GYRO_BIAS                   = 26,
+    COMMS_SENSOR_SYNC                        = 27,
+    COMMS_SENSOR_DOUBLE_TWIST                = 28,
+    COMMS_SENSOR_DOUBLE_TAP                  = 29,
+    COMMS_SENSOR_WINDOW_ORIENTATION          = 30,
+    COMMS_SENSOR_WRIST_TILT                  = 31,
+
+    // The order of the activity sensors must be sequential. It is used in
+    // various places to iterate over the list of sensors that are associated
+    // with an activity.
+    COMMS_SENSOR_ACTIVITY_IN_VEHICLE_START   = 32,
+    COMMS_SENSOR_ACTIVITY_IN_VEHICLE_STOP    = 33,
+    COMMS_SENSOR_ACTIVITY_ON_BICYCLE_START   = 34,
+    COMMS_SENSOR_ACTIVITY_ON_BICYCLE_STOP    = 35,
+    COMMS_SENSOR_ACTIVITY_WALKING_START      = 36,
+    COMMS_SENSOR_ACTIVITY_WALKING_STOP       = 37,
+    COMMS_SENSOR_ACTIVITY_RUNNING_START      = 38,
+    COMMS_SENSOR_ACTIVITY_RUNNING_STOP       = 39,
+    COMMS_SENSOR_ACTIVITY_STILL_START        = 40,
+    COMMS_SENSOR_ACTIVITY_STILL_STOP         = 41,
+    COMMS_SENSOR_ACTIVITY_TILTING            = 42,
+    COMMS_SENSOR_ACCEL_BIAS                  = 43,
+    COMMS_SENSOR_DOUBLE_TOUCH                = 44,
+    COMMS_SENSOR_GAZE                        = 45,
+    COMMS_SENSOR_UNGAZE                      = 46,
+    COMMS_SENSOR_ACCEL_UNCALIBRATED          = 47,
+    COMMS_SENSOR_HUMIDITY                    = 48,
 
     NUM_COMMS_SENSORS_PLUS_1,
 
     COMMS_SENSOR_DEBUG                       = 0x99,
 };
+
+#define COMMS_SENSOR_ACTIVITY_FIRST COMMS_SENSOR_ACTIVITY_IN_VEHICLE_START
+#define COMMS_SENSOR_ACTIVITY_LAST COMMS_SENSOR_ACTIVITY_TILTING
 
 enum {
     SPI_COMMS_CMD_SYNC                  = 0,
@@ -103,6 +114,9 @@ enum {
     SENSOR_TYPE_SYNC                    = SENSOR_TYPE_DEVICE_PRIVATE_BASE + 1,
     SENSOR_TYPE_DOUBLE_TWIST            = SENSOR_TYPE_DEVICE_PRIVATE_BASE + 2,
     SENSOR_TYPE_DOUBLE_TAP              = SENSOR_TYPE_DEVICE_PRIVATE_BASE + 3,
+    SENSOR_TYPE_DOUBLE_TOUCH            = SENSOR_TYPE_DEVICE_PRIVATE_BASE + 4,
+    SENSOR_TYPE_GAZE                    = SENSOR_TYPE_DEVICE_PRIVATE_BASE + 5,
+    SENSOR_TYPE_UNGAZE                  = SENSOR_TYPE_DEVICE_PRIVATE_BASE + 6,
 };
 
 }  // namespace android

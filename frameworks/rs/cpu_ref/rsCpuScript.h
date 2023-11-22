@@ -26,9 +26,11 @@
 
 #include "rsCpuCore.h"
 
+#include <string>
+
 namespace bcinfo {
     class MetadataExtractor;
-}
+} // namespace bcinfo
 
 namespace android {
 namespace renderscript {
@@ -130,14 +132,14 @@ protected:
 
 public:
     static const char* BCC_EXE_PATH;
-    const char* getBitcodeFilePath() const { return mBitcodeFilePath.string(); }
+    const char* getBitcodeFilePath() const { return mBitcodeFilePath.c_str(); }
 
 private:
     bool setUpMtlsDimensions(MTLaunchStructCommon *mtls,
                              const RsLaunchDimensions &baseDim,
                              const RsScriptCall *sc);
 
-    String8 mBitcodeFilePath;
+    std::string mBitcodeFilePath;
     uint32_t mBuildChecksum;
     bool mChecksumNeeded;
 };
@@ -151,16 +153,44 @@ uint32_t constructBuildChecksum(uint8_t const *bitcode, size_t bitcodeSize,
                                 const char *commandLine,
                                 const char ** bccFiles, size_t numFiles);
 
-}
+} // namespace renderscript
 
 #ifdef __LP64__
 #define SYSLIBPATH "/system/lib64"
+#define SYSLIBPATH_BC "/system/lib64"
 #define SYSLIBPATH_VENDOR "/system/vendor/lib64"
+#elif defined(BUILD_ARM_FOR_X86) && defined(__arm__)
+#define SYSLIBPATH "/system/lib/arm"
+#define SYSLIBPATH_BC "/system/lib"
+#define SYSLIBPATH_VENDOR "/system/vendor/lib/arm"
 #else
 #define SYSLIBPATH "/system/lib"
+#define SYSLIBPATH_BC "/system/lib"
 #define SYSLIBPATH_VENDOR "/system/vendor/lib"
 #endif
 
+} // namespace android
+
+namespace {
+
+inline bool is_force_recompile() {
+  char buf[PROP_VALUE_MAX];
+
+  // Re-compile if floating point precision has been overridden.
+  android::renderscript::property_get("debug.rs.precision", buf, "");
+  if (buf[0] != '\0') {
+    return true;
+  }
+
+  // Re-compile if debug.rs.forcerecompile is set.
+  android::renderscript::property_get("debug.rs.forcerecompile", buf, "0");
+  if ((::strcmp(buf, "1") == 0) || (::strcmp(buf, "true") == 0)) {
+    return true;
+  } else {
+    return false;
+  }
 }
+
+}  // anonymous namespace
 
 #endif  // RSD_CPU_SCRIPT_H

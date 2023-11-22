@@ -82,7 +82,7 @@ public class ExternalCallTest extends BaseTelecomTestWithMockServices {
             return;
         }
 
-        final InvokeCounter counter = mConnection.getInvokeCounter(
+        final TestUtils.InvokeCounter counter = mConnection.getInvokeCounter(
                 MockConnection.ON_PULL_EXTERNAL_CALL);
         mCall.pullExternalCall();
         counter.waitForCount(1, WAIT_FOR_STATE_CHANGE_TIMEOUT_MS);
@@ -97,7 +97,7 @@ public class ExternalCallTest extends BaseTelecomTestWithMockServices {
         mConnection.setConnectionCapabilities(0);
         assertCallCapabilities(mCall, 0);
 
-        final InvokeCounter counter = mConnection.getInvokeCounter(
+        final TestUtils.InvokeCounter counter = mConnection.getInvokeCounter(
                 MockConnection.ON_PULL_EXTERNAL_CALL);
         // Try to pull -- we expect Telecom to absorb the request since the call is not pullable.
         mCall.pullExternalCall();

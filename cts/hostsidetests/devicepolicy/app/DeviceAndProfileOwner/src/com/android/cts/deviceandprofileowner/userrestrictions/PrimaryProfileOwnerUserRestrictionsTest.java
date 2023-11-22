@@ -26,4 +26,9 @@ public class PrimaryProfileOwnerUserRestrictionsTest extends BaseUserRestriction
     protected String[] getDisallowedRestrictions() {
         return DeviceOwnerUserRestrictionsTest.DISALLOWED;
     }
+
+    @Override
+    protected String[] getDefaultEnabledRestrictions() {
+        return new String[0];
+    }
 }

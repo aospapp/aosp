@@ -1,4 +1,4 @@
-VOB_COMPONENTS := external/libnfc-nci/src
+VOB_COMPONENTS := system/nfc/src
 NFA := $(VOB_COMPONENTS)/nfa
 NFC := $(VOB_COMPONENTS)/nfc
 
@@ -17,7 +17,6 @@ LOCAL_SRC_FILES := $(call all-subdir-cpp-files) $(call all-subdir-c-files)
 LOCAL_C_INCLUDES += \
     external/libxml2/include \
     frameworks/native/include \
-    libcore/include \
     $(NFA)/include \
     $(NFA)/brcm \
     $(NFC)/include \

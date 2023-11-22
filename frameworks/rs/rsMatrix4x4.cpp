@@ -22,8 +22,8 @@
 #include "string.h"
 #include "math.h"
 
-using namespace android;
-using namespace android::renderscript;
+namespace android {
+namespace renderscript {
 
 //////////////////////////////////////////////////////////////////////////////
 // Heavy math functions
@@ -317,3 +317,6 @@ void Matrix4x4::logv(const char *s) const {
     ALOGV("%s  %f, %f, %f, %f",  s, m[2], m[6], m[10], m[14]);
     ALOGV("%s  %f, %f, %f, %f}", s, m[3], m[7], m[11], m[15]);
 }
+
+} // namespace renderscript
+} // namespace android

@@ -14,7 +14,6 @@ if any of the following conditions occur:
   - If a required resolution is not supported when capturing a stream
 """
 ATTRIBUTES = "suite:hwqual"
-SUITE = "hwqual"
 TIME='MEDIUM'
 TEST_CATEGORY = 'V4L2'
 TEST_TYPE = 'client'

@@ -29,7 +29,7 @@
     <string name="accessibility_call_muted" msgid="2776111226185342220">"Llamada silenciada"</string>
     <string name="accessibility_speakerphone_enabled" msgid="1988512040421036359">"Altavoz habilitado"</string>
     <string name="respond_via_sms_canned_response_1" msgid="2461606462788380215">"No puedo hablar ahora. ¿Todo bien?"</string>
-    <string name="respond_via_sms_canned_response_2" msgid="4074450431532859214">"Te llamo enseguida."</string>
+    <string name="respond_via_sms_canned_response_2" msgid="4074450431532859214">"Te llamo en seguida."</string>
     <string name="respond_via_sms_canned_response_3" msgid="3496079065723960450">"Te llamo más tarde."</string>
     <string name="respond_via_sms_canned_response_4" msgid="1698989243040062190">"No puedo hablar ahora. ¿Me llamas más tarde?"</string>
     <string name="respond_via_sms_setting_title" msgid="3754000371039709383">"Respuestas rápidas"</string>
@@ -67,4 +67,20 @@
     <string name="blocked_numbers_block_emergency_number_message" msgid="917851876780698387">"No se puede bloquear el número de emergencia."</string>
     <string name="blocked_numbers_number_already_blocked_message" msgid="4392247814500811798">"<xliff:g id="BLOCKED_NUMBER">%1$s</xliff:g> ya está bloqueado."</string>
     <string name="toast_personal_call_msg" msgid="5115361633476779723">"Usando el teléfono personal para realizar la llamada"</string>
+    <string name="notification_incoming_call" msgid="7713197997773986670">"Llamada de <xliff:g id="CALL_FROM">%2$s</xliff:g> en <xliff:g id="CALL_VIA">%1$s</xliff:g>"</string>
+    <string name="notification_incoming_video_call" msgid="6638486071698373893">"Videollamada de <xliff:g id="CALL_FROM">%2$s</xliff:g> en <xliff:g id="CALL_VIA">%1$s</xliff:g>"</string>
+    <string name="answering_ends_other_call" msgid="8282145910153766401">"Si respondes, finalizará la llamada de <xliff:g id="CALL_VIA">%1$s</xliff:g>"</string>
+    <string name="answering_ends_other_calls" msgid="1198589551399049197">"Si respondes, finalizarán tus llamadas de <xliff:g id="CALL_VIA">%1$s</xliff:g>"</string>
+    <string name="answering_ends_other_video_call" msgid="8510410917384186360">"Si respondes, finalizará la videollamada de <xliff:g id="CALL_VIA">%1$s</xliff:g>"</string>
+    <string name="answering_ends_other_managed_call" msgid="5186137550267947785">"Si respondes, finalizará tu llamada en curso"</string>
+    <string name="answering_ends_other_managed_calls" msgid="6429838309560397988">"Si respondes, finalizarán tus llamadas en curso"</string>
+    <string name="answering_ends_other_managed_video_call" msgid="1585423762458248435">"Si respondes, finalizará tu videollamada en curso"</string>
+    <string name="answer_incoming_call" msgid="4140530013111794587">"Responder"</string>
+    <string name="decline_incoming_call" msgid="806026168661598368">"Rechazar"</string>
+    <string name="cant_call_due_to_ongoing_call" msgid="4952615196237854748">"No se puede realizar la llamada porque hay una llamada en curso en <xliff:g id="OTHER_CALL">%1$s</xliff:g>."</string>
+    <string name="cant_call_due_to_ongoing_calls" msgid="1380804892363503856">"No se puede realizar la llamada porque hay otras llamadas en curso en <xliff:g id="OTHER_CALL">%1$s</xliff:g>."</string>
+    <string name="cant_call_due_to_ongoing_unknown_call" msgid="149091978697302211">"No se puede realizar la llamada porque hay una llamada en curso en otra app."</string>
+    <string name="notification_channel_incoming_call" msgid="3513761697082968084">"Llamadas entrantes"</string>
+    <string name="notification_channel_missed_call" msgid="8727062678632713146">"Llamadas perdidas"</string>
+    <string name="alert_outgoing_call" msgid="982908156825958001">"Si realizas esta llamada, finalizará la de <xliff:g id="OTHER_APP">%1$s</xliff:g>."</string>
 </resources>

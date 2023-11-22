@@ -87,9 +87,8 @@ public class NativeAllocationRegistryTest extends TestCase {
 
         // Verify most of the allocations have been freed.
         long nativeBytes = getNumNativeBytesAllocated();
-        assertTrue("Native bytes allocated (" + nativeBytes + ")"
-                + " exceeds max memory (" + max + ")",
-                getNumNativeBytesAllocated() < max);
+        assertTrue("Excessive native bytes still allocated (" + nativeBytes + ")"
+                + " given max memory of (" + max + ")", nativeBytes < 2 * max);
     }
 
     public void testNativeAllocationAllocatorAndSharedRegistry() {

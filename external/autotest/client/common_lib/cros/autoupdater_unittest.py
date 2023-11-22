@@ -7,6 +7,7 @@ import mox
 import unittest
 
 import common
+import time
 
 import autoupdater
 from autotest_lib.client.common_lib import error
@@ -381,58 +382,124 @@ class TestAutoUpdater(mox.MoxTestBase):
         self.assertFalse(updater.check_version_to_confirm_install())
 
 
+    def _host_run_for_update(self, cmd, exception=None,
+                             bad_update_status=False):
+        """Helper function for AU tests.
+
+        @param host: the test host
+        @param cmd: the command to be recorded
+        @param exception: the exception to be recorded, or None
+        """
+        if exception:
+            self.host.run(command=cmd).AndRaise(exception)
+        else:
+            result = self.mox.CreateMockAnything()
+            if bad_update_status:
+                # Pick randomly one unexpected status
+                result.stdout = 'UPDATE_STATUS_UPDATED_NEED_REBOOT'
+            else:
+                result.stdout = 'UPDATE_STATUS_IDLE'
+            result.status = 0
+            self.host.run(command=cmd).AndReturn(result)
+
+
     def testTriggerUpdate(self):
         """Tests that we correctly handle updater errors."""
         update_url = 'http://server/test/url'
-        host = self.mox.CreateMockAnything()
-        self.mox.StubOutWithMock(host, 'run')
-        host.hostname = 'test_host'
+        self.host = self.mox.CreateMockAnything()
+        self.mox.StubOutWithMock(self.host, 'run')
+        self.mox.StubOutWithMock(autoupdater.ChromiumOSUpdater,
+                                 'get_last_update_error')
+        self.host.hostname = 'test_host'
+        updater_control_bin = '/usr/bin/update_engine_client'
+        test_url = 'http://server/test/url'
+        expected_wait_cmd = ('%s -status | grep CURRENT_OP' %
+                             updater_control_bin)
+        expected_cmd = ('%s --check_for_update --omaha_url=%s' %
+                        (updater_control_bin, test_url))
+        self.mox.StubOutWithMock(time, "sleep")
+        UPDATE_ENGINE_RETRY_WAIT_TIME=5
 
-        expected_cmd = ('/usr/bin/update_engine_client --check_for_update '
-                        '--omaha_url=http://server/test/url')
-
-        updater = autoupdater.ChromiumOSUpdater(update_url, host=host)
-
-        # Test with success.
-        host.run(expected_cmd)
-
-        # SSH Timeout
-        host.run(expected_cmd).AndRaise(
-                error.AutoservSSHTimeout("ssh timed out", 255))
-
-        # SSH Permission Error
-        host.run(expected_cmd).AndRaise(
-                error.AutoservSshPermissionDeniedError("ssh timed out", 255))
+        # Generic SSH Error.
+        cmd_result_255 = self.mox.CreateMockAnything()
+        cmd_result_255.exit_status = 255
 
         # Command Failed Error
         cmd_result_1 = self.mox.CreateMockAnything()
         cmd_result_1.exit_status = 1
 
-        host.run(expected_cmd).AndRaise(
-                error.AutoservRunError("ssh timed out", cmd_result_1))
+        # Error 37
+        cmd_result_37 = self.mox.CreateMockAnything()
+        cmd_result_37.exit_status = 37
 
-        # Generic SSH Error (maybe)
-        cmd_result_255 = self.mox.CreateMockAnything()
-        cmd_result_255.exit_status = 255
+        updater = autoupdater.ChromiumOSUpdater(update_url, host=self.host)
 
-        host.run(expected_cmd).AndRaise(
-                error.AutoservRunError("Sometimes SSH specific result.",
-                                       cmd_result_255))
+        # (SUCCESS) Expect one wait command and one status command.
+        self._host_run_for_update(expected_wait_cmd)
+        self._host_run_for_update(expected_cmd)
+
+        # (SUCCESS) Test with one retry to wait for update-engine.
+        self._host_run_for_update(expected_wait_cmd, exception=
+                error.AutoservRunError('non-zero status', cmd_result_1))
+        time.sleep(UPDATE_ENGINE_RETRY_WAIT_TIME)
+        self._host_run_for_update(expected_wait_cmd)
+        self._host_run_for_update(expected_cmd)
+
+        # (SUCCESS) One-time SSH timeout, then success on retry.
+        self._host_run_for_update(expected_wait_cmd)
+        self._host_run_for_update(expected_cmd, exception=
+                error.AutoservSSHTimeout('ssh timed out', cmd_result_255))
+        self._host_run_for_update(expected_cmd)
+
+        # (SUCCESS) One-time ERROR 37, then success.
+        self._host_run_for_update(expected_wait_cmd)
+        self._host_run_for_update(expected_cmd, exception=
+                error.AutoservRunError('ERROR_CODE=37', cmd_result_37))
+        self._host_run_for_update(expected_cmd)
+
+        # (FAILURE) Bad status of update engine.
+        self._host_run_for_update(expected_wait_cmd)
+        self._host_run_for_update(expected_cmd, bad_update_status=True,
+                                  exception=error.InstallError(
+                                      'host is not in installable state'))
+
+        # (FAILURE) Two-time SSH timeout.
+        self._host_run_for_update(expected_wait_cmd)
+        self._host_run_for_update(expected_cmd, exception=
+                error.AutoservSSHTimeout('ssh timed out', cmd_result_255))
+        self._host_run_for_update(expected_cmd, exception=
+                error.AutoservSSHTimeout('ssh timed out', cmd_result_255))
+
+        # (FAILURE) SSH Permission Error
+        self._host_run_for_update(expected_wait_cmd)
+        self._host_run_for_update(expected_cmd, exception=
+                error.AutoservSshPermissionDeniedError('no permission',
+                                                       cmd_result_255))
+
+        # (FAILURE) Other ssh failure
+        self._host_run_for_update(expected_wait_cmd)
+        self._host_run_for_update(expected_cmd, exception=
+                error.AutoservSshPermissionDeniedError('no permission',
+                                                       cmd_result_255))
+        # (FAILURE) Other error
+        self._host_run_for_update(expected_wait_cmd)
+        self._host_run_for_update(expected_cmd, exception=
+                error.AutoservRunError("unknown error", cmd_result_1))
 
         self.mox.ReplayAll()
 
-        # Verify Success.
+        # Expect success
+        updater.trigger_update()
+        updater.trigger_update()
+        updater.trigger_update()
         updater.trigger_update()
 
-        # Verify each type of error listed above.
-        self.assertRaises(autoupdater.RootFSUpdateError,
-                          updater.trigger_update)
-        self.assertRaises(autoupdater.RootFSUpdateError,
-                          updater.trigger_update)
-        self.assertRaises(autoupdater.RootFSUpdateError,
-                          updater.trigger_update)
-        self.assertRaises(autoupdater.RootFSUpdateError,
-                          updater.trigger_update)
+        # Expect errors as listed above
+        self.assertRaises(autoupdater.RootFSUpdateError, updater.trigger_update)
+        self.assertRaises(autoupdater.RootFSUpdateError, updater.trigger_update)
+        self.assertRaises(autoupdater.RootFSUpdateError, updater.trigger_update)
+        self.assertRaises(autoupdater.RootFSUpdateError, updater.trigger_update)
+        self.assertRaises(autoupdater.RootFSUpdateError, updater.trigger_update)
 
         self.mox.VerifyAll()
 

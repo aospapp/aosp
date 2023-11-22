@@ -2,6 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 import logging
+import re
 import os
 import StringIO
 
@@ -9,6 +10,7 @@ import common
 from autotest_lib.client.common_lib import error
 from autotest_lib.server import test
 from autotest_lib.server import utils
+from autotest_lib.site_utils import test_runner_utils
 from autotest_lib.server.cros import telemetry_runner
 
 
@@ -16,6 +18,25 @@ TELEMETRY_TIMEOUT_MINS = 60
 CHROME_SRC_ROOT = '/var/cache/chromeos-cache/distfiles/target/'
 CLIENT_CHROME_ROOT = '/usr/local/telemetry/src'
 RUN_BENCHMARK  = 'tools/perf/run_benchmark'
+
+RSA_KEY = '-i %s' % test_runner_utils.TEST_KEY_PATH
+DUT_CHROME_RESULTS_DIR = '/usr/local/telemetry/src/tools/perf'
+
+# Result Statuses
+SUCCESS_STATUS = 'SUCCESS'
+WARNING_STATUS = 'WARNING'
+FAILED_STATUS = 'FAILED'
+
+# Regex for the RESULT output lines understood by chrome buildbot.
+# Keep in sync with
+# chromium/tools/build/scripts/slave/performance_log_processor.py.
+RESULTS_REGEX = re.compile(r'(?P<IMPORTANT>\*)?RESULT '
+                           r'(?P<GRAPH>[^:]*): (?P<TRACE>[^=]*)= '
+                           r'(?P<VALUE>[\{\[]?[-\d\., ]+[\}\]]?)('
+                           r' ?(?P<UNITS>.+))?')
+HISTOGRAM_REGEX = re.compile(r'(?P<IMPORTANT>\*)?HISTOGRAM '
+                             r'(?P<GRAPH>[^:]*): (?P<TRACE>[^=]*)= '
+                             r'(?P<VALUE_JSON>{.*})(?P<UNITS>.+)?')
 
 
 def _find_chrome_root_dir():
@@ -81,6 +102,33 @@ class telemetry_Crosperf(test.test):
     """Run one or more telemetry benchmarks under the crosperf script."""
     version = 1
 
+    def scp_telemetry_results(self, client_ip, dut):
+        """Copy telemetry results from dut.
+
+        @param client_ip: The ip address of the DUT
+        @param dut: The autotest host object representing DUT.
+
+        @returns status code for scp command.
+        """
+        cmd=[]
+        src = ('root@%s:%s/results-chart.json' %
+               (dut.hostname if dut else client_ip, DUT_CHROME_RESULTS_DIR))
+        cmd.extend(['scp', telemetry_runner.DUT_SCP_OPTIONS, RSA_KEY, '-v',
+                    src, self.resultsdir])
+        command = ' '.join(cmd)
+
+        logging.debug('Retrieving Results: %s', command)
+        try:
+            result = utils.run(command,
+                               timeout=TELEMETRY_TIMEOUT_MINS * 60)
+            exit_code = result.exit_status
+        except Exception as e:
+            logging.error('Failed to retrieve results: %s', e)
+            raise
+
+        logging.debug('command return value: %d', exit_code)
+        return exit_code
+
     def run_once(self, args, client_ip='', dut=None):
         """
         Run a single telemetry test.
@@ -98,10 +146,11 @@ class telemetry_Crosperf(test.test):
             test_args = args['test_args']
 
         # Decide whether the test will run locally or by a remote server.
-        if 'run_local' in args and args['run_local'].lower() == 'true':
+        if args.get('run_local', 'false').lower() == 'true':
             # The telemetry scripts will run on DUT.
             _ensure_deps(dut, test_name)
-            format_string = ('python %s --browser=system %s %s')
+            format_string = ('python %s --browser=system '
+                             '--output-format=chartjson %s %s')
             command = format_string % (os.path.join(CLIENT_CHROME_ROOT,
                                                     RUN_BENCHMARK),
                                        test_args, test_name)
@@ -109,7 +158,7 @@ class telemetry_Crosperf(test.test):
         else:
             # The telemetry scripts will run on server.
             format_string = ('python %s --browser=cros-chrome --remote=%s '
-                             '%s %s')
+                             '--output-format=chartjson %s %s')
             command = format_string % (os.path.join(_find_chrome_root_dir(),
                                                     RUN_BENCHMARK),
                                        client_ip, test_args, test_name)
@@ -133,25 +182,24 @@ class telemetry_Crosperf(test.test):
             stderr_str = stderr.getvalue()
             stdout.close()
             stderr.close()
+            logging.info('Telemetry completed with exit code: %d.'
+                         '\nstdout:%s\nstderr:%s', exit_code,
+                         stdout_str, stderr_str)
 
+        # Copy the results-chart.json file into the test_that results
+        # directory.
+        if args.get('run_local', 'false').lower() == 'true':
+            result = self.scp_telemetry_results(client_ip, dut)
+        else:
+            src_dir = os.path.dirname(os.path.join(_find_chrome_root_dir(),
+                                                   RUN_BENCHMARK))
 
-        # Parse the result.
-        logging.debug('Telemetry completed with exit code: %d.'
-                      '\nstdout:%s\nstderr:%s', exit_code,
-                      stdout_str, stderr_str)
-        logging.info('Telemetry completed with exit code: %d.'
-                     '\nstdout:%s\nstderr:%s', exit_code,
-                     stdout_str, stderr_str)
+            filepath = os.path.join(src_dir, 'results-chart.json')
+            if os.path.exists(filepath):
+                command = 'cp %s %s' % (filepath, self.resultsdir)
+                result = utils.run(command)
+            else:
+                raise IOError('Missing results file: %s' % filepath)
 
-        result = telemetry_runner.TelemetryResult(exit_code=exit_code,
-                                                  stdout=stdout_str,
-                                                  stderr=stderr_str)
-
-        result.parse_benchmark_results()
-        for data in result.perf_data:
-            self.output_perf_value(description=data['trace'],
-                                   value=data['value'],
-                                   units=data['units'],
-                                   graph=data['graph'])
 
         return result

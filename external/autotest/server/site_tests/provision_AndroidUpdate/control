@@ -32,8 +32,8 @@ if not locals().get('value'):
 
 
 def run(machine):
-    host = hosts.create_host(machine, initialize=False)
-    job.run_test('provision_AndroidBuildUpdate', host=host, value=value)
+    host = hosts.create_host(machine)
+    job.run_test('provision_AndroidUpdate', host=host, value=value)
 
 
 job.parallel_simple(run, machines)

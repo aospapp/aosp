@@ -1,4 +1,4 @@
-/* 
+/*
  * Copyright (C) 2015 Google Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,8 +16,11 @@
 
 package android.support.v7.widget;
 
+import static android.support.annotation.RestrictTo.Scope.LIBRARY_GROUP;
+
 import android.content.Context;
 import android.content.res.TypedArray;
+import android.support.annotation.RestrictTo;
 import android.support.v7.appcompat.R;
 import android.text.Layout;
 import android.util.AttributeSet;
@@ -30,6 +33,7 @@ import android.widget.TextView;
  *
  * @hide
  */
+@RestrictTo(LIBRARY_GROUP)
 public class DialogTitle extends TextView {
 
     public DialogTitle(Context context, AttributeSet attrs, int defStyleAttr) {

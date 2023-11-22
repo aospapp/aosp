@@ -20,4 +20,4 @@
 
 #include "osi/include/allocator.h"
 
-const allocator_t *buffer_allocator_get_interface();
+const allocator_t* buffer_allocator_get_interface();

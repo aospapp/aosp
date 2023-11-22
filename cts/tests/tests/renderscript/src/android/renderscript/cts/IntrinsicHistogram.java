@@ -23,6 +23,17 @@ public class IntrinsicHistogram extends IntrinsicBase {
     private Allocation mAin;
     private Allocation mAout;
 
+    @Override
+    protected void tearDown() throws Exception {
+        if (mAin != null) {
+            mAin.destroy();
+        }
+        if (mAout != null) {
+            mAout.destroy();
+        }
+        super.tearDown();
+    }
+
     private void createAllocations(int inVSize, int outVSize, int w, int h) {
         Element e1;
         Element e2;
@@ -96,6 +107,8 @@ public class IntrinsicHistogram extends IntrinsicBase {
         for (int ct=0; ct < res.length; ct++) {
             assertTrue(res[ct] == ref[ct]);
         }
+
+        hist.destroy();
     }
 
     public void test_norm_4_4() {
@@ -221,6 +234,8 @@ public class IntrinsicHistogram extends IntrinsicBase {
         for (int ct=0; ct < res.length; ct++) {
             assertTrue(res[ct] == ref[ct]);
         }
+
+        hist.destroy();
     }
 
     public void test_dot_1() {

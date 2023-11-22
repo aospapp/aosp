@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1996, 2004, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1996, 2013, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -208,7 +208,7 @@ public class PKCS8Key implements PrivateKey {
                 throw new InstantiationException();
             }
 
-            Class keyClass = null;
+            Class<?> keyClass = null;
             try {
                 keyClass = Class.forName(classname);
             } catch (ClassNotFoundException e) {
@@ -304,17 +304,6 @@ public class PKCS8Key implements PrivateKey {
         return encodedKey.clone();
     }
 
-    /*
-     * Returns a printable representation of the key
-     */
-    public String toString ()
-    {
-        HexDumpEncoder  encoder = new HexDumpEncoder ();
-
-        return "algorithm = " + algid.toString ()
-            + ", unparsed keybits = \n" + encoder.encodeBuffer (key);
-    }
-
     /**
      * Initialize an PKCS8Key object from an input stream.  The data
      * on that input stream must be encoded using DER, obeying the
@@ -342,9 +331,9 @@ public class PKCS8Key implements PrivateKey {
 
 
             BigInteger version = val.data.getBigInteger();
-            if (!version.equals(this.version)) {
+            if (!version.equals(PKCS8Key.version)) {
                 throw new IOException("version mismatch: (supported: " +
-                                      Debug.toHexString(this.version) +
+                                      Debug.toHexString(PKCS8Key.version) +
                                       ", parsed: " +
                                       Debug.toHexString(version));
             }

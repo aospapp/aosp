@@ -13,5 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-vogar_jar=${OUT_DIR-${ANDROID_BUILD_TOP}/out}/host/linux-x86/framework/vogar.jar
+if [ -z "$ANDROID_HOST_OUT" ] ; then
+  ANDROID_HOST_OUT=${OUT_DIR:-$ANDROID_BUILD_TOP/out}/host/linux-x86
+fi
+
+vogar_jar=${ANDROID_HOST_OUT}/framework/vogar.jar
 exec java -classpath ${vogar_jar} vogar.Vogar "$@"

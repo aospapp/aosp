@@ -144,9 +144,9 @@ detect_edge:
 
     // Compute shift for first half of the block
 compute_shift_1:
-    smov    x5,         v16.2s[0]
-    smov    x6,         v18.2s[0]
-    smov    x7,         v20.2s[0]
+    smov    x5,         v16.s[0]
+    smov    x6,         v18.s[0]
+    smov    x7,         v20.s[0]
 
     // Compute shift
     mov     x8,         #0
@@ -172,9 +172,9 @@ dir_45_gt_135_1:
 
 compute_shift_2:
     // Compute shift for first half of the block
-    smov    x5,         v16.2s[1]
-    smov    x6,         v18.2s[1]
-    smov    x7,         v20.2s[1]
+    smov    x5,         v16.s[1]
+    smov    x6,         v18.s[1]
+    smov    x7,         v20.s[1]
 
     // Compute shift
     mov     x9,         #0

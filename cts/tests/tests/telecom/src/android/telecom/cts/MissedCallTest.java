@@ -26,8 +26,8 @@ import android.util.Log;
 
 public class MissedCallTest extends BaseTelecomTestWithMockServices {
 
-    InvokeCounter mShowMissedCallNotificationIntentCounter =
-            new InvokeCounter("ShowMissedCallNotificationIntent");
+    TestUtils.InvokeCounter mShowMissedCallNotificationIntentCounter =
+            new TestUtils.InvokeCounter("ShowMissedCallNotificationIntent");
 
     @Override
     protected void setUp() throws Exception {

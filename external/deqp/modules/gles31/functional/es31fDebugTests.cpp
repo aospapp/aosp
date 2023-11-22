@@ -34,8 +34,11 @@
 #include "es31fNegativeShaderImageLoadStoreTests.hpp"
 #include "es31fNegativeShaderFunctionTests.hpp"
 #include "es31fNegativeShaderDirectiveTests.hpp"
+#include "es31fNegativeSSBOBlockTests.hpp"
 #include "es31fNegativePreciseTests.hpp"
 #include "es31fNegativeAdvancedBlendEquationTests.hpp"
+#include "es31fNegativeShaderStorageTests.hpp"
+#include "es31fNegativeTessellationTests.hpp"
 
 #include "deUniquePtr.hpp"
 #include "deRandom.hpp"
@@ -312,7 +315,7 @@ public:
 								BaseCase			(Context&					ctx,
 													 const char*				name,
 													 const char*				desc);
-	virtual 					~BaseCase			(void) {}
+	virtual						~BaseCase			(void) {}
 
 	virtual IterateResult		iterate				(void) = 0;
 
@@ -627,7 +630,7 @@ public:
 													 const char*			name,
 													 const char*			desc,
 													 TestFunctionWrapper	errorFunc);
-	virtual 					~CallbackErrorCase	(void) {}
+	virtual						~CallbackErrorCase	(void) {}
 
 	virtual IterateResult		iterate				(void);
 
@@ -698,7 +701,7 @@ public:
 												 const char*			name,
 												 const char*			desc,
 												 TestFunctionWrapper	errorFunc);
-	virtual		 				~LogErrorCase	(void) {}
+	virtual						~LogErrorCase	(void) {}
 
 	virtual IterateResult		iterate			(void);
 
@@ -806,7 +809,7 @@ public:
 												 const char*			name,
 												 const char*			desc,
 												 TestFunctionWrapper	errorFunc);
-	virtual 					~GetErrorCase	(void) {}
+	virtual						~GetErrorCase	(void) {}
 
 	virtual IterateResult		iterate			(void);
 
@@ -878,7 +881,7 @@ public:
 														 const char*						name,
 														 const char*						desc,
 														 const vector<TestFunctionWrapper>&	errorFuncs);
-	virtual 							~FilterCase		(void) {}
+	virtual								~FilterCase		(void) {}
 
 	virtual IterateResult				iterate			(void);
 
@@ -1223,7 +1226,7 @@ public:
 												 const char*						name,
 												 const char*						desc,
 												 const vector<TestFunctionWrapper>&	errorFuncs);
-	virtual 				~GroupFilterCase	(void) {}
+	virtual					~GroupFilterCase	(void) {}
 
 	virtual IterateResult	iterate				(void);
 };
@@ -2939,19 +2942,25 @@ vector<FunctionContainer> wrapCoreFunctions (const vector<NegativeTestShared::Fu
 
 void DebugTests::init (void)
 {
-	const vector<FunctionContainer> bufferFuncs					= wrapCoreFunctions(NegativeTestShared::getNegativeBufferApiTestFunctions());
-	const vector<FunctionContainer> textureFuncs				= wrapCoreFunctions(NegativeTestShared::getNegativeTextureApiTestFunctions());
-	const vector<FunctionContainer> shaderFuncs					= wrapCoreFunctions(NegativeTestShared::getNegativeShaderApiTestFunctions());
-	const vector<FunctionContainer> fragmentFuncs				= wrapCoreFunctions(NegativeTestShared::getNegativeFragmentApiTestFunctions());
-	const vector<FunctionContainer> vaFuncs						= wrapCoreFunctions(NegativeTestShared::getNegativeVertexArrayApiTestFunctions());
-	const vector<FunctionContainer> stateFuncs					= wrapCoreFunctions(NegativeTestShared::getNegativeStateApiTestFunctions());
-	const vector<FunctionContainer> atomicCounterFuncs			= wrapCoreFunctions(NegativeTestShared::getNegativeAtomicCounterTestFunctions());
-	const vector<FunctionContainer> shaderImageLoadStoreFuncs	= wrapCoreFunctions(NegativeTestShared::getNegativeShaderImageLoadStoreTestFunctions());
-	const vector<FunctionContainer> shaderFunctionFuncs			= wrapCoreFunctions(NegativeTestShared::getNegativeShaderFunctionTestFunctions());
-	const vector<FunctionContainer> shaderDirectiveFuncs		= wrapCoreFunctions(NegativeTestShared::getNegativeShaderDirectiveTestFunctions());
-	const vector<FunctionContainer> preciseFuncs				= wrapCoreFunctions(NegativeTestShared::getNegativePreciseTestFunctions());
-	const vector<FunctionContainer> advancedBlendFuncs			= wrapCoreFunctions(NegativeTestShared::getNegativeAdvancedBlendEquationTestFunctions());
-	const vector<FunctionContainer> externalFuncs				= getUserMessageFuncs();
+	const vector<FunctionContainer> bufferFuncs				 = wrapCoreFunctions(NegativeTestShared::getNegativeBufferApiTestFunctions());
+	const vector<FunctionContainer> textureFuncs			 = wrapCoreFunctions(NegativeTestShared::getNegativeTextureApiTestFunctions());
+	const vector<FunctionContainer> shaderFuncs				 = wrapCoreFunctions(NegativeTestShared::getNegativeShaderApiTestFunctions());
+	const vector<FunctionContainer> fragmentFuncs			 = wrapCoreFunctions(NegativeTestShared::getNegativeFragmentApiTestFunctions());
+	const vector<FunctionContainer> vaFuncs					 = wrapCoreFunctions(NegativeTestShared::getNegativeVertexArrayApiTestFunctions());
+	const vector<FunctionContainer> stateFuncs				 = wrapCoreFunctions(NegativeTestShared::getNegativeStateApiTestFunctions());
+	const vector<FunctionContainer> tessellationFuncs		 = wrapCoreFunctions(NegativeTestShared::getNegativeTessellationTestFunctions());
+	const vector<FunctionContainer> atomicCounterFuncs		 = wrapCoreFunctions(NegativeTestShared::getNegativeAtomicCounterTestFunctions());
+	const vector<FunctionContainer> imageLoadFuncs			 = wrapCoreFunctions(NegativeTestShared::getNegativeShaderImageLoadTestFunctions());
+	const vector<FunctionContainer> imageStoreFuncs			 = wrapCoreFunctions(NegativeTestShared::getNegativeShaderImageStoreTestFunctions());
+	const vector<FunctionContainer> imageAtomicFuncs		 = wrapCoreFunctions(NegativeTestShared::getNegativeShaderImageAtomicTestFunctions());
+	const vector<FunctionContainer> imageAtomicExchangeFuncs = wrapCoreFunctions(NegativeTestShared::getNegativeShaderImageAtomicExchangeTestFunctions());
+	const vector<FunctionContainer> shaderFunctionFuncs		 = wrapCoreFunctions(NegativeTestShared::getNegativeShaderFunctionTestFunctions());
+	const vector<FunctionContainer> shaderDirectiveFuncs	 = wrapCoreFunctions(NegativeTestShared::getNegativeShaderDirectiveTestFunctions());
+	const vector<FunctionContainer> ssboBlockFuncs			 = wrapCoreFunctions(NegativeTestShared::getNegativeSSBOBlockTestFunctions());
+	const vector<FunctionContainer> preciseFuncs			 = wrapCoreFunctions(NegativeTestShared::getNegativePreciseTestFunctions());
+	const vector<FunctionContainer> advancedBlendFuncs		 = wrapCoreFunctions(NegativeTestShared::getNegativeAdvancedBlendEquationTestFunctions());
+	const vector<FunctionContainer> shaderStorageFuncs		 = wrapCoreFunctions(NegativeTestShared::getNegativeShaderStorageTestFunctions());
+	const vector<FunctionContainer> externalFuncs			 = getUserMessageFuncs();
 
 	{
 		using namespace gls::StateQueryUtil;
@@ -3024,9 +3033,9 @@ void DebugTests::init (void)
 
 		FOR_ALL_TYPES(queries->addChild(new PositiveIntegerCase		(m_context, (std::string("debug_logged_messages") + postfix).c_str(),				"Test DEBUG_LOGGED_MESSAGES",				GL_DEBUG_LOGGED_MESSAGES,				queryType)));
 		FOR_ALL_TYPES(queries->addChild(new PositiveIntegerCase		(m_context, (std::string("debug_next_logged_message_length") + postfix).c_str(),	"Test DEBUG_NEXT_LOGGED_MESSAGE_LENGTH",	GL_DEBUG_NEXT_LOGGED_MESSAGE_LENGTH,	queryType)));
-		FOR_ALL_TYPES(queries->addChild(new GroupStackDepthQueryCase(m_context, (std::string("debug_group_stack_depth") + postfix).c_str(),				"Test DEBUG_GROUP_STACK_DEPTH", 			queryType)));
+		FOR_ALL_TYPES(queries->addChild(new GroupStackDepthQueryCase(m_context, (std::string("debug_group_stack_depth") + postfix).c_str(),				"Test DEBUG_GROUP_STACK_DEPTH",				queryType)));
 
-		queries->addChild(new DebugCallbackFunctionCase	(m_context, "debug_callback_function_getpointer", 	"Test DEBUG_CALLBACK_FUNCTION"));
+		queries->addChild(new DebugCallbackFunctionCase	(m_context, "debug_callback_function_getpointer",	"Test DEBUG_CALLBACK_FUNCTION"));
 		queries->addChild(new DebugCallbackUserParamCase(m_context, "debug_callback_user_param_getpointer", "Test DEBUG_CALLBACK_USER_PARAM"));
 
 		#undef FOR_ALL_TYPES
@@ -3037,7 +3046,6 @@ void DebugTests::init (void)
 		tcu::TestCaseGroup* const	negative	= new tcu::TestCaseGroup(m_testCtx, "negative_coverage", "API error coverage with various reporting methods");
 
 		addChild(negative);
-
 		{
 			tcu::TestCaseGroup* const	host	= new tcu::TestCaseGroup(m_testCtx, "callbacks", "Reporting of standard API errors via callback");
 
@@ -3049,11 +3057,17 @@ void DebugTests::init (void)
 			host->addChild(createChildCases(CASETYPE_CALLBACK, m_context, "vertex_array",				"Negative Vertex Array API Cases",					vaFuncs));
 			host->addChild(createChildCases(CASETYPE_CALLBACK, m_context, "state",						"Negative GL State API Cases",						stateFuncs));
 			host->addChild(createChildCases(CASETYPE_CALLBACK, m_context, "atomic_counter",				"Negative Atomic Counter API Cases",				atomicCounterFuncs));
-			host->addChild(createChildCases(CASETYPE_CALLBACK, m_context, "shader_image_load_store",	"Negative Shader Image Load and Store API Cases",	shaderImageLoadStoreFuncs));
+			host->addChild(createChildCases(CASETYPE_CALLBACK, m_context, "shader_image_load",			"Negative Shader Image Load API Cases",				imageLoadFuncs));
+			host->addChild(createChildCases(CASETYPE_CALLBACK, m_context, "shader_image_store",			"Negative Shader Image Store API Cases",			imageStoreFuncs));
+			host->addChild(createChildCases(CASETYPE_CALLBACK, m_context, "shader_image_atomic",		"Negative Shader Image Atomic API Cases",			imageAtomicFuncs));
+			host->addChild(createChildCases(CASETYPE_CALLBACK, m_context, "shader_image_exchange",		"Negative Shader Image Atomic Exchange API Cases",	imageAtomicExchangeFuncs));
 			host->addChild(createChildCases(CASETYPE_CALLBACK, m_context, "shader_function",			"Negative Shader Function Cases",					shaderFunctionFuncs));
 			host->addChild(createChildCases(CASETYPE_CALLBACK, m_context, "shader_directive",			"Negative Shader Directive Cases",					shaderDirectiveFuncs));
+			host->addChild(createChildCases(CASETYPE_CALLBACK, m_context, "ssbo_block",					"Negative SSBO Block Cases",						ssboBlockFuncs));
 			host->addChild(createChildCases(CASETYPE_CALLBACK, m_context, "precise",					"Negative Precise Cases",							preciseFuncs));
 			host->addChild(createChildCases(CASETYPE_CALLBACK, m_context, "advanced_blend",				"Negative Advanced Blend Equation Cases",			advancedBlendFuncs));
+			host->addChild(createChildCases(CASETYPE_CALLBACK, m_context, "shader_storage",				"Negative Shader Storage Cases",					shaderStorageFuncs));
+			host->addChild(createChildCases(CASETYPE_CALLBACK, m_context, "tessellation",				"Negative Tessellation Cases",						tessellationFuncs));
 		}
 
 		{
@@ -3068,11 +3082,17 @@ void DebugTests::init (void)
 			host->addChild(createChildCases(CASETYPE_LOG, m_context, "vertex_array",			"Negative Vertex Array API Cases",					vaFuncs));
 			host->addChild(createChildCases(CASETYPE_LOG, m_context, "state",					"Negative GL State API Cases",						stateFuncs));
 			host->addChild(createChildCases(CASETYPE_LOG, m_context, "atomic_counter",			"Negative Atomic Counter API Cases",				atomicCounterFuncs));
-			host->addChild(createChildCases(CASETYPE_LOG, m_context, "shader_image_load_store",	"Negative Shader Image Load and Store API Cases",	shaderImageLoadStoreFuncs));
+			host->addChild(createChildCases(CASETYPE_LOG, m_context, "shader_image_load",		"Negative Shader Image Load API Cases",				imageLoadFuncs));
+			host->addChild(createChildCases(CASETYPE_LOG, m_context, "shader_image_store",		"Negative Shader Image Store API Cases",			imageStoreFuncs));
+			host->addChild(createChildCases(CASETYPE_LOG, m_context, "shader_image_atomic",		"Negative Shader Image Atomic API Cases",			imageAtomicFuncs));
+			host->addChild(createChildCases(CASETYPE_LOG, m_context, "shader_image_exchange",	"Negative Shader Image Atomic Exchange API Cases",	imageAtomicExchangeFuncs));
 			host->addChild(createChildCases(CASETYPE_LOG, m_context, "shader_function",			"Negative Shader Function Cases",					shaderFunctionFuncs));
 			host->addChild(createChildCases(CASETYPE_LOG, m_context, "shader_directive",		"Negative Shader Directive Cases",					shaderDirectiveFuncs));
+			host->addChild(createChildCases(CASETYPE_LOG, m_context, "ssbo_block",				"Negative SSBO Block Cases",						ssboBlockFuncs));
 			host->addChild(createChildCases(CASETYPE_LOG, m_context, "precise",					"Negative Precise Cases",							preciseFuncs));
 			host->addChild(createChildCases(CASETYPE_LOG, m_context, "advanced_blend",			"Negative Advanced Blend Equation Cases",			advancedBlendFuncs));
+			host->addChild(createChildCases(CASETYPE_LOG, m_context, "shader_storage",			"Negative Shader Storage Cases",					shaderStorageFuncs));
+			host->addChild(createChildCases(CASETYPE_LOG, m_context, "tessellation",			"Negative Tessellation Cases",						tessellationFuncs));
 		}
 
 		{
@@ -3087,11 +3107,17 @@ void DebugTests::init (void)
 			host->addChild(createChildCases(CASETYPE_GETERROR, m_context, "vertex_array",				"Negative Vertex Array API Cases",					vaFuncs));
 			host->addChild(createChildCases(CASETYPE_GETERROR, m_context, "state",						"Negative GL State API Cases",						stateFuncs));
 			host->addChild(createChildCases(CASETYPE_GETERROR, m_context, "atomic_counter",				"Negative Atomic Counter API Cases",				atomicCounterFuncs));
-			host->addChild(createChildCases(CASETYPE_GETERROR, m_context, "shader_image_load_store",	"Negative Shader Image Load and Store API Cases",	shaderImageLoadStoreFuncs));
+			host->addChild(createChildCases(CASETYPE_GETERROR, m_context, "shader_image_load",			"Negative Shader Image Load API Cases",				imageLoadFuncs));
+			host->addChild(createChildCases(CASETYPE_GETERROR, m_context, "shader_image_store",			"Negative Shader Image Store API Cases",			imageStoreFuncs));
+			host->addChild(createChildCases(CASETYPE_GETERROR, m_context, "shader_image_atomic",		"Negative Shader Image Atomic API Cases",			imageAtomicFuncs));
+			host->addChild(createChildCases(CASETYPE_GETERROR, m_context, "shader_image_exchange",		"Negative Shader Image Atomic Exchange API Cases",	imageAtomicExchangeFuncs));
 			host->addChild(createChildCases(CASETYPE_GETERROR, m_context, "shader_function",			"Negative Shader Function Cases",					shaderFunctionFuncs));
 			host->addChild(createChildCases(CASETYPE_GETERROR, m_context, "shader_directive",			"Negative Shader Directive Cases",					shaderDirectiveFuncs));
+			host->addChild(createChildCases(CASETYPE_GETERROR, m_context, "ssbo_block",					"Negative SSBO Block Cases",						ssboBlockFuncs));
 			host->addChild(createChildCases(CASETYPE_GETERROR, m_context, "precise",					"Negative Precise Cases",							preciseFuncs));
 			host->addChild(createChildCases(CASETYPE_GETERROR, m_context, "advanced_blend",				"Negative Advanced Blend Equation Cases",			advancedBlendFuncs));
+			host->addChild(createChildCases(CASETYPE_GETERROR, m_context, "shader_storage",				"Negative Shader Storage Cases",					shaderStorageFuncs));
+			host->addChild(createChildCases(CASETYPE_GETERROR, m_context, "tessellation",				"Negative Tessellation Cases",						tessellationFuncs));
 		}
 	}
 

@@ -17,10 +17,13 @@
 package com.android.tv.settings.system;
 
 import android.accounts.AccountManager;
-import android.app.ActivityManagerNative;
+import android.annotation.SuppressLint;
+import android.app.ActivityManager;
 import android.app.Fragment;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.content.pm.UserInfo;
@@ -39,6 +42,7 @@ import android.support.annotation.DrawableRes;
 import android.support.annotation.IntDef;
 import android.support.v17.preference.LeanbackPreferenceFragment;
 import android.support.v17.preference.LeanbackSettingsFragment;
+import android.support.v4.content.LocalBroadcastManager;
 import android.support.v7.preference.Preference;
 import android.support.v7.preference.PreferenceGroup;
 import android.support.v7.preference.TwoStatePreference;
@@ -59,8 +63,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.util.List;
 
 public class SecurityFragment extends LeanbackPreferenceFragment
-        implements RestrictedProfilePinDialogFragment.Callback,
-        UnknownSourcesConfirmationFragment.Callback {
+        implements RestrictedProfilePinDialogFragment.Callback {
 
     private static final String TAG = "SecurityFragment";
 
@@ -76,6 +79,13 @@ public class SecurityFragment extends LeanbackPreferenceFragment
 
     private static final String PACKAGE_MIME_TYPE = "application/vnd.android.package-archive";
 
+    private static final String ACTION_RESTRICTED_PROFILE_CREATED =
+            "SecurityFragment.RESTRICTED_PROFILE_CREATED";
+    private static final String EXTRA_RESTRICTED_PROFILE_INFO =
+            "SecurityFragment.RESTRICTED_PROFILE_INFO";
+    private static final String SAVESTATE_CREATING_RESTRICTED_PROFILE =
+            "SecurityFragment.CREATING_RESTRICTED_PROFILE";
+
     @Retention(RetentionPolicy.SOURCE)
     @IntDef({PIN_MODE_CHOOSE_LOCKSCREEN,
             PIN_MODE_RESTRICTED_PROFILE_SWITCH_OUT,
@@ -87,7 +97,7 @@ public class SecurityFragment extends LeanbackPreferenceFragment
     private static final int PIN_MODE_RESTRICTED_PROFILE_CHANGE_PASSWORD = 3;
     private static final int PIN_MODE_RESTRICTED_PROFILE_DELETE = 4;
 
-    private TwoStatePreference mUnknownSourcesPref;
+    private Preference mUnknownSourcesPref;
     private TwoStatePreference mVerifyAppsPref;
     private PreferenceGroup mRestrictedProfileGroup;
     private Preference mRestrictedProfileEnterPref;
@@ -101,7 +111,18 @@ public class SecurityFragment extends LeanbackPreferenceFragment
     private UserInfo mRestrictedUserInfo;
     private ILockSettings mLockSettingsService;
 
+    private boolean mCreatingRestrictedProfile;
+    @SuppressLint("StaticFieldLeak")
     private static CreateRestrictedProfileTask sCreateRestrictedProfileTask;
+    private final BroadcastReceiver mRestrictedProfileReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            UserInfo result = intent.getParcelableExtra(EXTRA_RESTRICTED_PROFILE_INFO);
+            if (isResumed()) {
+                onRestrictedUserCreated(result);
+            }
+        }
+    };
 
     private final Handler mHandler = new Handler();
 
@@ -113,19 +134,43 @@ public class SecurityFragment extends LeanbackPreferenceFragment
     public void onCreate(Bundle savedInstanceState) {
         mUserManager = (UserManager) getContext().getSystemService(Context.USER_SERVICE);
         super.onCreate(savedInstanceState);
+        mCreatingRestrictedProfile = savedInstanceState != null
+                && savedInstanceState.getBoolean(SAVESTATE_CREATING_RESTRICTED_PROFILE);
     }
 
     @Override
     public void onResume() {
         super.onResume();
         refresh();
+        LocalBroadcastManager.getInstance(getActivity())
+                .registerReceiver(mRestrictedProfileReceiver,
+                        new IntentFilter(ACTION_RESTRICTED_PROFILE_CREATED));
+        if (mCreatingRestrictedProfile) {
+            UserInfo userInfo = findRestrictedUser(mUserManager);
+            if (userInfo != null) {
+                onRestrictedUserCreated(userInfo);
+            }
+        }
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+        LocalBroadcastManager.getInstance(getActivity())
+                .unregisterReceiver(mRestrictedProfileReceiver);
+    }
+
+    @Override
+    public void onSaveInstanceState(Bundle outState) {
+        super.onSaveInstanceState(outState);
+        outState.putBoolean(SAVESTATE_CREATING_RESTRICTED_PROFILE, mCreatingRestrictedProfile);
     }
 
     @Override
     public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
         setPreferencesFromResource(R.xml.security, null);
 
-        mUnknownSourcesPref = (TwoStatePreference) findPreference(KEY_UNKNOWN_SOURCES);
+        mUnknownSourcesPref = findPreference(KEY_UNKNOWN_SOURCES);
         mVerifyAppsPref = (TwoStatePreference) findPreference(KEY_VERIFY_APPS);
         mRestrictedProfileGroup = (PreferenceGroup) findPreference(KEY_RESTRICTED_PROFILE_GROUP);
         mRestrictedProfileEnterPref = findPreference(KEY_RESTRICTED_PROFILE_ENTER);
@@ -190,8 +235,9 @@ public class SecurityFragment extends LeanbackPreferenceFragment
             mRestrictedProfileDeletePref.setVisible(false);
         }
 
+        mRestrictedProfileCreatePref.setEnabled(sCreateRestrictedProfileTask == null);
+
         mUnknownSourcesPref.setEnabled(!isUnknownSourcesBlocked());
-        mUnknownSourcesPref.setChecked(isUnknownSourcesAllowed());
         mVerifyAppsPref.setChecked(isVerifyAppsEnabled());
         mVerifyAppsPref.setEnabled(isVerifierInstalled());
     }
@@ -203,15 +249,6 @@ public class SecurityFragment extends LeanbackPreferenceFragment
             return super.onPreferenceTreeClick(preference);
         }
         switch (key) {
-            case KEY_UNKNOWN_SOURCES:
-                // TODO: confirmation dialog
-                if (mUnknownSourcesPref.isChecked()) {
-                    /** Launches {@link UnknownSourcesConfirmationFragment} */
-                    super.onPreferenceTreeClick(preference);
-                } else {
-                    setUnknownSourcesAllowed(false);
-                }
-                return true;
             case KEY_VERIFY_APPS:
                 setVerifyAppsEnabled(mVerifyAppsPref.isChecked());
                 return true;
@@ -244,30 +281,9 @@ public class SecurityFragment extends LeanbackPreferenceFragment
         return super.onPreferenceTreeClick(preference);
     }
 
-    private boolean isUnknownSourcesAllowed() {
-        return Settings.Secure.getInt(getContext().getContentResolver(),
-                Settings.Secure.INSTALL_NON_MARKET_APPS, 0) > 0;
-    }
-
-    private void setUnknownSourcesAllowed(boolean enabled) {
-        if (isUnknownSourcesBlocked()) {
-            return;
-        }
-        // Change the system setting
-        Settings.Secure.putInt(getContext().getContentResolver(),
-                Settings.Secure.INSTALL_NON_MARKET_APPS, enabled ? 1 : 0);
-    }
-
     private boolean isUnknownSourcesBlocked() {
         final UserManager um = (UserManager) getContext().getSystemService(Context.USER_SERVICE);
         return um.hasUserRestriction(UserManager.DISALLOW_INSTALL_UNKNOWN_SOURCES);
-    }
-
-    @Override
-    public void onConfirmUnknownSources(boolean success) {
-        setUnknownSourcesAllowed(success);
-
-        mUnknownSourcesPref.setChecked(success);
     }
 
     private boolean isVerifyAppsEnabled() {
@@ -331,7 +347,8 @@ public class SecurityFragment extends LeanbackPreferenceFragment
     @Override
     public boolean checkPassword(String password, int userId) {
         try {
-            return getLockSettings().checkPassword(password, userId, null /* progressCallback */)
+            return getLockSettings().checkCredential(password,
+                LockPatternUtils.CREDENTIAL_TYPE_PASSWORD, userId,  null /* progressCallback */)
                     .getResponseCode() == VerifyCredentialResponse.RESPONSE_OK;
         } catch (final RemoteException e) {
             // ignore
@@ -384,7 +401,7 @@ public class SecurityFragment extends LeanbackPreferenceFragment
             case PIN_MODE_RESTRICTED_PROFILE_DELETE:
                 if (success) {
                     removeRestrictedUser();
-                    new LockPatternUtils(getActivity()).clearLock(UserHandle.myUserId());
+                    new LockPatternUtils(getActivity()).clearLock(null, UserHandle.myUserId());
                 }
                 break;
         }
@@ -408,7 +425,7 @@ public class SecurityFragment extends LeanbackPreferenceFragment
 
     private static void switchUserNow(int userId) {
         try {
-            ActivityManagerNative.getDefault().switchUser(userId);
+            ActivityManager.getService().switchUser(userId);
         } catch (RemoteException re) {
             Log.e(TAG, "Caught exception while switching user! ", re);
         }
@@ -419,7 +436,9 @@ public class SecurityFragment extends LeanbackPreferenceFragment
             sCreateRestrictedProfileTask = new CreateRestrictedProfileTask(getContext(),
                     mUserManager);
             sCreateRestrictedProfileTask.execute();
+            mCreatingRestrictedProfile = true;
         }
+        refresh();
     }
 
     private void removeRestrictedUser() {
@@ -430,13 +449,10 @@ public class SecurityFragment extends LeanbackPreferenceFragment
         }
         final int restrictedUserHandle = restrictedUser.id;
         mRestrictedUserInfo = null;
-        mHandler.post(new Runnable() {
-            @Override
-            public void run() {
-                mUserManager.removeUser(restrictedUserHandle);
-                UserSwitchListenerService.updateLaunchPoint(getActivity(), false);
-                refresh();
-            }
+        mHandler.post(() -> {
+            mUserManager.removeUser(restrictedUserHandle);
+            UserSwitchListenerService.updateLaunchPoint(getActivity(), false);
+            refresh();
         });
     }
 
@@ -451,12 +467,31 @@ public class SecurityFragment extends LeanbackPreferenceFragment
         return userInfo.isRestricted();
     }
 
-    private class CreateRestrictedProfileTask extends AsyncTask<Void, Void, UserInfo> {
+    private void onRestrictedUserCreated(UserInfo result) {
+        int userId = result.id;
+        if (result.isRestricted()
+                && result.restrictedProfileParentId == UserHandle.myUserId()) {
+            final AppRestrictionsFragment restrictionsFragment =
+                    AppRestrictionsFragment.newInstance(userId, true);
+            final Fragment settingsFragment = getCallbackFragment();
+            if (settingsFragment instanceof LeanbackSettingsFragment) {
+                ((LeanbackSettingsFragment) settingsFragment)
+                        .startPreferenceFragment(restrictionsFragment);
+            } else {
+                throw new IllegalStateException("Didn't find fragment of expected type: "
+                        + settingsFragment);
+            }
+        }
+        mCreatingRestrictedProfile = false;
+        refresh();
+    }
+
+    private static class CreateRestrictedProfileTask extends AsyncTask<Void, Void, UserInfo> {
         private final Context mContext;
         private final UserManager mUserManager;
 
         CreateRestrictedProfileTask(Context context, UserManager userManager) {
-            mContext = context;
+            mContext = context.getApplicationContext();
             mUserManager = userManager;
         }
 
@@ -466,8 +501,11 @@ public class SecurityFragment extends LeanbackPreferenceFragment
                     mContext.getString(R.string.user_new_profile_name),
                     UserInfo.FLAG_RESTRICTED, UserHandle.myUserId());
             if (restrictedUserInfo == null) {
-                Log.wtf(TAG, "Got back a null user handle!");
-                return null;
+                final UserInfo existingUserInfo = findRestrictedUser(mUserManager);
+                if (existingUserInfo == null) {
+                    Log.wtf(TAG, "Got back a null user handle!");
+                }
+                return existingUserInfo;
             }
             int userId = restrictedUserInfo.id;
             UserHandle user = new UserHandle(userId);
@@ -487,21 +525,9 @@ public class SecurityFragment extends LeanbackPreferenceFragment
                 return;
             }
             UserSwitchListenerService.updateLaunchPoint(mContext, true);
-            int userId = result.id;
-            if (result.isRestricted()
-                    && isAdded()
-                    && result.restrictedProfileParentId == UserHandle.myUserId()) {
-                final AppRestrictionsFragment restrictionsFragment =
-                        AppRestrictionsFragment.newInstance(userId, true);
-                final Fragment settingsFragment = getCallbackFragment();
-                if (settingsFragment instanceof LeanbackSettingsFragment) {
-                    ((LeanbackSettingsFragment) settingsFragment)
-                            .startPreferenceFragment(restrictionsFragment);
-                } else {
-                    throw new IllegalStateException("Didn't find fragment of expected type: "
-                            + settingsFragment);
-                }
-            }
+            LocalBroadcastManager.getInstance(mContext).sendBroadcast(
+                    new Intent(ACTION_RESTRICTED_PROFILE_CREATED)
+                            .putExtra(EXTRA_RESTRICTED_PROFILE_INFO, result));
         }
 
         private Bitmap createBitmapFromDrawable(@DrawableRes int resId) {

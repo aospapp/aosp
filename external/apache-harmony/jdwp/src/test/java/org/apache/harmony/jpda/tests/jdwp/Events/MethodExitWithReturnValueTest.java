@@ -31,6 +31,7 @@ import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
 
 public class MethodExitWithReturnValueTest extends JDWPEventTestCase {
 
+    @Override
     protected String getDebuggeeClassName() {
         return MethodExitWithReturnValueDebuggee.class.getName();
     }

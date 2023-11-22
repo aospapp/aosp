@@ -16,6 +16,7 @@
 
 #include <jni.h>
 
+#include <memory>
 #include <unordered_map>
 #include <string>
 
@@ -197,7 +198,8 @@ class ObjectPool {
     CObjMap objects_;
     FlagMap owns_;
 
-    DISALLOW_COPY_AND_ASSIGN(ObjectPool);
+    ObjectPool(const ObjectPool&) = delete;
+    ObjectPool& operator=(const ObjectPool&) = delete;
 };
 
 template<typename T> ObjectPool<T>* ObjectPool<T>::instance_ = NULL;
@@ -212,6 +214,17 @@ template<typename T>
 bool WrapObjectInJava(T* c_object, JNIEnv* env, jobject j_object, bool owns) {
   ObjectPool<T>* pool = ObjectPool<T>::Instance();
   return pool ? pool->WrapObject(c_object, env, j_object, owns) : false;
+}
+
+// Calls WrapObjectInJava, safely freeing c_object if object creation fails.
+template<typename T>
+bool WrapOwnedObjectInJava(std::unique_ptr<T> c_object, JNIEnv* env,
+                           jobject j_object, bool owns) {
+  if (!WrapObjectInJava<T>(c_object.get(), env, j_object, owns))
+    return false;
+  // If we succeeded, a Java object now owns our c object; don't free it.
+  c_object.release();
+  return true;
 }
 
 // Creates a new Java instance, which wraps the passed C++ instance. Returns

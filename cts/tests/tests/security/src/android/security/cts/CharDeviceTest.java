@@ -16,8 +16,11 @@
 
 package android.security.cts;
 
+import android.platform.test.annotations.SecurityTest;
+
 import junit.framework.TestCase;
 
+@SecurityTest
 public class CharDeviceTest extends TestCase {
 
     static {

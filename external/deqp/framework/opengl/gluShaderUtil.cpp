@@ -141,7 +141,7 @@ GLSLVersion getContextTypeGLSLVersion (ContextType type)
 
 const char* getShaderTypeName (ShaderType shaderType)
 {
-	const char* s_names[] =
+	static const char* s_names[] =
 	{
 		"vertex",
 		"fragment",
@@ -160,7 +160,7 @@ const char* getShaderTypeName (ShaderType shaderType)
 
 const char* getPrecisionName (Precision precision)
 {
-	const char* s_names[] =
+	static const char* s_names[] =
 	{
 		"lowp",
 		"mediump",
@@ -176,7 +176,7 @@ const char* getPrecisionName (Precision precision)
 
 const char* getDataTypeName (DataType dataType)
 {
-	const char* s_names[] =
+	static const char* s_names[] =
 	{
 		"invalid",
 		"float",
@@ -192,6 +192,19 @@ const char* getDataTypeName (DataType dataType)
 		"mat4x2",
 		"mat4x3",
 		"mat4",
+		"double",
+		"dvec2",
+		"dvec3",
+		"dvec4",
+		"dmat2",
+		"dmat2x3",
+		"dmat2x4",
+		"dmat3x2",
+		"dmat3",
+		"dmat3x4",
+		"dmat4x2",
+		"dmat4x3",
+		"dmat4",
 		"int",
 		"ivec2",
 		"ivec3",
@@ -207,23 +220,27 @@ const char* getDataTypeName (DataType dataType)
 		"sampler1D",
 		"sampler2D",
 		"samplerCube",
+		"sampler1DArray",
 		"sampler2DArray",
 		"sampler3D",
 		"samplerCubeArray",
 		"sampler1DShadow",
 		"sampler2DShadow",
 		"samplerCubeShadow",
+		"sampler1DArrayShadow",
 		"sampler2DArrayShadow",
 		"samplerCubeArrayShadow",
 		"isampler1D",
 		"isampler2D",
 		"isamplerCube",
+		"isampler1DArray",
 		"isampler2DArray",
 		"isampler3D",
 		"isamplerCubeArray",
 		"usampler1D",
 		"usampler2D",
 		"usamplerCube",
+		"usampler1DArray",
 		"usampler2DArray",
 		"usampler3D",
 		"usamplerCubeArray",
@@ -264,7 +281,7 @@ const char* getDataTypeName (DataType dataType)
 
 int getDataTypeScalarSize (DataType dataType)
 {
-	const int s_sizes[] =
+	static const int s_sizes[] =
 	{
 		-1,		// invalid
 		1,		// float
@@ -280,6 +297,19 @@ int getDataTypeScalarSize (DataType dataType)
 		8,		// mat4x2
 		12,		// mat4x3
 		16,		// mat4
+		1,		// double
+		2,		// dvec2
+		3,		// dvec3
+		4,		// dvec4
+		4,		// dmat2
+		6,		// dmat2x3
+		8,		// dmat2x4
+		6,		// dmat3x2
+		9,		// dmat3
+		12,		// dmat3x4
+		8,		// dmat4x2
+		12,		// dmat4x3
+		16,		// dmat4
 		1,		// int
 		2,		// ivec2
 		3,		// ivec3
@@ -295,23 +325,27 @@ int getDataTypeScalarSize (DataType dataType)
 		1,		// sampler1D
 		1,		// sampler2D
 		1,		// samplerCube
+		1,		// sampler1DArray
 		1,		// sampler2DArray
 		1,		// sampler3D
 		1,		// samplerCubeArray
 		1,		// sampler1DShadow
 		1,		// sampler2DShadow
 		1,		// samplerCubeShadow
+		1,		// sampler1DArrayShadow
 		1,		// sampler2DArrayShadow
 		1,		// samplerCubeArrayShadow
 		1,		// isampler1D
 		1,		// isampler2D
 		1,		// isamplerCube
+		1,		// isampler1DArray
 		1,		// isampler2DArray
 		1,		// isampler3D
 		1,		// isamplerCubeArray
 		1,		// usampler1D
 		1,		// usampler2D
 		1,		// usamplerCube
+		1,		// usampler1DArray
 		1,		// usampler2DArray
 		1,		// usampler3D
 		1,		// usamplerCubeArray
@@ -352,7 +386,7 @@ int getDataTypeScalarSize (DataType dataType)
 
 DataType getDataTypeScalarType (DataType dataType)
 {
-	const DataType s_scalarTypes[] =
+	static const DataType s_scalarTypes[] =
 	{
 		TYPE_INVALID,							// invalid
 		TYPE_FLOAT,								// float
@@ -368,6 +402,19 @@ DataType getDataTypeScalarType (DataType dataType)
 		TYPE_FLOAT,								// mat4x2
 		TYPE_FLOAT,								// mat4x3
 		TYPE_FLOAT,								// mat4
+		TYPE_DOUBLE,							// double
+		TYPE_DOUBLE,							// dvec2
+		TYPE_DOUBLE,							// dvec3
+		TYPE_DOUBLE,							// dvec4
+		TYPE_DOUBLE,							// dmat2
+		TYPE_DOUBLE,							// dmat2x3
+		TYPE_DOUBLE,							// dmat2x4
+		TYPE_DOUBLE,							// dmat3x2
+		TYPE_DOUBLE,							// dmat3
+		TYPE_DOUBLE,							// dmat3x4
+		TYPE_DOUBLE,							// dmat4x2
+		TYPE_DOUBLE,							// dmat4x3
+		TYPE_DOUBLE,							// dmat4
 		TYPE_INT,								// int
 		TYPE_INT,								// ivec2
 		TYPE_INT,								// ivec3
@@ -383,23 +430,27 @@ DataType getDataTypeScalarType (DataType dataType)
 		TYPE_SAMPLER_1D,						// sampler1D
 		TYPE_SAMPLER_2D,						// sampler2D
 		TYPE_SAMPLER_CUBE,						// samplerCube
+		TYPE_SAMPLER_1D_ARRAY,					// sampler1DArray
 		TYPE_SAMPLER_2D_ARRAY,					// sampler2DArray
 		TYPE_SAMPLER_3D,						// sampler3D
 		TYPE_SAMPLER_CUBE_ARRAY,				// samplerCubeArray
 		TYPE_SAMPLER_1D_SHADOW,					// sampler1DShadow
 		TYPE_SAMPLER_2D_SHADOW,					// sampler2DShadow
 		TYPE_SAMPLER_CUBE_SHADOW,				// samplerCubeShadow
+		TYPE_SAMPLER_1D_ARRAY_SHADOW,			// sampler1DArrayShadow
 		TYPE_SAMPLER_2D_ARRAY_SHADOW,			// sampler2DArrayShadow
 		TYPE_SAMPLER_CUBE_ARRAY_SHADOW,			// samplerCubeArrayShadow
 		TYPE_INT_SAMPLER_1D,					// isampler1D
 		TYPE_INT_SAMPLER_2D,					// isampler2D
 		TYPE_INT_SAMPLER_CUBE,					// isamplerCube
+		TYPE_INT_SAMPLER_1D_ARRAY,				// isampler1DArray
 		TYPE_INT_SAMPLER_2D_ARRAY,				// isampler2DArray
 		TYPE_INT_SAMPLER_3D,					// isampler3D
 		TYPE_INT_SAMPLER_CUBE_ARRAY,			// isamplerCubeArray
 		TYPE_UINT_SAMPLER_1D,					// usampler1D
 		TYPE_UINT_SAMPLER_2D,					// usampler2D
 		TYPE_UINT_SAMPLER_CUBE,					// usamplerCube
+		TYPE_UINT_SAMPLER_1D_ARRAY,				// usampler1DArray
 		TYPE_UINT_SAMPLER_2D_ARRAY,				// usampler2DArray
 		TYPE_UINT_SAMPLER_3D,					// usampler3D
 		TYPE_UINT_SAMPLER_CUBE_ARRAY,			// usamplerCubeArray
@@ -440,7 +491,7 @@ DataType getDataTypeScalarType (DataType dataType)
 
 DataType getDataTypeFloatScalars (DataType dataType)
 {
-	const DataType s_floatTypes[] =
+	static const DataType s_floatTypes[] =
 	{
 		TYPE_INVALID,		// invalid
 		TYPE_FLOAT,			// float
@@ -456,6 +507,19 @@ DataType getDataTypeFloatScalars (DataType dataType)
 		TYPE_FLOAT_MAT4X2,	// mat4x2
 		TYPE_FLOAT_MAT4X3,	// mat4x3
 		TYPE_FLOAT_MAT4,	// mat4
+		TYPE_FLOAT,			// double
+		TYPE_FLOAT_VEC2,	// dvec2
+		TYPE_FLOAT_VEC3,	// dvec3
+		TYPE_FLOAT_VEC4,	// dvec4
+		TYPE_FLOAT_MAT2,	// dmat2
+		TYPE_FLOAT_MAT2X3,	// dmat2x3
+		TYPE_FLOAT_MAT2X4,	// dmat2x4
+		TYPE_FLOAT_MAT3X2,	// dmat3x2
+		TYPE_FLOAT_MAT3,	// dmat3
+		TYPE_FLOAT_MAT3X4,	// dmat3x4
+		TYPE_FLOAT_MAT4X2,	// dmat4x2
+		TYPE_FLOAT_MAT4X3,	// dmat4x3
+		TYPE_FLOAT_MAT4,	// dmat4
 		TYPE_FLOAT,			// int
 		TYPE_FLOAT_VEC2,	// ivec2
 		TYPE_FLOAT_VEC3,	// ivec3
@@ -471,23 +535,27 @@ DataType getDataTypeFloatScalars (DataType dataType)
 		TYPE_INVALID,		// sampler1D
 		TYPE_INVALID,		// sampler2D
 		TYPE_INVALID,		// samplerCube
+		TYPE_INVALID,		// sampler1DArray
 		TYPE_INVALID,		// sampler2DArray
 		TYPE_INVALID,		// sampler3D
 		TYPE_INVALID,		// samplerCubeArray
 		TYPE_INVALID,		// sampler1DShadow
 		TYPE_INVALID,		// sampler2DShadow
 		TYPE_INVALID,		// samplerCubeShadow
+		TYPE_INVALID,		// sampler1DArrayShadow
 		TYPE_INVALID,		// sampler2DArrayShadow
 		TYPE_INVALID,		// samplerCubeArrayShadow
 		TYPE_INVALID,		// isampler1D
 		TYPE_INVALID,		// isampler2D
 		TYPE_INVALID,		// isamplerCube
+		TYPE_INVALID,		// isampler1DArray
 		TYPE_INVALID,		// isampler2DArray
 		TYPE_INVALID,		// isampler3D
 		TYPE_INVALID,		// isamplerCubeArray
 		TYPE_INVALID,		// usampler1D
 		TYPE_INVALID,		// usampler2D
 		TYPE_INVALID,		// usamplerCube
+		TYPE_INVALID,		// usampler1DArray
 		TYPE_INVALID,		// usampler2DArray
 		TYPE_INVALID,		// usampler3D
 		TYPE_INVALID,		// usamplerCubeArray
@@ -526,12 +594,118 @@ DataType getDataTypeFloatScalars (DataType dataType)
 	return s_floatTypes[(int)dataType];
 }
 
+DataType getDataTypeDoubleScalars (DataType dataType)
+{
+	static const DataType s_doubleTypes[] =
+	{
+		TYPE_INVALID,		// invalid
+		TYPE_DOUBLE,		// float
+		TYPE_DOUBLE_VEC2,	// vec2
+		TYPE_DOUBLE_VEC3,	// vec3
+		TYPE_DOUBLE_VEC4,	// vec4
+		TYPE_DOUBLE_MAT2,	// mat2
+		TYPE_DOUBLE_MAT2X3,	// mat2x3
+		TYPE_DOUBLE_MAT2X4,	// mat2x4
+		TYPE_DOUBLE_MAT3X2,	// mat3x2
+		TYPE_DOUBLE_MAT3,	// mat3
+		TYPE_DOUBLE_MAT3X4,	// mat3x4
+		TYPE_DOUBLE_MAT4X2,	// mat4x2
+		TYPE_DOUBLE_MAT4X3,	// mat4x3
+		TYPE_DOUBLE_MAT4,	// mat4
+		TYPE_DOUBLE,		// double
+		TYPE_DOUBLE_VEC2,	// dvec2
+		TYPE_DOUBLE_VEC3,	// dvec3
+		TYPE_DOUBLE_VEC4,	// dvec4
+		TYPE_DOUBLE_MAT2,	// dmat2
+		TYPE_DOUBLE_MAT2X3,	// dmat2x3
+		TYPE_DOUBLE_MAT2X4,	// dmat2x4
+		TYPE_DOUBLE_MAT3X2,	// dmat3x2
+		TYPE_DOUBLE_MAT3,	// dmat3
+		TYPE_DOUBLE_MAT3X4,	// dmat3x4
+		TYPE_DOUBLE_MAT4X2,	// dmat4x2
+		TYPE_DOUBLE_MAT4X3,	// dmat4x3
+		TYPE_DOUBLE_MAT4,	// dmat4
+		TYPE_DOUBLE,		// int
+		TYPE_DOUBLE_VEC2,	// ivec2
+		TYPE_DOUBLE_VEC3,	// ivec3
+		TYPE_DOUBLE_VEC4,	// ivec4
+		TYPE_DOUBLE,		// uint
+		TYPE_DOUBLE_VEC2,	// uvec2
+		TYPE_DOUBLE_VEC3,	// uvec3
+		TYPE_DOUBLE_VEC4,	// uvec4
+		TYPE_DOUBLE,		// bool
+		TYPE_DOUBLE_VEC2,	// bvec2
+		TYPE_DOUBLE_VEC3,	// bvec3
+		TYPE_DOUBLE_VEC4,	// bvec4
+		TYPE_INVALID,		// sampler1D
+		TYPE_INVALID,		// sampler2D
+		TYPE_INVALID,		// samplerCube
+		TYPE_INVALID,		// sampler1DArray
+		TYPE_INVALID,		// sampler2DArray
+		TYPE_INVALID,		// sampler3D
+		TYPE_INVALID,		// samplerCubeArray
+		TYPE_INVALID,		// sampler1DShadow
+		TYPE_INVALID,		// sampler2DShadow
+		TYPE_INVALID,		// samplerCubeShadow
+		TYPE_INVALID,		// sampler1DArrayShadow
+		TYPE_INVALID,		// sampler2DArrayShadow
+		TYPE_INVALID,		// samplerCubeArrayShadow
+		TYPE_INVALID,		// isampler1D
+		TYPE_INVALID,		// isampler2D
+		TYPE_INVALID,		// isamplerCube
+		TYPE_INVALID,		// isampler1DArray
+		TYPE_INVALID,		// isampler2DArray
+		TYPE_INVALID,		// isampler3D
+		TYPE_INVALID,		// isamplerCubeArray
+		TYPE_INVALID,		// usampler1D
+		TYPE_INVALID,		// usampler2D
+		TYPE_INVALID,		// usamplerCube
+		TYPE_INVALID,		// usampler1DArray
+		TYPE_INVALID,		// usampler2DArray
+		TYPE_INVALID,		// usampler3D
+		TYPE_INVALID,		// usamplerCubeArray
+		TYPE_INVALID,		// sampler2DMS
+		TYPE_INVALID,		// isampler2DMS
+		TYPE_INVALID,		// usampler2DMS
+		TYPE_INVALID,		// image2D
+		TYPE_INVALID,		// imageCube
+		TYPE_INVALID,		// image2DArray
+		TYPE_INVALID,		// image3D
+		TYPE_INVALID,		// imageCubeArray
+		TYPE_INVALID,		// iimage2D
+		TYPE_INVALID,		// iimageCube
+		TYPE_INVALID,		// iimage2DArray
+		TYPE_INVALID,		// iimage3D
+		TYPE_INVALID,		// iimageCubeArray
+		TYPE_INVALID,		// uimage2D
+		TYPE_INVALID,		// uimageCube
+		TYPE_INVALID,		// uimage2DArray
+		TYPE_INVALID,		// uimage3D
+		TYPE_INVALID,		// uimageCubeArray
+		TYPE_INVALID,		// atomic_uint
+		TYPE_INVALID,		// samplerBuffer
+		TYPE_INVALID,		// isamplerBuffer
+		TYPE_INVALID,		// usamplerBuffer
+		TYPE_INVALID,		// sampler2DMSArray
+		TYPE_INVALID,		// isampler2DMSArray
+		TYPE_INVALID,		// usampler2DMSArray
+		TYPE_INVALID,		// imageBuffer
+		TYPE_INVALID,		// iimageBuffer
+		TYPE_INVALID,		// uimageBuffer
+	};
+
+	DE_STATIC_ASSERT(DE_LENGTH_OF_ARRAY(s_doubleTypes) == TYPE_LAST);
+	DE_ASSERT(deInBounds32((int)dataType, 0, DE_LENGTH_OF_ARRAY(s_doubleTypes)));
+	return s_doubleTypes[(int)dataType];
+}
+
 DataType getDataTypeVector (DataType scalarType, int size)
 {
 	DE_ASSERT(deInRange32(size, 1, 4));
 	switch (scalarType)
 	{
 		case TYPE_FLOAT:
+		case TYPE_DOUBLE:
 		case TYPE_INT:
 		case TYPE_UINT:
 		case TYPE_BOOL:
@@ -571,15 +745,24 @@ int getDataTypeMatrixNumRows (DataType dataType)
 {
 	switch (dataType)
 	{
-		case TYPE_FLOAT_MAT2:	return 2;
-		case TYPE_FLOAT_MAT2X3:	return 3;
-		case TYPE_FLOAT_MAT2X4:	return 4;
-		case TYPE_FLOAT_MAT3X2:	return 2;
-		case TYPE_FLOAT_MAT3:	return 3;
-		case TYPE_FLOAT_MAT3X4:	return 4;
-		case TYPE_FLOAT_MAT4X2:	return 2;
-		case TYPE_FLOAT_MAT4X3:	return 3;
-		case TYPE_FLOAT_MAT4:	return 4;
+		case TYPE_FLOAT_MAT2:		return 2;
+		case TYPE_FLOAT_MAT2X3:		return 3;
+		case TYPE_FLOAT_MAT2X4:		return 4;
+		case TYPE_FLOAT_MAT3X2:		return 2;
+		case TYPE_FLOAT_MAT3:		return 3;
+		case TYPE_FLOAT_MAT3X4:		return 4;
+		case TYPE_FLOAT_MAT4X2:		return 2;
+		case TYPE_FLOAT_MAT4X3:		return 3;
+		case TYPE_FLOAT_MAT4:		return 4;
+		case TYPE_DOUBLE_MAT2:		return 2;
+		case TYPE_DOUBLE_MAT2X3:	return 3;
+		case TYPE_DOUBLE_MAT2X4:	return 4;
+		case TYPE_DOUBLE_MAT3X2:	return 2;
+		case TYPE_DOUBLE_MAT3:		return 3;
+		case TYPE_DOUBLE_MAT3X4:	return 4;
+		case TYPE_DOUBLE_MAT4X2:	return 2;
+		case TYPE_DOUBLE_MAT4X3:	return 3;
+		case TYPE_DOUBLE_MAT4:		return 4;
 		default:
 			DE_ASSERT(false);
 			return 0;
@@ -590,15 +773,24 @@ int getDataTypeMatrixNumColumns (DataType dataType)
 {
 	switch (dataType)
 	{
-		case TYPE_FLOAT_MAT2:	return 2;
-		case TYPE_FLOAT_MAT2X3:	return 2;
-		case TYPE_FLOAT_MAT2X4:	return 2;
-		case TYPE_FLOAT_MAT3X2:	return 3;
-		case TYPE_FLOAT_MAT3:	return 3;
-		case TYPE_FLOAT_MAT3X4:	return 3;
-		case TYPE_FLOAT_MAT4X2:	return 4;
-		case TYPE_FLOAT_MAT4X3:	return 4;
-		case TYPE_FLOAT_MAT4:	return 4;
+		case TYPE_FLOAT_MAT2:		return 2;
+		case TYPE_FLOAT_MAT2X3:		return 2;
+		case TYPE_FLOAT_MAT2X4:		return 2;
+		case TYPE_FLOAT_MAT3X2:		return 3;
+		case TYPE_FLOAT_MAT3:		return 3;
+		case TYPE_FLOAT_MAT3X4:		return 3;
+		case TYPE_FLOAT_MAT4X2:		return 4;
+		case TYPE_FLOAT_MAT4X3:		return 4;
+		case TYPE_FLOAT_MAT4:		return 4;
+		case TYPE_DOUBLE_MAT2:		return 2;
+		case TYPE_DOUBLE_MAT2X3:	return 2;
+		case TYPE_DOUBLE_MAT2X4:	return 2;
+		case TYPE_DOUBLE_MAT3X2:	return 3;
+		case TYPE_DOUBLE_MAT3:		return 3;
+		case TYPE_DOUBLE_MAT3X4:	return 3;
+		case TYPE_DOUBLE_MAT4X2:	return 4;
+		case TYPE_DOUBLE_MAT4X3:	return 4;
+		case TYPE_DOUBLE_MAT4:		return 4;
 		default:
 			DE_ASSERT(false);
 			return 0;
@@ -648,6 +840,23 @@ DataType getDataTypeFromGLType (deUint32 glType)
 		case GL_FLOAT_MAT4x3:								return TYPE_FLOAT_MAT4X3;
 		case GL_FLOAT_MAT4:									return TYPE_FLOAT_MAT4;
 
+		case GL_DOUBLE:										return TYPE_DOUBLE;
+		case GL_DOUBLE_VEC2:								return TYPE_DOUBLE_VEC2;
+		case GL_DOUBLE_VEC3:								return TYPE_DOUBLE_VEC3;
+		case GL_DOUBLE_VEC4:								return TYPE_DOUBLE_VEC4;
+
+		case GL_DOUBLE_MAT2:								return TYPE_DOUBLE_MAT2;
+		case GL_DOUBLE_MAT2x3:								return TYPE_DOUBLE_MAT2X3;
+		case GL_DOUBLE_MAT2x4:								return TYPE_DOUBLE_MAT2X4;
+
+		case GL_DOUBLE_MAT3x2:								return TYPE_DOUBLE_MAT3X2;
+		case GL_DOUBLE_MAT3:								return TYPE_DOUBLE_MAT3;
+		case GL_DOUBLE_MAT3x4:								return TYPE_DOUBLE_MAT3X4;
+
+		case GL_DOUBLE_MAT4x2:								return TYPE_DOUBLE_MAT4X2;
+		case GL_DOUBLE_MAT4x3:								return TYPE_DOUBLE_MAT4X3;
+		case GL_DOUBLE_MAT4:								return TYPE_DOUBLE_MAT4;
+
 		case GL_INT:										return TYPE_INT;
 		case GL_INT_VEC2:									return TYPE_INT_VEC2;
 		case GL_INT_VEC3:									return TYPE_INT_VEC3;
@@ -666,6 +875,7 @@ DataType getDataTypeFromGLType (deUint32 glType)
 		case GL_SAMPLER_1D:									return TYPE_SAMPLER_1D;
 		case GL_SAMPLER_2D:									return TYPE_SAMPLER_2D;
 		case GL_SAMPLER_CUBE:								return TYPE_SAMPLER_CUBE;
+		case GL_SAMPLER_1D_ARRAY:							return TYPE_SAMPLER_1D_ARRAY;
 		case GL_SAMPLER_2D_ARRAY:							return TYPE_SAMPLER_2D_ARRAY;
 		case GL_SAMPLER_3D:									return TYPE_SAMPLER_3D;
 		case GL_SAMPLER_CUBE_MAP_ARRAY:						return TYPE_SAMPLER_CUBE_ARRAY;
@@ -673,12 +883,14 @@ DataType getDataTypeFromGLType (deUint32 glType)
 		case GL_SAMPLER_1D_SHADOW:							return TYPE_SAMPLER_1D_SHADOW;
 		case GL_SAMPLER_2D_SHADOW:							return TYPE_SAMPLER_2D_SHADOW;
 		case GL_SAMPLER_CUBE_SHADOW:						return TYPE_SAMPLER_CUBE_SHADOW;
+		case GL_SAMPLER_1D_ARRAY_SHADOW:					return TYPE_SAMPLER_1D_ARRAY_SHADOW;
 		case GL_SAMPLER_2D_ARRAY_SHADOW:					return TYPE_SAMPLER_2D_ARRAY_SHADOW;
 		case GL_SAMPLER_CUBE_MAP_ARRAY_SHADOW:				return TYPE_SAMPLER_CUBE_ARRAY_SHADOW;
 
 		case GL_INT_SAMPLER_1D:								return TYPE_INT_SAMPLER_1D;
 		case GL_INT_SAMPLER_2D:								return TYPE_INT_SAMPLER_2D;
 		case GL_INT_SAMPLER_CUBE:							return TYPE_INT_SAMPLER_CUBE;
+		case GL_INT_SAMPLER_1D_ARRAY:						return TYPE_INT_SAMPLER_1D_ARRAY;
 		case GL_INT_SAMPLER_2D_ARRAY:						return TYPE_INT_SAMPLER_2D_ARRAY;
 		case GL_INT_SAMPLER_3D:								return TYPE_INT_SAMPLER_3D;
 		case GL_INT_SAMPLER_CUBE_MAP_ARRAY:					return TYPE_INT_SAMPLER_CUBE_ARRAY;
@@ -686,6 +898,7 @@ DataType getDataTypeFromGLType (deUint32 glType)
 		case GL_UNSIGNED_INT_SAMPLER_1D:					return TYPE_UINT_SAMPLER_1D;
 		case GL_UNSIGNED_INT_SAMPLER_2D:					return TYPE_UINT_SAMPLER_2D;
 		case GL_UNSIGNED_INT_SAMPLER_CUBE:					return TYPE_UINT_SAMPLER_CUBE;
+		case GL_UNSIGNED_INT_SAMPLER_1D_ARRAY:				return TYPE_UINT_SAMPLER_1D_ARRAY;
 		case GL_UNSIGNED_INT_SAMPLER_2D_ARRAY:				return TYPE_UINT_SAMPLER_2D_ARRAY;
 		case GL_UNSIGNED_INT_SAMPLER_3D:					return TYPE_UINT_SAMPLER_3D;
 		case GL_UNSIGNED_INT_SAMPLER_CUBE_MAP_ARRAY:		return TYPE_UINT_SAMPLER_CUBE_ARRAY;

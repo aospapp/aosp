@@ -18,7 +18,7 @@ include $(CLEAR_VARS)
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
-LOCAL_JAVA_LIBRARIES := compatibility-manifest-generator junit
+LOCAL_JAVA_LIBRARIES := compatibility-manifest-generator junit-host
 
 LOCAL_MODULE := compatibility-manifest-generator-tests
 

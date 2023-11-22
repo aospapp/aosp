@@ -129,6 +129,8 @@
     <string name="callFailed_maximum_reached">All available lines are in use.  To make a call, disconnect one of the calls on this device, or on one of your other devices.</string>
     <!-- In-call screen: call ended because the user disabled data on their device -->
     <string name="callFailed_data_disabled">Call ended because cellular data was disabled.</string>
-    <!-- In-call screen: call ended because the cellular data limit has been reached -->
-    <string name="callFailed_data_limit_reached">Call ended because the cellular data limit has been reached.</string>
+    <!-- In-call screen: call ended because the cellular data limit has been reached (suitable for alert dialog) -->
+    <string name="callFailed_data_limit_reached_description">Call ended because the cellular data limit has been reached.</string>
+    <!-- In-call screen: call ended because the cellular data limit has been reached (intended for label in in-call screen) -->
+    <string name="callFailed_data_limit_reached">Data limit reached. Call ended.</string>
 </resources>

@@ -5,7 +5,6 @@
 AUTHOR = "Chrome OS Team"
 NAME = "faft_bios_ec3po"
 PURPOSE = "Test hard-to-automate firmware scenarios using EC-3PO changes."
-CRITERIA = "All tests with SUITE=faft_bios_ec3po must pass."
 
 TIME = "SHORT"
 TEST_CATEGORY = "General"

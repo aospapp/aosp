@@ -228,6 +228,7 @@ static void *callback_thread_loop(void *context)
 
     stdev_dsp_set_power(stdev, 1);
 
+    memset(&config, 0, sizeof(config));
     config.channels = 1;
     config.rate = 16000;
     config.period_size = 240;

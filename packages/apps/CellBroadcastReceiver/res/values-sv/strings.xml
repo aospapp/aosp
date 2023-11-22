@@ -17,7 +17,7 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_label" msgid="7559008249836700599">"Cell Broadcasts"</string>
-    <string name="sms_cb_settings" msgid="971917159442705371">"Cell broadcast-inställningar"</string>
+    <string name="sms_cb_settings" msgid="971917159442705371">"Cellsändningsinställningar"</string>
     <string name="cell_broadcast_settings_not_available" msgid="2612364350745967915">"Inställningarna för cellsändning är inte tillgängliga för den här användaren"</string>
     <string name="button_dismiss" msgid="1234221657930516287">"OK"</string>
     <string name="no_cell_broadcasts" msgid="5409324337492758562">"Det finns inga aktiva varningar i ditt område. Du kan ändra inställningarna för vilka varningar som visas i menyalternativet Inställningar."</string>
@@ -46,6 +46,7 @@
     <string name="pws_other_message_identifiers" msgid="1813329661891149820">"Varning om nödsituation"</string>
     <string name="cb_other_message_identifiers" msgid="7083176204482365281">"Cell Broadcast"</string>
     <string name="emergency_alert_settings_title" msgid="5427868392642771940">"Inställningar för varningar om nödsituationer"</string>
+    <string name="notification_channel_broadcast_messages" msgid="880704362482824524">"Sändningsmeddelanden"</string>
     <string name="enable_emergency_alerts_title" msgid="1411195469162410084">"Aktivera meddelanden"</string>
     <string name="enable_emergency_alerts_summary" msgid="5932655529367149358">"Visa sändningar av varningsmeddelanden"</string>
     <string name="alert_reminder_interval_title" msgid="3283595202268218149">"Påminnelse"</string>

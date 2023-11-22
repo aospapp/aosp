@@ -218,7 +218,7 @@ ideint_cac_8x8_av8:
     cmhi    v0.2s,      v20.2s,     v21.2s
     uaddlp  v0.1d,      v0.2s
 
-    smov    x0,         v0.2s[0]
+    smov    x0,         v0.s[0]
     cmp     x0,         #0
     mov     x4,         #1
     csel    x0,         x4,         x0,         ne

@@ -17,16 +17,18 @@ package com.android.compatibility.common.tradefed.testtype;
 
 import com.android.compatibility.common.tradefed.result.IModuleListener;
 import com.android.compatibility.common.tradefed.result.ModuleListener;
+import com.android.compatibility.common.tradefed.targetprep.DynamicConfigPusher;
 import com.android.compatibility.common.tradefed.targetprep.PreconditionPreparer;
 import com.android.compatibility.common.tradefed.targetprep.TokenRequirement;
-import com.android.compatibility.common.util.AbiUtils;
 import com.android.tradefed.build.IBuildInfo;
+import com.android.tradefed.config.ConfigurationDescriptor;
 import com.android.tradefed.config.ConfigurationException;
 import com.android.tradefed.config.OptionSetter;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.result.ITestInvocationListener;
+import com.android.tradefed.result.ResultForwarder;
 import com.android.tradefed.targetprep.BuildError;
 import com.android.tradefed.targetprep.ITargetCleaner;
 import com.android.tradefed.targetprep.ITargetPreparer;
@@ -39,8 +41,8 @@ import com.android.tradefed.testtype.IRemoteTest;
 import com.android.tradefed.testtype.IRuntimeHintProvider;
 import com.android.tradefed.testtype.ITestCollector;
 import com.android.tradefed.testtype.ITestFilterReceiver;
+import com.android.tradefed.util.AbiUtils;
 
-import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -58,27 +60,32 @@ public class ModuleDef implements IModuleDef {
     private final IAbi mAbi;
     private final Set<String> mTokens = new HashSet<>();
     private IRemoteTest mTest = null;
+    private List<ITargetPreparer> mDynamicConfigPreparers = new ArrayList<>();
     private List<ITargetPreparer> mPreconditions = new ArrayList<>();
     private List<ITargetPreparer> mPreparers = new ArrayList<>();
     private List<ITargetCleaner> mCleaners = new ArrayList<>();
     private IBuildInfo mBuild;
     private ITestDevice mDevice;
     private Set<String> mPreparerWhitelist = new HashSet<>();
+    private ConfigurationDescriptor mConfigurationDescriptor;
 
     public ModuleDef(String name, IAbi abi, IRemoteTest test,
-            List<ITargetPreparer> preparers) {
+            List<ITargetPreparer> preparers, ConfigurationDescriptor configurationDescriptor) {
         mId = AbiUtils.createId(abi.getName(), name);
         mName = name;
         mAbi = abi;
         mTest = test;
+        mConfigurationDescriptor = configurationDescriptor;
         boolean hasAbiReceiver = false;
         for (ITargetPreparer preparer : preparers) {
             if (preparer instanceof IAbiReceiver) {
                 hasAbiReceiver = true;
             }
-            // Separate preconditions from target preparers.
+            // Separate preconditions and dynamicconfigpushers from other target preparers.
             if (preparer instanceof PreconditionPreparer) {
                 mPreconditions.add(preparer);
+            }else if (preparer instanceof DynamicConfigPusher) {
+                mDynamicConfigPreparers.add(preparer);
             } else if (preparer instanceof TokenRequirement) {
                 mTokens.addAll(((TokenRequirement) preparer).getTokens());
             } else {
@@ -215,34 +222,16 @@ public class ModuleDef implements IModuleDef {
      */
     @Override
     public void run(ITestInvocationListener listener) throws DeviceNotAvailableException {
-        IModuleListener moduleListener = new ModuleListener(this, listener);
-
+        CLog.d("Running module %s", toString());
+        // Run DynamicConfigPusher setup once more, in case cleaner has previously
+        // removed dynamic config file from the target (see b/32877809)
+        for (ITargetPreparer preparer : mDynamicConfigPreparers) {
+            runPreparerSetup(preparer);
+        }
         // Setup
         for (ITargetPreparer preparer : mPreparers) {
-            String preparerName = preparer.getClass().getCanonicalName();
-            if (!mPreparerWhitelist.isEmpty() && !mPreparerWhitelist.contains(preparerName)) {
-                CLog.w("Skipping Preparer: %s since it is not in the whitelist %s",
-                        preparerName, mPreparerWhitelist);
-                continue;
-            }
-            CLog.d("Preparer: %s", preparer.getClass().getSimpleName());
-            if (preparer instanceof IAbiReceiver) {
-                ((IAbiReceiver) preparer).setAbi(mAbi);
-            }
-            try {
-                preparer.setUp(mDevice, mBuild);
-            } catch (BuildError e) {
-                // This should only happen for flashing new build
-                CLog.e("Unexpected BuildError from precondition: %s",
-                        preparer.getClass().getCanonicalName());
-            } catch (TargetSetupError e) {
-                // log precondition class then rethrow & let caller handle
-                CLog.e("TargetSetupError in precondition: %s",
-                        preparer.getClass().getCanonicalName());
-                throw new RuntimeException(e);
-            }
+            runPreparerSetup(preparer);
         }
-
 
         CLog.d("Test: %s", mTest.getClass().getSimpleName());
         if (mTest instanceof IAbiReceiver) {
@@ -255,7 +244,11 @@ public class ModuleDef implements IModuleDef {
             ((IDeviceTest) mTest).setDevice(mDevice);
         }
 
-        mTest.run(moduleListener);
+        IModuleListener moduleListener = new ModuleListener(this, listener);
+        // Guarantee events testRunStarted and testRunEnded in case underlying test runner does not
+        ModuleFinisher moduleFinisher = new ModuleFinisher(moduleListener);
+        mTest.run(moduleFinisher);
+        moduleFinisher.finish();
 
         // Tear down
         for (ITargetCleaner cleaner : mCleaners) {
@@ -268,26 +261,50 @@ public class ModuleDef implements IModuleDef {
      * {@inheritDoc}
      */
     @Override
-    public void prepare(boolean skipPrep) throws DeviceNotAvailableException {
+    public boolean prepare(boolean skipPrep, List<String> preconditionArgs)
+            throws DeviceNotAvailableException {
+        for (ITargetPreparer preparer : mDynamicConfigPreparers) {
+            runPreparerSetup(preparer);
+        }
         for (ITargetPreparer preparer : mPreconditions) {
-            CLog.d("Preparer: %s", preparer.getClass().getSimpleName());
-            if (preparer instanceof IAbiReceiver) {
-                ((IAbiReceiver) preparer).setAbi(mAbi);
-            }
             setOption(preparer, CompatibilityTest.SKIP_PRECONDITIONS_OPTION,
                     Boolean.toString(skipPrep));
-            try {
-                preparer.setUp(mDevice, mBuild);
-            } catch (BuildError e) {
-                // This should only happen for flashing new build
-                CLog.e("Unexpected BuildError from precondition: %s",
-                        preparer.getClass().getCanonicalName());
-            } catch (TargetSetupError e) {
-                // log precondition class then rethrow & let caller handle
-                CLog.e("TargetSetupError in precondition: %s",
-                        preparer.getClass().getCanonicalName());
-                throw new RuntimeException(e);
+            for (String preconditionArg : preconditionArgs) {
+                setOption(preparer, CompatibilityTest.PRECONDITION_ARG_OPTION, preconditionArg);
             }
+            try {
+                runPreparerSetup(preparer);
+            } catch (RuntimeException e) {
+                CLog.e("Precondition class %s failed", preparer.getClass().getCanonicalName());
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private void runPreparerSetup(ITargetPreparer preparer) throws DeviceNotAvailableException {
+        String preparerName = preparer.getClass().getCanonicalName();
+        if (!mPreparerWhitelist.isEmpty() && !mPreparerWhitelist.contains(preparerName)) {
+            CLog.w("Skipping Preparer: %s since it is not in the whitelist %s",
+                    preparerName, mPreparerWhitelist);
+            return;
+        }
+        CLog.d("Preparer: %s", preparer.getClass().getSimpleName());
+        if (preparer instanceof IAbiReceiver) {
+            ((IAbiReceiver) preparer).setAbi(mAbi);
+        }
+        try {
+            preparer.setUp(mDevice, mBuild);
+        } catch (BuildError e) {
+            // This should only happen for flashing new build
+            CLog.e("Unexpected BuildError from preparer: %s",
+                    preparer.getClass().getCanonicalName());
+            throw new RuntimeException(e);
+        } catch (TargetSetupError e) {
+            // log preparer class then rethrow & let caller handle
+            CLog.e("TargetSetupError in preparer: %s",
+                    preparer.getClass().getCanonicalName());
+            throw new RuntimeException(e);
         }
     }
 
@@ -296,7 +313,53 @@ public class ModuleDef implements IModuleDef {
             OptionSetter setter = new OptionSetter(target);
             setter.setOptionValue(option, value);
         } catch (ConfigurationException e) {
-            e.printStackTrace();
+            CLog.e(e);
         }
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void setCollectTestsOnly(boolean collectTestsOnly) {
+        ((ITestCollector) mTest).setCollectTestsOnly(collectTestsOnly);
+    }
+
+    /*
+     * ResultForwarder that tracks whether method testRunStarted() has been called for its
+     * listener. If not, invoking finish() will call testRunStarted with 0 tests for this module,
+     * as well as testRunEnded with 0 ms elapsed.
+     */
+    private class ModuleFinisher extends ResultForwarder {
+
+        private boolean mFinished;
+        private ITestInvocationListener mListener;
+
+        public ModuleFinisher(ITestInvocationListener listener) {
+            super(listener);
+            mListener = listener;
+            mFinished = false;
+        }
+
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+        public void testRunStarted(String name, int numTests) {
+            mListener.testRunStarted(name, numTests);
+            mFinished = true;
+        }
+
+        public void finish() {
+            if (!mFinished) {
+                mListener.testRunStarted(mId, 0);
+                mListener.testRunEnded(0, Collections.emptyMap());
+            }
+        }
+    }
+
+    @Override
+    public ConfigurationDescriptor getConfigurationDescriptor() {
+        return mConfigurationDescriptor;
     }
 }

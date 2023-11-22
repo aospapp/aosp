@@ -11,7 +11,6 @@ file.
 """
 TIME = "SHORT"
 ATTRIBUTES = "suite:bvt-cq, suite:partners"
-SUITE = "bvt-cq, partners"
 TEST_CATEGORY = "General"
 TEST_CLASS = "video"
 TEST_TYPE = "client"
@@ -25,6 +24,5 @@ DOC = """
 This test verifies VP9 video decode acceleration works.
 """
 
-video = str('http://commondatastorage.googleapis.com/'
-            'chromiumos-test-assets-public/Shaka-Dash/720.webm')
-job.run_test('video_ChromeHWDecodeUsed', is_mse=0, video_file=video)
+job.run_test('video_ChromeHWDecodeUsed', codec='vp9', is_mse=0,
+             video_file='720_vp9.webm')

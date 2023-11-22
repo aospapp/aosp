@@ -80,7 +80,7 @@ public class Listener extends NotificationListenerService {
                 NotificationListenerService.requestRebind(
                         ComponentName.createRelative(context.getPackageName(),
                                 Listener.class.getCanonicalName()));
-            } catch (RemoteException e) {
+            } catch (Exception e) {
                 Log.e(TAG, "failed to rebind service", e);
             }
         }
@@ -238,7 +238,7 @@ public class Listener extends NotificationListenerService {
                         Log.d(TAG, "trying to snooze");
                         try {
                             requestUnbind();
-                        } catch (RemoteException e) {
+                        } catch (Exception e) {
                             Log.e(TAG, "failed to unbind service", e);
                         }
                         break;

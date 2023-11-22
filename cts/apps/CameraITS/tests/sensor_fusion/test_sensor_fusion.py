@@ -18,12 +18,12 @@ import its.objects
 import its.caps
 import time
 import math
-import pylab
+from matplotlib import pylab
 import os.path
 import matplotlib
 import matplotlib.pyplot
 import json
-import Image
+from PIL import Image
 import numpy
 import cv2
 import bisect
@@ -35,8 +35,20 @@ NAME = os.path.basename(__file__).split(".")[0]
 # Capture 210 VGA frames (which is 7s at 30fps)
 N = 210
 W,H = 640,480
+FEATURE_MARGIN = H * 0.20 / 2 # Only take feature points from the center 20%
+                              # so that the rotation measured have much less
+                              # of rolling shutter effect
 
-FEATURE_PARAMS = dict( maxCorners = 80,
+MIN_FEATURE_PTS = 30          # Minimum number of feature points required to
+                              # perform rotation analysis
+
+MAX_CAM_FRM_RANGE_SEC = 9.0   # Maximum allowed camera frame range. When this
+                              # number is significantly larger than 7 seconds,
+                              # usually system is in some busy/bad states.
+
+MIN_GYRO_SMP_RATE = 100.0     # Minimum gyro sample rate
+
+FEATURE_PARAMS = dict( maxCorners = 240,
                        qualityLevel = 0.3,
                        minDistance = 7,
                        blockSize = 7 )
@@ -56,7 +68,7 @@ NSEC_TO_MSEC = 1/(1000*1000.0)
 
 # Pass/fail thresholds.
 THRESH_MAX_CORR_DIST = 0.005
-THRESH_MAX_SHIFT_MS = 2
+THRESH_MAX_SHIFT_MS = 1
 THRESH_MIN_ROT = 0.001
 
 # lens facing
@@ -102,6 +114,14 @@ def main():
             min_cam_time, max_cam_time, min_gyro_time, max_gyro_time)
         assert(0)
 
+    cam_frame_range = max_cam_time - min_cam_time
+    gyro_time_range = max_gyro_time - min_gyro_time
+    gyro_smp_per_sec = len(gyro_times) / gyro_time_range
+    print "Camera frame range", max_cam_time - min_cam_time
+    print "Gyro samples per second", gyro_smp_per_sec
+    assert(cam_frame_range < MAX_CAM_FRM_RANGE_SEC)
+    assert(gyro_smp_per_sec > MIN_GYRO_SMP_RATE)
+
     # Compute the camera rotation displacements (rad) between each pair of
     # adjacent frames.
     cam_rots = get_cam_rotations(frames, events["facing"])
@@ -140,9 +160,9 @@ def get_best_alignment_offset(cam_times, cam_rots, gyro_events):
     Returns:
         Offset (seconds) of the best alignment.
     """
-    # Measure the corr. dist. over a shift of up to +/- 100ms (1ms step size).
+    # Measure the corr. dist. over a shift of up to +/- 50ms (0.5ms step size).
     # Get the shift corresponding to the best (lowest) score.
-    candidates = range(-100,101)
+    candidates = numpy.arange(-50,50.5,0.5).tolist()
     dists = []
     for shift in candidates:
         times = cam_times + shift*MSEC_TO_NSEC
@@ -151,22 +171,26 @@ def get_best_alignment_offset(cam_times, cam_rots, gyro_events):
     best_corr_dist = min(dists)
     best_shift = candidates[dists.index(best_corr_dist)]
 
+    print "Best shift without fitting is ", best_shift, "ms"
+
     # Fit a curve to the corr. dist. data to measure the minima more
     # accurately, by looking at the correlation distances within a range of
-    # +/- 20ms from the measured best score; note that this will use fewer
-    # than the full +/- 20 range for the curve fit if the measured score
-    # (which is used as the center of the fit) is within 20ms of the edge of
-    # the +/- 100ms candidate range.
-    i = len(dists)/2 + best_shift
+    # +/- 10ms from the measured best score; note that this will use fewer
+    # than the full +/- 10 range for the curve fit if the measured score
+    # (which is used as the center of the fit) is within 10ms of the edge of
+    # the +/- 50ms candidate range.
+    i = dists.index(best_corr_dist)
     candidates = candidates[i-20:i+21]
     dists = dists[i-20:i+21]
     a,b,c = numpy.polyfit(candidates, dists, 2)
     exact_best_shift = -b/(2*a)
     if abs(best_shift - exact_best_shift) > 2.0 or a <= 0 or c <= 0:
         print "Test failed; bad fit to time-shift curve"
+        print "best_shift %f, exact_best_shift %f, a %f, c %f" % (best_shift,
+                exact_best_shift, a, c)
         assert(0)
 
-    xfit = [x/10.0 for x in xrange(candidates[0]*10,candidates[-1]*10)]
+    xfit = numpy.arange(candidates[0], candidates[-1], 0.05).tolist()
     yfit = [a*x*x+b*x+c for x in xfit]
     fig = matplotlib.pyplot.figure()
     pylab.plot(candidates, dists, 'r', label="data")
@@ -263,13 +287,23 @@ def get_cam_rotations(frames, facing):
         frame = (frame * 255.0).astype(numpy.uint8)
         gframes.append(cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY))
     rots = []
+    ymin = H/2 - FEATURE_MARGIN
+    ymax = H/2 + FEATURE_MARGIN
     for i in range(1,len(gframes)):
         gframe0 = gframes[i-1]
         gframe1 = gframes[i]
         p0 = cv2.goodFeaturesToTrack(gframe0, mask=None, **FEATURE_PARAMS)
-        p1,st,_ = cv2.calcOpticalFlowPyrLK(gframe0, gframe1, p0, None,
+        # p0's shape is N * 1 * 2
+        mask = (p0[:,0,1] >= ymin) & (p0[:,0,1] <= ymax)
+        p0_filtered = p0[mask]
+        if len(p0_filtered) < MIN_FEATURE_PTS:
+            print "Not enough feature points in frame", i
+            print "Need at least %d features, got %d" % (
+                    MIN_FEATURE_PTS, len(p0_filtered))
+            assert(0)
+        p1,st,_ = cv2.calcOpticalFlowPyrLK(gframe0, gframe1, p0_filtered, None,
                 **LK_PARAMS)
-        tform = procrustes_rotation(p0[st==1], p1[st==1])
+        tform = procrustes_rotation(p0_filtered[st==1], p1[st==1])
         if facing == FACING_BACK:
             rot = -math.atan2(tform[0, 1], tform[0, 0])
         elif facing == FACING_FRONT:
@@ -282,7 +316,7 @@ def get_cam_rotations(frames, facing):
             # Save a debug visualization of the features that are being
             # tracked in the first frame.
             frame = frames[i]
-            for x,y in p0[st==1]:
+            for x,y in p0_filtered[st==1]:
                 cv2.circle(frame, (x,y), 3, (100,100,255), -1)
             its.image.write_image(frame, "%s_features.png"%(NAME))
     return numpy.array(rots)
@@ -342,20 +376,20 @@ def collect_data():
         print "Starting sensor event collection"
         cam.start_sensor_events()
 
-        # Sleep a few seconds for gyro events to stabilize.
-        time.sleep(2)
+        # Sleep a while for gyro events to stabilize.
+        time.sleep(0.5)
 
-        # TODO: Ensure that OIS is disabled; set to DISABLE and wait some time.
-
-        # Capture the frames.
+        # Capture the frames. OIS is disabled for manual captures.
         facing = props['android.lens.facing']
         if facing != FACING_FRONT and facing != FACING_BACK:
             print "Unknown lens facing", facing
             assert(0)
 
         fmt = {"format":"yuv", "width":W, "height":H}
-        s,e,_,_,_ = cam.do_3a(get_results=True)
+        s,e,_,_,_ = cam.do_3a(get_results=True, do_af=False)
         req = its.objects.manual_capture_request(s, e)
+        fps = 30
+        req["android.control.aeTargetFpsRange"] = [fps, fps]
         print "Capturing %dx%d with sens. %d, exp. time %.1fms" % (
                 W, H, s, e*NSEC_TO_MSEC)
         caps = cam.do_capture([req]*N, fmt)
@@ -363,6 +397,7 @@ def collect_data():
         # Get the gyro events.
         print "Reading out sensor events"
         gyro = cam.get_sensor_events()["gyro"]
+        print "Number of gyro samples", len(gyro)
 
         # Combine the events into a single structure.
         print "Dumping event data"

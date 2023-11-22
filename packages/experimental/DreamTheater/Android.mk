@@ -6,7 +6,11 @@ LOCAL_MODULE_TAGS := optional
 # Only compile source java files in this apk.
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
-LOCAL_STATIC_JAVA_LIBRARIES := android-support-v13
+LOCAL_STATIC_ANDROID_LIBRARIES := \
+        android-support-v4 \
+        android-support-v13
+
+LOCAL_USE_AAPT2 := true
 
 LOCAL_PACKAGE_NAME := DreamTheater
 

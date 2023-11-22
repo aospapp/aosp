@@ -530,6 +530,10 @@ public class StackListener extends Handler{
                 }
             }
         }
+
+        public void unpublishMessageSent() {
+            logger.debug("unpublishMessageSent()");
+        }
     };
 }
 

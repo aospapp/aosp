@@ -53,6 +53,8 @@
 
 #include <assert.h>
 
+#include "../internal.h"
+
 #if defined(__cplusplus)
 extern "C" {
 #endif
@@ -140,89 +142,39 @@ extern "C" {
 
 #if defined(DATA_ORDER_IS_BIG_ENDIAN)
 
-#if !defined(PEDANTIC) && defined(__GNUC__) && __GNUC__ >= 2 && \
-    !defined(OPENSSL_NO_ASM)
-#if defined(OPENSSL_X86) || defined(OPENSSL_X86_64)
-/* The first macro gives a ~30-40% performance improvement in SHA-256 compiled
- * with gcc on P4. This can only be done on x86, where unaligned data fetches
- * are possible. */
-#define HOST_c2l(c, l)                       \
-  (void)({                                   \
-    uint32_t r = *((const uint32_t *)(c));   \
-    __asm__("bswapl %0" : "=r"(r) : "0"(r)); \
-    (c) += 4;                                \
-    (l) = r;                                 \
-  })
-#define HOST_l2c(l, c)                       \
-  (void)({                                   \
-    uint32_t r = (l);                        \
-    __asm__("bswapl %0" : "=r"(r) : "0"(r)); \
-    *((uint32_t *)(c)) = r;                  \
-    (c) += 4;                                \
-    r;                                       \
-  })
-#elif defined(__aarch64__) && defined(__BYTE_ORDER__)
-#if defined(__ORDER_LITTLE_ENDIAN__) && \
-    __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
-#define HOST_c2l(c, l)                                                 \
-  (void)({                                                             \
-    uint32_t r;                                                        \
-    __asm__("rev %w0, %w1" : "=r"(r) : "r"(*((const uint32_t *)(c)))); \
-    (c) += 4;                                                          \
-    (l) = r;                                                           \
-  })
-#define HOST_l2c(l, c)                                      \
-  (void)({                                                  \
-    uint32_t r;                                             \
-    __asm__("rev %w0, %w1" : "=r"(r) : "r"((uint32_t)(l))); \
-    *((uint32_t *)(c)) = r;                                 \
-    (c) += 4;                                               \
-    r;                                                      \
-  })
-#elif defined(__ORDER_BIG_ENDIAN__) && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
-#define HOST_c2l(c, l) (void)((l) = *((const uint32_t *)(c)), (c) += 4)
-#define HOST_l2c(l, c) (*((uint32_t *)(c)) = (l), (c) += 4, (l))
-#endif /* __aarch64__ && __BYTE_ORDER__ */
-#endif /* ARCH */
-#endif /* !PEDANTIC && GNUC && !NO_ASM */
+#define HOST_c2l(c, l)                     \
+  do {                                     \
+    (l) = (((uint32_t)(*((c)++))) << 24);  \
+    (l) |= (((uint32_t)(*((c)++))) << 16); \
+    (l) |= (((uint32_t)(*((c)++))) << 8);  \
+    (l) |= (((uint32_t)(*((c)++))));       \
+  } while (0)
 
-#ifndef HOST_c2l
-#define HOST_c2l(c, l)                        \
-  (void)(l = (((uint32_t)(*((c)++))) << 24),  \
-         l |= (((uint32_t)(*((c)++))) << 16), \
-         l |= (((uint32_t)(*((c)++))) << 8), l |= (((uint32_t)(*((c)++)))))
-#endif
-
-#ifndef HOST_l2c
-#define HOST_l2c(l, c)                             \
-  (void)(*((c)++) = (uint8_t)(((l) >> 24) & 0xff), \
-         *((c)++) = (uint8_t)(((l) >> 16) & 0xff), \
-         *((c)++) = (uint8_t)(((l) >> 8) & 0xff),  \
-         *((c)++) = (uint8_t)(((l)) & 0xff))
-#endif
+#define HOST_l2c(l, c)                        \
+  do {                                        \
+    *((c)++) = (uint8_t)(((l) >> 24) & 0xff); \
+    *((c)++) = (uint8_t)(((l) >> 16) & 0xff); \
+    *((c)++) = (uint8_t)(((l) >> 8) & 0xff);  \
+    *((c)++) = (uint8_t)(((l)) & 0xff);       \
+  } while (0)
 
 #elif defined(DATA_ORDER_IS_LITTLE_ENDIAN)
 
-#if defined(OPENSSL_X86) || defined(OPENSSL_X86_64)
-/* See comment in DATA_ORDER_IS_BIG_ENDIAN section. */
-#define HOST_c2l(c, l) (void)((l) = *((const uint32_t *)(c)), (c) += 4)
-#define HOST_l2c(l, c) (void)(*((uint32_t *)(c)) = (l), (c) += 4, l)
-#endif /* OPENSSL_X86 || OPENSSL_X86_64 */
+#define HOST_c2l(c, l)                     \
+  do {                                     \
+    (l) = (((uint32_t)(*((c)++))));        \
+    (l) |= (((uint32_t)(*((c)++))) << 8);  \
+    (l) |= (((uint32_t)(*((c)++))) << 16); \
+    (l) |= (((uint32_t)(*((c)++))) << 24); \
+  } while (0)
 
-#ifndef HOST_c2l
-#define HOST_c2l(c, l)                                                     \
-  (void)(l = (((uint32_t)(*((c)++)))), l |= (((uint32_t)(*((c)++))) << 8), \
-         l |= (((uint32_t)(*((c)++))) << 16),                              \
-         l |= (((uint32_t)(*((c)++))) << 24))
-#endif
-
-#ifndef HOST_l2c
-#define HOST_l2c(l, c)                             \
-  (void)(*((c)++) = (uint8_t)(((l)) & 0xff),       \
-         *((c)++) = (uint8_t)(((l) >> 8) & 0xff),  \
-         *((c)++) = (uint8_t)(((l) >> 16) & 0xff), \
-         *((c)++) = (uint8_t)(((l) >> 24) & 0xff))
-#endif
+#define HOST_l2c(l, c)                        \
+  do {                                        \
+    *((c)++) = (uint8_t)(((l)) & 0xff);       \
+    *((c)++) = (uint8_t)(((l) >> 8) & 0xff);  \
+    *((c)++) = (uint8_t)(((l) >> 16) & 0xff); \
+    *((c)++) = (uint8_t)(((l) >> 24) & 0xff); \
+  } while (0)
 
 #endif /* DATA_ORDER */
 
@@ -244,16 +196,16 @@ int HASH_UPDATE(HASH_CTX *c, const void *data_, size_t len) {
   size_t n = c->num;
   if (n != 0) {
     if (len >= HASH_CBLOCK || len + n >= HASH_CBLOCK) {
-      memcpy(c->data + n, data, HASH_CBLOCK - n);
+      OPENSSL_memcpy(c->data + n, data, HASH_CBLOCK - n);
       HASH_BLOCK_DATA_ORDER(c->h, c->data, 1);
       n = HASH_CBLOCK - n;
       data += n;
       len -= n;
       c->num = 0;
       /* Keep |c->data| zeroed when unused. */
-      memset(c->data, 0, HASH_CBLOCK);
+      OPENSSL_memset(c->data, 0, HASH_CBLOCK);
     } else {
-      memcpy(c->data + n, data, len);
+      OPENSSL_memcpy(c->data + n, data, len);
       c->num += (unsigned)len;
       return 1;
     }
@@ -269,7 +221,7 @@ int HASH_UPDATE(HASH_CTX *c, const void *data_, size_t len) {
 
   if (len != 0) {
     c->num = (unsigned)len;
-    memcpy(c->data, data, len);
+    OPENSSL_memcpy(c->data, data, len);
   }
   return 1;
 }
@@ -290,11 +242,11 @@ int HASH_FINAL(uint8_t *md, HASH_CTX *c) {
 
   /* Fill the block with zeros if there isn't room for a 64-bit length. */
   if (n > (HASH_CBLOCK - 8)) {
-    memset(c->data + n, 0, HASH_CBLOCK - n);
+    OPENSSL_memset(c->data + n, 0, HASH_CBLOCK - n);
     n = 0;
     HASH_BLOCK_DATA_ORDER(c->h, c->data, 1);
   }
-  memset(c->data + n, 0, HASH_CBLOCK - 8 - n);
+  OPENSSL_memset(c->data + n, 0, HASH_CBLOCK - 8 - n);
 
   /* Append a 64-bit length to the block and process it. */
   uint8_t *p = c->data + HASH_CBLOCK - 8;
@@ -308,7 +260,7 @@ int HASH_FINAL(uint8_t *md, HASH_CTX *c) {
   assert(p == c->data + HASH_CBLOCK);
   HASH_BLOCK_DATA_ORDER(c->h, c->data, 1);
   c->num = 0;
-  memset(c->data, 0, HASH_CBLOCK);
+  OPENSSL_memset(c->data, 0, HASH_CBLOCK);
 
   HASH_MAKE_STRING(c, md);
   return 1;

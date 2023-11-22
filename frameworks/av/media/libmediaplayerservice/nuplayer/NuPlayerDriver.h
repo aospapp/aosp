@@ -16,6 +16,7 @@
 
 #include <media/MediaPlayerInterface.h>
 
+#include <media/MediaAnalyticsItem.h>
 #include <media/stagefright/foundation/ABase.h>
 
 namespace android {
@@ -24,7 +25,7 @@ struct ALooper;
 struct NuPlayer;
 
 struct NuPlayerDriver : public MediaPlayerInterface {
-    NuPlayerDriver(pid_t pid);
+    explicit NuPlayerDriver(pid_t pid);
 
     virtual status_t initCheck();
 
@@ -43,6 +44,11 @@ struct NuPlayerDriver : public MediaPlayerInterface {
 
     virtual status_t setVideoSurfaceTexture(
             const sp<IGraphicBufferProducer> &bufferProducer);
+
+    virtual status_t getDefaultBufferingSettings(
+            BufferingSettings* buffering /* nonnull */) override;
+    virtual status_t setBufferingSettings(const BufferingSettings& buffering) override;
+
     virtual status_t prepare();
     virtual status_t prepareAsync();
     virtual status_t start();
@@ -53,7 +59,8 @@ struct NuPlayerDriver : public MediaPlayerInterface {
     virtual status_t getPlaybackSettings(AudioPlaybackRate *rate);
     virtual status_t setSyncSettings(const AVSyncSettings &sync, float videoFpsHint);
     virtual status_t getSyncSettings(AVSyncSettings *sync, float *videoFps);
-    virtual status_t seekTo(int msec);
+    virtual status_t seekTo(
+            int msec, MediaPlayerSeekMode mode = MediaPlayerSeekMode::SEEK_PREVIOUS_SYNC);
     virtual status_t getCurrentPosition(int *msec);
     virtual status_t getDuration(int *msec);
     virtual status_t reset();
@@ -74,10 +81,15 @@ struct NuPlayerDriver : public MediaPlayerInterface {
     void notifyResetComplete();
     void notifySetSurfaceComplete();
     void notifyDuration(int64_t durationUs);
+    void notifyMorePlayingTimeUs(int64_t timeUs);
     void notifySeekComplete();
     void notifySeekComplete_l();
     void notifyListener(int msg, int ext1 = 0, int ext2 = 0, const Parcel *in = NULL);
     void notifyFlagsChanged(uint32_t flags);
+
+    // Modular DRM
+    virtual status_t prepareDrm(const uint8_t uuid[16], const Vector<uint8_t> &drmSessionId);
+    virtual status_t releaseDrm();
 
 protected:
     virtual ~NuPlayerDriver();
@@ -111,16 +123,22 @@ private:
     int64_t mDurationUs;
     int64_t mPositionUs;
     bool mSeekInProgress;
+    int64_t mPlayingTimeUs;
     // <<<
 
     sp<ALooper> mLooper;
-    sp<NuPlayer> mPlayer;
+    const sp<NuPlayer> mPlayer;
     sp<AudioSink> mAudioSink;
     uint32_t mPlayerFlags;
+
+    MediaAnalyticsItem *mAnalyticsItem;
 
     bool mAtEOS;
     bool mLooping;
     bool mAutoLoop;
+
+    void updateMetrics(const char *where);
+    void logMetrics(const char *where);
 
     status_t prepare_l();
     status_t start_l();

@@ -20,9 +20,10 @@
 
 #include "NuPlayer.h"
 
+#include <media/ICrypto.h>
+#include <media/mediaplayer.h>
 #include <media/stagefright/foundation/AMessage.h>
 #include <media/stagefright/MetaData.h>
-#include <media/mediaplayer.h>
 #include <utils/Vector.h>
 
 namespace android {
@@ -37,8 +38,8 @@ struct NuPlayer::Source : public AHandler {
         FLAG_CAN_SEEK_FORWARD   = 4,  // the "10 sec forward button"
         FLAG_CAN_SEEK           = 8,  // the "seek bar"
         FLAG_DYNAMIC_DURATION   = 16,
-        FLAG_SECURE             = 32,
-        FLAG_PROTECTED          = 64,
+        FLAG_SECURE             = 32, // Secure codec is required.
+        FLAG_PROTECTED          = 64, // The screen needs to be protected (screenshot is disabled).
     };
 
     enum {
@@ -55,13 +56,19 @@ struct NuPlayer::Source : public AHandler {
         kWhatQueueDecoderShutdown,
         kWhatDrmNoLicense,
         kWhatInstantiateSecureDecoders,
+        // Modular DRM
+        kWhatDrmInfo,
     };
 
     // The provides message is used to notify the player about various
     // events.
-    Source(const sp<AMessage> &notify)
+    explicit Source(const sp<AMessage> &notify)
         : mNotify(notify) {
     }
+
+    virtual status_t getDefaultBufferingSettings(
+            BufferingSettings* buffering /* nonnull */) = 0;
+    virtual status_t setBufferingSettings(const BufferingSettings& buffering) = 0;
 
     virtual void prepareAsync() = 0;
 
@@ -77,7 +84,11 @@ struct NuPlayer::Source : public AHandler {
     // an error or ERROR_END_OF_STREAM if not.
     virtual status_t feedMoreTSData() = 0;
 
+    // Returns non-NULL format when the specified track exists.
+    // When the format has "err" set to -EWOULDBLOCK, source needs more time to get valid meta data.
+    // Returns NULL if the specified track doesn't exist or is invalid;
     virtual sp<AMessage> getFormat(bool audio);
+
     virtual sp<MetaData> getFormatMeta(bool /* audio */) { return NULL; }
     virtual sp<MetaData> getFileFormatMeta() const { return NULL; }
 
@@ -104,7 +115,9 @@ struct NuPlayer::Source : public AHandler {
         return INVALID_OPERATION;
     }
 
-    virtual status_t seekTo(int64_t /* seekTimeUs */) {
+    virtual status_t seekTo(
+            int64_t /* seekTimeUs */,
+            MediaPlayerSeekMode /* mode */ = MediaPlayerSeekMode::SEEK_PREVIOUS_SYNC) {
         return INVALID_OPERATION;
     }
 
@@ -122,6 +135,17 @@ struct NuPlayer::Source : public AHandler {
 
     virtual void setOffloadAudio(bool /* offload */) {}
 
+    // Modular DRM
+    virtual status_t prepareDrm(
+            const uint8_t /*uuid*/[16], const Vector<uint8_t> &/*drmSessionId*/,
+            sp<ICrypto> */*crypto*/) {
+        return INVALID_OPERATION;
+    }
+
+    virtual status_t releaseDrm() {
+        return INVALID_OPERATION;
+    }
+
 protected:
     virtual ~Source() {}
 
@@ -133,6 +157,8 @@ protected:
     void notifyVideoSizeChanged(const sp<AMessage> &format = NULL);
     void notifyInstantiateSecureDecoders(const sp<AMessage> &reply);
     void notifyPrepared(status_t err = OK);
+    // Modular DRM
+    void notifyDrmInfo(const sp<ABuffer> &buffer);
 
 private:
     sp<AMessage> mNotify;

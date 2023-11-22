@@ -16,15 +16,17 @@
 #define HEADER_TEST_CONFIG
 
 #include <string>
+#include <vector>
 
 
 struct TestConfig {
   int port = 0;
   bool is_server = false;
   bool is_dtls = false;
-  bool resume = false;
+  int resume_count = 0;
   bool fallback_scsv = false;
   std::string digest_prefs;
+  std::vector<int> signing_prefs;
   std::string key_file;
   std::string cert_file;
   std::string expected_server_name;
@@ -38,18 +40,25 @@ struct TestConfig {
   bool write_different_record_sizes = false;
   bool cbc_record_splitting = false;
   bool partial_write = false;
+  bool no_tls13 = false;
   bool no_tls12 = false;
   bool no_tls11 = false;
   bool no_tls1 = false;
   bool no_ssl3 = false;
   std::string expected_channel_id;
+  bool enable_channel_id = false;
   std::string send_channel_id;
   bool shim_writes_first = false;
   std::string host_name;
   std::string advertise_alpn;
   std::string expected_alpn;
+  std::string expected_resume_alpn;
+  bool expect_no_alpn = false;
+  bool expect_no_resume_alpn = false;
   std::string expected_advertised_alpn;
   std::string select_alpn;
+  std::string select_resume_alpn;
+  bool decline_alpn = false;
   bool expect_session_miss = false;
   bool expect_extended_master_secret = false;
   std::string psk;
@@ -68,9 +77,8 @@ struct TestConfig {
   bool install_ddos_callback = false;
   bool fail_ddos_callback = false;
   bool fail_second_ddos_callback = false;
+  bool fail_cert_callback = false;
   std::string cipher;
-  std::string cipher_tls10;
-  std::string cipher_tls11;
   bool handshake_never_done = false;
   int export_keying_material = 0;
   std::string export_label;
@@ -79,8 +87,13 @@ struct TestConfig {
   bool tls_unique = false;
   bool expect_ticket_renewal = false;
   bool expect_no_session = false;
+  bool expect_early_data_info = false;
+  bool expect_accept_early_data = false;
+  bool expect_reject_early_data = false;
   bool use_ticket_callback = false;
   bool renew_ticket = false;
+  bool enable_early_data = false;
+  bool enable_resume_early_data = false;
   bool enable_client_custom_extension = false;
   bool enable_server_custom_extension = false;
   bool custom_extension_skip = false;
@@ -96,12 +109,38 @@ struct TestConfig {
   bool renegotiate_once = false;
   bool renegotiate_freely = false;
   bool renegotiate_ignore = false;
-  bool disable_npn = false;
-  int expect_server_key_exchange_hash = 0;
+  int expect_peer_signature_algorithm = 0;
   bool p384_only = false;
   bool enable_all_curves = false;
   bool use_sparse_dh_prime = false;
-  int expect_key_exchange_info = 0;
+  int expect_curve_id = 0;
+  int expect_resume_curve_id = 0;
+  bool use_old_client_cert_callback = false;
+  int initial_timeout_duration_ms = 0;
+  std::string use_client_ca_list;
+  std::string expected_client_ca_list;
+  bool send_alert = false;
+  bool peek_then_read = false;
+  bool enable_grease = false;
+  int max_cert_list = 0;
+  std::string ticket_key;
+  bool use_exporter_between_reads = false;
+  int expect_cipher_aes = 0;
+  int expect_cipher_no_aes = 0;
+  std::string expect_peer_cert_file;
+  int resumption_delay = 0;
+  bool retain_only_sha256_client_cert_initial = false;
+  bool retain_only_sha256_client_cert_resume = false;
+  bool expect_sha256_client_cert_initial = false;
+  bool expect_sha256_client_cert_resume = false;
+  bool read_with_unfinished_write = false;
+  bool expect_secure_renegotiation = false;
+  bool expect_no_secure_renegotiation = false;
+  int max_send_fragment = 0;
+  int read_size = 0;
+  bool expect_session_id = false;
+  bool expect_no_session_id = false;
+  int expect_ticket_age_skew = 0;
 };
 
 bool ParseConfig(int argc, char **argv, TestConfig *out_config);

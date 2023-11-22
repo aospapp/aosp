@@ -26,18 +26,22 @@ import android.accounts.cts.common.tx.ConfirmCredentialsTx;
 import android.accounts.cts.common.tx.GetAuthTokenLabelTx;
 import android.accounts.cts.common.tx.GetAuthTokenTx;
 import android.accounts.cts.common.tx.HasFeaturesTx;
+import android.accounts.cts.common.tx.StartAddAccountSessionTx;
+import android.accounts.cts.common.tx.StartUpdateCredentialsSessionTx;
 import android.accounts.cts.common.tx.UpdateCredentialsTx;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
 
 import java.util.Arrays;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class TestAccountAuthenticator extends AbstractAccountAuthenticator {
 
     private final String mAccountType;
     private final Context mContext;
     private volatile int mCounter = 0;
+    private final AtomicInteger mTokenCounter  = new AtomicInteger(0);
 
     public TestAccountAuthenticator(Context context, String accountType) {
         super(context);
@@ -87,14 +91,7 @@ public class TestAccountAuthenticator extends AbstractAccountAuthenticator {
             result.putParcelable(AccountManager.KEY_INTENT, intent);
         } else {
             // fill with error
-            int errorCode = AccountManager.ERROR_CODE_INVALID_RESPONSE;
-            String errorMsg = "Default Error Message";
-            if (options != null) {
-                errorCode = options.getInt(AccountManager.KEY_ERROR_CODE);
-                errorMsg = options.getString(AccountManager.KEY_ERROR_MESSAGE);
-            }
-            result.putInt(AccountManager.KEY_ERROR_CODE, errorCode);
-            result.putString(AccountManager.KEY_ERROR_MESSAGE, errorMsg);
+            fillDefaultError(result, options);
         }
 
         try {
@@ -140,15 +137,7 @@ public class TestAccountAuthenticator extends AbstractAccountAuthenticator {
             result.putParcelable(AccountManager.KEY_INTENT, intent);
         } else {
             // fill with error
-            // fill with error
-            int errorCode = AccountManager.ERROR_CODE_INVALID_RESPONSE;
-            String errorMsg = "Default Error Message";
-            if (options != null) {
-                errorCode = options.getInt(AccountManager.KEY_ERROR_CODE);
-                errorMsg = options.getString(AccountManager.KEY_ERROR_MESSAGE);
-            }
-            result.putInt(AccountManager.KEY_ERROR_CODE, errorCode);
-            result.putString(AccountManager.KEY_ERROR_MESSAGE, errorMsg);
+            fillDefaultError(result, options);
         }
 
         try {
@@ -204,14 +193,7 @@ public class TestAccountAuthenticator extends AbstractAccountAuthenticator {
 
         } else {
             // fill with error
-            int errorCode = AccountManager.ERROR_CODE_INVALID_RESPONSE;
-            String errorMsg = "Default Error Message";
-            if (options != null) {
-                errorCode = options.getInt(AccountManager.KEY_ERROR_CODE);
-                errorMsg = options.getString(AccountManager.KEY_ERROR_MESSAGE);
-            }
-            result.putInt(AccountManager.KEY_ERROR_CODE, errorCode);
-            result.putString(AccountManager.KEY_ERROR_MESSAGE, errorMsg);
+            fillDefaultError(result, options);
         }
 
         try {
@@ -264,15 +246,7 @@ public class TestAccountAuthenticator extends AbstractAccountAuthenticator {
             result.putParcelable(AccountManager.KEY_INTENT, intent);
         } else {
             // fill with error
-            // fill with error
-            int errorCode = AccountManager.ERROR_CODE_INVALID_RESPONSE;
-            String errorMsg = "Default Error Message";
-            if (options != null) {
-                errorCode = options.getInt(AccountManager.KEY_ERROR_CODE);
-                errorMsg = options.getString(AccountManager.KEY_ERROR_MESSAGE);
-            }
-            result.putInt(AccountManager.KEY_ERROR_CODE, errorCode);
-            result.putString(AccountManager.KEY_ERROR_MESSAGE, errorMsg);
+            fillDefaultError(result, options);
         }
 
         try {
@@ -321,6 +295,112 @@ public class TestAccountAuthenticator extends AbstractAccountAuthenticator {
                 response.onResult(result);
             }
         }
+    }
+
+    /**
+     * Start add account flow of the specified accountType to authenticate user.
+     * This implementation works with AccountManagerUnaffiliatedAuthenticatorTests
+     * to test that portion of the default implementation of the
+     * {@link AccountManager#finishSession} API when implementers of
+     * {@link android.accounts.AbstractAccountAuthenticator} override only
+     * {@link AccountManager#startAddAccountSession} but not
+     * {@link AccountManager#finishSession}.
+     */
+    @Override
+    public Bundle startAddAccountSession(
+            AccountAuthenticatorResponse response,
+            String accountType,
+            String authTokenType,
+            String[] requiredFeatures,
+            Bundle options) throws NetworkErrorException {
+        if (!mAccountType.equals(accountType)) {
+            throw new IllegalArgumentException("Request to the wrong authenticator!");
+        }
+
+        AuthenticatorContentProvider.setTx(new StartAddAccountSessionTx(
+                accountType, authTokenType, requiredFeatures, options));
+
+        String accountName = null;
+        Bundle sessionBundle = null;
+        if (options != null) {
+            accountName = options.getString(Fixtures.KEY_ACCOUNT_NAME);
+            sessionBundle = options.getBundle(Fixtures.KEY_ACCOUNT_SESSION_BUNDLE);
+        }
+
+        Bundle result = new Bundle();
+        if (accountName.startsWith(Fixtures.PREFIX_NAME_SUCCESS)) {
+            // fill bundle with a success result.
+            result.putBundle(AccountManager.KEY_ACCOUNT_SESSION_BUNDLE, sessionBundle);
+            result.putString(AccountManager.KEY_ACCOUNT_STATUS_TOKEN,
+                    Fixtures.ACCOUNT_STATUS_TOKEN_UNAFFILIATED);
+            result.putString(AccountManager.KEY_PASSWORD, "doesn't matter");
+            result.putString(AccountManager.KEY_AUTHTOKEN,
+                    Integer.toString(mTokenCounter.incrementAndGet()));
+        } else {
+            // fill with error
+            fillDefaultError(result, options);
+        }
+
+        return result;
+    }
+
+    /**
+     * Start update credentials flow to re-auth user without updating locally stored
+     * credentials for an account.
+     * This implementation works with AccountManagerUnaffiliatedAuthenticatorTests
+     * to test that portion of the default implementation of the
+     * {@link AccountManager#finishSession} API when implementers of
+     * {@link android.accounts.AbstractAccountAuthenticator} override only
+     * {@link AccountManager#startUpdateCredentialsSession} but not
+     * {@link AccountManager#finishSession}.
+     */
+    @Override
+    public Bundle startUpdateCredentialsSession(
+            AccountAuthenticatorResponse response,
+            Account account,
+            String authTokenType,
+            Bundle options)
+            throws NetworkErrorException {
+
+        if (!mAccountType.equals(account.type)) {
+            throw new IllegalArgumentException("Request to the wrong authenticator!");
+        }
+
+        AuthenticatorContentProvider.setTx(new StartUpdateCredentialsSessionTx(
+                account, authTokenType, options));
+
+        String accountName = null;
+        Bundle sessionBundle = null;
+        if (options != null) {
+            accountName = options.getString(Fixtures.KEY_ACCOUNT_NAME);
+            sessionBundle = options.getBundle(Fixtures.KEY_ACCOUNT_SESSION_BUNDLE);
+        }
+
+        Bundle result = new Bundle();
+        if (accountName.startsWith(Fixtures.PREFIX_NAME_SUCCESS)) {
+            // fill bundle with a success result.
+            result.putBundle(AccountManager.KEY_ACCOUNT_SESSION_BUNDLE, sessionBundle);
+            result.putString(AccountManager.KEY_ACCOUNT_STATUS_TOKEN,
+                    Fixtures.ACCOUNT_STATUS_TOKEN_UNAFFILIATED);
+            result.putString(AccountManager.KEY_PASSWORD, "doesn't matter");
+            result.putString(AccountManager.KEY_AUTHTOKEN,
+                    Integer.toString(mTokenCounter.incrementAndGet()));
+        } else {
+            // fill with error
+            fillDefaultError(result, options);
+        }
+        return result;
+    }
+
+    private void fillDefaultError(Bundle result, Bundle options) {
+        int errorCode = AccountManager.ERROR_CODE_INVALID_RESPONSE;
+        String errorMsg = "Default Error Message";
+        if (options != null) {
+            errorCode = options.getInt(AccountManager.KEY_ERROR_CODE);
+            errorMsg = options.getString(AccountManager.KEY_ERROR_MESSAGE);
+        }
+        result.putInt(AccountManager.KEY_ERROR_CODE, errorCode);
+        result.putString(AccountManager.KEY_ERROR_MESSAGE, errorMsg);
     }
 }
 

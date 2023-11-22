@@ -26,7 +26,7 @@
 #include "unicode/brkiter.h"
 #include <memory>
 
-namespace android {
+namespace minikin {
 
 class WordBreaker {
 public:
@@ -55,6 +55,10 @@ public:
     void finish();
 
 private:
+    int32_t iteratorNext();
+    void detectEmailOrUrl();
+    ssize_t findNextBreakInEmailOrUrl();
+
     std::unique_ptr<icu::BreakIterator> mBreakIterator;
     UText mUText = UTEXT_INITIALIZER;
     const uint16_t* mText = nullptr;
@@ -68,6 +72,6 @@ private:
     bool mInEmailOrUrl;
 };
 
-}  // namespace
+}  // namespace minikin
 
 #endif  // MINIKIN_WORD_BREAKER_H

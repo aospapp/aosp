@@ -58,11 +58,11 @@ public:
             ETypeI64
         };
         inline Value(): mType(ETypeDouble) {};
-        inline Value(Type type): mType(type) {};
-        inline Value(double val): mType(ETypeDouble) {
+        inline explicit Value(Type type): mType(type) {};
+        inline explicit Value(double val): mType(ETypeDouble) {
             setDouble(val);
         };
-        inline Value(int64_t val): mType(ETypeI64) {
+        inline explicit Value(int64_t val): mType(ETypeI64) {
             setInt64(val);
         };
         inline Type getType() {
@@ -123,7 +123,7 @@ public:
      */
     bool translateVarName(const android::String8& orig, android::String8& translated);
 
-    void setDetails(android::String8 details);
+    void setDetails(const android::String8& details);
     const android::String8& getDetails() const;
 private:
     void releaseRemoteAudio();

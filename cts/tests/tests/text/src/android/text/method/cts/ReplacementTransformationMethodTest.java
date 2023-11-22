@@ -16,36 +16,48 @@
 
 package android.text.method.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.fail;
 
-import android.test.ActivityInstrumentationTestCase2;
+import android.support.test.annotation.UiThreadTest;
+import android.support.test.filters.MediumTest;
+import android.support.test.rule.ActivityTestRule;
+import android.support.test.runner.AndroidJUnit4;
 import android.text.method.ReplacementTransformationMethod;
 import android.util.TypedValue;
 import android.widget.EditText;
 
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
 /**
  * Test {@link ReplacementTransformationMethod}.
  */
-public class ReplacementTransformationMethodTest extends
-        ActivityInstrumentationTestCase2<CtsActivity> {
+@MediumTest
+@RunWith(AndroidJUnit4.class)
+public class ReplacementTransformationMethodTest {
     private final char[] ORIGINAL = new char[] { '0', '1' };
     private final char[] ORIGINAL_WITH_MORE_CHARS = new char[] { '0', '1', '2' };
     private final char[] ORIGINAL_WITH_SAME_CHARS = new char[] { '0', '0' };
     private final char[] REPLACEMENT = new char[] { '3', '4' };
     private final char[] REPLACEMENT_WITH_MORE_CHARS = new char[] { '3', '4', '5' };
     private final char[] REPLACEMENT_WITH_SAME_CHARS = new char[] { '3', '3' };
+
     private EditText mEditText;
 
-    public ReplacementTransformationMethodTest() {
-        super("android.text.cts", CtsActivity.class);
-    }
+    @Rule
+    public ActivityTestRule<CtsActivity> mActivityRule = new ActivityTestRule<>(CtsActivity.class);
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mEditText = new EditTextNoIme(getActivity());
+    @UiThreadTest
+    @Before
+    public void setup() throws Throwable {
+        mEditText = new EditTextNoIme(mActivityRule.getActivity());
         mEditText.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10);
     }
 
+    @Test
     public void testGetTransformation() {
         MyReplacementTransformationMethod method =
             new MyReplacementTransformationMethod(ORIGINAL, REPLACEMENT);
@@ -57,6 +69,7 @@ public class ReplacementTransformationMethodTest extends
         // TODO cannot get transformed text from the view
     }
 
+    @Test
     public void testGetTransformationWithAbnormalCharSequence() {
         ReplacementTransformationMethod method = new MyReplacementTransformationMethod(ORIGINAL,
                 REPLACEMENT);
@@ -71,6 +84,7 @@ public class ReplacementTransformationMethodTest extends
         assertEquals("", method.getTransformation("", null).toString());
     }
 
+    @Test
     public void testGetTransformationWithAbmornalReplacement() {
         // replacement has same chars
         ReplacementTransformationMethod method =
@@ -90,26 +104,27 @@ public class ReplacementTransformationMethodTest extends
         // TODO cannot get transformed text from the view
     }
 
-    public void testGetTransformationWithAbmornalOriginal() {
+    @Test
+    public void testGetTransformationWithAbnormalOriginal() {
         // original has same chars
         ReplacementTransformationMethod method =
-            new MyReplacementTransformationMethod(ORIGINAL_WITH_SAME_CHARS, REPLACEMENT);
+                new MyReplacementTransformationMethod(ORIGINAL_WITH_SAME_CHARS, REPLACEMENT);
         assertEquals("414141", method.getTransformation("010101", null).toString());
 
         mEditText.setTransformationMethod(method);
         mEditText.setText("010101");
         // TODO cannot get transformed text from the view
-
-        // original has more chars than replacement
-        method = new MyReplacementTransformationMethod(ORIGINAL_WITH_MORE_CHARS, REPLACEMENT);
-        try {
-            method.getTransformation("012012012", null);
-            fail("Threre is more chars in the original than replacement.");
-        } catch (ArrayIndexOutOfBoundsException e) {
-            // expected
-        }
     }
 
+    @Test(expected=ArrayIndexOutOfBoundsException.class)
+    public void testGetTransformationMismatchCharCount() {
+        // original has more chars than replacement
+        ReplacementTransformationMethod method =
+                new MyReplacementTransformationMethod(ORIGINAL_WITH_MORE_CHARS, REPLACEMENT);
+        method.getTransformation("012012012", null);
+    }
+
+    @Test
     public void testOnFocusChanged() {
         ReplacementTransformationMethod method = new MyReplacementTransformationMethod(ORIGINAL,
                 REPLACEMENT);

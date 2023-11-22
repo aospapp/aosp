@@ -1,4 +1,4 @@
-# Copyright 2015, ARM Limited
+# Copyright 2015, VIXL authors
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -27,20 +27,36 @@
 import os
 
 # These paths describe the structure of the repository.
-dir_tools        = os.path.dirname(os.path.realpath(__file__))
-dir_root         = os.path.abspath(os.path.join(dir_tools, '..'))
-dir_build        = os.path.join(dir_root, 'obj')
-dir_build_latest = os.path.join(dir_build, 'latest')
-dir_src_vixl     = os.path.join(dir_root, 'src')
-dir_benchmarks   = os.path.join(dir_root, 'benchmarks')
-dir_examples     = os.path.join(dir_root, 'examples')
+dir_tools              = os.path.dirname(os.path.realpath(__file__))
+dir_root               = os.path.abspath(os.path.join(dir_tools, '..'))
+dir_build              = os.path.join(dir_root, 'obj')
+dir_build_latest       = os.path.join(dir_build, 'latest')
+dir_src_vixl           = os.path.join(dir_root, 'src')
+dir_tests              = os.path.join(dir_root, 'test')
+dir_aarch64_benchmarks = os.path.join(dir_root, 'benchmarks', 'aarch64')
+dir_aarch32_benchmarks = os.path.join(dir_root, 'benchmarks', 'aarch32')
+dir_aarch64_examples   = os.path.join(dir_root, 'examples', 'aarch64')
+dir_aarch32_examples   = os.path.join(dir_root, 'examples', 'aarch32')
+dir_aarch64_traces     = os.path.join(dir_tests, 'aarch64', 'traces')
+dir_aarch32_traces     = os.path.join(dir_tests, 'aarch32', 'traces')
 
+# The following set of options are tested in all combinations. The order is
+# important; the _first_ option in each list is used as the basis for the
+# independently-tested options below.
 
 # The full list of available build modes.
-build_options_modes = ['release', 'debug']
+build_options_modes = ['debug', 'release']
 # The list of C++ standard to test for.
 tested_cpp_standards = ['c++98', 'c++11']
 # The list of compilers tested.
-tested_compilers = ['g++', 'clang++']
+tested_compilers = ['clang++', 'g++']
 
+# The following sets of options are tested independently, and are not combined
+# with one another. Each one in turn is appended to the first combination of the
+# options above.
 
+# The list of target arch/isa options to test with. Do not list 'all' as an
+# option since it is the default.
+build_options_target = ['a32', 't32', 'a32,t32', 'a64', 'a64,a32', 'a64,t32']
+# Negative testing is off by default, so do not list 'off' as an option.
+build_options_negative_testing = ['on']

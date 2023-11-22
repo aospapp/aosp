@@ -22,6 +22,8 @@ import android.net.Network;
 import android.net.NetworkCapabilities;
 import android.net.NetworkInfo;
 import android.net.NetworkRequest;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.SystemClock;
 
 import com.android.mms.service.exception.MmsNetworkException;
@@ -31,11 +33,15 @@ import com.android.mms.service.exception.MmsNetworkException;
  */
 public class MmsNetworkManager {
     // Timeout used to call ConnectivityManager.requestNetwork
-    private static final int NETWORK_REQUEST_TIMEOUT_MILLIS = 60 * 1000;
+    // Given that the telephony layer will retry on failures, this timeout should be high enough.
+    private static final int NETWORK_REQUEST_TIMEOUT_MILLIS = 30 * 60 * 1000;
     // Wait timeout for this class, a little bit longer than the above timeout
     // to make sure we don't bail prematurely
     private static final int NETWORK_ACQUIRE_TIMEOUT_MILLIS =
             NETWORK_REQUEST_TIMEOUT_MILLIS + (5 * 1000);
+    // Waiting time used before releasing a network prematurely. This allows the MMS download
+    // acknowledgement messages to be sent using the same network that was used to download the data
+    private static final int NETWORK_RELEASE_TIMEOUT_MILLIS = 5 * 1000;
 
     private final Context mContext;
 
@@ -55,6 +61,12 @@ public class MmsNetworkManager {
 
     // The MMS HTTP client for this network
     private MmsHttpClient mMmsHttpClient;
+
+    // The handler used for delayed release of the network
+    private final Handler mReleaseHandler;
+
+    // The task that does the delayed releasing of the network.
+    private final Runnable mNetworkReleaseTask;
 
     // The SIM ID which we use to connect
     private final int mSubId;
@@ -102,11 +114,23 @@ public class MmsNetworkManager {
         mConnectivityManager = null;
         mMmsHttpClient = null;
         mSubId = subId;
+        mReleaseHandler = new Handler(Looper.getMainLooper());
         mNetworkRequest = new NetworkRequest.Builder()
                 .addTransportType(NetworkCapabilities.TRANSPORT_CELLULAR)
                 .addCapability(NetworkCapabilities.NET_CAPABILITY_MMS)
                 .setNetworkSpecifier(Integer.toString(mSubId))
                 .build();
+
+        mNetworkReleaseTask = new Runnable() {
+            @Override
+            public void run() {
+                synchronized (this) {
+                    if (mMmsRequestCount < 1) {
+                        releaseRequestLocked(mNetworkCallback);
+                    }
+                }
+            }
+        };
     }
 
     /**
@@ -117,6 +141,8 @@ public class MmsNetworkManager {
      */
     public void acquireNetwork(final String requestId) throws MmsNetworkException {
         synchronized (this) {
+            // Since we are acquiring the network, remove the network release task if exists.
+            mReleaseHandler.removeCallbacks(mNetworkReleaseTask);
             mMmsRequestCount += 1;
             if (mNetwork != null) {
                 // Already available
@@ -154,14 +180,25 @@ public class MmsNetworkManager {
      * Release the MMS network when nobody is holding on to it.
      *
      * @param requestId request ID for logging
+     * @param shouldDelayRelease whether the release should be delayed for 5 seconds, the regular
+     *                           use case is to delay this for DownloadRequests to use the network
+     *                           for sending an acknowledgement on the same network
      */
-    public void releaseNetwork(final String requestId) {
+    public void releaseNetwork(final String requestId, final boolean shouldDelayRelease) {
         synchronized (this) {
             if (mMmsRequestCount > 0) {
                 mMmsRequestCount -= 1;
                 LogUtil.d(requestId, "MmsNetworkManager: release, count=" + mMmsRequestCount);
                 if (mMmsRequestCount < 1) {
-                    releaseRequestLocked(mNetworkCallback);
+                    if (shouldDelayRelease) {
+                        // remove previously posted task and post a delayed task on the release
+                        // handler to release the network
+                        mReleaseHandler.removeCallbacks(mNetworkReleaseTask);
+                        mReleaseHandler.postDelayed(mNetworkReleaseTask,
+                                NETWORK_RELEASE_TIMEOUT_MILLIS);
+                    } else {
+                        releaseRequestLocked(mNetworkCallback);
+                    }
                 }
             }
         }

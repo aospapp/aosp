@@ -9,7 +9,6 @@ CRITERIA = """
 This test will fail if any DBus call times out or flimflam crashes.
 """
 ATTRIBUTES = "suite:network3g"
-SUITE = "network3g"
 TIME = "SHORT"
 TEST_CATEGORY = "Stress"
 TEST_CLASS = "network"

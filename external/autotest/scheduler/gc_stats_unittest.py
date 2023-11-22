@@ -2,10 +2,10 @@
 
 import gc
 import logging
+import unittest
 
 import common
 from autotest_lib.client.common_lib.test_utils import mock
-from autotest_lib.client.common_lib.test_utils import unittest
 from autotest_lib.scheduler import gc_stats
 
 

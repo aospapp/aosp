@@ -26,4 +26,6 @@ LOCAL_STATIC_JAVA_LIBRARIES := launcher-helper-lib ub-uiautomator
 LOCAL_PACKAGE_NAME := AppLinkFunctionalTests
 LOCAL_CERTIFICATE := platform
 
+LOCAL_COMPATIBILITY_SUITE := device-tests
+
 include $(BUILD_PACKAGE)

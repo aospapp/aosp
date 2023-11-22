@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
 ******************************************************************************
 * Copyright (C) 2007-2011, International Business Machines Corporation and   *
@@ -21,9 +23,9 @@ import android.icu.impl.duration.impl.PeriodFormatterDataService;
 class BasicPeriodBuilderFactory implements PeriodBuilderFactory {
   private PeriodFormatterDataService ds;
   private Settings settings;
-  
+
   private static final short allBits = 0xff;
-  
+
   BasicPeriodBuilderFactory(PeriodFormatterDataService ds) {
     this.ds = ds;
     this.settings = new Settings();
@@ -49,7 +51,7 @@ class BasicPeriodBuilderFactory implements PeriodBuilderFactory {
         return this;
       }
       Settings result = inUse ? copy() : this;
-        
+
       result.uset = (short)uset;
 
       if ((uset & allBits) == allBits) {
@@ -66,7 +68,7 @@ class BasicPeriodBuilderFactory implements PeriodBuilderFactory {
             lastUnit = i;
           }
         }
-        if (lastUnit == -1) { 
+        if (lastUnit == -1) {
             // currently empty, but this might be transient so no fail
             result.minUnit = result.maxUnit = null;
         } else {
@@ -83,7 +85,7 @@ class BasicPeriodBuilderFactory implements PeriodBuilderFactory {
       }
       return (short)(uset & ~(1 << TimeUnit.MILLISECOND.ordinal));
     }
-    
+
     TimeUnit effectiveMinUnit() {
         if (allowMillis || minUnit != TimeUnit.MILLISECOND) {
             return minUnit;
@@ -96,7 +98,7 @@ class BasicPeriodBuilderFactory implements PeriodBuilderFactory {
         }
         return TimeUnit.SECOND; // default for pathological case
     }
-    
+
     Settings setMaxLimit(float maxLimit) {
       int val = maxLimit <= 0 ? 0 : (int)(maxLimit*1000);
       if (maxLimit == val) {
@@ -149,7 +151,7 @@ class BasicPeriodBuilderFactory implements PeriodBuilderFactory {
       return this
         .setAllowZero(data.allowZero())
         .setWeeksAloneOnly(data.weeksAloneOnly())
-        .setAllowMilliseconds(data.useMilliseconds() != DataRecord.EMilliSupport.NO);  
+        .setAllowMilliseconds(data.useMilliseconds() != DataRecord.EMilliSupport.NO);
     }
 
     Settings setInUse() {
@@ -164,7 +166,7 @@ class BasicPeriodBuilderFactory implements PeriodBuilderFactory {
               return Period.moreThan(maxLimit/1000f, maxUnit).inPast(inPast);
           }
       }
-      
+
       if (minLimit > 0) {
           TimeUnit emu = effectiveMinUnit();
           long emud = approximateDurationOf(emu);
@@ -192,6 +194,7 @@ class BasicPeriodBuilderFactory implements PeriodBuilderFactory {
     }
   }
 
+  @Override
   public PeriodBuilderFactory setAvailableUnitRange(TimeUnit minUnit,
                                                     TimeUnit maxUnit) {
     int uset = 0;
@@ -205,7 +208,8 @@ class BasicPeriodBuilderFactory implements PeriodBuilderFactory {
     return this;
   }
 
-  public PeriodBuilderFactory setUnitIsAvailable(TimeUnit unit, 
+  @Override
+  public PeriodBuilderFactory setUnitIsAvailable(TimeUnit unit,
                                                       boolean available) {
     int uset = settings.uset;
     if (available) {
@@ -217,36 +221,43 @@ class BasicPeriodBuilderFactory implements PeriodBuilderFactory {
     return this;
   }
 
+  @Override
   public PeriodBuilderFactory setMaxLimit(float maxLimit) {
     settings = settings.setMaxLimit(maxLimit);
     return this;
   }
 
+  @Override
   public PeriodBuilderFactory setMinLimit(float minLimit) {
     settings = settings.setMinLimit(minLimit);
     return this;
   }
 
+  @Override
   public PeriodBuilderFactory setAllowZero(boolean allow) {
     settings = settings.setAllowZero(allow);
     return this;
   }
 
+  @Override
   public PeriodBuilderFactory setWeeksAloneOnly(boolean aloneOnly) {
     settings = settings.setWeeksAloneOnly(aloneOnly);
     return this;
   }
 
+  @Override
   public PeriodBuilderFactory setAllowMilliseconds(boolean allow) {
     settings = settings.setAllowMilliseconds(allow);
     return this;
   }
 
+  @Override
   public PeriodBuilderFactory setLocale(String localeName) {
     settings = settings.setLocale(localeName);
     return this;
   }
-  
+
+  @Override
   public PeriodBuilderFactory setTimeZone(TimeZone timeZone) {
       // ignore this
       return this;
@@ -266,6 +277,7 @@ class BasicPeriodBuilderFactory implements PeriodBuilderFactory {
    * @param unit the single TimeUnit with which to represent times
    * @return a builder
    */
+  @Override
   public PeriodBuilder getFixedUnitBuilder(TimeUnit unit) {
     return FixedUnitBuilder.get(unit, getSettings());
   }
@@ -276,6 +288,7 @@ class BasicPeriodBuilderFactory implements PeriodBuilderFactory {
    *
    * @return a builder
    */
+  @Override
   public PeriodBuilder getSingleUnitBuilder() {
     return SingleUnitBuilder.get(getSettings());
   }
@@ -288,6 +301,7 @@ class BasicPeriodBuilderFactory implements PeriodBuilderFactory {
    *
    * @return a builder
    */
+  @Override
   public PeriodBuilder getOneOrTwoUnitBuilder() {
     return OneOrTwoUnitBuilder.get(getSettings());
   }
@@ -299,6 +313,7 @@ class BasicPeriodBuilderFactory implements PeriodBuilderFactory {
    *
    * @return a builder
    */
+  @Override
   public PeriodBuilder getMultiUnitBuilder(int periodCount) {
     return MultiUnitBuilder.get(periodCount, getSettings());
   }
@@ -307,7 +322,8 @@ class BasicPeriodBuilderFactory implements PeriodBuilderFactory {
 abstract class PeriodBuilderImpl implements PeriodBuilder {
 
   protected BasicPeriodBuilderFactory.Settings settings;
- 
+
+  @Override
   public Period create(long duration) {
     return createWithReferenceDate(duration, System.currentTimeMillis());
   }
@@ -316,6 +332,7 @@ abstract class PeriodBuilderImpl implements PeriodBuilder {
     return BasicPeriodBuilderFactory.approximateDurationOf(unit);
   }
 
+  @Override
   public Period createWithReferenceDate(long duration, long referenceDate) {
     boolean inPast = duration < 0;
     if (inPast) {
@@ -331,11 +348,13 @@ abstract class PeriodBuilderImpl implements PeriodBuilder {
     return ts;
   }
 
+  @Override
   public PeriodBuilder withTimeZone(TimeZone timeZone) {
       // ignore the time zone
       return this;
   }
 
+  @Override
   public PeriodBuilder withLocale(String localeName) {
     BasicPeriodBuilderFactory.Settings newSettings = settings.setLocale(localeName);
     if (newSettings != settings) {
@@ -346,7 +365,7 @@ abstract class PeriodBuilderImpl implements PeriodBuilder {
 
   protected abstract PeriodBuilder withSettings(BasicPeriodBuilderFactory.Settings settingsToUse);
 
-  protected abstract Period handleCreate(long duration, long referenceDate, 
+  protected abstract Period handleCreate(long duration, long referenceDate,
                                          boolean inPast);
 
   protected PeriodBuilderImpl(BasicPeriodBuilderFactory.Settings settings) {
@@ -356,7 +375,7 @@ abstract class PeriodBuilderImpl implements PeriodBuilder {
 
 class FixedUnitBuilder extends PeriodBuilderImpl {
   private TimeUnit unit;
-  
+
   public static FixedUnitBuilder get(TimeUnit unit, BasicPeriodBuilderFactory.Settings settingsToUse) {
     if (settingsToUse != null && (settingsToUse.effectiveSet() & (1 << unit.ordinal)) != 0) {
       return new FixedUnitBuilder(unit, settingsToUse);
@@ -369,11 +388,13 @@ class FixedUnitBuilder extends PeriodBuilderImpl {
     this.unit = unit;
   }
 
+  @Override
   protected PeriodBuilder withSettings(BasicPeriodBuilderFactory.Settings settingsToUse) {
     return get(unit, settingsToUse);
   }
 
-  protected Period handleCreate(long duration, long referenceDate, 
+  @Override
+  protected Period handleCreate(long duration, long referenceDate,
                                 boolean inPast) {
     if (unit == null) {
       return null;
@@ -396,11 +417,13 @@ class SingleUnitBuilder extends PeriodBuilderImpl {
     return new SingleUnitBuilder(settings);
   }
 
+  @Override
   protected PeriodBuilder withSettings(BasicPeriodBuilderFactory.Settings settingsToUse) {
     return SingleUnitBuilder.get(settingsToUse);
   }
 
-  protected Period handleCreate(long duration, long referenceDate, 
+  @Override
+  protected Period handleCreate(long duration, long referenceDate,
                                 boolean inPast) {
     short uset = settings.effectiveSet();
     for (int i = 0; i < TimeUnit.units.length; ++i) {
@@ -429,11 +452,13 @@ class OneOrTwoUnitBuilder extends PeriodBuilderImpl {
     return new OneOrTwoUnitBuilder(settings);
   }
 
+  @Override
   protected PeriodBuilder withSettings(BasicPeriodBuilderFactory.Settings settingsToUse) {
     return OneOrTwoUnitBuilder.get(settingsToUse);
   }
 
-  protected Period handleCreate(long duration, long referenceDate, 
+  @Override
+  protected Period handleCreate(long duration, long referenceDate,
                                 boolean inPast) {
     Period period = null;
     short uset = settings.effectiveSet();
@@ -478,11 +503,13 @@ class MultiUnitBuilder extends PeriodBuilderImpl {
     return null;
   }
 
+  @Override
   protected PeriodBuilder withSettings(BasicPeriodBuilderFactory.Settings settingsToUse) {
     return MultiUnitBuilder.get(nPeriods, settingsToUse);
   }
 
-  protected Period handleCreate(long duration, long referenceDate, 
+  @Override
+  protected Period handleCreate(long duration, long referenceDate,
                                 boolean inPast) {
     Period period = null;
     int n = 0;

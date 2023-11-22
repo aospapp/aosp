@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python -B
 
 """Updates the timezone data held in bionic and ICU."""
 

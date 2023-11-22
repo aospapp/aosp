@@ -74,9 +74,11 @@ public class CaptionFragment extends LeanbackPreferenceFragment implements
 
         final List<LocalePicker.LocaleInfo> localeInfoList =
                 LocalePicker.getAllAssetLocales(getContext(), false);
-        final String[] langNames = new String[localeInfoList.size()];
-        final String[] langLocales = new String[localeInfoList.size()];
-        int i = 0;
+        final String[] langNames = new String[localeInfoList.size() + 1];
+        final String[] langLocales = new String[localeInfoList.size() + 1];
+        langNames[0] = getString(R.string.captions_language_default);
+        langLocales[0] = "";
+        int i = 1;
         for (final LocalePicker.LocaleInfo info : localeInfoList) {
             langNames[i] = info.toString();
             langLocales[i] = info.getLocale().toString();
@@ -210,8 +212,9 @@ public class CaptionFragment extends LeanbackPreferenceFragment implements
     }
 
     private String getCaptionsLocale() {
-        return Settings.Secure.getString(getContext().getContentResolver(),
+        final String captionLocale = Settings.Secure.getString(getContext().getContentResolver(),
                 Settings.Secure.ACCESSIBILITY_CAPTIONING_LOCALE);
+        return captionLocale == null ? "" : captionLocale;
     }
 
     private void setCaptionsLocale(String locale) {

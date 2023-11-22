@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 1996-2016, International Business Machines Corporation and    *
@@ -8,12 +10,12 @@
 
 package android.icu.text;
 
-import java.lang.ref.SoftReference;
 import java.text.CharacterIterator;
 import java.text.StringCharacterIterator;
 import java.util.Locale;
 import java.util.MissingResourceException;
 
+import android.icu.impl.CacheValue;
 import android.icu.impl.ICUDebug;
 import android.icu.util.ICUCloneNotSupportedException;
 import android.icu.util.ULocale;
@@ -227,6 +229,7 @@ public abstract class BreakIterator implements Cloneable
      * current state as this one.
      * @return The clone.
      */
+    @Override
     public Object clone()
     {
         try {
@@ -366,45 +369,45 @@ public abstract class BreakIterator implements Cloneable
      */
     public abstract int current();
 
-    
-    /** 
-     * Tag value for "words" that do not fit into any of other categories. 
-     * Includes spaces and most punctuation. 
+
+    /**
+     * Tag value for "words" that do not fit into any of other categories.
+     * Includes spaces and most punctuation.
      */
     public static final int WORD_NONE           = 0;
 
     /**
-     * Upper bound for tags for uncategorized words. 
+     * Upper bound for tags for uncategorized words.
      */
     public static final int WORD_NONE_LIMIT     = 100;
 
     /**
-     * Tag value for words that appear to be numbers, lower limit. 
+     * Tag value for words that appear to be numbers, lower limit.
      */
     public static final int WORD_NUMBER         = 100;
 
-    /** 
+    /**
      * Tag value for words that appear to be numbers, upper limit.
      */
     public static final int WORD_NUMBER_LIMIT   = 200;
 
-    /** 
+    /**
      * Tag value for words that contain letters, excluding
-     * hiragana, katakana or ideographic characters, lower limit. 
+     * hiragana, katakana or ideographic characters, lower limit.
      */
     public static final int WORD_LETTER         = 200;
 
-    /** 
-     * Tag value for words containing letters, upper limit 
+    /**
+     * Tag value for words containing letters, upper limit
      */
     public static final int WORD_LETTER_LIMIT   = 300;
 
-    /** 
+    /**
      * Tag value for words containing kana characters, lower limit
      */
     public static final int WORD_KANA           = 300;
 
-    /** 
+    /**
      * Tag value for words containing kana characters, upper limit
      */
     public static final int WORD_KANA_LIMIT     = 400;
@@ -522,7 +525,7 @@ public abstract class BreakIterator implements Cloneable
      */
     private static final int KIND_COUNT = 5;
 
-    private static final SoftReference<?>[] iterCache = new SoftReference<?>[5];
+    private static final CacheValue<?>[] iterCache = new CacheValue<?>[5];
 
     /**
      * Returns a new instance of BreakIterator that locates word boundaries.
@@ -712,11 +715,11 @@ public abstract class BreakIterator implements Cloneable
      * <strong>[icu]</strong> Registers a new break iterator of the indicated kind, to use in the given
      * locale.  Clones of the iterator will be returned if a request for a break iterator
      * of the given kind matches or falls back to this locale.
-     * 
+     *
      * <p>Because ICU may choose to cache BreakIterator objects internally, this must
      * be called at application startup, prior to any calls to
      * BreakIterator.getInstance to avoid undefined behavior.
-     * 
+     *
      * @param iter the BreakIterator instance to adopt.
      * @param locale the Locale for which this instance is to be registered
      * @param kind the type of iterator for which this instance is to be registered
@@ -731,11 +734,11 @@ public abstract class BreakIterator implements Cloneable
      * <strong>[icu]</strong> Registers a new break iterator of the indicated kind, to use in the given
      * locale.  Clones of the iterator will be returned if a request for a break iterator
      * of the given kind matches or falls back to this locale.
-     * 
+     *
      * <p>Because ICU may choose to cache BreakIterator objects internally, this must
      * be called at application startup, prior to any calls to
      * BreakIterator.getInstance to avoid undefined behavior.
-     * 
+     *
      * @param iter the BreakIterator instance to adopt.
      * @param locale the Locale for which this instance is to be registered
      * @param kind the type of iterator for which this instance is to be registered
@@ -818,7 +821,7 @@ public abstract class BreakIterator implements Cloneable
         BreakIterator result = getShim().createBreakIterator(where, kind);
 
         BreakIteratorCache cache = new BreakIteratorCache(where, result);
-        iterCache[kind] = new SoftReference<BreakIteratorCache>(cache);
+        iterCache[kind] = CacheValue.getInstance(cache);
         if (result instanceof RuleBasedBreakIterator) {
             RuleBasedBreakIterator rbbi = (RuleBasedBreakIterator)result;
             rbbi.setBreakType(kind);

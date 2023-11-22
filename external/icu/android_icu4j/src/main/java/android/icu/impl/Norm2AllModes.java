@@ -1,7 +1,9 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
- *   Copyright (C) 2009-2014, International Business Machines
+ *   Copyright (C) 2009-2016, International Business Machines
  *   Corporation and others.  All Rights Reserved.
  *******************************************************************************
  */
@@ -344,6 +346,7 @@ public final class Norm2AllModes {
     }
     private static CacheBase<String, Norm2AllModes, ByteBuffer> cache =
         new SoftCache<String, Norm2AllModes, ByteBuffer>() {
+            @Override
             protected Norm2AllModes createInstance(String key, ByteBuffer bytes) {
                 Normalizer2Impl impl;
                 if(bytes==null) {

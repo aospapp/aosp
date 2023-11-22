@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 2014, International Business Machines Corporation and
@@ -54,6 +56,7 @@ public class OutputInt {
      * @hide draft / provisional / internal are hidden on Android
      */
     @Deprecated
+    @Override
     public String toString() {
         return Integer.toString(value);
     }

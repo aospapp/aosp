@@ -5,9 +5,9 @@
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
- * 
+ *
  * http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
  * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
@@ -164,6 +164,10 @@ public class HttpCookieTest extends TestCase {
 
         match = HttpCookie.domainMatches(null, "b.a.AJAX.com");
         assertFalse(match);
+
+        // JDK-7023713
+        match = HttpCookie.domainMatches("hostname.local", "hostname");
+        assertTrue(match);
     }
 
     /**
@@ -781,12 +785,7 @@ public class HttpCookieTest extends TestCase {
         list = HttpCookie
                 .parse("Set-Cookie:name=test;expires=Sun, 29-Feb-1999 19:14:07 GMT");
         cookie = list.get(0);
-        // A value of "0" means the cookie must be discarded immediately. 29-Feb-1999 is an
-        // invalid date and fails to parse, so it must be discarded immediately.
-        //
-        // Android versions earlier than N returned a negative value here, which means the cookie
-        // is valid for the current session.
-        assertEquals(0, cookie.getMaxAge());
+        assertTrue(cookie.getMaxAge() < 0);
         assertTrue(cookie.hasExpired());
 
         // Parse multiple cookies
@@ -948,6 +947,19 @@ public class HttpCookieTest extends TestCase {
                 .parse("Set-Cookie:name=test;comment=mycomment;commentURL=url;discard;domain=a.b.com;path=temp;port=79;secure");
         cookie = list.get(0);
         assertEquals(0, cookie.getVersion());
+    }
+
+    // http://b/31039416. Android N+ checks current time in hasExpired.
+    // Repeated invocations of cookie.hasExpired() may return different results
+    // due to time passage.
+    // This was not the case in earlier android versions, where hasExpired
+    // was testing the value of max-age/expires at the time of cookie creation.
+    public void test_hasExpired_checksTime() throws Exception {
+        List<HttpCookie> list = HttpCookie.parse("Set-Cookie:name=test;Max-Age=1");
+        HttpCookie cookie = list.get(0);
+        assertFalse(cookie.hasExpired());
+        Thread.sleep(2000);
+        assertTrue(cookie.hasExpired());
     }
 
     /**

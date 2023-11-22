@@ -98,7 +98,7 @@ class platform_SyncCrash(test.test):
         """
         edir = self._ECRYPT_DIR
         mnt = self._ECRYPT_MOUNT_POINT
-        self._run('umount %s' % edir)
+        self._run('umount %s' % mnt)
         self._run('rm -R %s %s' % (edir, mnt))
 
 

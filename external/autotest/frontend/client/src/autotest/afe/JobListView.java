@@ -32,8 +32,8 @@ public class JobListView extends TabView implements TableActionsListener {
                                STATUS_FINISHED = 2, STATUS_ALL = 3,
                                STATUS_RADIO_BUTTON_COUNT = 4;
     protected static final int STATUS_DEFAULT_BUTTON = STATUS_ALL;
-    protected static final int TYPE_SUITE = 0, TYPE_SUB = 1, TYPE_STANDALONE = 2,
-                               TYPE_ALL = 3, TYPE_RADIO_BUTTON_COUNT = 4;
+    protected static final int TYPE_SUITE = 0, TYPE_SUB = 1, TYPE_ALL = 2,
+                               TYPE_RADIO_BUTTON_COUNT = 3;
     protected static final int TYPE_DEFAULT_BUTTON = TYPE_ALL;
     private static final String[] statusHistoryTokens = {"queued", "running",
                                                          "finished", "all"};
@@ -41,12 +41,10 @@ public class JobListView extends TabView implements TableActionsListener {
                                                              "Finished Jobs", "All Jobs"};
     private static final String[] statusFilterStrings = {"not_yet_run", "running",
                                                          "finished"};
-    private static final String[] typeHistoryTokens = {"suite", "sub", "standalone",
-                                                       "all"};
+    private static final String[] typeHistoryTokens = {"suite", "sub", "all"};
     private static final String[] typeRadioButtonLabels = {"Parent Jobs", "Child Jobs",
-                                                            "Standalone Jobs",
                                                             "All Jobs"};
-    private static final String[] typeFilterStrings = {"suite", "sub", "standalone"};
+    private static final String[] typeFilterStrings = {"suite", "sub"};
 
     private JobSelectListener selectListener;
 
@@ -187,8 +185,7 @@ public class JobListView extends TabView implements TableActionsListener {
         });
         jobTable.addFilter(jobTypeFilter);
         addWidget(new ToolTip("?", "Suite jobs: jobs with child jobs. " +
-                                   "Sub jobs: jobs with a parent jobs. " +
-                                   "Standalone jobs: jobs without a parent or child job."),
+                                   "Sub jobs: jobs with a parent jobs. "),
                   "job_type_tooltip");
         addWidget(jobTypeFilter.getWidget(), "job_type_controls");
     }

@@ -31,15 +31,15 @@ status_t setNativeWindowSizeFormatAndUsage(
 
     // In some cases we need to reconnect so that we can dequeue all buffers
     if (reconnect) {
-        err = native_window_api_disconnect(nativeWindow, NATIVE_WINDOW_API_MEDIA);
+        err = nativeWindowDisconnect(nativeWindow, "setNativeWindowSizeFormatAndUsage");
         if (err != NO_ERROR) {
-            ALOGE("native_window_api_disconnect failed: %s (%d)", strerror(-err), -err);
+            ALOGE("nativeWindowDisconnect failed: %s (%d)", strerror(-err), -err);
             return err;
         }
 
-        err = native_window_api_connect(nativeWindow, NATIVE_WINDOW_API_MEDIA);
+        err = nativeWindowConnect(nativeWindow, "setNativeWindowSizeFormatAndUsage");
         if (err != NO_ERROR) {
-            ALOGE("native_window_api_connect failed: %s (%d)", strerror(-err), -err);
+            ALOGE("nativeWindowConnect failed: %s (%d)", strerror(-err), -err);
             return err;
         }
     }
@@ -91,9 +91,19 @@ status_t setNativeWindowSizeFormatAndUsage(
             return err;
         }
 
-        // Check if the ANativeWindow uses hardware protected buffers.
-        if (queuesToNativeWindow != 1 && !(consumerUsage & GRALLOC_USAGE_PROTECTED)) {
-            ALOGE("native window could not be authenticated");
+        // Check if the consumer end of the ANativeWindow can handle protected content.
+        int isConsumerProtected = 0;
+        err = nativeWindow->query(
+                nativeWindow, NATIVE_WINDOW_CONSUMER_IS_PROTECTED, &isConsumerProtected);
+        if (err != NO_ERROR) {
+            ALOGE("error query native window: %s (%d)", strerror(-err), -err);
+            return err;
+        }
+
+        // Deny queuing into native window if neither condition is satisfied.
+        if (queuesToNativeWindow != 1 && isConsumerProtected != 1) {
+            ALOGE("native window cannot handle protected buffers: the consumer should either be "
+                  "a hardware composer or support hardware protection");
             return PERMISSION_DENIED;
         }
     }
@@ -127,7 +137,7 @@ status_t pushBlankBuffersToNativeWindow(ANativeWindow *nativeWindow /* nonnull *
     // We need to reconnect to the ANativeWindow as a CPU client to ensure that
     // no frames get dropped by SurfaceFlinger assuming that these are video
     // frames.
-    err = native_window_api_disconnect(nativeWindow, NATIVE_WINDOW_API_MEDIA);
+    err = nativeWindowDisconnect(nativeWindow, "pushBlankBuffersToNativeWindow");
     if (err != NO_ERROR) {
         ALOGE("error pushing blank frames: api_disconnect failed: %s (%d)", strerror(-err), -err);
         return err;
@@ -136,7 +146,7 @@ status_t pushBlankBuffersToNativeWindow(ANativeWindow *nativeWindow /* nonnull *
     err = native_window_api_connect(nativeWindow, NATIVE_WINDOW_API_CPU);
     if (err != NO_ERROR) {
         ALOGE("error pushing blank frames: api_connect failed: %s (%d)", strerror(-err), -err);
-        (void)native_window_api_connect(nativeWindow, NATIVE_WINDOW_API_MEDIA);
+        (void)nativeWindowConnect(nativeWindow, "pushBlankBuffersToNativeWindow(err)");
         return err;
     }
 
@@ -176,7 +186,7 @@ status_t pushBlankBuffersToNativeWindow(ANativeWindow *nativeWindow /* nonnull *
             break;
         }
 
-        sp<GraphicBuffer> buf(new GraphicBuffer(anb, false));
+        sp<GraphicBuffer> buf(GraphicBuffer::from(anb));
 
         // Fill the buffer with the a 1x1 checkerboard pattern ;)
         uint32_t *img = NULL;
@@ -186,10 +196,6 @@ status_t pushBlankBuffersToNativeWindow(ANativeWindow *nativeWindow /* nonnull *
             break;
         }
 
-        if (img == NULL) {
-            ALOGE("error pushing blank frames: lock returned NULL buffer");
-            break;
-        }
         *img = 0;
 
         err = buf->unlock();
@@ -223,7 +229,7 @@ error:
         }
     }
 
-    err2 = native_window_api_connect(nativeWindow, NATIVE_WINDOW_API_MEDIA);
+    err2 = nativeWindowConnect(nativeWindow, "pushBlankBuffersToNativeWindow(err2)");
     if (err2 != NO_ERROR) {
         ALOGE("error pushing blank frames: api_connect failed: %s (%d)", strerror(-err), -err);
         if (err == NO_ERROR) {
@@ -234,5 +240,22 @@ error:
     return err;
 }
 
+status_t nativeWindowConnect(ANativeWindow *surface, const char *reason) {
+    ALOGD("connecting to surface %p, reason %s", surface, reason);
+
+    status_t err = native_window_api_connect(surface, NATIVE_WINDOW_API_MEDIA);
+    ALOGE_IF(err != OK, "Failed to connect to surface %p, err %d", surface, err);
+
+    return err;
+}
+
+status_t nativeWindowDisconnect(ANativeWindow *surface, const char *reason) {
+    ALOGD("disconnecting from surface %p, reason %s", surface, reason);
+
+    status_t err = native_window_api_disconnect(surface, NATIVE_WINDOW_API_MEDIA);
+    ALOGE_IF(err != OK, "Failed to disconnect from surface %p, err %d", surface, err);
+
+    return err;
+}
 }  // namespace android
 

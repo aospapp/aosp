@@ -286,6 +286,7 @@ ALookup<int32_t, ColorAspects::Transfer> sIsoTransfers {
         { 15, ColorAspects::TransferSMPTE170M },
         { 16, ColorAspects::TransferST2084 },
         { 17, ColorAspects::TransferST428 },
+        { 18, ColorAspects::TransferHLG },
     }
 };
 
@@ -339,6 +340,23 @@ void ColorUtils::convertIsoColorAspectsToCodecAspects(
         aspects.mMatrixCoeffs = ColorAspects::MatrixUnspecified;
     }
     aspects.mRange = fullRange ? ColorAspects::RangeFull : ColorAspects::RangeLimited;
+}
+
+// static
+ColorAspects ColorUtils::unpackToColorAspects(uint32_t packed) {
+    ColorAspects aspects;
+    aspects.mRange        = (ColorAspects::Range)((packed >> 24) & 0xFF);
+    aspects.mPrimaries    = (ColorAspects::Primaries)((packed >> 16) & 0xFF);
+    aspects.mMatrixCoeffs = (ColorAspects::MatrixCoeffs)((packed >> 8) & 0xFF);
+    aspects.mTransfer     = (ColorAspects::Transfer)(packed & 0xFF);
+
+    return aspects;
+}
+
+// static
+uint32_t ColorUtils::packToU32(const ColorAspects &aspects) {
+    return (aspects.mRange << 24) | (aspects.mPrimaries << 16)
+            | (aspects.mMatrixCoeffs << 8) | aspects.mTransfer;
 }
 
 // static

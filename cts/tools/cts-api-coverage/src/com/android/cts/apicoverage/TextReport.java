@@ -27,8 +27,8 @@ import java.util.List;
  */
 class TextReport {
 
-    public static void printTextReport(ApiCoverage api, PackageFilter packageFilter,
-            OutputStream outputStream) {
+    public static void printTextReport(ApiCoverage api, CddCoverage CddCoverage,
+            PackageFilter packageFilter, OutputStream outputStream) {
         PrintStream out = new PrintStream(outputStream);
 
         CoverageComparator comparator = new CoverageComparator();

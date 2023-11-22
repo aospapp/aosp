@@ -75,19 +75,25 @@ public class ConnectivityConstraintTest extends ConstraintTest {
 
     @Override
     public void tearDown() throws Exception {
+        mJobScheduler.cancel(CONNECTIVITY_JOB_ID);
+
         // Ensure that we leave WiFi in its previous state.
+        if (mWifiManager.isWifiEnabled() == mInitialWiFiState) {
+            return;
+        }
         NetworkInfo.State expectedState = mInitialWiFiState ?
-            NetworkInfo.State.CONNECTED : NetworkInfo.State.DISCONNECTED;
+                NetworkInfo.State.CONNECTED : NetworkInfo.State.DISCONNECTED;
         ConnectivityActionReceiver receiver =
-            new ConnectivityActionReceiver(ConnectivityManager.TYPE_WIFI,
-                                           expectedState);
+                new ConnectivityActionReceiver(ConnectivityManager.TYPE_WIFI,
+                        expectedState);
         IntentFilter filter = new IntentFilter();
         filter.addAction(ConnectivityManager.CONNECTIVITY_ACTION);
         mContext.registerReceiver(receiver, filter);
 
         assertTrue(mWifiManager.setWifiEnabled(mInitialWiFiState));
-        assertTrue("Failure to restore previous WiFi state.",
-                    receiver.waitForStateChange());
+        receiver.waitForStateChange();
+        assertTrue("Failure to restore previous WiFi state",
+                mWifiManager.isWifiEnabled() == mInitialWiFiState);
 
         mContext.unregisterReceiver(receiver);
     }
@@ -140,8 +146,8 @@ public class ConnectivityConstraintTest extends ConstraintTest {
     }
 
     /**
-     * Schedule a job with a connectivity constraint, and ensure that it executes on on a mobile
-     * data connection.
+     * Schedule a job with a generic connectivity constraint, and ensure that it executes
+     * on a cellular data connection.
      */
     public void testConnectivityConstraintExecutes_withMobile() throws Exception {
         if (!checkDeviceSupportsMobileData()) {
@@ -157,6 +163,26 @@ public class ConnectivityConstraintTest extends ConstraintTest {
         sendExpediteStableChargingBroadcast();
 
         assertTrue("Job with connectivity constraint did not fire on mobile.",
+                kTestEnvironment.awaitExecution());
+    }
+
+    /**
+     * Schedule a job with a metered connectivity constraint, and ensure that it executes
+     * on a mobile data connection.
+     */
+    public void testConnectivityConstraintExecutes_metered() throws Exception {
+        if (!checkDeviceSupportsMobileData()) {
+            return;
+        }
+        disconnectWifiToConnectToMobile();
+
+        kTestEnvironment.setExpectedExecutions(1);
+        mJobScheduler.schedule(
+                mBuilder.setRequiredNetworkType(JobInfo.NETWORK_TYPE_METERED)
+                        .build());
+
+        sendExpediteStableChargingBroadcast();
+        assertTrue("Job with metered connectivity constraint did not fire on mobile.",
                 kTestEnvironment.awaitExecution());
     }
 
@@ -185,6 +211,37 @@ public class ConnectivityConstraintTest extends ConstraintTest {
         assertTrue("Job requiring unmetered connectivity still executed on mobile.",
                 kTestEnvironment.awaitTimeout());
     }
+
+    /**
+     * Schedule a job that requires a metered connection, and verify that it does not run when
+     * the device is connected to a WiFi provider.
+     * This test assumes that if the device supports a mobile data connection, then this connection
+     * will be available.
+     */
+    public void testMeteredConstraintFails_withWiFi() throws Exception {
+        if (!mHasWifi) {
+            Log.d(TAG, "Skipping test that requires the device be WiFi enabled.");
+            return;
+        }
+        if (!checkDeviceSupportsMobileData()) {
+            Log.d(TAG, "Skipping test that requires the device be mobile data enabled.");
+            return;
+        }
+        connectToWiFi();
+
+        kTestEnvironment.setExpectedExecutions(0);
+        mJobScheduler.schedule(
+                mBuilder.setRequiredNetworkType(JobInfo.NETWORK_TYPE_METERED)
+                        .build());
+        sendExpediteStableChargingBroadcast();
+
+        assertTrue("Job requiring metered connectivity still executed on WiFi.",
+                kTestEnvironment.awaitTimeout());
+    }
+
+    // --------------------------------------------------------------------------------------------
+    // Utility methods
+    // --------------------------------------------------------------------------------------------
 
     /**
      * Determine whether the device running these CTS tests should be subject to tests involving

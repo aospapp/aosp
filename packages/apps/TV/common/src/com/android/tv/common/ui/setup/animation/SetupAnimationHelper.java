@@ -49,6 +49,9 @@ public final class SetupAnimationHelper {
      * Load initial parameters. This method should be called before using this class.
      */
     public static void initialize(Context context) {
+        if (sInitialized) {
+            return;
+        }
         sFragmentTransitionDuration = context.getResources()
                 .getInteger(R.integer.setup_fragment_transition_duration);
         sFragmentTransitionLongDistance = context.getResources()
@@ -66,7 +69,7 @@ public final class SetupAnimationHelper {
 
     public static class TransitionBuilder {
         private int mSlideEdge = Gravity.START;
-        private int mDistance = sFragmentTransitionLongDistance;
+        private final int mDistance = sFragmentTransitionLongDistance;
         private long mDuration = sFragmentTransitionDuration;
         private int[] mParentIdForDelay;
         private int[] mExcludeIds;

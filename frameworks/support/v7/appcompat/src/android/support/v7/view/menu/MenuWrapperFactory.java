@@ -16,8 +16,11 @@
 
 package android.support.v7.view.menu;
 
+import static android.support.annotation.RestrictTo.Scope.LIBRARY_GROUP;
+
 import android.content.Context;
 import android.os.Build;
+import android.support.annotation.RestrictTo;
 import android.support.v4.internal.view.SupportMenu;
 import android.support.v4.internal.view.SupportMenuItem;
 import android.support.v4.internal.view.SupportSubMenu;
@@ -28,30 +31,24 @@ import android.view.SubMenu;
 /**
  * @hide
  */
+@RestrictTo(LIBRARY_GROUP)
 public final class MenuWrapperFactory {
     private MenuWrapperFactory() {
     }
 
     public static Menu wrapSupportMenu(Context context, SupportMenu supportMenu) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH) {
-            return new MenuWrapperICS(context, supportMenu);
-        }
-        throw new UnsupportedOperationException();
+        return new MenuWrapperICS(context, supportMenu);
     }
 
     public static MenuItem wrapSupportMenuItem(Context context, SupportMenuItem supportMenuItem) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {
             return new MenuItemWrapperJB(context, supportMenuItem);
-        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH) {
+        } else {
             return new MenuItemWrapperICS(context, supportMenuItem);
         }
-        throw new UnsupportedOperationException();
     }
 
     public static SubMenu wrapSupportSubMenu(Context context, SupportSubMenu supportSubMenu) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH) {
-            return new SubMenuWrapperICS(context, supportSubMenu);
-        }
-        throw new UnsupportedOperationException();
+        return new SubMenuWrapperICS(context, supportSubMenu);
     }
 }

@@ -147,7 +147,7 @@ def stopped_shill():
         os.remove(SHILL_START_LOCK_PATH)
         os.symlink(our_proc_dir, SHILL_START_LOCK_PATH)
 
-    utils.run('stop shill')
+    utils.stop_service('shill')
     yield
-    utils.run('start shill')
+    utils.start_service('shill')
     os.remove(SHILL_START_LOCK_PATH)

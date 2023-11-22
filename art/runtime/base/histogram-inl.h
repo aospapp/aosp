@@ -48,7 +48,8 @@ template <class Value> inline Histogram<Value>::Histogram(const char* name)
     : kAdjust(0),
       kInitialBucketCount(0),
       name_(name),
-      max_buckets_(0) {
+      max_buckets_(0),
+      sample_size_(0) {
 }
 
 template <class Value>
@@ -202,9 +203,13 @@ inline void Histogram<Value>::PrintConfidenceIntervals(std::ostream &os, double 
 
 template <class Value>
 inline void Histogram<Value>::PrintMemoryUse(std::ostream &os) const {
-  os << Name()
-     << ": Avg: " << PrettySize(Mean()) << " Max: "
-     << PrettySize(Max()) << " Min: " << PrettySize(Min()) << "\n";
+  os << Name();
+  if (sample_size_ != 0u) {
+    os << ": Avg: " << PrettySize(Mean()) << " Max: "
+       << PrettySize(Max()) << " Min: " << PrettySize(Min()) << "\n";
+  } else {
+    os << ": <no data>\n";
+  }
 }
 
 template <class Value>
@@ -224,10 +229,8 @@ inline void Histogram<Value>::CreateHistogram(CumulativeData* out_data) const {
   DCHECK_LE(std::abs(out_data->perc_.back() - 1.0), 0.001);
 }
 
-#if defined(__clang__)
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wfloat-equal"
-#endif
 
 template <class Value>
 inline double Histogram<Value>::Percentile(double per, const CumulativeData& data) const {
@@ -269,9 +272,7 @@ inline double Histogram<Value>::Percentile(double per, const CumulativeData& dat
   return value;
 }
 
-#if defined(__clang__)
 #pragma clang diagnostic pop
-#endif
 
 }  // namespace art
 #endif  // ART_RUNTIME_BASE_HISTOGRAM_INL_H_

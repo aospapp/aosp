@@ -19,9 +19,12 @@ package libcore.io;
 import android.system.ErrnoException;
 import android.system.GaiException;
 import android.system.StructAddrinfo;
+import android.system.StructCapUserData;
+import android.system.StructCapUserHeader;
 import android.system.StructFlock;
 import android.system.StructGroupReq;
 import android.system.StructGroupSourceReq;
+import android.system.StructIfaddrs;
 import android.system.StructLinger;
 import android.system.StructPasswd;
 import android.system.StructPollfd;
@@ -55,6 +58,14 @@ public class ForwardingOs implements Os {
     public InetAddress[] android_getaddrinfo(String node, StructAddrinfo hints, int netId) throws GaiException { return os.android_getaddrinfo(node, hints, netId); }
     public void bind(FileDescriptor fd, InetAddress address, int port) throws ErrnoException, SocketException { os.bind(fd, address, port); }
     public void bind(FileDescriptor fd, SocketAddress address) throws ErrnoException, SocketException { os.bind(fd, address); }
+    @Override
+    public StructCapUserData[] capget(StructCapUserHeader hdr) throws ErrnoException {
+        return os.capget(hdr);
+    }
+    @Override
+    public void capset(StructCapUserHeader hdr, StructCapUserData[] data) throws ErrnoException {
+        os.capset(hdr, data);
+    }
     public void chmod(String path, int mode) throws ErrnoException { os.chmod(path, mode); }
     public void chown(String path, int uid, int gid) throws ErrnoException { os.chown(path, uid, gid); }
     public void close(FileDescriptor fd) throws ErrnoException { os.close(fd); }
@@ -96,16 +107,21 @@ public class ForwardingOs implements Os {
     public StructUcred getsockoptUcred(FileDescriptor fd, int level, int option) throws ErrnoException { return os.getsockoptUcred(fd, level, option); }
     public int gettid() { return os.gettid(); }
     public int getuid() { return os.getuid(); }
-    public int getxattr(String path, String name, byte[] outValue) throws ErrnoException { return os.getxattr(path, name, outValue); }
+    public byte[] getxattr(String path, String name) throws ErrnoException { return os.getxattr(path, name); }
+    public StructIfaddrs[] getifaddrs() throws ErrnoException { return os.getifaddrs(); }
     public String if_indextoname(int index) { return os.if_indextoname(index); }
+    public int if_nametoindex(String name) { return os.if_nametoindex(name); }
     public InetAddress inet_pton(int family, String address) { return os.inet_pton(family, address); }
+    public int ioctlFlags(FileDescriptor fd, String interfaceName) throws ErrnoException { return os.ioctlFlags(fd, interfaceName); };
     public InetAddress ioctlInetAddress(FileDescriptor fd, int cmd, String interfaceName) throws ErrnoException { return os.ioctlInetAddress(fd, cmd, interfaceName); }
     public int ioctlInt(FileDescriptor fd, int cmd, MutableInt arg) throws ErrnoException { return os.ioctlInt(fd, cmd, arg); }
+    public int ioctlMTU(FileDescriptor fd, String interfaceName) throws ErrnoException { return os.ioctlMTU(fd, interfaceName); };
     public boolean isatty(FileDescriptor fd) { return os.isatty(fd); }
     public void kill(int pid, int signal) throws ErrnoException { os.kill(pid, signal); }
     public void lchown(String path, int uid, int gid) throws ErrnoException { os.lchown(path, uid, gid); }
     public void link(String oldPath, String newPath) throws ErrnoException { os.link(oldPath, newPath); }
     public void listen(FileDescriptor fd, int backlog) throws ErrnoException { os.listen(fd, backlog); }
+    public String[] listxattr(String path) throws ErrnoException { return os.listxattr(path); }
     public long lseek(FileDescriptor fd, long offset, int whence) throws ErrnoException { return os.lseek(fd, offset, whence); }
     public StructStat lstat(String path) throws ErrnoException { return os.lstat(path); }
     public void mincore(long address, long byteCount, byte[] vector) throws ErrnoException { os.mincore(address, byteCount, vector); }

@@ -16,6 +16,22 @@
 
 package com.android.internal.telephony.dataconnection;
 
+import static com.android.internal.telephony.TelephonyTestUtils.waitForMs;
+import static com.android.internal.telephony.dataconnection.DcTrackerTest.FAKE_ADDRESS;
+import static com.android.internal.telephony.dataconnection.DcTrackerTest.FAKE_DNS;
+import static com.android.internal.telephony.dataconnection.DcTrackerTest.FAKE_GATEWAY;
+import static com.android.internal.telephony.dataconnection.DcTrackerTest.FAKE_IFNAME;
+import static com.android.internal.telephony.dataconnection.DcTrackerTest.FAKE_PCSCF_ADDRESS;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+import static org.mockito.Matchers.any;
+import static org.mockito.Matchers.eq;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+
 import android.net.NetworkCapabilities;
 import android.net.NetworkInfo;
 import android.os.AsyncResult;
@@ -35,25 +51,14 @@ import com.android.internal.telephony.dataconnection.DataConnection.DisconnectPa
 import com.android.internal.util.IState;
 import com.android.internal.util.StateMachine;
 
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.assertFalse;
-
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
-
-import static com.android.internal.telephony.TelephonyTestUtils.waitForMs;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-import static org.mockito.Matchers.any;
-import static org.mockito.Matchers.eq;
-import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
 
 public class DataConnectionTest extends TelephonyTest {
 
@@ -69,6 +74,7 @@ public class DataConnectionTest extends TelephonyTest {
     DcFailBringUp mDcFailBringUp;
 
     private DataConnection mDc;
+    private DataConnectionTestHandler mDataConnectionTestHandler;
     private DcController mDcc;
 
     private ApnSetting mApn1 = new ApnSetting(
@@ -112,8 +118,6 @@ public class DataConnectionTest extends TelephonyTest {
             mDcc = DcController.makeDcc(mPhone, mDcTracker, h);
             mDc = DataConnection.makeDataConnection(mPhone, 0, mDcTracker, mDcTesterFailBringUpAll,
                     mDcc);
-
-            setReady(true);
         }
     }
 
@@ -148,9 +152,10 @@ public class DataConnectionTest extends TelephonyTest {
 
         mDcp.mApnContext = mApnContext;
 
-        new DataConnectionTestHandler(getClass().getSimpleName()).start();
+        mDataConnectionTestHandler = new DataConnectionTestHandler(getClass().getSimpleName());
+        mDataConnectionTestHandler.start();
 
-        waitUntilReady();
+        waitForMs(200);
         logd("-Setup!");
     }
 
@@ -159,6 +164,7 @@ public class DataConnectionTest extends TelephonyTest {
         logd("tearDown");
         mDc = null;
         mDcc = null;
+        mDataConnectionTestHandler.quit();
         super.tearDown();
     }
 
@@ -188,16 +194,19 @@ public class DataConnectionTest extends TelephonyTest {
         testSanity();
 
         mDc.sendMessage(DataConnection.EVENT_CONNECT, mCp);
-        waitForMs(100);
+        waitForMs(200);
 
         verify(mCT, times(1)).registerForVoiceCallStarted(any(Handler.class),
                 eq(DataConnection.EVENT_DATA_CONNECTION_VOICE_CALL_STARTED), eq(null));
         verify(mCT, times(1)).registerForVoiceCallEnded(any(Handler.class),
                 eq(DataConnection.EVENT_DATA_CONNECTION_VOICE_CALL_ENDED), eq(null));
 
+        ArgumentCaptor<DataProfile> dpCaptor = ArgumentCaptor.forClass(DataProfile.class);
         verify(mSimulatedCommandsVerifier, times(1)).setupDataCall(
-                eq(ServiceState.RIL_RADIO_TECHNOLOGY_UMTS), eq(0), eq("spmode.ne.jp"),
-                eq(""), eq(""), eq(0), eq("IP"), any(Message.class));
+                eq(ServiceState.RIL_RADIO_TECHNOLOGY_UMTS), dpCaptor.capture(),
+                eq(false), eq(false), any(Message.class));
+
+        assertEquals("spmode.ne.jp", dpCaptor.getValue().apn);
 
         assertEquals("DcActiveState", getCurrentState().getName());
     }
@@ -219,38 +228,46 @@ public class DataConnectionTest extends TelephonyTest {
     @Test
     @SmallTest
     public void testModemSuggestRetry() throws Exception {
-        DataCallResponse response = new DataCallResponse();
-        response.suggestedRetryTime = 0;
+        DataCallResponse response = new DataCallResponse(0, 0, 1, 2, "IP",
+                FAKE_IFNAME, FAKE_ADDRESS, FAKE_DNS, FAKE_GATEWAY, FAKE_PCSCF_ADDRESS, 1440);
         AsyncResult ar = new AsyncResult(null, response, null);
         assertEquals(response.suggestedRetryTime, getSuggestedRetryDelay(ar));
 
-        response.suggestedRetryTime = 1000;
+        response = new DataCallResponse(0, 1000, 1, 2, "IP",
+                FAKE_IFNAME, FAKE_ADDRESS, FAKE_DNS, FAKE_GATEWAY, FAKE_PCSCF_ADDRESS, 1440);
+        ar = new AsyncResult(null, response, null);
         assertEquals(response.suggestedRetryTime, getSuggestedRetryDelay(ar));
 
-        response.suggestedRetryTime = 9999;
+        response = new DataCallResponse(0, 9999, 1, 2, "IP",
+                FAKE_IFNAME, FAKE_ADDRESS, FAKE_DNS, FAKE_GATEWAY, FAKE_PCSCF_ADDRESS, 1440);
+        ar = new AsyncResult(null, response, null);
         assertEquals(response.suggestedRetryTime, getSuggestedRetryDelay(ar));
     }
 
     @Test
     @SmallTest
     public void testModemNotSuggestRetry() throws Exception {
-        DataCallResponse response = new DataCallResponse();
-        response.suggestedRetryTime = -1;
+        DataCallResponse response = new DataCallResponse(0, -1, 1, 2, "IP", FAKE_IFNAME,
+                FAKE_ADDRESS, FAKE_DNS, FAKE_GATEWAY, FAKE_PCSCF_ADDRESS, 1440);
         AsyncResult ar = new AsyncResult(null, response, null);
         assertEquals(RetryManager.NO_SUGGESTED_RETRY_DELAY, getSuggestedRetryDelay(ar));
 
-        response.suggestedRetryTime = -5;
+        response = new DataCallResponse(0, -5, 1, 2, "IP", FAKE_IFNAME,
+                FAKE_ADDRESS, FAKE_DNS, FAKE_GATEWAY, FAKE_PCSCF_ADDRESS, 1440);
+        ar = new AsyncResult(null, response, null);
         assertEquals(RetryManager.NO_SUGGESTED_RETRY_DELAY, getSuggestedRetryDelay(ar));
 
-        response.suggestedRetryTime = Integer.MIN_VALUE;
+        response = new DataCallResponse(0, Integer.MIN_VALUE, 1, 2, "IP", FAKE_IFNAME,
+                FAKE_ADDRESS, FAKE_DNS, FAKE_GATEWAY, FAKE_PCSCF_ADDRESS, 1440);
+        ar = new AsyncResult(null, response, null);
         assertEquals(RetryManager.NO_SUGGESTED_RETRY_DELAY, getSuggestedRetryDelay(ar));
     }
 
     @Test
     @SmallTest
     public void testModemSuggestNoRetry() throws Exception {
-        DataCallResponse response = new DataCallResponse();
-        response.suggestedRetryTime = Integer.MAX_VALUE;
+        DataCallResponse response = new DataCallResponse(0, Integer.MAX_VALUE, 1, 2, "IP",
+                FAKE_IFNAME, FAKE_ADDRESS, FAKE_DNS, FAKE_GATEWAY, FAKE_PCSCF_ADDRESS, 1440);
         AsyncResult ar = new AsyncResult(null, response, null);
         assertEquals(RetryManager.NO_RETRY, getSuggestedRetryDelay(ar));
     }
@@ -261,8 +278,8 @@ public class DataConnectionTest extends TelephonyTest {
         return (NetworkInfo) f.get(mDc);
     }
 
-    private NetworkCapabilities getCopyNetworkCapabilities() throws Exception {
-        Method method = DataConnection.class.getDeclaredMethod("getCopyNetworkCapabilities");
+    private NetworkCapabilities getNetworkCapabilities() throws Exception {
+        Method method = DataConnection.class.getDeclaredMethod("getNetworkCapabilities");
         method.setAccessible(true);
         return (NetworkCapabilities) method.invoke(mDc);
     }
@@ -277,24 +294,24 @@ public class DataConnectionTest extends TelephonyTest {
 
         testConnectEvent();
 
+        assertFalse(getNetworkCapabilities()
+                .hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED));
         assertTrue(getNetworkInfo().isMetered());
-        assertFalse(getCopyNetworkCapabilities().
-                hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED));
     }
 
     @Test
     @SmallTest
     public void testNonMeteredCapability() throws Exception {
 
-        doReturn(1).when(mPhone).getSubId();
+        doReturn(2819).when(mPhone).getSubId();
         mContextFixture.getCarrierConfigBundle().
                 putStringArray(CarrierConfigManager.KEY_CARRIER_METERED_APN_TYPES_STRINGS,
                         new String[] {"mms"});
 
         testConnectEvent();
 
+        assertTrue(getNetworkCapabilities()
+                .hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED));
         assertFalse(getNetworkInfo().isMetered());
-        assertTrue(getCopyNetworkCapabilities().
-                hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED));
     }
 }

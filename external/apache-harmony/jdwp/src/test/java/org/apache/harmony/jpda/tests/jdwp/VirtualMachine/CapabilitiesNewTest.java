@@ -50,7 +50,7 @@ public class CapabilitiesNewTest extends JDWPSyncTestCase {
             {"canUnrestrictedlyRedefineClasses", null},
             {"canPopFrames",                     null},
             {"canUseInstanceFilters",            "true"},
-            {"canGetSourceDebugExtension",       null},
+            {"canGetSourceDebugExtension",       "true"},
             {"canRequestVMDeathEvent",           null},
             {"canSetDefaultStratum",             null},
             {"canGetInstanceInfo",               "true"},
@@ -72,6 +72,7 @@ public class CapabilitiesNewTest extends JDWPSyncTestCase {
             {"reserved32", null}
     };
 
+    @Override
     protected String getDebuggeeClassName() {
         return "org.apache.harmony.jpda.tests.jdwp.share.debuggee.HelloWorld";
     }

@@ -17,9 +17,10 @@
 #ifndef ANDROID_EFFECTSFACTORY_H_
 #define ANDROID_EFFECTSFACTORY_H_
 
-#include <cutils/log.h>
-#include <pthread.h>
 #include <dirent.h>
+#include <pthread.h>
+
+#include <android/log.h>
 #include <hardware/audio_effect.h>
 
 #if __cplusplus
@@ -57,6 +58,11 @@ typedef struct effect_entry_s {
     lib_entry_t *lib;
 } effect_entry_t;
 
+typedef struct lib_failed_entry_s {
+    char *name;
+    char *path;
+} lib_failed_entry_t;
+
 // Structure used to store the lib entry
 // and the descriptor of the sub effects.
 // The library entry is to be stored in case of
@@ -66,6 +72,7 @@ typedef struct sub_effect_entry_s {
     lib_entry_t *lib;
     void *object;
 } sub_effect_entry_t;
+
 
 
 ////////////////////////////////////////////////////////////////////////////////

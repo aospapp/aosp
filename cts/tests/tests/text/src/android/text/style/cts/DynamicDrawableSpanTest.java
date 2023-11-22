@@ -16,17 +16,25 @@
 
 package android.text.style.cts;
 
-import android.text.cts.R;
-
+import static org.junit.Assert.assertEquals;
 
 import android.graphics.Canvas;
-import android.graphics.Rect;
 import android.graphics.Paint.FontMetricsInt;
+import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
-import android.test.AndroidTestCase;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
+import android.text.cts.R;
 import android.text.style.DynamicDrawableSpan;
 
-public class DynamicDrawableSpanTest extends AndroidTestCase {
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class DynamicDrawableSpanTest {
+    @Test
     public void testConstructor() {
         DynamicDrawableSpan d = new MyDynamicDrawableSpan();
         assertEquals(DynamicDrawableSpan.ALIGN_BOTTOM, d.getVerticalAlignment());
@@ -38,6 +46,7 @@ public class DynamicDrawableSpanTest extends AndroidTestCase {
         assertEquals(DynamicDrawableSpan.ALIGN_BOTTOM, d.getVerticalAlignment());
     }
 
+    @Test
     public void testGetSize() {
         DynamicDrawableSpan dynamicDrawableSpan = new MyDynamicDrawableSpan();
         FontMetricsInt fm = new FontMetricsInt();
@@ -60,22 +69,20 @@ public class DynamicDrawableSpanTest extends AndroidTestCase {
         assertEquals(rect.right, dynamicDrawableSpan.getSize(null, null, 0, 0, null));
     }
 
+    @Test
     public void testDraw() {
         DynamicDrawableSpan dynamicDrawableSpan = new MyDynamicDrawableSpan();
         Canvas canvas = new Canvas();
         dynamicDrawableSpan.draw(canvas, null, 0, 0, 1.0f, 0, 0, 1, null);
-
-        try {
-            dynamicDrawableSpan.draw(null, null, 0, 0, 1.0f, 0, 0, 1, null);
-            fail("should throw NullPointerException.");
-        } catch (NullPointerException e) {
-            // expected, test success.
-        }
     }
 
-    /**
-     * The MyDynamicDrawableSpan for test.
-     */
+    @Test(expected=NullPointerException.class)
+    public void testDrawNullCanvas() {
+        DynamicDrawableSpan dynamicDrawableSpan = new MyDynamicDrawableSpan();
+
+        dynamicDrawableSpan.draw(null, null, 0, 0, 1.0f, 0, 0, 1, null);
+    }
+
     private class MyDynamicDrawableSpan extends DynamicDrawableSpan {
         public MyDynamicDrawableSpan() {
             super();
@@ -87,8 +94,7 @@ public class DynamicDrawableSpanTest extends AndroidTestCase {
 
         @Override
         public Drawable getDrawable() {
-            // implement abstract method
-            return getContext().getResources().getDrawable(R.drawable.scenery);
+            return InstrumentationRegistry.getTargetContext().getDrawable(R.drawable.scenery);
         }
     }
 }

@@ -16,14 +16,15 @@
 
 package android.webkit.cts;
 
-import android.cts.util.NullWebViewUtils;
-import android.cts.util.PollingCheck;
 import android.net.Uri;
 import android.test.ActivityInstrumentationTestCase2;
 import android.test.UiThreadTest;
 import android.webkit.WebMessage;
 import android.webkit.WebMessagePort;
 import android.webkit.WebView;
+
+import com.android.compatibility.common.util.NullWebViewUtils;
+import com.android.compatibility.common.util.PollingCheck;
 
 import java.util.concurrent.CountDownLatch;
 import junit.framework.Assert;

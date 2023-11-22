@@ -17,9 +17,6 @@
 #include "rsCpuIntrinsic.h"
 #include "rsCpuIntrinsicInlines.h"
 
-using namespace android;
-using namespace android::renderscript;
-
 namespace android {
 namespace renderscript {
 
@@ -76,9 +73,6 @@ protected:
                            uint32_t outstep);
 
 };
-
-}
-}
 
 void RsdCpuScriptIntrinsicHistogram::setGlobalObj(uint32_t slot, ObjectBase *data) {
     rsAssert(slot == 1);
@@ -324,8 +318,10 @@ void RsdCpuScriptIntrinsicHistogram::populateScript(Script *s) {
 void RsdCpuScriptIntrinsicHistogram::invokeFreeChildren() {
 }
 
-
 RsdCpuScriptImpl * rsdIntrinsic_Histogram(RsdCpuReferenceImpl *ctx, const Script *s, const Element *e) {
 
     return new RsdCpuScriptIntrinsicHistogram(ctx, s, e);
 }
+
+} // namespace renderscript
+} // namespace android

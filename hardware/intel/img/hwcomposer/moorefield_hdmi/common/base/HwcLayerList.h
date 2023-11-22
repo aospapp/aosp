@@ -42,6 +42,8 @@ public:
 
     void postFlip();
 
+    void updateFBT(hwc_display_contents_1_t *list);
+
     // dump interface
     virtual void dump(Dump& d);
 

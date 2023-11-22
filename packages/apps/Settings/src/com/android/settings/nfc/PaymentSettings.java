@@ -19,6 +19,8 @@ package com.android.settings.nfc;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.content.res.Resources;
 import android.nfc.NfcAdapter;
 import android.os.Bundle;
 import android.support.v7.preference.PreferenceManager;
@@ -29,20 +31,28 @@ import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 
-import com.android.internal.logging.MetricsProto.MetricsEvent;
+import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
 import com.android.settings.R;
+import com.android.settings.search.BaseSearchIndexProvider;
+import com.android.settings.search.Indexable;
+import com.android.settings.search.SearchIndexableRaw;
 import com.android.settings.SettingsPreferenceFragment;
 import com.android.settings.dashboard.SummaryLoader;
 import com.android.settings.nfc.PaymentBackend.PaymentAppInfo;
 
+import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.List;
 
-public class PaymentSettings extends SettingsPreferenceFragment {
+public class PaymentSettings extends SettingsPreferenceFragment implements Indexable {
     public static final String TAG = "PaymentSettings";
+
+    static final String PAYMENT_KEY = "payment";
+
     private PaymentBackend mPaymentBackend;
 
     @Override
-    protected int getMetricsCategory() {
+    public int getMetricsCategory() {
         return MetricsEvent.NFC_PAYMENT;
     }
 
@@ -60,7 +70,7 @@ public class PaymentSettings extends SettingsPreferenceFragment {
         if (appInfos != null && appInfos.size() > 0) {
             NfcPaymentPreference preference =
                     new NfcPaymentPreference(getPrefContext(), mPaymentBackend);
-            preference.setKey("payment");
+            preference.setKey(PAYMENT_KEY);
             screen.addPreference(preference);
             NfcForegroundPreference foreground = new NfcForegroundPreference(getPrefContext(),
                     mPaymentBackend);
@@ -131,5 +141,32 @@ public class PaymentSettings extends SettingsPreferenceFragment {
                                                                    SummaryLoader summaryLoader) {
             return new SummaryProvider(activity, summaryLoader);
         }
+    };
+
+    public static final SearchIndexProvider SEARCH_INDEX_DATA_PROVIDER =
+        new BaseSearchIndexProvider() {
+            @Override
+            public List<SearchIndexableRaw> getRawDataToIndex(Context context, boolean enabled) {
+                final List<SearchIndexableRaw> result = new ArrayList<SearchIndexableRaw>();
+                final Resources res = context.getResources();
+
+                // Add fragment title
+                SearchIndexableRaw data = new SearchIndexableRaw(context);
+                data.key = PAYMENT_KEY;
+                data.title = res.getString(R.string.nfc_payment_settings_title);
+                data.screenTitle = res.getString(R.string.nfc_payment_settings_title);
+                data.keywords = res.getString(R.string.keywords_payment_settings);
+                result.add(data);
+                return result;
+            }
+
+            @Override
+            public List<String> getNonIndexableKeys(Context context) {
+                final PackageManager pm = context.getPackageManager();
+                if (pm.hasSystemFeature(PackageManager.FEATURE_NFC)) return null;
+                final List<String> nonVisibleKeys = new ArrayList<String>();
+                nonVisibleKeys.add(PAYMENT_KEY);
+                return nonVisibleKeys;
+            }
     };
 }

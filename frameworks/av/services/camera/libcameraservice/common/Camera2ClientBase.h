@@ -18,7 +18,6 @@
 #define ANDROID_SERVERS_CAMERA_CAMERA2CLIENT_BASE_H
 
 #include "common/CameraDeviceBase.h"
-#include "common/CameraModule.h"
 #include "camera/CaptureResult.h"
 
 namespace android {
@@ -49,14 +48,14 @@ public:
     Camera2ClientBase(const sp<CameraService>& cameraService,
                       const sp<TCamCallbacks>& remoteCallback,
                       const String16& clientPackageName,
-                      int cameraId,
+                      const String8& cameraId,
                       int cameraFacing,
                       int clientPid,
                       uid_t clientUid,
                       int servicePid);
     virtual ~Camera2ClientBase();
 
-    virtual status_t      initialize(CameraModule *module);
+    virtual status_t      initialize(sp<CameraProviderManager> manager);
     virtual status_t      dumpClient(int fd, const Vector<String16>& args);
 
     /**
@@ -73,6 +72,7 @@ public:
     virtual void          notifyAutoWhitebalance(uint8_t newState,
                                                  int triggerId);
     virtual void          notifyPrepared(int streamId);
+    virtual void          notifyRequestQueueEmpty();
     virtual void          notifyRepeatingRequestError(long lastFrameNumber);
 
     int                   getCameraId() const;
@@ -93,13 +93,13 @@ public:
       public:
         class Lock {
           public:
-            Lock(SharedCameraCallbacks &client);
+            explicit Lock(SharedCameraCallbacks &client);
             ~Lock();
             sp<TCamCallbacks> &mRemoteCallback;
           private:
             SharedCameraCallbacks &mSharedClient;
         };
-        SharedCameraCallbacks(const sp<TCamCallbacks>& client);
+        explicit SharedCameraCallbacks(const sp<TCamCallbacks>& client);
         SharedCameraCallbacks& operator=(const sp<TCamCallbacks>& client);
         void clear();
       private:
@@ -139,6 +139,10 @@ protected:
     virtual void          detachDevice();
 
     bool                  mDeviceActive;
+
+private:
+    template<typename TProviderPtr>
+    status_t              initializeImpl(TProviderPtr providerPtr);
 };
 
 }; // namespace android

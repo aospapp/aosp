@@ -2,8 +2,12 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import os, shutil, tempfile
+import logging
+import os
+import shutil
+import tempfile
 
+import common
 from autotest_lib.client.bin import test, utils
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.cros import constants
@@ -18,32 +22,41 @@ class ChromeBinaryTest(test.test):
 
     CHROME_TEST_DEP = 'chrome_test'
     CHROME_SANDBOX = '/opt/google/chrome/chrome-sandbox'
+    COMPONENT_LIB = '/opt/google/chrome/lib'
     home_dir = None
+    cr_source_dir = None
+    test_binary_dir = None
 
     def setup(self):
         self.job.setup_dep([self.CHROME_TEST_DEP])
 
-
     def initialize(self):
-        test_dep_dir = os.path.join(self.autodir, 'deps',
-                                    self.CHROME_TEST_DEP)
+        test_dep_dir = os.path.join(self.autodir, 'deps', self.CHROME_TEST_DEP)
         self.job.install_pkg(self.CHROME_TEST_DEP, 'dep', test_dep_dir)
 
         self.cr_source_dir = '%s/test_src' % test_dep_dir
         self.test_binary_dir = '%s/out/Release' % self.cr_source_dir
+        # If chrome is a component build then need to create a symlink such
+        # that the _unittest binaries can find the chrome component libraries.
+        Release_lib = os.path.join(self.test_binary_dir, 'lib')
+        if os.path.isdir(self.COMPONENT_LIB):
+            logging.info('Detected component build. This assumes binary '
+                         'compatibility between chrome and *unittest.')
+            if not os.path.islink(Release_lib):
+                os.symlink(self.COMPONENT_LIB, Release_lib)
         self.home_dir = tempfile.mkdtemp()
-
 
     def cleanup(self):
         if self.home_dir:
             shutil.rmtree(self.home_dir, ignore_errors=True)
 
-
     def get_chrome_binary_path(self, binary_to_run):
         return os.path.join(self.test_binary_dir, binary_to_run)
 
-
-    def run_chrome_test_binary(self, binary_to_run, extra_params='', prefix='',
+    def run_chrome_test_binary(self,
+                               binary_to_run,
+                               extra_params='',
+                               prefix='',
                                as_chronos=True):
         """
         Run chrome test binary.
@@ -56,10 +69,9 @@ class ChromeBinaryTest(test.test):
 
         @raises: error.TestFail if there is error running the command.
         """
-        binary = self.get_chrome_binary_path(binary_to_run)
         cmd = '%s/%s %s' % (self.test_binary_dir, binary_to_run, extra_params)
         env_vars = 'HOME=%s CR_SOURCE_ROOT=%s CHROME_DEVEL_SANDBOX=%s' % (
-                self.home_dir, self.cr_source_dir, self.CHROME_SANDBOX)
+            self.home_dir, self.cr_source_dir, self.CHROME_SANDBOX)
         cmd = '%s %s' % (env_vars, prefix + cmd)
 
         try:
@@ -84,12 +96,13 @@ def nuke_chrome(func):
         open(constants.DISABLE_BROWSER_RESTART_MAGIC_FILE, 'w').close()
         try:
             try:
-                utils.nuke_process_by_name(
-                    name=constants.BROWSER, with_prejudice=True)
+                utils.nuke_process_by_name(name=constants.BROWSER,
+                                           with_prejudice=True)
             except error.AutoservPidAlreadyDeadError:
                 pass
             return func(*args, **kargs)
         finally:
             # Allow chrome to be restarted again later.
             os.unlink(constants.DISABLE_BROWSER_RESTART_MAGIC_FILE)
+
     return wrapper

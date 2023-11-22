@@ -32,6 +32,7 @@ public class DeoptimizationWithExceptionHandlingDebuggee extends SyncDebuggee {
         runDebuggee(DeoptimizationWithExceptionHandlingDebuggee.class);
     }
 
+    @Override
     public void run() {
         logWriter.println("--> DeoptimizationWithExceptionHandlingDebuggee started");
         synchronizer.sendMessage(JPDADebuggeeSynchronizer.SGNL_READY);

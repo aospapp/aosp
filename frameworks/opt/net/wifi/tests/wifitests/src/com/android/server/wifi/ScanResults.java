@@ -138,21 +138,29 @@ public class ScanResults {
      * @see #generateNativeResults for more details on how results are generated
      */
     public static ScanResults create(int id, int... freqs) {
-        return new ScanResults(id, -1, generateNativeResults(id, freqs));
+        return create(id, generateNativeResults(id, freqs));
+    }
+    public static ScanResults create(int id, boolean allChannelsScanned, int... freqs) {
+        return create(id, allChannelsScanned, generateNativeResults(id, freqs));
     }
 
     /**
      * Create a ScanResults with no IE information.
      */
     public static ScanResults createWithNoIE(int id, int... freqs) {
-        return new ScanResults(id, -1, generateNativeResults(false, id, freqs));
+        return create(id, generateNativeResults(false, id, freqs));
     }
 
     /**
      * Create a ScanResults with the given ScanDetails
      */
     public static ScanResults create(int id, ScanDetail... nativeResults) {
-        return new ScanResults(id, -1, nativeResults);
+        return new ScanResults(id, false, -1, nativeResults);
+    }
+
+    public static ScanResults create(int id, boolean allChannelsScanned,
+            ScanDetail... nativeResults) {
+        return new ScanResults(id, allChannelsScanned, -1, nativeResults);
     }
 
     /**
@@ -162,10 +170,11 @@ public class ScanResults {
      */
     public static ScanResults createOverflowing(int id, int maxResults,
             ScanDetail... nativeResults) {
-        return new ScanResults(id, maxResults, nativeResults);
+        return new ScanResults(id, false, maxResults, nativeResults);
     }
 
-    private ScanResults(int id, int maxResults, ScanDetail... nativeResults) {
+    private ScanResults(int id, boolean allChannelsScanned, int maxResults,
+            ScanDetail... nativeResults) {
         mScanResults = new ScanResult[nativeResults.length];
         for (int i = 0; i < nativeResults.length; ++i) {
             mScanDetails.add(nativeResults[i]);
@@ -173,13 +182,13 @@ public class ScanResults {
         }
         ScanResult[] sortedScanResults = Arrays.copyOf(mScanResults, mScanResults.length);
         Arrays.sort(sortedScanResults, SCAN_RESULT_RSSI_COMPARATOR);
-        mRawScanData = new ScanData(id, 0, sortedScanResults);
+        mRawScanData = new ScanData(id, 0, 0, allChannelsScanned, sortedScanResults);
         if (maxResults == -1) {
             mScanData = mRawScanData;
         } else {
             ScanResult[] reducedScanResults = Arrays.copyOf(sortedScanResults,
                     Math.min(sortedScanResults.length, maxResults));
-            mScanData = new ScanData(id, 0, reducedScanResults);
+            mScanData = new ScanData(id, 0, 0, allChannelsScanned, reducedScanResults);
         }
     }
 

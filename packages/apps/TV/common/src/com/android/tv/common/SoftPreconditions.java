@@ -20,7 +20,6 @@ import android.content.Context;
 import android.text.TextUtils;
 import android.util.Log;
 
-import com.android.tv.common.BuildConfig;
 import com.android.tv.common.feature.Feature;
 
 /**
@@ -43,12 +42,14 @@ public final class SoftPreconditions {
      * @param tag Used to identify the source of a log message.  It usually
      *            identifies the class or activity where the log call occurs.
      * @param msg The message you would like logged.
+     * @return the evaluation result of the boolean expression
      * @throws IllegalArgumentException if {@code expression} is true
      */
-    public static void checkArgument(final boolean expression, String tag, String msg) {
+    public static boolean checkArgument(final boolean expression, String tag, String msg) {
         if (!expression) {
             warn(tag, "Illegal argument", msg, new IllegalArgumentException(msg));
         }
+        return expression;
     }
 
     /**
@@ -56,10 +57,12 @@ public final class SoftPreconditions {
      * method is not true.
      *
      * @param expression a boolean expression
+     * @return the evaluation result of the boolean expression
      * @throws IllegalArgumentException if {@code expression} is true
      */
-    public static void checkArgument(final boolean expression) {
+    public static boolean checkArgument(final boolean expression) {
         checkArgument(expression, null, null);
+        return expression;
     }
 
     /**
@@ -98,12 +101,14 @@ public final class SoftPreconditions {
      * @param tag Used to identify the source of a log message.  It usually
      *            identifies the class or activity where the log call occurs.
      * @param msg The message you would like logged.
+     * @return the evaluation result of the boolean expression
      * @throws IllegalStateException if {@code expression} is true
      */
-    public static void checkState(final boolean expression, String tag, String msg) {
+    public static boolean checkState(final boolean expression, String tag, String msg) {
         if (!expression) {
             warn(tag, "Illegal State", msg, new IllegalStateException(msg));
         }
+        return expression;
     }
 
     /**
@@ -111,10 +116,12 @@ public final class SoftPreconditions {
      * instance, but not involving any parameters to the calling method is not true.
      *
      * @param expression a boolean expression
+     * @return the evaluation result of the boolean expression
      * @throws IllegalStateException if {@code expression} is true
      */
-    public static void checkState(final boolean expression) {
+    public static boolean checkState(final boolean expression) {
         checkState(expression, null, null);
+        return expression;
     }
 
     /**

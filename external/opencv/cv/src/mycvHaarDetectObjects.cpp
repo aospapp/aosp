@@ -457,9 +457,9 @@ isqrt(int x)
 
 unsigned int isqrt1(int number) {
 	unsigned int n  = 1;
-	unsigned int n1 = NEXT(n, number);
+	unsigned int n1 = NEXT(n, (unsigned int)number);
 	
-	while(abs(n1 - n) > 1) {
+	while(abs((int)(n1 - n)) > 1) {
 		n  = n1;
 		n1 = NEXT(n, number);
 	}

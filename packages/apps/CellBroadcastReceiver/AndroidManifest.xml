@@ -94,15 +94,7 @@
             <intent-filter>
                 <action android:name="android.provider.Telephony.SMS_CB_RECEIVED" />
             </intent-filter>
-        </activity> 
-
-        <!-- Full-screen version of CellBroadcastAlertDialog to display alerts over lock screen. -->
-        <activity android:name="CellBroadcastAlertFullScreen"
-                  android:excludeFromRecents="true"
-                  android:theme="@style/AlertFullScreenTheme"
-                  android:launchMode="singleTask"
-                  android:exported="false"
-                  android:configChanges="orientation|keyboardHidden|keyboard|navigation" />
+        </activity>
 
         <!-- Container activity for CMAS opt-in/opt-out dialog. -->
         <activity android:name="CellBroadcastOptOutActivity"
@@ -116,6 +108,7 @@
                 <action android:name="android.provider.Telephony.SMS_CB_RECEIVED" />
                 <action android:name="android.cellbroadcastreceiver.START_CONFIG" />
                 <action android:name="android.provider.Telephony.SMS_SERVICE_CATEGORY_PROGRAM_DATA_RECEIVED" />
+                <action android:name="android.intent.action.LOCALE_CHANGED" />
             </intent-filter>
         </receiver>
 
@@ -129,10 +122,8 @@
 
         <receiver android:name="CellBroadcastReceiver">
             <intent-filter>
-                 <action android:name="android.intent.action.SERVICE_STATE" />
-                 <action android:name="android.intent.action.ACTION_DEFAULT_SMS_SUBSCRIPTION_CHANGED" />
-                 <action android:name="android.intent.action.AIRPLANE_MODE" />
-                 <action android:name="android.intent.action.SIM_STATE_CHANGED"/>
+                 <action android:name="android.telephony.action.DEFAULT_SMS_SUBSCRIPTION_CHANGED" />
+                 <action android:name="android.telephony.action.CARRIER_CONFIG_CHANGED" />
             </intent-filter>
         </receiver>
 

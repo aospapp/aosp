@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2009, 2011, 2012
+ * Copyright (c) 2009, 2011, 2012, 2016
  *	mirabilos <m@mirbsd.org>
  *
  * Provided that these terms and disclaimer and all copyright notices
@@ -19,7 +19,7 @@
  */
 
 #if defined(VARSPEC_DEFNS)
-__RCSID("$MirOS: src/bin/mksh/var_spec.h,v 1.7 2015/12/12 21:08:44 tg Exp $");
+__RCSID("$MirOS: src/bin/mksh/var_spec.h,v 1.10 2016/11/11 23:31:39 tg Exp $");
 #define FN(name)			/* nothing */
 #elif defined(VARSPEC_ENUMS)
 #define FN(name)			V_##name,
@@ -40,19 +40,31 @@ F0(NONE)
 
 /* 1 and up are special variables */
 FN(BASHPID)
+#ifdef __OS2__
+FN(BEGINLIBPATH)
+#endif
 FN(COLUMNS)
+#ifdef __OS2__
+FN(ENDLIBPATH)
+#endif
 FN(EPOCHREALTIME)
 #if HAVE_PERSISTENT_HISTORY
 FN(HISTFILE)
 #endif
 FN(HISTSIZE)
 FN(IFS)
+#ifdef __OS2__
+FN(LIBPATHSTRICT)
+#endif
 FN(LINENO)
 FN(LINES)
 FN(OPTIND)
 FN(PATH)
 FN(RANDOM)
 FN(SECONDS)
+#ifndef MKSH_NO_CMDLINE_EDITING
+FN(TERM)
+#endif
 FN(TMOUT)
 FN(TMPDIR)
 

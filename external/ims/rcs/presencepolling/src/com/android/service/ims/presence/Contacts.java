@@ -29,12 +29,12 @@
 package com.android.service.ims.presence;
 
 import android.net.Uri;
-import android.os.SystemClock;
 import android.provider.BaseColumns;
 import android.text.format.Time;
 import com.android.ims.internal.EABContract;
 
 import com.android.ims.internal.ContactNumberUtils;
+import com.android.ims.internal.Logger;
 
 public final class Contacts {
     private Contacts() {}
@@ -45,6 +45,12 @@ public final class Contacts {
      */
     public static final String ACTION_NEW_CONTACT_INSERTED =
             "android.provider.rcs.eab.EAB_NEW_CONTACT_INSERTED";
+
+    /**
+     * Intent that EAB database is reset.
+     */
+    public static final String ACTION_EAB_DATABASE_RESET =
+            "android.provider.rcs.eab.EAB_DATABASE_RESET";
 
     /**
      * Key to bundle the new phone number inserted in EAB Provider.
@@ -70,6 +76,15 @@ public final class Contacts {
          */
         public static final Uri CONTENT_URI =
                 Uri.withAppendedPath(Contacts.CONTENT_URI, TABLE_NAME);
+
+        /**
+         * Key defining the contact number.
+         * <P>
+         * Type: TEXT
+         * </P>
+         */
+        public static final String FORMATTED_NUMBER =
+                EABContract.EABColumns.FORMATTED_NUMBER;
 
         /**
          * Key defining the contact number.
@@ -265,7 +280,7 @@ public final class Contacts {
             return new StringBuilder(256)
                 .append("Contacts.Item { ")
                 .append("\nId: " + mId)
-                .append("\nNumber: " + mNumber)
+                .append("\nNumber: " + Logger.hidePhoneNumberPii(mNumber))
                 .append("\nLast update time: " + mLastUpdateTime + "(" +
                         getTimeString(mLastUpdateTime) + ")")
                 .append("\nVolte capability timestamp: " + mVolteTimeStamp + "(" +

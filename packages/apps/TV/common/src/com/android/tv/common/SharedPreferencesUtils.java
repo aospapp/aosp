@@ -28,9 +28,13 @@ public final class SharedPreferencesUtils {
     public static final String SHARED_PREF_FEATURES = "sharePreferencesFeatures";
     public static final String SHARED_PREF_BROWSABLE = "browsable_shared_preference";
     public static final String SHARED_PREF_WATCHED_HISTORY = "watched_history_shared_preference";
+    public static final String SHARED_PREF_DVR_WATCHED_POSITION =
+            "dvr_watched_position_shared_preference";
     public static final String SHARED_PREF_AUDIO_CAPABILITIES =
             "com.android.tv.audio_capabilities";
     public static final String SHARED_PREF_RECURRING_RUNNER = "sharedPreferencesRecurringRunner";
+    public static final String SHARED_PREF_EPG = "epg_preferences";
+    public static final String SHARED_PREF_SERIES_RECORDINGS = "seriesRecordings";
 
     private static boolean sInitializeCalled;
 
@@ -40,7 +44,7 @@ public final class SharedPreferencesUtils {
      * Call {@link Context#getSharedPreferences(String, int)} as early as possible to avoid the ANR
      * due to the file loading.
      */
-    public static synchronized void initialize(final Context context) {
+    public static synchronized void initialize(final Context context, final Runnable postTask) {
         if (!sInitializeCalled) {
             sInitializeCalled = true;
             new AsyncTask<Void, Void, Void>() {
@@ -50,11 +54,21 @@ public final class SharedPreferencesUtils {
                     context.getSharedPreferences(SHARED_PREF_FEATURES, Context.MODE_PRIVATE);
                     context.getSharedPreferences(SHARED_PREF_BROWSABLE, Context.MODE_PRIVATE);
                     context.getSharedPreferences(SHARED_PREF_WATCHED_HISTORY, Context.MODE_PRIVATE);
+                    context.getSharedPreferences(SHARED_PREF_DVR_WATCHED_POSITION,
+                            Context.MODE_PRIVATE);
                     context.getSharedPreferences(SHARED_PREF_AUDIO_CAPABILITIES,
                             Context.MODE_PRIVATE);
                     context.getSharedPreferences(SHARED_PREF_RECURRING_RUNNER,
                             Context.MODE_PRIVATE);
+                    context.getSharedPreferences(SHARED_PREF_EPG, Context.MODE_PRIVATE);
+                    context.getSharedPreferences(SHARED_PREF_SERIES_RECORDINGS,
+                            Context.MODE_PRIVATE);
                     return null;
+                }
+
+                @Override
+                protected void onPostExecute(Void result) {
+                    postTask.run();
                 }
             }.execute();
         }

@@ -14,18 +14,20 @@
 
 LOCAL_PATH:= $(call my-dir)
 include $(LOCAL_PATH)/../common.mk
+
 include $(CLEAR_VARS)
+LOCAL_MODULE := copybit_headers
+LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)
+include $(BUILD_HEADER_LIBRARY)
 
-LOCAL_COPY_HEADERS_TO         := $(common_header_export_path)
-LOCAL_COPY_HEADERS            := copybit.h copybit_priv.h c2d2.h
-#Copy the headers regardless of whether copybit is built
-include $(BUILD_COPY_HEADERS)
-
+include $(CLEAR_VARS)
+ifneq ($(TARGET_USES_GRALLOC1), true)
 LOCAL_MODULE                  := copybit.$(TARGET_BOARD_PLATFORM)
 LOCAL_MODULE_RELATIVE_PATH    := hw
+LOCAL_PROPRIETARY_MODULE      := true
 LOCAL_MODULE_TAGS             := optional
 LOCAL_C_INCLUDES              := $(common_includes) $(kernel_includes)
-LOCAL_SHARED_LIBRARIES        := $(common_libs) libdl libmemalloc
+LOCAL_SHARED_LIBRARIES        := $(common_libs) libdl
 LOCAL_CFLAGS                  := $(common_flags) -DLOG_TAG=\"qdcopybit\" -Wno-sign-conversion
 LOCAL_ADDITIONAL_DEPENDENCIES := $(common_deps)
 LOCAL_CLANG                   := true
@@ -46,4 +48,5 @@ else
             include $(BUILD_SHARED_LIBRARY)
         endif
     endif
+endif
 endif

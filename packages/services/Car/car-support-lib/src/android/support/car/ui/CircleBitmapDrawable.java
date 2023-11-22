@@ -33,6 +33,7 @@ import android.support.v4.graphics.drawable.RoundedBitmapDrawableFactory;
  *
  * Note that not all drawable functionality is passed to the RoundedBitmapDrawable at this
  * time. Feel free to add more as necessary.
+ * @hide
  */
 public class CircleBitmapDrawable extends Drawable {
     private final Resources mResources;

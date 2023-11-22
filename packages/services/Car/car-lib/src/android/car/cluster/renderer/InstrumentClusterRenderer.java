@@ -20,12 +20,11 @@ import android.annotation.SystemApi;
 import android.annotation.UiThread;
 import android.car.navigation.CarNavigationInstrumentCluster;
 import android.content.Context;
-import android.view.View;
 
 /**
  * Interface for instrument cluster rendering.
  *
- * TODO: implement instrument cluster feature list and extend API.
+ * TODO: implement instrument cluster feature list and extend API. bug: 32060603
  *
  * @hide
  */
@@ -39,21 +38,10 @@ public abstract class InstrumentClusterRenderer {
      */
     abstract public void onCreate(Context context);
 
-    @UiThread
-    abstract public View onCreateView(DisplayConfiguration displayConfiguration);
-
-    @UiThread
     abstract public void onStart();
 
-    @UiThread
     abstract public void onStop();
 
-    /**
-     * Returns properties of instrument cluster for navigation.
-     */
-    abstract public CarNavigationInstrumentCluster getNavigationProperties();
-
-    @UiThread
     abstract protected NavigationRenderer createNavigationRenderer();
 
     /** The method is thread-safe, callers should cache returned object. */

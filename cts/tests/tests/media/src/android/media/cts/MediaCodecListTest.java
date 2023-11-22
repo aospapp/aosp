@@ -40,6 +40,8 @@ public class MediaCodecListTest extends AndroidTestCase {
 
     private static final String TAG = "MediaCodecListTest";
     private static final String MEDIA_CODEC_XML_FILE = "/etc/media_codecs.xml";
+    private static final String VENDOR_MEDIA_CODEC_XML_FILE = "/vendor/etc/media_codecs.xml";
+    private static final String ODM_MEDIA_CODEC_XML_FILE = "/odm/etc/media_codecs.xml";
     private final MediaCodecList mRegularCodecs =
             new MediaCodecList(MediaCodecList.REGULAR_CODECS);
     private final MediaCodecList mAllCodecs =
@@ -92,7 +94,10 @@ public class MediaCodecListTest extends AndroidTestCase {
 
     public static void testMediaCodecXmlFileExist() {
         File file = new File(MEDIA_CODEC_XML_FILE);
-        assertTrue("/etc/media_codecs.xml does not exist", file.exists());
+        File vendorFile = new File(VENDOR_MEDIA_CODEC_XML_FILE);
+        File odmFile = new File(ODM_MEDIA_CODEC_XML_FILE);
+        assertTrue("media_codecs.xml does not exist in /odm/etc, /vendor/etc or /etc.",
+                file.exists() || vendorFile.exists() || odmFile.exists());
     }
 
     private MediaCodecInfo[] getLegacyInfos() {

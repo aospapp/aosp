@@ -5,7 +5,6 @@
 AUTHOR = "Chrome OS Team"
 NAME = "AFDO_record"
 PURPOSE = "Exercise Chrome, record profiling data using AFDO."
-CRITERIA = "The browser should do a reasonable amout, upload must succeed"
 
 TIME = "LONG"
 TEST_CATEGORY = "General"
@@ -47,7 +46,7 @@ _BUG_TEMPLATE = {
     'status': None,
     'summary': None,
     'title': None,
-    'cc': ['bjanakiraman@chromium.org']
+    'cc': ['laszio@chromium.org']
 }
 
 args_dict['job'] = job

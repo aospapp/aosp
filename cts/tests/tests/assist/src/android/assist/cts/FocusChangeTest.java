@@ -16,18 +16,13 @@
 
 package android.assist.cts;
 
-import android.assist.cts.TestStartActivity;
 import android.assist.common.Utils;
-
-import android.app.Activity;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.test.ActivityInstrumentationTestCase2;
 import android.util.Log;
 
-import java.lang.Override;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 

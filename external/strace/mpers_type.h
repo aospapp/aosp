@@ -26,6 +26,9 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#ifndef STRACE_MPERS_TYPE_H
+#define STRACE_MPERS_TYPE_H
+
 #ifdef IN_MPERS
 # define STRINGIFY(a) #a
 # define DEF_MPERS_TYPE(args) STRINGIFY(args.h)
@@ -39,5 +42,11 @@
 #else
 # define MPERS_PREFIX
 # define DEF_MPERS_TYPE(args) "empty.h"
-# define MPERS_DEFS "native_defs.h"
+# if IN_MPERS_BOOTSTRAP
+#  define MPERS_DEFS "empty.h"
+# else
+#  define MPERS_DEFS "native_defs.h"
+# endif
 #endif
+
+#endif /* !STRACE_MPERS_TYPE_H */

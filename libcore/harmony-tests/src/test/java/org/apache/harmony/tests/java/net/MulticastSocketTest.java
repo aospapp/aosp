@@ -32,8 +32,14 @@ import java.net.SocketTimeoutException;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.List;
+import libcore.junit.junit3.TestCaseWithRules;
+import libcore.junit.util.ResourceLeakageDetector;
+import org.junit.Rule;
+import org.junit.rules.TestRule;
 
-public class MulticastSocketTest extends junit.framework.TestCase {
+public class MulticastSocketTest extends TestCaseWithRules {
+    @Rule
+    public TestRule guardRule = ResourceLeakageDetector.getRule();
 
     private static InetAddress lookup(String s) {
         try {
@@ -71,7 +77,7 @@ public class MulticastSocketTest extends junit.framework.TestCase {
 
         // Determine if the device is marked to support multicast or not. If this propery is not
         // set we assume the device has an interface capable of supporting multicast.
-        supportsMulticast = Boolean.valueOf(
+        supportsMulticast = Boolean.parseBoolean(
                 System.getProperty("android.cts.device.multicast", "true"));
         if (!supportsMulticast) {
             return;
@@ -573,32 +579,33 @@ public class MulticastSocketTest extends junit.framework.TestCase {
         SocketAddress groupSockAddr = null;
         SocketAddress groupSockAddr2 = null;
 
-        MulticastSocket mss = new MulticastSocket(0);
-        groupSockAddr = new InetSocketAddress(group, mss.getLocalPort());
-        mss.joinGroup(groupSockAddr, null);
-        mss.leaveGroup(groupSockAddr, null);
-        try {
+        try (MulticastSocket mss = new MulticastSocket(0)) {
+            groupSockAddr = new InetSocketAddress(group, mss.getLocalPort());
+            mss.joinGroup(groupSockAddr, null);
             mss.leaveGroup(groupSockAddr, null);
-            fail("Did not get exception when trying to leave group that was already left");
-        } catch (IOException expected) {
-        }
+            try {
+                mss.leaveGroup(groupSockAddr, null);
+                fail("Did not get exception when trying to leave group that was already left");
+            } catch (IOException expected) {
+            }
 
-        groupSockAddr2 = new InetSocketAddress(group2, mss.getLocalPort());
-        mss.joinGroup(groupSockAddr, networkInterface);
-        try {
-            mss.leaveGroup(groupSockAddr2, networkInterface);
-            fail("Did not get exception when trying to leave group that was never joined");
-        } catch (IOException expected) {
-        }
+            groupSockAddr2 = new InetSocketAddress(group2, mss.getLocalPort());
+            mss.joinGroup(groupSockAddr, networkInterface);
+            try {
+                mss.leaveGroup(groupSockAddr2, networkInterface);
+                fail("Did not get exception when trying to leave group that was never joined");
+            } catch (IOException expected) {
+            }
 
-        mss.leaveGroup(groupSockAddr, networkInterface);
+            mss.leaveGroup(groupSockAddr, networkInterface);
 
-        mss.joinGroup(groupSockAddr, networkInterface);
-        try {
-            mss.leaveGroup(groupSockAddr, loopbackInterface);
-            fail("Did not get exception when trying to leave group on wrong interface " +
-                    "joined on [" + networkInterface + "] left on [" + loopbackInterface + "]");
-        } catch (IOException expected) {
+            mss.joinGroup(groupSockAddr, networkInterface);
+            try {
+                mss.leaveGroup(groupSockAddr, loopbackInterface);
+                fail("Did not get exception when trying to leave group on wrong interface " +
+                        "joined on [" + networkInterface + "] left on [" + loopbackInterface + "]");
+            } catch (IOException expected) {
+            }
         }
     }
 

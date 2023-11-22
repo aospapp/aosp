@@ -16,7 +16,10 @@
 
 package android.support.v7.view.menu;
 
+import static android.support.annotation.RestrictTo.Scope.LIBRARY_GROUP;
+
 import android.content.Context;
+import android.support.annotation.RestrictTo;
 import android.support.v7.view.menu.MenuBuilder.ItemInvoker;
 import android.support.v7.widget.TintTypedArray;
 import android.util.AttributeSet;
@@ -31,6 +34,7 @@ import android.widget.ListView;
  *
  * @hide
  */
+@RestrictTo(LIBRARY_GROUP)
 public final class ExpandedMenuView extends ListView
         implements ItemInvoker, MenuView, OnItemClickListener {
 

@@ -17,6 +17,9 @@ LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 LOCAL_MODULE_TAGS := tests
 LOCAL_SDK_VERSION := current
-LOCAL_SRC_FILES := com/android/cts/net/hostside/IRemoteSocketFactory.aidl
+LOCAL_SRC_FILES := \
+        com/android/cts/net/hostside/IMyService.aidl \
+        com/android/cts/net/hostside/INetworkStateObserver.aidl \
+        com/android/cts/net/hostside/IRemoteSocketFactory.aidl
 LOCAL_MODULE := CtsHostsideNetworkTestsAidl
-include $(BUILD_JAVA_LIBRARY)
+include $(BUILD_STATIC_JAVA_LIBRARY)

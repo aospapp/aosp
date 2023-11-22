@@ -29,7 +29,7 @@ class IMemory;
 // DataSource because it calls back to the IDataSource for data.
 class CallbackDataSource : public DataSource {
 public:
-    CallbackDataSource(const sp<IDataSource>& iDataSource);
+    explicit CallbackDataSource(const sp<IDataSource>& iDataSource);
     virtual ~CallbackDataSource();
 
     // DataSource implementation.
@@ -42,6 +42,7 @@ public:
         return mName;
     }
     virtual sp<DecryptHandle> DrmInitialization(const char *mime = NULL);
+    virtual sp<IDataSource> getIDataSource() const;
 
 private:
     sp<IDataSource> mIDataSource;
@@ -59,7 +60,7 @@ private:
 // impact on time taken for filetype sniffing and metadata extraction.
 class TinyCacheSource : public DataSource {
 public:
-    TinyCacheSource(const sp<DataSource>& source);
+    explicit TinyCacheSource(const sp<DataSource>& source);
 
     virtual status_t initCheck() const;
     virtual ssize_t readAt(off64_t offset, void* data, size_t size);
@@ -70,6 +71,7 @@ public:
         return mName;
     }
     virtual sp<DecryptHandle> DrmInitialization(const char *mime = NULL);
+    virtual sp<IDataSource> getIDataSource() const;
 
 private:
     // 2kb comes from experimenting with the time-to-first-frame from a MediaPlayer

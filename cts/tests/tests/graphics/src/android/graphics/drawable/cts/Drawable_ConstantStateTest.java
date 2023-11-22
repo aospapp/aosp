@@ -16,53 +16,63 @@
 
 package android.graphics.drawable.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+
+import android.content.Context;
+import android.content.res.Resources;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.Drawable.ConstantState;
-import android.test.AndroidTestCase;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 
-public class Drawable_ConstantStateTest extends AndroidTestCase {
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class Drawable_ConstantStateTest {
+    @Test
     public void testNewDrawable() {
-        MockConstantState mock = new MockConstantState();
+        Context context = InstrumentationRegistry.getTargetContext();
+        Resources resources = context.getResources();
+
+        MockConstantState mock = spy(new MockConstantState());
         ConstantState cs = mock;
 
         assertEquals(null, cs.newDrawable());
-        assertTrue(mock.hasCalledNewDrawable());
-        mock.reset();
+        verify(mock, times(1)).newDrawable();
+        reset(mock);
 
-        assertEquals(null, cs.newDrawable(mContext.getResources()));
-        assertTrue(mock.hasCalledNewDrawable());
-        mock.reset();
+        assertEquals(null, cs.newDrawable(resources));
+        verify(mock, times(1)).newDrawable();
+        reset(mock);
 
-        assertEquals(null, cs.newDrawable(mContext.getResources(), mContext.getTheme()));
-        assertTrue(mock.hasCalledNewDrawable());
+        assertEquals(null, cs.newDrawable(resources, context.getTheme()));
+        verify(mock, times(1)).newDrawable();
+        reset(mock);
     }
 
+    @Test
     public void testCanApplyTheme() {
         ConstantState cs = new MockConstantState();
         assertFalse(cs.canApplyTheme());
     }
 
     public static class MockConstantState extends ConstantState {
-        private boolean mCalledNewDrawable;
-
         @Override
         public Drawable newDrawable() {
-            mCalledNewDrawable = true;
             return null;
         }
 
         @Override
         public int getChangingConfigurations() {
             return 0;
-        }
-
-        public boolean hasCalledNewDrawable() {
-            return mCalledNewDrawable;
-        }
-
-        public void reset() {
-            mCalledNewDrawable = false;
         }
     }
 }

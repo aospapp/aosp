@@ -20,13 +20,12 @@ Note: it should nearly never be required to remove old versions of good/bad
 images from these directories.
 """
 ATTRIBUTES = "suite:hwqual"
-SUITE = 'hwqual'
 TIME='FAST'
 TEST_CATEGORY = 'Performance'
 TEST_CLASS = "gl"
 TEST_TYPE = 'client'
 BUG_TEMPLATE = {
-    'labels': ['Cr-OS-Kernel-Graphics'],
+    'components': ['OS>Kernel>Graphics'],
 }
 
 DOC = """

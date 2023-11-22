@@ -51,8 +51,7 @@
     <string name="ringtone_silent" msgid="249805466934178869">"Wala"</string>
     <string name="ringtone_unknown" msgid="2303463713486734520">"Hindi kilalang ringtone"</string>
     <string name="callFailed_maximum_reached" msgid="4823790040422765056">"Ginagamit ang lahat ng available na linya. Upang tumawag, putulin ang koneksyon ng isa sa mga tawag sa device na ito, o sa isa sa iyong iba pang mga device."</string>
-    <!-- no translation found for callFailed_data_disabled (3885826754435317856) -->
-    <skip />
-    <!-- no translation found for callFailed_data_limit_reached (8092511810380535738) -->
-    <skip />
+    <string name="callFailed_data_disabled" msgid="3885826754435317856">"Natapos na ang tawag dahil na-disable ang cellular data."</string>
+    <string name="callFailed_data_limit_reached_description" msgid="1439284832802552582">"Natapos na ang tawag dahil naabot ang limitasyon ng cellular data."</string>
+    <string name="callFailed_data_limit_reached" msgid="7045770594965160282">"Naabot ang limitasyon ng data. Natapos na ang tawag."</string>
 </resources>

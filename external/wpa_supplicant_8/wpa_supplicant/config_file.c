@@ -19,6 +19,7 @@
 #include "config.h"
 #include "base64.h"
 #include "uuid.h"
+#include "common/ieee802_1x_defs.h"
 #include "p2p/p2p.h"
 #include "eap_peer/eap_methods.h"
 #include "eap_peer/eap.h"
@@ -135,6 +136,9 @@ static int wpa_config_validate_network(struct wpa_ssid *ssid, int line)
 		}
 		wpa_config_update_psk(ssid);
 	}
+
+	if (ssid->disabled == 2)
+		ssid->p2p_persistent_group = 1;
 
 	if ((ssid->group_cipher & WPA_CIPHER_CCMP) &&
 	    !(ssid->pairwise_cipher & WPA_CIPHER_CCMP) &&
@@ -662,6 +666,40 @@ static void write_psk_list(FILE *f, struct wpa_ssid *ssid)
 #endif /* CONFIG_P2P */
 
 
+#ifdef CONFIG_MACSEC
+
+static void write_mka_cak(FILE *f, struct wpa_ssid *ssid)
+{
+	char *value;
+
+	if (!(ssid->mka_psk_set & MKA_PSK_SET_CAK))
+		return;
+
+	value = wpa_config_get(ssid, "mka_cak");
+	if (!value)
+		return;
+	fprintf(f, "\tmka_cak=%s\n", value);
+	os_free(value);
+}
+
+
+static void write_mka_ckn(FILE *f, struct wpa_ssid *ssid)
+{
+	char *value;
+
+	if (!(ssid->mka_psk_set & MKA_PSK_SET_CKN))
+		return;
+
+	value = wpa_config_get(ssid, "mka_ckn");
+	if (!value)
+		return;
+	fprintf(f, "\tmka_ckn=%s\n", value);
+	os_free(value);
+}
+
+#endif /* CONFIG_MACSEC */
+
+
 static void wpa_config_write_network(FILE *f, struct wpa_ssid *ssid)
 {
 	int i;
@@ -756,6 +794,7 @@ static void wpa_config_write_network(FILE *f, struct wpa_ssid *ssid)
 	INT(mixed_cell);
 	INT(max_oper_chwidth);
 	INT(pbss);
+	INT(wps_disabled);
 #ifdef CONFIG_IEEE80211W
 	write_int(f, "ieee80211w", ssid->ieee80211w,
 		  MGMT_FRAME_PROTECTION_DEFAULT);
@@ -771,6 +810,11 @@ static void wpa_config_write_network(FILE *f, struct wpa_ssid *ssid)
 	INT(beacon_int);
 #ifdef CONFIG_MACSEC
 	INT(macsec_policy);
+	write_mka_cak(f, ssid);
+	write_mka_ckn(f, ssid);
+	INT(macsec_integ_only);
+	INT(macsec_port);
+	INT_DEF(mka_priority, DEFAULT_PRIO_NOT_KEY_SERVER);
 #endif /* CONFIG_MACSEC */
 #ifdef CONFIG_HS20
 	INT(update_identifier);
@@ -784,6 +828,7 @@ static void wpa_config_write_network(FILE *f, struct wpa_ssid *ssid)
 	INT_DEF(dot11MeshHoldingTimeout, DEFAULT_MESH_HOLDING_TIMEOUT);
 #endif /* CONFIG_MESH */
 	INT(wpa_ptk_rekey);
+	INT(group_rekey);
 	INT(ignore_broadcast_ssid);
 #ifdef CONFIG_HT_OVERRIDES
 	INT_DEF(disable_ht, DEFAULT_DISABLE_HT);
@@ -1074,6 +1119,17 @@ static void wpa_config_write_global(FILE *f, struct wpa_config *config)
 	}
 #endif /* CONFIG_WPS */
 #ifdef CONFIG_P2P
+	{
+		int i;
+		char _buf[WPS_DEV_TYPE_BUFSIZE], *buf;
+
+		for (i = 0; i < config->num_sec_device_types; i++) {
+			buf = wps_dev_type_bin2str(config->sec_device_type[i],
+						   _buf, sizeof(_buf));
+			if (buf)
+				fprintf(f, "sec_device_type=%s\n", buf);
+		}
+	}
 	if (config->p2p_listen_reg_class)
 		fprintf(f, "p2p_listen_reg_class=%d\n",
 			config->p2p_listen_reg_class);
@@ -1173,6 +1229,8 @@ static void wpa_config_write_global(FILE *f, struct wpa_config *config)
 			config->bss_expiration_scan_count);
 	if (config->filter_ssids)
 		fprintf(f, "filter_ssids=%d\n", config->filter_ssids);
+	if (config->filter_rssi)
+		fprintf(f, "filter_rssi=%d\n", config->filter_rssi);
 	if (config->max_num_sta != DEFAULT_MAX_NUM_STA)
 		fprintf(f, "max_num_sta=%u\n", config->max_num_sta);
 	if (config->disassoc_low_ack)
@@ -1224,7 +1282,7 @@ static void wpa_config_write_global(FILE *f, struct wpa_config *config)
 	if (config->sae_groups) {
 		int i;
 		fprintf(f, "sae_groups=");
-		for (i = 0; config->sae_groups[i] >= 0; i++) {
+		for (i = 0; config->sae_groups[i] > 0; i++) {
 			fprintf(f, "%s%d", i > 0 ? " " : "",
 				config->sae_groups[i]);
 		}
@@ -1275,6 +1333,9 @@ static void wpa_config_write_global(FILE *f, struct wpa_config *config)
 
 	if (config->bgscan)
 		fprintf(f, "bgscan=\"%s\"\n", config->bgscan);
+
+	if (config->autoscan)
+		fprintf(f, "autoscan=%s\n", config->autoscan);
 
 	if (config->p2p_search_delay != DEFAULT_P2P_SEARCH_DELAY)
 		fprintf(f, "p2p_search_delay=%u\n",
@@ -1334,6 +1395,30 @@ static void wpa_config_write_global(FILE *f, struct wpa_config *config)
 	if (config->mbo_cell_capa != DEFAULT_MBO_CELL_CAPA)
 		fprintf(f, "mbo_cell_capa=%u\n", config->mbo_cell_capa);
 #endif /* CONFIG_MBO */
+
+	if (config->gas_address3)
+		fprintf(f, "gas_address3=%d\n", config->gas_address3);
+
+	if (config->ftm_responder)
+		fprintf(f, "ftm_responder=%d\n", config->ftm_responder);
+	if (config->ftm_initiator)
+		fprintf(f, "ftm_initiator=%d\n", config->ftm_initiator);
+
+	if (config->osu_dir)
+		fprintf(f, "osu_dir=%s\n", config->osu_dir);
+
+	if (config->fst_group_id)
+		fprintf(f, "fst_group_id=%s\n", config->fst_group_id);
+	if (config->fst_priority)
+		fprintf(f, "fst_priority=%d\n", config->fst_priority);
+	if (config->fst_llt)
+		fprintf(f, "fst_llt=%d\n", config->fst_llt);
+
+	if (config->gas_rand_addr_lifetime != DEFAULT_RAND_ADDR_LIFETIME)
+		fprintf(f, "gas_rand_addr_lifetime=%u\n",
+			config->gas_rand_addr_lifetime);
+	if (config->gas_rand_mac_addr)
+		fprintf(f, "gas_rand_mac_addr=%d\n", config->gas_rand_mac_addr);
 
 }
 

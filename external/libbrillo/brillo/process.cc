@@ -13,9 +13,11 @@
 #include <unistd.h>
 
 #include <map>
+#include <memory>
 
 #include <base/files/file_util.h>
 #include <base/logging.h>
+#include <base/memory/ptr_util.h>
 #include <base/posix/eintr_wrapper.h>
 #include <base/process/process_metrics.h>
 #include <base/strings/string_number_conversions.h>
@@ -209,7 +211,8 @@ bool ProcessImpl::Start() {
   if (arguments_.empty()) {
     return false;
   }
-  scoped_ptr<char*[]> argv(new char*[arguments_.size() + 1]);
+  std::unique_ptr<char* []> argv =
+      base::MakeUnique<char* []>(arguments_.size() + 1);
 
   for (size_t i = 0; i < arguments_.size(); ++i)
     argv[i] = const_cast<char*>(arguments_[i].c_str());
@@ -240,11 +243,18 @@ bool ProcessImpl::Start() {
     for (PipeMap::iterator i = pipe_map_.begin(); i != pipe_map_.end(); ++i) {
       if (i->second.parent_fd_ != -1)
         IGNORE_EINTR(close(i->second.parent_fd_));
+      // If we want to bind a fd to the same fd in the child, we don't need to
+      // close and dup2 it.
+      if (i->second.child_fd_ == i->first)
+        continue;
       HANDLE_EINTR(dup2(i->second.child_fd_, i->first));
     }
     // Defer the actual close() of the child fd until afterward; this lets the
-    // same child fd be bound to multiple fds using BindFd
+    // same child fd be bound to multiple fds using BindFd. Don't close the fd
+    // if it was bound to itself.
     for (PipeMap::iterator i = pipe_map_.begin(); i != pipe_map_.end(); ++i) {
+      if (i->second.child_fd_ == i->first)
+        continue;
       IGNORE_EINTR(close(i->second.child_fd_));
     }
     if (!output_file_.empty()) {
@@ -296,9 +306,11 @@ bool ProcessImpl::Start() {
     // Still executing inside the parent process with known child pid.
     arguments_.clear();
     UpdatePid(pid);
-    // Close our copy of child side pipes.
-    for (PipeMap::iterator i = pipe_map_.begin(); i != pipe_map_.end(); ++i) {
-      IGNORE_EINTR(close(i->second.child_fd_));
+    // Close our copy of child side pipes only if we created those pipes.
+    for (const auto& i : pipe_map_) {
+      if (!i.second.is_bound_) {
+        IGNORE_EINTR(close(i.second.child_fd_));
+      }
     }
   }
   return true;
@@ -347,20 +359,17 @@ bool ProcessImpl::Kill(int signal, int timeout) {
     return false;
   }
   if (kill(pid_, signal) < 0) {
-    int saved_errno = errno;
-    LOG(ERROR) << "Unable to send signal to " << pid_ << " error "
-               << saved_errno;
+    PLOG(ERROR) << "Unable to send signal to " << pid_;
     return false;
   }
   base::TimeTicks start_signal = base::TimeTicks::Now();
   do {
     int status = 0;
     pid_t w = waitpid(pid_, &status, WNOHANG);
-    int saved_errno = errno;
     if (w < 0) {
-      if (saved_errno == ECHILD)
+      if (errno == ECHILD)
         return true;
-      LOG(ERROR) << "Waitpid returned " << w << ", errno " << saved_errno;
+      PLOG(ERROR) << "Waitpid returned " << w;
       return false;
     }
     if (w > 0) {

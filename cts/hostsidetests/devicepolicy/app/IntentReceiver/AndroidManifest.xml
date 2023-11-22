@@ -21,7 +21,8 @@
 
     <uses-permission android:name="com.android.cts.managedprofile.permission.SAMPLE"/>
 
-    <application>
+    <application
+        android:testOnly="true">
 
         <uses-library android:name="android.test.runner" />
 
@@ -31,6 +32,8 @@
                 <action android:name="com.android.cts.action.READ_FROM_URI" />
                 <action android:name="com.android.cts.action.TAKE_PERSISTABLE_URI_PERMISSION" />
                 <action android:name="com.android.cts.action.WRITE_TO_URI" />
+                <action android:name="com.android.cts.action.NOTIFY_URI_CHANGE"/>
+                <action android:name="com.android.cts.action.OBSERVE_URI_CHANGE"/>
                 <action android:name="com.android.cts.action.JUST_CREATE" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>

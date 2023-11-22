@@ -57,14 +57,18 @@
     <string name="desc_del" msgid="7879515781929311432">"удалить"</string>
     <string name="desc_inv_off" msgid="3672218250519616068">"показать обратные функции"</string>
     <string name="desc_inv_on" msgid="2515675590767677178">"скрыть обратные функции"</string>
+    <string name="desc_formula" msgid="8056588859637585007">"Нет формулы"</string>
+    <string name="desc_result" msgid="1794073190203126821">"Ничего не найдено"</string>
+    <string name="desc_num_pad" msgid="515720457459745571">"Числа и основные операции"</string>
+    <string name="desc_adv_pad" msgid="3794276256462677914">"Сложные операции"</string>
     <string name="error_nan" msgid="5674077944929888710">"Не число"</string>
     <string name="error_syntax" msgid="4786987111228645602">"Неправ. выраж-е"</string>
     <string name="error_aborted" msgid="3402238176316342537">"Отменено"</string>
     <string name="error_overflow" msgid="7800547394563434764">"Бесконечное число"</string>
     <string name="error_zero_divide" msgid="458040988686661801">"На 0 делить нельзя"</string>
     <string name="text_copied_toast" msgid="2104264466812485425">"Текст скопирован"</string>
-    <string name="cancelled" msgid="1618889609742874632">"Вычисление отменено."</string>
-    <string name="timeout" msgid="802690170415591535">"Время ожидание истекло. Значение может быть бесконечным или неопределенным."</string>
+    <string name="cancelled" msgid="2207323593183640994">"Вычисление отменено."</string>
+    <string name="timeout" msgid="5461892570729418573">"Значение может быть бесконечным или неопределенным."</string>
     <string name="ok_remove_timeout" msgid="8344529153919268011">"Увеличить время ожидания"</string>
     <string name="dismiss" msgid="7872443888515066216">"Закрыть"</string>
     <string name="exact" msgid="2597237880041789948">"(точно)"</string>
@@ -72,4 +76,12 @@
     <string name="menu_leading" msgid="2338520833272667740">"С первыми цифрами"</string>
     <string name="menu_fraction" msgid="1247477377840252234">"В виде дроби"</string>
     <string name="menu_licenses" msgid="1890541368064108592">"Лицензии открытого ПО"</string>
+    <string name="menu_history" msgid="9006222701220105452">"История"</string>
+    <string name="menu_clear_history" msgid="2336526604226069572">"Очистить"</string>
+    <string name="title_history" msgid="7820912156315181539">"История"</string>
+    <string name="desc_navigate_up" msgid="6208699569165589623">"Перейти вверх"</string>
+    <string name="dialog_timeout" msgid="9069768442342329065">"Время ожидания истекло"</string>
+    <string name="dialog_clear" msgid="7137395395908350702">"Очистить историю и память?"</string>
+    <string name="title_current_expression" msgid="2442754548537900591">"Текущее выражение"</string>
+    <string name="no_history" msgid="4331262030447527188">"В истории нет записей"</string>
 </resources>

@@ -16,7 +16,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="phoneAppLabel" product="tablet" msgid="1107073389495104784">"Data ya Simu za Mkononi"</string>
+    <string name="phoneAppLabel" product="tablet" msgid="8576272342240415145">"Data ya Simu"</string>
     <string name="phoneAppLabel" product="default" msgid="6790717591729922998">"Huduma za Simu"</string>
     <string name="emergencyDialerIconLabel" msgid="7812140032168171053">"Kipigaji cha Dhararu"</string>
     <string name="phoneIconLabel" msgid="2331230813161304895">"Simu"</string>
@@ -45,6 +45,7 @@
     <string name="no_vm_number" msgid="4164780423805688336">"Nambari ya sauti inayokosekana"</string>
     <string name="no_vm_number_msg" msgid="1300729501030053828">"Hakuna nambari ya ujumbe wa sauti iliyohifadhiwa katika SIM kadi."</string>
     <string name="add_vm_number_str" msgid="4676479471644687453">"Ongeza nambari"</string>
+    <string name="voice_number_setting_primary_user_only" msgid="6596604364907022416">"Mipangilio ya ujumbe wa sauti inaweza kubadilishwa na Mtumiaji wa Msingi Pekee."</string>
     <string name="puk_unlocked" msgid="2284912838477558454">"Kadi yako ya simu imefunguliwa. Simu yangu inafungua…."</string>
     <string name="label_ndp" msgid="780479633159517250">"PIN ya kufungua mtandao wa SIM"</string>
     <string name="sim_ndp_unlock_text" msgid="683628237760543009">"Fungua"</string>
@@ -52,7 +53,7 @@
     <string name="requesting_unlock" msgid="6412629401033249351">"Inaomba mtandao ufunguliwe…."</string>
     <string name="unlock_failed" msgid="6490531697031504225">"Ombi la kufungua mtandao halijafaulu."</string>
     <string name="unlock_success" msgid="6770085622238180152">"Umefaulu kufungua mtandao."</string>
-    <string name="mobile_network_settings_not_available" msgid="3831911315358856062">"Mipangilio ya mitandao ya simu za mkononi haipatikani kwa mtumiaji huyu"</string>
+    <string name="mobile_network_settings_not_available" msgid="7355254462995117896">"Mipangilio ya mtandao wa simu za mkononi haipatikani kwa mtumiaji huyu"</string>
     <string name="labelGSMMore" msgid="5930842194056092106">"Mipangilio ya simu ya GSM"</string>
     <string name="labelGsmMore_with_label" msgid="2674012918829238901">"Mipangilio ya simu ya GSM (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="labelCDMAMore" msgid="1630676740428229339">"Mipangilio ya simu ya CDMA"</string>
@@ -76,6 +77,7 @@
     <string name="voicemail" msgid="8693759337917898954">"Ujumbe wa sauti"</string>
     <string name="voicemail_settings_with_label" msgid="152724978380748296">"Ujumbe wa sauti (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="voicemail_abbreviated" msgid="2215592488517217448">"VM:"</string>
+    <string name="voicemail_notifications_preference_title" msgid="4019728578955102213">"Arifa"</string>
     <string name="networks" msgid="8873030692174541976">"Kampuni zinazotoa huduma"</string>
     <string name="cell_broadcast_settings" msgid="8740238216690502563">"Matangazo ya dharura"</string>
     <string name="call_settings" msgid="6112441768261754562">"Mipangilio ya simu"</string>
@@ -86,13 +88,13 @@
     <string name="sum_cdma_call_settings" msgid="284753265979035549">"Mipangilio ya ziada ya simu ya CDMA tu"</string>
     <string name="labelNwService" msgid="4699970172021870983">"Mipangilio ya huduma ya mtandao"</string>
     <string name="labelCallerId" msgid="3888899447379069198">"Kitambulisho cha mpigaji SIM"</string>
-    <string name="sum_loading_settings" msgid="1826692909391168620">"Inapakia mipangilio..."</string>
+    <string name="sum_loading_settings" msgid="1826692909391168620">"Mipangilio inapakia..."</string>
     <string name="sum_hide_caller_id" msgid="1071407020290873782">"Nambari imefichwa kwa simu unayopiga"</string>
     <string name="sum_show_caller_id" msgid="6768534125447290401">"Namba inaonekana kwa simu zinazopigwa"</string>
     <string name="sum_default_caller_id" msgid="1954518825510901365">"Tumia mipangilio ya kiendesha chaguo-msingi kuonyesha namba kwa simu zinazopigwa"</string>
-    <string name="labelCW" msgid="6120513814915920200">"Simu inasubiriwa"</string>
-    <string name="sum_cw_enabled" msgid="8083061901633671397">"Wakati wa simu, niarifu juu ya simu zinazoingia"</string>
-    <string name="sum_cw_disabled" msgid="3648693907300104575">"Wakati wa simu, niarifu kuhusu simu zinazoingia"</string>
+    <string name="labelCW" msgid="6120513814915920200">"Simu inayosubiri kupokewa"</string>
+    <string name="sum_cw_enabled" msgid="8083061901633671397">"Wakati ninapokea simu, niarifu kuhusu simu zingine zinazoingia"</string>
+    <string name="sum_cw_disabled" msgid="3648693907300104575">"Wakati ninapokea simu, niarifu kuhusu simu zingine zinazoingia"</string>
     <string name="call_forwarding_settings" msgid="3378927671091537173">"Mipangilio ya kusambaza simu"</string>
     <string name="call_forwarding_settings_with_label" msgid="8569489414006897127">"Mipangilio ya kusambaza simu (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="labelCF" msgid="2574386948026924737">"Kusambaza simu"</string>
@@ -101,35 +103,35 @@
     <string name="sum_cfu_enabled_indicator" msgid="4014187342724130197">"Inasambaza  simu zote"</string>
     <string name="sum_cfu_enabled" msgid="2450052502198827927">"Inasambaza simu zote kwa <xliff:g id="PHONENUMBER">{0}</xliff:g>"</string>
     <string name="sum_cfu_enabled_no_number" msgid="6591985777096823616">"Nambari haipatikani"</string>
-    <string name="sum_cfu_disabled" msgid="8384177689501334080">"Umezimwa"</string>
+    <string name="sum_cfu_disabled" msgid="8384177689501334080">"Imezimwa"</string>
     <string name="labelCFB" msgid="6139853033106283172">"Wakati nina shughuli"</string>
     <string name="messageCFB" msgid="3711089705936187129">"Wakati namba inatumika"</string>
     <string name="sum_cfb_enabled" msgid="5984198104833116690">"Inasambaza kwa <xliff:g id="PHONENUMBER">{0}</xliff:g>"</string>
-    <string name="sum_cfb_disabled" msgid="4913145177320506827">"Umezimwa"</string>
+    <string name="sum_cfb_disabled" msgid="4913145177320506827">"Imezimwa"</string>
     <string name="disable_cfb_forbidden" msgid="3506984333877998061">"Mtoa huduma wako haauni ulemezaji wa kusambaza simu wakati simu yako inashughuli."</string>
     <string name="labelCFNRy" msgid="1736067178393744351">"Nisipojibu"</string>
     <string name="messageCFNRy" msgid="672317899884380374">"Weka namba wakati haijajibiwa"</string>
     <string name="sum_cfnry_enabled" msgid="6955775691317662910">"Inasambaza kwa <xliff:g id="PHONENUMBER">{0}</xliff:g>"</string>
-    <string name="sum_cfnry_disabled" msgid="3884684060443538097">"Umezimwa"</string>
+    <string name="sum_cfnry_disabled" msgid="3884684060443538097">"Imezimwa"</string>
     <string name="disable_cfnry_forbidden" msgid="4308233959150658058">"Mtoa huduma wako haauni ulemezaji wa kusambaza simu wakati simu yako haijibu."</string>
     <string name="labelCFNRc" msgid="2614827454402079766">"Ikiwa sipatikani"</string>
     <string name="messageCFNRc" msgid="6380695421020295119">"Wakati namba haipatikani"</string>
     <string name="sum_cfnrc_enabled" msgid="7010898346095497421">"Inasambaza kwa <xliff:g id="PHONENUMBER">{0}</xliff:g>"</string>
-    <string name="sum_cfnrc_disabled" msgid="7222141261321276464">"Kimezimwa"</string>
+    <string name="sum_cfnrc_disabled" msgid="2684474391807469832">"Imezimwa"</string>
     <string name="disable_cfnrc_forbidden" msgid="5646361343094064333">"Mtoa huduma wako haauni ulemezaji wa kusambaza simu wakati simu yako haifikiwi."</string>
     <string name="updating_title" msgid="6146755386174019046">"Mipangilio ya simu"</string>
     <string name="call_settings_admin_user_only" msgid="4526094783818216374">"Mipangilio ya simu inaweza kubadilishwa na mtumiaji wa akaunti ya msimamizi."</string>
     <string name="call_settings_with_label" msgid="3401177261468593519">"Mipangilio (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
-    <string name="error_updating_title" msgid="7970259216988931777">"Hitlafu ya mipangilio ya kupiga simu"</string>
+    <string name="error_updating_title" msgid="7970259216988931777">"Hitilafu ya mipangilio ya kupiga simu"</string>
     <string name="reading_settings" msgid="1920291699287055284">"Inasoma mipangilio…."</string>
     <string name="updating_settings" msgid="8171225533884883252">"Inaboresha mipangilio…"</string>
     <string name="reverting_settings" msgid="4752151682666912828">"Inageuza mipangilio..."</string>
     <string name="response_error" msgid="6674110501330139405">"Jibu lisilotarajiwa kutoka kwa mtandao."</string>
-    <string name="exception_error" msgid="7027667130619518211">"Hitilafu ya Mtandao au SIM kadi"</string>
+    <string name="exception_error" msgid="7027667130619518211">"Hitilafu ya mtandao au SIM kadi."</string>
     <string name="stk_cc_ss_to_dial_error" msgid="2816779198916570502">"Ombi la SS limebadilishwa kuwa ombi la DIAL."</string>
     <string name="stk_cc_ss_to_ussd_error" msgid="7490626178582654236">"Ombi la SS limebadilishwa kuwa ombi la USSD."</string>
     <string name="stk_cc_ss_to_ss_error" msgid="5057846756489053759">"Ombi la SS limebadilishwa kuwa ombi jipya la SS."</string>
-    <string name="fdn_check_failure" msgid="18200614306525434">"Mpangilio wa programu ya simu yako wa Kupigia Nambari Fulani Pekee umewashwa. Kutokana na hayo, baadhi ya vipengele vinavyohusiana na simu havifanyi kazi."</string>
+    <string name="fdn_check_failure" msgid="18200614306525434">"Mipangilio ya programu ya simu yako ya nambari za simu zilizobainishwa pekee imewashwa. Kutokana na hayo, baadhi ya vipengele vya kupiga simu havifanyi kazi."</string>
     <string name="radio_off_error" msgid="2304459933248513376">"Washa redio kabla ya kutazama mipangilio hii."</string>
     <string name="close_dialog" msgid="2365884406356986917">"Sawa"</string>
     <string name="enable" msgid="7248657275000173526">"Washa"</string>
@@ -157,7 +159,8 @@
     <string name="vm_change_pin_error_invalid" msgid="3972205462701668653">"PIN mpya ina herufi zisizostahiki."</string>
     <string name="vm_change_pin_error_system_error" msgid="6610603326230000207">"Imeshindwa kubadilisha PIN"</string>
     <string name="vvm_unsupported_message_format" msgid="11795090778411977">"Huwezi kuona ujumbe wa aina hii; piga <xliff:g id="NUMBER">%s</xliff:g> ili uusikilize."</string>
-    <string name="mobile_networks" msgid="2843854043339307375">"Mipangilio ya mitandao ya simu"</string>
+    <string name="mobile_networks" msgid="5540397602919106177">"Mipangilio ya mtandao wa simu"</string>
+    <string name="network_settings_title" msgid="514120489499925574">"Mtandao wa simu"</string>
     <string name="label_available" msgid="1181658289009300430">"Mitandao inayopatikana"</string>
     <string name="load_networks_progress" msgid="5230707536168902952">"Inatafuta…"</string>
     <string name="empty_networks_list" msgid="4249426905018815316">"Hakuna mitandao iliyopatikana."</string>
@@ -231,7 +234,7 @@
     <string name="throttle_data_rate_reduced_subtext" msgid="7492763592720107737">"Upeo wa <xliff:g id="USED_0">%1$s</xliff:g> umepitwa\nKasi ya data imepunguzwa hadi kilobaiti <xliff:g id="USED_1">%2$d</xliff:g> kwa sekunde"</string>
     <string name="throttle_time_frame_subtext" msgid="7732763021560399960">"<xliff:g id="USED_0">%1$d</xliff:g>٪ ya mzunguko imekamilika\nMuda ufuatao unaanza baada ya siku <xliff:g id="USED_1">%2$d</xliff:g> (<xliff:g id="USED_2">%3$s</xliff:g>)"</string>
     <string name="throttle_rate_subtext" msgid="2149102656120726855">"Kasi ya data imepunguzwa hadi kilibaiti <xliff:g id="USED">%1$d</xliff:g> kwa sekunde kama kiwango cha matumizi ya data kimepitwa"</string>
-    <string name="throttle_help_subtext" msgid="3633091498168446044">"Maelezo zaidi kuhusu sera ya matumizi ya data ya mtandao wa simu za mkononi ya mtoa huduma wako"</string>
+    <string name="throttle_help_subtext" msgid="5217706521499010816">"Maelezo zaidi kuhusu sera ya matumizi ya data ya mtandao wa mtoa huduma wako"</string>
     <string name="cell_broadcast_sms" msgid="5584192824053625842">"SMS ya Matangazo ya Simu"</string>
     <string name="enable_disable_cell_bc_sms" msgid="4851147873691392255">"SMS ya Kutangaza Seli"</string>
     <string name="cell_bc_sms_enable" msgid="6441688565738921084">"SMS ya Kutangaza Seli imewezeshwa"</string>
@@ -343,21 +346,21 @@
     <string name="cdma_activate_device" msgid="3793805892364814518">"Wezesha kifaa"</string>
     <string name="cdma_lte_data_service" msgid="4255018217292548962">"Sanidi huduma ya data"</string>
     <string name="carrier_settings_title" msgid="9028166176523012300">"Mipangilio ya mtoa huduma"</string>
-    <string name="fdn" msgid="7878832555095183202">"Nambari za kupiga zisizobadilishwa"</string>
-    <string name="fdn_with_label" msgid="187084204115493366">"Nambari za Kupiga Simu Zisizobadilika (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
+    <string name="fdn" msgid="7878832555095183202">"Nambari za simu zilizobainishwa"</string>
+    <string name="fdn_with_label" msgid="187084204115493366">"Nambari za simu zilizobainishwa pekee (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="manage_fdn_list" msgid="8777755791892122369">"Orodha ya FDN"</string>
     <string name="fdn_list_with_label" msgid="7437232552210469217">"Orodha ya Nambari za Kupiga Simu Zisizobadilika (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="fdn_activation" msgid="2156479741307463576">"Uwezeshaji wa FDN"</string>
-    <string name="fdn_enabled" msgid="5238109009915521240">"Nambari za upigaji simu zilizobanwa zimelemazwa"</string>
-    <string name="fdn_disabled" msgid="4700049736675368279">"Nambari za upigaji simu zilizobanwa zimelemazwa"</string>
+    <string name="fdn_enabled" msgid="5238109009915521240">"Nambari za simu zilizobainishwa zinatumika"</string>
+    <string name="fdn_disabled" msgid="4700049736675368279">"Nambari za simu zilizobainishwa hazitumiki"</string>
     <string name="enable_fdn" msgid="3740191529180493851">"Washa FDN"</string>
     <string name="disable_fdn" msgid="7944020890722540616">"Lemaza FDN"</string>
     <string name="change_pin2" msgid="2153563695382176676">"Badilisha PIN2"</string>
     <string name="enable_fdn_ok" msgid="7215588870329688132">"Lemaza FDN"</string>
     <string name="disable_fdn_ok" msgid="5727046928930740173">"Washa FDN"</string>
-    <string name="sum_fdn" msgid="1959399454900272878">"Dhibiti nambari Za Upigaji simu Zilizobanwa"</string>
+    <string name="sum_fdn" msgid="1959399454900272878">"Dhibiti nambari za simu zilizobainishwa"</string>
     <string name="sum_fdn_change_pin" msgid="6666549734792827932">"Badilisha nenosiri la kufikia FDN"</string>
-    <string name="sum_fdn_manage_list" msgid="8431088265332628316">"Dhibiti orodha ya nambari ya simu"</string>
+    <string name="sum_fdn_manage_list" msgid="8431088265332628316">"Dhibiti orodha ya nambari za simu"</string>
     <string name="voice_privacy" msgid="3776841382844614716">"Faragha ya sauti"</string>
     <string name="voice_privacy_summary" msgid="3159383389833516214">"Wezesha gumzo ya faragha iliyoboreshwa"</string>
     <string name="tty_mode_option_title" msgid="9033098925144434669">"Hali ya TTY"</string>
@@ -368,6 +371,7 @@
     <string name="menu_add" msgid="1882023737425114762">"Ongeza anwani"</string>
     <string name="menu_edit" msgid="7143003705504672374">"Hariri anwani"</string>
     <string name="menu_delete" msgid="3977150783449642851">"Futa anwani"</string>
+    <string name="menu_dial" msgid="3223106222819685808">"Piga nambari ya unayewasiliana naye"</string>
     <string name="get_pin2" msgid="8204677063922225311">"Chapa PIN2"</string>
     <string name="name" msgid="7329028332786872378">"Jina"</string>
     <string name="number" msgid="7905950798349903858">"Nambari"</string>
@@ -382,7 +386,7 @@
     <string name="deleting_fdn_contact" msgid="5669163206349319969">"Inafuta nambari ya upigaji simu uliobanwa..."</string>
     <string name="fdn_contact_deleted" msgid="7154162327112259569">"Nambari ya upigaji simu uliobanwa imefutwa"</string>
     <string name="pin2_invalid" msgid="5470854099230755944">"FDN haikusasishwa kwa sababu uliweka PIN isiyo sahihi."</string>
-    <string name="fdn_invalid_number" msgid="1494755047900009147">"FDN haikusasishwa kwa sababu namba haiwezi kuzidisha herufi 20."</string>
+    <string name="fdn_invalid_number" msgid="8602417141715473998">"FDN haikusasishwa kwa sababu nambari haina kitu au inazidi tarakimu 20."</string>
     <string name="pin2_or_fdn_invalid" msgid="6025144083384701197">"FDN haikusasishwa. PIN2 haikuwa sahihi, au namba ya simu ilikataliwa."</string>
     <string name="fdn_failed" msgid="540018079008319747">"Utendakazi wa FDN ulishindwa."</string>
     <string name="simContacts_emptyLoading" msgid="2203331234764498011">"Inasoma kutoka kwa SIM kadi…"</string>
@@ -407,7 +411,7 @@
     <string name="pin_changed" msgid="4455736268023261662">"PIN imesasishwa"</string>
     <string name="puk_requested" msgid="5921393215789090200">"Nenosiri si sahihi. PIN sasa imezuiwa. PUK imeombwa."</string>
     <string name="enter_pin2_text" msgid="8339444124477720345">"PIN2"</string>
-    <string name="oldPin2Label" msgid="8559146795026261502">"Nenosiri la zamani"</string>
+    <string name="oldPin2Label" msgid="8559146795026261502">"PIN2 ya zamani"</string>
     <string name="newPin2Label" msgid="4573956902204349054">"Nenosiri la 2 mpya"</string>
     <string name="confirmPin2Label" msgid="8100319484454787708">"Thibitisha nenosiri la pili mpya"</string>
     <string name="badPuk2" msgid="7910064009531541708">"PUK2 si sahihi. Jaribu tena."</string>
@@ -422,7 +426,7 @@
     <string name="puk2_blocked" msgid="3150263853077280049">"PUK2 Imezuiwa kabisa."</string>
     <string name="pin2_attempts" msgid="720736232885011507">\n"Una majaribio <xliff:g id="NUMBER">%d</xliff:g> yaliyobaki."</string>
     <string name="pin2_unblocked" msgid="7791600368153469078">"PIN2 sasa haijazuiwa"</string>
-    <string name="pin2_error_exception" msgid="1088689322248996699">"Hitilafu ya Mtandao au SIM kadi"</string>
+    <string name="pin2_error_exception" msgid="1088689322248996699">"Hitilafu ya mtandao au SIM kadi"</string>
     <string name="doneButton" msgid="2859593360997984240">"Kwisha"</string>
     <string name="voicemail_settings_number_label" msgid="8524164258691887790">"Nambari ya ujumbe wa sauti"</string>
     <string name="card_title_dialing" msgid="5769417478498348054">"Inapiga"</string>
@@ -439,16 +443,16 @@
     <string name="notification_voicemail_no_vm_number" msgid="760963466895609716">"Nambari ya ujumbe wa sauti haijulikani."</string>
     <string name="notification_network_selection_title" msgid="4224455487793492772">"Hakuna huduma"</string>
     <string name="notification_network_selection_text" msgid="2607085729661923269">"Mtandao uliochaguliwa <xliff:g id="OPERATOR_NAME">%s</xliff:g> haupatikani"</string>
-    <string name="incall_error_power_off" msgid="2947938060513306698">"Zima hali ya ndegeni ili upige simu."</string>
+    <string name="incall_error_power_off" product="watch" msgid="2007450435656211658">"Washa mtandao wa simu, zima hali ya ndegeni au uzime hali ya kiokoa betri ili upige simu."</string>
+    <string name="incall_error_power_off" product="default" msgid="2947938060513306698">"Zima hali ya ndegeni ili upige simu."</string>
     <string name="incall_error_power_off_wfc" msgid="8711428920632416575">"Zima hali ya ndegeni au uunganishe kwenye mtandao pasiwaya ili upige simu."</string>
     <string name="incall_error_ecm_emergency_only" msgid="738708660612388692">"Ondoka kwenye hali ya kupiga simu za dharura ili upige simu zisizokuwa za dharura."</string>
     <string name="incall_error_emergency_only" msgid="4678640422710818317">"Haijasajiliwa kwa mitandao"</string>
-    <string name="incall_error_out_of_service" msgid="4100065333878929223">"Mitandao ya simu za mkononi haipatikani"</string>
-    <string name="incall_error_out_of_service_wfc" msgid="323851839058697057">"Huduma ya mtandao wa simu za mkononi haupatikani. Unganisha kwenye mtandao pasiwaya ili upige simu."</string>
+    <string name="incall_error_out_of_service" msgid="8587993036435080418">"Mtandao wa simu haupatikani."</string>
+    <string name="incall_error_out_of_service_wfc" msgid="8741629779555132471">"Mtandao wa simu za mkononi haupatikani. Unganisha kwenye mtandao pasiwaya ili upige simu."</string>
     <string name="incall_error_no_phone_number_supplied" msgid="1150414018684246528">"Ili upige simu, weka nambari sahihi."</string>
     <string name="incall_error_call_failed" msgid="5891978320269774095">"Imeshindwa kupiga simu."</string>
     <string name="incall_error_cannot_add_call" msgid="5206923515522412110">"Hangout haiwezi kuongezwa kwa wakati huu."</string>
-    <string name="incall_status_dialed_mmi" msgid="3672498861336189563">"Inaanzisha msururu wa MMI…"</string>
     <string name="incall_error_supp_service_unknown" msgid="655570339115407698">"Huduma haiwezi kutumika."</string>
     <string name="incall_error_supp_service_switch" msgid="5237002176899962862">"Haiwezi kubadili simu."</string>
     <string name="incall_error_supp_service_separate" msgid="7224393405134545246">"Haiwezi kutenganisha simu."</string>
@@ -464,7 +468,7 @@
     <string name="emergency_enable_radio_dialog_retry" msgid="5960061579996526883">"Hakuna huduma. Inajaribu tena..."</string>
     <string name="radio_off_during_emergency_call" msgid="2535800034010306830">"Huwezi kuingia katika hali ya ndegeni huku simu ya dharura inaendelea."</string>
     <string name="dial_emergency_error" msgid="1509085166367420355">"Haiwezi kupiga simu. <xliff:g id="NON_EMERGENCY_NUMBER">%s</xliff:g> si nambari ya dharura."</string>
-    <string name="dial_emergency_empty_error" msgid="9130194953830414638">"Haiwezi kupiga simu. Piga simu nambari ya dharura."</string>
+    <string name="dial_emergency_empty_error" msgid="9130194953830414638">"Haiwezi kupiga simu. Piga nambari ya dharura."</string>
     <string name="dialerKeyboardHintText" msgid="9192914825413747792">"Tumia kibodi kubonyeza"</string>
     <string name="onscreenHoldText" msgid="2285258239691145872">"Shikilia"</string>
     <string name="onscreenEndCallText" msgid="4403855834875398585">"Mwisho"</string>
@@ -523,10 +527,7 @@
     <string name="phone_entered_ecm_text" msgid="6266424252578731203">"Umeingia katika gumzo ya kupiga tena simu ya Dharura"</string>
     <string name="phone_in_ecm_notification_title" msgid="3226896828951687085">"hali ya kupiga tena simu ya Dharura"</string>
     <string name="phone_in_ecm_call_notification_text" msgid="4611608947314729773">"Muunganisho wa data umelemazwa"</string>
-    <plurals name="phone_in_ecm_notification_time" formatted="false" msgid="8308381858502470919">
-      <item quantity="other">Hakuna muunganisho wa data kwa dakika <xliff:g id="COUNT_1">%s</xliff:g></item>
-      <item quantity="one">Hakuna muunganisho wa data kwa dakika <xliff:g id="COUNT_0">%s</xliff:g> </item>
-    </plurals>
+    <string name="phone_in_ecm_notification_complete_time" msgid="7730376844178948351">"Hakuna muunganisho wa data mpaka <xliff:g id="COMPLETETIME">%s</xliff:g>"</string>
     <plurals name="alert_dialog_exit_ecm" formatted="false" msgid="7179911675595441201">
       <item quantity="other">Simu itakuwa katika hali ya Simu ya Dharura kwa dakika <xliff:g id="COUNT_1">%s</xliff:g>. Ukiwa katika hali hii hakuna programu zinazotumia muunganisho wa data zinazoweza kutumiwa. Je, unataka kuondoka sasa?</item>
       <item quantity="one">Simu itakuwa katika hali ya Simu ya Dharura kwa dakika <xliff:g id="COUNT_0">%s</xliff:g>. Ukiwa katika hali hii hakuna programu zinazotumia muunganisho wa data zinazoweza kutumiwa. Je, unataka kuondoka sasa?</item>
@@ -541,7 +542,7 @@
     <string name="alert_dialog_no" msgid="1476091437797628703">"Hapana"</string>
     <string name="alert_dialog_dismiss" msgid="2491494287075907171">"Ondoa"</string>
     <string name="voicemail_provider" msgid="5135942703327136909">"Huduma"</string>
-    <string name="voicemail_settings" msgid="72448049107749316">"Sanidi"</string>
+    <string name="voicemail_settings" msgid="72448049107749316">"Weka mipangilio"</string>
     <string name="voicemail_number_not_set" msgid="6724904736891087856">"&lt;Haijawekwa&gt;"</string>
     <string name="other_settings" msgid="3672912580359716394">"Mipangilio mingine ya simu"</string>
     <string name="calling_via_template" msgid="4839419581866928142">"Inapiga kupitia <xliff:g id="PROVIDER_NAME">%s</xliff:g>"</string>
@@ -550,12 +551,9 @@
     <string name="selectContact" msgid="781975788478987237">"chagua anwani"</string>
     <string name="not_voice_capable" msgid="2739898841461577811">"Upigaji simu za sauti hauhimiliwi"</string>
     <string name="description_dial_button" msgid="7459705245418435351">"piga simu"</string>
-    <string name="voicemail_notification_vibrate_when_title" msgid="8361970092063604886">"Mtetemo"</string>
-    <string name="voicemail_notification_vibarte_when_dialog_title" msgid="5739583146522136440">"Mtetemo"</string>
     <string name="voicemail_visual_voicemail_switch_title" msgid="5012622186976275457">"Ujumbe wa Sauti Unaoonekana"</string>
     <string name="voicemail_set_pin_dialog_title" msgid="2797924461029093837">"Weka PIN"</string>
     <string name="voicemail_change_pin_dialog_title" msgid="6035421908626121564">"Badilisha PIN"</string>
-    <string name="voicemail_notification_ringtone_title" msgid="2609519527849101590">"Sauti"</string>
     <string name="preference_category_ringtone" msgid="5197960752529332721">"Mlio wa simu na Mtetemo"</string>
     <string name="pstn_connection_service_label" msgid="1743245930577325900">"SIM kadi zilizojengewa ndani"</string>
     <string name="enable_video_calling_title" msgid="7237253660669000899">"Washa Hangout ya video"</string>
@@ -566,12 +564,14 @@
     <string name="sim_description_emergency_calls" msgid="7535215397212301562">"Simu za dharula pekee"</string>
     <string name="sim_description_default" msgid="4778679519938775515">"SIM kadi, nafasi: <xliff:g id="SLOT_ID">%s</xliff:g>"</string>
     <string name="accessibility_settings_activity_title" msgid="8562004288733103868">"Zana za walio na matatizo ya kuona au kusikia"</string>
-    <string name="status_hint_label_incoming_wifi_call" msgid="8772915926382037499">"Simu ya Wi-Fi inayoingia"</string>
+    <string name="status_hint_label_incoming_wifi_call" msgid="5932176406432044638">"Simu ya Wi-Fi kutoka kwa"</string>
     <string name="status_hint_label_wifi_call" msgid="8900805254974653903">"Simu ya Wi-Fi"</string>
     <string name="emergency_action_launch_hint" msgid="4906759256275562674">"Gonga tena ili ufungue"</string>
     <string name="message_decode_error" msgid="3456481534066924855">"Hitilafu imetokea wakati wa usimbuaji wa ujumbe."</string>
     <string name="callFailed_cdma_activation" msgid="2307989779233262164">"SIM kadi yako imeanzisha huduma yako na kusasisha uwezo wa simu yako wa kutumia mitandao mingine."</string>
     <string name="callFailed_cdma_call_limit" msgid="1556916577171457086">"Kuna simu nyingi mno zinazoendelea. Tafadhali kata au uunganishe simu zinazoendelea kabla hujapiga nyingine."</string>
+    <string name="callFailed_imei_not_accepted" msgid="132192626901238542">"Imeshindwa kuunganisha, tafadhali ingiza SIM kadi sahihi."</string>
+    <string name="callFailed_wifi_lost" msgid="5968076625137297184">"Muunganisho wa Wi-Fi umekatika. Simu imekatika."</string>
     <string name="change_pin_title" msgid="7790232089699034029">"Badilisha PIN ya Ujumbe wa Sauti"</string>
     <string name="change_pin_continue_label" msgid="2135088662420163447">"Endelea"</string>
     <string name="change_pin_cancel_label" msgid="353535488390948596">"Ghairi"</string>

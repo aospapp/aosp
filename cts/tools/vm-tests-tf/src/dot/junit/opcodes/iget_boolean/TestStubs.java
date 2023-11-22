@@ -19,6 +19,6 @@ package dot.junit.opcodes.iget_boolean;
 public class TestStubs {
     // used by testVFE4
     private boolean TestStubField = true;
-    // used by testVFE15
+    // used by testVFE15 and testVFE35
     protected boolean TestStubProtectedField = true;
 }

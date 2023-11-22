@@ -38,13 +38,10 @@
 #include <gtest/gtest.h>
 #include <utils/Log.h>
 
-#if !defined(BUILD_ONLY)
 #include "SLES/OpenSLES.h"
 #include "SLES/OpenSLES_Android.h"
 #include "OpenSLESUT.h"
-#endif
 
-#if !defined(BUILD_ONLY)
 //-----------------------------------------------------------------
 /* Checks for error and displays the error code if any */
 bool IsOk(SLresult res) {
@@ -309,20 +306,6 @@ protected:
         (*audioRecorderObj)->Destroy(audioRecorderObj);
     }
 };
-#else
-class SLObjectCreationTest : public ::testing::Test {
-protected:
-    void OutputMixCreation() { }
-    void AudioPlayerFromUriCreation() { }
-    void AudioPlayerFromFdCreation() { }
-    void AudioPlayerFromPcmBqCreation() { }
-    void AudioPlayerFromTsAbqCreation() { }
-    void AudioPlayerFromUriToPcmBqCreation() { }
-    void AudioPlayerFromFdToPcmBqCreation() { }
-    void AudioPlayerFromAdtsAbqToPcmBqCreation() { }
-    void AudioRecorderCreation(bool) { }
-};
-#endif
 
 //-------------------------------------------------------------------------------------------------
 TEST_F(SLObjectCreationTest, testEngineCreation) {

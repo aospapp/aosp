@@ -10,4 +10,5 @@
     <stylesheet src='common.css'/>
     <stylesheet src='afeclient.css'/>
     <stylesheet src='standard.css'/>
+    <stylesheet src='moblabsetup.css'/>
 </module>

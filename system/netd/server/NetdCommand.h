@@ -21,7 +21,7 @@
 
 class NetdCommand : public FrameworkCommand {
 public:
-    NetdCommand(const char *cmd);
+    explicit NetdCommand(const char *cmd);
     virtual ~NetdCommand() {}
 };
 

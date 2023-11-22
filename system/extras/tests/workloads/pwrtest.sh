@@ -94,16 +94,16 @@ suntempledir=${CMDDIR}/suntemple
 
 case $DEVICE in
 (shamu|hammerhead)
-	HWUITEST=hwuitest
+	HWUIMACRO=hwuimacro
 	onSwipe="700 1847 700 400 50"
 	;;
 (*)
-	HWUITEST=hwuitest64
+	HWUIMACRO=hwuimacro64
 	onSwipe="500 1200 500 550 150"
 	;;
 esac
 
-scripts="defs.sh systemapps.sh recentfling.sh youtube.sh chromefling.sh $HWUITEST"
+scripts="defs.sh systemapps.sh recentfling.sh youtube.sh chromefling.sh"
 
 if ! $MONSOON >/dev/null 2>&1; then
 	echo $MONSOON must be in your PATH >&2
@@ -253,6 +253,7 @@ fi
 
 echo Copying $scripts to device $devdir...
 copy_files
+adb shell ln -s /data/benchmarktest/hwuimacro/$HWUIMACRO $devdir/$HWUIMACRO
 tests=""
 
 # measure background power
@@ -332,9 +333,9 @@ fi
 if [ $shadowgrid2Time -gt 0 ]; then
 	airplane_mode on
 	echo $(date) Test 4 : shadowgrid2 for $shadowgrid2Time minutes
-	start_job "./$HWUITEST shadowgrid2 100000"
+	start_job "./$HWUIMACRO --onscreen shadowgrid2 100000"
 	run_test shadowgrid2 $shadowgrid2Time
-	cleanup_job shadowgrid2 $HWUITEST
+	cleanup_job shadowgrid2 $HWUIMACRO
 	airplane_mode off
 	date
 	tests="$tests shadowgrid2"

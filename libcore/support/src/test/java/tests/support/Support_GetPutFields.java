@@ -79,7 +79,7 @@ public class Support_GetPutFields implements Serializable {
         charValue = 'B';
         doubleValue = 424242.42;
         floatValue = 24.12f;
-        longValue = 6700654321l;
+        longValue = 6700654321L;
         intValue = 77777;
         objectValue = new SimpleClass(1965, "Hello Mars");
         shortValue = 1234;

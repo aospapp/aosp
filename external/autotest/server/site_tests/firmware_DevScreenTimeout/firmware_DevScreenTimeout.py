@@ -98,7 +98,7 @@ class firmware_DevScreenTimeout(FirmwareTest):
                               }))
 
         logging.info("Reboot and press Ctrl-D repeatedly.")
-        self.switcher.mode_aware_reboot(wait_for_dut_up=False)
+        self.switcher.simple_reboot()
         self.ctrl_d_repeatedly()
         self.switcher.wait_for_client()
 
@@ -106,7 +106,7 @@ class firmware_DevScreenTimeout(FirmwareTest):
                      "firmware screen; on next reboot, do nothing and wait the "
                      "screen timeout.")
         self.record_fw_boot_time('ctrl_d_boot')
-        self.switcher.mode_aware_reboot(wait_for_dut_up=False)
+        self.switcher.simple_reboot()
         self.switcher.wait_for_client()
 
         logging.info("Check the firmware screen timeout matches our spec.")

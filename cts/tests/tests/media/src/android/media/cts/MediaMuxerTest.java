@@ -24,6 +24,7 @@ import android.media.MediaExtractor;
 import android.media.MediaFormat;
 import android.media.MediaMetadataRetriever;
 import android.media.MediaMuxer;
+import android.os.ParcelFileDescriptor;
 import android.test.AndroidTestCase;
 import android.util.Log;
 
@@ -31,6 +32,7 @@ import android.media.cts.R;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.util.HashMap;
 
@@ -58,7 +60,39 @@ public class MediaMuxerTest extends AndroidTestCase {
         int source = R.raw.video_176x144_3gp_h263_300kbps_25fps_aac_stereo_128kbps_11025hz;
         String outputFile = File.createTempFile("MediaMuxerTest_testAudioVideo", ".mp4")
                 .getAbsolutePath();
-        cloneAndVerify(source, outputFile, 2, 90);
+        cloneAndVerify(source, outputFile, 2, 90, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
+    }
+
+    public void testDualVideoTrack() throws Exception {
+        int source = R.raw.video_176x144_h264_408kbps_30fps_352x288_h264_122kbps_30fps;
+        String outputFile = File.createTempFile("MediaMuxerTest_testDualVideo", ".mp4")
+                .getAbsolutePath();
+        cloneAndVerify(source, outputFile, 2, 90, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
+    }
+
+    public void testDualAudioTrack() throws Exception {
+        int source = R.raw.audio_aac_mono_70kbs_44100hz_aac_mono_70kbs_44100hz;
+        String outputFile = File.createTempFile("MediaMuxerTest_testDualAudio", ".mp4")
+                .getAbsolutePath();
+        cloneAndVerify(source, outputFile, 2, 90, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
+    }
+
+    public void testDualVideoAndAudioTrack() throws Exception {
+        int source = R.raw.video_h264_30fps_video_h264_30fps_aac_44100hz_aac_44100hz;
+        String outputFile = File.createTempFile("MediaMuxerTest_testDualVideoAudio", ".mp4")
+                .getAbsolutePath();
+        cloneAndVerify(source, outputFile, 4, 90, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
+    }
+
+    /**
+     * Test: make sure the muxer handles video, audio and metadata tracks correctly.
+     */
+    public void testVideoAudioMedatadata() throws Exception {
+        int source =
+                R.raw.video_176x144_3gp_h263_300kbps_25fps_aac_stereo_128kbps_11025hz_metadata_gyro;
+        String outputFile = File.createTempFile("MediaMuxerTest_testAudioVideoMetadata", ".mp4")
+                .getAbsolutePath();
+        cloneAndVerify(source, outputFile, 3, 90, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
     }
 
     /**
@@ -68,7 +102,7 @@ public class MediaMuxerTest extends AndroidTestCase {
         int source = R.raw.sinesweepm4a;
         String outputFile = File.createTempFile("MediaMuxerTest_testAudioOnly", ".mp4")
                 .getAbsolutePath();
-        cloneAndVerify(source, outputFile, 1, -1);
+        cloneAndVerify(source, outputFile, 1, -1, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
     }
 
     /**
@@ -78,7 +112,21 @@ public class MediaMuxerTest extends AndroidTestCase {
         int source = R.raw.video_only_176x144_3gp_h263_25fps;
         String outputFile = File.createTempFile("MediaMuxerTest_videoOnly", ".mp4")
                 .getAbsolutePath();
-        cloneAndVerify(source, outputFile, 1, 180);
+        cloneAndVerify(source, outputFile, 1, 180, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
+    }
+
+    public void testWebmOutput() throws Exception {
+        int source = R.raw.video_480x360_webm_vp9_333kbps_25fps_vorbis_stereo_128kbps_48000hz;
+        String outputFile = File.createTempFile("testWebmOutput", ".webm")
+                .getAbsolutePath();
+        cloneAndVerify(source, outputFile, 2, 90, MediaMuxer.OutputFormat.MUXER_OUTPUT_WEBM);
+    }
+
+    public void testThreegppOutput() throws Exception {
+        int source = R.raw.video_176x144_3gp_h263_300kbps_12fps_aac_stereo_128kbps_22050hz;
+        String outputFile = File.createTempFile("testThreegppOutput", ".3gp")
+                .getAbsolutePath();
+        cloneAndVerify(source, outputFile, 2, 90, MediaMuxer.OutputFormat.MUXER_OUTPUT_3GPP);
     }
 
     /**
@@ -108,41 +156,37 @@ public class MediaMuxerTest extends AndroidTestCase {
             muxer.release();
         }
 
-        // Throws exception b/c 2 video tracks were added.
+        // Should not throw exception when 2 video tracks were added.
         muxer = new MediaMuxer(outputFile, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
         muxer.addTrack(MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC, 480, 320));
 
         try {
             muxer.addTrack(MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC, 480, 320));
-            fail("should throw IllegalStateException.");
         } catch (IllegalStateException e) {
-            // expected
+            fail("should not throw IllegalStateException.");
         } finally {
             muxer.release();
         }
 
-        // Throws exception b/c 2 audio tracks were added.
+        // Should not throw exception when 2 audio tracks were added.
         muxer = new MediaMuxer(outputFile, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
         muxer.addTrack(MediaFormat.createAudioFormat(MediaFormat.MIMETYPE_AUDIO_AAC, 48000, 1));
         try {
             muxer.addTrack(MediaFormat.createAudioFormat(MediaFormat.MIMETYPE_AUDIO_AAC, 48000, 1));
-            fail("should throw IllegalStateException.");
         } catch (IllegalStateException e) {
-            // expected
+            fail("should not throw IllegalStateException.");
         } finally {
             muxer.release();
         }
 
-        // Throws exception b/c 3 tracks were added.
+        // Should not throw exception when 3 tracks were added.
         muxer = new MediaMuxer(outputFile, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
         muxer.addTrack(MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC, 480, 320));
         muxer.addTrack(MediaFormat.createAudioFormat(MediaFormat.MIMETYPE_AUDIO_AAC, 48000, 1));
         try {
-
             muxer.addTrack(MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC, 480, 320));
-            fail("should throw IllegalStateException.");
         } catch (IllegalStateException e) {
-            // expected
+            fail("should not throw IllegalStateException.");
         } finally {
             muxer.release();
         }
@@ -168,6 +212,46 @@ public class MediaMuxerTest extends AndroidTestCase {
         } finally {
             muxer.release();
         }
+
+        // Test FileDescriptor Constructor expect sucess.
+        RandomAccessFile file = null;
+        try {
+            file = new RandomAccessFile(outputFile, "rws");
+            muxer = new MediaMuxer(file.getFD(), MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
+            muxer.addTrack(MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC, 480, 320));
+        } finally {
+            file.close();
+            muxer.release();
+        }
+
+        // Test FileDescriptor Constructor expect exception with read only mode.
+        RandomAccessFile file2 = null;
+        try {
+            file2 = new RandomAccessFile(outputFile, "r");
+            muxer = new MediaMuxer(file2.getFD(), MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
+            fail("should throw IOException.");
+        } catch (IOException e) {
+            // expected
+        } finally {
+            file2.close();
+            // No need to release the muxer.
+        }
+
+        // Test FileDescriptor Constructor expect NO exception with write only mode.
+        ParcelFileDescriptor out = null;
+        try {
+            out = ParcelFileDescriptor.open(new File(outputFile),
+                    ParcelFileDescriptor.MODE_WRITE_ONLY | ParcelFileDescriptor.MODE_CREATE);
+            muxer = new MediaMuxer(out.getFileDescriptor(), MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
+        } catch (IllegalArgumentException e) {
+            fail("should not throw IllegalArgumentException.");
+        } catch (IOException e) {
+            fail("should not throw IOException.");
+        } finally {
+            out.close();
+            muxer.release();
+        }
+
         new File(outputFile).delete();
     }
 
@@ -175,7 +259,7 @@ public class MediaMuxerTest extends AndroidTestCase {
      * Using the MediaMuxer to clone a media file.
      */
     private void cloneMediaUsingMuxer(int srcMedia, String dstMediaPath,
-            int expectedTrackCount, int degrees) throws IOException {
+            int expectedTrackCount, int degrees, int fmt) throws IOException {
         // Set up MediaExtractor to read from the source.
         AssetFileDescriptor srcFd = mResources.openRawResourceFd(srcMedia);
         MediaExtractor extractor = new MediaExtractor();
@@ -187,7 +271,7 @@ public class MediaMuxerTest extends AndroidTestCase {
 
         // Set up MediaMuxer for the destination.
         MediaMuxer muxer;
-        muxer = new MediaMuxer(dstMediaPath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
+        muxer = new MediaMuxer(dstMediaPath, fmt);
 
         // Set up the tracks.
         HashMap<Integer, Integer> indexMap = new HashMap<Integer, Integer>(trackCount);
@@ -211,23 +295,26 @@ public class MediaMuxerTest extends AndroidTestCase {
             muxer.setOrientationHint(degrees);
         }
 
-        // Test setLocation out of bound cases
-        try {
-            muxer.setLocation(BAD_LATITUDE, LONGITUDE);
-            fail("setLocation succeeded with bad argument: [" + BAD_LATITUDE + "," + LONGITUDE
+        if (fmt == MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4 ||
+            fmt == MediaMuxer.OutputFormat.MUXER_OUTPUT_3GPP) {
+            // Test setLocation out of bound cases
+            try {
+                muxer.setLocation(BAD_LATITUDE, LONGITUDE);
+                fail("setLocation succeeded with bad argument: [" + BAD_LATITUDE + "," + LONGITUDE
                     + "]");
-        } catch (IllegalArgumentException e) {
-            // Expected
-        }
-        try {
-            muxer.setLocation(LATITUDE, BAD_LONGITUDE);
-            fail("setLocation succeeded with bad argument: [" + LATITUDE + "," + BAD_LONGITUDE
+            } catch (IllegalArgumentException e) {
+                // Expected
+            }
+            try {
+                muxer.setLocation(LATITUDE, BAD_LONGITUDE);
+                fail("setLocation succeeded with bad argument: [" + LATITUDE + "," + BAD_LONGITUDE
                     + "]");
-        } catch (IllegalArgumentException e) {
-            // Expected
-        }
+            } catch (IllegalArgumentException e) {
+                // Expected
+            }
 
-        muxer.setLocation(LATITUDE, LONGITUDE);
+            muxer.setLocation(LATITUDE, LONGITUDE);
+        }
 
         muxer.start();
         while (!sawEOS) {
@@ -271,11 +358,15 @@ public class MediaMuxerTest extends AndroidTestCase {
      * sure they match.
      */
     private void cloneAndVerify(int srcMedia, String outputMediaFile,
-            int expectedTrackCount, int degrees) throws IOException {
+            int expectedTrackCount, int degrees, int fmt) throws IOException {
         try {
-            cloneMediaUsingMuxer(srcMedia, outputMediaFile, expectedTrackCount, degrees);
-            verifyAttributesMatch(srcMedia, outputMediaFile, degrees);
-            verifyLocationInFile(outputMediaFile);
+            cloneMediaUsingMuxer(srcMedia, outputMediaFile, expectedTrackCount,
+                    degrees, fmt);
+            if (fmt == MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4 ||
+                    fmt == MediaMuxer.OutputFormat.MUXER_OUTPUT_3GPP) {
+                verifyAttributesMatch(srcMedia, outputMediaFile, degrees);
+                verifyLocationInFile(outputMediaFile);
+            }
             // Check the sample on 1s and 0.5s.
             verifySamplesMatch(srcMedia, outputMediaFile, 1000000);
             verifySamplesMatch(srcMedia, outputMediaFile, 500000);

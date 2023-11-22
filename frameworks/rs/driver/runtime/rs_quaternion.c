@@ -7,7 +7,7 @@
 // Quaternion ops
 /////////////////////////////////////////////////////
 
-#if (defined(RS_VERSION) && (RS_VERSION >= UNRELEASED))
+#if (defined(RS_VERSION) && (RS_VERSION >= 24))
 extern void __attribute__((overloadable))
     rsQuaternionAdd(rs_quaternion* q, const rs_quaternion* rhs) {
     q->w += rhs->w;
@@ -166,4 +166,4 @@ extern void __attribute__((overloadable))
     rsQuaternionSet(q, tempq0.w*scale + tempq1.w*invScale, tempq0.x*scale + tempq1.x*invScale,
                         tempq0.y*scale + tempq1.y*invScale, tempq0.z*scale + tempq1.z*invScale);
 }
-#endif // (defined(RS_VERSION) && (RS_VERSION >= UNRELEASED))
+#endif // (defined(RS_VERSION) && (RS_VERSION >= 24))

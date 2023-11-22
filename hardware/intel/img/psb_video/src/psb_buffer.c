@@ -266,6 +266,7 @@ VAStatus psb_buffer_create_from_ub(psb_driver_data_p driver_data,
     ret = wsbmBODataUB(buf->drm_buf, size, NULL, NULL, 0, vaddr, fd);
     if (ret) {
         drv_debug_msg(VIDEO_DEBUG_ERROR, "Failed to alloc wsbm buffers, buf->drm_buf is 0x%x, size is %d, vaddr is 0x%x, fd=%d\n", buf->drm_buf, size, vaddr, fd);
+        UNLOCK_HARDWARE(driver_data);
         return 1;
     }
 
@@ -276,6 +277,7 @@ VAStatus psb_buffer_create_from_ub(psb_driver_data_p driver_data,
     buf->status = psb_bs_ready;
     buf->wsbm_synccpu_flag = 0;
 
+    UNLOCK_HARDWARE(driver_data);
     return VA_STATUS_SUCCESS;
 }
 

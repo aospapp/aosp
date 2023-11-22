@@ -16,6 +16,7 @@
 
 package com.android.cts.net.hostside;
 
+import android.os.SystemClock;
 import android.util.Log;
 
 /**
@@ -30,8 +31,8 @@ abstract class AbstractAppIdleTestCase extends AbstractRestrictBackgroundNetwork
         if (!isSupported()) return;
 
         // Set initial state.
-        setUpMeteredNetwork();
         removePowerSaveModeWhitelist(TEST_APP2_PKG);
+        removePowerSaveModeExceptIdleWhitelist(TEST_APP2_PKG);
         setAppIdle(false);
         turnBatteryOff();
 
@@ -63,14 +64,6 @@ abstract class AbstractAppIdleTestCase extends AbstractRestrictBackgroundNetwork
     }
 
     /**
-     * Sets the initial (non) metered network state.
-     *
-     * <p>By default is empty - it's up to subclasses to override.
-     */
-    protected void setUpMeteredNetwork() throws Exception {
-    }
-
-    /**
      * Resets the (non) metered network state.
      *
      * <p>By default is empty - it's up to subclasses to override.
@@ -90,9 +83,7 @@ abstract class AbstractAppIdleTestCase extends AbstractRestrictBackgroundNetwork
 
         // Make sure foreground app doesn't lose access upon enabling it.
         setAppIdle(true);
-        launchActivity();
-        assertAppIdle(false); // Sanity check - not idle anymore, since activity was launched...
-        assertForegroundNetworkAccess();
+        launchComponentAndAssertNetworkAccess(TYPE_COMPONENT_ACTIVTIY);
         finishActivity();
         assertAppIdle(false); // Sanity check - not idle anymore, since activity was launched...
         assertBackgroundNetworkAccess(true);
@@ -101,9 +92,7 @@ abstract class AbstractAppIdleTestCase extends AbstractRestrictBackgroundNetwork
 
         // Same for foreground service.
         setAppIdle(true);
-        startForegroundService();
-        assertAppIdle(true); // Sanity check - still idle
-        assertForegroundServiceNetworkAccess();
+        launchComponentAndAssertNetworkAccess(TYPE_COMPONENT_FOREGROUND_SERVICE);
         stopForegroundService();
         assertAppIdle(true);
         assertBackgroundNetworkAccess(false);
@@ -123,6 +112,14 @@ abstract class AbstractAppIdleTestCase extends AbstractRestrictBackgroundNetwork
         assertAppIdle(true); // Sanity check - idle again, once whitelisted was removed
         assertBackgroundNetworkAccess(false);
 
+        addPowerSaveModeExceptIdleWhitelist(TEST_APP2_PKG);
+        assertAppIdle(false); // Sanity check - not idle anymore, since whitelisted
+        assertBackgroundNetworkAccess(true);
+
+        removePowerSaveModeExceptIdleWhitelist(TEST_APP2_PKG);
+        assertAppIdle(true); // Sanity check - idle again, once whitelisted was removed
+        assertBackgroundNetworkAccess(false);
+
         assertsForegroundAlwaysHasNetworkAccess();
 
         // Sanity check - no whitelist, no access!
@@ -137,5 +134,43 @@ abstract class AbstractAppIdleTestCase extends AbstractRestrictBackgroundNetwork
 
         assertsForegroundAlwaysHasNetworkAccess();
         assertBackgroundNetworkAccess(true);
+    }
+
+    public void testAppIdleNetworkAccess_whenCharging() throws Exception {
+        if (!isSupported()) return;
+
+        // Check that app is paroled when charging
+        setAppIdle(true);
+        assertBackgroundNetworkAccess(false);
+        turnBatteryOn();
+        assertBackgroundNetworkAccess(true);
+        turnBatteryOff();
+        assertBackgroundNetworkAccess(false);
+
+        // Check that app is restricted when not idle but power-save is on
+        setAppIdle(false);
+        assertBackgroundNetworkAccess(true);
+        setBatterySaverMode(true);
+        assertBackgroundNetworkAccess(false);
+        // Use setBatterySaverMode API to leave power-save mode instead of plugging in charger
+        setBatterySaverMode(false);
+        turnBatteryOn();
+        assertBackgroundNetworkAccess(true);
+
+        // And when no longer charging, it still has network access, since it's not idle
+        turnBatteryOff();
+        assertBackgroundNetworkAccess(true);
+    }
+
+    public void testAppIdle_toast() throws Exception {
+        if (!isSupported()) return;
+
+        setAppIdle(true);
+        assertAppIdle(true);
+        assertEquals("Shown", showToast());
+        assertAppIdle(true);
+        // Wait for a couple of seconds for the toast to actually be shown
+        SystemClock.sleep(2000);
+        assertAppIdle(true);
     }
 }

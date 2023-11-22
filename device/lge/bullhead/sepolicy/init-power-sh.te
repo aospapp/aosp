@@ -1,4 +1,4 @@
-type init-power-sh, domain, domain_deprecated;
+type init-power-sh, domain, device_domain_deprecated;
 type init-power-sh_exec, exec_type, file_type;
 
 init_daemon_domain(init-power-sh)
@@ -18,6 +18,7 @@ allow init-power-sh sysfs_power_management:file w_file_perms;
 # and symlinks to sysfs_devices_system_cpu
 allow init-power-sh sysfs:{ dir file lnk_file } relabelfrom;
 allow init-power-sh sysfs_devices_system_cpu:{ dir file lnk_file } relabelto;
+allow init-power-sh file_contexts_file:file r_file_perms;
 
 # execute toybox/toolbox
 allow init-power-sh toolbox_exec:file rx_file_perms;

@@ -19,6 +19,7 @@ package com.android.server.telecom;
 import android.net.Uri;
 import android.telecom.Connection;
 import android.telecom.ParcelableCall;
+import android.telecom.ParcelableRttCall;
 import android.telecom.TelecomManager;
 
 import java.util.ArrayList;
@@ -34,7 +35,7 @@ public class ParcelableCallUtils {
         public ParcelableCall toParcelableCall(Call call, boolean includeVideoProvider,
                 PhoneAccountRegistrar phoneAccountRegistrar) {
             return ParcelableCallUtils.toParcelableCall(
-                    call, includeVideoProvider, phoneAccountRegistrar, false);
+                    call, includeVideoProvider, phoneAccountRegistrar, false, false);
         }
     }
 
@@ -54,9 +55,11 @@ public class ParcelableCallUtils {
             Call call,
             boolean includeVideoProvider,
             PhoneAccountRegistrar phoneAccountRegistrar,
-            boolean supportsExternalCalls) {
+            boolean supportsExternalCalls,
+            boolean includeRttCall) {
         return toParcelableCall(call, includeVideoProvider, phoneAccountRegistrar,
-                supportsExternalCalls, CALL_STATE_OVERRIDE_NONE /* overrideState */);
+                supportsExternalCalls, CALL_STATE_OVERRIDE_NONE /* overrideState */,
+                includeRttCall);
     }
 
     /**
@@ -79,7 +82,8 @@ public class ParcelableCallUtils {
             boolean includeVideoProvider,
             PhoneAccountRegistrar phoneAccountRegistrar,
             boolean supportsExternalCalls,
-            int overrideState) {
+            int overrideState,
+            boolean includeRttCall) {
         int state;
         if (overrideState == CALL_STATE_OVERRIDE_NONE) {
             state = getParcelableState(call, supportsExternalCalls);
@@ -88,6 +92,8 @@ public class ParcelableCallUtils {
         }
         int capabilities = convertConnectionToCallCapabilities(call.getConnectionCapabilities());
         int properties = convertConnectionToCallProperties(call.getConnectionProperties());
+        int supportedAudioRoutes = call.getSupportedAudioRoutes();
+
         if (call.isConference()) {
             properties |= android.telecom.Call.Details.PROPERTY_CONFERENCE;
         }
@@ -97,7 +103,7 @@ public class ParcelableCallUtils {
         }
 
         // If this is a single-SIM device, the "default SIM" will always be the only SIM.
-        boolean isDefaultSmsAccount =
+        boolean isDefaultSmsAccount = phoneAccountRegistrar != null &&
                 phoneAccountRegistrar.isUserSelectedSmsPhoneAccount(call.getTargetPhoneAccount());
         if (call.isRespondViaSmsCapable() && isDefaultSmsAccount) {
             capabilities |= android.telecom.Call.Details.CAPABILITY_RESPOND_VIA_TEXT;
@@ -150,6 +156,8 @@ public class ParcelableCallUtils {
             conferenceableCallIds.add(otherCall.getId());
         }
 
+        ParcelableRttCall rttCall = includeRttCall ? getParcelableRttCall(call) : null;
+
         return new ParcelableCall(
                 call.getId(),
                 state,
@@ -157,6 +165,7 @@ public class ParcelableCallUtils {
                 call.getCannedSmsResponses(),
                 capabilities,
                 properties,
+                supportedAudioRoutes,
                 connectTimeMillis,
                 handle,
                 call.getHandlePresentation(),
@@ -166,13 +175,16 @@ public class ParcelableCallUtils {
                 call.getTargetPhoneAccount(),
                 includeVideoProvider,
                 includeVideoProvider ? call.getVideoProvider() : null,
+                includeRttCall,
+                rttCall,
                 parentCallId,
                 childCallIds,
                 call.getStatusHints(),
                 call.getVideoState(),
                 conferenceableCallIds,
                 call.getIntentExtras(),
-                call.getExtras());
+                call.getExtras(),
+                call.getCreationTimeMillis());
     }
 
     private static int getParcelableState(Call call, boolean supportsExternalCalls) {
@@ -314,14 +326,17 @@ public class ParcelableCallUtils {
         Connection.PROPERTY_GENERIC_CONFERENCE,
         android.telecom.Call.Details.PROPERTY_GENERIC_CONFERENCE,
 
-        Connection.PROPERTY_SHOW_CALLBACK_NUMBER,
+        Connection.PROPERTY_EMERGENCY_CALLBACK_MODE,
         android.telecom.Call.Details.PROPERTY_EMERGENCY_CALLBACK_MODE,
 
         Connection.PROPERTY_IS_EXTERNAL_CALL,
         android.telecom.Call.Details.PROPERTY_IS_EXTERNAL_CALL,
 
         Connection.PROPERTY_HAS_CDMA_VOICE_PRIVACY,
-        android.telecom.Call.Details.PROPERTY_HAS_CDMA_VOICE_PRIVACY
+        android.telecom.Call.Details.PROPERTY_HAS_CDMA_VOICE_PRIVACY,
+
+        Connection.PROPERTY_SELF_MANAGED,
+        android.telecom.Call.Details.PROPERTY_SELF_MANAGED
     };
 
     private static int convertConnectionToCallProperties(int connectionProperties) {
@@ -341,6 +356,14 @@ public class ParcelableCallUtils {
      */
     private static int removeCapability(int capabilities, int capability) {
         return capabilities & ~capability;
+    }
+
+    private static ParcelableRttCall getParcelableRttCall(Call call) {
+        if (!call.isRttCall()) {
+            return null;
+        }
+        return new ParcelableRttCall(call.getRttMode(), call.getInCallToCsRttPipeForInCall(),
+                call.getCsToInCallRttPipeForInCall());
     }
 
     private ParcelableCallUtils() {}

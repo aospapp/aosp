@@ -26,7 +26,7 @@ LOCAL_COMPATIBILITY_SUITE := cts
 # Include both the 32 and 64 bit versions
 LOCAL_MULTILIB := both
 
-LOCAL_STATIC_JAVA_LIBRARIES := ctstestrunner ctsdeviceutil
+LOCAL_STATIC_JAVA_LIBRARIES := ctstestrunner compatibility-device-util
 
 LOCAL_HOST_SHARED_LIBRARIES := compatibility-device-media-preconditions
 

@@ -30,7 +30,7 @@ class GenericMediaPlayer;
 class MediaPlayerNotificationClient : public BnMediaPlayerClient
 {
 public:
-    MediaPlayerNotificationClient(GenericMediaPlayer* gmp);
+    explicit MediaPlayerNotificationClient(GenericMediaPlayer* gmp);
 
     // IMediaPlayerClient implementation
     virtual void notify(int msg, int ext1, int ext2, const Parcel *obj);
@@ -60,7 +60,7 @@ private:
 
 class MediaPlayerDeathNotifier : public IMediaDeathNotifier {
 public:
-    MediaPlayerDeathNotifier(const sp<MediaPlayerNotificationClient> playerClient) :
+    explicit MediaPlayerDeathNotifier(const sp<MediaPlayerNotificationClient>& playerClient) :
         mPlayerClient(playerClient) {
     }
 

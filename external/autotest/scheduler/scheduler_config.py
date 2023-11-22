@@ -9,7 +9,6 @@ class SchedulerConfig(object):
     """
     FIELDS = [
                 ('max_processes_per_drone', int),
-                ('max_processes_warning_threshold', float),
                 ('clean_interval_minutes', int),
                 ('max_parse_processes', int),
                 ('tick_pause_sec', float),

@@ -20,7 +20,6 @@ package org.apache.commons.codec;
 /**
  * Thrown when a Decoder has encountered a failure condition during a decode.
  *
- * @author Apache Software Foundation
  * @version $Id: DecoderException.java 797804 2009-07-25 17:27:04Z ggregory $
  */
 public class DecoderException extends Exception {

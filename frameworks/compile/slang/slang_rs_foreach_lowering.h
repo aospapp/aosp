@@ -32,7 +32,7 @@ class RSContext;
 
 class RSForEachLowering : public clang::StmtVisitor<RSForEachLowering> {
  public:
-  RSForEachLowering(RSContext* ctxt);
+  explicit RSForEachLowering(RSContext* ctxt);
 
   // Given a FunctionDecl FD and the target API level, either translates all
   // rsForEach() and rsForEachWithOptions() calls inside FD into calls to the

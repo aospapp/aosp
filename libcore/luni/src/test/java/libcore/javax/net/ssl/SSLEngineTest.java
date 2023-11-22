@@ -16,6 +16,8 @@
 
 package libcore.javax.net.ssl;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
@@ -124,7 +126,7 @@ public class SSLEngineTest extends TestCase {
                 new PSKKeyManagerProxy() {
             @Override
             protected SecretKey getKey(String identityHint, String identity, SSLEngine engine) {
-                return new SecretKeySpec("Just an arbitrary key".getBytes(), "RAW");
+                return new SecretKeySpec("Just an arbitrary key".getBytes(UTF_8), "RAW");
             }
         });
         TestSSLContext c = TestSSLContext.createWithAdditionalKeyManagers(
@@ -220,13 +222,12 @@ public class SSLEngineTest extends TestCase {
                 assertConnected(pair);
 
                 boolean needsRecordSplit =
-                        ("TLS".equalsIgnoreCase(c.clientContext.getProtocol())
-                                || "SSLv3".equalsIgnoreCase(c.clientContext.getProtocol()))
+                        "TLS".equalsIgnoreCase(c.clientContext.getProtocol())
                                 && cipherSuite.contains("_CBC_");
 
-                assertSendsCorrectly("This is the client. Hello!".getBytes(),
+                assertSendsCorrectly("This is the client. Hello!".getBytes(UTF_8),
                         pair.client, pair.server, needsRecordSplit);
-                assertSendsCorrectly("This is the server. Hi!".getBytes(),
+                assertSendsCorrectly("This is the server. Hi!".getBytes(UTF_8),
                         pair.server, pair.client, needsRecordSplit);
             } finally {
                 if (pair != null) {
@@ -819,11 +820,12 @@ public class SSLEngineTest extends TestCase {
             final CountDownLatch startUpSync = new CountDownLatch(2);
             ExecutorService executor = Executors.newFixedThreadPool(2);
             Future<Void> client = executor.submit(new Callable<Void>() {
+                @Override
                 public Void call() throws Exception {
                     startUpSync.countDown();
 
                     for (int i = 0; i < NUM_STRESS_ITERATIONS; i++) {
-                        assertSendsCorrectly("This is the client. Hello!".getBytes(),
+                        assertSendsCorrectly("This is the client. Hello!".getBytes(UTF_8),
                                 pair.client, pair.server, false);
                     }
 
@@ -831,11 +833,12 @@ public class SSLEngineTest extends TestCase {
                 }
             });
             Future<Void> server = executor.submit(new Callable<Void>() {
+                @Override
                 public Void call() throws Exception {
                     startUpSync.countDown();
 
                     for (int i = 0; i < NUM_STRESS_ITERATIONS; i++) {
-                        assertSendsCorrectly("This is the server. Hi!".getBytes(),
+                        assertSendsCorrectly("This is the server. Hi!".getBytes(UTF_8),
                                 pair.server, pair.client, false);
                     }
 

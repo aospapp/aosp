@@ -7,19 +7,15 @@ import java.util.Set;
 
 import android.annotation.TargetApi;
 import android.app.AlarmManager;
-import android.app.Notification;
-import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothProfile;
+import android.bluetooth.BluetoothSap;
 import android.bluetooth.BluetoothServerSocket;
 import android.bluetooth.BluetoothSocket;
 import android.bluetooth.BluetoothUuid;
-import android.bluetooth.IBluetooth;
 import android.bluetooth.IBluetoothSap;
-import android.bluetooth.BluetoothUuid;
-import android.bluetooth.BluetoothSap;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -32,6 +28,7 @@ import android.os.PowerManager;
 import android.provider.Settings;
 import android.text.TextUtils;
 import android.util.Log;
+
 import com.android.bluetooth.R;
 import com.android.bluetooth.Utils;
 import com.android.bluetooth.btservice.AdapterService;
@@ -93,11 +90,6 @@ public class SapService extends ProfileService {
 
     private boolean mIsWaitingAuthorization = false;
     private boolean mIsRegistered = false;
-
-    // package and class name to which we send intent to check message access access permission
-    private static final String ACCESS_AUTHORITY_PACKAGE = "com.android.settings";
-    private static final String ACCESS_AUTHORITY_CLASS =
-        "com.android.settings.bluetooth.BluetoothPermissionRequest";
 
     private static final ParcelUuid[] SAP_UUIDS = {
         BluetoothUuid.SAP,
@@ -358,7 +350,7 @@ public class SapService extends ProfileService {
                     } else if (permission != BluetoothDevice.ACCESS_REJECTED){
                         Intent intent = new
                                 Intent(BluetoothDevice.ACTION_CONNECTION_ACCESS_REQUEST);
-                        intent.setClassName(ACCESS_AUTHORITY_PACKAGE, ACCESS_AUTHORITY_CLASS);
+                        intent.setPackage(getString(R.string.pairing_ui_package));
                         intent.putExtra(BluetoothDevice.EXTRA_ACCESS_REQUEST_TYPE,
                                         BluetoothDevice.REQUEST_TYPE_SIM_ACCESS);
                         intent.putExtra(BluetoothDevice.EXTRA_DEVICE, mRemoteDevice);
@@ -372,8 +364,12 @@ public class SapService extends ProfileService {
                                 + sRemoteDeviceName);
 
                     } else {
-                        // Assuming reject is the stored state - continue to accept new connection.
-                        continue;
+                        // Close RFCOMM socket for current connection and start listening
+                        // again for new connections.
+                        Log.w(TAG, "Can't connect with " + sRemoteDeviceName +
+                            " as access is rejected");
+                        if (mSessionStatusHandler != null)
+                            mSessionStatusHandler.sendEmptyMessage(MSG_SERVERSESSION_CLOSE);
                     }
                     stopped = true; // job done ,close this thread;
                 } catch (IOException ex) {
@@ -401,7 +397,7 @@ public class SapService extends ProfileService {
                     }
                     break;
                 case USER_TIMEOUT:
-                    if (mIsWaitingAuthorization){
+                    if (mIsWaitingAuthorization) {
                         sendCancelUserConfirmationIntent(mRemoteDevice);
                         cancelUserTimeoutAlarm();
                         mIsWaitingAuthorization = false;
@@ -470,11 +466,6 @@ public class SapService extends ProfileService {
             intent.putExtra(BluetoothProfile.EXTRA_STATE, mState);
             intent.putExtra(BluetoothDevice.EXTRA_DEVICE, mRemoteDevice);
             sendBroadcast(intent, BLUETOOTH_PERM);
-            AdapterService s = AdapterService.getAdapterService();
-            if (s != null) {
-                s.onProfileConnectionStateChanged(mRemoteDevice, BluetoothProfile.SAP,
-                        mState, prevState);
-            }
         }
     }
 
@@ -620,13 +611,8 @@ public class SapService extends ProfileService {
     }
 
     private void setUserTimeoutAlarm(){
-        if (DEBUG)Log.d(TAG,"SetUserTimeOutAlarm()");
-        if (mAlarmManager == null){
-            mAlarmManager =(AlarmManager) this.getSystemService (Context.ALARM_SERVICE);
-        }
-        if(mRemoveTimeoutMsg) {
-            cancelUserTimeoutAlarm();
-        }
+        if (DEBUG) Log.d(TAG, "setUserTimeOutAlarm()");
+        cancelUserTimeoutAlarm();
         mRemoveTimeoutMsg = true;
         Intent timeoutIntent = new Intent(USER_CONFIRM_TIMEOUT_ACTION);
         PendingIntent pIntent = PendingIntent.getBroadcast(this, 0, timeoutIntent, 0);
@@ -634,18 +620,22 @@ public class SapService extends ProfileService {
                 + USER_CONFIRM_TIMEOUT_VALUE,pIntent);
     }
 
-    private void cancelUserTimeoutAlarm(){
-        if (DEBUG)Log.d(TAG,"cancelUserTimeOutAlarm()");
-        Intent timeoutIntent = new Intent(USER_CONFIRM_TIMEOUT_ACTION);
-        PendingIntent sender = PendingIntent.getBroadcast(this, 0, timeoutIntent, 0);
-        AlarmManager alarmManager = (AlarmManager) this.getSystemService(Context.ALARM_SERVICE);
-        alarmManager.cancel(sender);
-        mRemoveTimeoutMsg = false;
+    private void cancelUserTimeoutAlarm() {
+        if (DEBUG) Log.d(TAG, "cancelUserTimeOutAlarm()");
+        if (mAlarmManager == null) {
+            mAlarmManager = (AlarmManager) this.getSystemService(Context.ALARM_SERVICE);
+        }
+        if (mRemoveTimeoutMsg) {
+            Intent timeoutIntent = new Intent(USER_CONFIRM_TIMEOUT_ACTION);
+            PendingIntent sender = PendingIntent.getBroadcast(this, 0, timeoutIntent, 0);
+            mAlarmManager.cancel(sender);
+            mRemoveTimeoutMsg = false;
+        }
     }
 
     private void sendCancelUserConfirmationIntent(BluetoothDevice device) {
         Intent intent = new Intent(BluetoothDevice.ACTION_CONNECTION_ACCESS_CANCEL);
-        intent.setClassName(ACCESS_AUTHORITY_PACKAGE, ACCESS_AUTHORITY_CLASS);
+        intent.setPackage(getString(R.string.pairing_ui_package));
         intent.putExtra(BluetoothDevice.EXTRA_DEVICE, device);
         intent.putExtra(BluetoothDevice.EXTRA_ACCESS_REQUEST_TYPE,
                         BluetoothDevice.REQUEST_TYPE_SIM_ACCESS);
@@ -696,7 +686,10 @@ public class SapService extends ProfileService {
                     mSessionStatusHandler.sendMessage(mSessionStatusHandler
                                   .obtainMessage(START_LISTENER));
                 }
-            } else if (action.equals(BluetoothDevice.ACTION_CONNECTION_ACCESS_REPLY)) {
+                return;
+            }
+
+            if (action.equals(BluetoothDevice.ACTION_CONNECTION_ACCESS_REPLY)) {
                 Log.v(TAG, " - Received BluetoothDevice.ACTION_CONNECTION_ACCESS_REPLY");
                 if (!mIsWaitingAuthorization) {
                     // this reply is not for us
@@ -714,7 +707,8 @@ public class SapService extends ProfileService {
                                 BluetoothDevice.ACCESS_ALLOWED);
                         if (VERBOSE) {
                             Log.v(TAG, "setSimAccessPermission(ACCESS_ALLOWED) result=" + result);
-                        }                    }
+                        }
+                    }
                     try {
                         if (mConnSocket != null) {
                             // start obex server and rfcomm connection
@@ -737,12 +731,17 @@ public class SapService extends ProfileService {
                     // Ensure proper cleanup, and prepare for new connect.
                     mSessionStatusHandler.sendEmptyMessage(MSG_SERVERSESSION_CLOSE);
                 }
-            } else if (action.equals(USER_CONFIRM_TIMEOUT_ACTION)){
-                if (DEBUG) Log.d(TAG, "USER_CONFIRM_TIMEOUT ACTION Received.");
+                return;
+            }
+
+            if (action.equals(USER_CONFIRM_TIMEOUT_ACTION)) {
+                if (DEBUG) Log.d(TAG, "USER_CONFIRM_TIMEOUT_ACTION Received.");
                 // send us self a message about the timeout.
                 sendConnectTimeoutMessage();
-            }  else if (action.equals(BluetoothDevice.ACTION_ACL_DISCONNECTED) &&
-                    mIsWaitingAuthorization) {
+                return;
+            }
+
+            if (action.equals(BluetoothDevice.ACTION_ACL_DISCONNECTED) && mIsWaitingAuthorization) {
                 BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
 
                 if (mRemoteDevice == null || device == null) {
@@ -755,11 +754,9 @@ public class SapService extends ProfileService {
                 if (mRemoteDevice.equals(device)) {
                     if (mRemoveTimeoutMsg) {
                         // Send any pending timeout now, as ACL got disconnected.
-                        cancelUserTimeoutAlarm();
                         mSessionStatusHandler.removeMessages(USER_TIMEOUT);
-                        sendCancelUserConfirmationIntent(mRemoteDevice);
+                        mSessionStatusHandler.obtainMessage(USER_TIMEOUT).sendToTarget();
                     }
-                    mIsWaitingAuthorization = false;
                     setState(BluetoothSap.STATE_DISCONNECTED);
                     // Ensure proper cleanup, and prepare for new connect.
                     mSessionStatusHandler.sendEmptyMessage(MSG_SERVERSESSION_CLOSE);

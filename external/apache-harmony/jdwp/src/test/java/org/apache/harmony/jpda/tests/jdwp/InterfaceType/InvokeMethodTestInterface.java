@@ -18,9 +18,6 @@
 
 package org.apache.harmony.jpda.tests.jdwp.InterfaceType;
 
-import org.apache.harmony.jpda.tests.framework.LogWriter;
-import org.apache.harmony.jpda.tests.share.JPDATestOptions;
-
 /**
  * Used for InterfaceType.InvokeMethodTest
  */

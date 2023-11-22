@@ -7,8 +7,8 @@ import cgi
 import collections
 import HTMLParser
 import logging
-import os
 import re
+import textwrap
 
 from xml.parsers import expat
 
@@ -16,13 +16,19 @@ import common
 
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib import global_config
-from autotest_lib.client.common_lib.cros.graphite import autotest_stats
+from autotest_lib.server import afe_urls
 from autotest_lib.server import site_utils
 from autotest_lib.server.cros.dynamic_suite import constants
 from autotest_lib.server.cros.dynamic_suite import job_status
 from autotest_lib.server.cros.dynamic_suite import reporting_utils
 from autotest_lib.server.cros.dynamic_suite import tools
 from autotest_lib.site_utils  import gmail_lib
+
+try:
+    from chromite.lib import metrics
+except ImportError:
+    metrics = site_utils.metrics_mock
+
 
 # Try importing the essential bug reporting libraries.
 try:
@@ -33,7 +39,6 @@ except ImportError, e:
 else:
     fundamental_libs = True
 
-EMAIL_COUNT_KEY = 'emails.test_failure.%s'
 BUG_CONFIG_SECTION = 'BUG_REPORTING'
 
 CHROMIUM_EMAIL_ADDRESS = global_config.global_config.get_config_value(
@@ -46,7 +51,7 @@ class Bug(object):
     """Holds the minimum information needed to make a dedupable bug report."""
 
     def __init__(self, title, summary, search_marker=None, labels=None,
-                 owner='', cc=None):
+                 owner='', cc=None, components=None):
         """
         Initializes Bug object.
 
@@ -59,6 +64,7 @@ class Bug(object):
         @param labels: The labels that the filed bug will have.
         @param owner: The owner/asignee of this bug. Typically left blank.
         @param cc: Who to cc'd for this bug.
+        @param components: The components that the filed bug will have.
         """
         self._title = title
         self._summary = summary
@@ -66,6 +72,7 @@ class Bug(object):
         self.owner = owner
 
         self.labels = labels if labels is not None else []
+        self.components = components if components is not None else []
         self.cc = cc if cc is not None else []
 
 
@@ -120,6 +127,7 @@ class TestBug(Bug):
         # The owner is who the bug is assigned to.
         self.owner = ''
         self.cc = []
+        self.components = []
 
         if result.is_warn():
             self.labels = ['Test-Warning']
@@ -150,8 +158,10 @@ class TestBug(Bug):
                     'status log: %(status_log)s.\n'
                     'buildbot stages: %(buildbot_stages)s.\n'
                     'job link: %(job)s.\n\n'
-                    'You may want to check the test retry dashboard in case '
-                    'this is a flakey test: %(retry_url)s\n')
+                    'You may want to check the test history on wmatrix: '
+                    '%(test_history_url)s\n'
+                    'You may also want to check the test retry dashboard in '
+                    'case this is a flakey test: %(retry_url)s\n')
 
         specifics = {
             'status': self.status,
@@ -165,12 +175,16 @@ class TestBug(Bug):
             'status_log': links.status_log,
             'buildbot_stages': links.buildbot,
             'job': links.job,
+            'test_history_url': links.test_history_url,
             'retry_url': links.retry_url,
         }
 
         return template % specifics
 
 
+    # TO-DO(shuqianz) Fix the dedupe failing issue because reason contains
+    # special characters after
+    # https://bugs.chromium.org/p/monorail/issues/detail?id=806 being fixed.
     def search_marker(self):
         """Return an Anchor that we can use to dedupe this exact bug."""
         board = ''
@@ -186,7 +200,7 @@ class TestBug(Bug):
             for b in (board, board.replace('_', '-')):
                 reason = reason.replace(b, 'BOARD_PLACEHOLDER')
 
-        return "%s(%s,%s,%s)" % ('Test%s' % self.status, self.suite,
+        return "%s{%s,%s,%s}" % ('Test%s' % self.status, self.suite,
                                  self.name, reason)
 
 
@@ -197,6 +211,7 @@ class TestBug(Bug):
                                                  'artifacts,'
                                                  'buildbot,'
                                                  'job,'
+                                                 'test_history_url,'
                                                  'retry_url'))
         return links(reporting_utils.link_result_logs(
                          self.job_id, self.result_owner, self.hostname),
@@ -205,6 +220,7 @@ class TestBug(Bug):
                      reporting_utils.link_build_artifacts(self.build),
                      reporting_utils.link_buildbot_stages(self.build),
                      reporting_utils.link_job(self.job_id),
+                     reporting_utils.link_test_history(self.name),
                      reporting_utils.link_retry_url(self.name))
 
 
@@ -237,6 +253,7 @@ class MachineKillerBug(Bug):
         self.owner=''
         self.cc=[self._CC_ADDRESS]
         self.labels=[self._MACHINE_KILLER_LABEL]
+        self.components = []
 
 
     def title(self):
@@ -270,61 +287,84 @@ class MachineKillerBug(Bug):
 
     def search_marker(self):
         """Returns an Anchor that we can use to dedupe this bug."""
-        return 'MachineKiller(%s)' % self._test_name
+        return 'MachineKiller{%s}' % self._test_name
 
 
 class PoolHealthBug(Bug):
     """Report information about a critical pool of DUTs in the lab."""
 
-    _POOL_HEALTH_LABELS = ['recoverduts', 'Build-HardwareLab', 'Pri-1']
+    _POOL_HEALTH_LABELS = global_config.global_config.get_config_value(
+            'BUG_REPORTING', 'pool_health_labels', type=list, default=[])
+    _POOL_HEALTH_COMPONENTS = global_config.global_config.get_config_value(
+            'BUG_REPORTING', 'pool_health_components', type=list, default=[])
     _CC_ADDRESS = global_config.global_config.get_config_value(
-                            'BUG_REPORTING', 'pool_health_cc',
-                            type=list, default=[])
+            'BUG_REPORTING', 'pool_health_cc', type=list, default=[])
+    _SUMMARY_TEMPLATE = textwrap.dedent("""\
+    This bug has been automatically filed to track the following issue:
 
+    Not enough DUTs available.
+    Pool: {this._pool}
+    Board: {this._board}
+    DUTs needed: {this._num_required}
+    DUTs available: {this._num_available}
+    Suite: {this._suite_name}
+    Build: {this._build}
 
-    def __init__(self, pool, board, dead_hostnames):
+    Hosts:
+
+    {host_summaries}
+    """)
+    _HOST_TEMPLATE = '{host.hostname} {locked_status} {host.status} {afe_link}'
+
+    def __init__(self, exception):
         """Initialize a PoolHealthBug.
 
-        @param pool: The name of the pool in critical condition.
-        @param board: The board in critical condition.
-        @param dead_hostnames: A list of unusable machines with the given
+        @param exception: NotEnoughDutsError with context information.
+        @param hosts: An Iterable of all Hosts with the
             board, in the given pool.
         """
-        self._pool = pool
-        self._board = board
-        self._dead_hostnames = dead_hostnames
+        self._exception = exception
+        self._board = exception.board
+        self._pool = exception.pool
+        self._num_available = exception.num_available
+        self._num_required = exception.num_required
+        self._bug_id = exception.bug_id
+        self._hosts = exception.hosts
+        self._suite_name = exception.suite_name
+        self._build = exception.build
+
         self.owner = ''
         self.cc = self._CC_ADDRESS
         self.labels = self._POOL_HEALTH_LABELS
+        self.components = self._POOL_HEALTH_COMPONENTS
 
 
     def title(self):
-        return ('pool: %s, board: %s in a critical state.' %
+        return ('pool: %s, board: %s in critical state' %
                 (self._pool, self._board))
 
 
     def summary(self):
         """Combines information about this bug into a summary string."""
+        return self._SUMMARY_TEMPLATE.format(
+            this=self,
+            host_summaries='\n'.join(self._make_host_summaries()))
 
-        template = ('This bug has been automatically filed to track the '
-                    'following issue:\n'
-                    'Pool: %(pool)s.\n'
-                    'Board: %(board)s.\n'
-                    'Dead hosts: %(dead_hosts)s.\n'
-                    'Issue: The pool is in a critical condition and cannot '
-                    'complete build verification tests in a timely manner.\n'
-                    'Suggested Actions: Recover the devices ASAP.')
-        specifics = {
-            'pool': self._pool,
-            'board': self._board,
-            'dead_hosts': ','.join(self._dead_hostnames),
-        }
-        return template % specifics
+
+    def _make_host_summaries(self):
+        """Yield hosts summary strings."""
+        host_template = self._HOST_TEMPLATE
+        for host in self._hosts:
+            yield host_template.format(
+                host=host,
+                locked_status='Locked' if host.locked else 'Unlocked',
+                afe_link=afe_urls.get_host_url(host.id))
 
 
     def search_marker(self):
         """Returns an Anchor that we can use to dedupe this bug."""
-        return 'PoolHealthBug(%s, %s)' % (self._pool, self._board)
+        return 'PoolHealthBug{%s, %s}' % (self._pool, self._board)
+
 
 class SuiteSchedulerBug(Bug):
     """Bug filed for suite scheduler."""
@@ -341,6 +381,7 @@ class SuiteSchedulerBug(Bug):
         self.owner = lab_deputies[0] if lab_deputies else ''
         self.labels = self._SUITE_SCHEDULER_LABELS
         self.cc = lab_deputies[1:] if lab_deputies else []
+        self.components = []
 
 
     def title(self):
@@ -387,8 +428,11 @@ class SuiteSchedulerBug(Bug):
     def search_marker(self):
         """Returns an Anchor that we can use to dedupe this bug."""
         # TODO(fdeng): flaky deduping behavior, see crbug.com/486895
-        return 'SuiteSchedulerBug(%s, %s)' % (
-                self._suite, type(self._exception))
+        return 'SuiteSchedulerBug{%s, %s}' % (
+                self._suite, type(self._exception).__name__)
+
+
+ReportResult = collections.namedtuple('ReportResult', ['bug_id', 'update_count'])
 
 
 class Reporter(object):
@@ -400,6 +444,8 @@ class Reporter(object):
         BUG_CONFIG_SECTION, 'project_name', default='')
     _oauth_credentials = global_config.global_config.get_config_value(
         BUG_CONFIG_SECTION, 'credentials', default='')
+    _monorail_server= global_config.global_config.get_config_value(
+        BUG_CONFIG_SECTION, 'monorail_server', default='staging')
 
     # AUTOFILED_COUNT is a label prefix used to indicate how
     # many times we think we've updated an issue automatically.
@@ -412,7 +458,7 @@ class Reporter(object):
 
 
     @classmethod
-    def get_creds_abspath(cls):
+    def _get_creds_abspath(cls):
         """Returns the abspath of the bug filer credentials file.
 
         @return: A path to the oauth2 credentials file.
@@ -426,7 +472,8 @@ class Reporter(object):
             return
         try:
             self._phapi_client = phapi_lib.ProjectHostingApiClient(
-                    self.get_creds_abspath(), self._project_name)
+                    self._get_creds_abspath(), self._project_name,
+                    self._monorail_server)
         except phapi_lib.ProjectHostingApiException as e:
             logging.error('Unable to create project hosting api client: %s', e)
             self._phapi_client = None
@@ -447,7 +494,7 @@ class Reporter(object):
             return self._phapi_client
         raise phapi_lib.ProjectHostingApiException('Project hosting client not '
                 'initialized for project:%s, using auth file: %s' %
-                (self._project_name, self.get_creds_abspath()))
+                (self._project_name, self._get_creds_abspath()))
 
 
     def _get_lab_error_template(self):
@@ -477,6 +524,7 @@ class Reporter(object):
         if override:
             kwargs.update((k,v) for k,v in override.iteritems() if v)
 
+        kwargs['summary'] = kwargs['title']
         kwargs['labels'] = list(set(kwargs['labels'] + self._PREDEFINED_LABELS))
         kwargs['cc'] = list(map(lambda cc: {'name': cc},
                                 set(kwargs['cc'] + kwargs['sheriffs'])))
@@ -520,16 +568,16 @@ class Reporter(object):
                          dynamic it needs to be determined at runtime, as
                          opposed to the normal cc list which is available
                          through the bug template.
-        @return: id of the created issue, or None if an issue wasn't created.
-                 Note that if either the description or title fields are missing
-                 we won't be able to create a bug.
+        @return: id of the created issue as a string, or None if an issue
+                 wasn't created.  Note that if either the description or title
+                 fields are missing we won't be able to create a bug.
         """
         anchored_summary = self._anchor_summary(bug)
 
         issue = self._format_issue_options(bug_template, title=bug.title(),
             description=anchored_summary, labels=bug.labels,
             status='Untriaged', owner=bug.owner, cc=bug.cc,
-            sheriffs=sheriffs)
+            sheriffs=sheriffs, components=bug.components)
 
         try:
             filed_bug = self._phapi_client.create_issue(issue)
@@ -572,7 +620,7 @@ class Reporter(object):
                          issue_id, comment, label_update, status)
 
 
-    def find_issue_by_marker(self, marker):
+    def _find_issue_by_marker(self, marker):
         """
         Queries the tracker to find if there is a bug filed for this issue.
 
@@ -676,7 +724,7 @@ class Reporter(object):
         @return An Issue instance, representing an open issue that is a
                 duplicate of the one being searched for.
         """
-        issue = self.find_issue_by_marker(marker)
+        issue = self._find_issue_by_marker(marker)
         if not issue or issue.state == constants.ISSUE_OPEN:
             return issue
 
@@ -799,7 +847,7 @@ class Reporter(object):
             return ''
 
 
-    def report(self, bug, bug_template={}, ignore_duplicate=False):
+    def report(self, bug, bug_template=None, ignore_duplicate=False):
         """Report an issue to the bug tracker.
 
         If this issue has happened before, post a comment on the
@@ -811,19 +859,22 @@ class Reporter(object):
         @param bug_template A template dictionary specifying the
                             default bug filing options for an issue
                             with this suite.
-        @param ignore_duplicate: If True, when a duplicate is found,
-                            simply ignore the new one rather than
-                            posting an update.
-        @return             A 2-tuple of the issue id of the issue
-                            that was either created or modified, and
-                            a count of the number of times the bug
-                            has been updated.  For a new bug, the
-                            count is 1. If we could not file a bug
-                            for some reason, the count is 0.
+        @param ignore_duplicate  If True, when a duplicate is found,
+                                 simply ignore the new one rather than
+                                 posting an update.
+        @return   A ReportResult namedtuple containing:
+
+                  - the issue id as a string or None
+                  - the number of times the bug has been updated.  For a new
+                    bug, the count is 1.  If we could not file a bug for some
+                    reason, the count is 0.
         """
+        if bug_template is None:
+            bug_template = {}
+
         if not self._check_tracker():
             logging.error("Can't file %s", bug.title())
-            return None, 0
+            return ReportResult(None, 0)
 
         project_label = self._get_project_label_from_title(bug.title())
 
@@ -844,7 +895,7 @@ class Reporter(object):
             logging.debug('Duplicate found for %s, not filing as requested.',
                           bug.search_marker())
             _, bug_count = self._get_count_labels_and_max(issue)
-            return issue.id, bug_count
+            return ReportResult(issue.id, bug_count)
 
         if issue:
             comment = '%s\n\n%s' % (bug.title(), self._anchor_summary(bug))
@@ -853,7 +904,7 @@ class Reporter(object):
             if project_label:
                 label_update.append(project_label)
             self.modify_bug_report(issue.id, comment, label_update)
-            return issue.id, bug_count
+            return ReportResult(issue.id, bug_count)
 
         sheriffs = []
 
@@ -873,7 +924,35 @@ class Reporter(object):
             bug_template.get('labels', []).append(project_label)
         bug_id = self._create_bug_report(bug, bug_template, sheriffs)
         bug_count = 1 if bug_id else 0
-        return bug_id, bug_count
+        return ReportResult(bug_id, bug_count)
+
+
+class NullReporter(object):
+    """Null object for bug reporter."""
+
+    def report(self, bug, bug_template=None, ignore_duplicate=False):
+        """Report an issue to the bug tracker.
+
+        If this issue has happened before, post a comment on the
+        existing bug about it occurring again, and update the
+        'autofiled-count' label.  If this is a new issue, create a
+        new bug for it.
+
+        @param bug          A Bug instance about the issue.
+        @param bug_template A template dictionary specifying the
+                            default bug filing options for an issue
+                            with this suite.
+        @param ignore_duplicate  If True, when a duplicate is found,
+                                 simply ignore the new one rather than
+                                 posting an update.
+        @return   A ReportResult namedtuple containing:
+
+                  - the issue id as a string or None
+                  - the number of times the bug has been updated.  For a new
+                    bug, the count is 1.  If we could not file a bug for some
+                    reason, the count is 0.
+        """
+        return ReportResult(None, 0)
 
 
 # TODO(beeps): Move this to server/site_utils after crbug.com/281906 is fixed.
@@ -900,7 +979,6 @@ def send_email(bug, bug_template):
     @param bug_template: A template dictionary specifying the default bug
                          filing options for failures in this suite.
     """
-    autotest_stats.Counter(EMAIL_COUNT_KEY % 'total').increment()
     to_set = set(bug.cc) if bug.cc else set()
     if bug.owner:
         to_set.add(bug.owner)
@@ -909,10 +987,12 @@ def send_email(bug, bug_template):
     if bug_template.get('owner'):
         to_set.add(bug_template.get('owner'))
     recipients = ', '.join(to_set)
+    success = False
     try:
         gmail_lib.send_email(
             recipients, bug.title(), bug.summary(), retry=False,
             creds_path=site_utils.get_creds_abspath(EMAIL_CREDS_FILE))
-    except Exception:
-        autotest_stats.Counter(EMAIL_COUNT_KEY % 'fail').increment()
-        raise
+        success = True
+    finally:
+        (metrics.Counter('chromeos/autotest/errors/send_bug_email')
+         .increment(fields={'success': success}))

@@ -4,11 +4,12 @@
 
 #include "base/memory/weak_ptr.h"
 
+#include <memory>
 #include <string>
 
 #include "base/bind.h"
+#include "base/debug/leak_annotations.h"
 #include "base/location.h"
-#include "base/memory/scoped_ptr.h"
 #include "base/single_thread_task_runner.h"
 #include "base/synchronization/waitable_event.h"
 #include "base/threading/thread.h"
@@ -16,6 +17,10 @@
 
 namespace base {
 namespace {
+
+WeakPtr<int> PassThru(WeakPtr<int> ptr) {
+  return ptr;
+}
 
 template <class T>
 class OffThreadObjectCreator {
@@ -64,7 +69,8 @@ class BackgroundThread : public Thread {
   ~BackgroundThread() override { Stop(); }
 
   void CreateArrowFromTarget(Arrow** arrow, Target* target) {
-    WaitableEvent completion(true, false);
+    WaitableEvent completion(WaitableEvent::ResetPolicy::MANUAL,
+                             WaitableEvent::InitialState::NOT_SIGNALED);
     task_runner()->PostTask(
         FROM_HERE, base::Bind(&BackgroundThread::DoCreateArrowFromTarget, arrow,
                               target, &completion));
@@ -72,7 +78,8 @@ class BackgroundThread : public Thread {
   }
 
   void CreateArrowFromArrow(Arrow** arrow, const Arrow* other) {
-    WaitableEvent completion(true, false);
+    WaitableEvent completion(WaitableEvent::ResetPolicy::MANUAL,
+                             WaitableEvent::InitialState::NOT_SIGNALED);
     task_runner()->PostTask(
         FROM_HERE, base::Bind(&BackgroundThread::DoCreateArrowFromArrow, arrow,
                               other, &completion));
@@ -80,7 +87,8 @@ class BackgroundThread : public Thread {
   }
 
   void DeleteTarget(Target* object) {
-    WaitableEvent completion(true, false);
+    WaitableEvent completion(WaitableEvent::ResetPolicy::MANUAL,
+                             WaitableEvent::InitialState::NOT_SIGNALED);
     task_runner()->PostTask(
         FROM_HERE,
         base::Bind(&BackgroundThread::DoDeleteTarget, object, &completion));
@@ -88,7 +96,8 @@ class BackgroundThread : public Thread {
   }
 
   void CopyAndAssignArrow(Arrow* object) {
-    WaitableEvent completion(true, false);
+    WaitableEvent completion(WaitableEvent::ResetPolicy::MANUAL,
+                             WaitableEvent::InitialState::NOT_SIGNALED);
     task_runner()->PostTask(
         FROM_HERE, base::Bind(&BackgroundThread::DoCopyAndAssignArrow, object,
                               &completion));
@@ -96,7 +105,8 @@ class BackgroundThread : public Thread {
   }
 
   void CopyAndAssignArrowBase(Arrow* object) {
-    WaitableEvent completion(true, false);
+    WaitableEvent completion(WaitableEvent::ResetPolicy::MANUAL,
+                             WaitableEvent::InitialState::NOT_SIGNALED);
     task_runner()->PostTask(
         FROM_HERE, base::Bind(&BackgroundThread::DoCopyAndAssignArrowBase,
                               object, &completion));
@@ -104,7 +114,8 @@ class BackgroundThread : public Thread {
   }
 
   void DeleteArrow(Arrow* object) {
-    WaitableEvent completion(true, false);
+    WaitableEvent completion(WaitableEvent::ResetPolicy::MANUAL,
+                             WaitableEvent::InitialState::NOT_SIGNALED);
     task_runner()->PostTask(
         FROM_HERE,
         base::Bind(&BackgroundThread::DoDeleteArrow, object, &completion));
@@ -112,8 +123,9 @@ class BackgroundThread : public Thread {
   }
 
   Target* DeRef(const Arrow* arrow) {
-    WaitableEvent completion(true, false);
-    Target* result = NULL;
+    WaitableEvent completion(WaitableEvent::ResetPolicy::MANUAL,
+                             WaitableEvent::InitialState::NOT_SIGNALED);
+    Target* result = nullptr;
     task_runner()->PostTask(FROM_HERE, base::Bind(&BackgroundThread::DoDeRef,
                                                   arrow, &result, &completion));
     completion.Wait();
@@ -191,15 +203,25 @@ TEST(WeakPtrFactoryTest, Comparison) {
   EXPECT_EQ(ptr.get(), ptr2.get());
 }
 
+TEST(WeakPtrFactoryTest, Move) {
+  int data;
+  WeakPtrFactory<int> factory(&data);
+  WeakPtr<int> ptr = factory.GetWeakPtr();
+  WeakPtr<int> ptr2 = factory.GetWeakPtr();
+  WeakPtr<int> ptr3 = std::move(ptr2);
+  EXPECT_NE(ptr.get(), ptr2.get());
+  EXPECT_EQ(ptr.get(), ptr3.get());
+}
+
 TEST(WeakPtrFactoryTest, OutOfScope) {
   WeakPtr<int> ptr;
-  EXPECT_EQ(NULL, ptr.get());
+  EXPECT_EQ(nullptr, ptr.get());
   {
     int data;
     WeakPtrFactory<int> factory(&data);
     ptr = factory.GetWeakPtr();
   }
-  EXPECT_EQ(NULL, ptr.get());
+  EXPECT_EQ(nullptr, ptr.get());
 }
 
 TEST(WeakPtrFactoryTest, Multiple) {
@@ -212,8 +234,8 @@ TEST(WeakPtrFactoryTest, Multiple) {
     EXPECT_EQ(&data, a.get());
     EXPECT_EQ(&data, b.get());
   }
-  EXPECT_EQ(NULL, a.get());
-  EXPECT_EQ(NULL, b.get());
+  EXPECT_EQ(nullptr, a.get());
+  EXPECT_EQ(nullptr, b.get());
 }
 
 TEST(WeakPtrFactoryTest, MultipleStaged) {
@@ -225,9 +247,9 @@ TEST(WeakPtrFactoryTest, MultipleStaged) {
     {
       WeakPtr<int> b = factory.GetWeakPtr();
     }
-    EXPECT_TRUE(NULL != a.get());
+    EXPECT_NE(nullptr, a.get());
   }
-  EXPECT_EQ(NULL, a.get());
+  EXPECT_EQ(nullptr, a.get());
 }
 
 TEST(WeakPtrFactoryTest, Dereference) {
@@ -248,6 +270,11 @@ TEST(WeakPtrFactoryTest, UpCast) {
   EXPECT_EQ(ptr.get(), &data);
 }
 
+TEST(WeakPtrTest, ConstructFromNullptr) {
+  WeakPtr<int> ptr = PassThru(nullptr);
+  EXPECT_EQ(nullptr, ptr.get());
+}
+
 TEST(WeakPtrTest, SupportsWeakPtr) {
   Target target;
   WeakPtr<Target> ptr = target.AsWeakPtr();
@@ -260,6 +287,50 @@ TEST(WeakPtrTest, DerivedTarget) {
   EXPECT_EQ(&target, ptr.get());
 }
 
+TEST(WeakPtrFactoryTest, BooleanTesting) {
+  int data;
+  WeakPtrFactory<int> factory(&data);
+
+  WeakPtr<int> ptr_to_an_instance = factory.GetWeakPtr();
+  EXPECT_TRUE(ptr_to_an_instance);
+  EXPECT_FALSE(!ptr_to_an_instance);
+
+  if (ptr_to_an_instance) {
+  } else {
+    ADD_FAILURE() << "Pointer to an instance should result in true.";
+  }
+
+  if (!ptr_to_an_instance) {  // check for operator!().
+    ADD_FAILURE() << "Pointer to an instance should result in !x being false.";
+  }
+
+  WeakPtr<int> null_ptr;
+  EXPECT_FALSE(null_ptr);
+  EXPECT_TRUE(!null_ptr);
+
+  if (null_ptr) {
+    ADD_FAILURE() << "Null pointer should result in false.";
+  }
+
+  if (!null_ptr) {  // check for operator!().
+  } else {
+    ADD_FAILURE() << "Null pointer should result in !x being true.";
+  }
+}
+
+TEST(WeakPtrFactoryTest, ComparisonToNull) {
+  int data;
+  WeakPtrFactory<int> factory(&data);
+
+  WeakPtr<int> ptr_to_an_instance = factory.GetWeakPtr();
+  EXPECT_NE(nullptr, ptr_to_an_instance);
+  EXPECT_NE(ptr_to_an_instance, nullptr);
+
+  WeakPtr<int> null_ptr;
+  EXPECT_EQ(null_ptr, nullptr);
+  EXPECT_EQ(nullptr, null_ptr);
+}
+
 TEST(WeakPtrTest, InvalidateWeakPtrs) {
   int data;
   WeakPtrFactory<int> factory(&data);
@@ -267,7 +338,7 @@ TEST(WeakPtrTest, InvalidateWeakPtrs) {
   EXPECT_EQ(&data, ptr.get());
   EXPECT_TRUE(factory.HasWeakPtrs());
   factory.InvalidateWeakPtrs();
-  EXPECT_EQ(NULL, ptr.get());
+  EXPECT_EQ(nullptr, ptr.get());
   EXPECT_FALSE(factory.HasWeakPtrs());
 
   // Test that the factory can create new weak pointers after a
@@ -277,7 +348,7 @@ TEST(WeakPtrTest, InvalidateWeakPtrs) {
   EXPECT_EQ(&data, ptr2.get());
   EXPECT_TRUE(factory.HasWeakPtrs());
   factory.InvalidateWeakPtrs();
-  EXPECT_EQ(NULL, ptr2.get());
+  EXPECT_EQ(nullptr, ptr2.get());
   EXPECT_FALSE(factory.HasWeakPtrs());
 }
 
@@ -295,7 +366,7 @@ TEST(WeakPtrTest, ObjectAndWeakPtrOnDifferentThreads) {
   // Test that it is OK to create an object that supports WeakPtr on one thread,
   // but use it on another.  This tests that we do not trip runtime checks that
   // ensure that a WeakPtr is not used by multiple threads.
-  scoped_ptr<Target> target(OffThreadObjectCreator<Target>::NewObject());
+  std::unique_ptr<Target> target(OffThreadObjectCreator<Target>::NewObject());
   WeakPtr<Target> weak_ptr = target->AsWeakPtr();
   EXPECT_EQ(target.get(), weak_ptr.get());
 }
@@ -304,7 +375,7 @@ TEST(WeakPtrTest, WeakPtrInitiateAndUseOnDifferentThreads) {
   // Test that it is OK to create an object that has a WeakPtr member on one
   // thread, but use it on another.  This tests that we do not trip runtime
   // checks that ensure that a WeakPtr is not used by multiple threads.
-  scoped_ptr<Arrow> arrow(OffThreadObjectCreator<Arrow>::NewObject());
+  std::unique_ptr<Arrow> arrow(OffThreadObjectCreator<Arrow>::NewObject());
   Target target;
   arrow->target = target.AsWeakPtr();
   EXPECT_EQ(&target, arrow->target.get());
@@ -377,14 +448,14 @@ TEST(WeakPtrTest, MoveOwnershipAfterInvalidate) {
   background.Start();
 
   Arrow arrow;
-  scoped_ptr<TargetWithFactory> target(new TargetWithFactory);
+  std::unique_ptr<TargetWithFactory> target(new TargetWithFactory);
 
   // Bind to main thread.
   arrow.target = target->factory.GetWeakPtr();
   EXPECT_EQ(target.get(), arrow.target.get());
 
   target->factory.InvalidateWeakPtrs();
-  EXPECT_EQ(NULL, arrow.target.get());
+  EXPECT_EQ(nullptr, arrow.target.get());
 
   arrow.target = target->factory.GetWeakPtr();
   // Re-bind to background thread.
@@ -447,7 +518,7 @@ TEST(WeakPtrTest, OwnerThreadDeletesObject) {
     arrow.target = target.AsWeakPtr();
     background.CreateArrowFromArrow(&arrow_copy, &arrow);
   }
-  EXPECT_EQ(NULL, arrow_copy->target.get());
+  EXPECT_EQ(nullptr, arrow_copy->target.get());
   background.DeleteArrow(arrow_copy);
 }
 
@@ -547,7 +618,7 @@ TEST(WeakPtrDeathTest, NonOwnerThreadDeletesWeakPtrAfterReference) {
   // (introduces deadlock on Linux).
   ::testing::FLAGS_gtest_death_test_style = "threadsafe";
 
-  scoped_ptr<Target> target(new Target());
+  std::unique_ptr<Target> target(new Target());
 
   // Main thread creates an arrow referencing the Target.
   Arrow arrow;
@@ -571,7 +642,7 @@ TEST(WeakPtrDeathTest, NonOwnerThreadDeletesObjectAfterReference) {
   // (introduces deadlock on Linux).
   ::testing::FLAGS_gtest_death_test_style = "threadsafe";
 
-  scoped_ptr<Target> target(new Target());
+  std::unique_ptr<Target> target(new Target());
 
   // Main thread creates an arrow referencing the Target, and references it, so
   // that it becomes bound to the thread.
@@ -590,7 +661,7 @@ TEST(WeakPtrDeathTest, NonOwnerThreadReferencesObjectAfterDeletion) {
   // (introduces deadlock on Linux).
   ::testing::FLAGS_gtest_death_test_style = "threadsafe";
 
-  scoped_ptr<Target> target(new Target());
+  std::unique_ptr<Target> target(new Target());
 
   // Main thread creates an arrow referencing the Target.
   Arrow arrow;

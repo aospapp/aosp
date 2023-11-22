@@ -11,7 +11,6 @@ globally scoped address and obtain IPv6 DNS server addresses through
 RDNSS via an IPv6 router.
 """
 ATTRIBUTES = "suite:network_nightly"
-SUITE = "network_nightly"
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "network"

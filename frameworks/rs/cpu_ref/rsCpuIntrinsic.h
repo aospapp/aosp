@@ -24,6 +24,21 @@ namespace android {
 namespace renderscript {
 
 
+struct MTLaunchStructForEachBlas : public MTLaunchStructCommon {
+    // Driver info structure
+    RsExpandKernelDriverInfo fep;
+
+    // Tile size info for M, and N dimensions.
+    uint32_t tileSizeM;
+    uint32_t numTileM;
+    uint32_t tileSizeN;
+    uint32_t numTileN;
+
+    const Allocation *ains[RS_KERNEL_INPUT_LIMIT];
+    const RsBlasCall *sc;
+};
+
+
 class RsdCpuScriptIntrinsic : public RsdCpuScriptImpl {
 public:
     void populateScript(Script *) override = 0;
@@ -72,7 +87,7 @@ protected:
 
 
 
-}
-}
+} // namespace renderscript
+} // namespace android
 
 #endif

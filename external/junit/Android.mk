@@ -16,144 +16,39 @@
 
 LOCAL_PATH := $(call my-dir)
 
-# include definition of core-junit-files
-include $(LOCAL_PATH)/Common.mk
-
-# note: ideally this should be junit-host, but leave as is for now to avoid
-# changing all its dependencies
+# build a junit jar
+# ----------------------
 include $(CLEAR_VARS)
-LOCAL_SRC_FILES := $(call all-java-files-under, src)
+LOCAL_SRC_FILES := $(call all-java-files-under, src/main/java)
 LOCAL_MODULE := junit
-LOCAL_MODULE_TAGS := optional
+LOCAL_MODULE_TAGS := tests
+LOCAL_SDK_VERSION := 25
+LOCAL_STATIC_JAVA_LIBRARIES := hamcrest
+# The following is needed by external/apache-harmony/jdwp/Android_debug_config.mk
+LOCAL_MODULE_PATH := $(TARGET_OUT_DATA)/junit
+LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
+include $(BUILD_STATIC_JAVA_LIBRARY)
+
+# build a junit-host jar
+# ----------------------
+
+include $(CLEAR_VARS)
+LOCAL_SRC_FILES := $(call all-java-files-under, src/main/java)
+LOCAL_MODULE := junit-host
+LOCAL_MODULE_TAGS := tests
 LOCAL_STATIC_JAVA_LIBRARIES := hamcrest-host
-LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk $(LOCAL_PATH)/Common.mk
+LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
 include $(BUILD_HOST_JAVA_LIBRARY)
 
-# ----------------------------------
-# build a junit-targetdex jar
-
-include $(CLEAR_VARS)
-LOCAL_SRC_FILES := $(call all-java-files-under, src/junit/extensions)
-LOCAL_SRC_FILES += $(core-junit-files)
-LOCAL_SRC_FILES += $(junit-runner-files)
-# TODO: lose the suffix here and rename "junit" to "junit-hostdex"
-LOCAL_MODULE := junit-targetdex
-LOCAL_NO_STANDARD_LIBRARIES := true
-LOCAL_JAVA_LIBRARIES := core-oj core-libart
-LOCAL_MODULE_TAGS := tests
-LOCAL_MODULE_PATH := $(TARGET_OUT_DATA)/junit
-LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk $(LOCAL_PATH)/Common.mk
-include $(BUILD_JAVA_LIBRARY)
-
-# ----------------------------------
 # build a junit-hostdex jar
+# -------------------------
 
 ifeq ($(HOST_OS),linux)
 include $(CLEAR_VARS)
-LOCAL_SRC_FILES := $(call all-java-files-under, src/junit/extensions)
-LOCAL_SRC_FILES += $(core-junit-files)
-LOCAL_SRC_FILES += $(junit-runner-files)
+LOCAL_SRC_FILES := $(call all-java-files-under, src/main/java)
 LOCAL_MODULE := junit-hostdex
-LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk $(LOCAL_PATH)/Common.mk
-include $(BUILD_HOST_DALVIK_JAVA_LIBRARY)
-endif # HOST_OS == linux
-
-# ----------------------------------
-# build a core-junit target jar that is built into Android system image
-
-# TODO: remove extensions once core-tests is no longer dependent on it
-include $(CLEAR_VARS)
-LOCAL_SRC_FILES := $(call all-java-files-under, src/junit/extensions)
-LOCAL_SRC_FILES += $(core-junit-files)
-LOCAL_NO_STANDARD_LIBRARIES := true
-LOCAL_JAVA_LIBRARIES := core-oj core-libart
-LOCAL_MODULE_TAGS := optional
-LOCAL_MODULE := core-junit
-LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk $(LOCAL_PATH)/Common.mk
-include $(BUILD_JAVA_LIBRARY)
-
-# ----------------------------------
-# build a core-junit-hostdex jar that contains exactly the same classes
-# as core-junit.
-
-ifeq ($(HOST_OS),linux)
-include $(CLEAR_VARS)
-# TODO: remove extensions once apache-harmony/luni/ is no longer dependent
-# on it
-LOCAL_SRC_FILES := $(call all-java-files-under, src/junit/extensions)
-LOCAL_SRC_FILES += $(core-junit-files)
-LOCAL_MODULE_TAGS := optional
-LOCAL_MODULE := core-junit-hostdex
-LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk $(LOCAL_PATH)/Common.mk
-include $(BUILD_HOST_DALVIK_JAVA_LIBRARY)
-endif # HOST_OS == linux
-
-#-------------------------------------------------------
-# build a junit-runner jar for the host JVM
-# (like the junit classes in the frameworks/base android.test.runner.jar)
-
-include $(CLEAR_VARS)
-LOCAL_SRC_FILES := $(junit-runner-files)
-LOCAL_MODULE := junit-runner
-LOCAL_NO_STANDARD_LIBRARIES := true
-LOCAL_JAVA_LIBRARIES := core-oj core-libart core-junit
-LOCAL_MODULE_TAGS := optional
-LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk $(LOCAL_PATH)/Common.mk
-include $(BUILD_STATIC_JAVA_LIBRARY)
-
-#-------------------------------------------------------
-# build a junit-runner for the host dalvikvm
-# (like the junit classes in the frameworks/base android.test.runner.jar)
-
-include $(CLEAR_VARS)
-LOCAL_SRC_FILES := $(junit-runner-files)
-LOCAL_MODULE := junit-runner-hostdex
-LOCAL_MODULE_TAGS := optional
-LOCAL_NO_STANDARD_LIBRARIES := true
-LOCAL_JAVA_LIBRARIES := core-oj-hostdex core-libart-hostdex core-junit-hostdex
-LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk $(LOCAL_PATH)/Common.mk
-include $(BUILD_HOST_DALVIK_JAVA_LIBRARY)
-
-#-------------------------------------------------------
-# build a junit4-target jar representing the
-# classes in external/junit that are not in the core public API 4
-# Note: 'core' here means excluding the classes that are contained
-# in the optional library android.test.runner. Developers who
-# build against this jar shouldn't have to also include android.test.runner
-
-include $(CLEAR_VARS)
-LOCAL_SRC_FILES := $(junit4-target-src)
-LOCAL_MODULE := junit4-target
-LOCAL_MODULE_TAGS := optional
-LOCAL_SDK_VERSION := 4
-LOCAL_STATIC_JAVA_LIBRARIES := hamcrest
-LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk $(LOCAL_PATH)/Common.mk
-include $(BUILD_STATIC_JAVA_LIBRARY)
-
-#-------------------------------------------------------
-# Same as above, but does not statically link in dependencies
-
-include $(CLEAR_VARS)
-LOCAL_SRC_FILES := $(junit4-target-src)
-LOCAL_MODULE := junit4-target-nodeps
-LOCAL_MODULE_TAGS := optional
-LOCAL_SDK_VERSION := 4
-LOCAL_JAVA_LIBRARIES := hamcrest
-LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk $(LOCAL_PATH)/Common.mk
-include $(BUILD_STATIC_JAVA_LIBRARY)
-
-#-------------------------------------------------------
-# Same as above, but for host dalvik. However, since we don't have
-# the SDK to provide the junit.framework.* classes, we must add
-# an extra library.
-
-ifeq ($(HOST_OS),linux)
-include $(CLEAR_VARS)
-LOCAL_SRC_FILES := $(junit4-target-src)
-LOCAL_MODULE := junit4-target-hostdex
-LOCAL_MODULE_TAGS := optional
-LOCAL_JAVA_LIBRARIES := core-junit-hostdex
+LOCAL_MODULE_TAGS := tests
 LOCAL_STATIC_JAVA_LIBRARIES := hamcrest-hostdex
-LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk $(LOCAL_PATH)/Common.mk
-include $(BUILD_HOST_DALVIK_JAVA_LIBRARY)
+LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
+include $(BUILD_HOST_DALVIK_STATIC_JAVA_LIBRARY)
 endif # HOST_OS == linux

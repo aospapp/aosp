@@ -32,6 +32,9 @@ class hardware_EC(test.test):
 
         ec = cros_ec.EC()
 
+        if not cros_ec.has_ectool():
+            raise error.TestNAError('No support for Google EC')
+
         if not ec.hello():
             raise error.TestError('EC communication failed')
 

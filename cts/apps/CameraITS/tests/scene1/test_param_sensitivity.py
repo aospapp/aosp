@@ -17,7 +17,7 @@ import its.caps
 import its.device
 import its.objects
 import its.target
-import pylab
+from matplotlib import pylab
 import os.path
 import matplotlib
 import matplotlib.pyplot
@@ -39,6 +39,14 @@ def main():
         its.caps.skip_unless(its.caps.compute_target_exposure(props) and
                              its.caps.per_frame_control(props))
 
+        debug = its.caps.debug_mode()
+        largest_yuv = its.objects.get_largest_yuv_format(props)
+        if debug:
+            fmt = largest_yuv
+        else:
+            match_ar = (largest_yuv['width'], largest_yuv['height'])
+            fmt = its.objects.get_smallest_yuv_format(props, match_ar=match_ar)
+
         expt,_ = its.target.get_target_exposure_combos(cam)["midSensitivity"]
         sens_range = props['android.sensor.info.sensitivityRange']
         sens_step = (sens_range[1] - sens_range[0]) / float(NUM_STEPS-1)
@@ -46,7 +54,7 @@ def main():
 
         for s in sensitivities:
             req = its.objects.manual_capture_request(s, expt)
-            cap = cam.do_capture(req)
+            cap = cam.do_capture(req, fmt)
             img = its.image.convert_capture_to_rgb_image(cap)
             its.image.write_image(
                     img, "%s_iso=%04d.jpg" % (NAME, s))

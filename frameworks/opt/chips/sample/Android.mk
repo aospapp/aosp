@@ -31,9 +31,9 @@ LOCAL_SDK_VERSION := current
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src) \
         $(call all-logtags-files-under, $(src_dirs))
-LOCAL_RESOURCE_DIR := $(addprefix $(LOCAL_PATH)/, $(local_res_dirs))
+LOCAL_RESOURCE_DIR := $(addprefix $(LOCAL_PATH)/, $(local_res_dirs)) $(LOCAL_PATH)/../../../../$(SUPPORT_LIBRARY_ROOT)/compat/res
 LOCAL_AAPT_FLAGS := --auto-add-overlay
-LOCAL_AAPT_FLAGS += --extra-packages com.android.ex.chips
+LOCAL_AAPT_FLAGS += --extra-packages com.android.ex.chips:android.support.compat
 
 include $(BUILD_PACKAGE)
 

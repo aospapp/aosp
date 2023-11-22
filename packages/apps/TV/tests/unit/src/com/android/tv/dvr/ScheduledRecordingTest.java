@@ -16,11 +16,12 @@
 
 package com.android.tv.dvr;
 
-import static com.android.tv.testing.dvr.RecordingTestUtils.createTestRecordingWithIdAndPeriod;
+import static com.android.tv.testing.dvr.RecordingTestUtils
+        .createTestRecordingWithIdAndPeriod;
 import static com.android.tv.testing.dvr.RecordingTestUtils.normalizePriority;
 
+import android.support.test.filters.SmallTest;
 import android.test.MoreAsserts;
-import android.test.suitebuilder.annotation.SmallTest;
 import android.util.Range;
 
 import com.android.tv.data.Channel;
@@ -39,19 +40,21 @@ import java.util.List;
  */
 @SmallTest
 public class ScheduledRecordingTest extends TestCase {
+    private static final String INPUT_ID = "input_id";
     private static final int CHANNEL_ID = 273;
 
     public void testIsOverLapping() throws Exception {
-        ScheduledRecording r = createTestRecordingWithIdAndPeriod(1, CHANNEL_ID, 10L, 20L);
+        ScheduledRecording r = createTestRecordingWithIdAndPeriod(1, INPUT_ID, CHANNEL_ID,
+                10L, 20L);
         assertOverLapping(false, 1L, 9L, r);
 
         assertOverLapping(true, 1L, 20L, r);
-        assertOverLapping(true, 1L, 10L, r);
+        assertOverLapping(false, 1L, 10L, r);
         assertOverLapping(true, 10L, 19L, r);
         assertOverLapping(true, 10L, 20L, r);
         assertOverLapping(true, 11L, 20L, r);
         assertOverLapping(true, 11L, 21L, r);
-        assertOverLapping(true, 20L, 21L, r);
+        assertOverLapping(false, 20L, 21L, r);
 
         assertOverLapping(false, 21L, 29L, r);
     }
@@ -59,38 +62,42 @@ public class ScheduledRecordingTest extends TestCase {
     public void testBuildProgram() {
         Channel c = new Channel.Builder().build();
         Program p = new Program.Builder().build();
-        ScheduledRecording actual = ScheduledRecording.builder(p).setChannelId(c.getId()).build();
+        ScheduledRecording actual = ScheduledRecording.builder(INPUT_ID, p)
+                .setChannelId(c.getId()).build();
         assertEquals("type", ScheduledRecording.TYPE_PROGRAM, actual.getType());
     }
 
     public void testBuildTime() {
-        ScheduledRecording actual = createTestRecordingWithIdAndPeriod(1, CHANNEL_ID, 10L, 20L);
+        ScheduledRecording actual = createTestRecordingWithIdAndPeriod(1, INPUT_ID, CHANNEL_ID,
+                10L, 20L);
         assertEquals("type", ScheduledRecording.TYPE_TIMED, actual.getType());
     }
 
     public void testBuildFrom() {
-        ScheduledRecording expected = createTestRecordingWithIdAndPeriod(1, CHANNEL_ID, 10L, 20L);
+        ScheduledRecording expected = createTestRecordingWithIdAndPeriod(1, INPUT_ID, CHANNEL_ID,
+                10L, 20L);
         ScheduledRecording actual = ScheduledRecording.buildFrom(expected).build();
         RecordingTestUtils.assertRecordingEquals(expected, actual);
     }
 
     public void testBuild_priority() {
         ScheduledRecording a = normalizePriority(
-                createTestRecordingWithIdAndPeriod(1, CHANNEL_ID, 10L, 20L));
+                createTestRecordingWithIdAndPeriod(1, INPUT_ID, CHANNEL_ID, 10L, 20L));
         ScheduledRecording b = normalizePriority(
-                createTestRecordingWithIdAndPeriod(2, CHANNEL_ID, 10L, 20L));
+                createTestRecordingWithIdAndPeriod(2, INPUT_ID, CHANNEL_ID, 10L, 20L));
         ScheduledRecording c = normalizePriority(
-                createTestRecordingWithIdAndPeriod(3, CHANNEL_ID, 10L, 20L));
+                createTestRecordingWithIdAndPeriod(3, INPUT_ID, CHANNEL_ID, 10L, 20L));
 
         // default priority
-        MoreAsserts.assertContentsInOrder(sortByPriority(c,b,a), a, b, c);
+        MoreAsserts.assertContentsInOrder(sortByPriority(c, b, a), a, b, c);
 
-        // make C preferred over B
-        c = ScheduledRecording.buildFrom(c).setPriority(b.getPriority() - 1).build();
-        MoreAsserts.assertContentsInOrder(sortByPriority(c,b,a), a, c, b);
+        // make A preferred over B
+        a = ScheduledRecording.buildFrom(a).setPriority(b.getPriority() + 2).build();
+        MoreAsserts.assertContentsInOrder(sortByPriority(a, b, c), b, c, a);
     }
 
-    public Collection<ScheduledRecording> sortByPriority(ScheduledRecording a, ScheduledRecording b, ScheduledRecording c) {
+    public Collection<ScheduledRecording> sortByPriority(ScheduledRecording a, ScheduledRecording b,
+            ScheduledRecording c) {
         List<ScheduledRecording> list = Arrays.asList(a, b, c);
         Collections.sort(list, ScheduledRecording.PRIORITY_COMPARATOR);
         return list;
@@ -98,6 +105,6 @@ public class ScheduledRecordingTest extends TestCase {
 
     private void assertOverLapping(boolean expected, long lower, long upper, ScheduledRecording r) {
         assertEquals("isOverlapping(Range(" + lower + "," + upper + "), recording " + r, expected,
-                r.isOverLapping(new Range<Long>(lower, upper)));
+                r.isOverLapping(new Range<>(lower, upper)));
     }
 }

@@ -22,4 +22,6 @@ LOCAL_MODULE_TAGS := tests
 
 LOCAK_SDK_VERSION := current
 
+LOCAL_COMPATIBILITY_SUITE := device-tests
+
 include $(BUILD_PACKAGE)

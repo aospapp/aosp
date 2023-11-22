@@ -182,11 +182,11 @@ struct private_handle_t
 #endif
 
 	// Following members is for framebuffer only
-	int     fd;
+	int     shallow_fbdev_fd; // shallow copy, not dup'ed
 	int     offset;
 
 #if GRALLOC_ARM_DMA_BUF_MODULE
-	ion_user_handle_t ion_hnd;
+	ion_user_handle_t ion_hnd_UNUSED;
 #endif
 
 #if GRALLOC_ARM_DMA_BUF_MODULE
@@ -219,11 +219,11 @@ struct private_handle_t
 		yuv_info(MALI_YUV_NO_INFO),
 		ump_id((int)secure_id),
 		ump_mem_handle((int)handle),
-		fd(0),
+		shallow_fbdev_fd(0),
 		offset(0)
 #if GRALLOC_ARM_DMA_BUF_MODULE
 		,
-		ion_hnd(ION_INVALID_HANDLE)
+		ion_hnd_UNUSED(ION_INVALID_HANDLE)
 #endif
 
 	{
@@ -253,9 +253,9 @@ struct private_handle_t
 		ump_id((int)UMP_INVALID_SECURE_ID),
 		ump_mem_handle((int)UMP_INVALID_MEMORY_HANDLE),
 #endif
-		fd(0),
+		shallow_fbdev_fd(0),
 		offset(0),
-		ion_hnd(ION_INVALID_HANDLE)
+		ion_hnd_UNUSED(ION_INVALID_HANDLE)
 
 	{
 		version = sizeof(native_handle);
@@ -286,11 +286,11 @@ struct private_handle_t
 		ump_id((int)UMP_INVALID_SECURE_ID),
 		ump_mem_handle((int)UMP_INVALID_MEMORY_HANDLE),
 #endif
-		fd(fb_file),
+		shallow_fbdev_fd(fb_file),
 		offset(fb_offset)
 #if GRALLOC_ARM_DMA_BUF_MODULE
 		,
-		ion_hnd(ION_INVALID_HANDLE)
+		ion_hnd_UNUSED(ION_INVALID_HANDLE)
 #endif
 
 	{
@@ -313,9 +313,21 @@ struct private_handle_t
 	{
 		const private_handle_t *hnd = (const private_handle_t *)h;
 
-		if (!h || h->version != sizeof(native_handle) || h->numFds != sNumFds ||
-		        h->numInts != (sizeof(private_handle_t) - sizeof(native_handle)) / sizeof(int) - sNumFds ||
-		        hnd->magic != sMagic)
+		if (!h || h->version != sizeof(native_handle) || hnd->magic != sMagic)
+		{
+			return -EINVAL;
+		}
+
+		int numFds = sNumFds;
+		int numInts = (sizeof(private_handle_t) - sizeof(native_handle)) / sizeof(int) - sNumFds;
+#if GRALLOC_ARM_DMA_BUF_MODULE
+		if (hnd->share_fd < 0) {
+			numFds--;
+			numInts++;
+		}
+#endif
+
+		if (h->numFds != numFds || h->numInts != numInts)
 		{
 			return -EINVAL;
 		}

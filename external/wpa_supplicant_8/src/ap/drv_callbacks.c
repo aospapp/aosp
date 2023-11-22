@@ -45,10 +45,10 @@ int hostapd_notif_assoc(struct hostapd_data *hapd, const u8 *addr,
 	struct ieee802_11_elems elems;
 	const u8 *ie;
 	size_t ielen;
-#if defined(CONFIG_IEEE80211R) || defined(CONFIG_IEEE80211W)
+#if defined(CONFIG_IEEE80211R_AP) || defined(CONFIG_IEEE80211W)
 	u8 buf[sizeof(struct ieee80211_mgmt) + 1024];
 	u8 *p = buf;
-#endif /* CONFIG_IEEE80211R || CONFIG_IEEE80211W */
+#endif /* CONFIG_IEEE80211R_AP || CONFIG_IEEE80211W */
 	u16 reason = WLAN_REASON_UNSPECIFIED;
 	u16 status = WLAN_STATUS_SUCCESS;
 	const u8 *p2p_dev_addr = NULL;
@@ -116,8 +116,15 @@ int hostapd_notif_assoc(struct hostapd_data *hapd, const u8 *addr,
 	}
 	sta->flags &= ~(WLAN_STA_WPS | WLAN_STA_MAYBE_WPS | WLAN_STA_WPS2);
 
-	res = hostapd_check_acl(hapd, addr, NULL);
-	if (res != HOSTAPD_ACL_ACCEPT) {
+	/*
+	 * ACL configurations to the drivers (implementing AP SME and ACL
+	 * offload) without hostapd's knowledge, can result in a disconnection
+	 * though the driver accepts the connection. Skip the hostapd check for
+	 * ACL if the driver supports ACL offload to avoid potentially
+	 * conflicting ACL rules.
+	 */
+	if (hapd->iface->drv_max_acl_mac_addrs == 0 &&
+	    hostapd_check_acl(hapd, addr, NULL) != HOSTAPD_ACL_ACCEPT) {
 		wpa_printf(MSG_INFO, "STA " MACSTR " not allowed to connect",
 			   MAC2STR(addr));
 		reason = WLAN_REASON_UNSPECIFIED;
@@ -286,7 +293,7 @@ int hostapd_notif_assoc(struct hostapd_data *hapd, const u8 *addr,
 			sta->flags &= ~WLAN_STA_MFP;
 #endif /* CONFIG_IEEE80211W */
 
-#ifdef CONFIG_IEEE80211R
+#ifdef CONFIG_IEEE80211R_AP
 		if (sta->auth_alg == WLAN_AUTH_FT) {
 			status = wpa_ft_validate_reassoc(sta->wpa_sm, req_ies,
 							 req_ies_len);
@@ -300,7 +307,7 @@ int hostapd_notif_assoc(struct hostapd_data *hapd, const u8 *addr,
 				goto fail;
 			}
 		}
-#endif /* CONFIG_IEEE80211R */
+#endif /* CONFIG_IEEE80211R_AP */
 	} else if (hapd->conf->wps_state) {
 #ifdef CONFIG_WPS
 		struct wpabuf *wps;
@@ -368,7 +375,7 @@ int hostapd_notif_assoc(struct hostapd_data *hapd, const u8 *addr,
 skip_wpa_check:
 #endif /* CONFIG_WPS */
 
-#ifdef CONFIG_IEEE80211R
+#ifdef CONFIG_IEEE80211R_AP
 	p = wpa_sm_write_assoc_resp_ies(sta->wpa_sm, buf, sizeof(buf),
 					sta->auth_alg, req_ies, req_ies_len);
 
@@ -376,11 +383,11 @@ skip_wpa_check:
 
 	if (sta->auth_alg == WLAN_AUTH_FT)
 		ap_sta_set_authorized(hapd, sta, 1);
-#else /* CONFIG_IEEE80211R */
+#else /* CONFIG_IEEE80211R_AP */
 	/* Keep compiler silent about unused variables */
 	if (status) {
 	}
-#endif /* CONFIG_IEEE80211R */
+#endif /* CONFIG_IEEE80211R_AP */
 
 	new_assoc = (sta->flags & WLAN_STA_ASSOC) == 0;
 	sta->flags |= WLAN_STA_AUTH | WLAN_STA_ASSOC;
@@ -407,9 +414,9 @@ skip_wpa_check:
 	return 0;
 
 fail:
-#ifdef CONFIG_IEEE80211R
+#ifdef CONFIG_IEEE80211R_AP
 	hostapd_sta_assoc(hapd, addr, reassoc, status, buf, p - buf);
-#endif /* CONFIG_IEEE80211R */
+#endif /* CONFIG_IEEE80211R_AP */
 	hostapd_drv_sta_disassoc(hapd, sta->addr, reason);
 	ap_free_sta(hapd, sta);
 	return -1;
@@ -464,8 +471,7 @@ void hostapd_event_sta_low_ack(struct hostapd_data *hapd, const u8 *addr)
 		       HOSTAPD_LEVEL_INFO,
 		       "disconnected due to excessive missing ACKs");
 	hostapd_drv_sta_disassoc(hapd, addr, WLAN_REASON_DISASSOC_LOW_ACK);
-	if (sta)
-		ap_sta_disassociate(hapd, sta, WLAN_REASON_DISASSOC_LOW_ACK);
+	ap_sta_disassociate(hapd, sta, WLAN_REASON_DISASSOC_LOW_ACK);
 }
 
 
@@ -683,7 +689,7 @@ int hostapd_probe_req_rx(struct hostapd_data *hapd, const u8 *sa, const u8 *da,
 
 #ifdef HOSTAPD
 
-#ifdef CONFIG_IEEE80211R
+#ifdef CONFIG_IEEE80211R_AP
 static void hostapd_notify_auth_ft_finish(void *ctx, const u8 *dst,
 					  const u8 *bssid,
 					  u16 auth_transaction, u16 status,
@@ -702,7 +708,7 @@ static void hostapd_notify_auth_ft_finish(void *ctx, const u8 *dst,
 
 	hostapd_sta_auth(hapd, dst, auth_transaction, status, ies, ies_len);
 }
-#endif /* CONFIG_IEEE80211R */
+#endif /* CONFIG_IEEE80211R_AP */
 
 
 static void hostapd_notif_auth(struct hostapd_data *hapd,
@@ -723,7 +729,7 @@ static void hostapd_notif_auth(struct hostapd_data *hapd,
 	}
 	sta->flags &= ~WLAN_STA_PREAUTH;
 	ieee802_1x_notify_pre_auth(sta->eapol_sm, 0);
-#ifdef CONFIG_IEEE80211R
+#ifdef CONFIG_IEEE80211R_AP
 	if (rx_auth->auth_type == WLAN_AUTH_FT && hapd->wpa_auth) {
 		sta->auth_alg = WLAN_AUTH_FT;
 		if (sta->wpa_sm == NULL)
@@ -741,7 +747,7 @@ static void hostapd_notif_auth(struct hostapd_data *hapd,
 				    hostapd_notify_auth_ft_finish, hapd);
 		return;
 	}
-#endif /* CONFIG_IEEE80211R */
+#endif /* CONFIG_IEEE80211R_AP */
 fail:
 	hostapd_sta_auth(hapd, rx_auth->peer, rx_auth->auth_transaction + 1,
 			 status, resp_ies, resp_ies_len);
@@ -774,13 +780,13 @@ static void hostapd_action_rx(struct hostapd_data *hapd,
 		wpa_printf(MSG_DEBUG, "%s: station not found", __func__);
 		return;
 	}
-#ifdef CONFIG_IEEE80211R
+#ifdef CONFIG_IEEE80211R_AP
 	if (mgmt->u.action.category == WLAN_ACTION_FT) {
 		const u8 *payload = drv_mgmt->frame + 24 + 1;
 
 		wpa_ft_action_rx(sta->wpa_sm, payload, plen);
 	}
-#endif /* CONFIG_IEEE80211R */
+#endif /* CONFIG_IEEE80211R_AP */
 #ifdef CONFIG_IEEE80211W
 	if (mgmt->u.action.category == WLAN_ACTION_SA_QUERY && plen >= 4) {
 		ieee802_11_sa_query_action(
@@ -916,11 +922,24 @@ static void hostapd_mgmt_tx_cb(struct hostapd_data *hapd, const u8 *buf,
 			       size_t len, u16 stype, int ok)
 {
 	struct ieee80211_hdr *hdr;
+	struct hostapd_data *orig_hapd = hapd;
 
 	hdr = (struct ieee80211_hdr *) buf;
 	hapd = get_hapd_bssid(hapd->iface, get_hdr_bssid(hdr, len));
-	if (hapd == NULL || hapd == HAPD_BROADCAST)
+	if (!hapd)
 		return;
+	if (hapd == HAPD_BROADCAST) {
+		if (stype != WLAN_FC_STYPE_ACTION || len <= 25 ||
+		    buf[24] != WLAN_ACTION_PUBLIC)
+			return;
+		hapd = get_hapd_bssid(orig_hapd->iface, hdr->addr2);
+		if (!hapd || hapd == HAPD_BROADCAST)
+			return;
+		/*
+		 * Allow processing of TX status for a Public Action frame that
+		 * used wildcard BBSID.
+		 */
+	}
 	ieee802_11_mgmt_cb(hapd, buf, len, stype, ok);
 }
 

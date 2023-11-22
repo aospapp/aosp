@@ -44,4 +44,9 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="@string/cancelMissedButton" />
+    <CheckBox
+        android:id="@+id/call_with_rtt_checkbox"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/startCallWithRtt"/>
 </LinearLayout>

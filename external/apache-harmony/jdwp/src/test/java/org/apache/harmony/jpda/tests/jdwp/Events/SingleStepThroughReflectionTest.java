@@ -45,6 +45,7 @@ public class SingleStepThroughReflectionTest extends JDWPEventTestCase {
     // The method where we expect to suspend with the single-step.
     private static final String EVENT_METHOD = "methodCalledThroughReflection";
 
+    @Override
     protected String getDebuggeeClassName() {
         return DEBUGGEE_CLASS_NAME;
     }

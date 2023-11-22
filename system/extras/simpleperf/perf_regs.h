@@ -33,6 +33,8 @@
 #include <string>
 #include <vector>
 
+#include "perf_event.h"
+
 enum ArchType {
   ARCH_X86_32,
   ARCH_X86_64,
@@ -56,24 +58,33 @@ constexpr ArchType GetBuildArch() {
 }
 
 ArchType GetArchType(const std::string& arch);
+ArchType GetArchForAbi(ArchType machine_arch, int abi);
+std::string GetArchString(ArchType arch);
+bool IsArchTheSame(ArchType arch1, ArchType arch2, bool strict_check);
 uint64_t GetSupportedRegMask(ArchType arch);
 std::string GetRegName(size_t regno, ArchType arch);
 
 class ScopedCurrentArch {
  public:
-  ScopedCurrentArch(ArchType arch) : saved_arch(current_arch) {
+  explicit ScopedCurrentArch(ArchType arch) : saved_arch(current_arch) {
     current_arch = arch;
+    current_arch32 = GetArchForAbi(arch, PERF_SAMPLE_REGS_ABI_32);
   }
   ~ScopedCurrentArch() {
     current_arch = saved_arch;
+    current_arch32 = GetArchForAbi(saved_arch, PERF_SAMPLE_REGS_ABI_32);
   }
   static ArchType GetCurrentArch() {
     return current_arch;
+  }
+  static ArchType GetCurrentArch32() {
+    return current_arch32;
   }
 
  private:
   ArchType saved_arch;
   static ArchType current_arch;
+  static ArchType current_arch32;
 };
 
 struct RegSet {
@@ -81,7 +92,7 @@ struct RegSet {
   uint64_t data[64];
 };
 
-RegSet CreateRegSet(uint64_t valid_mask, const std::vector<uint64_t>& valid_regs);
+RegSet CreateRegSet(int abi, uint64_t valid_mask, const uint64_t* valid_regs);
 
 bool GetRegValue(const RegSet& regs, size_t regno, uint64_t* value);
 bool GetSpRegValue(const RegSet& regs, ArchType arch, uint64_t* value);

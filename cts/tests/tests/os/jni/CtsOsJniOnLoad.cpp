@@ -38,10 +38,6 @@ jint JNI_OnLoad(JavaVM *vm, void *reserved) {
         return JNI_ERR;
     }
 
-    if (register_android_os_cts_CpuFeatures(env)) {
-        return JNI_ERR;
-    }
-
     if (register_android_os_cts_CpuInstructions(env)) {
         return JNI_ERR;
     }

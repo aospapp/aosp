@@ -17,25 +17,26 @@
 package com.android.car.test;
 
 import android.car.Car;
-import android.car.hardware.hvac.CarHvacManager;
-import android.car.hardware.hvac.CarHvacManager.CarHvacEventListener;
-import android.car.hardware.hvac.CarHvacManager.HvacPropertyId;
 import android.car.hardware.CarPropertyValue;
-import android.car.test.VehicleHalEmulator;
+import android.car.hardware.hvac.CarHvacManager;
+import android.car.hardware.hvac.CarHvacManager.CarHvacEventCallback;
+import android.car.hardware.hvac.CarHvacManager.PropertyId;
+import android.hardware.automotive.vehicle.V2_0.VehicleAreaWindow;
+import android.hardware.automotive.vehicle.V2_0.VehicleAreaZone;
+import android.hardware.automotive.vehicle.V2_0.VehiclePropValue;
+import android.hardware.automotive.vehicle.V2_0.VehicleProperty;
+import android.hardware.automotive.vehicle.V2_0.VehiclePropertyAccess;
+import android.hardware.automotive.vehicle.V2_0.VehiclePropertyChangeMode;
+import android.os.SystemClock;
 import android.test.suitebuilder.annotation.MediumTest;
 import android.util.Log;
+import android.util.MutableInt;
 
-import com.android.car.vehiclenetwork.VehicleNetworkConsts;
-import com.android.car.vehiclenetwork.VehicleNetworkConsts.VehiclePropAccess;
-import com.android.car.vehiclenetwork.VehicleNetworkConsts.VehiclePropChangeMode;
-import com.android.car.vehiclenetwork.VehicleNetworkConsts.VehicleValueType;
-import com.android.car.vehiclenetwork.VehicleNetworkConsts.VehicleWindow;
-import com.android.car.vehiclenetwork.VehicleNetworkConsts.VehicleZone;
-import com.android.car.vehiclenetwork.VehicleNetworkProto.VehiclePropValue;
-import com.android.car.vehiclenetwork.VehiclePropConfigUtil;
-import com.android.car.vehiclenetwork.VehiclePropValueUtil;
+import com.android.car.vehiclehal.VehiclePropValueBuilder;
+import com.android.car.vehiclehal.test.MockedVehicleHal.VehicleHalPropertyHandler;
 
 import java.util.HashMap;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
@@ -53,147 +54,162 @@ public class CarHvacManagerTest extends MockedCarTestBase {
     private int mEventZoneVal;
 
     @Override
+    protected synchronized void configureMockedHal() {
+        HvacPropertyHandler handler = new HvacPropertyHandler();
+        addProperty(VehicleProperty.HVAC_DEFROSTER, handler)
+                .setSupportedAreas(VehicleAreaWindow.FRONT_WINDSHIELD);
+        addProperty(VehicleProperty.HVAC_FAN_SPEED, handler)
+                .setSupportedAreas(VehicleAreaZone.ROW_1_LEFT);
+        addProperty(VehicleProperty.HVAC_TEMPERATURE_SET, handler)
+                .setSupportedAreas(VehicleAreaZone.ROW_1_LEFT);
+        addProperty(VehicleProperty.HVAC_TEMPERATURE_CURRENT, handler)
+                .setChangeMode(VehiclePropertyChangeMode.CONTINUOUS)
+                .setAccess(VehiclePropertyAccess.READ)
+                .setSupportedAreas(VehicleAreaZone.ROW_1);
+    }
+
+    @Override
     protected void setUp() throws Exception {
         super.setUp();
         mAvailable = new Semaphore(0);
-        HvacPropertyHandler handler = new HvacPropertyHandler();
-        getVehicleHalEmulator().addProperty(
-                VehiclePropConfigUtil.createZonedProperty(
-                        VehicleNetworkConsts.VEHICLE_PROPERTY_HVAC_DEFROSTER,
-                        VehiclePropAccess.VEHICLE_PROP_ACCESS_READ_WRITE,
-                        VehiclePropChangeMode.VEHICLE_PROP_CHANGE_MODE_ON_CHANGE,
-                        VehicleValueType.VEHICLE_VALUE_TYPE_ZONED_BOOLEAN,
-                        VehicleWindow.VEHICLE_WINDOW_FRONT_WINDSHIELD,
-                        0), handler);
-        getVehicleHalEmulator().addProperty(
-                VehiclePropConfigUtil.createZonedProperty(
-                        VehicleNetworkConsts.VEHICLE_PROPERTY_HVAC_FAN_SPEED,
-                        VehiclePropAccess.VEHICLE_PROP_ACCESS_READ_WRITE,
-                        VehiclePropChangeMode.VEHICLE_PROP_CHANGE_MODE_ON_CHANGE,
-                        VehicleValueType.VEHICLE_VALUE_TYPE_ZONED_INT32,
-                        VehicleZone.VEHICLE_ZONE_ROW_1_LEFT,
-                        0), handler);
-        getVehicleHalEmulator().addProperty(
-                VehiclePropConfigUtil.createZonedProperty(
-                        VehicleNetworkConsts.VEHICLE_PROPERTY_HVAC_TEMPERATURE_SET,
-                        VehiclePropAccess.VEHICLE_PROP_ACCESS_READ_WRITE,
-                        VehiclePropChangeMode.VEHICLE_PROP_CHANGE_MODE_ON_CHANGE,
-                        VehicleValueType.VEHICLE_VALUE_TYPE_ZONED_FLOAT,
-                        VehicleZone.VEHICLE_ZONE_ROW_1_LEFT,
-                        0), handler);
-        getVehicleHalEmulator().addProperty(
-                VehiclePropConfigUtil.createZonedProperty(
-                        VehicleNetworkConsts.VEHICLE_PROPERTY_HVAC_TEMPERATURE_CURRENT,
-                        VehiclePropAccess.VEHICLE_PROP_ACCESS_READ,
-                        VehiclePropChangeMode.VEHICLE_PROP_CHANGE_MODE_CONTINUOUS,
-                        VehicleValueType.VEHICLE_VALUE_TYPE_ZONED_FLOAT,
-                        VehicleZone.VEHICLE_ZONE_ROW_1_ALL,
-                        0), handler);
-
-        getVehicleHalEmulator().start();
         mCarHvacManager = (CarHvacManager) getCar().getCarManager(Car.HVAC_SERVICE);
     }
 
     // Test a boolean property
     public void testHvacRearDefrosterOn() throws Exception {
-        mCarHvacManager.setBooleanProperty(HvacPropertyId.WINDOW_DEFROSTER_ON,
-                VehicleWindow.VEHICLE_WINDOW_FRONT_WINDSHIELD, true);
-        boolean defrost = mCarHvacManager.getBooleanProperty(HvacPropertyId.WINDOW_DEFROSTER_ON,
-                VehicleWindow.VEHICLE_WINDOW_FRONT_WINDSHIELD);
+        mCarHvacManager.setBooleanProperty(CarHvacManager.ID_WINDOW_DEFROSTER_ON,
+                VehicleAreaWindow.FRONT_WINDSHIELD, true);
+        boolean defrost = mCarHvacManager.getBooleanProperty(CarHvacManager.ID_WINDOW_DEFROSTER_ON,
+                VehicleAreaWindow.FRONT_WINDSHIELD);
         assertTrue(defrost);
 
-        mCarHvacManager.setBooleanProperty(HvacPropertyId.WINDOW_DEFROSTER_ON,
-                VehicleWindow.VEHICLE_WINDOW_FRONT_WINDSHIELD, false);
-        defrost = mCarHvacManager.getBooleanProperty(HvacPropertyId.WINDOW_DEFROSTER_ON,
-                VehicleWindow.VEHICLE_WINDOW_FRONT_WINDSHIELD);
+        mCarHvacManager.setBooleanProperty(CarHvacManager.ID_WINDOW_DEFROSTER_ON,
+                VehicleAreaWindow.FRONT_WINDSHIELD, false);
+        defrost = mCarHvacManager.getBooleanProperty(CarHvacManager.ID_WINDOW_DEFROSTER_ON,
+                VehicleAreaWindow.FRONT_WINDSHIELD);
         assertFalse(defrost);
     }
 
     // Test an integer property
     public void testHvacFanSpeed() throws Exception {
-        mCarHvacManager.setIntProperty(HvacPropertyId.ZONED_FAN_SPEED_SETPOINT,
-                VehicleZone.VEHICLE_ZONE_ROW_1_LEFT, 15);
-        int speed = mCarHvacManager.getIntProperty(HvacPropertyId.ZONED_FAN_SPEED_SETPOINT,
-                VehicleZone.VEHICLE_ZONE_ROW_1_LEFT);
+        mCarHvacManager.setIntProperty(CarHvacManager.ID_ZONED_FAN_SPEED_SETPOINT,
+                VehicleAreaZone.ROW_1_LEFT, 15);
+        int speed = mCarHvacManager.getIntProperty(CarHvacManager.ID_ZONED_FAN_SPEED_SETPOINT,
+                VehicleAreaZone.ROW_1_LEFT);
         assertEquals(15, speed);
 
-        mCarHvacManager.setIntProperty(HvacPropertyId.ZONED_FAN_SPEED_SETPOINT,
-                VehicleZone.VEHICLE_ZONE_ROW_1_LEFT, 23);
-        speed = mCarHvacManager.getIntProperty(HvacPropertyId.ZONED_FAN_SPEED_SETPOINT,
-                VehicleZone.VEHICLE_ZONE_ROW_1_LEFT);
+        mCarHvacManager.setIntProperty(CarHvacManager.ID_ZONED_FAN_SPEED_SETPOINT,
+                VehicleAreaZone.ROW_1_LEFT, 23);
+        speed = mCarHvacManager.getIntProperty(CarHvacManager.ID_ZONED_FAN_SPEED_SETPOINT,
+                VehicleAreaZone.ROW_1_LEFT);
         assertEquals(23, speed);
     }
 
     // Test an float property
     public void testHvacTempSetpoint() throws Exception {
-        mCarHvacManager.setFloatProperty(HvacPropertyId.ZONED_TEMP_SETPOINT,
-                VehicleZone.VEHICLE_ZONE_ROW_1_LEFT, 70);
-        float temp = mCarHvacManager.getFloatProperty(HvacPropertyId.ZONED_TEMP_SETPOINT,
-                VehicleZone.VEHICLE_ZONE_ROW_1_LEFT);
+        mCarHvacManager.setFloatProperty(CarHvacManager.ID_ZONED_TEMP_SETPOINT,
+                VehicleAreaZone.ROW_1_LEFT, 70);
+        float temp = mCarHvacManager.getFloatProperty(CarHvacManager.ID_ZONED_TEMP_SETPOINT,
+                VehicleAreaZone.ROW_1_LEFT);
         assertEquals(70.0, temp, 0);
 
-        mCarHvacManager.setFloatProperty(HvacPropertyId.ZONED_TEMP_SETPOINT,
-                VehicleZone.VEHICLE_ZONE_ROW_1_LEFT, (float) 65.5);
-        temp = mCarHvacManager.getFloatProperty(HvacPropertyId.ZONED_TEMP_SETPOINT,
-                VehicleZone.VEHICLE_ZONE_ROW_1_LEFT);
+        mCarHvacManager.setFloatProperty(CarHvacManager.ID_ZONED_TEMP_SETPOINT,
+                VehicleAreaZone.ROW_1_LEFT, (float) 65.5);
+        temp = mCarHvacManager.getFloatProperty(CarHvacManager.ID_ZONED_TEMP_SETPOINT,
+                VehicleAreaZone.ROW_1_LEFT);
         assertEquals(65.5, temp, 0);
+    }
+
+    public void testError() throws Exception {
+        final int PROP = VehicleProperty.HVAC_DEFROSTER;
+        final int AREA = VehicleAreaWindow.FRONT_WINDSHIELD;
+        final int ERR_CODE = 42;
+
+        CountDownLatch errorLatch = new CountDownLatch(1);
+        MutableInt propertyIdReceived = new MutableInt(0);
+        MutableInt areaIdReceived = new MutableInt(0);
+
+        mCarHvacManager.registerCallback(new CarHvacEventCallback() {
+            @Override
+            public void onChangeEvent(CarPropertyValue value) {
+
+            }
+
+            @Override
+            public void onErrorEvent(@PropertyId int propertyId, int area) {
+                propertyIdReceived.value = propertyId;
+                areaIdReceived.value = area;
+                errorLatch.countDown();
+            }
+        });
+
+        getMockedVehicleHal().injectError(ERR_CODE, PROP, AREA);
+        assertTrue(errorLatch.await(DEFAULT_WAIT_TIMEOUT_MS, TimeUnit.MILLISECONDS));
+        assertEquals(PROP, propertyIdReceived.value);
+        assertEquals(AREA, areaIdReceived.value);
     }
 
     // Test an event
     public void testEvent() throws Exception {
-        mCarHvacManager.registerListener(new EventListener());
+        mCarHvacManager.registerCallback(new EventListener());
 
         // Inject a boolean event and wait for its callback in onPropertySet.
-        VehiclePropValue v = VehiclePropValueUtil.createZonedBooleanValue(
-                VehicleNetworkConsts.VEHICLE_PROPERTY_HVAC_DEFROSTER,
-                VehicleWindow.VEHICLE_WINDOW_FRONT_WINDSHIELD, true, 0);
+        VehiclePropValue v = VehiclePropValueBuilder.newBuilder(VehicleProperty.HVAC_DEFROSTER)
+                .setAreaId(VehicleAreaWindow.FRONT_WINDSHIELD)
+                .setTimestamp(SystemClock.elapsedRealtimeNanos())
+                .addIntValue(1)
+                .build();
         assertEquals(0, mAvailable.availablePermits());
-        getVehicleHalEmulator().injectEvent(v);
+        getMockedVehicleHal().injectEvent(v);
 
         assertTrue(mAvailable.tryAcquire(2L, TimeUnit.SECONDS));
         assertTrue(mEventBoolVal);
-        assertEquals(mEventZoneVal, VehicleWindow.VEHICLE_WINDOW_FRONT_WINDSHIELD);
+        assertEquals(mEventZoneVal, VehicleAreaWindow.FRONT_WINDSHIELD);
 
         // Inject a float event and wait for its callback in onPropertySet.
-        v = VehiclePropValueUtil.createZonedFloatValue(
-                VehicleNetworkConsts.VEHICLE_PROPERTY_HVAC_TEMPERATURE_CURRENT,
-                VehicleZone.VEHICLE_ZONE_ROW_1_ALL, 67, 0);
+        v = VehiclePropValueBuilder.newBuilder(VehicleProperty.HVAC_TEMPERATURE_CURRENT)
+                .setAreaId(VehicleAreaZone.ROW_1)
+                .setTimestamp(SystemClock.elapsedRealtimeNanos())
+                .addFloatValue(67f)
+                .build();
         assertEquals(0, mAvailable.availablePermits());
-        getVehicleHalEmulator().injectEvent(v);
+        getMockedVehicleHal().injectEvent(v);
 
         assertTrue(mAvailable.tryAcquire(2L, TimeUnit.SECONDS));
-        assertEquals(mEventFloatVal, 67, 0);
-        assertEquals(mEventZoneVal, VehicleZone.VEHICLE_ZONE_ROW_1_ALL);
+        assertEquals(67, mEventFloatVal, 0);
+        assertEquals(VehicleAreaZone.ROW_1, mEventZoneVal);
 
         // Inject an integer event and wait for its callback in onPropertySet.
-        v = VehiclePropValueUtil.createZonedIntValue(
-                VehicleNetworkConsts.VEHICLE_PROPERTY_HVAC_FAN_SPEED,
-                VehicleZone.VEHICLE_ZONE_ROW_1_LEFT, 4, 0);
+        v = VehiclePropValueBuilder.newBuilder(VehicleProperty.HVAC_FAN_SPEED)
+                .setAreaId(VehicleAreaZone.ROW_1_LEFT)
+                .setTimestamp(SystemClock.elapsedRealtimeNanos())
+                .addIntValue(4)
+                .build();
         assertEquals(0, mAvailable.availablePermits());
-        getVehicleHalEmulator().injectEvent(v);
+        getMockedVehicleHal().injectEvent(v);
 
         assertTrue(mAvailable.tryAcquire(2L, TimeUnit.SECONDS));
-        assertEquals(mEventIntVal, 4);
-        assertEquals(mEventZoneVal, VehicleZone.VEHICLE_ZONE_ROW_1_LEFT);
+        assertEquals(4, mEventIntVal);
+        assertEquals(VehicleAreaZone.ROW_1_LEFT, mEventZoneVal);
     }
 
-
-    private class HvacPropertyHandler
-            implements VehicleHalEmulator.VehicleHalPropertyHandler {
+    private class HvacPropertyHandler implements VehicleHalPropertyHandler {
         HashMap<Integer, VehiclePropValue> mMap = new HashMap<>();
 
         @Override
         public synchronized void onPropertySet(VehiclePropValue value) {
-            mMap.put(value.getProp(), value);
+            mMap.put(value.prop, value);
         }
 
         @Override
         public synchronized VehiclePropValue onPropertyGet(VehiclePropValue value) {
-            return mMap.get(value.getProp());
+            VehiclePropValue currentValue = mMap.get(value.prop);
+            // VNS will call get method when subscribe is called, just return empty value.
+            return currentValue != null ? currentValue : value;
         }
 
         @Override
-        public synchronized void onPropertySubscribe(int property, float sampleRate, int zones) {
+        public synchronized void onPropertySubscribe(int property, int zones, float sampleRate) {
             Log.d(TAG, "onPropertySubscribe property " + property + " sampleRate " + sampleRate);
         }
 
@@ -203,8 +219,8 @@ public class CarHvacManagerTest extends MockedCarTestBase {
         }
     }
 
-    private class EventListener implements CarHvacEventListener {
-        public EventListener() { }
+    private class EventListener implements CarHvacEventCallback {
+        EventListener() { }
 
         @Override
         public void onChangeEvent(final CarPropertyValue value) {

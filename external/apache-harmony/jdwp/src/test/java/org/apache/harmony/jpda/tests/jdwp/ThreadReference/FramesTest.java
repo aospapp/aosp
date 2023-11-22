@@ -44,7 +44,7 @@ public class FramesTest extends JDWPSyncTestCase {
     short err;
     long threadID;
 
-    class FrameStruct {
+    static class FrameStruct {
         long frameID;
         Location loc;
         FrameStruct(long frameID, Location loc) {
@@ -53,6 +53,7 @@ public class FramesTest extends JDWPSyncTestCase {
         }
     }
 
+    @Override
     protected String getDebuggeeClassName() {
         return "org.apache.harmony.jpda.tests.jdwp.ThreadReference.FramesDebuggee";
     }
@@ -77,15 +78,15 @@ public class FramesTest extends JDWPSyncTestCase {
         logWriter.println("==> threadID = " + threadID);
         debuggeeWrapper.vmMirror.suspendThread(threadID);
 
-        Vector allFrames = getFrames(0, -1);
+        Vector<FrameStruct> allFrames = getFrames(0, -1);
         if (err != JDWPConstants.Error.NONE) {
             printErrorAndFail("Unexpected ERROR = " + err
                     + "(" + JDWPConstants.Error.getName(err) + ")");
         }
         String methodName, classSignature;
         int i = 0;
-        for (Enumeration e = allFrames.elements(); e.hasMoreElements(); i++) {
-            FrameStruct frame = (FrameStruct )e.nextElement();
+        for (Enumeration<FrameStruct> e = allFrames.elements(); e.hasMoreElements(); i++) {
+            FrameStruct frame = e.nextElement();
             methodName = getMethodName(frame.loc.classID, frame.loc.methodID);
             classSignature = getClassSignature(frame.loc.classID);
             logWriter.println("\t" + i + ". frameID=" + frame.frameID
@@ -131,15 +132,15 @@ public class FramesTest extends JDWPSyncTestCase {
         logWriter.println("==> threadID = " + threadID);
         debuggeeWrapper.vmMirror.suspendThread(threadID);
 
-        Vector allFrames = getFrames(0, -1);
+        Vector<FrameStruct> allFrames = getFrames(0, -1);
         if (err != JDWPConstants.Error.NONE) {
             printErrorAndFail("Unexpected ERROR = " + err
                     + "(" + JDWPConstants.Error.getName(err) + ")");
         }
         String methodName, classSignature;
         int i = 0;
-        for (Enumeration e = allFrames.elements(); e.hasMoreElements(); i++) {
-            FrameStruct frame = (FrameStruct )e.nextElement();
+        for (Enumeration<FrameStruct> e = allFrames.elements(); e.hasMoreElements(); i++) {
+            FrameStruct frame = e.nextElement();
             methodName = getMethodName(frame.loc.classID, frame.loc.methodID);
             classSignature = getClassSignature(frame.loc.classID);
             logWriter.println("\t" + i + ". frameID=" + frame.frameID
@@ -186,15 +187,15 @@ public class FramesTest extends JDWPSyncTestCase {
         logWriter.println("==> threadID = " + threadID);
         debuggeeWrapper.vmMirror.suspendThread(threadID);
 
-        Vector allFrames = getFrames(0, -1);
+        Vector<FrameStruct> allFrames = getFrames(0, -1);
         if (err != JDWPConstants.Error.NONE) {
             printErrorAndFail("Unexpected ERROR = " + err
                     + "(" + JDWPConstants.Error.getName(err) + ")");
         }
         String methodName, classSignature;
         int i = 0;
-        for (Enumeration e = allFrames.elements(); e.hasMoreElements(); i++) {
-            FrameStruct frame = (FrameStruct )e.nextElement();
+        for (Enumeration<FrameStruct> e = allFrames.elements(); e.hasMoreElements(); i++) {
+            FrameStruct frame = e.nextElement();
             methodName = getMethodName(frame.loc.classID, frame.loc.methodID);
             classSignature = getClassSignature(frame.loc.classID);
                logWriter.println("\t" + i + ". frameID=" + frame.frameID
@@ -246,7 +247,7 @@ public class FramesTest extends JDWPSyncTestCase {
         logWriter.println("==> threadID = " + threadID);
         debuggeeWrapper.vmMirror.suspendThread(threadID);
 
-        Vector allFrames = getFrames(0, -1);
+        Vector<FrameStruct> allFrames = getFrames(0, -1);
         if (err != JDWPConstants.Error.NONE) {
             printErrorAndFail("Unexpected ERROR = " + err
                     + "(" + JDWPConstants.Error.getName(err) + ")");
@@ -254,8 +255,8 @@ public class FramesTest extends JDWPSyncTestCase {
         String methodName, classSignature;
         int frameNumber = -1;
         int i = 0;
-        for (Enumeration e = allFrames.elements(); e.hasMoreElements(); i++) {
-            FrameStruct frame = (FrameStruct )e.nextElement();
+        for (Enumeration<FrameStruct> e = allFrames.elements(); e.hasMoreElements(); i++) {
+            FrameStruct frame = e.nextElement();
             methodName = getMethodName(frame.loc.classID, frame.loc.methodID);
             classSignature = getClassSignature(frame.loc.classID);
             if (frameNumber < 0 && FramesDebuggee.METHOD_NAME.equals(methodName)) {
@@ -280,8 +281,8 @@ public class FramesTest extends JDWPSyncTestCase {
         int methodCount = 0;
         String unexpectedMethods = null;
         String depthError = null;
-        for (Enumeration e = allFrames.elements(); e.hasMoreElements(); i++) {
-            FrameStruct frame = (FrameStruct )e.nextElement();
+        for (Enumeration<FrameStruct> e = allFrames.elements(); e.hasMoreElements(); i++) {
+            FrameStruct frame = e.nextElement();
             methodName = getMethodName(frame.loc.classID, frame.loc.methodID);
             classSignature = getClassSignature(frame.loc.classID);
             logWriter.println("\t" + i + ". frameID=" + frame.frameID
@@ -341,7 +342,7 @@ public class FramesTest extends JDWPSyncTestCase {
         logWriter.println("==> threadID = " + threadID);
         debuggeeWrapper.vmMirror.suspendThread(threadID);
 
-        Vector allFrames = getFrames(0, -1);
+        Vector<FrameStruct> allFrames = getFrames(0, -1);
         if (err != JDWPConstants.Error.NONE) {
             printErrorAndFail("Unexpected ERROR = " + err
                     + "(" + JDWPConstants.Error.getName(err) + ")");
@@ -349,8 +350,8 @@ public class FramesTest extends JDWPSyncTestCase {
         String methodName, classSignature;
         int frameNumber = -1;
         int i = 0;
-        for (Enumeration e = allFrames.elements(); e.hasMoreElements(); i++) {
-            FrameStruct frame = (FrameStruct )e.nextElement();
+        for (Enumeration<FrameStruct> e = allFrames.elements(); e.hasMoreElements(); i++) {
+            FrameStruct frame = e.nextElement();
             methodName = getMethodName(frame.loc.classID, frame.loc.methodID);
             classSignature = getClassSignature(frame.loc.classID);
             if (frameNumber < 0 && FramesDebuggee.METHOD_NAME.equals(methodName)) {
@@ -377,8 +378,8 @@ public class FramesTest extends JDWPSyncTestCase {
         boolean testCondition;
         String unexpectedMethods = null;
         String depthError = null;
-        for (Enumeration e = allFrames.elements(); e.hasMoreElements(); i++) {
-            FrameStruct frame = (FrameStruct )e.nextElement();
+        for (Enumeration<FrameStruct> e = allFrames.elements(); e.hasMoreElements(); i++) {
+            FrameStruct frame = e.nextElement();
             methodName = getMethodName(frame.loc.classID, frame.loc.methodID);
             classSignature = getClassSignature(frame.loc.classID);
             logWriter.println("\t" + i + ". frameID=" + frame.frameID
@@ -418,7 +419,7 @@ public class FramesTest extends JDWPSyncTestCase {
         }
     }
 
-    private Vector getFrames(int startFrame, int length) {
+    private Vector<FrameStruct> getFrames(int startFrame, int length) {
 
         Vector<FrameStruct> frames = new Vector<FrameStruct>();
 

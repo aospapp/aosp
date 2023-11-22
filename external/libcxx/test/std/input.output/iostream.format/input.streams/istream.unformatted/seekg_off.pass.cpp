@@ -40,7 +40,7 @@ public:
     CharT* egptr() const {return base::egptr();}
 protected:
     typename base::pos_type seekoff(typename base::off_type off,
-                                    std::ios_base::seekdir way,
+                                    std::ios_base::seekdir,
                                     std::ios_base::openmode which)
     {
         assert(which == std::ios_base::in);
@@ -70,5 +70,14 @@ int main()
         is.seekg(-1, std::ios_base::beg);
         assert(is.fail());
         assert(seekoff_called == 4);
+    }
+    {
+        testbuf<char> sb(" 123456789");
+        std::istream is(&sb);
+        is.setstate(std::ios_base::eofbit);
+        assert(is.eof());
+        is.seekg(5, std::ios_base::beg);
+        assert(is.good());
+        assert(!is.eof());
     }
 }

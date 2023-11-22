@@ -1,8 +1,10 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  * Created on May 5, 2004
  *
- * Copyright (C) 2004-2015 International Business Machines Corporation and others.
+ * Copyright (C) 2004-2016 International Business Machines Corporation and others.
  * All Rights Reserved.
  *
  */
@@ -13,14 +15,14 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.Arrays;
 
+import org.junit.Test;
+
 import android.icu.dev.test.TestFmwk;
 import android.icu.impl.Utility;
 import android.icu.lang.UCharacter;
 import android.icu.text.BreakIterator;
 import android.icu.text.UTF16;
 import android.icu.util.ULocale;
-import org.junit.runner.RunWith;
-import android.icu.junit.IcuTestFmwkRunner;
 
 
 /**
@@ -30,14 +32,7 @@ import android.icu.junit.IcuTestFmwkRunner;
  *      See the data file for a description of the tests.
  *
  */
-@RunWith(IcuTestFmwkRunner.class)
 public class RBBITestExtended extends TestFmwk {
-
-    public static void main(String[] args)throws Exception {
-        new RBBITestExtended().run(args);
-    }
-
-
 public RBBITestExtended() {
     }
 
@@ -53,6 +48,7 @@ static class TestParams {
 }
 
 
+@Test
 public void TestExtended() {
     TestParams     tp = new TestParams();
 
@@ -483,8 +479,8 @@ void executeTest(TestParams t) {
             int line = t.srcLine[bp];
             int rs = t.bi.getRuleStatus();
             if (rs != expectedTagVal) {
-                errln("Incorrect status for reverse break.  Pos=  " + bp +
-                        "File line,col= " + line + ", " + t.srcCol[bp] + "\n" +
+                errln("Incorrect status for reverse break.  Pos = " + bp +
+                      "  File line,col= " + line + ", " + t.srcCol[bp] + "\n" +
                       "          Actual, Expected status = " + rs + ", " + expectedTagVal);
             }
         }

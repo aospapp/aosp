@@ -21,18 +21,24 @@ import android.system.StructStat;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Enumeration;
 import java.util.List;
 import libcore.io.Libcore;
 
 /**
- * Manipulates DEX files. The class is similar in principle to
- * {@link java.util.zip.ZipFile}. It is used primarily by class loaders.
- * <p>
- * Note we don't directly open and read the DEX file here. They're memory-mapped
- * read-only by the VM.
+ * Loads DEX files. This class is meant for internal use and should not be used
+ * by applications.
+ *
+ * @deprecated This class should not be used directly by applications. It will hurt
+ *     performance in most cases and will lead to incorrect execution of bytecode in
+ *     the worst case. Applications should use one of the standard classloaders such
+ *     as {@link dalvik.system.PathClassLoader} instead. <b>This API will be removed
+ *     in a future Android release</b>.
  */
+@Deprecated
 public final class DexFile {
   /**
    * If close is called, mCookie becomes null but the internal cookie is preserved if the close
@@ -43,22 +49,13 @@ public final class DexFile {
     private final String mFileName;
 
     /**
-     * Opens a DEX file from a given File object. This will usually be a ZIP/JAR
-     * file with a "classes.dex" inside.
+     * Opens a DEX file from a given File object.
      *
-     * The VM will generate the name of the corresponding file in
-     * /data/dalvik-cache and open it, possibly creating or updating
-     * it first if system permissions allow.  Don't pass in the name of
-     * a file in /data/dalvik-cache, as the named file is expected to be
-     * in its original (pre-dexopt) state.
-     *
-     * @param file
-     *            the File object referencing the actual DEX file
-     *
-     * @throws IOException
-     *             if an I/O error occurs, such as the file not being found or
-     *             access rights missing for opening it
+     * @deprecated Applications should use one of the standard classloaders such
+     *     as {@link dalvik.system.PathClassLoader} instead. <b>This API will be removed
+     *     in a future Android release</b>.
      */
+    @Deprecated
     public DexFile(File file) throws IOException {
         this(file.getPath());
     }
@@ -78,22 +75,13 @@ public final class DexFile {
     }
 
     /**
-     * Opens a DEX file from a given filename. This will usually be a ZIP/JAR
-     * file with a "classes.dex" inside.
+     * Opens a DEX file from a given filename.
      *
-     * The VM will generate the name of the corresponding file in
-     * /data/dalvik-cache and open it, possibly creating or updating
-     * it first if system permissions allow.  Don't pass in the name of
-     * a file in /data/dalvik-cache, as the named file is expected to be
-     * in its original (pre-dexopt) state.
-     *
-     * @param fileName
-     *            the filename of the DEX file
-     *
-     * @throws IOException
-     *             if an I/O error occurs, such as the file not being found or
-     *             access rights missing for opening it
+     * @deprecated Applications should use one of the standard classloaders such
+     *     as {@link dalvik.system.PathClassLoader} instead. <b>This API will be removed
+     *     in a future Android release</b>.
      */
+    @Deprecated
     public DexFile(String fileName) throws IOException {
         this(fileName, null, null);
     }
@@ -113,6 +101,12 @@ public final class DexFile {
         mInternalCookie = mCookie;
         mFileName = fileName;
         //System.out.println("DEX FILE cookie is " + mCookie + " fileName=" + fileName);
+    }
+
+    DexFile(ByteBuffer buf) throws IOException {
+        mCookie = openInMemoryDexFile(buf);
+        mInternalCookie = mCookie;
+        mFileName = null;
     }
 
     /**
@@ -146,6 +140,7 @@ public final class DexFile {
         }
 
         mCookie = openDexFile(sourceName, outputName, flags, loader, elements);
+        mInternalCookie = mCookie;
         mFileName = sourceName;
         //System.out.println("DEX FILE cookie is " + mCookie + " sourceName=" + sourceName + " outputName=" + outputName);
     }
@@ -156,24 +151,11 @@ public final class DexFile {
      * to be current, it will be used; if not, the VM will attempt to
      * regenerate it.
      *
-     * This is intended for use by applications that wish to download
-     * and execute DEX files outside the usual application installation
-     * mechanism.  This function should not be called directly by an
-     * application; instead, use a class loader such as
-     * dalvik.system.DexClassLoader.
-     *
-     * @param sourcePathName
-     *  Jar or APK file with "classes.dex".  (May expand this to include
-     *  "raw DEX" in the future.)
-     * @param outputPathName
-     *  File that will hold the optimized form of the DEX data.
-     * @param flags
-     *  Enable optional features.  (Currently none defined.)
-     * @return
-     *  A new or previously-opened DexFile.
-     * @throws IOException
-     *  If unable to open the source or output file.
+     * @deprecated Applications should use one of the standard classloaders such
+     *     as {@link dalvik.system.PathClassLoader} instead. <b>This API will be removed
+     *     in a future Android release</b>.
      */
+    @Deprecated
     static public DexFile loadDex(String sourcePathName, String outputPathName,
         int flags) throws IOException {
 
@@ -229,7 +211,11 @@ public final class DexFile {
     }
 
     @Override public String toString() {
-        return getName();
+        if (mFileName != null) {
+            return getName();
+        } else {
+            return "InMemoryDexFile[cookie=" + Arrays.toString((long[]) mCookie) + "]";
+        }
     }
 
     /**
@@ -319,13 +305,13 @@ public final class DexFile {
     /*
      * Helper class.
      */
-    private class DFEnum implements Enumeration<String> {
+    private static class DFEnum implements Enumeration<String> {
         private int mIndex;
         private String[] mNameList;
 
         DFEnum(DexFile df) {
             mIndex = 0;
-            mNameList = getClassNameList(mCookie);
+            mNameList = getClassNameList(df.mCookie);
         }
 
         public boolean hasMoreElements() {
@@ -373,6 +359,17 @@ public final class DexFile {
                                  elements);
     }
 
+    private static Object openInMemoryDexFile(ByteBuffer buf) throws IOException {
+        if (buf.isDirect()) {
+            return createCookieWithDirectBuffer(buf, buf.position(), buf.limit());
+        } else {
+            return createCookieWithArray(buf.array(), buf.position(), buf.limit());
+        }
+    }
+
+    private static native Object createCookieWithDirectBuffer(ByteBuffer buf, int start, int end);
+    private static native Object createCookieWithArray(byte[] buf, int start, int end);
+
     /*
      * Returns true if the dex file is backed by a valid oat file.
      */
@@ -412,6 +409,8 @@ public final class DexFile {
             throws FileNotFoundException, IOException;
 
     /**
+     * No dexopt should (or can) be done to update the apk/jar.
+     *
      * See {@link #getDexOptNeeded(String, String, int)}.
      *
      * @hide
@@ -419,25 +418,90 @@ public final class DexFile {
     public static final int NO_DEXOPT_NEEDED = 0;
 
     /**
+     * dex2oat should be run to update the apk/jar from scratch.
+     *
      * See {@link #getDexOptNeeded(String, String, int)}.
      *
      * @hide
      */
-    public static final int DEX2OAT_NEEDED = 1;
+    public static final int DEX2OAT_FROM_SCRATCH = 1;
 
     /**
+     * dex2oat should be run to update the apk/jar because the existing code
+     * is out of date with respect to the boot image.
+     *
      * See {@link #getDexOptNeeded(String, String, int)}.
      *
      * @hide
      */
-    public static final int PATCHOAT_NEEDED = 2;
+    public static final int DEX2OAT_FOR_BOOT_IMAGE = 2;
 
     /**
+     * dex2oat should be run to update the apk/jar because the existing code
+     * is out of date with respect to the target compiler filter.
+     *
      * See {@link #getDexOptNeeded(String, String, int)}.
      *
      * @hide
      */
-    public static final int SELF_PATCHOAT_NEEDED = 3;
+    public static final int DEX2OAT_FOR_FILTER = 3;
+
+    /**
+     * dex2oat should be run to update the apk/jar because the existing code
+     * is not relocated to match the boot image.
+     *
+     * See {@link #getDexOptNeeded(String, String, int)}.
+     *
+     * @hide
+     */
+    public static final int DEX2OAT_FOR_RELOCATION = 4;
+
+    /**
+     * Returns the VM's opinion of what kind of dexopt is needed to make the
+     * apk/jar file up to date, where {@code targetMode} is used to indicate what
+     * type of compilation the caller considers up-to-date, and {@code newProfile}
+     * is used to indicate whether profile information has changed recently.
+     *
+     * @param fileName the absolute path to the apk/jar file to examine.
+     * @param compilerFilter a compiler filter to use for what a caller considers up-to-date.
+     * @param newProfile flag that describes whether a profile corresponding
+     *        to the dex file has been recently updated and should be considered
+     *        in the state of the file.
+     * @return NO_DEXOPT_NEEDED, or DEX2OAT_*. See documentation
+     *         of the particular status code for more information on its
+     *         meaning. Returns a positive status code if the status refers to
+     *         the oat file in the oat location. Returns a negative status
+     *         code if the status refers to the oat file in the odex location.
+     * @throws java.io.FileNotFoundException if fileName is not readable,
+     *         not a file, or not present.
+     * @throws java.io.IOException if fileName is not a valid apk/jar file or
+     *         if problems occur while parsing it.
+     * @throws java.lang.NullPointerException if fileName is null.
+     *
+     * @hide
+     */
+    public static native int getDexOptNeeded(String fileName,
+            String instructionSet, String compilerFilter, boolean newProfile)
+            throws FileNotFoundException, IOException;
+
+    /**
+     * Returns the status of the dex file {@code fileName}. The returned string is
+     * an opaque, human readable representation of the current status. The output
+     * is only meant for debugging and is not guaranteed to be stable across
+     * releases and/or devices.
+     *
+     * @hide
+     */
+    public static native String getDexFileStatus(String fileName, String instructionSet)
+        throws FileNotFoundException;
+
+    /**
+     * Returns the paths of the optimized files generated for {@code fileName}.
+     * If no optimized code exists the method returns null.
+     * @hide
+     */
+    public static native String[] getDexFileOutputPaths(String fileName, String instructionSet)
+        throws FileNotFoundException;
 
     /**
      * Returns whether the given filter is a valid filter.
@@ -463,50 +527,12 @@ public final class DexFile {
     public native static String getNonProfileGuidedCompilerFilter(String filter);
 
     /**
-     * Returns the VM's opinion of what kind of dexopt is needed to make the
-     * apk/jar file up to date, where {@code targetMode} is used to indicate what
-     * type of compilation the caller considers up-to-date, and {@code newProfile}
-     * is used to indicate whether profile information has changed recently.
-     *
-     * @param fileName the absolute path to the apk/jar file to examine.
-     * @param compilerFilter a compiler filter to use for what a caller considers up-to-date.
-     * @param newProfile flag that describes whether a profile corresponding
-     *        to the dex file has been recently updated and should be considered
-     *        in the state of the file.
-     * @return NO_DEXOPT_NEEDED if the apk/jar is already up to date.
-     *         DEX2OAT_NEEDED if dex2oat should be called on the apk/jar file.
-     *         PATCHOAT_NEEDED if patchoat should be called on the apk/jar
-     *         file to patch the odex file along side the apk/jar.
-     *         SELF_PATCHOAT_NEEDED if selfpatchoat should be called on the
-     *         apk/jar file to patch the oat file in the dalvik cache.
-     * @throws java.io.FileNotFoundException if fileName is not readable,
-     *         not a file, or not present.
-     * @throws java.io.IOException if fileName is not a valid apk/jar file or
-     *         if problems occur while parsing it.
-     * @throws java.lang.NullPointerException if fileName is null.
+     * Returns the version of the compiler filter that is suitable for safe mode.
+     * If the input is not a valid filter, or the filter is already suitable for
+     * safe mode, this returns the input.
      *
      * @hide
      */
-    public static native int getDexOptNeeded(String fileName,
-            String instructionSet, String compilerFilter, boolean newProfile)
-            throws FileNotFoundException, IOException;
+    public native static String getSafeModeCompilerFilter(String filter);
 
-    /**
-     * Returns the status of the dex file {@code fileName}. The returned string is
-     * an opaque, human readable representation of the current status. The output
-     * is only meant for debugging and is not guaranteed to be stable across
-     * releases and/or devices.
-     *
-     * @hide
-     */
-    public static native String getDexFileStatus(String fileName, String instructionSet)
-        throws FileNotFoundException;
-
-    /**
-     * Returns the full file path of the optimized dex file {@code fileName}.  The returned string
-     * is the full file name including path of optimized dex file, if it exists.
-     * @hide
-     */
-    public static native String getDexFileOutputPath(String fileName, String instructionSet)
-        throws FileNotFoundException;
 }

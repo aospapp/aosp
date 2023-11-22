@@ -1,9 +1,11 @@
 # Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
-import glob, logging, os, re, shutil
+import glob, logging, os, re, shutil, time
 from autotest_lib.client.bin import site_utils, utils
+from autotest_lib.client.common_lib import base_utils
 from autotest_lib.client.common_lib import error
+from autotest_lib.client.cros import upstart
 
 
 # Possible display power settings. Copied from chromeos::DisplayPowerState
@@ -120,6 +122,15 @@ def get_power_supply():
 
     return 'power:%s' % psu_str
 
+def get_sleep_state():
+    """
+    Returns the current powerd configuration of the sleep state.
+    Can be "freeze" or "mem".
+    """
+    cmd = 'check_powerd_config --suspend_to_idle'
+    result = base_utils.run(cmd, ignore_status=True)
+    return 'freeze' if result.exit_status == 0 else 'mem'
+
 def has_battery():
     """Determine if DUT has a battery.
 
@@ -131,7 +142,7 @@ def has_battery():
     if power_supply == 'power:battery':
         # TODO(tbroch) if/when 'power:battery' param is reliable
         # remove board type logic.  Also remove verbose mosys call.
-        _NO_BATTERY_BOARD_TYPE = ['CHROMEBOX', 'CHROMEBIT']
+        _NO_BATTERY_BOARD_TYPE = ['CHROMEBOX', 'CHROMEBIT', 'CHROMEBASE']
         board_type = site_utils.get_board_type()
         if board_type in _NO_BATTERY_BOARD_TYPE:
             logging.warn('Do NOT believe type %s has battery. '
@@ -207,8 +218,8 @@ class Backlight(object):
             except error.CmdError:
                 self.default_brightness_percent = 40.0
                 logging.warning("Unable to determine default backlight "
-                             "brightness percent.  Setting to %f",
-                             self.default_brightness_percent)
+                                "brightness percent.  Setting to %f",
+                                self.default_brightness_percent)
 
 
     def _try_bl_cmd(self, arg_str):
@@ -317,62 +328,72 @@ class KbdBacklight(object):
     Example code:
         kblight = power_utils.KbdBacklight()
         kblight.set(10)
-        print "kblight % is %.f" % kblight.get()
+        print "kblight % is %.f" % kblight.get_percent()
 
     Public methods:
-        set: Sets the keyboard backlight to a percent.
-        get: Get current keyboard backlight percentage.
-
-    Private functions:
-        _get_max: Retrieve maximum integer setting of keyboard backlight
+        set_percent: Sets the keyboard backlight to a percent.
+        get_percent: Get current keyboard backlight percentage.
+        set_level: Sets the keyboard backlight to a level.
+        get_default_level: Get default keyboard backlight brightness level
 
     Private attributes:
-        _path: filepath to keyboard backlight controls in sysfs
-        _max: cached value of 'max_brightness' integer
+        _default_backlight_level: keboard backlight level set by default
 
-    TODO(tbroch): deprecate direct sysfs access if/when these controls are
-    integrated into a userland tool such as backlight_tool in power manager.
     """
-    DEFAULT_PATH = "/sys/class/leds/chromeos::kbd_backlight"
 
-    def __init__(self, path=DEFAULT_PATH):
-        if not os.path.exists(path):
-            raise KbdBacklightException('Unable to find path "%s"' % path)
-        self._path = path
-        self._max = None
-
-
-    def _get_max(self):
-        """Get maximum absolute value of keyboard brightness.
-
-        Returns:
-            integer, maximum value of keyboard brightness
-        """
-        if self._max is None:
-            self._max = int(utils.read_one_line(os.path.join(self._path,
-                                                             'max_brightness')))
-        return self._max
+    def __init__(self):
+        cmd = 'check_powerd_config --keyboard_backlight'
+        result = base_utils.run(cmd, ignore_status=True)
+        if result.exit_status:
+            raise KbdBacklightException('Keyboard backlight support' +
+                                        'is not enabled')
+        cmd = 'get_powerd_initial_backlight_level --keyboard 2>/dev/null'
+        self._default_backlight_level = int(
+            utils.system_output(cmd).rstrip())
+        logging.info("Default keyboard backlight brightness level = %d",
+                     self._default_backlight_level)
 
 
-    def get(self):
-        """Get current keyboard brightness setting.
+
+    def get_percent(self):
+        """Get current keyboard brightness setting percentage.
 
         Returns:
-            float, percentage of keyboard brightness.
+            float, percentage of keyboard brightness in the range [0.0, 100.0].
         """
-        current = int(utils.read_one_line(os.path.join(self._path,
-                                                       'brightness')))
-        return (current * 100 ) / self._get_max()
+        cmd = 'backlight_tool --keyboard --get_brightness_percent'
+        return float(utils.system_output(cmd).strip())
 
 
-    def set(self, percent):
+    def get_default_level(self):
+        """
+        Returns the default backlight level.
+
+        Returns:
+            The default keyboard backlight level.
+        """
+        return self._default_backlight_level
+
+
+    def set_percent(self, percent):
         """Set keyboard backlight percent.
 
         Args:
-        @param percent: percent to set keyboard backlight to.
+        @param percent: float value in the range [0.0, 100.0]
+                        to set keyboard backlight to.
         """
-        value = int((percent * self._get_max()) / 100)
-        cmd = "echo %d > %s" % (value, os.path.join(self._path, 'brightness'))
+        cmd = ('backlight_tool --keyboard --set_brightness_percent=' +
+              str(percent))
+        utils.system(cmd)
+
+
+    def set_level(self, level):
+        """
+        Set keyboard backlight to given level.
+        Args:
+        @param level: level to set keyboard backlight to.
+        """
+        cmd = 'backlight_tool --keyboard --set_brightness=' + str(level)
         utils.system(cmd)
 
 
@@ -484,7 +505,7 @@ class PowerPrefChanger(object):
         for name, value in prefs.iteritems():
             utils.write_one_line('%s/%s' % (self._TEMPDIR, name), value)
         utils.system('mount --bind %s %s' % (self._TEMPDIR, self._PREFDIR))
-        utils.restart_job('powerd')
+        upstart.restart_job('powerd')
 
 
     def finalize(self):
@@ -492,7 +513,7 @@ class PowerPrefChanger(object):
         if os.path.exists(self._TEMPDIR):
             utils.system('umount %s' % self._PREFDIR, ignore_status=True)
             shutil.rmtree(self._TEMPDIR)
-            utils.restart_job('powerd')
+            upstart.restart_job('powerd')
 
 
     def __del__(self):
@@ -744,3 +765,65 @@ class USBPower(object):
             pid = utils.read_one_line(pid_path)
             whitelisted = self._is_whitelisted(vid, pid)
             self.devices.append(USBDevicePower(vid, pid, whitelisted, dirpath))
+
+
+class DisplayPanelSelfRefresh(object):
+    """Class for control and monitoring of display's PSR.
+
+    TODO(tbroch) support devices that don't use i915 drivers but have PSR
+    """
+    psr_status_file = '/sys/kernel/debug/dri/0/i915_edp_psr_status'
+
+    def __init__(self, init_time=time.time()):
+        """Initializer.
+
+        @Public attributes:
+            supported: Boolean of whether PSR is supported or not
+
+        @Private attributes:
+            _init_time: time when PSR class was instantiated.
+            _init_counter: integer of initial value of residency counter.
+            _keyvals: dictionary of keyvals
+        """
+        self._init_time = init_time
+        self._init_counter = self._get_counter()
+        self._keyvals = {}
+        self.supported = (self._init_counter != None)
+
+    def _get_counter(self):
+        """Get the current value of the system PSR counter.
+
+        This counts the number of milliseconds the system has resided in PSR.
+
+        @returns: amount of time PSR has been active since boot in ms, or None if
+        the performance counter can't be read.
+        """
+        try:
+            count = utils.get_field(utils.read_file(self.psr_status_file), 0,
+                                    linestart='Performance_Counter:')
+        except IOError:
+            logging.info("Can't find or read PSR status file")
+            return None
+
+        logging.debug("PSR performance counter: %s", count)
+        return int(count) if count else None
+
+    def _calc_residency(self):
+        """Calculate the PSR residency."""
+        if not self.supported:
+            return 0
+
+        tdelta = time.time() - self._init_time
+        cdelta = self._get_counter() - self._init_counter
+        return cdelta / (10 * tdelta)
+
+    def refresh(self):
+        """Refresh PSR related data."""
+        self._keyvals['percent_psr_residency'] = self._calc_residency()
+
+    def get_keyvals(self):
+        """Get keyvals associated with PSR data.
+
+        @returns dictionary of keyvals
+        """
+        return self._keyvals

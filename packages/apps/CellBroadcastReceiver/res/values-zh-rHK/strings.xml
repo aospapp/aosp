@@ -46,6 +46,7 @@
     <string name="pws_other_message_identifiers" msgid="1813329661891149820">"緊急警示"</string>
     <string name="cb_other_message_identifiers" msgid="7083176204482365281">"區域廣播"</string>
     <string name="emergency_alert_settings_title" msgid="5427868392642771940">"緊急警示設定"</string>
+    <string name="notification_channel_broadcast_messages" msgid="880704362482824524">"廣播訊息"</string>
     <string name="enable_emergency_alerts_title" msgid="1411195469162410084">"開啟通知"</string>
     <string name="enable_emergency_alerts_summary" msgid="5932655529367149358">"顯示緊急警示廣播"</string>
     <string name="alert_reminder_interval_title" msgid="3283595202268218149">"警示提醒"</string>
@@ -63,7 +64,7 @@
     <string name="enable_cmas_test_alerts_title" msgid="8620213090932770270">"顯示 CMAS 測試廣播"</string>
     <string name="enable_cmas_test_alerts_summary" msgid="2935171596891733844">"顯示商用流動警示系統的測試廣播"</string>
     <string name="enable_alert_vibrate_title" msgid="982817538757982090">"震動"</string>
-    <string name="enable_alert_vibrate_summary" msgid="4328060563316778589">"收到警報時震動"</string>
+    <string name="enable_alert_vibrate_summary" msgid="4328060563316778589">"收到警示時震動"</string>
     <string name="category_brazil_settings_title" msgid="6343130548572319922">"巴西專用設定"</string>
     <string name="enable_channel_50_alerts_title" msgid="2818924064446974167">"顯示第 50 頻道的廣播"</string>
     <string name="enable_channel_50_alerts_summary" msgid="7507770011325273009">"巴西使用第 50 頻道廣播地區最新資訊"</string>
@@ -100,7 +101,7 @@
     <string name="cmas_certainty_observed" msgid="3668549749352106472">"有跡象"</string>
     <string name="cmas_certainty_likely" msgid="4254497828943291749">"可能發生"</string>
     <string name="delivery_time_heading" msgid="5980836543433619329">"接收時間："</string>
-    <string name="notification_multiple" msgid="5121978148152124860">"<xliff:g id="COUNT">%s</xliff:g> 則未讀取警示。"</string>
+    <string name="notification_multiple" msgid="5121978148152124860">"<xliff:g id="COUNT">%s</xliff:g> 則未讀警示。"</string>
     <string name="notification_multiple_title" msgid="1523638925739947855">"新警示"</string>
     <string name="show_cmas_opt_out_summary" msgid="4370292554938680862">"在第一次 CMAS 警報出現後顯示停用對話框 (港府重大警報除外)。"</string>
     <string name="show_cmas_opt_out_title" msgid="9182104842820171132">"顯示停用對話框"</string>

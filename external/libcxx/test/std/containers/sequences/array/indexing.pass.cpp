@@ -19,7 +19,17 @@
 
 #include "test_macros.h"
 
-#include "suppress_array_warnings.h"
+// std::array is explicitly allowed to be initialized with A a = { init-list };.
+// Disable the missing braces warning for this reason.
+#include "disable_missing_braces_warning.h"
+
+#if TEST_STD_VER > 14
+constexpr bool check_idx( size_t idx, double val )
+{
+    std::array<double, 3> arr = {1, 2, 3.5};
+	return arr[idx] == val;
+}
+#endif
 
 int main()
 {
@@ -31,7 +41,7 @@ int main()
         assert(r1 == 1);
         r1 = 5.5;
         assert(c.front() == 5.5);
-        
+
         C::reference r2 = c[2];
         assert(r2 == 3.5);
         r2 = 7.5;
@@ -61,4 +71,11 @@ int main()
     }
 #endif
 
+#if TEST_STD_VER > 14
+    {
+        static_assert (check_idx(0, 1), "");
+        static_assert (check_idx(1, 2), "");
+        static_assert (check_idx(2, 3.5), "");
+    }
+#endif
 }

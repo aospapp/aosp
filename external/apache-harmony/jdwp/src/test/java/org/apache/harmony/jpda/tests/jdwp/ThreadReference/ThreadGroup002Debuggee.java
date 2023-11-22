@@ -64,6 +64,7 @@ public class ThreadGroup002Debuggee extends SyncDebuggee {
         }
     }
     
+    @Override
     public void run() {
         
         logWriter.println("--> ThreadGroup002Debuggee: START...");
@@ -162,6 +163,7 @@ class ThreadGroup002Debuggee_Thread extends Thread {
         threadKind = threadNumber % 3;
     }
 
+    @Override
     public void run() {
         ThreadGroup002Debuggee parent = ThreadGroup002Debuggee.ThreadGroup002DebuggeeThis;
         synchronized (parent) { 

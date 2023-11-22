@@ -2,12 +2,11 @@
 
 from django import forms
 from django.contrib import admin, messages
-from django.db import models as dbmodels
 from django.forms.util import flatatt
 from django.utils.encoding import smart_str
 from django.utils.safestring import mark_safe
 
-from autotest_lib.cli import rpc, site_host
+from autotest_lib.cli import rpc, host
 from autotest_lib.frontend import settings
 from autotest_lib.frontend.afe import model_logic, models
 
@@ -61,11 +60,8 @@ class LabelForm(ModelWithInvalidForm):
 
 
 class LabelAdmin(SiteAdmin):
-    list_display = ('name', 'atomic_group', 'kernel_config')
-    # Avoid a bug with the admin interface showing a select box pointed at an
-    # AtomicGroup when this field is intentionally NULL such that editing a
-    # label via the admin UI unintentionally sets an atomicgroup.
-    raw_id_fields = ('atomic_group',)
+    list_display = ('name', 'kernel_config')
+    raw_id_fields = ()
 
     form = LabelForm
 
@@ -227,7 +223,7 @@ class HostAdmin(SiteAdmin):
         acls = []
 
         # Pipe to cli to perform autodetection and create host.
-        host_create_obj = site_host.site_host_create.construct_without_parse(
+        host_create_obj = host.host_create.construct_without_parse(
                 web_server, hosts, platform,
                 locked, lock_reason, labels, acls,
                 protection)
@@ -244,6 +240,7 @@ class HostAdmin(SiteAdmin):
                            'Label autodetection failed. '
                            'Host created with selected labels.')
             super(HostAdmin, self).save_model(request, obj, form, change)
+
 
     def save_related(self, request, form, formsets, change):
         """Save many-to-many relations between host and labels."""

@@ -202,4 +202,38 @@
     </style>
 
     <style name="ToolbarPopupTheme_Test" parent="@android:style/ThemeOverlay.Material.Light" />
+
+    <style name="Theme_Toggle" parent="@android:style/Widget.Material.Light.Button.Toggle">
+        <item name="android:textOn">@string/toggle_text_on</item>
+        <item name="android:textOff">@string/toggle_text_off</item>
+    </style>
+
+    <style name="ChronometerStyle" parent="@android:style/Widget.Material.Light.TextView">
+        <item name="android:format">@string/chronometer_format</item>
+        <item name="android:countDown">true</item>
+    </style>
+
+    <style name="ChronometerAwareTheme" parent="@android:style/Theme.Material.Light">
+        <item name="chronometerStyle">@style/ChronometerStyle</item>
+    </style>
+
+    <style name="FastScrollCustomStyle" parent="@android:style/Widget.Material.FastScroll">
+        <item name="android:textSize">32sp</item>
+        <item name="android:minWidth">120dp</item>
+        <item name="android:minHeight">64dp</item>
+    </style>
+
+    <style name="Theme.PopupWindowCtsActivity" parent="@android:style/Theme.Holo">
+        <!-- Force swipe-to-dismiss to false. -->
+        <item name="android:windowSwipeToDismiss">false</item>
+    </style>
+
+    <style name="TextView_FontResource">
+        <item name="android:fontFamily">@font/samplefont</item>
+        <item name="android:textAppearance">@null</item>
+    </style>
+
+    <style name="TextView_FontXmlResource">
+        <item name="android:fontFamily">@font/samplexmlfont</item>
+    </style>
 </resources>

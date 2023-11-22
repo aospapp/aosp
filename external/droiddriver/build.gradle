@@ -2,7 +2,6 @@
 // sdk.dir for the Android SDK path, you can run
 // $ ANDROID_HOME=/path/to/android-sdk gradle build
 
-// Gradle >= 2.4 required
 buildscript {
     ext.bintrayUser    = project.hasProperty('bintrayUser') ? project.bintrayUser : System.getenv('BINTRAY_USER')
     ext.bintrayKey     = project.hasProperty('bintrayKey')  ? project.bintrayKey  : System.getenv('BINTRAY_KEY')
@@ -12,7 +11,7 @@ buildscript {
         jcenter()
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:1.0.1'
+        classpath 'com.android.tools.build:gradle:1.3.0'
         classpath 'com.github.dcendents:android-maven-gradle-plugin:1.3'
         classpath 'com.jakewharton.sdkmanager:gradle-plugin:0.12.0'
         if (bintrayEnabled) {
@@ -29,17 +28,25 @@ version = ddVersion
 apply plugin: 'android-sdk-manager'
 apply plugin: 'com.android.library'
 
+repositories {
+    jcenter()
+}
+
+dependencies {
+    compile 'com.android.support.test:runner:0.4.1'
+}
+
 tasks.withType(JavaCompile) {
-    options.compilerArgs << '-Xlint:deprecation'
+    options.compilerArgs << '-Xlint:deprecation' << '-Xlint:unchecked'
 }
 
 android {
-    compileSdkVersion 21
+    compileSdkVersion 23
     buildToolsVersion '21.1.2'
 
     defaultConfig {
         minSdkVersion 8
-        targetSdkVersion 21
+        targetSdkVersion 23
         versionCode 1
         versionName version
     }

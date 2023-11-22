@@ -24,7 +24,7 @@
 
 // This is an extremely simplified version of libpagemap.
 
-#define _BITS(x, offset, bits) (((x) >> offset) & ((1LL << (bits)) - 1))
+#define _BITS(x, offset, bits) (((x) >> (offset)) & ((1LL << (bits)) - 1))
 
 #define PAGEMAP_PRESENT(x)     (_BITS(x, 63, 1))
 #define PAGEMAP_SWAPPED(x)     (_BITS(x, 62, 1))
@@ -33,7 +33,7 @@
 #define PAGEMAP_SWAP_OFFSET(x) (_BITS(x, 5, 50))
 #define PAGEMAP_SWAP_TYPE(x)   (_BITS(x, 0,  5))
 
-static bool ReadData(int fd, unsigned long place, uint64_t *data) {
+static bool ReadData(int fd, off_t place, uint64_t *data) {
   if (lseek(fd, place * sizeof(uint64_t), SEEK_SET) < 0) {
     return false;
   }
@@ -71,12 +71,13 @@ size_t GetPssBytes() {
       total_pss = 0;
       break;
     }
-    for (size_t page = start/pagesize; page < end/pagesize; page++) {
+    for (off_t page = static_cast<off_t>(start/pagesize);
+         page < static_cast<off_t>(end/pagesize); page++) {
       uint64_t data;
       if (ReadData(pagemap_fd, page, &data)) {
         if (PAGEMAP_PRESENT(data) && !PAGEMAP_SWAPPED(data)) {
           uint64_t count;
-          if (ReadData(pagecount_fd, PAGEMAP_PFN(data), &count)) {
+          if (ReadData(pagecount_fd, static_cast<off_t>(PAGEMAP_PFN(data)), &count)) {
             total_pss += (count >= 1) ? pagesize / count : 0;
           }
         }

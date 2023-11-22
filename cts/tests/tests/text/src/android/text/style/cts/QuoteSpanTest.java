@@ -16,16 +16,23 @@
 
 package android.text.style.cts;
 
+import static org.junit.Assert.assertEquals;
 
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.os.Parcel;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.text.style.QuoteSpan;
 
-import junit.framework.TestCase;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
-public class QuoteSpanTest extends TestCase {
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class QuoteSpanTest {
+    @Test
     public void testConstructor() {
         new QuoteSpan();
         QuoteSpan q = new QuoteSpan(Color.RED);
@@ -40,6 +47,7 @@ public class QuoteSpanTest extends TestCase {
         }
     }
 
+    @Test
     public void testGetLeadingMargin() {
         QuoteSpan quoteSpan = new QuoteSpan();
 
@@ -47,6 +55,7 @@ public class QuoteSpanTest extends TestCase {
         quoteSpan.getLeadingMargin(false);
     }
 
+    @Test
     public void testGetColor() {
         QuoteSpan quoteSpan = new QuoteSpan(Color.BLACK);
         assertEquals(Color.BLACK, quoteSpan.getColor());
@@ -55,31 +64,35 @@ public class QuoteSpanTest extends TestCase {
         assertEquals(Color.BLUE, quoteSpan.getColor());
     }
 
+    @Test
     public void testDrawLeadingMargin() {
         QuoteSpan quoteSpan = new QuoteSpan();
 
         Canvas c = new Canvas();
         Paint p = new Paint();
         quoteSpan.drawLeadingMargin(c, p, 0, 0, 0, 0, 0, null, 0, 0, true, null);
-
-        try {
-            quoteSpan.drawLeadingMargin(null, null, 0, 0, 0, 0, 0, null, 0, 0, true, null);
-            fail("should throw NullPointerException.");
-        } catch (NullPointerException e) {
-            // expected, test success.
-        }
     }
 
+    @Test(expected=NullPointerException.class)
+    public void testDrawLeadingMarginNull() {
+        QuoteSpan quoteSpan = new QuoteSpan();
+
+        quoteSpan.drawLeadingMargin(null, null, 0, 0, 0, 0, 0, null, 0, 0, true, null);
+    }
+
+    @Test
     public void testDescribeContents() {
         QuoteSpan quoteSpan = new QuoteSpan(Color.RED);
         quoteSpan.describeContents();
     }
 
+    @Test
     public void testGetSpanTypeId() {
         QuoteSpan quoteSpan = new QuoteSpan(Color.RED);
         quoteSpan.getSpanTypeId();
     }
 
+    @Test
     public void testWriteToParcel() {
         Parcel p = Parcel.obtain();
         try {

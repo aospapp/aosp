@@ -16,13 +16,14 @@
 
 package com.android.settings.fingerprint;
 
+import android.app.KeyguardManager;
 import android.content.Intent;
 import android.content.res.Resources;
 import android.os.UserHandle;
 import android.widget.Button;
 import android.widget.TextView;
 
-import com.android.internal.logging.MetricsProto.MetricsEvent;
+import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
 import com.android.internal.widget.LockPatternUtils;
 import com.android.settings.R;
 import com.android.settings.SetupChooseLockGeneric;
@@ -83,13 +84,21 @@ public class SetupFingerprintEnrollIntroduction extends FingerprintEnrollIntrodu
 
     @Override
     protected void onCancelButtonClick() {
-        SetupSkipDialog dialog = SetupSkipDialog.newInstance(
-                getIntent().getBooleanExtra(SetupSkipDialog.EXTRA_FRP_SUPPORTED, false));
-        dialog.show(getFragmentManager());
+        KeyguardManager keyguardManager = getSystemService(KeyguardManager.class);
+        if (keyguardManager.isKeyguardSecure()) {
+            // If the keyguard is already set up securely (maybe the user added a backup screen
+            // lock and skipped fingerprint), return RESULT_SKIP directly.
+            setResult(RESULT_SKIP);
+            finish();
+        } else {
+            SetupSkipDialog dialog = SetupSkipDialog.newInstance(
+                    getIntent().getBooleanExtra(SetupSkipDialog.EXTRA_FRP_SUPPORTED, false));
+            dialog.show(getFragmentManager());
+        }
     }
 
     @Override
-    protected int getMetricsCategory() {
+    public int getMetricsCategory() {
         return MetricsEvent.FINGERPRINT_ENROLL_INTRO_SETUP;
     }
 }

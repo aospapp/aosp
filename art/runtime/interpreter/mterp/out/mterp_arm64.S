@@ -279,6 +279,14 @@ codes.
 .endm
 
 /*
+ * Get the 32-bit value from a Dalvik register and sign-extend to 64-bit.
+ * Used to avoid an extra instruction in int-to-long.
+ */
+.macro GET_VREG_S reg, vreg
+    ldrsw   \reg, [xFP, \vreg, uxtw #2]
+.endm
+
+/*
  * Convert a virtual register index into an address.
  */
 .macro VREG_INDEX_TO_ADDR reg, vreg
@@ -290,6 +298,44 @@ codes.
  */
 .macro REFRESH_IBASE
   ldr     xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]
+.endm
+
+/*
+ * Save two registers to the stack.
+ */
+.macro SAVE_TWO_REGS reg1, reg2, offset
+    stp \reg1, \reg2, [sp, #(\offset)]
+    .cfi_rel_offset \reg1, (\offset)
+    .cfi_rel_offset \reg2, (\offset) + 8
+.endm
+
+/*
+ * Restore two registers from the stack.
+ */
+.macro RESTORE_TWO_REGS reg1, reg2, offset
+    ldp \reg1, \reg2, [sp, #(\offset)]
+    .cfi_restore \reg1
+    .cfi_restore \reg2
+.endm
+
+/*
+ * Increase frame size and save two registers to the bottom of the stack.
+ */
+.macro SAVE_TWO_REGS_INCREASE_FRAME reg1, reg2, frame_adjustment
+    stp \reg1, \reg2, [sp, #-(\frame_adjustment)]!
+    .cfi_adjust_cfa_offset (\frame_adjustment)
+    .cfi_rel_offset \reg1, 0
+    .cfi_rel_offset \reg2, 8
+.endm
+
+/*
+ * Restore two registers from the bottom of the stack and decrease frame size.
+ */
+.macro RESTORE_TWO_REGS_DECREASE_FRAME reg1, reg2, frame_adjustment
+    ldp \reg1, \reg2, [sp], #(\frame_adjustment)
+    .cfi_restore \reg1
+    .cfi_restore \reg2
+    .cfi_adjust_cfa_offset -(\frame_adjustment)
 .endm
 
 /* File: arm64/entry.S */
@@ -326,11 +372,11 @@ codes.
 
 ExecuteMterpImpl:
     .cfi_startproc
-    stp     xPROFILE, x27, [sp, #-80]!
-    stp     xIBASE, xREFS, [sp, #16]
-    stp     xSELF, xINST, [sp, #32]
-    stp     xPC, xFP, [sp, #48]
-    stp     fp, lr, [sp, #64]
+    SAVE_TWO_REGS_INCREASE_FRAME xPROFILE, x27, 80
+    SAVE_TWO_REGS                xIBASE, xREFS, 16
+    SAVE_TWO_REGS                xSELF, xINST, 32
+    SAVE_TWO_REGS                xPC, xFP, 48
+    SAVE_TWO_REGS                fp, lr, 64
     add     fp, sp, #64
 
     /* Remember the return register */
@@ -608,7 +654,7 @@ artMterpAsmInstructionStart = .L_op_nop
     bl      MterpThreadFenceForConstructor
     ldr     w7, [xSELF, #THREAD_FLAGS_OFFSET]
     mov     x0, xSELF
-    ands    w7, w7, #(THREAD_SUSPEND_REQUEST | THREAD_CHECKPOINT_REQUEST)
+    ands    w7, w7, #THREAD_SUSPEND_OR_CHECKPOINT_REQUEST
     b.ne    .Lop_return_void_check
 .Lop_return_void_return:
     mov     x0, #0
@@ -631,7 +677,7 @@ artMterpAsmInstructionStart = .L_op_nop
     bl      MterpThreadFenceForConstructor
     ldr     w7, [xSELF, #THREAD_FLAGS_OFFSET]
     mov     x0, xSELF
-    ands    w7, w7, #(THREAD_SUSPEND_REQUEST | THREAD_CHECKPOINT_REQUEST)
+    ands    w7, w7, #THREAD_SUSPEND_OR_CHECKPOINT_REQUEST
     b.ne    .Lop_return_check
 .Lop_return_return:
     lsr     w2, wINST, #8               // r2<- AA
@@ -654,7 +700,7 @@ artMterpAsmInstructionStart = .L_op_nop
     bl      MterpThreadFenceForConstructor
     ldr     w7, [xSELF, #THREAD_FLAGS_OFFSET]
     mov     x0, xSELF
-    ands    w7, w7, #(THREAD_SUSPEND_REQUEST | THREAD_CHECKPOINT_REQUEST)
+    ands    w7, w7, #THREAD_SUSPEND_OR_CHECKPOINT_REQUEST
     b.ne    .Lop_return_wide_check
 .Lop_return_wide_return:
     lsr     w2, wINST, #8               // w2<- AA
@@ -679,7 +725,7 @@ artMterpAsmInstructionStart = .L_op_nop
     bl      MterpThreadFenceForConstructor
     ldr     w7, [xSELF, #THREAD_FLAGS_OFFSET]
     mov     x0, xSELF
-    ands    w7, w7, #(THREAD_SUSPEND_REQUEST | THREAD_CHECKPOINT_REQUEST)
+    ands    w7, w7, #THREAD_SUSPEND_OR_CHECKPOINT_REQUEST
     b.ne    .Lop_return_object_check
 .Lop_return_object_return:
     lsr     w2, wINST, #8               // r2<- AA
@@ -695,10 +741,9 @@ artMterpAsmInstructionStart = .L_op_nop
 .L_op_const_4: /* 0x12 */
 /* File: arm64/op_const_4.S */
     /* const/4 vA, #+B */
-    lsl     w1, wINST, #16              // w1<- Bxxx0000
+    sbfx    w1, wINST, #12, #4          // w1<- sssssssB
     ubfx    w0, wINST, #8, #4           // w0<- A
     FETCH_ADVANCE_INST 1                // advance xPC, load wINST
-    asr     w1, w1, #28                 // w1<- sssssssB (sign-extended)
     GET_INST_OPCODE ip                  // ip<- opcode from xINST
     SET_VREG w1, w0                     // fp[A]<- w1
     GOTO_OPCODE ip                      // execute next instruction
@@ -708,7 +753,7 @@ artMterpAsmInstructionStart = .L_op_nop
 .L_op_const_16: /* 0x13 */
 /* File: arm64/op_const_16.S */
     /* const/16 vAA, #+BBBB */
-    FETCH_S w0, 1                       // w0<- ssssBBBB (sign-extended
+    FETCH_S w0, 1                       // w0<- ssssBBBB (sign-extended)
     lsr     w3, wINST, #8               // w3<- AA
     FETCH_ADVANCE_INST 2                // advance xPC, load wINST
     SET_VREG w0, w3                     // vAA<- w0
@@ -734,7 +779,7 @@ artMterpAsmInstructionStart = .L_op_nop
 .L_op_const_high16: /* 0x15 */
 /* File: arm64/op_const_high16.S */
     /* const/high16 vAA, #+BBBB0000 */
-    FETCH   w0, 1                       // r0<- 0000BBBB (zero-extended
+    FETCH   w0, 1                       // r0<- 0000BBBB (zero-extended)
     lsr     w3, wINST, #8               // r3<- AA
     lsl     w0, w0, #16                 // r0<- BBBB0000
     FETCH_ADVANCE_INST 2                // advance rPC, load rINST
@@ -747,10 +792,9 @@ artMterpAsmInstructionStart = .L_op_nop
 .L_op_const_wide_16: /* 0x16 */
 /* File: arm64/op_const_wide_16.S */
     /* const-wide/16 vAA, #+BBBB */
-    FETCH_S w0, 1                       // w0<- ssssBBBB (sign-extended
+    FETCH_S x0, 1                       // x0<- ssssssssssssBBBB (sign-extended)
     lsr     w3, wINST, #8               // w3<- AA
     FETCH_ADVANCE_INST 2                // advance rPC, load rINST
-    sbfm    x0, x0, 0, 31
     GET_INST_OPCODE ip                  // extract opcode from rINST
     SET_VREG_WIDE x0, w3
     GOTO_OPCODE ip                      // jump to next instruction
@@ -760,13 +804,12 @@ artMterpAsmInstructionStart = .L_op_nop
 .L_op_const_wide_32: /* 0x17 */
 /* File: arm64/op_const_wide_32.S */
     /* const-wide/32 vAA, #+BBBBbbbb */
-    FETCH w0, 1                         // w0<- 0000bbbb (low)
+    FETCH   w0, 1                       // x0<- 000000000000bbbb (low)
     lsr     w3, wINST, #8               // w3<- AA
-    FETCH_S w2, 2                       // w2<- ssssBBBB (high)
+    FETCH_S x2, 2                       // x2<- ssssssssssssBBBB (high)
     FETCH_ADVANCE_INST 3                // advance rPC, load wINST
     GET_INST_OPCODE ip                  // extract opcode from wINST
-    orr     w0, w0, w2, lsl #16         // w0<- BBBBbbbb
-    sbfm    x0, x0, 0, 31
+    orr     x0, x0, x2, lsl #16         // x0<- ssssssssBBBBbbbb
     SET_VREG_WIDE x0, w3
     GOTO_OPCODE ip                      // jump to next instruction
 
@@ -934,8 +977,7 @@ artMterpAsmInstructionStart = .L_op_nop
     mov       x3, xSELF                 // w3<- self
     bl        MterpInstanceOf           // (index, &obj, method, self)
     ldr       x1, [xSELF, #THREAD_EXCEPTION_OFFSET]
-    lsr       w2, wINST, #8             // w2<- A+
-    and       w2, w2, #15               // w2<- A
+    ubfx      w2, wINST, #8, #4         // w2<- A
     PREFETCH_INST 2
     cbnz      x1, MterpException
     ADVANCE 2                           // advance rPC
@@ -1053,12 +1095,12 @@ artMterpAsmInstructionStart = .L_op_nop
 /* File: arm64/op_fill_array_data.S */
     /* fill-array-data vAA, +BBBBBBBB */
     EXPORT_PC
-    FETCH w0, 1                         // w0<- bbbb (lo)
-    FETCH w1, 2                         // w1<- BBBB (hi)
+    FETCH   w0, 1                       // x0<- 000000000000bbbb (lo)
+    FETCH_S x1, 2                       // x1<- ssssssssssssBBBB (hi)
     lsr     w3, wINST, #8               // w3<- AA
-    orr     w1, w0, w1, lsl #16         // w1<- BBBBbbbb
+    orr     x1, x0, x1, lsl #16         // x1<- ssssssssBBBBbbbb
     GET_VREG w0, w3                     // w0<- vAA (array object)
-    add     x1, xPC, w1, lsl #1         // w1<- PC + BBBBbbbb*2 (array data off.)
+    add     x1, xPC, x1, lsl #1         // x1<- PC + ssssssssBBBBbbbb*2 (array data off.)
     bl      MterpFillArrayData          // (obj, payload)
     cbz     w0, MterpPossibleException      // exception?
     FETCH_ADVANCE_INST 3                // advance rPC, load rINST
@@ -1143,14 +1185,14 @@ artMterpAsmInstructionStart = .L_op_nop
      * for: packed-switch, sparse-switch
      */
     /* op vAA, +BBBB */
-    FETCH w0, 1                         // w0<- bbbb (lo)
-    FETCH w1, 2                         // w1<- BBBB (hi)
+    FETCH   w0, 1                       // x0<- 000000000000bbbb (lo)
+    FETCH_S x1, 2                       // x1<- ssssssssssssBBBB (hi)
     lsr     w3, wINST, #8               // w3<- AA
-    orr     w0, w0, w1, lsl #16         // w0<- BBBBbbbb
+    orr     x0, x0, x1, lsl #16         // x0<- ssssssssBBBBbbbb
     GET_VREG w1, w3                     // w1<- vAA
-    add     x0, xPC, w0, lsl #1         // w0<- PC + BBBBbbbb*2
+    add     x0, xPC, x0, lsl #1         // x0<- PC + ssssssssBBBBbbbb*2
     bl      MterpDoPackedSwitch                       // w0<- code-unit branch offset
-    sbfm    xINST, x0, 0, 31
+    sxtw    xINST, w0
     b       MterpCommonTakenBranchNoFlags
 
 /* ------------------------------ */
@@ -1168,14 +1210,14 @@ artMterpAsmInstructionStart = .L_op_nop
      * for: packed-switch, sparse-switch
      */
     /* op vAA, +BBBB */
-    FETCH w0, 1                         // w0<- bbbb (lo)
-    FETCH w1, 2                         // w1<- BBBB (hi)
+    FETCH   w0, 1                       // x0<- 000000000000bbbb (lo)
+    FETCH_S x1, 2                       // x1<- ssssssssssssBBBB (hi)
     lsr     w3, wINST, #8               // w3<- AA
-    orr     w0, w0, w1, lsl #16         // w0<- BBBBbbbb
+    orr     x0, x0, x1, lsl #16         // x0<- ssssssssBBBBbbbb
     GET_VREG w1, w3                     // w1<- vAA
-    add     x0, xPC, w0, lsl #1         // w0<- PC + BBBBbbbb*2
+    add     x0, xPC, x0, lsl #1         // x0<- PC + ssssssssBBBBbbbb*2
     bl      MterpDoSparseSwitch                       // w0<- code-unit branch offset
-    sbfm    xINST, x0, 0, 31
+    sxtw    xINST, w0
     b       MterpCommonTakenBranchNoFlags
 
 
@@ -1195,10 +1237,9 @@ artMterpAsmInstructionStart = .L_op_nop
     lsr     w3, w0, #8                  // w3<- CC
     GET_VREG s1, w2
     GET_VREG s2, w3
-    mov     w0, #-1
     fcmp s1, s2
-    csneg w0, w0, w0, le
-    csel w0, wzr, w0, eq
+    cset w0, ne
+    cneg w0, w0, lt
     FETCH_ADVANCE_INST 2                // advance rPC, load rINST
     GET_INST_OPCODE ip                  // extract opcode from rINST
     SET_VREG w0, w4                     // vAA<- w0
@@ -1221,10 +1262,9 @@ artMterpAsmInstructionStart = .L_op_nop
     lsr     w3, w0, #8                  // w3<- CC
     GET_VREG s1, w2
     GET_VREG s2, w3
-    mov     w0, #1
     fcmp s1, s2
-    csneg w0, w0, w0, pl
-    csel w0, wzr, w0, eq
+    cset w0, ne
+    cneg w0, w0, cc
     FETCH_ADVANCE_INST 2                // advance rPC, load rINST
     GET_INST_OPCODE ip                  // extract opcode from rINST
     SET_VREG w0, w4                     // vAA<- w0
@@ -1247,10 +1287,9 @@ artMterpAsmInstructionStart = .L_op_nop
     lsr     w3, w0, #8                  // w3<- CC
     GET_VREG_WIDE d1, w2
     GET_VREG_WIDE d2, w3
-    mov     w0, #-1
     fcmp d1, d2
-    csneg w0, w0, w0, le
-    csel w0, wzr, w0, eq
+    cset w0, ne
+    cneg w0, w0, lt
     FETCH_ADVANCE_INST 2                // advance rPC, load rINST
     GET_INST_OPCODE ip                  // extract opcode from rINST
     SET_VREG w0, w4                     // vAA<- w0
@@ -1273,10 +1312,9 @@ artMterpAsmInstructionStart = .L_op_nop
     lsr     w3, w0, #8                  // w3<- CC
     GET_VREG_WIDE d1, w2
     GET_VREG_WIDE d2, w3
-    mov     w0, #1
     fcmp d1, d2
-    csneg w0, w0, w0, pl
-    csel w0, wzr, w0, eq
+    cset w0, ne
+    cneg w0, w0, cc
     FETCH_ADVANCE_INST 2                // advance rPC, load rINST
     GET_INST_OPCODE ip                  // extract opcode from rINST
     SET_VREG w0, w4                     // vAA<- w0
@@ -1294,8 +1332,8 @@ artMterpAsmInstructionStart = .L_op_nop
     GET_VREG_WIDE x1, w2
     GET_VREG_WIDE x2, w3
     cmp     x1, x2
-    csinc   w0, wzr, wzr, eq
-    csneg   w0, w0, w0, ge
+    cset    w0, ne
+    cneg    w0, w0, lt
     FETCH_ADVANCE_INST 2                // advance rPC, load wINST
     SET_VREG w0, w4
     GET_INST_OPCODE ip                  // extract opcode from wINST
@@ -1472,8 +1510,10 @@ artMterpAsmInstructionStart = .L_op_nop
     lsr     w0, wINST, #8               // w0<- AA
     GET_VREG w2, w0                     // w2<- vAA
     FETCH_S wINST, 1                    // w1<- branch offset, in code units
+    .if 0
     cmp     w2, #0                      // compare (vA, 0)
-    b.eq MterpCommonTakenBranchNoFlags
+    .endif
+    cbz     w2, MterpCommonTakenBranchNoFlags
     cmp     wPROFILE, #JIT_CHECK_OSR    // possible OSR re-entry?
     b.eq    .L_check_not_taken_osr
     FETCH_ADVANCE_INST 2
@@ -1496,8 +1536,10 @@ artMterpAsmInstructionStart = .L_op_nop
     lsr     w0, wINST, #8               // w0<- AA
     GET_VREG w2, w0                     // w2<- vAA
     FETCH_S wINST, 1                    // w1<- branch offset, in code units
+    .if 0
     cmp     w2, #0                      // compare (vA, 0)
-    b.ne MterpCommonTakenBranchNoFlags
+    .endif
+    cbnz    w2, MterpCommonTakenBranchNoFlags
     cmp     wPROFILE, #JIT_CHECK_OSR    // possible OSR re-entry?
     b.eq    .L_check_not_taken_osr
     FETCH_ADVANCE_INST 2
@@ -1520,8 +1562,10 @@ artMterpAsmInstructionStart = .L_op_nop
     lsr     w0, wINST, #8               // w0<- AA
     GET_VREG w2, w0                     // w2<- vAA
     FETCH_S wINST, 1                    // w1<- branch offset, in code units
+    .if 0
     cmp     w2, #0                      // compare (vA, 0)
-    b.lt MterpCommonTakenBranchNoFlags
+    .endif
+    tbnz    w2, #31, MterpCommonTakenBranchNoFlags
     cmp     wPROFILE, #JIT_CHECK_OSR    // possible OSR re-entry?
     b.eq    .L_check_not_taken_osr
     FETCH_ADVANCE_INST 2
@@ -1544,8 +1588,10 @@ artMterpAsmInstructionStart = .L_op_nop
     lsr     w0, wINST, #8               // w0<- AA
     GET_VREG w2, w0                     // w2<- vAA
     FETCH_S wINST, 1                    // w1<- branch offset, in code units
+    .if 0
     cmp     w2, #0                      // compare (vA, 0)
-    b.ge MterpCommonTakenBranchNoFlags
+    .endif
+    tbz     w2, #31, MterpCommonTakenBranchNoFlags
     cmp     wPROFILE, #JIT_CHECK_OSR    // possible OSR re-entry?
     b.eq    .L_check_not_taken_osr
     FETCH_ADVANCE_INST 2
@@ -1568,7 +1614,9 @@ artMterpAsmInstructionStart = .L_op_nop
     lsr     w0, wINST, #8               // w0<- AA
     GET_VREG w2, w0                     // w2<- vAA
     FETCH_S wINST, 1                    // w1<- branch offset, in code units
+    .if 1
     cmp     w2, #0                      // compare (vA, 0)
+    .endif
     b.gt MterpCommonTakenBranchNoFlags
     cmp     wPROFILE, #JIT_CHECK_OSR    // possible OSR re-entry?
     b.eq    .L_check_not_taken_osr
@@ -1592,7 +1640,9 @@ artMterpAsmInstructionStart = .L_op_nop
     lsr     w0, wINST, #8               // w0<- AA
     GET_VREG w2, w0                     // w2<- vAA
     FETCH_S wINST, 1                    // w1<- branch offset, in code units
+    .if 1
     cmp     w2, #0                      // compare (vA, 0)
+    .endif
     b.le MterpCommonTakenBranchNoFlags
     cmp     wPROFILE, #JIT_CHECK_OSR    // possible OSR re-entry?
     b.eq    .L_check_not_taken_osr
@@ -2493,12 +2543,12 @@ artMterpAsmInstructionStart = .L_op_nop
      */
     /* op vAA, field//BBBB */
 
-    .extern artGet32StaticFromCode
+    .extern MterpGet32Static
     EXPORT_PC
     FETCH w0, 1                         // w0<- field ref BBBB
     ldr   x1, [xFP, #OFF_FP_METHOD]
     mov   x2, xSELF
-    bl    artGet32StaticFromCode
+    bl    MterpGet32Static
     ldr   x3, [xSELF, #THREAD_EXCEPTION_OFFSET]
     lsr   w2, wINST, #8                 // w2<- AA
     
@@ -2523,12 +2573,12 @@ artMterpAsmInstructionStart = .L_op_nop
      */
     /* sget-wide vAA, field//BBBB */
 
-    .extern artGet64StaticFromCode
+    .extern MterpGet64StaticFromCode
     EXPORT_PC
     FETCH w0, 1                         // w0<- field ref BBBB
     ldr   x1, [xFP, #OFF_FP_METHOD]
     mov   x2, xSELF
-    bl    artGet64StaticFromCode
+    bl    MterpGet64Static
     ldr   x3, [xSELF, #THREAD_EXCEPTION_OFFSET]
     lsr   w4, wINST, #8                 // w4<- AA
     cbnz  x3, MterpException            // bail out
@@ -2549,12 +2599,12 @@ artMterpAsmInstructionStart = .L_op_nop
      */
     /* op vAA, field//BBBB */
 
-    .extern artGetObjStaticFromCode
+    .extern MterpGetObjStatic
     EXPORT_PC
     FETCH w0, 1                         // w0<- field ref BBBB
     ldr   x1, [xFP, #OFF_FP_METHOD]
     mov   x2, xSELF
-    bl    artGetObjStaticFromCode
+    bl    MterpGetObjStatic
     ldr   x3, [xSELF, #THREAD_EXCEPTION_OFFSET]
     lsr   w2, wINST, #8                 // w2<- AA
     
@@ -2582,12 +2632,12 @@ artMterpAsmInstructionStart = .L_op_nop
      */
     /* op vAA, field//BBBB */
 
-    .extern artGetBooleanStaticFromCode
+    .extern MterpGetBooleanStatic
     EXPORT_PC
     FETCH w0, 1                         // w0<- field ref BBBB
     ldr   x1, [xFP, #OFF_FP_METHOD]
     mov   x2, xSELF
-    bl    artGetBooleanStaticFromCode
+    bl    MterpGetBooleanStatic
     ldr   x3, [xSELF, #THREAD_EXCEPTION_OFFSET]
     lsr   w2, wINST, #8                 // w2<- AA
     uxtb w0, w0
@@ -2615,12 +2665,12 @@ artMterpAsmInstructionStart = .L_op_nop
      */
     /* op vAA, field//BBBB */
 
-    .extern artGetByteStaticFromCode
+    .extern MterpGetByteStatic
     EXPORT_PC
     FETCH w0, 1                         // w0<- field ref BBBB
     ldr   x1, [xFP, #OFF_FP_METHOD]
     mov   x2, xSELF
-    bl    artGetByteStaticFromCode
+    bl    MterpGetByteStatic
     ldr   x3, [xSELF, #THREAD_EXCEPTION_OFFSET]
     lsr   w2, wINST, #8                 // w2<- AA
     sxtb w0, w0
@@ -2648,12 +2698,12 @@ artMterpAsmInstructionStart = .L_op_nop
      */
     /* op vAA, field//BBBB */
 
-    .extern artGetCharStaticFromCode
+    .extern MterpGetCharStatic
     EXPORT_PC
     FETCH w0, 1                         // w0<- field ref BBBB
     ldr   x1, [xFP, #OFF_FP_METHOD]
     mov   x2, xSELF
-    bl    artGetCharStaticFromCode
+    bl    MterpGetCharStatic
     ldr   x3, [xSELF, #THREAD_EXCEPTION_OFFSET]
     lsr   w2, wINST, #8                 // w2<- AA
     uxth w0, w0
@@ -2681,12 +2731,12 @@ artMterpAsmInstructionStart = .L_op_nop
      */
     /* op vAA, field//BBBB */
 
-    .extern artGetShortStaticFromCode
+    .extern MterpGetShortStatic
     EXPORT_PC
     FETCH w0, 1                         // w0<- field ref BBBB
     ldr   x1, [xFP, #OFF_FP_METHOD]
     mov   x2, xSELF
-    bl    artGetShortStaticFromCode
+    bl    MterpGetShortStatic
     ldr   x3, [xSELF, #THREAD_EXCEPTION_OFFSET]
     lsr   w2, wINST, #8                 // w2<- AA
     sxth w0, w0
@@ -2719,7 +2769,7 @@ artMterpAsmInstructionStart = .L_op_nop
     ldr     x2, [xFP, #OFF_FP_METHOD]
     mov     x3, xSELF
     PREFETCH_INST 2                     // Get next inst, but don't advance rPC
-    bl      artSet32StaticFromCode
+    bl      MterpSet32Static
     cbnz    w0, MterpException          // 0 on success
     ADVANCE 2                           // Past exception point - now advance rPC
     GET_INST_OPCODE ip                  // extract opcode from rINST
@@ -2734,15 +2784,15 @@ artMterpAsmInstructionStart = .L_op_nop
      *
      */
     /* sput-wide vAA, field//BBBB */
-    .extern artSet64IndirectStaticFromMterp
+    .extern MterpSet64Static
     EXPORT_PC
     FETCH   w0, 1                       // w0<- field ref BBBB
-    ldr     x1, [xFP, #OFF_FP_METHOD]
-    lsr     w2, wINST, #8               // w3<- AA
-    VREG_INDEX_TO_ADDR x2, w2
+    lsr     w1, wINST, #8               // w1<- AA
+    VREG_INDEX_TO_ADDR x1, w1
+    ldr     x2, [xFP, #OFF_FP_METHOD]
     mov     x3, xSELF
     PREFETCH_INST 2                     // Get next inst, but don't advance rPC
-    bl      artSet64IndirectStaticFromMterp
+    bl      MterpSet64Static
     cbnz    w0, MterpException          // 0 on success, -1 on failure
     ADVANCE 2                           // Past exception point - now advance rPC
     GET_INST_OPCODE ip                  // extract opcode from wINST
@@ -2781,7 +2831,7 @@ artMterpAsmInstructionStart = .L_op_nop
     ldr     x2, [xFP, #OFF_FP_METHOD]
     mov     x3, xSELF
     PREFETCH_INST 2                     // Get next inst, but don't advance rPC
-    bl      artSet8StaticFromCode
+    bl      MterpSetBooleanStatic
     cbnz    w0, MterpException          // 0 on success
     ADVANCE 2                           // Past exception point - now advance rPC
     GET_INST_OPCODE ip                  // extract opcode from rINST
@@ -2806,7 +2856,7 @@ artMterpAsmInstructionStart = .L_op_nop
     ldr     x2, [xFP, #OFF_FP_METHOD]
     mov     x3, xSELF
     PREFETCH_INST 2                     // Get next inst, but don't advance rPC
-    bl      artSet8StaticFromCode
+    bl      MterpSetByteStatic
     cbnz    w0, MterpException          // 0 on success
     ADVANCE 2                           // Past exception point - now advance rPC
     GET_INST_OPCODE ip                  // extract opcode from rINST
@@ -2831,7 +2881,7 @@ artMterpAsmInstructionStart = .L_op_nop
     ldr     x2, [xFP, #OFF_FP_METHOD]
     mov     x3, xSELF
     PREFETCH_INST 2                     // Get next inst, but don't advance rPC
-    bl      artSet16StaticFromCode
+    bl      MterpSetCharStatic
     cbnz    w0, MterpException          // 0 on success
     ADVANCE 2                           // Past exception point - now advance rPC
     GET_INST_OPCODE ip                  // extract opcode from rINST
@@ -2856,7 +2906,7 @@ artMterpAsmInstructionStart = .L_op_nop
     ldr     x2, [xFP, #OFF_FP_METHOD]
     mov     x3, xSELF
     PREFETCH_INST 2                     // Get next inst, but don't advance rPC
-    bl      artSet16StaticFromCode
+    bl      MterpSetShortStatic
     cbnz    w0, MterpException          // 0 on success
     ADVANCE 2                           // Past exception point - now advance rPC
     GET_INST_OPCODE ip                  // extract opcode from rINST
@@ -3021,7 +3071,7 @@ artMterpAsmInstructionStart = .L_op_nop
 /* File: arm64/op_return_void_no_barrier.S */
     ldr     w7, [xSELF, #THREAD_FLAGS_OFFSET]
     mov     x0, xSELF
-    ands    w7, w7, #(THREAD_SUSPEND_REQUEST | THREAD_CHECKPOINT_REQUEST)
+    ands    w7, w7, #THREAD_SUSPEND_OR_CHECKPOINT_REQUEST
     b.ne    .Lop_return_void_no_barrier_check
 .Lop_return_void_no_barrier_return:
     mov     x0, #0
@@ -3199,7 +3249,6 @@ artMterpAsmInstructionStart = .L_op_nop
     lsr     w3, wINST, #12              // w3<- B
     GET_VREG w0, w3                     // w0<- vB
     ubfx    w9, wINST, #8, #4           // w9<- A
-                               // optional op; may set condition codes
     FETCH_ADVANCE_INST 1                // advance rPC, load rINST
     sub     w0, wzr, w0                              // w0<- op, w0-w3 changed
     GET_INST_OPCODE ip                  // extract opcode from rINST
@@ -3225,7 +3274,6 @@ artMterpAsmInstructionStart = .L_op_nop
     lsr     w3, wINST, #12              // w3<- B
     GET_VREG w0, w3                     // w0<- vB
     ubfx    w9, wINST, #8, #4           // w9<- A
-                               // optional op; may set condition codes
     FETCH_ADVANCE_INST 1                // advance rPC, load rINST
     mvn     w0, w0                              // w0<- op, w0-w3 changed
     GET_INST_OPCODE ip                  // extract opcode from rINST
@@ -3250,7 +3298,6 @@ artMterpAsmInstructionStart = .L_op_nop
     ubfx    w4, wINST, #8, #4           // w4<- A
     GET_VREG_WIDE x0, w3
     FETCH_ADVANCE_INST 1                // advance rPC, load wINST
-    
     sub x0, xzr, x0
     GET_INST_OPCODE ip                  // extract opcode from wINST
     SET_VREG_WIDE x0, w4
@@ -3274,7 +3321,6 @@ artMterpAsmInstructionStart = .L_op_nop
     ubfx    w4, wINST, #8, #4           // w4<- A
     GET_VREG_WIDE x0, w3
     FETCH_ADVANCE_INST 1                // advance rPC, load wINST
-    
     mvn     x0, x0
     GET_INST_OPCODE ip                  // extract opcode from wINST
     SET_VREG_WIDE x0, w4
@@ -3299,9 +3345,8 @@ artMterpAsmInstructionStart = .L_op_nop
     lsr     w3, wINST, #12              // w3<- B
     GET_VREG w0, w3                     // w0<- vB
     ubfx    w9, wINST, #8, #4           // w9<- A
-    mov w4, #0x80000000                           // optional op; may set condition codes
     FETCH_ADVANCE_INST 1                // advance rPC, load rINST
-    add     w0, w0, w4                              // w0<- op, w0-w3 changed
+    eor     w0, w0, #0x80000000                              // w0<- op, w0-w3 changed
     GET_INST_OPCODE ip                  // extract opcode from rINST
     SET_VREG w0, w9                     // vAA<- w0
     GOTO_OPCODE ip                      // jump to next instruction
@@ -3324,8 +3369,7 @@ artMterpAsmInstructionStart = .L_op_nop
     ubfx    w4, wINST, #8, #4           // w4<- A
     GET_VREG_WIDE x0, w3
     FETCH_ADVANCE_INST 1                // advance rPC, load wINST
-    mov x1, #0x8000000000000000
-    add     x0, x0, x1
+    eor     x0, x0, #0x8000000000000000
     GET_INST_OPCODE ip                  // extract opcode from wINST
     SET_VREG_WIDE x0, w4
     GOTO_OPCODE ip                      // jump to next instruction
@@ -3336,24 +3380,14 @@ artMterpAsmInstructionStart = .L_op_nop
     .balign 128
 .L_op_int_to_long: /* 0x81 */
 /* File: arm64/op_int_to_long.S */
-/* File: arm64/funopWider.S */
-    /*
-     * Generic 32bit-to-64bit floating point unary operation.  Provide an
-     * "instr" line that specifies an instruction that performs "x0 = op w0".
-     *
-     * For: int-to-double, float-to-double, float-to-long
-     */
-    /* unop vA, vB */
+    /* int-to-long vA, vB */
     lsr     w3, wINST, #12              // w3<- B
-    lsr     w4, wINST, #8               // w4<- A+
-    GET_VREG w0, w3
+    ubfx    w4, wINST, #8, #4           // w4<- A
+    GET_VREG_S x0, w3                   // x0<- sign_extend(fp[B])
     FETCH_ADVANCE_INST 1                // advance rPC, load wINST
-    and     w4, w4, #15                 // w4<- A
-    sbfm x0, x0, 0, 31                              // d0<- op
     GET_INST_OPCODE ip                  // extract opcode from wINST
-    SET_VREG_WIDE x0, w4           // vA<- d0
+    SET_VREG_WIDE x0, w4                // fp[A]<- x0
     GOTO_OPCODE ip                      // jump to next instruction
-
 
 /* ------------------------------ */
     .balign 128
@@ -3369,10 +3403,9 @@ artMterpAsmInstructionStart = .L_op_nop
      */
     /* unop vA, vB */
     lsr     w3, wINST, #12              // w3<- B
-    lsr     w4, wINST, #8               // w4<- A+
+    ubfx    w4, wINST, #8, #4           // w4<- A
     GET_VREG w0, w3
     FETCH_ADVANCE_INST 1                // advance rPC, load wINST
-    and     w4, w4, #15                 // w4<- A
     scvtf s0, w0                              // d0<- op
     GET_INST_OPCODE ip                  // extract opcode from wINST
     SET_VREG s0, w4                // vA<- d0
@@ -3392,10 +3425,9 @@ artMterpAsmInstructionStart = .L_op_nop
      */
     /* unop vA, vB */
     lsr     w3, wINST, #12              // w3<- B
-    lsr     w4, wINST, #8               // w4<- A+
+    ubfx    w4, wINST, #8, #4           // w4<- A
     GET_VREG w0, w3
     FETCH_ADVANCE_INST 1                // advance rPC, load wINST
-    and     w4, w4, #15                 // w4<- A
     scvtf d0, w0                              // d0<- op
     GET_INST_OPCODE ip                  // extract opcode from wINST
     SET_VREG_WIDE d0, w4           // vA<- d0
@@ -3406,23 +3438,21 @@ artMterpAsmInstructionStart = .L_op_nop
     .balign 128
 .L_op_long_to_int: /* 0x84 */
 /* File: arm64/op_long_to_int.S */
-/* File: arm64/funopNarrower.S */
-    /*
-     * Generic 64bit-to-32bit floating point unary operation.  Provide an
-     * "instr" line that specifies an instruction that performs "w0 = op x0".
-     *
-     * For: int-to-double, float-to-double, float-to-long
-     */
-    /* unop vA, vB */
-    lsr     w3, wINST, #12              // w3<- B
-    lsr     w4, wINST, #8               // w4<- A+
-    GET_VREG_WIDE x0, w3
+/* we ignore the high word, making this equivalent to a 32-bit reg move */
+/* File: arm64/op_move.S */
+    /* for move, move-object, long-to-int */
+    /* op vA, vB */
+    lsr     w1, wINST, #12              // x1<- B from 15:12
+    ubfx    w0, wINST, #8, #4           // x0<- A from 11:8
     FETCH_ADVANCE_INST 1                // advance rPC, load wINST
-    and     w4, w4, #15                 // w4<- A
-                                  // d0<- op
-    GET_INST_OPCODE ip                  // extract opcode from wINST
-    SET_VREG w0, w4                // vA<- d0
-    GOTO_OPCODE ip                      // jump to next instruction
+    GET_VREG w2, w1                     // x2<- fp[B]
+    GET_INST_OPCODE ip                  // ip<- opcode from wINST
+    .if 0
+    SET_VREG_OBJECT w2, w0              // fp[A]<- x2
+    .else
+    SET_VREG w2, w0                     // fp[A]<- x2
+    .endif
+    GOTO_OPCODE ip                      // execute next instruction
 
 
 /* ------------------------------ */
@@ -3438,10 +3468,9 @@ artMterpAsmInstructionStart = .L_op_nop
      */
     /* unop vA, vB */
     lsr     w3, wINST, #12              // w3<- B
-    lsr     w4, wINST, #8               // w4<- A+
+    ubfx    w4, wINST, #8, #4           // w4<- A
     GET_VREG_WIDE x0, w3
     FETCH_ADVANCE_INST 1                // advance rPC, load wINST
-    and     w4, w4, #15                 // w4<- A
     scvtf s0, x0                              // d0<- op
     GET_INST_OPCODE ip                  // extract opcode from wINST
     SET_VREG s0, w4                // vA<- d0
@@ -3461,10 +3490,9 @@ artMterpAsmInstructionStart = .L_op_nop
      */
     /* unop vA, vB */
     lsr     w3, wINST, #12              // w3<- B
-    lsr     w4, wINST, #8               // w4<- A+
+    ubfx    w4, wINST, #8, #4           // w4<- A
     GET_VREG_WIDE x0, w3
     FETCH_ADVANCE_INST 1                // advance rPC, load wINST
-    and     w4, w4, #15                 // w4<- A
     scvtf d0, x0                              // d0<- op
     GET_INST_OPCODE ip                  // extract opcode from wINST
     SET_VREG_WIDE d0, w4           // vA<- d0
@@ -3485,10 +3513,9 @@ artMterpAsmInstructionStart = .L_op_nop
      */
     /* unop vA, vB */
     lsr     w3, wINST, #12              // w3<- B
-    lsr     w4, wINST, #8               // w4<- A+
+    ubfx    w4, wINST, #8, #4           // w4<- A
     GET_VREG s0, w3
     FETCH_ADVANCE_INST 1                // advance rPC, load wINST
-    and     w4, w4, #15                 // w4<- A
     fcvtzs w0, s0                              // d0<- op
     GET_INST_OPCODE ip                  // extract opcode from wINST
     SET_VREG w0, w4                // vA<- d0
@@ -3508,10 +3535,9 @@ artMterpAsmInstructionStart = .L_op_nop
      */
     /* unop vA, vB */
     lsr     w3, wINST, #12              // w3<- B
-    lsr     w4, wINST, #8               // w4<- A+
+    ubfx    w4, wINST, #8, #4           // w4<- A
     GET_VREG s0, w3
     FETCH_ADVANCE_INST 1                // advance rPC, load wINST
-    and     w4, w4, #15                 // w4<- A
     fcvtzs x0, s0                              // d0<- op
     GET_INST_OPCODE ip                  // extract opcode from wINST
     SET_VREG_WIDE x0, w4           // vA<- d0
@@ -3531,10 +3557,9 @@ artMterpAsmInstructionStart = .L_op_nop
      */
     /* unop vA, vB */
     lsr     w3, wINST, #12              // w3<- B
-    lsr     w4, wINST, #8               // w4<- A+
+    ubfx    w4, wINST, #8, #4           // w4<- A
     GET_VREG s0, w3
     FETCH_ADVANCE_INST 1                // advance rPC, load wINST
-    and     w4, w4, #15                 // w4<- A
     fcvt  d0, s0                              // d0<- op
     GET_INST_OPCODE ip                  // extract opcode from wINST
     SET_VREG_WIDE d0, w4           // vA<- d0
@@ -3554,10 +3579,9 @@ artMterpAsmInstructionStart = .L_op_nop
      */
     /* unop vA, vB */
     lsr     w3, wINST, #12              // w3<- B
-    lsr     w4, wINST, #8               // w4<- A+
+    ubfx    w4, wINST, #8, #4           // w4<- A
     GET_VREG_WIDE d0, w3
     FETCH_ADVANCE_INST 1                // advance rPC, load wINST
-    and     w4, w4, #15                 // w4<- A
     fcvtzs w0, d0                              // d0<- op
     GET_INST_OPCODE ip                  // extract opcode from wINST
     SET_VREG w0, w4                // vA<- d0
@@ -3577,10 +3601,9 @@ artMterpAsmInstructionStart = .L_op_nop
      */
     /* unop vA, vB */
     lsr     w3, wINST, #12              // w3<- B
-    lsr     w4, wINST, #8               // w4<- A+
+    ubfx    w4, wINST, #8, #4           // w4<- A
     GET_VREG_WIDE d0, w3
     FETCH_ADVANCE_INST 1                // advance rPC, load wINST
-    and     w4, w4, #15                 // w4<- A
     fcvtzs x0, d0                              // d0<- op
     GET_INST_OPCODE ip                  // extract opcode from wINST
     SET_VREG_WIDE x0, w4           // vA<- d0
@@ -3600,10 +3623,9 @@ artMterpAsmInstructionStart = .L_op_nop
      */
     /* unop vA, vB */
     lsr     w3, wINST, #12              // w3<- B
-    lsr     w4, wINST, #8               // w4<- A+
+    ubfx    w4, wINST, #8, #4           // w4<- A
     GET_VREG_WIDE d0, w3
     FETCH_ADVANCE_INST 1                // advance rPC, load wINST
-    and     w4, w4, #15                 // w4<- A
     fcvt s0, d0                              // d0<- op
     GET_INST_OPCODE ip                  // extract opcode from wINST
     SET_VREG s0, w4                // vA<- d0
@@ -3627,7 +3649,6 @@ artMterpAsmInstructionStart = .L_op_nop
     lsr     w3, wINST, #12              // w3<- B
     GET_VREG w0, w3                     // w0<- vB
     ubfx    w9, wINST, #8, #4           // w9<- A
-                               // optional op; may set condition codes
     FETCH_ADVANCE_INST 1                // advance rPC, load rINST
     sxtb    w0, w0                              // w0<- op, w0-w3 changed
     GET_INST_OPCODE ip                  // extract opcode from rINST
@@ -3653,7 +3674,6 @@ artMterpAsmInstructionStart = .L_op_nop
     lsr     w3, wINST, #12              // w3<- B
     GET_VREG w0, w3                     // w0<- vB
     ubfx    w9, wINST, #8, #4           // w9<- A
-                               // optional op; may set condition codes
     FETCH_ADVANCE_INST 1                // advance rPC, load rINST
     uxth    w0, w0                              // w0<- op, w0-w3 changed
     GET_INST_OPCODE ip                  // extract opcode from rINST
@@ -3679,7 +3699,6 @@ artMterpAsmInstructionStart = .L_op_nop
     lsr     w3, wINST, #12              // w3<- B
     GET_VREG w0, w3                     // w0<- vB
     ubfx    w9, wINST, #8, #4           // w9<- A
-                               // optional op; may set condition codes
     FETCH_ADVANCE_INST 1                // advance rPC, load rINST
     sxth    w0, w0                              // w0<- op, w0-w3 changed
     GET_INST_OPCODE ip                  // extract opcode from rINST
@@ -4032,7 +4051,7 @@ artMterpAsmInstructionStart = .L_op_nop
     cbz     w1, common_errDivideByZero  // is second operand zero?
     .endif
     FETCH_ADVANCE_INST 2                // advance rPC, load rINST
-    and     w1, w1, #31                           // optional op; may set condition codes
+                               // optional op; may set condition codes
     lsl     w0, w0, w1                              // w0<- op, w0-w3 changed
     GET_INST_OPCODE ip                  // extract opcode from rINST
     SET_VREG w0, w9                // vAA<- w0
@@ -4071,7 +4090,7 @@ artMterpAsmInstructionStart = .L_op_nop
     cbz     w1, common_errDivideByZero  // is second operand zero?
     .endif
     FETCH_ADVANCE_INST 2                // advance rPC, load rINST
-    and     w1, w1, #31                           // optional op; may set condition codes
+                               // optional op; may set condition codes
     asr     w0, w0, w1                              // w0<- op, w0-w3 changed
     GET_INST_OPCODE ip                  // extract opcode from rINST
     SET_VREG w0, w9                // vAA<- w0
@@ -4110,7 +4129,7 @@ artMterpAsmInstructionStart = .L_op_nop
     cbz     w1, common_errDivideByZero  // is second operand zero?
     .endif
     FETCH_ADVANCE_INST 2                // advance rPC, load rINST
-    and     w1, w1, #31                           // optional op; may set condition codes
+                               // optional op; may set condition codes
     lsr     w0, w0, w1                              // w0<- op, w0-w3 changed
     GET_INST_OPCODE ip                  // extract opcode from rINST
     SET_VREG w0, w9                // vAA<- w0
@@ -4424,8 +4443,7 @@ artMterpAsmInstructionStart = .L_op_nop
     and      w1, w0, #255                // w1<- BB
     GET_VREG_WIDE x1, w1                // x1<- vBB
     FETCH_ADVANCE_INST 2                // advance rPC, load rINST
-    and      x2, x2, #63                 // Mask low 6
-    lsl  x0, x1, x2                 // Do the shift.
+    lsl  x0, x1, x2                 // Do the shift. Only low 6 bits of x2 are used.
     GET_INST_OPCODE ip                  // extract opcode from rINST
     SET_VREG_WIDE x0, w3                // vAA<- x0
     GOTO_OPCODE ip                      // jump to next instruction
@@ -4450,8 +4468,7 @@ artMterpAsmInstructionStart = .L_op_nop
     and      w1, w0, #255                // w1<- BB
     GET_VREG_WIDE x1, w1                // x1<- vBB
     FETCH_ADVANCE_INST 2                // advance rPC, load rINST
-    and      x2, x2, #63                 // Mask low 6
-    asr  x0, x1, x2                 // Do the shift.
+    asr  x0, x1, x2                 // Do the shift. Only low 6 bits of x2 are used.
     GET_INST_OPCODE ip                  // extract opcode from rINST
     SET_VREG_WIDE x0, w3                // vAA<- x0
     GOTO_OPCODE ip                      // jump to next instruction
@@ -4476,8 +4493,7 @@ artMterpAsmInstructionStart = .L_op_nop
     and      w1, w0, #255                // w1<- BB
     GET_VREG_WIDE x1, w1                // x1<- vBB
     FETCH_ADVANCE_INST 2                // advance rPC, load rINST
-    and      x2, x2, #63                 // Mask low 6
-    lsr  x0, x1, x2                 // Do the shift.
+    lsr  x0, x1, x2                 // Do the shift. Only low 6 bits of x2 are used.
     GET_INST_OPCODE ip                  // extract opcode from rINST
     SET_VREG_WIDE x0, w3                // vAA<- x0
     GOTO_OPCODE ip                      // jump to next instruction
@@ -5089,7 +5105,7 @@ artMterpAsmInstructionStart = .L_op_nop
     cbz     w1, common_errDivideByZero
     .endif
     FETCH_ADVANCE_INST 1                // advance rPC, load rINST
-    and     w1, w1, #31                           // optional op; may set condition codes
+                               // optional op; may set condition codes
     lsl     w0, w0, w1                              // w0<- op, w0-w3 changed
     GET_INST_OPCODE ip                  // extract opcode from rINST
     SET_VREG w0, w9                // vAA<- w0
@@ -5125,7 +5141,7 @@ artMterpAsmInstructionStart = .L_op_nop
     cbz     w1, common_errDivideByZero
     .endif
     FETCH_ADVANCE_INST 1                // advance rPC, load rINST
-    and     w1, w1, #31                           // optional op; may set condition codes
+                               // optional op; may set condition codes
     asr     w0, w0, w1                              // w0<- op, w0-w3 changed
     GET_INST_OPCODE ip                  // extract opcode from rINST
     SET_VREG w0, w9                // vAA<- w0
@@ -5161,7 +5177,7 @@ artMterpAsmInstructionStart = .L_op_nop
     cbz     w1, common_errDivideByZero
     .endif
     FETCH_ADVANCE_INST 1                // advance rPC, load rINST
-    and     w1, w1, #31                           // optional op; may set condition codes
+                               // optional op; may set condition codes
     lsr     w0, w0, w1                              // w0<- op, w0-w3 changed
     GET_INST_OPCODE ip                  // extract opcode from rINST
     SET_VREG w0, w9                // vAA<- w0
@@ -5463,8 +5479,7 @@ artMterpAsmInstructionStart = .L_op_nop
     GET_VREG w1, w1                     // x1<- vB
     GET_VREG_WIDE x0, w2                // x0<- vA
     FETCH_ADVANCE_INST 1                // advance rPC, load rINST
-    and     x1, x1, #63                 // Mask low 6 bits.
-    lsl x0, x0, x1
+    lsl x0, x0, x1                  // Do the shift. Only low 6 bits of x1 are used.
     GET_INST_OPCODE ip                  // extract opcode from rINST
     SET_VREG_WIDE x0, w2               // vAA<- result
     GOTO_OPCODE ip                      // jump to next instruction
@@ -5485,8 +5500,7 @@ artMterpAsmInstructionStart = .L_op_nop
     GET_VREG w1, w1                     // x1<- vB
     GET_VREG_WIDE x0, w2                // x0<- vA
     FETCH_ADVANCE_INST 1                // advance rPC, load rINST
-    and     x1, x1, #63                 // Mask low 6 bits.
-    asr x0, x0, x1
+    asr x0, x0, x1                  // Do the shift. Only low 6 bits of x1 are used.
     GET_INST_OPCODE ip                  // extract opcode from rINST
     SET_VREG_WIDE x0, w2               // vAA<- result
     GOTO_OPCODE ip                      // jump to next instruction
@@ -5507,8 +5521,7 @@ artMterpAsmInstructionStart = .L_op_nop
     GET_VREG w1, w1                     // x1<- vB
     GET_VREG_WIDE x0, w2                // x0<- vA
     FETCH_ADVANCE_INST 1                // advance rPC, load rINST
-    and     x1, x1, #63                 // Mask low 6 bits.
-    lsr x0, x0, x1
+    lsr x0, x0, x1                  // Do the shift. Only low 6 bits of x1 are used.
     GET_INST_OPCODE ip                  // extract opcode from rINST
     SET_VREG_WIDE x0, w2               // vAA<- result
     GOTO_OPCODE ip                      // jump to next instruction
@@ -5529,8 +5542,7 @@ artMterpAsmInstructionStart = .L_op_nop
      */
     /* binop/2addr vA, vB */
     lsr     w3, wINST, #12              // w3<- B
-    lsr     w9, wINST, #8               // w9<- A+
-    and     w9, w9, #15                 // w9<- A
+    ubfx    w9, wINST, #8, #4           // w9<- A
     GET_VREG s1, w3
     GET_VREG s0, w9
     fadd   s2, s0, s1                              // s2<- op
@@ -5554,8 +5566,7 @@ artMterpAsmInstructionStart = .L_op_nop
      */
     /* binop/2addr vA, vB */
     lsr     w3, wINST, #12              // w3<- B
-    lsr     w9, wINST, #8               // w9<- A+
-    and     w9, w9, #15                 // w9<- A
+    ubfx    w9, wINST, #8, #4           // w9<- A
     GET_VREG s1, w3
     GET_VREG s0, w9
     fsub   s2, s0, s1                              // s2<- op
@@ -5579,8 +5590,7 @@ artMterpAsmInstructionStart = .L_op_nop
      */
     /* binop/2addr vA, vB */
     lsr     w3, wINST, #12              // w3<- B
-    lsr     w9, wINST, #8               // w9<- A+
-    and     w9, w9, #15                 // w9<- A
+    ubfx    w9, wINST, #8, #4           // w9<- A
     GET_VREG s1, w3
     GET_VREG s0, w9
     fmul   s2, s0, s1                              // s2<- op
@@ -5604,8 +5614,7 @@ artMterpAsmInstructionStart = .L_op_nop
      */
     /* binop/2addr vA, vB */
     lsr     w3, wINST, #12              // w3<- B
-    lsr     w9, wINST, #8               // w9<- A+
-    and     w9, w9, #15                 // w9<- A
+    ubfx    w9, wINST, #8, #4           // w9<- A
     GET_VREG s1, w3
     GET_VREG s0, w9
     fdiv   s2, s0, s1                              // s2<- op
@@ -5621,13 +5630,11 @@ artMterpAsmInstructionStart = .L_op_nop
 /* File: arm64/op_rem_float_2addr.S */
     /* rem vA, vB */
     lsr     w3, wINST, #12              // w3<- B
-    lsr     w9, wINST, #8               // w9<- A+
-    and     w9, w9, #15                 // w9<- A
+    ubfx    w9, wINST, #8, #4           // w9<- A
     GET_VREG s1, w3
     GET_VREG s0, w9
     bl  fmodf
-    lsr     w9, wINST, #8               // w9<- A+
-    and     w9, w9, #15                 // w9<- A
+    ubfx    w9, wINST, #8, #4           // w9<- A
     FETCH_ADVANCE_INST 1                // advance rPC, load rINST
     GET_INST_OPCODE ip                  // extract opcode from rINST
     SET_VREG s0, w9
@@ -6075,6 +6082,10 @@ artMterpAsmInstructionStart = .L_op_nop
      * This could be an ARM instruction or a function call.  (If the result
      * comes back in a register other than w0, you can override "result".)
      *
+     * You can override "extract" if the extraction of the literal value
+     * from w3 to w1 is not the default "asr w1, w3, #8". The extraction
+     * can be omitted completely if the shift is embedded in "instr".
+     *
      * If "chkzero" is set to 1, we perform a divide-by-zero check on
      * vCC (w1).  Useful for integer division and modulus.
      *
@@ -6083,17 +6094,17 @@ artMterpAsmInstructionStart = .L_op_nop
      *      shl-int/lit8, shr-int/lit8, ushr-int/lit8
      */
     /* binop/lit8 vAA, vBB, #+CC */
-    FETCH_S w3, 1                       // w3<- ssssCCBB (sign-extended for CC
+    FETCH_S w3, 1                       // w3<- ssssCCBB (sign-extended for CC)
     lsr     w9, wINST, #8               // w9<- AA
     and     w2, w3, #255                // w2<- BB
     GET_VREG w0, w2                     // w0<- vBB
-    asr    w1, w3, #8                   // w1<- ssssssCC (sign extended)
+                                // optional; typically w1<- ssssssCC (sign extended)
     .if 0
     cbz     w1, common_errDivideByZero
     .endif
     FETCH_ADVANCE_INST 2                // advance rPC, load rINST
                                // optional op; may set condition codes
-    add     w0, w0, w1                              // w0<- op, w0-w3 changed
+    add     w0, w0, w3, asr #8                              // w0<- op, w0-w3 changed
     GET_INST_OPCODE ip                  // extract opcode from rINST
     SET_VREG w0, w9                // vAA<- w0
     GOTO_OPCODE ip                      // jump to next instruction
@@ -6111,6 +6122,10 @@ artMterpAsmInstructionStart = .L_op_nop
      * This could be an ARM instruction or a function call.  (If the result
      * comes back in a register other than w0, you can override "result".)
      *
+     * You can override "extract" if the extraction of the literal value
+     * from w3 to w1 is not the default "asr w1, w3, #8". The extraction
+     * can be omitted completely if the shift is embedded in "instr".
+     *
      * If "chkzero" is set to 1, we perform a divide-by-zero check on
      * vCC (w1).  Useful for integer division and modulus.
      *
@@ -6119,11 +6134,11 @@ artMterpAsmInstructionStart = .L_op_nop
      *      shl-int/lit8, shr-int/lit8, ushr-int/lit8
      */
     /* binop/lit8 vAA, vBB, #+CC */
-    FETCH_S w3, 1                       // w3<- ssssCCBB (sign-extended for CC
+    FETCH_S w3, 1                       // w3<- ssssCCBB (sign-extended for CC)
     lsr     w9, wINST, #8               // w9<- AA
     and     w2, w3, #255                // w2<- BB
     GET_VREG w0, w2                     // w0<- vBB
-    asr    w1, w3, #8                   // w1<- ssssssCC (sign extended)
+    asr     w1, w3, #8                            // optional; typically w1<- ssssssCC (sign extended)
     .if 0
     cbz     w1, common_errDivideByZero
     .endif
@@ -6148,6 +6163,10 @@ artMterpAsmInstructionStart = .L_op_nop
      * This could be an ARM instruction or a function call.  (If the result
      * comes back in a register other than w0, you can override "result".)
      *
+     * You can override "extract" if the extraction of the literal value
+     * from w3 to w1 is not the default "asr w1, w3, #8". The extraction
+     * can be omitted completely if the shift is embedded in "instr".
+     *
      * If "chkzero" is set to 1, we perform a divide-by-zero check on
      * vCC (w1).  Useful for integer division and modulus.
      *
@@ -6156,11 +6175,11 @@ artMterpAsmInstructionStart = .L_op_nop
      *      shl-int/lit8, shr-int/lit8, ushr-int/lit8
      */
     /* binop/lit8 vAA, vBB, #+CC */
-    FETCH_S w3, 1                       // w3<- ssssCCBB (sign-extended for CC
+    FETCH_S w3, 1                       // w3<- ssssCCBB (sign-extended for CC)
     lsr     w9, wINST, #8               // w9<- AA
     and     w2, w3, #255                // w2<- BB
     GET_VREG w0, w2                     // w0<- vBB
-    asr    w1, w3, #8                   // w1<- ssssssCC (sign extended)
+    asr     w1, w3, #8                            // optional; typically w1<- ssssssCC (sign extended)
     .if 0
     cbz     w1, common_errDivideByZero
     .endif
@@ -6184,6 +6203,10 @@ artMterpAsmInstructionStart = .L_op_nop
      * This could be an ARM instruction or a function call.  (If the result
      * comes back in a register other than w0, you can override "result".)
      *
+     * You can override "extract" if the extraction of the literal value
+     * from w3 to w1 is not the default "asr w1, w3, #8". The extraction
+     * can be omitted completely if the shift is embedded in "instr".
+     *
      * If "chkzero" is set to 1, we perform a divide-by-zero check on
      * vCC (w1).  Useful for integer division and modulus.
      *
@@ -6192,11 +6215,11 @@ artMterpAsmInstructionStart = .L_op_nop
      *      shl-int/lit8, shr-int/lit8, ushr-int/lit8
      */
     /* binop/lit8 vAA, vBB, #+CC */
-    FETCH_S w3, 1                       // w3<- ssssCCBB (sign-extended for CC
+    FETCH_S w3, 1                       // w3<- ssssCCBB (sign-extended for CC)
     lsr     w9, wINST, #8               // w9<- AA
     and     w2, w3, #255                // w2<- BB
     GET_VREG w0, w2                     // w0<- vBB
-    asr    w1, w3, #8                   // w1<- ssssssCC (sign extended)
+    asr     w1, w3, #8                            // optional; typically w1<- ssssssCC (sign extended)
     .if 1
     cbz     w1, common_errDivideByZero
     .endif
@@ -6220,6 +6243,10 @@ artMterpAsmInstructionStart = .L_op_nop
      * This could be an ARM instruction or a function call.  (If the result
      * comes back in a register other than w0, you can override "result".)
      *
+     * You can override "extract" if the extraction of the literal value
+     * from w3 to w1 is not the default "asr w1, w3, #8". The extraction
+     * can be omitted completely if the shift is embedded in "instr".
+     *
      * If "chkzero" is set to 1, we perform a divide-by-zero check on
      * vCC (w1).  Useful for integer division and modulus.
      *
@@ -6228,11 +6255,11 @@ artMterpAsmInstructionStart = .L_op_nop
      *      shl-int/lit8, shr-int/lit8, ushr-int/lit8
      */
     /* binop/lit8 vAA, vBB, #+CC */
-    FETCH_S w3, 1                       // w3<- ssssCCBB (sign-extended for CC
+    FETCH_S w3, 1                       // w3<- ssssCCBB (sign-extended for CC)
     lsr     w9, wINST, #8               // w9<- AA
     and     w2, w3, #255                // w2<- BB
     GET_VREG w0, w2                     // w0<- vBB
-    asr    w1, w3, #8                   // w1<- ssssssCC (sign extended)
+    asr     w1, w3, #8                            // optional; typically w1<- ssssssCC (sign extended)
     .if 1
     cbz     w1, common_errDivideByZero
     .endif
@@ -6256,6 +6283,10 @@ artMterpAsmInstructionStart = .L_op_nop
      * This could be an ARM instruction or a function call.  (If the result
      * comes back in a register other than w0, you can override "result".)
      *
+     * You can override "extract" if the extraction of the literal value
+     * from w3 to w1 is not the default "asr w1, w3, #8". The extraction
+     * can be omitted completely if the shift is embedded in "instr".
+     *
      * If "chkzero" is set to 1, we perform a divide-by-zero check on
      * vCC (w1).  Useful for integer division and modulus.
      *
@@ -6264,17 +6295,17 @@ artMterpAsmInstructionStart = .L_op_nop
      *      shl-int/lit8, shr-int/lit8, ushr-int/lit8
      */
     /* binop/lit8 vAA, vBB, #+CC */
-    FETCH_S w3, 1                       // w3<- ssssCCBB (sign-extended for CC
+    FETCH_S w3, 1                       // w3<- ssssCCBB (sign-extended for CC)
     lsr     w9, wINST, #8               // w9<- AA
     and     w2, w3, #255                // w2<- BB
     GET_VREG w0, w2                     // w0<- vBB
-    asr    w1, w3, #8                   // w1<- ssssssCC (sign extended)
+                                // optional; typically w1<- ssssssCC (sign extended)
     .if 0
     cbz     w1, common_errDivideByZero
     .endif
     FETCH_ADVANCE_INST 2                // advance rPC, load rINST
                                // optional op; may set condition codes
-    and     w0, w0, w1                              // w0<- op, w0-w3 changed
+    and     w0, w0, w3, asr #8                              // w0<- op, w0-w3 changed
     GET_INST_OPCODE ip                  // extract opcode from rINST
     SET_VREG w0, w9                // vAA<- w0
     GOTO_OPCODE ip                      // jump to next instruction
@@ -6292,6 +6323,10 @@ artMterpAsmInstructionStart = .L_op_nop
      * This could be an ARM instruction or a function call.  (If the result
      * comes back in a register other than w0, you can override "result".)
      *
+     * You can override "extract" if the extraction of the literal value
+     * from w3 to w1 is not the default "asr w1, w3, #8". The extraction
+     * can be omitted completely if the shift is embedded in "instr".
+     *
      * If "chkzero" is set to 1, we perform a divide-by-zero check on
      * vCC (w1).  Useful for integer division and modulus.
      *
@@ -6300,17 +6335,17 @@ artMterpAsmInstructionStart = .L_op_nop
      *      shl-int/lit8, shr-int/lit8, ushr-int/lit8
      */
     /* binop/lit8 vAA, vBB, #+CC */
-    FETCH_S w3, 1                       // w3<- ssssCCBB (sign-extended for CC
+    FETCH_S w3, 1                       // w3<- ssssCCBB (sign-extended for CC)
     lsr     w9, wINST, #8               // w9<- AA
     and     w2, w3, #255                // w2<- BB
     GET_VREG w0, w2                     // w0<- vBB
-    asr    w1, w3, #8                   // w1<- ssssssCC (sign extended)
+                                // optional; typically w1<- ssssssCC (sign extended)
     .if 0
     cbz     w1, common_errDivideByZero
     .endif
     FETCH_ADVANCE_INST 2                // advance rPC, load rINST
                                // optional op; may set condition codes
-    orr     w0, w0, w1                              // w0<- op, w0-w3 changed
+    orr     w0, w0, w3, asr #8                              // w0<- op, w0-w3 changed
     GET_INST_OPCODE ip                  // extract opcode from rINST
     SET_VREG w0, w9                // vAA<- w0
     GOTO_OPCODE ip                      // jump to next instruction
@@ -6328,6 +6363,10 @@ artMterpAsmInstructionStart = .L_op_nop
      * This could be an ARM instruction or a function call.  (If the result
      * comes back in a register other than w0, you can override "result".)
      *
+     * You can override "extract" if the extraction of the literal value
+     * from w3 to w1 is not the default "asr w1, w3, #8". The extraction
+     * can be omitted completely if the shift is embedded in "instr".
+     *
      * If "chkzero" is set to 1, we perform a divide-by-zero check on
      * vCC (w1).  Useful for integer division and modulus.
      *
@@ -6336,17 +6375,17 @@ artMterpAsmInstructionStart = .L_op_nop
      *      shl-int/lit8, shr-int/lit8, ushr-int/lit8
      */
     /* binop/lit8 vAA, vBB, #+CC */
-    FETCH_S w3, 1                       // w3<- ssssCCBB (sign-extended for CC
+    FETCH_S w3, 1                       // w3<- ssssCCBB (sign-extended for CC)
     lsr     w9, wINST, #8               // w9<- AA
     and     w2, w3, #255                // w2<- BB
     GET_VREG w0, w2                     // w0<- vBB
-    asr    w1, w3, #8                   // w1<- ssssssCC (sign extended)
+                                // optional; typically w1<- ssssssCC (sign extended)
     .if 0
     cbz     w1, common_errDivideByZero
     .endif
     FETCH_ADVANCE_INST 2                // advance rPC, load rINST
                                // optional op; may set condition codes
-    eor     w0, w0, w1                              // w0<- op, w0-w3 changed
+    eor     w0, w0, w3, asr #8                              // w0<- op, w0-w3 changed
     GET_INST_OPCODE ip                  // extract opcode from rINST
     SET_VREG w0, w9                // vAA<- w0
     GOTO_OPCODE ip                      // jump to next instruction
@@ -6364,6 +6403,10 @@ artMterpAsmInstructionStart = .L_op_nop
      * This could be an ARM instruction or a function call.  (If the result
      * comes back in a register other than w0, you can override "result".)
      *
+     * You can override "extract" if the extraction of the literal value
+     * from w3 to w1 is not the default "asr w1, w3, #8". The extraction
+     * can be omitted completely if the shift is embedded in "instr".
+     *
      * If "chkzero" is set to 1, we perform a divide-by-zero check on
      * vCC (w1).  Useful for integer division and modulus.
      *
@@ -6372,16 +6415,16 @@ artMterpAsmInstructionStart = .L_op_nop
      *      shl-int/lit8, shr-int/lit8, ushr-int/lit8
      */
     /* binop/lit8 vAA, vBB, #+CC */
-    FETCH_S w3, 1                       // w3<- ssssCCBB (sign-extended for CC
+    FETCH_S w3, 1                       // w3<- ssssCCBB (sign-extended for CC)
     lsr     w9, wINST, #8               // w9<- AA
     and     w2, w3, #255                // w2<- BB
     GET_VREG w0, w2                     // w0<- vBB
-    asr    w1, w3, #8                   // w1<- ssssssCC (sign extended)
+    ubfx    w1, w3, #8, #5                            // optional; typically w1<- ssssssCC (sign extended)
     .if 0
     cbz     w1, common_errDivideByZero
     .endif
     FETCH_ADVANCE_INST 2                // advance rPC, load rINST
-    and     w1, w1, #31                           // optional op; may set condition codes
+                               // optional op; may set condition codes
     lsl     w0, w0, w1                              // w0<- op, w0-w3 changed
     GET_INST_OPCODE ip                  // extract opcode from rINST
     SET_VREG w0, w9                // vAA<- w0
@@ -6400,6 +6443,10 @@ artMterpAsmInstructionStart = .L_op_nop
      * This could be an ARM instruction or a function call.  (If the result
      * comes back in a register other than w0, you can override "result".)
      *
+     * You can override "extract" if the extraction of the literal value
+     * from w3 to w1 is not the default "asr w1, w3, #8". The extraction
+     * can be omitted completely if the shift is embedded in "instr".
+     *
      * If "chkzero" is set to 1, we perform a divide-by-zero check on
      * vCC (w1).  Useful for integer division and modulus.
      *
@@ -6408,16 +6455,16 @@ artMterpAsmInstructionStart = .L_op_nop
      *      shl-int/lit8, shr-int/lit8, ushr-int/lit8
      */
     /* binop/lit8 vAA, vBB, #+CC */
-    FETCH_S w3, 1                       // w3<- ssssCCBB (sign-extended for CC
+    FETCH_S w3, 1                       // w3<- ssssCCBB (sign-extended for CC)
     lsr     w9, wINST, #8               // w9<- AA
     and     w2, w3, #255                // w2<- BB
     GET_VREG w0, w2                     // w0<- vBB
-    asr    w1, w3, #8                   // w1<- ssssssCC (sign extended)
+    ubfx    w1, w3, #8, #5                            // optional; typically w1<- ssssssCC (sign extended)
     .if 0
     cbz     w1, common_errDivideByZero
     .endif
     FETCH_ADVANCE_INST 2                // advance rPC, load rINST
-    and     w1, w1, #31                           // optional op; may set condition codes
+                               // optional op; may set condition codes
     asr     w0, w0, w1                              // w0<- op, w0-w3 changed
     GET_INST_OPCODE ip                  // extract opcode from rINST
     SET_VREG w0, w9                // vAA<- w0
@@ -6436,6 +6483,10 @@ artMterpAsmInstructionStart = .L_op_nop
      * This could be an ARM instruction or a function call.  (If the result
      * comes back in a register other than w0, you can override "result".)
      *
+     * You can override "extract" if the extraction of the literal value
+     * from w3 to w1 is not the default "asr w1, w3, #8". The extraction
+     * can be omitted completely if the shift is embedded in "instr".
+     *
      * If "chkzero" is set to 1, we perform a divide-by-zero check on
      * vCC (w1).  Useful for integer division and modulus.
      *
@@ -6444,16 +6495,16 @@ artMterpAsmInstructionStart = .L_op_nop
      *      shl-int/lit8, shr-int/lit8, ushr-int/lit8
      */
     /* binop/lit8 vAA, vBB, #+CC */
-    FETCH_S w3, 1                       // w3<- ssssCCBB (sign-extended for CC
+    FETCH_S w3, 1                       // w3<- ssssCCBB (sign-extended for CC)
     lsr     w9, wINST, #8               // w9<- AA
     and     w2, w3, #255                // w2<- BB
     GET_VREG w0, w2                     // w0<- vBB
-    asr    w1, w3, #8                   // w1<- ssssssCC (sign extended)
+    ubfx    w1, w3, #8, #5                            // optional; typically w1<- ssssssCC (sign extended)
     .if 0
     cbz     w1, common_errDivideByZero
     .endif
     FETCH_ADVANCE_INST 2                // advance rPC, load rINST
-    and     w1, w1, #31                           // optional op; may set condition codes
+                               // optional op; may set condition codes
     lsr     w0, w0, w1                              // w0<- op, w0-w3 changed
     GET_INST_OPCODE ip                  // extract opcode from rINST
     SET_VREG w0, w9                // vAA<- w0
@@ -6471,8 +6522,7 @@ artMterpAsmInstructionStart = .L_op_nop
     FETCH w1, 1                         // w1<- field byte offset
     GET_VREG w3, w2                     // w3<- object we're operating on
     ubfx    w2, wINST, #8, #4           // w2<- A
-    cmp     x3, #0                      // check object for null
-    beq     common_errNullObject        // object was null
+    cbz     w3, common_errNullObject    // object was null
     ldr   w0, [x3, x1]                // w0<- obj.field
     FETCH_ADVANCE_INST 2                // advance rPC, load rINST
     
@@ -6489,9 +6539,8 @@ artMterpAsmInstructionStart = .L_op_nop
     FETCH w4, 1                         // w4<- field byte offset
     GET_VREG w3, w2                     // w3<- object we're operating on
     ubfx    w2, wINST, #8, #4           // w2<- A
-    cbz     w3, common_errNullObject        // object was null
-    add     x4, x3, x4                  // create direct pointer
-    ldr     x0, [x4]
+    cbz     w3, common_errNullObject    // object was null
+    ldr     x0, [x3, x4]                // x0<- obj.field
     FETCH_ADVANCE_INST 2                // advance rPC, load wINST
     SET_VREG_WIDE x0, w2
     GET_INST_OPCODE ip                  // extract opcode from wINST
@@ -6527,7 +6576,6 @@ artMterpAsmInstructionStart = .L_op_nop
     FETCH w1, 1                         // w1<- field byte offset
     GET_VREG w3, w2                     // w3<- fp[B], the object pointer
     ubfx    w2, wINST, #8, #4           // w2<- A
-    cmp     w3, #0                      // check object for null
     cbz     w3, common_errNullObject    // object was null
     GET_VREG w0, w2                     // w0<- fp[A]
     FETCH_ADVANCE_INST 2                // advance rPC, load rINST
@@ -6544,12 +6592,10 @@ artMterpAsmInstructionStart = .L_op_nop
     FETCH w3, 1                         // w3<- field byte offset
     GET_VREG w2, w2                     // w2<- fp[B], the object pointer
     ubfx    w0, wINST, #8, #4           // w0<- A
-    cmp     w2, #0                      // check object for null
-    beq     common_errNullObject        // object was null
-    GET_VREG_WIDE x0, w0                // x0-< fp[A]
+    cbz     w2, common_errNullObject    // object was null
+    GET_VREG_WIDE x0, w0                // x0<- fp[A]
     FETCH_ADVANCE_INST 2                // advance rPC, load wINST
-    add     x1, x2, x3                  // create a direct pointer
-    str     x0, [x1]
+    str     x0, [x2, x3]                // obj.field<- x0
     GET_INST_OPCODE ip                  // extract opcode from wINST
     GOTO_OPCODE ip                      // jump to next instruction
 
@@ -6630,7 +6676,6 @@ artMterpAsmInstructionStart = .L_op_nop
     FETCH w1, 1                         // w1<- field byte offset
     GET_VREG w3, w2                     // w3<- fp[B], the object pointer
     ubfx    w2, wINST, #8, #4           // w2<- A
-    cmp     w3, #0                      // check object for null
     cbz     w3, common_errNullObject    // object was null
     GET_VREG w0, w2                     // w0<- fp[A]
     FETCH_ADVANCE_INST 2                // advance rPC, load rINST
@@ -6650,7 +6695,6 @@ artMterpAsmInstructionStart = .L_op_nop
     FETCH w1, 1                         // w1<- field byte offset
     GET_VREG w3, w2                     // w3<- fp[B], the object pointer
     ubfx    w2, wINST, #8, #4           // w2<- A
-    cmp     w3, #0                      // check object for null
     cbz     w3, common_errNullObject    // object was null
     GET_VREG w0, w2                     // w0<- fp[A]
     FETCH_ADVANCE_INST 2                // advance rPC, load rINST
@@ -6670,7 +6714,6 @@ artMterpAsmInstructionStart = .L_op_nop
     FETCH w1, 1                         // w1<- field byte offset
     GET_VREG w3, w2                     // w3<- fp[B], the object pointer
     ubfx    w2, wINST, #8, #4           // w2<- A
-    cmp     w3, #0                      // check object for null
     cbz     w3, common_errNullObject    // object was null
     GET_VREG w0, w2                     // w0<- fp[A]
     FETCH_ADVANCE_INST 2                // advance rPC, load rINST
@@ -6690,7 +6733,6 @@ artMterpAsmInstructionStart = .L_op_nop
     FETCH w1, 1                         // w1<- field byte offset
     GET_VREG w3, w2                     // w3<- fp[B], the object pointer
     ubfx    w2, wINST, #8, #4           // w2<- A
-    cmp     w3, #0                      // check object for null
     cbz     w3, common_errNullObject    // object was null
     GET_VREG w0, w2                     // w0<- fp[A]
     FETCH_ADVANCE_INST 2                // advance rPC, load rINST
@@ -6710,8 +6752,7 @@ artMterpAsmInstructionStart = .L_op_nop
     FETCH w1, 1                         // w1<- field byte offset
     GET_VREG w3, w2                     // w3<- object we're operating on
     ubfx    w2, wINST, #8, #4           // w2<- A
-    cmp     x3, #0                      // check object for null
-    beq     common_errNullObject        // object was null
+    cbz     w3, common_errNullObject    // object was null
     ldrb   w0, [x3, x1]                // w0<- obj.field
     FETCH_ADVANCE_INST 2                // advance rPC, load rINST
     
@@ -6731,8 +6772,7 @@ artMterpAsmInstructionStart = .L_op_nop
     FETCH w1, 1                         // w1<- field byte offset
     GET_VREG w3, w2                     // w3<- object we're operating on
     ubfx    w2, wINST, #8, #4           // w2<- A
-    cmp     x3, #0                      // check object for null
-    beq     common_errNullObject        // object was null
+    cbz     w3, common_errNullObject    // object was null
     ldrsb   w0, [x3, x1]                // w0<- obj.field
     FETCH_ADVANCE_INST 2                // advance rPC, load rINST
     
@@ -6752,8 +6792,7 @@ artMterpAsmInstructionStart = .L_op_nop
     FETCH w1, 1                         // w1<- field byte offset
     GET_VREG w3, w2                     // w3<- object we're operating on
     ubfx    w2, wINST, #8, #4           // w2<- A
-    cmp     x3, #0                      // check object for null
-    beq     common_errNullObject        // object was null
+    cbz     w3, common_errNullObject    // object was null
     ldrh   w0, [x3, x1]                // w0<- obj.field
     FETCH_ADVANCE_INST 2                // advance rPC, load rINST
     
@@ -6773,8 +6812,7 @@ artMterpAsmInstructionStart = .L_op_nop
     FETCH w1, 1                         // w1<- field byte offset
     GET_VREG w3, w2                     // w3<- object we're operating on
     ubfx    w2, wINST, #8, #4           // w2<- A
-    cmp     x3, #0                      // check object for null
-    beq     common_errNullObject        // object was null
+    cbz     w3, common_errNullObject    // object was null
     ldrsh   w0, [x3, x1]                // w0<- obj.field
     FETCH_ADVANCE_INST 2                // advance rPC, load rINST
     
@@ -6785,9 +6823,13 @@ artMterpAsmInstructionStart = .L_op_nop
 
 /* ------------------------------ */
     .balign 128
-.L_op_invoke_lambda: /* 0xf3 */
-/* Transfer stub to alternate interpreter */
-    b    MterpFallback
+.L_op_unused_f3: /* 0xf3 */
+/* File: arm64/op_unused_f3.S */
+/* File: arm64/unused.S */
+/*
+ * Bail to reference interpreter to throw.
+ */
+  b MterpFallback
 
 
 /* ------------------------------ */
@@ -6803,43 +6845,8 @@ artMterpAsmInstructionStart = .L_op_nop
 
 /* ------------------------------ */
     .balign 128
-.L_op_capture_variable: /* 0xf5 */
-/* Transfer stub to alternate interpreter */
-    b    MterpFallback
-
-
-/* ------------------------------ */
-    .balign 128
-.L_op_create_lambda: /* 0xf6 */
-/* Transfer stub to alternate interpreter */
-    b    MterpFallback
-
-
-/* ------------------------------ */
-    .balign 128
-.L_op_liberate_variable: /* 0xf7 */
-/* Transfer stub to alternate interpreter */
-    b    MterpFallback
-
-
-/* ------------------------------ */
-    .balign 128
-.L_op_box_lambda: /* 0xf8 */
-/* Transfer stub to alternate interpreter */
-    b    MterpFallback
-
-
-/* ------------------------------ */
-    .balign 128
-.L_op_unbox_lambda: /* 0xf9 */
-/* Transfer stub to alternate interpreter */
-    b    MterpFallback
-
-
-/* ------------------------------ */
-    .balign 128
-.L_op_unused_fa: /* 0xfa */
-/* File: arm64/op_unused_fa.S */
+.L_op_unused_f5: /* 0xf5 */
+/* File: arm64/op_unused_f5.S */
 /* File: arm64/unused.S */
 /*
  * Bail to reference interpreter to throw.
@@ -6849,8 +6856,8 @@ artMterpAsmInstructionStart = .L_op_nop
 
 /* ------------------------------ */
     .balign 128
-.L_op_unused_fb: /* 0xfb */
-/* File: arm64/op_unused_fb.S */
+.L_op_unused_f6: /* 0xf6 */
+/* File: arm64/op_unused_f6.S */
 /* File: arm64/unused.S */
 /*
  * Bail to reference interpreter to throw.
@@ -6860,8 +6867,8 @@ artMterpAsmInstructionStart = .L_op_nop
 
 /* ------------------------------ */
     .balign 128
-.L_op_unused_fc: /* 0xfc */
-/* File: arm64/op_unused_fc.S */
+.L_op_unused_f7: /* 0xf7 */
+/* File: arm64/op_unused_f7.S */
 /* File: arm64/unused.S */
 /*
  * Bail to reference interpreter to throw.
@@ -6871,13 +6878,52 @@ artMterpAsmInstructionStart = .L_op_nop
 
 /* ------------------------------ */
     .balign 128
-.L_op_unused_fd: /* 0xfd */
-/* File: arm64/op_unused_fd.S */
+.L_op_unused_f8: /* 0xf8 */
+/* File: arm64/op_unused_f8.S */
 /* File: arm64/unused.S */
 /*
  * Bail to reference interpreter to throw.
  */
   b MterpFallback
+
+
+/* ------------------------------ */
+    .balign 128
+.L_op_unused_f9: /* 0xf9 */
+/* File: arm64/op_unused_f9.S */
+/* File: arm64/unused.S */
+/*
+ * Bail to reference interpreter to throw.
+ */
+  b MterpFallback
+
+
+/* ------------------------------ */
+    .balign 128
+.L_op_invoke_polymorphic: /* 0xfa */
+/* Transfer stub to alternate interpreter */
+    b    MterpFallback
+
+
+/* ------------------------------ */
+    .balign 128
+.L_op_invoke_polymorphic_range: /* 0xfb */
+/* Transfer stub to alternate interpreter */
+    b    MterpFallback
+
+
+/* ------------------------------ */
+    .balign 128
+.L_op_invoke_custom: /* 0xfc */
+/* Transfer stub to alternate interpreter */
+    b    MterpFallback
+
+
+/* ------------------------------ */
+    .balign 128
+.L_op_invoke_custom_range: /* 0xfd */
+/* Transfer stub to alternate interpreter */
+    b    MterpFallback
 
 
 /* ------------------------------ */
@@ -6922,4368 +6968,6 @@ artMterpAsmSisterStart:
     .global artMterpAsmSisterEnd
 artMterpAsmSisterEnd:
 
-
-    .global artMterpAsmAltInstructionStart
-    .type   artMterpAsmAltInstructionStart, %function
-    .text
-
-artMterpAsmAltInstructionStart = .L_ALT_op_nop
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_nop: /* 0x00 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (0 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_move: /* 0x01 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (1 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_move_from16: /* 0x02 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (2 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_move_16: /* 0x03 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (3 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_move_wide: /* 0x04 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (4 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_move_wide_from16: /* 0x05 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (5 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_move_wide_16: /* 0x06 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (6 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_move_object: /* 0x07 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (7 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_move_object_from16: /* 0x08 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (8 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_move_object_16: /* 0x09 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (9 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_move_result: /* 0x0a */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (10 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_move_result_wide: /* 0x0b */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (11 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_move_result_object: /* 0x0c */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (12 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_move_exception: /* 0x0d */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (13 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_return_void: /* 0x0e */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (14 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_return: /* 0x0f */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (15 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_return_wide: /* 0x10 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (16 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_return_object: /* 0x11 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (17 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_const_4: /* 0x12 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (18 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_const_16: /* 0x13 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (19 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_const: /* 0x14 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (20 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_const_high16: /* 0x15 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (21 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_const_wide_16: /* 0x16 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (22 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_const_wide_32: /* 0x17 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (23 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_const_wide: /* 0x18 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (24 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_const_wide_high16: /* 0x19 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (25 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_const_string: /* 0x1a */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (26 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_const_string_jumbo: /* 0x1b */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (27 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_const_class: /* 0x1c */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (28 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_monitor_enter: /* 0x1d */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (29 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_monitor_exit: /* 0x1e */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (30 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_check_cast: /* 0x1f */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (31 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_instance_of: /* 0x20 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (32 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_array_length: /* 0x21 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (33 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_new_instance: /* 0x22 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (34 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_new_array: /* 0x23 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (35 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_filled_new_array: /* 0x24 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (36 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_filled_new_array_range: /* 0x25 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (37 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_fill_array_data: /* 0x26 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (38 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_throw: /* 0x27 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (39 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_goto: /* 0x28 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (40 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_goto_16: /* 0x29 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (41 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_goto_32: /* 0x2a */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (42 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_packed_switch: /* 0x2b */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (43 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_sparse_switch: /* 0x2c */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (44 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_cmpl_float: /* 0x2d */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (45 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_cmpg_float: /* 0x2e */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (46 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_cmpl_double: /* 0x2f */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (47 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_cmpg_double: /* 0x30 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (48 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_cmp_long: /* 0x31 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (49 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_if_eq: /* 0x32 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (50 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_if_ne: /* 0x33 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (51 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_if_lt: /* 0x34 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (52 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_if_ge: /* 0x35 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (53 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_if_gt: /* 0x36 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (54 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_if_le: /* 0x37 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (55 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_if_eqz: /* 0x38 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (56 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_if_nez: /* 0x39 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (57 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_if_ltz: /* 0x3a */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (58 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_if_gez: /* 0x3b */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (59 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_if_gtz: /* 0x3c */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (60 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_if_lez: /* 0x3d */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (61 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_unused_3e: /* 0x3e */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (62 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_unused_3f: /* 0x3f */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (63 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_unused_40: /* 0x40 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (64 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_unused_41: /* 0x41 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (65 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_unused_42: /* 0x42 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (66 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_unused_43: /* 0x43 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (67 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_aget: /* 0x44 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (68 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_aget_wide: /* 0x45 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (69 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_aget_object: /* 0x46 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (70 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_aget_boolean: /* 0x47 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (71 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_aget_byte: /* 0x48 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (72 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_aget_char: /* 0x49 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (73 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_aget_short: /* 0x4a */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (74 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_aput: /* 0x4b */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (75 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_aput_wide: /* 0x4c */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (76 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_aput_object: /* 0x4d */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (77 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_aput_boolean: /* 0x4e */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (78 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_aput_byte: /* 0x4f */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (79 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_aput_char: /* 0x50 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (80 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_aput_short: /* 0x51 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (81 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_iget: /* 0x52 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (82 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_iget_wide: /* 0x53 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (83 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_iget_object: /* 0x54 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (84 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_iget_boolean: /* 0x55 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (85 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_iget_byte: /* 0x56 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (86 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_iget_char: /* 0x57 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (87 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_iget_short: /* 0x58 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (88 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_iput: /* 0x59 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (89 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_iput_wide: /* 0x5a */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (90 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_iput_object: /* 0x5b */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (91 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_iput_boolean: /* 0x5c */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (92 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_iput_byte: /* 0x5d */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (93 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_iput_char: /* 0x5e */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (94 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_iput_short: /* 0x5f */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (95 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_sget: /* 0x60 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (96 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_sget_wide: /* 0x61 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (97 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_sget_object: /* 0x62 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (98 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_sget_boolean: /* 0x63 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (99 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_sget_byte: /* 0x64 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (100 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_sget_char: /* 0x65 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (101 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_sget_short: /* 0x66 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (102 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_sput: /* 0x67 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (103 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_sput_wide: /* 0x68 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (104 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_sput_object: /* 0x69 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (105 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_sput_boolean: /* 0x6a */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (106 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_sput_byte: /* 0x6b */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (107 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_sput_char: /* 0x6c */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (108 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_sput_short: /* 0x6d */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (109 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_invoke_virtual: /* 0x6e */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (110 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_invoke_super: /* 0x6f */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (111 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_invoke_direct: /* 0x70 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (112 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_invoke_static: /* 0x71 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (113 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_invoke_interface: /* 0x72 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (114 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_return_void_no_barrier: /* 0x73 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (115 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_invoke_virtual_range: /* 0x74 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (116 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_invoke_super_range: /* 0x75 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (117 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_invoke_direct_range: /* 0x76 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (118 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_invoke_static_range: /* 0x77 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (119 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_invoke_interface_range: /* 0x78 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (120 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_unused_79: /* 0x79 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (121 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_unused_7a: /* 0x7a */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (122 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_neg_int: /* 0x7b */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (123 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_not_int: /* 0x7c */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (124 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_neg_long: /* 0x7d */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (125 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_not_long: /* 0x7e */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (126 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_neg_float: /* 0x7f */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (127 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_neg_double: /* 0x80 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (128 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_int_to_long: /* 0x81 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (129 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_int_to_float: /* 0x82 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (130 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_int_to_double: /* 0x83 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (131 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_long_to_int: /* 0x84 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (132 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_long_to_float: /* 0x85 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (133 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_long_to_double: /* 0x86 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (134 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_float_to_int: /* 0x87 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (135 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_float_to_long: /* 0x88 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (136 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_float_to_double: /* 0x89 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (137 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_double_to_int: /* 0x8a */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (138 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_double_to_long: /* 0x8b */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (139 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_double_to_float: /* 0x8c */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (140 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_int_to_byte: /* 0x8d */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (141 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_int_to_char: /* 0x8e */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (142 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_int_to_short: /* 0x8f */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (143 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_add_int: /* 0x90 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (144 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_sub_int: /* 0x91 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (145 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_mul_int: /* 0x92 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (146 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_div_int: /* 0x93 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (147 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_rem_int: /* 0x94 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (148 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_and_int: /* 0x95 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (149 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_or_int: /* 0x96 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (150 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_xor_int: /* 0x97 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (151 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_shl_int: /* 0x98 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (152 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_shr_int: /* 0x99 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (153 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_ushr_int: /* 0x9a */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (154 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_add_long: /* 0x9b */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (155 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_sub_long: /* 0x9c */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (156 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_mul_long: /* 0x9d */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (157 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_div_long: /* 0x9e */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (158 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_rem_long: /* 0x9f */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (159 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_and_long: /* 0xa0 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (160 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_or_long: /* 0xa1 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (161 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_xor_long: /* 0xa2 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (162 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_shl_long: /* 0xa3 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (163 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_shr_long: /* 0xa4 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (164 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_ushr_long: /* 0xa5 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (165 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_add_float: /* 0xa6 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (166 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_sub_float: /* 0xa7 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (167 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_mul_float: /* 0xa8 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (168 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_div_float: /* 0xa9 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (169 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_rem_float: /* 0xaa */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (170 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_add_double: /* 0xab */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (171 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_sub_double: /* 0xac */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (172 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_mul_double: /* 0xad */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (173 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_div_double: /* 0xae */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (174 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_rem_double: /* 0xaf */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (175 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_add_int_2addr: /* 0xb0 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (176 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_sub_int_2addr: /* 0xb1 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (177 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_mul_int_2addr: /* 0xb2 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (178 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_div_int_2addr: /* 0xb3 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (179 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_rem_int_2addr: /* 0xb4 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (180 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_and_int_2addr: /* 0xb5 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (181 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_or_int_2addr: /* 0xb6 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (182 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_xor_int_2addr: /* 0xb7 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (183 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_shl_int_2addr: /* 0xb8 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (184 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_shr_int_2addr: /* 0xb9 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (185 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_ushr_int_2addr: /* 0xba */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (186 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_add_long_2addr: /* 0xbb */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (187 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_sub_long_2addr: /* 0xbc */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (188 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_mul_long_2addr: /* 0xbd */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (189 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_div_long_2addr: /* 0xbe */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (190 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_rem_long_2addr: /* 0xbf */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (191 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_and_long_2addr: /* 0xc0 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (192 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_or_long_2addr: /* 0xc1 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (193 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_xor_long_2addr: /* 0xc2 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (194 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_shl_long_2addr: /* 0xc3 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (195 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_shr_long_2addr: /* 0xc4 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (196 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_ushr_long_2addr: /* 0xc5 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (197 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_add_float_2addr: /* 0xc6 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (198 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_sub_float_2addr: /* 0xc7 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (199 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_mul_float_2addr: /* 0xc8 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (200 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_div_float_2addr: /* 0xc9 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (201 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_rem_float_2addr: /* 0xca */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (202 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_add_double_2addr: /* 0xcb */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (203 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_sub_double_2addr: /* 0xcc */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (204 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_mul_double_2addr: /* 0xcd */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (205 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_div_double_2addr: /* 0xce */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (206 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_rem_double_2addr: /* 0xcf */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (207 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_add_int_lit16: /* 0xd0 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (208 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_rsub_int: /* 0xd1 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (209 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_mul_int_lit16: /* 0xd2 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (210 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_div_int_lit16: /* 0xd3 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (211 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_rem_int_lit16: /* 0xd4 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (212 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_and_int_lit16: /* 0xd5 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (213 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_or_int_lit16: /* 0xd6 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (214 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_xor_int_lit16: /* 0xd7 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (215 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_add_int_lit8: /* 0xd8 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (216 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_rsub_int_lit8: /* 0xd9 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (217 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_mul_int_lit8: /* 0xda */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (218 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_div_int_lit8: /* 0xdb */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (219 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_rem_int_lit8: /* 0xdc */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (220 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_and_int_lit8: /* 0xdd */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (221 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_or_int_lit8: /* 0xde */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (222 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_xor_int_lit8: /* 0xdf */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (223 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_shl_int_lit8: /* 0xe0 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (224 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_shr_int_lit8: /* 0xe1 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (225 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_ushr_int_lit8: /* 0xe2 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (226 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_iget_quick: /* 0xe3 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (227 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_iget_wide_quick: /* 0xe4 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (228 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_iget_object_quick: /* 0xe5 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (229 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_iput_quick: /* 0xe6 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (230 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_iput_wide_quick: /* 0xe7 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (231 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_iput_object_quick: /* 0xe8 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (232 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_invoke_virtual_quick: /* 0xe9 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (233 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_invoke_virtual_range_quick: /* 0xea */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (234 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_iput_boolean_quick: /* 0xeb */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (235 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_iput_byte_quick: /* 0xec */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (236 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_iput_char_quick: /* 0xed */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (237 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_iput_short_quick: /* 0xee */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (238 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_iget_boolean_quick: /* 0xef */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (239 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_iget_byte_quick: /* 0xf0 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (240 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_iget_char_quick: /* 0xf1 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (241 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_iget_short_quick: /* 0xf2 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (242 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_invoke_lambda: /* 0xf3 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (243 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_unused_f4: /* 0xf4 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (244 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_capture_variable: /* 0xf5 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (245 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_create_lambda: /* 0xf6 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (246 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_liberate_variable: /* 0xf7 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (247 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_box_lambda: /* 0xf8 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (248 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_unbox_lambda: /* 0xf9 */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (249 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_unused_fa: /* 0xfa */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (250 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_unused_fb: /* 0xfb */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (251 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_unused_fc: /* 0xfc */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (252 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_unused_fd: /* 0xfd */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (253 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_unused_fe: /* 0xfe */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (254 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-/* ------------------------------ */
-    .balign 128
-.L_ALT_op_unused_ff: /* 0xff */
-/* File: arm64/alt_stub.S */
-/*
- * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
- * any interesting requests and then jump to the real instruction
- * handler.  Note that the call to MterpCheckBefore is done as a tail call.
- */
-    .extern MterpCheckBefore
-    EXPORT_PC
-    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
-    adr    lr, artMterpAsmInstructionStart + (255 * 128)       // Addr of primary handler.
-    mov    x0, xSELF
-    add    x1, xFP, #OFF_FP_SHADOWFRAME
-    b      MterpCheckBefore     // (self, shadow_frame) Note: tail call.
-
-    .balign 128
-    .size   artMterpAsmAltInstructionStart, .-artMterpAsmAltInstructionStart
-    .global artMterpAsmAltInstructionEnd
-artMterpAsmAltInstructionEnd:
 /* File: arm64/footer.S */
 /*
  * ===========================================================================
@@ -11428,7 +7112,7 @@ MterpCommonTakenBranchNoFlags:
     add     w2, wINST, wINST            // w2<- byte offset
     FETCH_ADVANCE_INST_RB w2            // update rPC, load wINST
     REFRESH_IBASE
-    ands    lr, lr, #(THREAD_SUSPEND_REQUEST | THREAD_CHECKPOINT_REQUEST)
+    ands    lr, lr, #THREAD_SUSPEND_OR_CHECKPOINT_REQUEST
     b.ne    .L_suspend_request_pending
     GET_INST_OPCODE ip                  // extract opcode from wINST
     GOTO_OPCODE ip                      // jump to next instruction
@@ -11502,7 +7186,7 @@ MterpCommonTakenBranchNoFlags:
  */
 MterpCheckSuspendAndContinue:
     ldr     xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]  // refresh xIBASE
-    ands    w7, w7, #(THREAD_SUSPEND_REQUEST | THREAD_CHECKPOINT_REQUEST)
+    ands    w7, w7, #THREAD_SUSPEND_OR_CHECKPOINT_REQUEST
     b.ne    check1
     GET_INST_OPCODE ip                  // extract opcode from wINST
     GOTO_OPCODE ip                      // jump to next instruction
@@ -11521,7 +7205,7 @@ MterpOnStackReplacement:
 #if MTERP_LOGGING
     mov  x0, xSELF
     add  x1, xFP, #OFF_FP_SHADOWFRAME
-    sbfm x2, xINST, 0, 31
+    sxtw x2, wINST
     bl MterpLogOSR
 #endif
     mov  x0, #1                         // Signal normal return
@@ -11554,13 +7238,7 @@ MterpExceptionReturn:
     b MterpDone
 MterpReturn:
     ldr     x2, [xFP, #OFF_FP_RESULT_REGISTER]
-    ldr     lr, [xSELF, #THREAD_FLAGS_OFFSET]
     str     x0, [x2]
-    mov     x0, xSELF
-    ands    lr, lr, #(THREAD_SUSPEND_REQUEST | THREAD_CHECKPOINT_REQUEST)
-    b.eq    check2
-    bl      MterpSuspendCheck                       // (self)
-check2:
     mov     x0, #1                                  // signal return to caller.
 MterpDone:
 /*
@@ -11572,12 +7250,15 @@ MterpDone:
  */
     cmp     wPROFILE, #0
     bgt     MterpProfileActive                      // if > 0, we may have some counts to report.
-    ldp     fp, lr, [sp, #64]
-    ldp     xPC, xFP, [sp, #48]
-    ldp     xSELF, xINST, [sp, #32]
-    ldp     xIBASE, xREFS, [sp, #16]
-    ldp     xPROFILE, x27, [sp], #80
+    .cfi_remember_state
+    RESTORE_TWO_REGS                fp, lr, 64
+    RESTORE_TWO_REGS                xPC, xFP, 48
+    RESTORE_TWO_REGS                xSELF, xINST, 32
+    RESTORE_TWO_REGS                xIBASE, xREFS, 16
+    RESTORE_TWO_REGS_DECREASE_FRAME xPROFILE, x27, 80
     ret
+    .cfi_restore_state                              // Reset unwind info so following code unwinds.
+    .cfi_def_cfa_offset 80                          // workaround for clang bug: 31975598
 
 MterpProfileActive:
     mov     xINST, x0                               // stash return value
@@ -11588,14 +7269,4376 @@ MterpProfileActive:
     strh    wPROFILE, [x1, #SHADOWFRAME_HOTNESS_COUNTDOWN_OFFSET]
     bl      MterpAddHotnessBatch                    // (method, shadow_frame, self)
     mov     x0, xINST                               // restore return value
-    ldp     fp, lr, [sp, #64]
-    ldp     xPC, xFP, [sp, #48]
-    ldp     xSELF, xINST, [sp, #32]
-    ldp     xIBASE, xREFS, [sp, #16]
-    ldp     xPROFILE, x27, [sp], #80
+    RESTORE_TWO_REGS                fp, lr, 64
+    RESTORE_TWO_REGS                xPC, xFP, 48
+    RESTORE_TWO_REGS                xSELF, xINST, 32
+    RESTORE_TWO_REGS                xIBASE, xREFS, 16
+    RESTORE_TWO_REGS_DECREASE_FRAME xPROFILE, x27, 80
     ret
 
     .cfi_endproc
     .size   ExecuteMterpImpl, .-ExecuteMterpImpl
 
 
+
+    .global artMterpAsmAltInstructionStart
+    .type   artMterpAsmAltInstructionStart, %function
+    .text
+
+artMterpAsmAltInstructionStart = .L_ALT_op_nop
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_nop: /* 0x00 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (0 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_move: /* 0x01 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (1 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_move_from16: /* 0x02 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (2 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_move_16: /* 0x03 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (3 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_move_wide: /* 0x04 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (4 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_move_wide_from16: /* 0x05 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (5 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_move_wide_16: /* 0x06 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (6 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_move_object: /* 0x07 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (7 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_move_object_from16: /* 0x08 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (8 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_move_object_16: /* 0x09 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (9 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_move_result: /* 0x0a */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (10 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_move_result_wide: /* 0x0b */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (11 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_move_result_object: /* 0x0c */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (12 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_move_exception: /* 0x0d */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (13 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_return_void: /* 0x0e */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (14 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_return: /* 0x0f */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (15 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_return_wide: /* 0x10 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (16 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_return_object: /* 0x11 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (17 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_const_4: /* 0x12 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (18 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_const_16: /* 0x13 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (19 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_const: /* 0x14 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (20 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_const_high16: /* 0x15 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (21 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_const_wide_16: /* 0x16 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (22 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_const_wide_32: /* 0x17 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (23 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_const_wide: /* 0x18 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (24 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_const_wide_high16: /* 0x19 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (25 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_const_string: /* 0x1a */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (26 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_const_string_jumbo: /* 0x1b */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (27 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_const_class: /* 0x1c */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (28 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_monitor_enter: /* 0x1d */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (29 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_monitor_exit: /* 0x1e */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (30 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_check_cast: /* 0x1f */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (31 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_instance_of: /* 0x20 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (32 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_array_length: /* 0x21 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (33 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_new_instance: /* 0x22 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (34 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_new_array: /* 0x23 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (35 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_filled_new_array: /* 0x24 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (36 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_filled_new_array_range: /* 0x25 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (37 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_fill_array_data: /* 0x26 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (38 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_throw: /* 0x27 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (39 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_goto: /* 0x28 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (40 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_goto_16: /* 0x29 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (41 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_goto_32: /* 0x2a */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (42 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_packed_switch: /* 0x2b */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (43 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_sparse_switch: /* 0x2c */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (44 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_cmpl_float: /* 0x2d */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (45 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_cmpg_float: /* 0x2e */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (46 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_cmpl_double: /* 0x2f */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (47 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_cmpg_double: /* 0x30 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (48 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_cmp_long: /* 0x31 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (49 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_if_eq: /* 0x32 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (50 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_if_ne: /* 0x33 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (51 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_if_lt: /* 0x34 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (52 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_if_ge: /* 0x35 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (53 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_if_gt: /* 0x36 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (54 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_if_le: /* 0x37 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (55 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_if_eqz: /* 0x38 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (56 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_if_nez: /* 0x39 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (57 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_if_ltz: /* 0x3a */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (58 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_if_gez: /* 0x3b */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (59 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_if_gtz: /* 0x3c */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (60 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_if_lez: /* 0x3d */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (61 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_unused_3e: /* 0x3e */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (62 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_unused_3f: /* 0x3f */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (63 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_unused_40: /* 0x40 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (64 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_unused_41: /* 0x41 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (65 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_unused_42: /* 0x42 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (66 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_unused_43: /* 0x43 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (67 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_aget: /* 0x44 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (68 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_aget_wide: /* 0x45 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (69 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_aget_object: /* 0x46 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (70 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_aget_boolean: /* 0x47 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (71 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_aget_byte: /* 0x48 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (72 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_aget_char: /* 0x49 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (73 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_aget_short: /* 0x4a */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (74 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_aput: /* 0x4b */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (75 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_aput_wide: /* 0x4c */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (76 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_aput_object: /* 0x4d */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (77 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_aput_boolean: /* 0x4e */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (78 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_aput_byte: /* 0x4f */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (79 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_aput_char: /* 0x50 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (80 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_aput_short: /* 0x51 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (81 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_iget: /* 0x52 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (82 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_iget_wide: /* 0x53 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (83 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_iget_object: /* 0x54 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (84 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_iget_boolean: /* 0x55 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (85 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_iget_byte: /* 0x56 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (86 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_iget_char: /* 0x57 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (87 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_iget_short: /* 0x58 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (88 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_iput: /* 0x59 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (89 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_iput_wide: /* 0x5a */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (90 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_iput_object: /* 0x5b */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (91 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_iput_boolean: /* 0x5c */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (92 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_iput_byte: /* 0x5d */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (93 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_iput_char: /* 0x5e */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (94 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_iput_short: /* 0x5f */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (95 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_sget: /* 0x60 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (96 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_sget_wide: /* 0x61 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (97 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_sget_object: /* 0x62 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (98 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_sget_boolean: /* 0x63 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (99 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_sget_byte: /* 0x64 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (100 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_sget_char: /* 0x65 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (101 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_sget_short: /* 0x66 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (102 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_sput: /* 0x67 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (103 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_sput_wide: /* 0x68 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (104 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_sput_object: /* 0x69 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (105 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_sput_boolean: /* 0x6a */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (106 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_sput_byte: /* 0x6b */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (107 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_sput_char: /* 0x6c */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (108 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_sput_short: /* 0x6d */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (109 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_invoke_virtual: /* 0x6e */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (110 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_invoke_super: /* 0x6f */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (111 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_invoke_direct: /* 0x70 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (112 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_invoke_static: /* 0x71 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (113 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_invoke_interface: /* 0x72 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (114 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_return_void_no_barrier: /* 0x73 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (115 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_invoke_virtual_range: /* 0x74 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (116 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_invoke_super_range: /* 0x75 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (117 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_invoke_direct_range: /* 0x76 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (118 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_invoke_static_range: /* 0x77 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (119 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_invoke_interface_range: /* 0x78 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (120 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_unused_79: /* 0x79 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (121 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_unused_7a: /* 0x7a */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (122 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_neg_int: /* 0x7b */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (123 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_not_int: /* 0x7c */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (124 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_neg_long: /* 0x7d */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (125 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_not_long: /* 0x7e */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (126 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_neg_float: /* 0x7f */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (127 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_neg_double: /* 0x80 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (128 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_int_to_long: /* 0x81 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (129 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_int_to_float: /* 0x82 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (130 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_int_to_double: /* 0x83 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (131 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_long_to_int: /* 0x84 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (132 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_long_to_float: /* 0x85 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (133 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_long_to_double: /* 0x86 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (134 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_float_to_int: /* 0x87 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (135 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_float_to_long: /* 0x88 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (136 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_float_to_double: /* 0x89 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (137 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_double_to_int: /* 0x8a */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (138 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_double_to_long: /* 0x8b */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (139 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_double_to_float: /* 0x8c */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (140 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_int_to_byte: /* 0x8d */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (141 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_int_to_char: /* 0x8e */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (142 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_int_to_short: /* 0x8f */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (143 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_add_int: /* 0x90 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (144 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_sub_int: /* 0x91 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (145 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_mul_int: /* 0x92 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (146 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_div_int: /* 0x93 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (147 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_rem_int: /* 0x94 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (148 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_and_int: /* 0x95 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (149 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_or_int: /* 0x96 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (150 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_xor_int: /* 0x97 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (151 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_shl_int: /* 0x98 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (152 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_shr_int: /* 0x99 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (153 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_ushr_int: /* 0x9a */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (154 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_add_long: /* 0x9b */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (155 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_sub_long: /* 0x9c */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (156 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_mul_long: /* 0x9d */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (157 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_div_long: /* 0x9e */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (158 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_rem_long: /* 0x9f */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (159 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_and_long: /* 0xa0 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (160 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_or_long: /* 0xa1 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (161 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_xor_long: /* 0xa2 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (162 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_shl_long: /* 0xa3 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (163 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_shr_long: /* 0xa4 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (164 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_ushr_long: /* 0xa5 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (165 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_add_float: /* 0xa6 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (166 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_sub_float: /* 0xa7 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (167 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_mul_float: /* 0xa8 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (168 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_div_float: /* 0xa9 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (169 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_rem_float: /* 0xaa */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (170 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_add_double: /* 0xab */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (171 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_sub_double: /* 0xac */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (172 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_mul_double: /* 0xad */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (173 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_div_double: /* 0xae */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (174 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_rem_double: /* 0xaf */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (175 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_add_int_2addr: /* 0xb0 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (176 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_sub_int_2addr: /* 0xb1 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (177 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_mul_int_2addr: /* 0xb2 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (178 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_div_int_2addr: /* 0xb3 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (179 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_rem_int_2addr: /* 0xb4 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (180 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_and_int_2addr: /* 0xb5 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (181 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_or_int_2addr: /* 0xb6 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (182 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_xor_int_2addr: /* 0xb7 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (183 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_shl_int_2addr: /* 0xb8 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (184 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_shr_int_2addr: /* 0xb9 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (185 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_ushr_int_2addr: /* 0xba */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (186 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_add_long_2addr: /* 0xbb */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (187 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_sub_long_2addr: /* 0xbc */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (188 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_mul_long_2addr: /* 0xbd */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (189 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_div_long_2addr: /* 0xbe */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (190 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_rem_long_2addr: /* 0xbf */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (191 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_and_long_2addr: /* 0xc0 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (192 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_or_long_2addr: /* 0xc1 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (193 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_xor_long_2addr: /* 0xc2 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (194 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_shl_long_2addr: /* 0xc3 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (195 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_shr_long_2addr: /* 0xc4 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (196 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_ushr_long_2addr: /* 0xc5 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (197 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_add_float_2addr: /* 0xc6 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (198 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_sub_float_2addr: /* 0xc7 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (199 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_mul_float_2addr: /* 0xc8 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (200 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_div_float_2addr: /* 0xc9 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (201 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_rem_float_2addr: /* 0xca */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (202 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_add_double_2addr: /* 0xcb */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (203 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_sub_double_2addr: /* 0xcc */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (204 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_mul_double_2addr: /* 0xcd */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (205 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_div_double_2addr: /* 0xce */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (206 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_rem_double_2addr: /* 0xcf */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (207 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_add_int_lit16: /* 0xd0 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (208 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_rsub_int: /* 0xd1 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (209 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_mul_int_lit16: /* 0xd2 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (210 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_div_int_lit16: /* 0xd3 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (211 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_rem_int_lit16: /* 0xd4 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (212 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_and_int_lit16: /* 0xd5 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (213 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_or_int_lit16: /* 0xd6 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (214 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_xor_int_lit16: /* 0xd7 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (215 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_add_int_lit8: /* 0xd8 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (216 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_rsub_int_lit8: /* 0xd9 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (217 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_mul_int_lit8: /* 0xda */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (218 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_div_int_lit8: /* 0xdb */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (219 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_rem_int_lit8: /* 0xdc */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (220 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_and_int_lit8: /* 0xdd */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (221 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_or_int_lit8: /* 0xde */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (222 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_xor_int_lit8: /* 0xdf */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (223 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_shl_int_lit8: /* 0xe0 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (224 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_shr_int_lit8: /* 0xe1 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (225 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_ushr_int_lit8: /* 0xe2 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (226 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_iget_quick: /* 0xe3 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (227 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_iget_wide_quick: /* 0xe4 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (228 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_iget_object_quick: /* 0xe5 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (229 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_iput_quick: /* 0xe6 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (230 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_iput_wide_quick: /* 0xe7 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (231 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_iput_object_quick: /* 0xe8 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (232 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_invoke_virtual_quick: /* 0xe9 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (233 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_invoke_virtual_range_quick: /* 0xea */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (234 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_iput_boolean_quick: /* 0xeb */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (235 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_iput_byte_quick: /* 0xec */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (236 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_iput_char_quick: /* 0xed */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (237 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_iput_short_quick: /* 0xee */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (238 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_iget_boolean_quick: /* 0xef */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (239 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_iget_byte_quick: /* 0xf0 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (240 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_iget_char_quick: /* 0xf1 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (241 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_iget_short_quick: /* 0xf2 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (242 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_unused_f3: /* 0xf3 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (243 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_unused_f4: /* 0xf4 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (244 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_unused_f5: /* 0xf5 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (245 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_unused_f6: /* 0xf6 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (246 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_unused_f7: /* 0xf7 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (247 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_unused_f8: /* 0xf8 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (248 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_unused_f9: /* 0xf9 */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (249 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_invoke_polymorphic: /* 0xfa */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (250 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_invoke_polymorphic_range: /* 0xfb */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (251 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_invoke_custom: /* 0xfc */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (252 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_invoke_custom_range: /* 0xfd */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (253 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_unused_fe: /* 0xfe */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (254 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+/* ------------------------------ */
+    .balign 128
+.L_ALT_op_unused_ff: /* 0xff */
+/* File: arm64/alt_stub.S */
+/*
+ * Inter-instruction transfer stub.  Call out to MterpCheckBefore to handle
+ * any interesting requests and then jump to the real instruction
+ * handler.  Note that the call to MterpCheckBefore is done as a tail call.
+ */
+    .extern MterpCheckBefore
+    ldr    xIBASE, [xSELF, #THREAD_CURRENT_IBASE_OFFSET]            // refresh IBASE.
+    adr    lr, artMterpAsmInstructionStart + (255 * 128)       // Addr of primary handler.
+    mov    x0, xSELF
+    add    x1, xFP, #OFF_FP_SHADOWFRAME
+    mov    x2, xPC
+    b      MterpCheckBefore     // (self, shadow_frame, dex_pc_ptr) Note: tail call.
+
+    .balign 128
+    .size   artMterpAsmAltInstructionStart, .-artMterpAsmAltInstructionStart
+    .global artMterpAsmAltInstructionEnd
+artMterpAsmAltInstructionEnd:

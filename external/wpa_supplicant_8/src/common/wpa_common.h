@@ -48,10 +48,8 @@ WPA_CIPHER_GTK_NOT_USED)
 
 #define RSN_AUTH_KEY_MGMT_UNSPEC_802_1X RSN_SELECTOR(0x00, 0x0f, 0xac, 1)
 #define RSN_AUTH_KEY_MGMT_PSK_OVER_802_1X RSN_SELECTOR(0x00, 0x0f, 0xac, 2)
-#ifdef CONFIG_IEEE80211R
 #define RSN_AUTH_KEY_MGMT_FT_802_1X RSN_SELECTOR(0x00, 0x0f, 0xac, 3)
 #define RSN_AUTH_KEY_MGMT_FT_PSK RSN_SELECTOR(0x00, 0x0f, 0xac, 4)
-#endif /* CONFIG_IEEE80211R */
 #define RSN_AUTH_KEY_MGMT_802_1X_SHA256 RSN_SELECTOR(0x00, 0x0f, 0xac, 5)
 #define RSN_AUTH_KEY_MGMT_PSK_SHA256 RSN_SELECTOR(0x00, 0x0f, 0xac, 6)
 #define RSN_AUTH_KEY_MGMT_TPK_HANDSHAKE RSN_SELECTOR(0x00, 0x0f, 0xac, 7)
@@ -61,15 +59,21 @@ WPA_CIPHER_GTK_NOT_USED)
 #define RSN_AUTH_KEY_MGMT_802_1X_SUITE_B_192 RSN_SELECTOR(0x00, 0x0f, 0xac, 12)
 #define RSN_AUTH_KEY_MGMT_FT_802_1X_SUITE_B_192 \
 RSN_SELECTOR(0x00, 0x0f, 0xac, 13)
+#define RSN_AUTH_KEY_MGMT_FILS_SHA256 RSN_SELECTOR(0x00, 0x0f, 0xac, 14)
+#define RSN_AUTH_KEY_MGMT_FILS_SHA384 RSN_SELECTOR(0x00, 0x0f, 0xac, 15)
+#define RSN_AUTH_KEY_MGMT_FT_FILS_SHA256 RSN_SELECTOR(0x00, 0x0f, 0xac, 16)
+#define RSN_AUTH_KEY_MGMT_FT_FILS_SHA384 RSN_SELECTOR(0x00, 0x0f, 0xac, 17)
 #define RSN_AUTH_KEY_MGMT_CCKM RSN_SELECTOR(0x00, 0x40, 0x96, 0x00)
 #define RSN_AUTH_KEY_MGMT_OSEN RSN_SELECTOR(0x50, 0x6f, 0x9a, 0x01)
 
 #define RSN_CIPHER_SUITE_NONE RSN_SELECTOR(0x00, 0x0f, 0xac, 0)
+#define RSN_CIPHER_SUITE_WEP40 RSN_SELECTOR(0x00, 0x0f, 0xac, 1)
 #define RSN_CIPHER_SUITE_TKIP RSN_SELECTOR(0x00, 0x0f, 0xac, 2)
 #if 0
 #define RSN_CIPHER_SUITE_WRAP RSN_SELECTOR(0x00, 0x0f, 0xac, 3)
 #endif
 #define RSN_CIPHER_SUITE_CCMP RSN_SELECTOR(0x00, 0x0f, 0xac, 4)
+#define RSN_CIPHER_SUITE_WEP104 RSN_SELECTOR(0x00, 0x0f, 0xac, 5)
 #define RSN_CIPHER_SUITE_AES_128_CMAC RSN_SELECTOR(0x00, 0x0f, 0xac, 6)
 #define RSN_CIPHER_SUITE_NO_GROUP_ADDRESSED RSN_SELECTOR(0x00, 0x0f, 0xac, 7)
 #define RSN_CIPHER_SUITE_GCMP RSN_SELECTOR(0x00, 0x0f, 0xac, 8)
@@ -78,6 +82,12 @@ RSN_SELECTOR(0x00, 0x0f, 0xac, 13)
 #define RSN_CIPHER_SUITE_BIP_GMAC_128 RSN_SELECTOR(0x00, 0x0f, 0xac, 11)
 #define RSN_CIPHER_SUITE_BIP_GMAC_256 RSN_SELECTOR(0x00, 0x0f, 0xac, 12)
 #define RSN_CIPHER_SUITE_BIP_CMAC_256 RSN_SELECTOR(0x00, 0x0f, 0xac, 13)
+#define RSN_CIPHER_SUITE_SMS4 RSN_SELECTOR(0x00, 0x14, 0x72, 1)
+#define RSN_CIPHER_SUITE_CKIP RSN_SELECTOR(0x00, 0x40, 0x96, 0)
+#define RSN_CIPHER_SUITE_CKIP_CMIC RSN_SELECTOR(0x00, 0x40, 0x96, 1)
+#define RSN_CIPHER_SUITE_CMIC RSN_SELECTOR(0x00, 0x40, 0x96, 2)
+/* KRK is defined for nl80211 use only */
+#define RSN_CIPHER_SUITE_KRK RSN_SELECTOR(0x00, 0x40, 0x96, 255)
 
 /* EAPOL-Key Key Data Encapsulation
  * GroupKey and PeerKey require encryption, otherwise, encryption is optional.
@@ -179,30 +189,16 @@ struct wpa_eapol_key {
 	u8 key_iv[16];
 	u8 key_rsc[WPA_KEY_RSC_LEN];
 	u8 key_id[8]; /* Reserved in IEEE 802.11i/RSN */
-	u8 key_mic[16];
-	u8 key_data_length[2]; /* big endian */
-	/* followed by key_data_length bytes of key_data */
-} STRUCT_PACKED;
-
-struct wpa_eapol_key_192 {
-	u8 type;
-	/* Note: key_info, key_length, and key_data_length are unaligned */
-	u8 key_info[2]; /* big endian */
-	u8 key_length[2]; /* big endian */
-	u8 replay_counter[WPA_REPLAY_COUNTER_LEN];
-	u8 key_nonce[WPA_NONCE_LEN];
-	u8 key_iv[16];
-	u8 key_rsc[WPA_KEY_RSC_LEN];
-	u8 key_id[8]; /* Reserved in IEEE 802.11i/RSN */
-	u8 key_mic[24];
-	u8 key_data_length[2]; /* big endian */
-	/* followed by key_data_length bytes of key_data */
+	/* variable length Key MIC field */
+	/* big endian 2-octet Key Data Length field */
+	/* followed by Key Data Length bytes of Key Data */
 } STRUCT_PACKED;
 
 #define WPA_EAPOL_KEY_MIC_MAX_LEN 24
 #define WPA_KCK_MAX_LEN 24
-#define WPA_KEK_MAX_LEN 32
+#define WPA_KEK_MAX_LEN 64
 #define WPA_TK_MAX_LEN 32
+#define FILS_ICK_MAX_LEN 48
 
 /**
  * struct wpa_ptk - WPA Pairwise Transient Key
@@ -340,6 +336,20 @@ int wpa_pmk_to_ptk(const u8 *pmk, size_t pmk_len, const char *label,
 		   const u8 *addr1, const u8 *addr2,
 		   const u8 *nonce1, const u8 *nonce2,
 		   struct wpa_ptk *ptk, int akmp, int cipher);
+int fils_rmsk_to_pmk(int akmp, const u8 *rmsk, size_t rmsk_len,
+		     const u8 *snonce, const u8 *anonce, const u8 *dh_ss,
+		     size_t dh_ss_len, u8 *pmk, size_t *pmk_len);
+int fils_pmkid_erp(int akmp, const u8 *reauth, size_t reauth_len,
+		   u8 *pmkid);
+int fils_pmk_to_ptk(const u8 *pmk, size_t pmk_len, const u8 *spa, const u8 *aa,
+		    const u8 *snonce, const u8 *anonce, struct wpa_ptk *ptk,
+		    u8 *ick, size_t *ick_len, int akmp, int cipher);
+int fils_key_auth_sk(const u8 *ick, size_t ick_len, const u8 *snonce,
+		     const u8 *anonce, const u8 *sta_addr, const u8 *bssid,
+		     const u8 *g_sta, size_t g_sta_len,
+		     const u8 *g_ap, size_t g_ap_len,
+		     int akmp, u8 *key_auth_sta, u8 *key_auth_ap,
+		     size_t *key_auth_len);
 
 #ifdef CONFIG_IEEE80211R
 int wpa_ft_mic(const u8 *kck, size_t kck_len, const u8 *sta_addr,
@@ -348,15 +358,15 @@ int wpa_ft_mic(const u8 *kck, size_t kck_len, const u8 *sta_addr,
 	       const u8 *ftie, size_t ftie_len,
 	       const u8 *rsnie, size_t rsnie_len,
 	       const u8 *ric, size_t ric_len, u8 *mic);
-void wpa_derive_pmk_r0(const u8 *xxkey, size_t xxkey_len,
-		       const u8 *ssid, size_t ssid_len,
-		       const u8 *mdid, const u8 *r0kh_id, size_t r0kh_id_len,
-		       const u8 *s0kh_id, u8 *pmk_r0, u8 *pmk_r0_name);
-void wpa_derive_pmk_r1_name(const u8 *pmk_r0_name, const u8 *r1kh_id,
-			    const u8 *s1kh_id, u8 *pmk_r1_name);
-void wpa_derive_pmk_r1(const u8 *pmk_r0, const u8 *pmk_r0_name,
-		       const u8 *r1kh_id, const u8 *s1kh_id,
-		       u8 *pmk_r1, u8 *pmk_r1_name);
+int wpa_derive_pmk_r0(const u8 *xxkey, size_t xxkey_len,
+		      const u8 *ssid, size_t ssid_len,
+		      const u8 *mdid, const u8 *r0kh_id, size_t r0kh_id_len,
+		      const u8 *s0kh_id, u8 *pmk_r0, u8 *pmk_r0_name);
+int wpa_derive_pmk_r1_name(const u8 *pmk_r0_name, const u8 *r1kh_id,
+			   const u8 *s1kh_id, u8 *pmk_r1_name);
+int wpa_derive_pmk_r1(const u8 *pmk_r0, const u8 *pmk_r0_name,
+		      const u8 *r1kh_id, const u8 *s1kh_id,
+		      u8 *pmk_r1, u8 *pmk_r1_name);
 int wpa_pmk_r1_to_ptk(const u8 *pmk_r1, const u8 *snonce, const u8 *anonce,
 		      const u8 *sta_addr, const u8 *bssid,
 		      const u8 *pmk_r1_name,
@@ -430,13 +440,15 @@ struct wpa_ft_ies {
 	size_t igtk_len;
 	const u8 *ric;
 	size_t ric_len;
+	int key_mgmt;
+	int pairwise_cipher;
 };
 
 int wpa_ft_parse_ies(const u8 *ies, size_t ies_len, struct wpa_ft_ies *parse);
 
 int wpa_cipher_key_len(int cipher);
 int wpa_cipher_rsc_len(int cipher);
-int wpa_cipher_to_alg(int cipher);
+enum wpa_alg wpa_cipher_to_alg(int cipher);
 int wpa_cipher_valid_group(int cipher);
 int wpa_cipher_valid_pairwise(int cipher);
 int wpa_cipher_valid_mgmt_group(int cipher);
@@ -449,5 +461,6 @@ int wpa_parse_cipher(const char *value);
 int wpa_write_ciphers(char *start, char *end, int ciphers, const char *delim);
 int wpa_select_ap_group_cipher(int wpa, int wpa_pairwise, int rsn_pairwise);
 unsigned int wpa_mic_len(int akmp);
+int fils_domain_name_hash(const char *domain, u8 *hash);
 
 #endif /* WPA_COMMON_H */

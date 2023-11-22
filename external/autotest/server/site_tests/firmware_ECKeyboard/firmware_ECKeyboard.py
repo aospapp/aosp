@@ -18,6 +18,9 @@ class firmware_ECKeyboard(FirmwareTest):
     # Delay between commands
     CMD_DELAY = 1
 
+    # Delay to wait until developer console is open.
+    DEV_CONSOLE_DELAY = 2
+
     def initialize(self, host, cmdline_args):
         super(firmware_ECKeyboard, self).initialize(host, cmdline_args)
         # Only run in normal mode
@@ -31,7 +34,7 @@ class firmware_ECKeyboard(FirmwareTest):
         self.ec.key_up('<f2>')
         self.ec.key_up('<alt_l>')
         self.ec.key_up('<ctrl_l>')
-        time.sleep(self.CMD_DELAY)
+        time.sleep(self.DEV_CONSOLE_DELAY)
 
     def reboot_by_keyboard(self):
         """

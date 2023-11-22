@@ -17,23 +17,17 @@ page.title=Configuring Display Settings
     limitations under the License.
 -->
 
-<div id="qv-wrapper">
-  <div id="qv">
-    <h2>In this document</h2>
-    <ol id="auto-toc">
-    </ol>
-  </div>
-</div>
-
 <p>This section covers AOSP implementation of various Android display
-settings such as do not disturb (DND) configurations and multi-window
-(split-screen, free-form, and picture-in-picture) options.</p>
+settings, including app shortcuts, circular launcher icons, do not disturb
+(DND), multi-window (split-screen, free-form, and picture-in-picture), high
+dynamic range (HDR) video, night light, and retail demo mode. See the subpages
+of this section for details.</p>
 
 <h2 id="settingshome">Settings Home screen enhancements</h2>
 
 <p>In Android 7.0, the Settings Home page is enhanced with suggested
 settings and customizable status notifications. The feature is implemented
-automatically, and partners can configure it.</p>
+automatically, and device implementers can configure it.</p>
 
 
 <p>The source code for these enhancements is in these files:</p>

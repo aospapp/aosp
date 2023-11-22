@@ -17,8 +17,14 @@
 
 <resources>
 
-    <!-- Default background color for the status bar. -->
+    <!-- Default accent color. -->
     <color name="calculator_accent_color">#0097A7</color>
+
+    <!-- Primary color (Color for the toolbars). -->
+    <color name="calculator_primary_color">#00BCD4</color>
+
+    <!-- Status bar color. -->
+    <color name="calculator_statusbar_color">#0096A9</color>
 
     <!-- Color to indicate an error has occured. -->
     <color name="calculator_error_color">#C2185B</color>
@@ -27,7 +33,7 @@
     <color name="display_background_color">#FFF</color>
 
     <!-- Text color for the formula in the calculator display. -->
-    <color name="display_formula_text_color">#8A000000</color>
+    <color name="display_formula_text_color">#000000</color>
 
     <!-- Text color for the result in the calculator display. -->
     <color name="display_result_text_color">#6C000000</color>
@@ -55,5 +61,8 @@
 
     <!-- Ripple color when a button is pressed in a pad. -->
     <color name="pad_button_advanced_ripple_color">#1A000000</color>
+
+    <!-- Background color for empty history view. -->
+    <color name="empty_history_color">#EEEEEE</color>
 
 </resources>

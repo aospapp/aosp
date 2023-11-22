@@ -62,6 +62,8 @@ class ThreadPoolWorker {
   // Set the "nice" priorty for this worker.
   void SetPthreadPriority(int priority);
 
+  Thread* GetThread() const { return thread_; }
+
  protected:
   ThreadPoolWorker(ThreadPool* thread_pool, const std::string& name, size_t stack_size);
   static void* Callback(void* arg) REQUIRES(!Locks::mutator_lock_);
@@ -71,17 +73,23 @@ class ThreadPoolWorker {
   const std::string name_;
   std::unique_ptr<MemMap> stack_;
   pthread_t pthread_;
+  Thread* thread_;
 
  private:
   friend class ThreadPool;
   DISALLOW_COPY_AND_ASSIGN(ThreadPoolWorker);
 };
 
+// Note that thread pool workers will set Thread#setCanCallIntoJava to false.
 class ThreadPool {
  public:
   // Returns the number of threads in the thread pool.
   size_t GetThreadCount() const {
     return threads_.size();
+  }
+
+  const std::vector<ThreadPoolWorker*>& GetWorkers() const {
+    return threads_;
   }
 
   // Broadcast to the workers and tell them to empty out the work queue.
@@ -97,10 +105,17 @@ class ThreadPool {
   // Remove all tasks in the queue.
   void RemoveAllTasks(Thread* self) REQUIRES(!task_queue_lock_);
 
-  ThreadPool(const char* name, size_t num_threads);
+  // Create a named thread pool with the given number of threads.
+  //
+  // If create_peers is true, all worker threads will have a Java peer object. Note that if the
+  // pool is asked to do work on the current thread (see Wait), a peer may not be available. Wait
+  // will conservatively abort if create_peers and do_work are true.
+  ThreadPool(const char* name, size_t num_threads, bool create_peers = false);
   virtual ~ThreadPool();
 
-  // Wait for all tasks currently on queue to get completed.
+  // Wait for all tasks currently on queue to get completed. If the pool has been stopped, only
+  // wait till all already running tasks are done.
+  // When the pool was created with peers for workers, do_work must not be true (see ThreadPool()).
   void Wait(Thread* self, bool do_work, bool may_hold_locks) REQUIRES(!task_queue_lock_);
 
   size_t GetTaskCount(Thread* self) REQUIRES(!task_queue_lock_);
@@ -130,6 +145,10 @@ class ThreadPool {
     return shutting_down_;
   }
 
+  bool HasOutstandingTasks() const REQUIRES(task_queue_lock_) {
+    return started_ && !tasks_.empty();
+  }
+
   const std::string name_;
   Mutex task_queue_lock_;
   ConditionVariable task_queue_condition_ GUARDED_BY(task_queue_lock_);
@@ -146,6 +165,7 @@ class ThreadPool {
   uint64_t total_wait_time_;
   Barrier creation_barier_;
   size_t max_active_workers_ GUARDED_BY(task_queue_lock_);
+  const bool create_peers_;
 
  private:
   friend class ThreadPoolWorker;

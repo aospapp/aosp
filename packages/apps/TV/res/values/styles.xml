@@ -16,10 +16,10 @@
   -->
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android">
-    <style name="channel_banner_track_meta_text">
+    <style name="track_meta_text">
         <item name="android:layout_width">wrap_content</item>
         <item name="android:layout_height">12dp</item>
-        <item name="android:layout_marginEnd">8dp</item>
+        <item name="android:layout_marginEnd">4dp</item>
         <item name="android:gravity">center</item>
         <item name="android:paddingStart">4dp</item>
         <item name="android:paddingEnd">4dp</item>
@@ -31,6 +31,10 @@
         <item name="android:background">@drawable/track_meta_border</item>
     </style>
 
+    <style name="track_meta_text.channel_banner">
+        <item name="android:layout_marginEnd">8dp</item>
+    </style>
+
     <style name="pin_dialog_animation" parent="@android:style/Animation.Activity">
         <item name="android:windowEnterAnimation">@anim/pin_dialog_enter</item>
         <item name="android:windowExitAnimation">@anim/pin_dialog_exit</item>
@@ -38,6 +42,10 @@
 
     <style name="text_appearance_channel_banner_episode_title">
         <item name="android:textColor">@color/channel_banner_episode_text_color</item>
+    </style>
+
+    <style name="text_appearance_card_view_episode_number">
+        <item name="android:textColor">@color/dvr_card_episode_text_color</item>
     </style>
 
     <style name="pin_number_view">
@@ -80,6 +88,19 @@
         <item name="android:paddingTop">@dimen/menu_row_contents_padding_top</item>
     </style>
 
+    <style name="dvr_card_view_title_text">
+        <item name="android:textSize">14sp</item>
+        <item name="android:textColor">@color/lb_basic_card_title_text_color</item>
+        <item name="android:fontFamily">sans-serif-condensed</item>
+        <item name="android:singleLine">true</item>
+        <item name="android:ellipsize">end</item>
+    </style>
+
+    <style name="dvr_card_view_content_text" parent="dvr_card_view_title_text">
+        <item name="android:textSize">12sp</item>
+        <item name="android:textColor">@color/lb_basic_card_content_text_color</item>
+    </style>
+
     <style name="Animation.SelectInputActivity" parent="android:Animation.Activity">
         <item name="android:windowEnterAnimation">@anim/select_input_activity_enter</item>
         <item name="android:windowExitAnimation">@anim/select_input_activity_exit</item>
@@ -95,28 +116,84 @@
     </style>
 
     <style name="TV.Dvr.GuidanceTitleStyle" parent="Widget.Setup.GuidanceTitleStyle">
+        <item name="android:layout_alignParentStart">false</item>
         <item name="android:layout_toStartOf">@null</item>
-        <item name="android:layout_alignParentTop">true</item>
-        <item name="android:layout_marginTop">55dp</item>
+        <item name="android:layout_marginTop">0dp</item>
         <item name="android:layout_width">match_parent</item>
         <item name="android:textSize">34sp</item>
         <item name="android:fontFamily">@string/light_font</item>
         <item name="android:gravity">start</item>
     </style>
 
+    <style name="TV.Dvr.GuidanceBreadcrumbStyle" parent="Widget.Setup.GuidanceBreadcrumbStyle">
+        <item name="android:layout_marginTop">55dp</item>
+    </style>
+
     <style name="TV.Dvr.GuidanceDescriptionStyle" parent="Widget.Setup.GuidanceDescriptionStyle">
+        <item name="android:layout_alignParentStart">false</item>
         <item name="android:layout_width">match_parent</item>
         <item name="android:fontFamily">@string/light_font</item>
         <item name="android:textColor">#ADEEEEEE</item>
         <item name="android:gravity">start</item>
     </style>
 
+    <!-- Style for the icon view in a half sized dialog. -->
+    <style name="TV.Dvr.GuidanceIconStyle" parent="Widget.Leanback.GuidanceIconStyle">
+        <item name="android:layout_width">60dp</item>
+        <item name="android:layout_height">60dp</item>
+    </style>
+
     <style name="TV.Dvr.GuidedActionsListStyle" parent="Widget.Setup.GuidedActionsListStyle">
         <item name="android:layout_marginTop">51dp</item>
+        <item name="android:layout_marginBottom">10dp</item>
+        <item name="android:layout_marginEnd">56dp</item>
     </style>
 
     <style name="TV.Dvr.GuidedActionItemContainerStyle" parent="Widget.Setup.GuidedActionItemContainerStyle">
-        <item name="android:layout_height">45dp</item>
+        <item name="android:layout_height">48dp</item>
         <item name="android:layout_marginTop">7dp</item>
+        <item name="android:paddingBottom">15dp</item>
+        <item name="android:paddingEnd">16dp</item>
+        <item name="android:paddingStart">16dp</item>
+        <item name="android:paddingTop">14dp</item>
+    </style>
+
+    <style name="TV.Dvr.GuidedActionItemContainerStyle.Twoline.Action" parent="TV.Dvr.GuidedActionItemContainerStyle">
+        <item name="android:layout_height">64dp</item>
+    </style>
+
+    <style name="TV.Dvr.Conflict.GuidanceTitleStyle" parent="TV.Dvr.GuidanceTitleStyle">
+        <item name="android:textSize">28sp</item>
+    </style>
+
+    <style name="TV.Dvr.Conflict.GuidedActionsListStyle" parent="TV.Dvr.GuidedActionsListStyle">
+        <item name="android:layout_marginTop">30dp</item>
+    </style>
+
+    <style name="TV.Dvr.Settings.GuidedSubActionsListStyle" parent="Widget.Leanback.GuidedSubActionsListStyle">
+        <item name="android:layout_marginTop">51dp</item>
+        <item name="android:paddingTop">10dp</item>
+        <item name="android:layout_marginBottom">51dp</item>
+        <item name="android:background">@color/common_setup_done_container_background</item>
+    </style>
+
+    <style name="TV.Dvr.Settings.GuidedButtonActionsListStyle" parent="Widget.Leanback.GuidedButtonActionsListStyle">
+        <item name="android:background">@color/common_setup_done_container_background</item>
+    </style>
+
+    <style name="TV.Dvr.Settings.Priority.GuidedActionItemContainerStyle" parent="Widget.Setup.GuidedActionItemContainerStyle">
+        <item name="android:layout_height">@dimen/dvr_settings_one_line_action_container_height</item>
+    </style>
+
+    <style name="TV.Dvr.Series.Deletion.guidedActionItemCheckmarkStyle" parent="Widget.Leanback.GuidedActionItemCheckmarkStyle">
+        <item name="android:layout_width">@dimen/dvr_deletion_check_mark_size</item>
+        <item name="android:layout_height">@dimen/dvr_deletion_check_mark_size</item>
+        <item name="android:layout_marginEnd">@dimen/dvr_deletion_check_mark_margin</item>
+    </style>
+
+    <style name="TV.Dvr.Browse.DetailsDescriptionTitleStyle" parent="Widget.Leanback.DetailsDescriptionTitleStyle">
+        <item name="resizedTextSize">@dimen/dvr_details_description_title_resized_text_size</item>
+        <item name="resizedPaddingAdjustmentTop">@dimen/dvr_details_description_title_padding_adjust_top</item>
+        <item name="resizedPaddingAdjustmentBottom">@dimen/dvr_details_description_title_padding_adjust_bottom</item>
     </style>
 </resources>

@@ -27,14 +27,17 @@
 #define LOG_TAG "bt_vendor"
 #define BLUETOOTH_MAC_ADDR_BOOT_PROPERTY "ro.boot.btmacaddr"
 
+#include <fcntl.h>
+#include <pthread.h>
+#include <sys/socket.h>
+#include <termios.h>
+#include <unistd.h>
+
 #include <utils/Log.h>
 #include <cutils/properties.h>
-#include <fcntl.h>
-#include <termios.h>
 #include "bt_vendor_qcom.h"
 #include "hci_uart.h"
 #include "hci_smd.h"
-#include <sys/socket.h>
 #include <cutils/sockets.h>
 #include <linux/un.h>
 #ifdef BT_NV_SUPPORT

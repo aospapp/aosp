@@ -197,14 +197,14 @@ public final class CreateElementNS extends DOMTestCase {
         doc = (Document) load("hc_staff", builder);
 
         {
-            // BEGIN android-changed
+            // BEGIN Android-changed
             //     Our exception priorities differ from the spec
             try {
                 doc.createElementNS(namespaceURI, "");
                 fail();
             } catch (DOMException ex) {
             }
-            // END android-changed
+            // END Android-changed
         }
     }
 }

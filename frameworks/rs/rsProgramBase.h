@@ -26,7 +26,7 @@ namespace renderscript {
 
 class ProgramBase : public ObjectBase {
 public:
-    ProgramBase(Context *rsc) : ObjectBase(rsc) {
+    explicit ProgramBase(Context *rsc) : ObjectBase(rsc) {
         mDirty = true;
     }
 
@@ -36,8 +36,8 @@ protected:
     mutable bool mDirty;
 };
 
-}
-}
+} // namespace renderscript
+} // namespace android
 #endif // ANDROID_RS_PROGRAM_BASE_H
 
 

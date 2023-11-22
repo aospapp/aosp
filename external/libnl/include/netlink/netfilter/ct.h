@@ -25,6 +25,11 @@ extern "C" {
 
 struct nfnl_ct;
 
+struct nfnl_ct_timestamp {
+	uint64_t		start;
+	uint64_t		stop;
+};
+
 extern struct nl_object_ops ct_obj_ops;
 
 extern struct nfnl_ct *	nfnl_ct_alloc(void);
@@ -44,7 +49,7 @@ extern int	nfnl_ct_add(struct nl_sock *, const struct nfnl_ct *, int);
 
 extern int	nfnl_ct_build_delete_request(const struct nfnl_ct *, int,
 					     struct nl_msg **);
-extern int	nfnl_ct_delete(struct nl_sock *, const struct nfnl_ct *, int);
+extern int	nfnl_ct_del(struct nl_sock *, const struct nfnl_ct *, int);
 
 extern int	nfnl_ct_build_query_request(const struct nfnl_ct *, int,
 					    struct nl_msg **);
@@ -65,6 +70,7 @@ extern int	nfnl_ct_str2tcp_state(const char *name);
 
 extern void	nfnl_ct_set_status(struct nfnl_ct *, uint32_t);
 extern void	nfnl_ct_unset_status(struct nfnl_ct *, uint32_t);
+extern int	nfnl_ct_test_status(const struct nfnl_ct *ct);
 extern uint32_t	nfnl_ct_get_status(const struct nfnl_ct *);
 extern char *	nfnl_ct_status2str(int, char *, size_t);
 extern int	nfnl_ct_str2status(const char *);
@@ -84,6 +90,10 @@ extern uint32_t	nfnl_ct_get_use(const struct nfnl_ct *);
 extern void	nfnl_ct_set_id(struct nfnl_ct *, uint32_t);
 extern int	nfnl_ct_test_id(const struct nfnl_ct *);
 extern uint32_t	nfnl_ct_get_id(const struct nfnl_ct *);
+
+extern void	nfnl_ct_set_zone(struct nfnl_ct *, uint16_t);
+extern int	nfnl_ct_test_zone(const struct nfnl_ct *);
+extern uint16_t	nfnl_ct_get_zone(const struct nfnl_ct *);
 
 extern int	nfnl_ct_set_src(struct nfnl_ct *, int, struct nl_addr *);
 extern struct nl_addr *	nfnl_ct_get_src(const struct nfnl_ct *, int);
@@ -118,6 +128,10 @@ extern uint64_t	nfnl_ct_get_packets(const struct nfnl_ct *,int);
 extern void	nfnl_ct_set_bytes(struct nfnl_ct *, int, uint64_t);
 extern int	nfnl_ct_test_bytes(const struct nfnl_ct *, int);
 extern uint64_t	nfnl_ct_get_bytes(const struct nfnl_ct *, int);
+
+extern void nfnl_ct_set_timestamp(struct nfnl_ct *, uint64_t, uint64_t);
+extern int nfnl_ct_test_timestamp(const struct nfnl_ct *);
+extern const struct nfnl_ct_timestamp *nfnl_ct_get_timestamp(const struct nfnl_ct *);
 
 #ifdef __cplusplus
 }

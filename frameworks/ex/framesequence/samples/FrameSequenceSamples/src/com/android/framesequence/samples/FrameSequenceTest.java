@@ -21,7 +21,6 @@ import android.os.Bundle;
 import android.support.rastermill.FrameSequence;
 import android.support.rastermill.FrameSequenceDrawable;
 import android.view.View;
-import android.widget.ImageView;
 import android.widget.Toast;
 
 import java.io.InputStream;
@@ -87,13 +86,19 @@ public class FrameSequenceTest extends Activity {
                 mDrawable.setVisible(false, true);
             }
         });
+        findViewById(R.id.circle_mask).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                mDrawable.setCircleMaskEnabled(!mDrawable.getCircleMaskEnabled());
+            }
+        });
     }
 
     @Override
     protected void onResume() {
         super.onResume();
 
-        ImageView imageView = (ImageView) findViewById(R.id.imageview);
+        View drawableView = findViewById(R.id.drawableview);
         InputStream is = getResources().openRawResource(mResourceId);
 
         FrameSequence fs = FrameSequence.decodeStream(is);
@@ -105,19 +110,18 @@ public class FrameSequenceTest extends Activity {
                         "The animation has finished", Toast.LENGTH_SHORT).show();
             }
         });
-        imageView.setImageDrawable(mDrawable);
+        drawableView.setBackgroundDrawable(mDrawable);
     }
 
     @Override
     protected void onPause() {
         super.onPause();
-        ImageView imageView = (ImageView) findViewById(R.id.imageview);
+        View drawableView = findViewById(R.id.drawableview);
 
         mDrawable.destroy();
         if (!mProvider.isEmpty()) throw new IllegalStateException("All bitmaps not recycled");
 
         mDrawable = null;
-        imageView.setImageDrawable(null);
-
+        drawableView.setBackgroundDrawable(null);
     }
 }

@@ -18,17 +18,18 @@ package android.widget.cts;
 
 import android.app.Activity;
 import android.os.Bundle;
+import android.widget.ProgressBar;
 
 /**
- * An application for ProgressBar test
- *
+ * A minimal application for {@link ProgressBar} test.
  */
 public class ProgressBarCtsActivity extends Activity {
     /**
-     * Called with the activity is first created.
+     * Called when the activity is first created.
      */
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        setContentView(R.layout.progressbar_layout);
     }
 }

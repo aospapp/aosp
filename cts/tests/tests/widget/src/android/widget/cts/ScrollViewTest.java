@@ -16,36 +16,48 @@
 
 package android.widget.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 
-import android.widget.FrameLayout;
-import android.widget.cts.R;
-
-
-import org.xmlpull.v1.XmlPullParser;
-
 import android.app.Activity;
+import android.app.Instrumentation;
 import android.content.Context;
-import android.cts.util.PollingCheck;
 import android.graphics.Rect;
-import android.test.ActivityInstrumentationTestCase2;
-import android.test.UiThreadTest;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.annotation.UiThreadTest;
+import android.support.test.filters.MediumTest;
+import android.support.test.rule.ActivityTestRule;
+import android.support.test.runner.AndroidJUnit4;
 import android.util.AttributeSet;
 import android.util.Xml;
-import android.view.KeyEvent;
-import android.view.MotionEvent;
 import android.view.View;
-import android.view.ViewGroup;
 import android.view.View.MeasureSpec;
+import android.view.ViewGroup;
+import android.widget.FrameLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
+import android.widget.cts.util.TestUtils;
+
+import com.android.compatibility.common.util.PollingCheck;
+
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.xmlpull.v1.XmlPullParser;
 
 /**
  * Test {@link ScrollView}.
  */
-public class ScrollViewTest extends ActivityInstrumentationTestCase2<ScrollViewCtsActivity> {
+@MediumTest
+@RunWith(AndroidJUnit4.class)
+public class ScrollViewTest {
     // view dpi constants. Must match those defined in scroll_view layout
     private static final int ITEM_WIDTH_DPI  = 250;
     private static final int ITEM_HEIGHT_DPI = 100;
@@ -61,30 +73,36 @@ public class ScrollViewTest extends ActivityInstrumentationTestCase2<ScrollViewC
     private int mScrollBottom;
     private int mScrollRight;
 
-    private MyScrollView mScrollView;
+    private Instrumentation mInstrumentation;
     private Activity mActivity;
+    private ScrollView mScrollViewRegular;
+    private ScrollView mScrollViewCustom;
+    private MyScrollView mScrollViewCustomEmpty;
 
-    public ScrollViewTest() {
-        super("android.widget.cts", ScrollViewCtsActivity.class);
-    }
+    @Rule
+    public ActivityTestRule<ScrollViewCtsActivity> mActivityRule =
+            new ActivityTestRule<>(ScrollViewCtsActivity.class);
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mActivity = getActivity();
-        mScrollView = (MyScrollView) mActivity.findViewById(R.id.scroll_view);
+    @Before
+    public void setup() {
+        mInstrumentation = InstrumentationRegistry.getInstrumentation();
+        mActivity = mActivityRule.getActivity();
+        mScrollViewRegular = (ScrollView) mActivity.findViewById(R.id.scroll_view_regular);
+        mScrollViewCustom = (ScrollView) mActivity.findViewById(R.id.scroll_view_custom);
+        mScrollViewCustomEmpty = (MyScrollView) mActivity.findViewById(
+                R.id.scroll_view_custom_empty);
 
         // calculate pixel positions from dpi constants.
-        final float density = getActivity().getResources().getDisplayMetrics().density;
-        mItemWidth = (int) (ITEM_WIDTH_DPI * density + 0.5f);
-        mItemHeight = (int) (ITEM_HEIGHT_DPI * density + 0.5f);
-        mPageWidth = (int) (PAGE_WIDTH_DPI * density + 0.5f);
-        mPageHeight = (int) (PAGE_HEIGHT_DPI * density + 0.5f);
+        mItemWidth = TestUtils.dpToPx(mActivity, ITEM_WIDTH_DPI);
+        mItemHeight = TestUtils.dpToPx(mActivity, ITEM_HEIGHT_DPI);
+        mPageWidth = TestUtils.dpToPx(mActivity, PAGE_WIDTH_DPI);
+        mPageHeight = TestUtils.dpToPx(mActivity, PAGE_HEIGHT_DPI);
 
         mScrollBottom = mItemHeight * ITEM_COUNT - mPageHeight;
         mScrollRight = mItemWidth - mPageWidth;
     }
 
+    @Test
     public void testConstructor() {
         XmlPullParser parser = mActivity.getResources().getLayout(R.layout.scrollview_layout);
         AttributeSet attrs = Xml.asAttributeSet(parser);
@@ -95,226 +113,214 @@ public class ScrollViewTest extends ActivityInstrumentationTestCase2<ScrollViewC
         new ScrollView(mActivity, attrs, 0);
     }
 
+    @UiThreadTest
+    @Test
     public void testGetMaxScrollAmount() {
         // the value is half of total layout height
-        ScrollView scrollView = new ScrollView(mActivity);
-        scrollView.layout(0, 0, 100, 200);
-        assertEquals((200 - 0) / 2, scrollView.getMaxScrollAmount());
+        mScrollViewRegular.layout(0, 0, 100, 200);
+        assertEquals((200 - 0) / 2, mScrollViewRegular.getMaxScrollAmount());
 
-        scrollView.layout(0, 0, 150, 100);
-        assertEquals((100 - 0) / 2, scrollView.getMaxScrollAmount());
+        mScrollViewRegular.layout(0, 0, 150, 100);
+        assertEquals((100 - 0) / 2, mScrollViewRegular.getMaxScrollAmount());
     }
 
+    @UiThreadTest
+    @Test
     public void testAddView() {
-        ScrollView scrollView = new ScrollView(mActivity);
         TextView child0 = new TextView(mActivity);
-        scrollView.addView(child0);
-        assertSame(child0, scrollView.getChildAt(0));
+        mScrollViewRegular.addView(child0);
+        assertSame(child0, mScrollViewRegular.getChildAt(0));
 
-        assertEquals(1, scrollView.getChildCount());
+        assertEquals(1, mScrollViewRegular.getChildCount());
         TextView child1 = new TextView(mActivity);
         try {
-            scrollView.addView(child1);
+            mScrollViewRegular.addView(child1);
             fail("ScrollView can host only one direct child");
         } catch (IllegalStateException e) {
             // expected
         }
-        assertEquals(1, scrollView.getChildCount());
+        assertEquals(1, mScrollViewRegular.getChildCount());
     }
 
+    @UiThreadTest
+    @Test
     public void testAddViewWithIndex() {
-        ScrollView scrollView = new ScrollView(mActivity);
         TextView child0 = new TextView(mActivity);
-        scrollView.addView(child0, 0);
-        assertSame(child0, scrollView.getChildAt(0));
+        mScrollViewRegular.addView(child0, 0);
+        assertSame(child0, mScrollViewRegular.getChildAt(0));
 
-        assertEquals(1, scrollView.getChildCount());
+        assertEquals(1, mScrollViewRegular.getChildCount());
         TextView child1 = new TextView(mActivity);
         try {
-            scrollView.addView(child1, 1);
+            mScrollViewRegular.addView(child1, 1);
             fail("ScrollView can host only one direct child");
         } catch (IllegalStateException e) {
             // expected
         }
-        assertEquals(1, scrollView.getChildCount());
+        assertEquals(1, mScrollViewRegular.getChildCount());
 
-        scrollView.removeAllViews();
-        scrollView = new ScrollView(mActivity);
-        scrollView.addView(child0, -1);
-        assertSame(child0, scrollView.getChildAt(0));
+        mScrollViewRegular.removeAllViews();
+        mScrollViewRegular = new ScrollView(mActivity);
+        mScrollViewRegular.addView(child0, -1);
+        assertSame(child0, mScrollViewRegular.getChildAt(0));
 
-        assertEquals(1, scrollView.getChildCount());
+        assertEquals(1, mScrollViewRegular.getChildCount());
         child1 = new TextView(mActivity);
         try {
-            scrollView.addView(child1, -1);
+            mScrollViewRegular.addView(child1, -1);
             fail("ScrollView can host only one direct child");
         } catch (IllegalStateException e) {
             // expected
         }
-        assertEquals(1, scrollView.getChildCount());
+        assertEquals(1, mScrollViewRegular.getChildCount());
 
-        scrollView.removeAllViews();
-        scrollView = new ScrollView(mActivity);
+        mScrollViewRegular.removeAllViews();
+        mScrollViewRegular = new ScrollView(mActivity);
         try {
-            scrollView.addView(child0, 1);
+            mScrollViewRegular.addView(child0, 1);
             fail("ScrollView can host only one direct child");
         } catch (IndexOutOfBoundsException e) {
             // expected
         }
     }
 
+    @UiThreadTest
+    @Test
     public void testAddViewWithLayoutParams() {
-        ScrollView scrollView = new ScrollView(mActivity);
         TextView child0 = new TextView(mActivity);
-        scrollView.addView(child0, new ViewGroup.LayoutParams(200, 100));
-        assertSame(child0, scrollView.getChildAt(0));
+        mScrollViewRegular.addView(child0, new ViewGroup.LayoutParams(200, 100));
+        assertSame(child0, mScrollViewRegular.getChildAt(0));
         assertEquals(200, child0.getLayoutParams().width);
         assertEquals(100, child0.getLayoutParams().height);
 
-        assertEquals(1, scrollView.getChildCount());
+        assertEquals(1, mScrollViewRegular.getChildCount());
         TextView child1 = new TextView(mActivity);
         try {
-            scrollView.addView(child1, new ViewGroup.LayoutParams(200, 100));
+            mScrollViewRegular.addView(child1, new ViewGroup.LayoutParams(200, 100));
             fail("ScrollView can host only one direct child");
         } catch (IllegalStateException e) {
             // expected
         }
-        assertEquals(1, scrollView.getChildCount());
+        assertEquals(1, mScrollViewRegular.getChildCount());
 
-        scrollView.removeAllViews();
-        scrollView = new ScrollView(mActivity);
+        mScrollViewRegular.removeAllViews();
+        mScrollViewRegular = new ScrollView(mActivity);
         child0 = new TextView(mActivity);
         try {
-            scrollView.addView(child0, null);
+            mScrollViewRegular.addView(child0, null);
             fail("The LayoutParams should not be null!");
         } catch (NullPointerException e) {
             // expected
         }
     }
 
+    @UiThreadTest
+    @Test
     public void testAddViewWithIndexAndLayoutParams() {
-        ScrollView scrollView = new ScrollView(mActivity);
         TextView child0 = new TextView(mActivity);
-        scrollView.addView(child0, 0, new ViewGroup.LayoutParams(200, 100));
-        assertSame(child0, scrollView.getChildAt(0));
+        mScrollViewRegular.addView(child0, 0, new ViewGroup.LayoutParams(200, 100));
+        assertSame(child0, mScrollViewRegular.getChildAt(0));
         assertEquals(200, child0.getLayoutParams().width);
         assertEquals(100, child0.getLayoutParams().height);
 
-        assertEquals(1, scrollView.getChildCount());
+        assertEquals(1, mScrollViewRegular.getChildCount());
         TextView child1 = new TextView(mActivity);
         try {
-            scrollView.addView(child1, 0, new ViewGroup.LayoutParams(200, 100));
+            mScrollViewRegular.addView(child1, 0, new ViewGroup.LayoutParams(200, 100));
             fail("ScrollView can host only one direct child");
         } catch (IllegalStateException e) {
             // expected
         }
-        assertEquals(1, scrollView.getChildCount());
+        assertEquals(1, mScrollViewRegular.getChildCount());
 
-        scrollView.removeAllViews();
-        scrollView = new ScrollView(mActivity);
+        mScrollViewRegular.removeAllViews();
         child0 = new TextView(mActivity);
         try {
-            scrollView.addView(child0, null);
+            mScrollViewRegular.addView(child0, null);
             fail("The LayoutParams should not be null!");
         } catch (NullPointerException e) {
             // expected
         }
 
-        scrollView.removeAllViews();
-        scrollView = new ScrollView(mActivity);
-        scrollView.addView(child0, -1, new ViewGroup.LayoutParams(300, 150));
-        assertSame(child0, scrollView.getChildAt(0));
+        mScrollViewRegular.removeAllViews();
+        mScrollViewRegular.addView(child0, -1, new ViewGroup.LayoutParams(300, 150));
+        assertSame(child0, mScrollViewRegular.getChildAt(0));
         assertEquals(300, child0.getLayoutParams().width);
         assertEquals(150, child0.getLayoutParams().height);
 
-        assertEquals(1, scrollView.getChildCount());
+        assertEquals(1, mScrollViewRegular.getChildCount());
         child1 = new TextView(mActivity);
         try {
-            scrollView.addView(child1, -1, new ViewGroup.LayoutParams(200, 100));
+            mScrollViewRegular.addView(child1, -1, new ViewGroup.LayoutParams(200, 100));
             fail("ScrollView can host only one direct child");
         } catch (IllegalStateException e) {
             // expected
         }
-        assertEquals(1, scrollView.getChildCount());
+        assertEquals(1, mScrollViewRegular.getChildCount());
 
-        scrollView.removeAllViews();
-        scrollView = new ScrollView(mActivity);
+        mScrollViewRegular.removeAllViews();
         try {
-            scrollView.addView(child0, 1, new ViewGroup.LayoutParams(200, 100));
+            mScrollViewRegular.addView(child0, 1, new ViewGroup.LayoutParams(200, 100));
             fail("ScrollView can host only one direct child");
         } catch (IndexOutOfBoundsException e) {
             // expected
         }
     }
 
+    @UiThreadTest
+    @Test
     public void testAccessFillViewport() {
-        ScrollView scrollView = new ScrollView(mActivity);
-        assertFalse(scrollView.isFillViewport());
-        scrollView.layout(0, 0, 100, 100);
-        assertFalse(scrollView.isLayoutRequested());
+        assertFalse(mScrollViewRegular.isFillViewport());
+        mScrollViewRegular.layout(0, 0, 100, 100);
+        assertFalse(mScrollViewRegular.isLayoutRequested());
 
-        scrollView.setFillViewport(false);
-        assertFalse(scrollView.isFillViewport());
-        assertFalse(scrollView.isLayoutRequested());
+        mScrollViewRegular.setFillViewport(false);
+        assertFalse(mScrollViewRegular.isFillViewport());
+        assertFalse(mScrollViewRegular.isLayoutRequested());
 
-        scrollView.setFillViewport(true);
-        assertTrue(scrollView.isFillViewport());
-        assertTrue(scrollView.isLayoutRequested());
+        mScrollViewRegular.setFillViewport(true);
+        assertTrue(mScrollViewRegular.isFillViewport());
+        assertTrue(mScrollViewRegular.isLayoutRequested());
 
-        scrollView.layout(0, 0, 100, 100);
-        assertFalse(mScrollView.isLayoutRequested());
+        mScrollViewRegular.layout(0, 0, 100, 100);
+        assertFalse(mScrollViewRegular.isLayoutRequested());
 
-        scrollView.setFillViewport(false);
-        assertFalse(scrollView.isFillViewport());
-        assertTrue(scrollView.isLayoutRequested());
+        mScrollViewRegular.setFillViewport(false);
+        assertFalse(mScrollViewRegular.isFillViewport());
+        assertTrue(mScrollViewRegular.isLayoutRequested());
     }
 
+    @Test
     public void testAccessSmoothScrollingEnabled() throws Throwable {
-        assertTrue(mScrollView.isSmoothScrollingEnabled());
+        assertTrue(mScrollViewCustom.isSmoothScrollingEnabled());
 
         // scroll immediately
-        mScrollView.setSmoothScrollingEnabled(false);
-        assertFalse(mScrollView.isSmoothScrollingEnabled());
+        mScrollViewCustom.setSmoothScrollingEnabled(false);
+        assertFalse(mScrollViewCustom.isSmoothScrollingEnabled());
 
-        runTestOnUiThread(new Runnable() {
-            public void run() {
-                mScrollView.fullScroll(View.FOCUS_DOWN);
-            }
-        });
+        mActivityRule.runOnUiThread(() -> mScrollViewCustom.fullScroll(View.FOCUS_DOWN));
 
-        assertEquals(mScrollBottom, mScrollView.getScrollY(), TOLERANCE);
+        assertEquals(mScrollBottom, mScrollViewCustom.getScrollY(), TOLERANCE);
 
-        runTestOnUiThread(new Runnable() {
-            public void run() {
-                mScrollView.fullScroll(View.FOCUS_UP);
-            }
-        });
-        assertEquals(0, mScrollView.getScrollY());
+        mActivityRule.runOnUiThread(() -> mScrollViewCustom.fullScroll(View.FOCUS_UP));
+        assertEquals(0, mScrollViewCustom.getScrollY());
 
         // smooth scroll
-        mScrollView.setSmoothScrollingEnabled(true);
-        assertTrue(mScrollView.isSmoothScrollingEnabled());
+        mScrollViewCustom.setSmoothScrollingEnabled(true);
+        assertTrue(mScrollViewCustom.isSmoothScrollingEnabled());
 
-        runTestOnUiThread(new Runnable() {
-            public void run() {
-                mScrollView.fullScroll(View.FOCUS_DOWN);
-            }
-        });
+        mActivityRule.runOnUiThread(() -> mScrollViewCustom.fullScroll(View.FOCUS_DOWN));
         pollingCheckSmoothScrolling(0, 0, 0, mScrollBottom);
-        assertEquals(mScrollBottom, mScrollView.getScrollY(), TOLERANCE);
+        assertEquals(mScrollBottom, mScrollViewCustom.getScrollY(), TOLERANCE);
 
-        runTestOnUiThread(new Runnable() {
-            public void run() {
-                mScrollView.fullScroll(View.FOCUS_UP);
-            }
-        });
+        mActivityRule.runOnUiThread(() -> mScrollViewCustom.fullScroll(View.FOCUS_UP));
         pollingCheckSmoothScrolling(0, 0, mScrollBottom, 0);
-        assertEquals(0, mScrollView.getScrollY());
+        assertEquals(0, mScrollViewCustom.getScrollY());
     }
 
+    @UiThreadTest
+    @Test
     public void testMeasureChild() {
-        MyScrollView scrollView = new MyScrollView(mActivity);
-
         MyView child = new MyView(mActivity);
         child.setBackgroundDrawable(null);
         child.setPadding(0, 0, 0, 0);
@@ -326,16 +332,17 @@ public class ScrollViewTest extends ActivityInstrumentationTestCase2<ScrollViewC
         assertEquals(100, child.getMeasuredHeight());
         assertEquals(100, child.getMeasuredWidth());
 
-        scrollView.measureChild(child, MeasureSpec.makeMeasureSpec(100, MeasureSpec.EXACTLY),
+        mScrollViewCustomEmpty.measureChild(child,
+                MeasureSpec.makeMeasureSpec(100, MeasureSpec.EXACTLY),
                 MeasureSpec.makeMeasureSpec(100, MeasureSpec.EXACTLY));
 
         assertEquals(30, child.getMeasuredHeight());
         assertEquals(100, child.getMeasuredWidth());
     }
 
+    @UiThreadTest
+    @Test
     public void testMeasureChildWithMargins() {
-        MyScrollView mockScrollView = new MyScrollView(mActivity);
-
         MyView child = new MyView(mActivity);
         child.setBackgroundDrawable(null);
         child.setPadding(0, 0, 0, 0);
@@ -347,7 +354,7 @@ public class ScrollViewTest extends ActivityInstrumentationTestCase2<ScrollViewC
         assertEquals(100, child.getMeasuredHeight());
         assertEquals(100, child.getMeasuredWidth());
 
-        mockScrollView.measureChildWithMargins(child,
+        mScrollViewCustomEmpty.measureChildWithMargins(child,
                 MeasureSpec.makeMeasureSpec(100, MeasureSpec.EXACTLY), 5,
                 MeasureSpec.makeMeasureSpec(100, MeasureSpec.EXACTLY), 5);
 
@@ -355,37 +362,42 @@ public class ScrollViewTest extends ActivityInstrumentationTestCase2<ScrollViewC
         assertEquals(100, child.getMeasuredWidth());
     }
 
+    @UiThreadTest
+    @Test
     public void testMeasureSpecs() {
         MyView child = spy(new MyView(mActivity));
-        MyScrollView scrollView = new MyScrollView(mActivity);
-        scrollView.addView(child);
+        mScrollViewCustomEmpty.addView(child);
 
-        scrollView.measureChild(child, MeasureSpec.makeMeasureSpec(150, MeasureSpec.EXACTLY),
+        mScrollViewCustomEmpty.measureChild(child,
+                MeasureSpec.makeMeasureSpec(150, MeasureSpec.EXACTLY),
                 MeasureSpec.makeMeasureSpec(100, MeasureSpec.EXACTLY));
         verify(child).onMeasure(
                 eq(MeasureSpec.makeMeasureSpec(150, MeasureSpec.EXACTLY)),
                 eq(MeasureSpec.makeMeasureSpec(100, MeasureSpec.UNSPECIFIED)));
     }
 
+    @UiThreadTest
+    @Test
     public void testMeasureSpecsWithPadding() {
         MyView child = spy(new MyView(mActivity));
-        MyScrollView scrollView = new MyScrollView(mActivity);
-        scrollView.setPadding(3, 5, 7, 11);
-        scrollView.addView(child);
+        mScrollViewCustomEmpty.setPadding(3, 5, 7, 11);
+        mScrollViewCustomEmpty.addView(child);
 
-        scrollView.measureChild(child, MeasureSpec.makeMeasureSpec(150, MeasureSpec.EXACTLY),
+        mScrollViewCustomEmpty.measureChild(child,
+                MeasureSpec.makeMeasureSpec(150, MeasureSpec.EXACTLY),
                 MeasureSpec.makeMeasureSpec(100, MeasureSpec.EXACTLY));
         verify(child).onMeasure(
                 eq(MeasureSpec.makeMeasureSpec(140, MeasureSpec.EXACTLY)),
                 eq(MeasureSpec.makeMeasureSpec(84, MeasureSpec.UNSPECIFIED)));
     }
 
+    @UiThreadTest
+    @Test
     public void testMeasureSpecsWithMargins() {
         MyView child = spy(new MyView(mActivity));
-        MyScrollView scrollView = new MyScrollView(mActivity);
-        scrollView.addView(child);
+        mScrollViewCustomEmpty.addView(child);
 
-        scrollView.measureChildWithMargins(child,
+        mScrollViewCustomEmpty.measureChildWithMargins(child,
                 MeasureSpec.makeMeasureSpec(150, MeasureSpec.EXACTLY), 20,
                 MeasureSpec.makeMeasureSpec(100, MeasureSpec.EXACTLY), 15);
         verify(child).onMeasure(
@@ -393,13 +405,14 @@ public class ScrollViewTest extends ActivityInstrumentationTestCase2<ScrollViewC
                 eq(MeasureSpec.makeMeasureSpec(85, MeasureSpec.UNSPECIFIED)));
     }
 
+    @UiThreadTest
+    @Test
     public void testMeasureSpecsWithMarginsAndPadding() {
         MyView child = spy(new MyView(mActivity));
-        MyScrollView scrollView = new MyScrollView(mActivity);
-        scrollView.setPadding(3, 5, 7, 11);
-        scrollView.addView(child);
+        mScrollViewCustomEmpty.setPadding(3, 5, 7, 11);
+        mScrollViewCustomEmpty.addView(child);
 
-        scrollView.measureChildWithMargins(child,
+        mScrollViewCustomEmpty.measureChildWithMargins(child,
                 MeasureSpec.makeMeasureSpec(150, MeasureSpec.EXACTLY), 20,
                 MeasureSpec.makeMeasureSpec(100, MeasureSpec.EXACTLY), 15);
         verify(child).onMeasure(
@@ -407,12 +420,13 @@ public class ScrollViewTest extends ActivityInstrumentationTestCase2<ScrollViewC
                 eq(MeasureSpec.makeMeasureSpec(69, MeasureSpec.UNSPECIFIED)));
     }
 
+    @UiThreadTest
+    @Test
     public void testMeasureSpecsWithMarginsAndNoHintWidth() {
         MyView child = spy(new MyView(mActivity));
-        MyScrollView scrollView = new MyScrollView(mActivity);
-        scrollView.addView(child);
+        mScrollViewCustomEmpty.addView(child);
 
-        scrollView.measureChildWithMargins(child,
+        mScrollViewCustomEmpty.measureChildWithMargins(child,
                 MeasureSpec.makeMeasureSpec(150, MeasureSpec.EXACTLY), 20,
                 MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED), 15);
         verify(child).onMeasure(
@@ -420,47 +434,52 @@ public class ScrollViewTest extends ActivityInstrumentationTestCase2<ScrollViewC
                 eq(MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED)));
     }
 
+    @UiThreadTest
+    @Test
     public void testFillViewport() {
-        MyScrollView scrollView = new MyScrollView(mActivity);
-        scrollView.setFillViewport(true);
+        mScrollViewRegular.setFillViewport(true);
 
         MyView child = new MyView(mActivity);
         child.setLayoutParams(new ViewGroup.LayoutParams(100, 100));
 
-        scrollView.addView(child);
-        scrollView.measure(MeasureSpec.makeMeasureSpec(100, MeasureSpec.EXACTLY),
+        mScrollViewRegular.addView(child);
+        mScrollViewRegular.measure(
+                MeasureSpec.makeMeasureSpec(100, MeasureSpec.EXACTLY),
                 MeasureSpec.makeMeasureSpec(150, MeasureSpec.EXACTLY));
 
         assertEquals(150, child.getMeasuredHeight());
         assertEquals(100, child.getMeasuredWidth());
 
-        scrollView.layout(0, 0, 100, 150);
+        mScrollViewRegular.layout(0, 0, 100, 150);
         assertEquals(0, child.getTop());
     }
 
+    @UiThreadTest
+    @Test
     public void testFillViewportWithScrollViewPadding() {
-        MyScrollView scrollView = new MyScrollView(mActivity);
-        scrollView.setFillViewport(true);
-        scrollView.setPadding(3, 10, 5, 7);
+        mScrollViewRegular.setFillViewport(true);
+        mScrollViewRegular.setPadding(3, 10, 5, 7);
 
         MyView child = new MyView(mActivity);
         child.setLayoutParams(new ViewGroup.LayoutParams(10,10));
         child.setDesiredHeight(30);
 
-        scrollView.addView(child);
-        scrollView.measure(MeasureSpec.makeMeasureSpec(100, MeasureSpec.EXACTLY),
+        mScrollViewRegular.addView(child);
+        mScrollViewRegular.measure(
+                MeasureSpec.makeMeasureSpec(100, MeasureSpec.EXACTLY),
                 MeasureSpec.makeMeasureSpec(150, MeasureSpec.EXACTLY));
 
         assertEquals(133, child.getMeasuredHeight());
         assertEquals(10, child.getMeasuredWidth());
 
-        scrollView.layout(0, 0, 100, 150);
+        mScrollViewRegular.layout(0, 0, 100, 150);
         assertEquals(10, child.getTop());
     }
 
+    @UiThreadTest
+    @Test
     public void testFillViewportWithChildMargins() {
-        MyScrollView scrollView = new MyScrollView(mActivity);
-        scrollView.setFillViewport(true);
+        mScrollViewRegular.setFillViewport(true);
 
         MyView child = new MyView(mActivity);
         FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(10, 10);
@@ -471,40 +490,42 @@ public class ScrollViewTest extends ActivityInstrumentationTestCase2<ScrollViewC
         child.setDesiredHeight(30);
         child.setLayoutParams(lp);
 
-        scrollView.addView(child);
-        scrollView.measure(MeasureSpec.makeMeasureSpec(100, MeasureSpec.EXACTLY),
+        mScrollViewRegular.addView(child);
+        mScrollViewRegular.measure(MeasureSpec.makeMeasureSpec(100, MeasureSpec.EXACTLY),
                 MeasureSpec.makeMeasureSpec(150, MeasureSpec.EXACTLY));
 
         assertEquals(133, child.getMeasuredHeight());
         assertEquals(10, child.getMeasuredWidth());
 
-        scrollView.layout(0, 0, 100, 150);
+        mScrollViewRegular.layout(0, 0, 100, 150);
         assertEquals(10, child.getTop());
     }
 
+    @UiThreadTest
+    @Test
     public void testFillViewportWithScrollViewPaddingAlreadyFills() {
-        MyScrollView scrollView = new MyScrollView(mActivity);
-        scrollView.setFillViewport(true);
-        scrollView.setPadding(3, 10, 5, 7);
+        mScrollViewRegular.setFillViewport(true);
+        mScrollViewRegular.setPadding(3, 10, 5, 7);
 
         MyView child = new MyView(mActivity);
         child.setDesiredHeight(175);
 
-        scrollView.addView(child);
-        scrollView.measure(MeasureSpec.makeMeasureSpec(100, MeasureSpec.EXACTLY),
+        mScrollViewRegular.addView(child);
+        mScrollViewRegular.measure(MeasureSpec.makeMeasureSpec(100, MeasureSpec.EXACTLY),
                 MeasureSpec.makeMeasureSpec(150, MeasureSpec.EXACTLY));
 
 
         assertEquals(92, child.getMeasuredWidth());
         assertEquals(175, child.getMeasuredHeight());
 
-        scrollView.layout(0, 0, 100, 150);
+        mScrollViewRegular.layout(0, 0, 100, 150);
         assertEquals(10, child.getTop());
     }
 
+    @UiThreadTest
+    @Test
     public void testFillViewportWithChildMarginsAlreadyFills() {
-        MyScrollView scrollView = new MyScrollView(mActivity);
-        scrollView.setFillViewport(true);
+        mScrollViewRegular.setFillViewport(true);
         MyView child = new MyView(mActivity);
         FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -517,155 +538,155 @@ public class ScrollViewTest extends ActivityInstrumentationTestCase2<ScrollViewC
         child.setLayoutParams(lp);
         child.setDesiredHeight(175);
 
-        scrollView.addView(child);
-        scrollView.measure(MeasureSpec.makeMeasureSpec(100, MeasureSpec.EXACTLY),
+        mScrollViewRegular.addView(child);
+        mScrollViewRegular.measure(MeasureSpec.makeMeasureSpec(100, MeasureSpec.EXACTLY),
                 MeasureSpec.makeMeasureSpec(150, MeasureSpec.EXACTLY));
 
         assertEquals(92, child.getMeasuredWidth());
         assertEquals(175, child.getMeasuredHeight());
 
-        scrollView.layout(0, 0, 100, 150);
+        mScrollViewRegular.layout(0, 0, 100, 150);
         assertEquals(10, child.getTop());
     }
 
     @UiThreadTest
+    @Test
     public void testPageScroll() {
-        mScrollView.setSmoothScrollingEnabled(false);
-        assertEquals(0, mScrollView.getScrollY());
+        mScrollViewCustom.setSmoothScrollingEnabled(false);
+        assertEquals(0, mScrollViewCustom.getScrollY());
 
-        assertTrue(mScrollView.pageScroll(View.FOCUS_DOWN));
-        assertEquals(mPageHeight, mScrollView.getScrollY(), TOLERANCE);
+        assertTrue(mScrollViewCustom.pageScroll(View.FOCUS_DOWN));
+        assertEquals(mPageHeight, mScrollViewCustom.getScrollY(), TOLERANCE);
 
-        assertTrue(mScrollView.pageScroll(View.FOCUS_DOWN));
-        assertEquals(mPageHeight * 2, mScrollView.getScrollY(), TOLERANCE);
+        assertTrue(mScrollViewCustom.pageScroll(View.FOCUS_DOWN));
+        assertEquals(mPageHeight * 2, mScrollViewCustom.getScrollY(), TOLERANCE);
 
-        mScrollView.scrollTo(mPageWidth, mScrollBottom);
-        assertFalse(mScrollView.pageScroll(View.FOCUS_DOWN));
-        assertEquals(mScrollBottom, mScrollView.getScrollY(), TOLERANCE);
+        mScrollViewCustom.scrollTo(mPageWidth, mScrollBottom);
+        assertFalse(mScrollViewCustom.pageScroll(View.FOCUS_DOWN));
+        assertEquals(mScrollBottom, mScrollViewCustom.getScrollY(), TOLERANCE);
 
-        assertTrue(mScrollView.pageScroll(View.FOCUS_UP));
-        assertEquals(mScrollBottom - mPageHeight, mScrollView.getScrollY(), TOLERANCE);
+        assertTrue(mScrollViewCustom.pageScroll(View.FOCUS_UP));
+        assertEquals(mScrollBottom - mPageHeight, mScrollViewCustom.getScrollY(), TOLERANCE);
 
-        assertTrue(mScrollView.pageScroll(View.FOCUS_UP));
-        assertEquals(mScrollBottom -mPageHeight * 2, mScrollView.getScrollY(), TOLERANCE);
+        assertTrue(mScrollViewCustom.pageScroll(View.FOCUS_UP));
+        assertEquals(mScrollBottom -mPageHeight * 2, mScrollViewCustom.getScrollY(), TOLERANCE);
 
-        mScrollView.scrollTo(mPageWidth, 0);
-        assertFalse(mScrollView.pageScroll(View.FOCUS_UP));
-        assertEquals(0, mScrollView.getScrollY());
+        mScrollViewCustom.scrollTo(mPageWidth, 0);
+        assertFalse(mScrollViewCustom.pageScroll(View.FOCUS_UP));
+        assertEquals(0, mScrollViewCustom.getScrollY());
     }
 
     @UiThreadTest
+    @Test
     public void testFullScroll() {
-        mScrollView.setSmoothScrollingEnabled(false);
-        assertEquals(0, mScrollView.getScrollY());
+        mScrollViewCustom.setSmoothScrollingEnabled(false);
+        assertEquals(0, mScrollViewCustom.getScrollY());
 
-        assertTrue(mScrollView.fullScroll(View.FOCUS_DOWN));
-        assertEquals(mScrollBottom, mScrollView.getScrollY());
+        assertTrue(mScrollViewCustom.fullScroll(View.FOCUS_DOWN));
+        assertEquals(mScrollBottom, mScrollViewCustom.getScrollY());
 
-        assertFalse(mScrollView.fullScroll(View.FOCUS_DOWN));
-        assertEquals(mScrollBottom, mScrollView.getScrollY());
+        assertFalse(mScrollViewCustom.fullScroll(View.FOCUS_DOWN));
+        assertEquals(mScrollBottom, mScrollViewCustom.getScrollY());
 
-        assertTrue(mScrollView.fullScroll(View.FOCUS_UP));
-        assertEquals(0, mScrollView.getScrollY());
+        assertTrue(mScrollViewCustom.fullScroll(View.FOCUS_UP));
+        assertEquals(0, mScrollViewCustom.getScrollY());
 
-        assertFalse(mScrollView.fullScroll(View.FOCUS_UP));
-        assertEquals(0, mScrollView.getScrollY());
+        assertFalse(mScrollViewCustom.fullScroll(View.FOCUS_UP));
+        assertEquals(0, mScrollViewCustom.getScrollY());
     }
 
     @UiThreadTest
+    @Test
     public void testArrowScroll() {
-        mScrollView.setSmoothScrollingEnabled(false);
-        assertEquals(0, mScrollView.getScrollY());
+        mScrollViewCustom.setSmoothScrollingEnabled(false);
+        assertEquals(0, mScrollViewCustom.getScrollY());
 
-        int y = mScrollView.getScrollY();
+        int y = mScrollViewCustom.getScrollY();
         while (mScrollBottom != y) {
-            assertTrue(mScrollView.arrowScroll(View.FOCUS_DOWN));
-            assertTrue(y <= mScrollView.getScrollY());
-            y = mScrollView.getScrollY();
+            assertTrue(mScrollViewCustom.arrowScroll(View.FOCUS_DOWN));
+            assertTrue(y <= mScrollViewCustom.getScrollY());
+            y = mScrollViewCustom.getScrollY();
         }
 
-        assertFalse(mScrollView.arrowScroll(View.FOCUS_DOWN));
-        assertEquals(mScrollBottom, mScrollView.getScrollY());
+        assertFalse(mScrollViewCustom.arrowScroll(View.FOCUS_DOWN));
+        assertEquals(mScrollBottom, mScrollViewCustom.getScrollY());
 
-        y = mScrollView.getScrollY();
+        y = mScrollViewCustom.getScrollY();
         while (0 != y) {
-            assertTrue(mScrollView.arrowScroll(View.FOCUS_UP));
-            assertTrue(y >= mScrollView.getScrollY());
-            y = mScrollView.getScrollY();
+            assertTrue(mScrollViewCustom.arrowScroll(View.FOCUS_UP));
+            assertTrue(y >= mScrollViewCustom.getScrollY());
+            y = mScrollViewCustom.getScrollY();
         }
 
-        assertFalse(mScrollView.arrowScroll(View.FOCUS_UP));
-        assertEquals(0, mScrollView.getScrollY());
+        assertFalse(mScrollViewCustom.arrowScroll(View.FOCUS_UP));
+        assertEquals(0, mScrollViewCustom.getScrollY());
     }
 
+    @Test
     public void testSmoothScrollBy() throws Throwable {
-        assertEquals(0, mScrollView.getScrollX());
-        assertEquals(0, mScrollView.getScrollY());
+        assertEquals(0, mScrollViewCustom.getScrollX());
+        assertEquals(0, mScrollViewCustom.getScrollY());
 
-        runTestOnUiThread(new Runnable() {
-            public void run() {
-                mScrollView.smoothScrollBy(mScrollRight, mScrollBottom);
-            }
-        });
+        mActivityRule.runOnUiThread(
+                () -> mScrollViewCustom.smoothScrollBy(mScrollRight, mScrollBottom));
         // smoothScrollBy doesn't scroll in X
         pollingCheckSmoothScrolling(0, 0, 0, mScrollBottom);
-        assertEquals(0, mScrollView.getScrollX());
-        assertEquals(mScrollBottom, mScrollView.getScrollY());
+        assertEquals(0, mScrollViewCustom.getScrollX());
+        assertEquals(mScrollBottom, mScrollViewCustom.getScrollY());
 
-        runTestOnUiThread(new Runnable() {
-            public void run() {
-                mScrollView.smoothScrollBy(-mScrollRight, -mScrollBottom);
-            }
-        });
+        mActivityRule.runOnUiThread(
+                () -> mScrollViewCustom.smoothScrollBy(-mScrollRight, -mScrollBottom));
         pollingCheckSmoothScrolling(mScrollRight, 0, mScrollBottom, 0);
-        assertEquals(0, mScrollView.getScrollX());
-        assertEquals(0, mScrollView.getScrollY());
+        assertEquals(0, mScrollViewCustom.getScrollX());
+        assertEquals(0, mScrollViewCustom.getScrollY());
     }
 
+    @Test
     public void testSmoothScrollTo() throws Throwable {
-        assertEquals(0, mScrollView.getScrollX());
-        assertEquals(0, mScrollView.getScrollY());
+        assertEquals(0, mScrollViewCustom.getScrollX());
+        assertEquals(0, mScrollViewCustom.getScrollY());
 
-        runTestOnUiThread(new Runnable() {
-            public void run() {
-                mScrollView.smoothScrollTo(mScrollRight, mScrollBottom);
-            }
-        });
+        mActivityRule.runOnUiThread(
+                () -> mScrollViewCustom.smoothScrollTo(mScrollRight, mScrollBottom));
         // smoothScrollTo doesn't scroll in X
         pollingCheckSmoothScrolling(0, 0, 0, mScrollBottom);
-        assertEquals(0, mScrollView.getScrollX());
-        assertEquals(mScrollBottom, mScrollView.getScrollY());
+        assertEquals(0, mScrollViewCustom.getScrollX());
+        assertEquals(mScrollBottom, mScrollViewCustom.getScrollY());
 
-        runTestOnUiThread(new Runnable() {
-            public void run() {
-                mScrollView.smoothScrollTo(mPageWidth, mPageHeight);
-            }
-        });
+        mActivityRule.runOnUiThread(
+                () -> mScrollViewCustom.smoothScrollTo(mPageWidth, mPageHeight));
         pollingCheckSmoothScrolling(0, 0, mScrollBottom, mPageHeight);
-        assertEquals(0, mScrollView.getScrollX());
-        assertEquals(mPageHeight, mScrollView.getScrollY());
+        assertEquals(0, mScrollViewCustom.getScrollX());
+        assertEquals(mPageHeight, mScrollViewCustom.getScrollY());
     }
 
+    @UiThreadTest
+    @Test
     public void testComputeScrollDeltaToGetChildRectOnScreen() {
-        mScrollView.setSmoothScrollingEnabled(false);
-        int edge = mScrollView.getVerticalFadingEdgeLength();
+        mScrollViewCustom.setSmoothScrollingEnabled(false);
+        int edge = mScrollViewCustom.getVerticalFadingEdgeLength();
 
         // Rect's height is smaller than scroll view
         Rect rect = new Rect(0, 0, 0, 0);
-        assertEquals(0, mScrollView.computeScrollDeltaToGetChildRectOnScreen(rect));
+        assertEquals(0,
+                ((MyScrollView) mScrollViewCustom).computeScrollDeltaToGetChildRectOnScreen(rect));
 
         rect = new Rect(0, edge, 0, mPageHeight);
-        assertEquals(0, mScrollView.computeScrollDeltaToGetChildRectOnScreen(rect));
+        assertEquals(0,
+                ((MyScrollView) mScrollViewCustom).computeScrollDeltaToGetChildRectOnScreen(rect));
 
-        mScrollView.scrollTo(0, 0);
+        mScrollViewCustom.scrollTo(0, 0);
         rect = new Rect(0, edge + 1, 0, mPageHeight);
-        assertEquals(edge, mScrollView.computeScrollDeltaToGetChildRectOnScreen(rect));
+        assertEquals(edge,
+                ((MyScrollView) mScrollViewCustom).computeScrollDeltaToGetChildRectOnScreen(rect));
     }
 
+    @UiThreadTest
+    @Test
     public void testComputeVerticalScrollRange() {
-        assertTrue(mScrollView.getChildCount() > 0);
+        assertTrue(mScrollViewCustom.getChildCount() > 0);
         assertEquals(mItemHeight * ITEM_COUNT,
-                mScrollView.computeVerticalScrollRange(), TOLERANCE);
+                ((MyScrollView) mScrollViewCustom).computeVerticalScrollRange(), TOLERANCE);
 
         MyScrollView myScrollView = new MyScrollView(mActivity);
         assertEquals(0, myScrollView.getChildCount());
@@ -673,145 +694,110 @@ public class ScrollViewTest extends ActivityInstrumentationTestCase2<ScrollViewC
     }
 
     @UiThreadTest
+    @Test
     public void testRequestChildFocus() {
-        mScrollView.setSmoothScrollingEnabled(false);
+        mScrollViewCustom.setSmoothScrollingEnabled(false);
 
-        View firstChild = mScrollView.findViewById(R.id.first_child);
-        View lastChild = mScrollView.findViewById(R.id.last_child);
+        View firstChild = mScrollViewCustom.findViewById(R.id.first_child);
+        View lastChild = mScrollViewCustom.findViewById(R.id.last_child);
         firstChild.requestFocus();
 
-        int scrollY = mScrollView.getScrollY();
-        mScrollView.requestChildFocus(lastChild, lastChild);
+        int scrollY = mScrollViewCustom.getScrollY();
+        mScrollViewCustom.requestChildFocus(lastChild, lastChild);
         // check scrolling to the child which wants focus
-        assertTrue(mScrollView.getScrollY() > scrollY);
+        assertTrue(mScrollViewCustom.getScrollY() > scrollY);
 
-        scrollY = mScrollView.getScrollY();
-        mScrollView.requestChildFocus(firstChild, firstChild);
+        scrollY = mScrollViewCustom.getScrollY();
+        mScrollViewCustom.requestChildFocus(firstChild, firstChild);
         // check scrolling to the child which wants focus
-        assertTrue(mScrollView.getScrollY() < scrollY);
+        assertTrue(mScrollViewCustom.getScrollY() < scrollY);
     }
 
     @UiThreadTest
+    @Test
     public void testRequestChildRectangleOnScreen() {
-        mScrollView.setSmoothScrollingEnabled(false);
-        mScrollView.setVerticalFadingEdgeEnabled(true);
-        int edge = mScrollView.getVerticalFadingEdgeLength();
+        mScrollViewCustom.setSmoothScrollingEnabled(false);
+        mScrollViewCustom.setVerticalFadingEdgeEnabled(true);
+        int edge = mScrollViewCustom.getVerticalFadingEdgeLength();
 
-        View child = mScrollView.findViewById(R.id.first_child);
-        int orgRectSize = (int)(10 * getActivity().getResources().getDisplayMetrics().density);
+        View child = mScrollViewCustom.findViewById(R.id.first_child);
+        int orgRectSize = (int)(10 * mActivity.getResources().getDisplayMetrics().density);
         final Rect originalRect = new Rect(0, 0, orgRectSize, orgRectSize);
         final Rect newRect = new Rect(mItemWidth - orgRectSize, mItemHeight - orgRectSize,
                 mItemWidth, mItemHeight);
 
-        assertFalse(mScrollView.requestChildRectangleOnScreen(child, originalRect, true));
-        assertEquals(0, mScrollView.getScrollX());
-        assertEquals(0, mScrollView.getScrollY());
+        assertFalse(mScrollViewCustom.requestChildRectangleOnScreen(child, originalRect, true));
+        assertEquals(0, mScrollViewCustom.getScrollX());
+        assertEquals(0, mScrollViewCustom.getScrollY());
 
-        assertTrue(mScrollView.requestChildRectangleOnScreen(child, newRect, true));
-        assertEquals(0, mScrollView.getScrollX());
-        assertEquals(edge, mScrollView.getScrollY());
+        assertTrue(mScrollViewCustom.requestChildRectangleOnScreen(child, newRect, true));
+        assertEquals(0, mScrollViewCustom.getScrollX());
+        assertEquals(edge, mScrollViewCustom.getScrollY());
     }
 
     @UiThreadTest
+    @Test
     public void testRequestLayout() {
-        mScrollView.requestLayout();
+        mScrollViewCustom.requestLayout();
 
-        assertTrue(mScrollView.isLayoutRequested());
+        assertTrue(mScrollViewCustom.isLayoutRequested());
     }
 
+    @Test
     public void testFling() throws Throwable {
-        mScrollView.setSmoothScrollingEnabled(true);
-        assertEquals(0, mScrollView.getScrollY());
+        mScrollViewCustom.setSmoothScrollingEnabled(true);
+        assertEquals(0, mScrollViewCustom.getScrollY());
 
         // fling towards bottom
-        runTestOnUiThread(new Runnable() {
-            public void run() {
-                mScrollView.fling(2000);
-            }
-        });
+        mActivityRule.runOnUiThread(() -> mScrollViewCustom.fling(2000));
         pollingCheckFling(0, true);
 
-        final int currentY = mScrollView.getScrollY();
+        final int currentY = mScrollViewCustom.getScrollY();
         // fling towards top
-        runTestOnUiThread(new Runnable() {
-            public void run() {
-                mScrollView.fling(-2000);
-            }
-        });
+        mActivityRule.runOnUiThread(() -> mScrollViewCustom.fling(-2000));
         pollingCheckFling(currentY, false);
     }
 
     @UiThreadTest
+    @Test
     public void testScrollTo() {
-        mScrollView.setSmoothScrollingEnabled(false);
+        mScrollViewCustom.setSmoothScrollingEnabled(false);
 
-        mScrollView.scrollTo(10, 10);
-        assertEquals(10, mScrollView.getScrollY());
-        assertEquals(10, mScrollView.getScrollX());
+        mScrollViewCustom.scrollTo(10, 10);
+        assertEquals(10, mScrollViewCustom.getScrollY());
+        assertEquals(10, mScrollViewCustom.getScrollX());
 
-        mScrollView.scrollTo(mPageWidth, mPageHeight);
-        assertEquals(mPageHeight, mScrollView.getScrollY());
-        assertEquals(mPageWidth, mScrollView.getScrollX());
+        mScrollViewCustom.scrollTo(mPageWidth, mPageHeight);
+        assertEquals(mPageHeight, mScrollViewCustom.getScrollY());
+        assertEquals(mPageWidth, mScrollViewCustom.getScrollX());
 
-        mScrollView.scrollTo(mScrollRight, mScrollBottom);
-        assertEquals(mScrollBottom, mScrollView.getScrollY());
-        assertEquals(mScrollRight, mScrollView.getScrollX());
+        mScrollViewCustom.scrollTo(mScrollRight, mScrollBottom);
+        assertEquals(mScrollBottom, mScrollViewCustom.getScrollY());
+        assertEquals(mScrollRight, mScrollViewCustom.getScrollX());
 
         // reach the top and left
-        mScrollView.scrollTo(-10, -10);
-        assertEquals(0, mScrollView.getScrollY());
-        assertEquals(0, mScrollView.getScrollX());
+        mScrollViewCustom.scrollTo(-10, -10);
+        assertEquals(0, mScrollViewCustom.getScrollY());
+        assertEquals(0, mScrollViewCustom.getScrollX());
     }
 
+    @UiThreadTest
+    @Test
     public void testGetVerticalFadingEdgeStrengths() {
-        assertTrue(mScrollView.getChildCount() > 0);
-        assertTrue(mScrollView.getTopFadingEdgeStrength() <= 1.0f);
-        assertTrue(mScrollView.getTopFadingEdgeStrength() >= 0.0f);
-        assertTrue(mScrollView.getBottomFadingEdgeStrength() <= 1.0f);
-        assertTrue(mScrollView.getBottomFadingEdgeStrength() >= 0.0f);
+        MyScrollView myScrollViewCustom = (MyScrollView) mScrollViewCustom;
+
+        assertTrue(myScrollViewCustom.getChildCount() > 0);
+        assertTrue(myScrollViewCustom.getTopFadingEdgeStrength() <= 1.0f);
+        assertTrue(myScrollViewCustom.getTopFadingEdgeStrength() >= 0.0f);
+        assertTrue(myScrollViewCustom.getBottomFadingEdgeStrength() <= 1.0f);
+        assertTrue(myScrollViewCustom.getBottomFadingEdgeStrength() >= 0.0f);
 
         MyScrollView myScrollView = new MyScrollView(mActivity);
         assertEquals(0, myScrollView.getChildCount());
-        assertTrue(mScrollView.getTopFadingEdgeStrength() <= 1.0f);
-        assertTrue(mScrollView.getTopFadingEdgeStrength() >= 0.0f);
-        assertTrue(mScrollView.getBottomFadingEdgeStrength() <= 1.0f);
-        assertTrue(mScrollView.getBottomFadingEdgeStrength() >= 0.0f);
-    }
-
-    public void testOnLayout() {
-        // onLayout() is implementation details, do NOT test
-    }
-
-    public void testOnMeasure() {
-        // onMeasure() is implementation details, do NOT test
-    }
-
-    public void testExecuteKeyEvent() {
-        // executeKeyEvent() is implementation details, do NOT test
-    }
-
-    public void testOnRequestFocusInDescendants() {
-        // onRequestFocusInDescendants() is implementation details, do NOT test
-    }
-
-    public void testOnSizeChanged() {
-        // onSizeChanged() is implementation details, do NOT test
-    }
-
-    public void testDispatchKeyEvent() {
-        // dispatchKeyEvent() is implementation details, do NOT test
-    }
-
-    public void testOnInterceptTouchEvent() {
-        // onInterceptTouchEvent() is implementation details, do NOT test
-    }
-
-    public void testOnTouchEvent() {
-        // onTouchEvent() is implementation details, do NOT test
-    }
-
-    public void testComputeScroll() {
-        // computeScroll() is implementation details, do NOT test
+        assertTrue(myScrollView.getTopFadingEdgeStrength() <= 1.0f);
+        assertTrue(myScrollView.getTopFadingEdgeStrength() >= 0.0f);
+        assertTrue(myScrollView.getBottomFadingEdgeStrength() <= 1.0f);
+        assertTrue(myScrollView.getBottomFadingEdgeStrength() >= 0.0f);
     }
 
     private boolean isInRange(int current, int from, int to) {
@@ -829,55 +815,35 @@ public class ScrollViewTest extends ActivityInstrumentationTestCase2<ScrollViewC
         }
 
         if (fromY != toY) {
-            new PollingCheck() {
-                @Override
-                protected boolean check() {
-                    return isInRange(mScrollView.getScrollY(), fromY, toY);
-                }
-            }.run();
+            PollingCheck.waitFor(() -> isInRange(mScrollViewCustom.getScrollY(), fromY, toY));
         }
 
         if (fromX != toX) {
-            new PollingCheck() {
-                @Override
-                protected boolean check() {
-                    return isInRange(mScrollView.getScrollX(), fromX, toX);
-                }
-            }.run();
+            PollingCheck.waitFor(() -> isInRange(mScrollViewCustom.getScrollX(), fromX, toX));
         }
 
-        new PollingCheck() {
-            @Override
-            protected boolean check() {
-                return toX == mScrollView.getScrollX() && toY == mScrollView.getScrollY();
-            }
-        }.run();
+        PollingCheck.waitFor(
+                () -> toX == mScrollViewCustom.getScrollX()
+                        && toY == mScrollViewCustom.getScrollY());
     }
 
     private void pollingCheckFling(final int startPosition, final boolean movingDown) {
-        new PollingCheck() {
-            @Override
-            protected boolean check() {
-                if (movingDown) {
-                    return mScrollView.getScrollY() > startPosition;
-                }
-                return mScrollView.getScrollY() < startPosition;
+        PollingCheck.waitFor(() -> {
+            if (movingDown) {
+                return mScrollViewCustom.getScrollY() > startPosition;
             }
-        };
+            return mScrollViewCustom.getScrollY() < startPosition;
+        });
 
-        new PollingCheck() {
-            private int mPreviousScrollY = mScrollView.getScrollY();
-
-            @Override
-            protected boolean check() {
-                if (mScrollView.getScrollY() == mPreviousScrollY) {
-                    return true;
-                } else {
-                    mPreviousScrollY = mScrollView.getScrollY();
-                    return false;
-                }
+        final int[] previousScrollY = new int[] { mScrollViewCustom.getScrollY() };
+        PollingCheck.waitFor(() -> {
+            if (mScrollViewCustom.getScrollY() == previousScrollY[0]) {
+                return true;
+            } else {
+                previousScrollY[0] = mScrollViewCustom.getScrollY();
+                return false;
             }
-        }.run();
+        });
     }
 
     public static class MyView extends View {
@@ -905,6 +871,52 @@ public class ScrollViewTest extends ActivityInstrumentationTestCase2<ScrollViewC
                 }
                 setMeasuredDimension(getMeasuredWidth(), newHeight);
             }
+        }
+    }
+
+    public static class MyScrollView extends ScrollView {
+        public MyScrollView(Context context) {
+            super(context);
+        }
+
+        public MyScrollView(Context context, AttributeSet attrs) {
+            super(context, attrs);
+        }
+
+        public MyScrollView(Context context, AttributeSet attrs, int defStyle) {
+            super(context, attrs, defStyle);
+        }
+
+        @Override
+        protected int computeScrollDeltaToGetChildRectOnScreen(Rect rect) {
+            return super.computeScrollDeltaToGetChildRectOnScreen(rect);
+        }
+
+        @Override
+        protected int computeVerticalScrollRange() {
+            return super.computeVerticalScrollRange();
+        }
+
+        @Override
+        protected float getBottomFadingEdgeStrength() {
+            return super.getBottomFadingEdgeStrength();
+        }
+
+        @Override
+        protected float getTopFadingEdgeStrength() {
+            return super.getTopFadingEdgeStrength();
+        }
+
+        @Override
+        protected void measureChild(View c, int pWidthMeasureSpec, int pHeightMeasureSpec) {
+            super.measureChild(c, pWidthMeasureSpec, pHeightMeasureSpec);
+        }
+
+        @Override
+        protected void measureChildWithMargins(View child, int parentWidthMeasureSpec,
+                int widthUsed, int parentHeightMeasureSpec, int heightUsed) {
+            super.measureChildWithMargins(child, parentWidthMeasureSpec, widthUsed,
+                    parentHeightMeasureSpec, heightUsed);
         }
     }
 }

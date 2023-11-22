@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012 The Android Open Source Project
+ * Copyright (C) 2016 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,15 +17,23 @@
 #ifndef ART_RUNTIME_SCOPED_THREAD_STATE_CHANGE_H_
 #define ART_RUNTIME_SCOPED_THREAD_STATE_CHANGE_H_
 
-#include "base/casts.h"
-#include "java_vm_ext.h"
-#include "jni_env_ext-inl.h"
-#include "art_field.h"
-#include "read_barrier.h"
-#include "thread-inl.h"
-#include "verify_object.h"
+#include "jni.h"
+
+#include "base/macros.h"
+#include "base/mutex.h"
+#include "base/value_object.h"
+#include "thread_state.h"
 
 namespace art {
+
+class JavaVMExt;
+struct JNIEnvExt;
+template<class MirrorType> class ObjPtr;
+class Thread;
+
+namespace mirror {
+class Object;
+}  // namespace mirror
 
 // Scoped change into and out of a particular state. Handles Runnable transitions that require
 // more complicated suspension checking. The subclasses ScopedObjectAccessUnchecked and
@@ -33,69 +41,25 @@ namespace art {
 // the unchecked variant doesn't aid annotalysis.
 class ScopedThreadStateChange : public ValueObject {
  public:
-  ScopedThreadStateChange(Thread* self, ThreadState new_thread_state)
-      REQUIRES(!Locks::thread_suspend_count_lock_) ALWAYS_INLINE
-      : self_(self), thread_state_(new_thread_state), expected_has_no_thread_(false) {
-    if (UNLIKELY(self_ == nullptr)) {
-      // Value chosen arbitrarily and won't be used in the destructor since thread_ == null.
-      old_thread_state_ = kTerminated;
-      Runtime* runtime = Runtime::Current();
-      CHECK(runtime == nullptr || !runtime->IsStarted() || runtime->IsShuttingDown(self_));
-    } else {
-      DCHECK_EQ(self, Thread::Current());
-      // Read state without locks, ok as state is effectively thread local and we're not interested
-      // in the suspend count (this will be handled in the runnable transitions).
-      old_thread_state_ = self->GetState();
-      if (old_thread_state_ != new_thread_state) {
-        if (new_thread_state == kRunnable) {
-          self_->TransitionFromSuspendedToRunnable();
-        } else if (old_thread_state_ == kRunnable) {
-          self_->TransitionFromRunnableToSuspended(new_thread_state);
-        } else {
-          // A suspended transition to another effectively suspended transition, ok to use Unsafe.
-          self_->SetState(new_thread_state);
-        }
-      }
-    }
-  }
+  ALWAYS_INLINE ScopedThreadStateChange(Thread* self, ThreadState new_thread_state)
+      REQUIRES(!Locks::thread_suspend_count_lock_);
 
-  ~ScopedThreadStateChange() REQUIRES(!Locks::thread_suspend_count_lock_) ALWAYS_INLINE {
-    if (UNLIKELY(self_ == nullptr)) {
-      if (!expected_has_no_thread_) {
-        Runtime* runtime = Runtime::Current();
-        bool shutting_down = (runtime == nullptr) || runtime->IsShuttingDown(nullptr);
-        CHECK(shutting_down);
-      }
-    } else {
-      if (old_thread_state_ != thread_state_) {
-        if (old_thread_state_ == kRunnable) {
-          self_->TransitionFromSuspendedToRunnable();
-        } else if (thread_state_ == kRunnable) {
-          self_->TransitionFromRunnableToSuspended(old_thread_state_);
-        } else {
-          // A suspended transition to another effectively suspended transition, ok to use Unsafe.
-          self_->SetState(old_thread_state_);
-        }
-      }
-    }
-  }
+  ALWAYS_INLINE ~ScopedThreadStateChange() REQUIRES(!Locks::thread_suspend_count_lock_);
 
-  Thread* Self() const {
+  ALWAYS_INLINE Thread* Self() const {
     return self_;
   }
 
  protected:
   // Constructor used by ScopedJniThreadState for an unattached thread that has access to the VM*.
-  ScopedThreadStateChange()
-      : self_(nullptr), thread_state_(kTerminated), old_thread_state_(kTerminated),
-        expected_has_no_thread_(true) {}
+  ScopedThreadStateChange() {}
 
-  Thread* const self_;
-  const ThreadState thread_state_;
+  Thread* const self_ = nullptr;
+  const ThreadState thread_state_ = kTerminated;
 
  private:
-  ThreadState old_thread_state_;
-  const bool expected_has_no_thread_;
+  ThreadState old_thread_state_ = kTerminated;
+  const bool expected_has_no_thread_ = true;
 
   friend class ScopedObjectAccessUnchecked;
   DISALLOW_COPY_AND_ASSIGN(ScopedThreadStateChange);
@@ -116,9 +80,7 @@ class ScopedObjectAccessAlreadyRunnable : public ValueObject {
     return vm_;
   }
 
-  bool ForceCopy() const {
-    return vm_->ForceCopy();
-  }
+  bool ForceCopy() const;
 
   /*
    * Add a local reference for an object to the indirect reference table associated with the
@@ -130,70 +92,33 @@ class ScopedObjectAccessAlreadyRunnable : public ValueObject {
    * it's best if we don't grab a mutex.
    */
   template<typename T>
-  T AddLocalReference(mirror::Object* obj) const SHARED_REQUIRES(Locks::mutator_lock_) {
-    Locks::mutator_lock_->AssertSharedHeld(Self());
-    DCHECK(IsRunnable());  // Don't work with raw objects in non-runnable states.
-    DCHECK_NE(obj, Runtime::Current()->GetClearedJniWeakGlobal());
-    return obj == nullptr ? nullptr : Env()->AddLocalReference<T>(obj);
-  }
+  T AddLocalReference(ObjPtr<mirror::Object> obj) const
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   template<typename T>
-  T Decode(jobject obj) const
-      SHARED_REQUIRES(Locks::mutator_lock_) {
-    Locks::mutator_lock_->AssertSharedHeld(Self());
-    DCHECK(IsRunnable());  // Don't work with raw objects in non-runnable states.
-    return down_cast<T>(Self()->DecodeJObject(obj));
-  }
+  ObjPtr<T> Decode(jobject obj) const REQUIRES_SHARED(Locks::mutator_lock_);
 
-  ArtField* DecodeField(jfieldID fid) const
-      SHARED_REQUIRES(Locks::mutator_lock_) {
-    Locks::mutator_lock_->AssertSharedHeld(Self());
-    DCHECK(IsRunnable());  // Don't work with raw objects in non-runnable states.
-    return reinterpret_cast<ArtField*>(fid);
-  }
-
-  jfieldID EncodeField(ArtField* field) const SHARED_REQUIRES(Locks::mutator_lock_) {
-    Locks::mutator_lock_->AssertSharedHeld(Self());
-    DCHECK(IsRunnable());  // Don't work with raw objects in non-runnable states.
-    return reinterpret_cast<jfieldID>(field);
-  }
-
-  ArtMethod* DecodeMethod(jmethodID mid) const SHARED_REQUIRES(Locks::mutator_lock_) {
-    Locks::mutator_lock_->AssertSharedHeld(Self());
-    DCHECK(IsRunnable());  // Don't work with raw objects in non-runnable states.
-    return reinterpret_cast<ArtMethod*>(mid);
-  }
-
-  jmethodID EncodeMethod(ArtMethod* method) const SHARED_REQUIRES(Locks::mutator_lock_) {
-    Locks::mutator_lock_->AssertSharedHeld(Self());
-    DCHECK(IsRunnable());  // Don't work with raw objects in non-runnable states.
-    return reinterpret_cast<jmethodID>(method);
-  }
-
-  bool IsRunnable() const {
-    return self_->GetState() == kRunnable;
-  }
+  ALWAYS_INLINE bool IsRunnable() const;
 
  protected:
-  explicit ScopedObjectAccessAlreadyRunnable(JNIEnv* env)
-      REQUIRES(!Locks::thread_suspend_count_lock_) ALWAYS_INLINE
-      : self_(ThreadForEnv(env)), env_(down_cast<JNIEnvExt*>(env)), vm_(env_->vm) {
-  }
+  ALWAYS_INLINE explicit ScopedObjectAccessAlreadyRunnable(JNIEnv* env)
+      REQUIRES(!Locks::thread_suspend_count_lock_);
 
-  explicit ScopedObjectAccessAlreadyRunnable(Thread* self)
-      REQUIRES(!Locks::thread_suspend_count_lock_) ALWAYS_INLINE
-      : self_(self), env_(down_cast<JNIEnvExt*>(self->GetJniEnv())),
-        vm_(env_ != nullptr ? env_->vm : nullptr) {
-  }
+  ALWAYS_INLINE explicit ScopedObjectAccessAlreadyRunnable(Thread* self)
+      REQUIRES(!Locks::thread_suspend_count_lock_);
 
   // Used when we want a scoped JNI thread state but have no thread/JNIEnv. Consequently doesn't
   // change into Runnable or acquire a share on the mutator_lock_.
+  // Note: The reinterpret_cast is backed by a static_assert in the cc file. Avoid a down_cast,
+  //       as it prevents forward declaration of JavaVMExt.
   explicit ScopedObjectAccessAlreadyRunnable(JavaVM* vm)
-      : self_(nullptr), env_(nullptr), vm_(down_cast<JavaVMExt*>(vm)) {}
+      : self_(nullptr), env_(nullptr), vm_(reinterpret_cast<JavaVMExt*>(vm)) {}
 
   // Here purely to force inlining.
-  ~ScopedObjectAccessAlreadyRunnable() ALWAYS_INLINE {
-  }
+  ALWAYS_INLINE ~ScopedObjectAccessAlreadyRunnable() {}
+
+  static void DCheckObjIsNotClearedJniWeakGlobal(ObjPtr<mirror::Object> obj)
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Self thread, can be null.
   Thread* const self_;
@@ -219,19 +144,13 @@ class ScopedObjectAccessAlreadyRunnable : public ValueObject {
 // the mutator_lock_ will be acquired on construction.
 class ScopedObjectAccessUnchecked : public ScopedObjectAccessAlreadyRunnable {
  public:
-  explicit ScopedObjectAccessUnchecked(JNIEnv* env)
-      REQUIRES(!Locks::thread_suspend_count_lock_) ALWAYS_INLINE
-      : ScopedObjectAccessAlreadyRunnable(env), tsc_(Self(), kRunnable) {
-    Self()->VerifyStack();
-    Locks::mutator_lock_->AssertSharedHeld(Self());
-  }
+  ALWAYS_INLINE explicit ScopedObjectAccessUnchecked(JNIEnv* env)
+      REQUIRES(!Locks::thread_suspend_count_lock_);
 
-  explicit ScopedObjectAccessUnchecked(Thread* self)
-      REQUIRES(!Locks::thread_suspend_count_lock_) ALWAYS_INLINE
-      : ScopedObjectAccessAlreadyRunnable(self), tsc_(self, kRunnable) {
-    Self()->VerifyStack();
-    Locks::mutator_lock_->AssertSharedHeld(Self());
-  }
+  ALWAYS_INLINE explicit ScopedObjectAccessUnchecked(Thread* self)
+      REQUIRES(!Locks::thread_suspend_count_lock_);
+
+  ALWAYS_INLINE ~ScopedObjectAccessUnchecked() REQUIRES(!Locks::thread_suspend_count_lock_) {}
 
   // Used when we want a scoped JNI thread state but have no thread/JNIEnv. Consequently doesn't
   // change into Runnable or acquire a share on the mutator_lock_.
@@ -249,28 +168,22 @@ class ScopedObjectAccessUnchecked : public ScopedObjectAccessAlreadyRunnable {
 // Annotalysis helping variant of the above.
 class ScopedObjectAccess : public ScopedObjectAccessUnchecked {
  public:
-  explicit ScopedObjectAccess(JNIEnv* env)
+  ALWAYS_INLINE explicit ScopedObjectAccess(JNIEnv* env)
       REQUIRES(!Locks::thread_suspend_count_lock_)
-      SHARED_LOCK_FUNCTION(Locks::mutator_lock_) ALWAYS_INLINE
-      : ScopedObjectAccessUnchecked(env) {
-  }
+      SHARED_LOCK_FUNCTION(Locks::mutator_lock_);
 
-  explicit ScopedObjectAccess(Thread* self)
+  ALWAYS_INLINE explicit ScopedObjectAccess(Thread* self)
       REQUIRES(!Locks::thread_suspend_count_lock_)
-      SHARED_LOCK_FUNCTION(Locks::mutator_lock_) ALWAYS_INLINE
-      : ScopedObjectAccessUnchecked(self) {
-  }
+      SHARED_LOCK_FUNCTION(Locks::mutator_lock_);
 
-  ~ScopedObjectAccess() UNLOCK_FUNCTION(Locks::mutator_lock_) ALWAYS_INLINE {
-    // Base class will release share of lock. Invoked after this destructor.
-  }
+  // Base class will release share of lock. Invoked after this destructor.
+  ~ScopedObjectAccess() UNLOCK_FUNCTION(Locks::mutator_lock_) ALWAYS_INLINE;
 
  private:
   // TODO: remove this constructor. It is used by check JNI's ScopedCheck to make it believe that
   //       routines operating with just a VM are sound, they are not, but when you have just a VM
   //       you cannot call the unsound routines.
-  explicit ScopedObjectAccess(JavaVM* vm)
-      SHARED_LOCK_FUNCTION(Locks::mutator_lock_)
+  explicit ScopedObjectAccess(JavaVM* vm) SHARED_LOCK_FUNCTION(Locks::mutator_lock_)
       : ScopedObjectAccessUnchecked(vm) {}
 
   friend class ScopedCheck;
@@ -280,19 +193,11 @@ class ScopedObjectAccess : public ScopedObjectAccessUnchecked {
 // Annotalysis helper for going to a suspended state from runnable.
 class ScopedThreadSuspension : public ValueObject {
  public:
-  explicit ScopedThreadSuspension(Thread* self, ThreadState suspended_state)
+  ALWAYS_INLINE explicit ScopedThreadSuspension(Thread* self, ThreadState suspended_state)
       REQUIRES(!Locks::thread_suspend_count_lock_, !Roles::uninterruptible_)
-      UNLOCK_FUNCTION(Locks::mutator_lock_)
-      ALWAYS_INLINE
-      : self_(self), suspended_state_(suspended_state) {
-    DCHECK(self_ != nullptr);
-    self_->TransitionFromRunnableToSuspended(suspended_state);
-  }
+      UNLOCK_FUNCTION(Locks::mutator_lock_);
 
-  ~ScopedThreadSuspension() SHARED_LOCK_FUNCTION(Locks::mutator_lock_) ALWAYS_INLINE {
-    DCHECK_EQ(self_->GetState(), suspended_state_);
-    self_->TransitionFromSuspendedToRunnable();
-  }
+  ALWAYS_INLINE ~ScopedThreadSuspension() SHARED_LOCK_FUNCTION(Locks::mutator_lock_);
 
  private:
   Thread* const self_;

@@ -16,6 +16,7 @@
 
 package com.android.stk;
 
+import android.app.ActionBar;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
@@ -33,6 +34,7 @@ import android.view.MenuItem;
 import android.view.View;
 import android.view.Window;
 import android.widget.Button;
+import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.EditText;
 import android.widget.TextView.BufferType;
@@ -134,8 +136,19 @@ public class StkInputActivity extends Activity implements View.OnClickListener,
 
         CatLog.d(LOG_TAG, "onCreate - mIsResponseSent[" + mIsResponseSent + "]");
 
+        // appService can be null if this activity is automatically recreated by the system
+        // with the saved instance state right after the phone process is killed.
+        if (appService == null) {
+            CatLog.d(LOG_TAG, "onCreate - appService is null");
+            finish();
+            return;
+        }
+
+        ActionBar actionBar = getActionBar();
+        actionBar.setCustomView(R.layout.stk_title);
+        actionBar.setDisplayShowCustomEnabled(true);
+
         // Set the layout for this activity.
-        requestWindowFeature(Window.FEATURE_LEFT_ICON);
         setContentView(R.layout.stk_input);
 
         // Initialize members
@@ -201,6 +214,9 @@ public class StkInputActivity extends Activity implements View.OnClickListener,
         super.onDestroy();
         CatLog.d(LOG_TAG, "onDestroy - before Send End Session mIsResponseSent[" +
                 mIsResponseSent + " , " + mSlotId + "]");
+        if (appService == null) {
+            return;
+        }
         //If the input activity is finished by stkappservice
         //when receiving OP_LAUNCH_APP from the other SIM, we can not send TR here
         //, since the input cmd is waiting user to process.
@@ -357,7 +373,11 @@ public class StkInputActivity extends Activity implements View.OnClickListener,
         int inTypeId = R.string.alphabet;
 
         // set the prompt.
-        mPromptView.setText(mStkInput.text);
+        if (mStkInput.iconSelfExplanatory && mStkInput.icon != null) {
+            mPromptView.setVisibility(View.GONE);
+        } else {
+            mPromptView.setText(mStkInput.text);
+        }
 
         // Set input type (alphabet/digit) info close to the InText form.
         if (mStkInput.digitOnly) {
@@ -366,9 +386,13 @@ public class StkInputActivity extends Activity implements View.OnClickListener,
         }
         inTypeView.setText(inTypeId);
 
+        TextView textView = (TextView) this.findViewById(R.id.title_text);
+        textView.setText(R.string.app_name);
+
         if (mStkInput.icon != null) {
-            setFeatureDrawable(Window.FEATURE_LEFT_ICON, new BitmapDrawable(
-                    mStkInput.icon));
+            ImageView imageView = (ImageView) findViewById(R.id.title_icon);
+            imageView.setImageBitmap(mStkInput.icon);
+            imageView.setVisibility(View.VISIBLE);
         }
 
         // Handle specific global and text attributes.

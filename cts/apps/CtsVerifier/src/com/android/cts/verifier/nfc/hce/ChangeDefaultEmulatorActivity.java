@@ -18,7 +18,6 @@ public class ChangeDefaultEmulatorActivity extends BaseEmulatorActivity {
     final static int STATE_MAKING_SERVICE2_DEFAULT = 4;
     final static int STATE_DEFAULT_CHANGED = 5;
 
-    boolean mReceiverRegistered = false;
     int mState = STATE_IDLE;
 
     @Override
@@ -58,9 +57,6 @@ public class ChangeDefaultEmulatorActivity extends BaseEmulatorActivity {
     @Override
     protected void onPause() {
         super.onPause();
-        if (mReceiverRegistered) {
-            unregisterReceiver(mReceiver);
-        }
     }
 
     public static Intent buildReaderIntent(Context context) {

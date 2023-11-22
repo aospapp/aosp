@@ -17,9 +17,9 @@ $(call inherit-product, device/generic/arm64/mini_arm64.mk)
 $(call inherit-product, device/generic/mini-emulator-armv7-a-neon/mini_emulator_common.mk)
 
 PRODUCT_NAME := mini_emulator_arm64
-PRODUCT_DEVICE := mini-emulator-armv7-a-neon
+PRODUCT_DEVICE := mini-emulator-arm64
 PRODUCT_BRAND := Android
-PRODUCT_MODEL := mini-emulator-armv7-a-neon
+PRODUCT_MODEL := mini-arm64
 
 LOCAL_KERNEL := prebuilts/qemu-kernel/arm/kernel-qemu-armv7
 PRODUCT_COPY_FILES += \

@@ -21,6 +21,7 @@
 
 #include "rsStream.h"
 #include <stdio.h>
+#include <vector>
 
 #define A3D_MAGIC_KEY "Android3D_ff"
 
@@ -32,7 +33,7 @@ namespace renderscript {
 
 class FileA3D : public ObjectBase {
 public:
-    FileA3D(Context *rsc);
+    explicit FileA3D(Context *rsc);
     ~FileA3D();
 
     uint32_t mMajorVersion;
@@ -85,18 +86,17 @@ protected:
     const uint8_t * mData;
     void * mAlloc;
     uint64_t mDataSize;
-    Asset *mAsset;
 
     OStream *mWriteStream;
-    Vector<A3DIndexEntry*> mWriteIndex;
+    std::vector<A3DIndexEntry*> mWriteIndex;
 
     IStream *mReadStream;
-    Vector<A3DIndexEntry*> mIndex;
+    std::vector<A3DIndexEntry*> mIndex;
 };
 
 
-}
-}
+} // namespace renderscript
+} // namespace android
 #endif //ANDROID_RS_FILE_A3D_H
 
 

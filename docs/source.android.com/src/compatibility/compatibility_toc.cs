@@ -24,7 +24,17 @@
     </div>
     <ul>
       <li><a href="<?cs var:toroot ?>compatibility/overview.html">Overview</a></li>
-      <li><a href="<?cs var:toroot ?>compatibility/android-cdd.pdf">Compatibility Definition Document (CDD)</a></li>
+      <li class="nav-section">
+        <div class="nav-section-header">
+          <a href="<?cs var:toroot ?>compatibility/cdd.html">
+            <span class="en">Compatibility Definition</span>
+          </a>
+        </div>
+        <ul>
+          <li><a href="<?cs var:toroot ?>compatibility/android-cdd.html">CDD in HTML</a></li>
+          <li><a href="<?cs var:toroot ?>compatibility/android-cdd.pdf">CDD in PDF</a></li>
+        </ul>
+      </li>
       <li class="nav-section">
         <div class="nav-section-header">
           <a href="<?cs var:toroot ?>compatibility/cts/index.html">
@@ -41,14 +51,17 @@
             </a>
             </div>
            <ul>
+            <li><a href="<?cs var:toroot ?>compatibility/cts/audio-framework.html">Audio Framework</a></li>
+            <li><a href="<?cs var:toroot ?>compatibility/cts/camera-hal.html">Camera HAL Testing</a></li>
+            <li><a href="<?cs var:toroot ?>compatibility/cts/near-ultrasound.html">Near Ultrasound Tests</a></li>
             <li><a href="<?cs var:toroot ?>compatibility/cts/rotation-vector.html">Rotation Vector Crosscheck</a></li>
            </ul>
           </li>
           <li><a href="<?cs var:toroot ?>compatibility/cts/interpret.html">Interpret Results</a></li>
           <li><a href="<?cs var:toroot ?>compatibility/cts/development.html">Develop CTS</a></li>
+          <li><a href="<?cs var:toroot ?>compatibility/cts/downloads.html">Downloads</a></li>
         </ul>
       </li>
-      <li><a href="<?cs var:toroot ?>compatibility/downloads.html">Downloads</a></li>
       <li><a href="<?cs var:toroot ?>compatibility/contact-us.html">Contact Us</a></li>
     </ul>
 <!-- End Compatibility -->

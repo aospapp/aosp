@@ -31,6 +31,7 @@ class androidDevice(object):
     def runAdbCommand(self, cmd):
         self.waitForAdbDevice()
         adbCmd = "adb -s %s %s" %(self._adbDevice, cmd)
+        print adbCmd
         adbProcess = subprocess.Popen(adbCmd.split(" "), bufsize = -1, stdout = subprocess.PIPE, stderr = subprocess.PIPE)
         return adbProcess.communicate()
 
@@ -38,6 +39,7 @@ class androidDevice(object):
         return self.runAdbCommand("shell " + cmd)
 
     def waitForAdbDevice(self):
+        print "waitForAdbDevice"
         os.system("adb -s %s wait-for-device" %self._adbDevice)
 
     def waitForBootComplete(self, timeout = 240):
@@ -67,7 +69,7 @@ class androidDevice(object):
         return "Success" in result
 
     def runInstrumentationTest(self, option):
-        return self.runShellCommand("am instrument -w " + option)
+        return self.runShellCommand("am instrument -w --no-window-animation " + option)
 
     def isProcessAlive(self, processName):
         (out, err) = self.runShellCommand("ps")
@@ -76,6 +78,12 @@ class androidDevice(object):
         # should work mostly unless processName is too simple to overlap with
         # uid. So only use name like com.android.xyz
         return processName in names
+
+    def getVersionSdkInt(self):
+        return int(self.runShellCommand("getprop ro.build.version.sdk")[0])
+
+    def getVersionCodename(self):
+        return self.runShellCommand("getprop ro.build.version.codename")[0].strip()
 
     def getDensity(self):
         if "emulator" in self._adbDevice:
@@ -88,6 +96,13 @@ class androidDevice(object):
 
     def getOrientation(self):
         return int(self.runShellCommand("dumpsys | grep SurfaceOrientation")[0].split()[1])
+
+    # Running dumpsys on the emulator currently yields a SIGSEGV, so don't do it.
+    #
+    #def getHWType(self):
+    #    (output, err) = self.runShellCommand("dumpsys | grep android.hardware.type")
+    #    output = output.strip()
+    #    return output
 
 def runAdbDevices():
     devices = subprocess.check_output(["adb", "devices"])

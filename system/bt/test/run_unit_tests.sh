@@ -2,13 +2,24 @@
 
 known_tests=(
   bluetoothtbd_test
+  net_test_audio_a2dp_hw
   net_test_bluetooth
   net_test_btcore
+  net_test_bta
+  net_test_btif
   net_test_device
   net_test_hci
+  net_test_stack
+  net_test_stack_multi_adv
+  net_test_stack_ad_parser
+  net_test_stack_smp
   net_test_osi
-  net_test_btif
 )
+
+known_remote_tests=(
+  net_test_rfcomm
+)
+
 
 usage() {
   binary="$(basename "$0")"
@@ -20,6 +31,13 @@ usage() {
   echo "Known test names:"
 
   for name in "${known_tests[@]}"
+  do
+    echo "    ${name}"
+  done
+
+  echo
+  echo "Known tests that need a remote device:"
+  for name in "${known_remote_tests[@]}"
   do
     echo "    ${name}"
   done

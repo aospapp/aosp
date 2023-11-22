@@ -17,6 +17,8 @@
 #define LOG_TAG "IGraphicBufferProducer_test"
 //#define LOG_NDEBUG 0
 
+#include "DummyConsumer.h"
+
 #include <gtest/gtest.h>
 
 #include <utils/String8.h>
@@ -63,12 +65,6 @@ namespace {
     const int QUEUE_BUFFER_INPUT_TRANSFORM = 0;
     const sp<Fence> QUEUE_BUFFER_INPUT_FENCE = Fence::NO_FENCE;
 }; // namespace anonymous
-
-struct DummyConsumer : public BnConsumerListener {
-    virtual void onFrameAvailable(const BufferItem& /* item */) {}
-    virtual void onBuffersReleased() {}
-    virtual void onSidebandStreamChanged() {}
-};
 
 class IGraphicBufferProducerTest : public ::testing::Test {
 protected:
@@ -196,7 +192,7 @@ protected:
     };
 
     status_t dequeueBuffer(uint32_t w, uint32_t h, uint32_t format, uint32_t usage, DequeueBufferResult* result) {
-        return mProducer->dequeueBuffer(&result->slot, &result->fence, w, h, format, usage);
+        return mProducer->dequeueBuffer(&result->slot, &result->fence, w, h, format, usage, nullptr);
     }
 
     void setupDequeueRequestBuffer(int *slot, sp<Fence> *fence,
@@ -210,7 +206,7 @@ protected:
 
         ASSERT_EQ(OK, ~IGraphicBufferProducer::BUFFER_NEEDS_REALLOCATION &
                 (mProducer->dequeueBuffer(slot, fence, DEFAULT_WIDTH,
-                DEFAULT_HEIGHT, DEFAULT_FORMAT, TEST_PRODUCER_USAGE_BITS)));
+                DEFAULT_HEIGHT, DEFAULT_FORMAT, TEST_PRODUCER_USAGE_BITS, nullptr)));
 
         EXPECT_LE(0, *slot);
         EXPECT_GT(BufferQueue::NUM_BUFFER_SLOTS, *slot);
@@ -349,7 +345,7 @@ TEST_F(IGraphicBufferProducerTest, Queue_Succeeds) {
     ASSERT_EQ(OK, ~IGraphicBufferProducer::BUFFER_NEEDS_REALLOCATION &
             (mProducer->dequeueBuffer(&dequeuedSlot, &dequeuedFence,
                                      DEFAULT_WIDTH, DEFAULT_HEIGHT, DEFAULT_FORMAT,
-                                     TEST_PRODUCER_USAGE_BITS)));
+                                     TEST_PRODUCER_USAGE_BITS, nullptr)));
 
     EXPECT_LE(0, dequeuedSlot);
     EXPECT_GT(BufferQueue::NUM_BUFFER_SLOTS, dequeuedSlot);
@@ -366,20 +362,12 @@ TEST_F(IGraphicBufferProducerTest, Queue_Succeeds) {
     ASSERT_OK(mProducer->queueBuffer(dequeuedSlot, input, &output));
 
     {
-        uint32_t width;
-        uint32_t height;
-        uint32_t transformHint;
-        uint32_t numPendingBuffers;
-        uint64_t nextFrameNumber;
-
-        output.deflate(&width, &height, &transformHint, &numPendingBuffers,
-                &nextFrameNumber);
-
-        EXPECT_EQ(DEFAULT_WIDTH, width);
-        EXPECT_EQ(DEFAULT_HEIGHT, height);
-        EXPECT_EQ(DEFAULT_TRANSFORM_HINT, transformHint);
-        EXPECT_EQ(1u, numPendingBuffers); // since queueBuffer was called exactly once
-        EXPECT_EQ(2u, nextFrameNumber);
+        EXPECT_EQ(DEFAULT_WIDTH, output.width);
+        EXPECT_EQ(DEFAULT_HEIGHT, output.height);
+        EXPECT_EQ(DEFAULT_TRANSFORM_HINT, output.transformHint);
+        // Since queueBuffer was called exactly once
+        EXPECT_EQ(1u, output.numPendingBuffers);
+        EXPECT_EQ(2u, output.nextFrameNumber);
     }
 
     // Buffer was not in the dequeued state
@@ -416,7 +404,7 @@ TEST_F(IGraphicBufferProducerTest, Queue_ReturnsError) {
     ASSERT_EQ(OK, ~IGraphicBufferProducer::BUFFER_NEEDS_REALLOCATION &
             (mProducer->dequeueBuffer(&dequeuedSlot, &dequeuedFence,
                                      DEFAULT_WIDTH, DEFAULT_HEIGHT, DEFAULT_FORMAT,
-                                     TEST_PRODUCER_USAGE_BITS)));
+                                     TEST_PRODUCER_USAGE_BITS, nullptr)));
 
     // Slot was enqueued without requesting a buffer
     {
@@ -485,7 +473,7 @@ TEST_F(IGraphicBufferProducerTest, CancelBuffer_DoesntCrash) {
     ASSERT_EQ(OK, ~IGraphicBufferProducer::BUFFER_NEEDS_REALLOCATION &
             (mProducer->dequeueBuffer(&dequeuedSlot, &dequeuedFence,
                                      DEFAULT_WIDTH, DEFAULT_HEIGHT, DEFAULT_FORMAT,
-                                     TEST_PRODUCER_USAGE_BITS)));
+                                     TEST_PRODUCER_USAGE_BITS, nullptr)));
 
     // No return code, but at least test that it doesn't blow up...
     // TODO: add a return code
@@ -534,7 +522,7 @@ TEST_F(IGraphicBufferProducerTest, SetMaxDequeuedBufferCount_Succeeds) {
                 (mProducer->dequeueBuffer(&dequeuedSlot, &dequeuedFence,
                                          DEFAULT_WIDTH, DEFAULT_HEIGHT,
                                          DEFAULT_FORMAT,
-                                         TEST_PRODUCER_USAGE_BITS)))
+                                         TEST_PRODUCER_USAGE_BITS, nullptr)))
                 << "iteration: " << i << ", slot: " << dequeuedSlot;
     }
 
@@ -571,7 +559,7 @@ TEST_F(IGraphicBufferProducerTest, SetMaxDequeuedBufferCount_Fails) {
                 (mProducer->dequeueBuffer(&dequeuedSlot, &dequeuedFence,
                                          DEFAULT_WIDTH, DEFAULT_HEIGHT,
                                          DEFAULT_FORMAT,
-                                         TEST_PRODUCER_USAGE_BITS)))
+                                         TEST_PRODUCER_USAGE_BITS, nullptr)))
                 << "slot: " << dequeuedSlot;
     }
 
@@ -606,7 +594,8 @@ TEST_F(IGraphicBufferProducerTest, SetAsyncMode_Succeeds) {
         ASSERT_EQ(OK, ~IGraphicBufferProducer::BUFFER_NEEDS_REALLOCATION &
                 (mProducer->dequeueBuffer(&dequeuedSlot, &dequeuedFence,
                 DEFAULT_WIDTH, DEFAULT_HEIGHT, DEFAULT_FORMAT,
-                TEST_PRODUCER_USAGE_BITS))) << "slot : " << dequeuedSlot;
+                TEST_PRODUCER_USAGE_BITS, nullptr)))
+                << "slot : " << dequeuedSlot;
         ASSERT_OK(mProducer->requestBuffer(dequeuedSlot, &dequeuedBuffer));
         ASSERT_OK(mProducer->queueBuffer(dequeuedSlot, input, &output));
     }
@@ -622,7 +611,8 @@ TEST_F(IGraphicBufferProducerTest, SetAsyncMode_Fails) {
         ASSERT_EQ(OK, ~IGraphicBufferProducer::BUFFER_NEEDS_REALLOCATION &
                 (mProducer->dequeueBuffer(&dequeuedSlot, &dequeuedFence,
                 DEFAULT_WIDTH, DEFAULT_HEIGHT, DEFAULT_FORMAT,
-                TEST_PRODUCER_USAGE_BITS))) << "slot: " << dequeuedSlot;
+                TEST_PRODUCER_USAGE_BITS, nullptr)))
+                << "slot: " << dequeuedSlot;
     }
 
     // Abandon buffer queue
@@ -639,7 +629,7 @@ TEST_F(IGraphicBufferProducerTest,
     sp<Fence> fence;
 
     ASSERT_EQ(NO_INIT, mProducer->dequeueBuffer(&slot, &fence, DEFAULT_WIDTH,
-            DEFAULT_HEIGHT, DEFAULT_FORMAT, TEST_PRODUCER_USAGE_BITS));
+            DEFAULT_HEIGHT, DEFAULT_FORMAT, TEST_PRODUCER_USAGE_BITS, nullptr));
 }
 
 TEST_F(IGraphicBufferProducerTest,
@@ -659,7 +649,8 @@ TEST_F(IGraphicBufferProducerTest,
 
     ASSERT_EQ(OK, ~IGraphicBufferProducer::BUFFER_NEEDS_REALLOCATION &
             (mProducer->dequeueBuffer(&slot, &fence, DEFAULT_WIDTH,
-            DEFAULT_HEIGHT, DEFAULT_FORMAT, TEST_PRODUCER_USAGE_BITS)));
+            DEFAULT_HEIGHT, DEFAULT_FORMAT, TEST_PRODUCER_USAGE_BITS,
+            nullptr)));
 
     EXPECT_LE(0, slot);
     EXPECT_GT(BufferQueue::NUM_BUFFER_SLOTS, slot);

@@ -20,6 +20,7 @@
  * 94/02/27	- Ported to use the ext2fs library
  */
 
+#include "config.h"
 #ifdef HAVE_GETOPT_H
 #include <getopt.h>
 #else
@@ -36,11 +37,12 @@ extern int optind;
 
 #include "ext2fs/ext2fs.h"
 #include "e2p/e2p.h"
-#include "jfs_user.h"
+#include "ext2fs/kernel-jbd.h"
 #include <uuid/uuid.h>
 
+#include "support/nls-enable.h"
+#include "support/plausible.h"
 #include "../version.h"
-#include "nls-enable.h"
 
 #define in_use(m, x)	(ext2fs_test_bit ((x), (m)))
 
@@ -51,9 +53,9 @@ static int blocks64 = 0;
 
 static void usage(void)
 {
-	fprintf (stderr, _("Usage: %s [-bfhixV] [-o superblock=<num>] "
+	fprintf(stderr, _("Usage: %s [-bfghixV] [-o superblock=<num>] "
 		 "[-o blocksize=<num>] device\n"), program_name);
-	exit (1);
+	exit(1);
 }
 
 static void print_number(unsigned long long num)
@@ -120,7 +122,7 @@ static void print_bg_opts(ext2_filsys fs, dgrp_t i)
 {
 	int first = 1, bg_flags = 0;
 
-	if (fs->super->s_feature_ro_compat & EXT4_FEATURE_RO_COMPAT_GDT_CSUM)
+	if (ext2fs_has_group_desc_csum(fs))
 		bg_flags = ext2fs_bg_flags(fs, i);
 
 	print_bg_opt(bg_flags, EXT2_BG_INODE_UNINIT, "INODE_UNINIT",
@@ -141,15 +143,14 @@ static void print_bg_rel_offset(ext2_filsys fs, blk64_t block, int itable,
 		if (itable && block == first_block)
 			return;
 		printf(" (+%u)", (unsigned)(block - first_block));
-	} else if (fs->super->s_feature_incompat &
-		   EXT4_FEATURE_INCOMPAT_FLEX_BG) {
+	} else if (ext2fs_has_feature_flex_bg(fs->super)) {
 		dgrp_t flex_grp = ext2fs_group_of_blk2(fs, block);
 		printf(" (bg #%u + %u)", flex_grp,
 		       (unsigned)(block-ext2fs_group_first_block2(fs,flex_grp)));
 	}
 }
 
-static void list_desc (ext2_filsys fs)
+static void list_desc(ext2_filsys fs, int grp_only)
 {
 	unsigned long i;
 	blk64_t	first_block, last_block;
@@ -163,8 +164,7 @@ static void list_desc (ext2_filsys fs)
 	ext2_ino_t	ino_itr = 1;
 	errcode_t	retval;
 
-	if (EXT2_HAS_RO_COMPAT_FEATURE(fs->super,
-				       EXT4_FEATURE_RO_COMPAT_BIGALLOC))
+	if (ext2fs_has_feature_bigalloc(fs->super))
 		units = _("clusters");
 
 	block_nbytes = EXT2_CLUSTERS_PER_GROUP(fs->super) / 8;
@@ -182,10 +182,12 @@ static void list_desc (ext2_filsys fs)
 	reserved_gdt = fs->super->s_reserved_gdt_blocks;
 	fputc('\n', stdout);
 	first_block = fs->super->s_first_data_block;
-	if (fs->super->s_feature_incompat & EXT2_FEATURE_INCOMPAT_META_BG)
+	if (ext2fs_has_feature_meta_bg(fs->super))
 		old_desc_blocks = fs->super->s_first_meta_bg;
 	else
 		old_desc_blocks = fs->desc_blocks;
+	if (grp_only)
+		printf("group:block:super:gdt:bbitmap:ibitmap:itable\n");
 	for (i = 0; i < fs->group_desc_count; i++) {
 		first_block = ext2fs_group_first_block2(fs, i);
 		last_block = ext2fs_group_last_block2(fs, i);
@@ -193,20 +195,39 @@ static void list_desc (ext2_filsys fs)
 		ext2fs_super_and_bgd_loc2(fs, i, &super_blk,
 					  &old_desc_blk, &new_desc_blk, 0);
 
-		printf (_("Group %lu: (Blocks "), i);
+		if (grp_only) {
+			printf("%lu:%llu:", i, first_block);
+			if (i == 0 || super_blk)
+				printf("%llu:", super_blk);
+			else
+				printf("-1:");
+			if (old_desc_blk) {
+				print_range(old_desc_blk,
+					    old_desc_blk + old_desc_blocks - 1);
+				printf(":");
+			} else if (new_desc_blk)
+				printf("%llu:", new_desc_blk);
+			else
+				printf("-1:");
+			printf("%llu:%llu:%llu\n",
+			       ext2fs_block_bitmap_loc(fs, i),
+			       ext2fs_inode_bitmap_loc(fs, i),
+			       ext2fs_inode_table_loc(fs, i));
+			continue;
+		}
+
+		printf(_("Group %lu: (Blocks "), i);
 		print_range(first_block, last_block);
 		fputs(")", stdout);
-		print_bg_opts(fs, i);
-		if (fs->super->s_feature_ro_compat & EXT4_FEATURE_RO_COMPAT_GDT_CSUM) {
+		if (ext2fs_has_group_desc_csum(fs)) {
 			unsigned csum = ext2fs_bg_checksum(fs, i);
 			unsigned exp_csum = ext2fs_group_desc_csum(fs, i);
 
-			printf(_("  Checksum 0x%04x"), csum);
+			printf(_(" csum 0x%04x"), csum);
 			if (csum != exp_csum)
 				printf(_(" (EXPECTED 0x%04x)"), exp_csum);
-			printf(_(", unused inodes %u\n"),
-			       ext2fs_bg_itable_unused(fs, i));
 		}
+		print_bg_opts(fs, i);
 		has_super = ((i==0) || super_blk);
 		if (has_super) {
 			printf (_("  %s superblock at "),
@@ -235,10 +256,20 @@ static void list_desc (ext2_filsys fs)
 		print_number(ext2fs_block_bitmap_loc(fs, i));
 		print_bg_rel_offset(fs, ext2fs_block_bitmap_loc(fs, i), 0,
 				    first_block, last_block);
-		fputs(_(", Inode bitmap at "), stdout);
+		if (ext2fs_has_feature_metadata_csum(fs->super))
+			printf(_(", csum 0x%08x"),
+			       ext2fs_block_bitmap_checksum(fs, i));
+		if (getenv("DUMPE2FS_IGNORE_80COL"))
+			fputs(_(","), stdout);
+		else
+			fputs(_("\n "), stdout);
+		fputs(_(" Inode bitmap at "), stdout);
 		print_number(ext2fs_inode_bitmap_loc(fs, i));
 		print_bg_rel_offset(fs, ext2fs_inode_bitmap_loc(fs, i), 0,
 				    first_block, last_block);
+		if (ext2fs_has_feature_metadata_csum(fs->super))
+			printf(_(", csum 0x%08x"),
+			       ext2fs_inode_bitmap_checksum(fs, i));
 		fputs(_("\n  Inode table at "), stdout);
 		print_range(ext2fs_inode_table_loc(fs, i),
 			    ext2fs_inode_table_loc(fs, i) +
@@ -325,6 +356,16 @@ static void list_bad_blocks(ext2_filsys fs, int dump)
 	ext2fs_badblocks_list_free(bb_list);
 }
 
+static const char *journal_checksum_type_str(__u8 type)
+{
+	switch (type) {
+	case JBD2_CRC32C_CHKSUM:
+		return "crc32c";
+	default:
+		return "unknown";
+	}
+}
+
 static void print_inline_journal_information(ext2_filsys fs)
 {
 	journal_superblock_t	*jsb;
@@ -377,8 +418,7 @@ static void print_inline_journal_information(ext2_filsys fs)
 		printf(" (none)");
 	printf("\n");
 	fputs(_("Journal size:             "), stdout);
-	if ((fs->super->s_feature_ro_compat &
-	     EXT4_FEATURE_RO_COMPAT_HUGE_FILE) &&
+	if (ext2fs_has_feature_huge_file(fs->super) &&
 	    (inode.i_flags & EXT4_HUGE_FILE_FL))
 		size = inode.i_blocks / (fs->blocksize / 1024);
 	else
@@ -393,6 +433,17 @@ static void print_inline_journal_information(ext2_filsys fs)
 	       (unsigned int)ntohl(jsb->s_maxlen),
 	       (unsigned int)ntohl(jsb->s_sequence),
 	       (unsigned int)ntohl(jsb->s_start));
+	if (jsb->s_feature_compat &
+	    ext2fs_cpu_to_be32(JFS_FEATURE_COMPAT_CHECKSUM))
+		printf("%s", _("Journal checksum type:    crc32\n"));
+	if ((jsb->s_feature_incompat &
+	     ext2fs_cpu_to_be32(JFS_FEATURE_INCOMPAT_CSUM_V3)) ||
+	    (jsb->s_feature_incompat &
+	     ext2fs_cpu_to_be32(JFS_FEATURE_INCOMPAT_CSUM_V2)))
+		printf(_("Journal checksum type:    %s\n"
+			 "Journal checksum:         0x%08x\n"),
+		       journal_checksum_type_str(jsb->s_checksum_type),
+		       ext2fs_be32_to_cpu(jsb->s_checksum));
 	if (jsb->s_errno != 0)
 		printf(_("Journal errno:            %d\n"),
 		       (int) ntohl(jsb->s_errno));
@@ -403,8 +454,9 @@ static void print_journal_information(ext2_filsys fs)
 	errcode_t	retval;
 	char		buf[1024];
 	char		str[80];
-	unsigned int	i;
+	unsigned int	i, j, printed = 0;
 	journal_superblock_t	*jsb;
+	__u32			*mask_ptr, mask, m;
 
 	/* Get the journal superblock */
 	if ((retval = io_channel_read_blk64(fs->io,
@@ -421,6 +473,29 @@ static void print_journal_information(ext2_filsys fs)
 		com_err(program_name, 0, "%s",
 			_("Couldn't find journal superblock magic numbers"));
 		exit(1);
+	}
+
+	if (jsb->s_feature_compat &
+	    ext2fs_cpu_to_be32(JFS_FEATURE_COMPAT_CHECKSUM))
+		printf("%s", _("Journal checksum type:    crc32\n"));
+	if ((jsb->s_feature_incompat &
+	     ext2fs_cpu_to_be32(JFS_FEATURE_INCOMPAT_CSUM_V3)) ||
+	    (jsb->s_feature_incompat &
+	     ext2fs_cpu_to_be32(JFS_FEATURE_INCOMPAT_CSUM_V2)))
+		printf(_("Journal checksum type:    %s\n"
+			 "Journal checksum:         0x%08x\n"),
+		       journal_checksum_type_str(jsb->s_checksum_type),
+		       ext2fs_be32_to_cpu(jsb->s_checksum));
+
+	printf("%s", _("Journal features:        "));
+	for (i = 0, mask_ptr = &jsb->s_feature_compat; i < 3; i++, mask_ptr++) {
+		mask = be32_to_cpu(*mask_ptr);
+		for (j = 0, m = 1; j < 32; j++, m <<= 1) {
+			if (mask & m) {
+				printf(" %s", e2p_jrnl_feature2string(i, m));
+				printed++;
+			}
+		}
 	}
 
 	printf(_("\nJournal block size:       %u\n"
@@ -530,6 +605,7 @@ int main (int argc, char ** argv)
 	int		flags;
 	int		header_only = 0;
 	int		c;
+	int		grp_only = 0;
 
 #ifdef ENABLE_NLS
 	setlocale(LC_MESSAGES, "");
@@ -544,13 +620,16 @@ int main (int argc, char ** argv)
 	if (argc && *argv)
 		program_name = *argv;
 
-	while ((c = getopt (argc, argv, "bfhixVo:")) != EOF) {
+	while ((c = getopt(argc, argv, "bfghixVo:")) != EOF) {
 		switch (c) {
 		case 'b':
 			print_badblocks++;
 			break;
 		case 'f':
 			force++;
+			break;
+		case 'g':
+			grp_only++;
 			break;
 		case 'h':
 			header_only++;
@@ -574,15 +653,17 @@ int main (int argc, char ** argv)
 			usage();
 		}
 	}
-	if (optind > argc - 1)
+	if (optind != argc - 1) {
 		usage();
+		exit(1);
+	}
 	device_name = argv[optind++];
 	flags = EXT2_FLAG_JOURNAL_DEV_OK | EXT2_FLAG_SOFTSUPP_FEATURES | EXT2_FLAG_64BITS;
 	if (force)
 		flags |= EXT2_FLAG_FORCE;
 	if (image_dump)
 		flags |= EXT2_FLAG_IMAGE_FILE;
-
+try_open_again:
 	if (use_superblock && !use_blocksize) {
 		for (use_blocksize = EXT2_MIN_BLOCK_SIZE;
 		     use_blocksize <= EXT2_MAX_BLOCK_SIZE;
@@ -597,43 +678,61 @@ int main (int argc, char ** argv)
 	} else
 		retval = ext2fs_open (device_name, flags, use_superblock,
 				      use_blocksize, unix_io_manager, &fs);
+	if (retval && !(flags & EXT2_FLAG_IGNORE_CSUM_ERRORS)) {
+		flags |= EXT2_FLAG_IGNORE_CSUM_ERRORS;
+		goto try_open_again;
+	}
+	if (!retval && (fs->flags & EXT2_FLAG_IGNORE_CSUM_ERRORS))
+		printf("%s", _("\n*** Checksum errors detected in filesystem!  Run e2fsck now!\n\n"));
+	flags |= EXT2_FLAG_IGNORE_CSUM_ERRORS;
 	if (retval) {
 		com_err (program_name, retval, _("while trying to open %s"),
 			 device_name);
 		printf("%s", _("Couldn't find valid filesystem superblock.\n"));
+		if (retval == EXT2_ET_BAD_MAGIC)
+			check_plausibility(device_name, CHECK_FS_EXIST, NULL);
 		exit (1);
 	}
 	fs->default_bitmap_type = EXT2FS_BMAP64_RBTREE;
-	if (fs->super->s_feature_incompat & EXT4_FEATURE_INCOMPAT_64BIT)
+	if (ext2fs_has_feature_64bit(fs->super))
 		blocks64 = 1;
 	if (print_badblocks) {
 		list_bad_blocks(fs, 1);
 	} else {
+		if (grp_only)
+			goto just_descriptors;
 		list_super (fs->super);
-		if (fs->super->s_feature_incompat &
-		      EXT3_FEATURE_INCOMPAT_JOURNAL_DEV) {
+		if (ext2fs_has_feature_journal_dev(fs->super)) {
 			print_journal_information(fs);
-			ext2fs_close(fs);
+			ext2fs_close_free(&fs);
 			exit(0);
 		}
-		if ((fs->super->s_feature_compat &
-		     EXT3_FEATURE_COMPAT_HAS_JOURNAL) &&
+		if (ext2fs_has_feature_journal(fs->super) &&
 		    (fs->super->s_journal_inum != 0))
 			print_inline_journal_information(fs);
 		list_bad_blocks(fs, 0);
 		if (header_only) {
-			ext2fs_close (fs);
+			ext2fs_close_free(&fs);
 			exit (0);
 		}
+		fs->flags &= ~EXT2_FLAG_IGNORE_CSUM_ERRORS;
+try_bitmaps_again:
 		retval = ext2fs_read_bitmaps (fs);
-		list_desc (fs);
+		if (retval && !(fs->flags & EXT2_FLAG_IGNORE_CSUM_ERRORS)) {
+			fs->flags |= EXT2_FLAG_IGNORE_CSUM_ERRORS;
+			goto try_bitmaps_again;
+		}
+		if (!retval && (fs->flags & EXT2_FLAG_IGNORE_CSUM_ERRORS))
+			printf("%s", _("\n*** Checksum errors detected in bitmaps!  Run e2fsck now!\n\n"));
+just_descriptors:
+		list_desc(fs, grp_only);
 		if (retval) {
 			printf(_("\n%s: %s: error reading bitmaps: %s\n"),
 			       program_name, device_name,
 			       error_message(retval));
 		}
 	}
-	ext2fs_close (fs);
+	ext2fs_close_free(&fs);
 	remove_error_table(&et_ext2_error_table);
 	exit (0);
 }

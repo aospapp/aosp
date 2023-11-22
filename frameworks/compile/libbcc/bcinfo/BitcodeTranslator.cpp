@@ -23,8 +23,10 @@
 
 #include "BitWriter_3_2/ReaderWriter_3_2.h"
 
+#include "StripUnkAttr/strip_unknown_attributes.h"
+
 #define LOG_TAG "bcinfo"
-#include <cutils/log.h>
+#include <log/log.h>
 
 #include "llvm/Bitcode/BitstreamWriter.h"
 #include "llvm/Bitcode/ReaderWriter.h"
@@ -67,6 +69,11 @@ static const unsigned int kMinimumUntranslatedVersion = 16;
 static const unsigned int kMinimumCompatibleVersion_LLVM_3_0 = 14;
 static const unsigned int kMinimumCompatibleVersion_LLVM_2_7 = 11;
 
+
+static void stripUnknownAttributes(llvm::Module *M) {
+  for (llvm::Function &F : *M)
+    slang::stripUnknownAttributes(F);
+}
 
 BitcodeTranslator::BitcodeTranslator(const char *bitcode, size_t bitcodeSize,
                                      unsigned int version)
@@ -144,6 +151,8 @@ bool BitcodeTranslator::translate() {
 
   // Module ownership is handled by the context, so we don't need to free it.
   llvm::Module *module = MOrErr.get();
+
+  stripUnknownAttributes(module);
 
   std::string Buffer;
 

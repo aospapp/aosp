@@ -23,10 +23,8 @@ import android.telecom.Call;
 import android.telecom.Connection;
 import android.telecom.ConnectionService;
 import android.telecom.PhoneAccountHandle;
-import android.util.Log;
 
 import java.util.Collection;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Test some additional {@link ConnectionService} APIs not already covered by other tests.

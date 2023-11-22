@@ -12,7 +12,7 @@ log a test failure if something goes wrong.
 """
 
 def run(machine):
-    host = hosts.create_host(machine, initialize=False)
+    host = hosts.create_host(machine)
     job.run_test('cleanup_test', host=host, disable_sysinfo=True)
 
 job.parallel_simple(run, machines)

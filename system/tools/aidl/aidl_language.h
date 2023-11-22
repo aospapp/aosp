@@ -44,7 +44,7 @@ class ValidatableType;
 }  // namespace aidl
 }  // namespace android
 
-class AidlType : public AidlNode {
+class AidlAnnotatable : public AidlNode {
  public:
   enum Annotation : uint32_t {
     AnnotationNone = 0,
@@ -53,6 +53,31 @@ class AidlType : public AidlNode {
     AnnotationUtf8InCpp = 1 << 2,
   };
 
+  AidlAnnotatable() = default;
+  virtual ~AidlAnnotatable() = default;
+
+  void Annotate(AidlAnnotatable::Annotation annotation) {
+    annotations_ =
+        static_cast<AidlAnnotatable::Annotation>(annotations_ | annotation);
+  }
+  bool IsNullable() const {
+    return annotations_ & AnnotationNullable;
+  }
+  bool IsUtf8() const {
+    return annotations_ & AnnotationUtf8;
+  }
+  bool IsUtf8InCpp() const {
+    return annotations_ & AnnotationUtf8InCpp;
+  }
+
+ private:
+  Annotation annotations_ = AnnotationNone;
+
+  DISALLOW_COPY_AND_ASSIGN(AidlAnnotatable);
+};
+
+class AidlType : public AidlAnnotatable {
+ public:
   AidlType(const std::string& name, unsigned line,
            const std::string& comments, bool is_array);
   virtual ~AidlType() = default;
@@ -73,24 +98,12 @@ class AidlType : public AidlNode {
     return reinterpret_cast<const T*>(language_type_);
   }
 
-  void Annotate(AidlType::Annotation annotation) { annotations_ = annotation; }
-  bool IsNullable() const {
-    return annotations_ & AnnotationNullable;
-  }
-  bool IsUtf8() const {
-    return annotations_ & AnnotationUtf8;
-  }
-  bool IsUtf8InCpp() const {
-    return annotations_ & AnnotationUtf8InCpp;
-  }
-
  private:
   std::string name_;
   unsigned line_;
   bool is_array_;
   std::string comments_;
   const android::aidl::ValidatableType* language_type_ = nullptr;
-  Annotation annotations_ = AnnotationNone;
 
   DISALLOW_COPY_AND_ASSIGN(AidlType);
 };
@@ -127,34 +140,58 @@ class AidlArgument : public AidlNode {
 };
 
 class AidlMethod;
-class AidlConstant;
+class AidlIntConstant;
+class AidlStringConstant;
 class AidlMember : public AidlNode {
  public:
   AidlMember() = default;
   virtual ~AidlMember() = default;
 
   virtual AidlMethod* AsMethod() { return nullptr; }
-  virtual AidlConstant* AsConstant() { return nullptr; }
+  virtual AidlIntConstant* AsIntConstant() { return nullptr; }
+  virtual AidlStringConstant* AsStringConstant() { return nullptr; }
 
  private:
   DISALLOW_COPY_AND_ASSIGN(AidlMember);
 };
 
-class AidlConstant : public AidlMember {
+class AidlIntConstant : public AidlMember {
  public:
-  AidlConstant(std::string name, int32_t value);
-  virtual ~AidlConstant() = default;
+  AidlIntConstant(std::string name, int32_t value);
+  AidlIntConstant(std::string name, std::string value, unsigned line_number);
+  virtual ~AidlIntConstant() = default;
 
   const std::string& GetName() const { return name_; }
   int GetValue() const { return value_; }
+  bool IsValid() const { return is_valid_; }
 
-  AidlConstant* AsConstant() override { return this; }
+  AidlIntConstant* AsIntConstant() override { return this; }
 
  private:
   std::string name_;
   int32_t value_;
+  bool is_valid_;
 
-  DISALLOW_COPY_AND_ASSIGN(AidlConstant);
+  DISALLOW_COPY_AND_ASSIGN(AidlIntConstant);
+};
+
+class AidlStringConstant : public AidlMember {
+ public:
+  AidlStringConstant(std::string name, std::string value, unsigned line_number);
+  virtual ~AidlStringConstant() = default;
+
+  const std::string& GetName() const { return name_; }
+  const std::string& GetValue() const { return value_; }
+  bool IsValid() const { return is_valid_; }
+
+  AidlStringConstant* AsStringConstant() override { return this; }
+
+ private:
+  std::string name_;
+  std::string value_;
+  bool is_valid_;
+
+  DISALLOW_COPY_AND_ASSIGN(AidlStringConstant);
 };
 
 class AidlMethod : public AidlMember {
@@ -212,7 +249,7 @@ class AidlInterface;
 class AidlDocument : public AidlNode {
  public:
   AidlDocument() = default;
-  AidlDocument(AidlInterface* interface);
+  explicit AidlDocument(AidlInterface* interface);
   virtual ~AidlDocument() = default;
 
   const AidlInterface* GetInterface() const { return interface_.get(); }
@@ -241,8 +278,9 @@ class AidlQualifiedName : public AidlNode {
   const std::vector<std::string>& GetTerms() const { return terms_; }
   const std::string& GetComments() const { return comments_; }
   std::string GetDotName() const { return android::base::Join(terms_, '.'); }
+  std::string GetColonName() const { return android::base::Join(terms_, "::"); }
 
-  void AddTerm(std::string term);
+  void AddTerm(const std::string& term);
 
  private:
   std::vector<std::string> terms_;
@@ -259,6 +297,8 @@ class AidlParcelable : public AidlNode {
   virtual ~AidlParcelable() = default;
 
   std::string GetName() const { return name_->GetDotName(); }
+  // C++ uses "::" instead of "." to refer to a inner class.
+  std::string GetCppName() const { return name_->GetColonName(); }
   unsigned GetLine() const { return line_; }
   std::string GetPackage() const;
   const std::vector<std::string>& GetSplitPackage() const { return package_; }
@@ -274,7 +314,7 @@ class AidlParcelable : public AidlNode {
   DISALLOW_COPY_AND_ASSIGN(AidlParcelable);
 };
 
-class AidlInterface : public AidlNode {
+class AidlInterface : public AidlAnnotatable {
  public:
   AidlInterface(const std::string& name, unsigned line,
                 const std::string& comments, bool oneway_,
@@ -288,8 +328,10 @@ class AidlInterface : public AidlNode {
   bool IsOneway() const { return oneway_; }
   const std::vector<std::unique_ptr<AidlMethod>>& GetMethods() const
       { return methods_; }
-  const std::vector<std::unique_ptr<AidlConstant>>& GetConstants() const
-      { return constants_; }
+  const std::vector<std::unique_ptr<AidlIntConstant>>& GetIntConstants() const
+      { return int_constants_; }
+  const std::vector<std::unique_ptr<AidlStringConstant>>&
+      GetStringConstants() const { return string_constants_; }
   std::string GetPackage() const;
   std::string GetCanonicalName() const;
   const std::vector<std::string>& GetSplitPackage() const { return package_; }
@@ -309,7 +351,8 @@ class AidlInterface : public AidlNode {
   unsigned line_;
   bool oneway_;
   std::vector<std::unique_ptr<AidlMethod>> methods_;
-  std::vector<std::unique_ptr<AidlConstant>> constants_;
+  std::vector<std::unique_ptr<AidlIntConstant>> int_constants_;
+  std::vector<std::unique_ptr<AidlStringConstant>> string_constants_;
   std::vector<std::string> package_;
 
   const android::aidl::ValidatableType* language_type_ = nullptr;

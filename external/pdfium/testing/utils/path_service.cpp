@@ -13,7 +13,9 @@
 #include <unistd.h>
 #endif  // _WIN32
 
-#include "core/include/fxcrt/fx_system.h"
+#include <string>
+
+#include "core/fxcrt/fx_system.h"
 
 // static
 bool PathService::EndsWithSeparator(const std::string& path) {
@@ -31,7 +33,7 @@ bool PathService::GetExecutableDir(std::string* path) {
     return false;
   *path = std::string(path_buffer);
 #elif defined(__APPLE__)
-  FXSYS_assert(path);
+  ASSERT(path);
   unsigned int path_length = 0;
   _NSGetExecutablePath(NULL, &path_length);
   if (path_length == 0)
@@ -71,7 +73,11 @@ bool PathService::GetSourceDir(std::string* path) {
     path->push_back(PATH_SEPARATOR);
   path->append("..");
   path->push_back(PATH_SEPARATOR);
+#if defined(ANDROID)
+  path->append("chromium_tests_root");
+#else   // Non-Android
   path->append("..");
+#endif  // defined(ANDROID)
   return true;
 }
 

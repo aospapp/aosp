@@ -47,6 +47,8 @@
 #include <time.h>
 #include <errno.h>
 
+#define LIBVA_TRACE_FILE "/data/mediadrm/libva.log"
+
 /*
  * Env. to debug some issue, e.g. the decode/encode issue in a video conference scenerio:
  * .LIBVA_TRACE=log_file: general VA parameters saved into log_file
@@ -153,7 +155,9 @@ do {                                                    \
 
 void va_TraceInit(VADisplay dpy)
 {
-    char env_value[1024];
+    char env_value[1024] = {0};
+    // It's used to get value from libva.conf, just use to check value.
+    char va_value[1024] = {0};
     unsigned short suffix = 0xffff & ((unsigned int)time(NULL));
     FILE *tmp;    
     struct trace_context *trace_ctx = calloc(sizeof(struct trace_context), 1);
@@ -161,7 +165,8 @@ void va_TraceInit(VADisplay dpy)
     if (trace_ctx == NULL)
         return;
     
-    if (va_parseConfig("LIBVA_TRACE", &env_value[0]) == 0) {
+    if (va_parseConfig("LIBVA_TRACE", &va_value[0]) == 0) {
+        strcpy(env_value, LIBVA_TRACE_FILE);
         FILE_NAME_SUFFIX(env_value);
         trace_ctx->trace_log_fn = strdup(env_value);
         

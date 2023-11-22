@@ -59,6 +59,7 @@ public class StreamRedirector extends Thread {
     /**
      * Reads all lines from stream and puts them to logWriter.
      */
+    @Override
     public void run() {
         logWriter.println("Redirector started: " + name);
         try {

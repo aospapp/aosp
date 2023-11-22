@@ -370,16 +370,13 @@ void Java_android_bordeaux_learning_StochasticLinearRanker_nativeGetWeightClassi
   jobject /* thiz */,
   jobjectArray key_array_model,
   jfloatArray value_array_model,
-  jfloat normalizer,
+  jfloat /* normalizer */,
   jlong paPtr) {
 
   StochasticLinearRanker<string>* classifier = (StochasticLinearRanker<string>*) paPtr;
   SparseWeightVector<string> M_weights;
   classifier->SaveWeights(&M_weights);
   SparseWeightVector<string>::Wmap w_map = M_weights.GetMap();
-  int array_len = w_map.size();
-
-  normalizer = M_weights.GetNormalizer();
   DecomposeSparseWeightVector(env, &key_array_model, &value_array_model, &M_weights);
 }
 

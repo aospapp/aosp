@@ -27,7 +27,7 @@ function get_y_or_n_interactive {
             * ) echo "Please enter y or n.";;
         esac
     done
-    eval $1="'$ret'"
+    eval "$1=\$ret"
 }
 
 function get_y_or_n {
@@ -36,7 +36,7 @@ function get_y_or_n {
     get_y_or_n_interactive sub "$2"
     ret=$sub
   fi
-  eval $1="'$ret'"
+  eval "$1=\$ret"
 }
 
 AUTOTEST_DIR=
@@ -131,7 +131,7 @@ if [ -z "${AUTOTEST_DIR}" ]; then
 fi
 
 if [ ! -d "${AUTOTEST_DIR}" ]; then
-  echo "Directory " ${AUTOTEST_DIR} " does not exist. Aborting script."
+  echo "Directory $AUTOTEST_DIR does not exist. Aborting script."
   exit 1
 fi
 
@@ -150,7 +150,7 @@ if [ -f ${SHADOW_CONFIG_PATH} ]; then
   fi
 fi
 
-CROS_CHECKOUT=$(readlink -f ${AUTOTEST_DIR}/../../../..)
+CROS_CHECKOUT=$(readlink -f "$AUTOTEST_DIR/../../../..")
 
 # Create clean shadow config if we're replacing it/creating a new one.
 if [ $CLOBBER -eq 0 ]; then
@@ -170,70 +170,28 @@ drones: localhost
 
 [CROS]
 source_tree: ${CROS_CHECKOUT}
+# Edit the following line as needed.
+#dev_server: http://10.10.10.10:8080
+enable_ssh_tunnel_for_servo: True
+enable_ssh_tunnel_for_chameleon: True
+enable_ssh_connection_for_devserver: True
+enable_ssh_tunnel_for_moblab: True
 EOF
   echo -e "Done!\n"
 fi
 
 echo "Installing needed Ubuntu packages..."
-PKG_LIST="mysql-server mysql-common libapache2-mod-wsgi python-mysqldb \
-gnuplot apache2-mpm-prefork unzip python-imaging libpng12-dev libfreetype6-dev \
+PKG_LIST="libapache2-mod-wsgi gnuplot apache2-mpm-prefork unzip \
+python-imaging libpng12-dev libfreetype6-dev \
 sqlite3 python-pysqlite2 git-core pbzip2 openjdk-6-jre openjdk-6-jdk \
 python-crypto  python-dev subversion build-essential python-setuptools \
-python-numpy python-scipy"
+python-numpy python-scipy libmysqlclient-dev"
 
 if ! sudo apt-get install -y ${PKG_LIST}; then
   echo "Could not install packages: $?"
   exit 1
 fi
 echo -e "Done!\n"
-
-# Check if database exists, clobber existing database with user consent.
-#
-# Arguments: Name of the database
-check_database()
-{
-  local db_name=$1
-  echo "Setting up Database: $db_name in MySQL..."
-  if mysql -u root -e ';' 2> /dev/null ; then
-    PASSWD_STRING=
-  elif mysql -u root -p"${PASSWD}" -e ';' 2> /dev/null ; then
-    PASSWD_STRING="-p${PASSWD}"
-  else
-    PASSWD_STRING="-p"
-  fi
-
-  if ! mysqladmin -u root "${PASSWD_STRING}" ping ; then
-    sudo service mysql start
-  fi
-
-  local clobberdb='y'
-  local existing_database=$(mysql -u root "${PASSWD_STRING}" -e "SELECT \
-  SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = '$db_name'")
-
-  if [ -n "${existing_database}" ]; then
-    get_y_or_n clobberdb "Clobber existing MySQL database? [Y/n]: " "n"
-  fi
-
-  local sql_priv="GRANT ALL PRIVILEGES ON $db_name.* TO \
-  'chromeosqa-admin'@'localhost' IDENTIFIED BY '${PASSWD}';"
-
-  if [ "${remotedb}" = "TRUE" ]; then
-    sql_priv="${sql_priv} GRANT ALL PRIVILEGES ON $db_name.* TO \
-    'chromeosqa-admin'@'%' IDENTIFIED BY '${PASSWD}';"
-  fi
-
-  local sql_command="drop database if exists $db_name; \
-  create database $db_name; \
-  ${sql_priv} FLUSH PRIVILEGES;"
-
-  if [[ "${clobberdb}" = 'y' ]]; then
-    mysql -u root "${PASSWD_STRING}" -e "${sql_command}"
-  fi
-  echo -e "Done!\n"
-}
-
-check_database 'chromeos_autotest_db'
-check_database 'chromeos_lab_servers'
 
 AT_DIR=/usr/local/autotest
 echo -n "Bind-mounting your autotest dir at ${AT_DIR}..."
@@ -269,16 +227,17 @@ fi
 
 echo -e "Done!\n"
 
-echo "Populating autotest mysql DB..."
-"${AT_DIR}"/database/migrate.py sync -f
-"${AT_DIR}"/frontend/manage.py syncdb --noinput
-# You may have to run this twice.
-"${AT_DIR}"/frontend/manage.py syncdb --noinput
-"${AT_DIR}"/utils/test_importer.py
-echo -e "Done!\n"
+echo "Start setting up Database..."
+get_y_or_n clobberdb "Clobber MySQL database if it exists? [Y/n]: " "n"
+opts_string="-p ${PASSWD} -a ${AT_DIR}"
+if [[ "${clobberdb}" = 'y' ]]; then
+  opts_string="${opts_string} -c"
+fi
+if [[ "${remotedb}" = 'TRUE' ]]; then
+  opts_string="${opts_string} -m"
+fi
+"${AT_DIR}"/site_utils/setup_db.sh ${opts_string}
 
-echo "Initializing chromeos_lab_servers mysql DB..."
-"${AT_DIR}"/database/migrate.py sync -f -d AUTOTEST_SERVER_DB
 echo -e "Done!\n"
 
 echo "Configuring apache to run the autotest web interface..."
@@ -287,21 +246,17 @@ if [ ! -d /etc/apache2/run ]; then
 fi
 sudo ln -sf "${AT_DIR}"/apache/apache-conf \
   /etc/apache2/sites-available/autotest-server.conf
+
 # Disable currently active default
 sudo a2dissite 000-default default || true
-# Enable autotest server
 sudo a2ensite autotest-server.conf
-# Enable rewrite module
+
 sudo a2enmod rewrite
-# Enable wsgi
 sudo a2enmod wsgi
-# Enable version
-# built-in on trusty
-sudo a2enmod version || true
-# Enable headers
+sudo a2enmod version || true  # built-in on trusty
 sudo a2enmod headers
-# Enable cgid
 sudo a2enmod cgid
+
 # Setup permissions so that Apache web user can read the proper files.
 chmod -R o+r "${AT_DIR}"
 find "${AT_DIR}"/ -type d -print0 | xargs --null chmod o+x
@@ -312,6 +267,27 @@ sudo /etc/init.d/apache2 restart
 # Setup lxc and base container for server-side packaging support.
 sudo apt-get install lxc -y
 sudo python "${AT_DIR}"/site_utils/lxc.py -s
+
+# Set up keys for www-data/apache user.
+APACHE_USER=www-data
+APACHE_HOME=/var/www
+APACHE_SSH_DIR="$APACHE_HOME/.ssh"
+SSH_KEYS_PATH=src/third_party/chromiumos-overlay/chromeos-base/chromeos-ssh-testkeys/files
+sudo mkdir -p "$APACHE_SSH_DIR"
+sudo bash <<EOF
+cd "${APACHE_SSH_DIR:-/dev/null}" || exit 1
+sudo cp "$CROS_CHECKOUT/$SSH_KEYS_PATH/"* .
+sudo tee config >/dev/null <<EOF2
+Host *
+User root
+IdentityFile ~/.ssh/testing_rsa
+EOF2
+sudo chown -R "$APACHE_USER:" .
+sudo chmod -R go-rwx .
+EOF
+if [ $? -ne 0 ]; then
+  echo "apache user SSH setup failed."
+fi
 
 echo "Browse to http://localhost to see if Autotest is working."
 echo "For further necessary set up steps, see https://sites.google.com/a/chromium.org/dev/chromium-os/testing/autotest-developer-faq/setup-autotest-server?pli=1"

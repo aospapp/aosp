@@ -183,6 +183,7 @@ cond_err:
     pthread_cond_destroy(&t->timer_cond);
 t_err:
     free(t);
+    t = NULL;
 _err:
     LOC_LOGD("%s:%d]: Exit\n", __func__, __LINE__);
     return t;

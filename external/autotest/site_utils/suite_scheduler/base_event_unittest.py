@@ -6,7 +6,6 @@
 
 """Unit tests for site_utils/base_event.py."""
 
-import logging
 import mox
 import unittest
 
@@ -25,6 +24,10 @@ class FakeTask(task.Task):
 
 
     def CanArm(self, scheduler):
+        """Make sure there are host available to run a task.
+
+        @param scheduler: An instance of DedupingScheduler.
+        """
         scheduler.CheckHostsExist(
                 multiple_labels=mox.IgnoreArg()).AndReturn(['host1'])
 
@@ -32,6 +35,7 @@ class FakeTask(task.Task):
     def Arm(self):
         """Expect to be triggered along with any other FakeTasks."""
         self.Run(mox.IgnoreArg(),
+                 mox.IgnoreArg(),
                  mox.IgnoreArg(),
                  mox.IgnoreArg(),
                  mox.IgnoreArg(),
@@ -47,6 +51,7 @@ class FakeOneShot(FakeTask):
     def Arm(self):
         """Expect to be triggered once, and to ask for self-destruction."""
         self.Run(mox.IgnoreArg(),
+                 mox.IgnoreArg(),
                  mox.IgnoreArg(),
                  mox.IgnoreArg(),
                  mox.IgnoreArg(),

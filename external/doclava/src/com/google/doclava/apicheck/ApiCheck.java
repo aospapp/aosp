@@ -26,7 +26,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.HashSet;
 import java.util.Set;
-import java.util.Stack;
 
 import com.google.doclava.Errors;
 import com.google.doclava.PackageInfo;
@@ -126,16 +125,19 @@ public class ApiCheck {
 
     ApiInfo oldApi;
     ApiInfo newApi;
-    ApiInfo oldRemovedApi;
-    ApiInfo newRemovedApi;
+    ApiInfo oldRemovedApi = null;
+    ApiInfo newRemovedApi = null;
 
     // commandline options look like:
-    // [other optoins] old_api.txt new_api.txt old_removed_api.txt new_removed_api.txt
+    // [other options] old_api.txt new_api.txt
+    // [other options] old_api.txt new_api.txt old_removed_api.txt new_removed_api.txt
     try {
       oldApi = parseApi(args.get(0));
       newApi = parseApi(args.get(1));
-      oldRemovedApi = parseApi(args.get(2));
-      newRemovedApi = parseApi(args.get(3));
+      if (args.size() > 2) {
+        oldRemovedApi = parseApi(args.get(2));
+        newRemovedApi = parseApi(args.get(3));
+      }
     } catch (ApiParseException e) {
       e.printStackTrace();
       System.err.println("Error parsing API");
@@ -147,7 +149,7 @@ public class ApiCheck {
       oldApi.isConsistent(newApi, null, ignoredPackages, ignoredClasses);
     }
 
-    if (!Errors.hadError) {
+    if (oldRemovedApi != null && !Errors.hadError) {
       oldRemovedApi.isConsistent(newRemovedApi, null, ignoredPackages, ignoredClasses);
     }
 

@@ -48,11 +48,36 @@ remote() {
     timeout 45 ssh "${ssh_opts[@]}" root@$servo "$@"
 }
 
-CONFIG=/var/lib/servod/config
+get_afe_host_attr() {
+  local host=$1
+  local attr=$2
+  local default=$3
+  atest host stat $host | awk "/^$attr *: / {count++; print \$3}
+    END {if (count != 1) print \"$default\"}"
+}
+
+get_servo() {
+  local host=$1
+
+  # Get the servo host from the afe. If not present, infer it from the hostname.
+  local servo_host=$(get_afe_host_attr $host servo_host ${host}-servo)
+  echo ${servo_host}.cros
+}
+
+get_servo_port() {
+  local host=$1
+
+  # Get the servo port from the afe. If not present, default 9999.
+  get_afe_host_attr $host servo_port 9999
+}
+
+
 
 for H in "$@"
 do
-  SERVO=$H-servo.cros
+  SERVO=$(get_servo $H)
+  SERVO_PORT=$(get_servo_port $H)
+  CONFIG=/var/lib/servod/config_$SERVO_PORT
   echo -n "$H ..."
   STATUS=()
 
@@ -64,14 +89,14 @@ do
   if ping -c1 -w2 $SERVO >/dev/null 2>&1
   then
     echo -n "B"
-    if BUTTON=$(dut_control -s $SERVO pwr_button 2>&1)
+    if BUTTON=$(dut_control -s $SERVO -p $SERVO_PORT pwr_button 2>&1)
     then
       if [ "$BUTTON" != "pwr_button:release" ]
       then
         STATUS=("${STATUS[@]}" "pwr_button is '$BUTTON'")
       else
         echo -n "C"
-        LID=$(dut_control -s $SERVO lid_open 2>&1)
+        LID=$(dut_control -s $SERVO -p $SERVO_PORT lid_open 2>&1)
         if [ "$LID" != "lid_open:yes" -a "$LID" != "lid_open:not_applicable" ]
         then
           STATUS=("${STATUS[@]}" "lid_open is '$LID'")
@@ -92,7 +117,7 @@ do
           remote $SERVO grep CHROMEOS_RELEASE_VERSION /etc/lsb-release 2>&1)
       if [ -z "$VERSION" ]
       then
-        STATUS=("${STATUS[@]}" "not running brillo")
+        STATUS=("${STATUS[@]}" "not running chromeos")
       fi
     fi
 

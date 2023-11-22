@@ -17,8 +17,8 @@
 #ifndef ART_RUNTIME_MIRROR_METHOD_H_
 #define ART_RUNTIME_MIRROR_METHOD_H_
 
-#include "abstract_method.h"
 #include "gc_root.h"
+#include "executable.h"
 
 namespace art {
 namespace mirror {
@@ -26,29 +26,29 @@ namespace mirror {
 class Class;
 
 // C++ mirror of java.lang.reflect.Method.
-class MANAGED Method : public AbstractMethod {
+class MANAGED Method : public Executable {
  public:
-  template <bool kTransactionActive = false>
+  template <PointerSize kPointerSize, bool kTransactionActive>
   static Method* CreateFromArtMethod(Thread* self, ArtMethod* method)
-      SHARED_REQUIRES(Locks::mutator_lock_) REQUIRES(!Roles::uninterruptible_);
+      REQUIRES_SHARED(Locks::mutator_lock_) REQUIRES(!Roles::uninterruptible_);
 
-  static mirror::Class* StaticClass() SHARED_REQUIRES(Locks::mutator_lock_) {
+  static mirror::Class* StaticClass() REQUIRES_SHARED(Locks::mutator_lock_) {
     return static_class_.Read();
   }
 
-  static void SetClass(Class* klass) SHARED_REQUIRES(Locks::mutator_lock_);
+  static void SetClass(Class* klass) REQUIRES_SHARED(Locks::mutator_lock_);
 
-  static void ResetClass() SHARED_REQUIRES(Locks::mutator_lock_);
+  static void ResetClass() REQUIRES_SHARED(Locks::mutator_lock_);
 
-  static mirror::Class* ArrayClass() SHARED_REQUIRES(Locks::mutator_lock_) {
+  static mirror::Class* ArrayClass() REQUIRES_SHARED(Locks::mutator_lock_) {
     return array_class_.Read();
   }
 
-  static void SetArrayClass(Class* klass) SHARED_REQUIRES(Locks::mutator_lock_);
+  static void SetArrayClass(Class* klass) REQUIRES_SHARED(Locks::mutator_lock_);
 
-  static void ResetArrayClass() SHARED_REQUIRES(Locks::mutator_lock_);
+  static void ResetArrayClass() REQUIRES_SHARED(Locks::mutator_lock_);
 
-  static void VisitRoots(RootVisitor* visitor) SHARED_REQUIRES(Locks::mutator_lock_);
+  static void VisitRoots(RootVisitor* visitor) REQUIRES_SHARED(Locks::mutator_lock_);
 
  private:
   static GcRoot<Class> static_class_;  // java.lang.reflect.Method.class.
@@ -58,29 +58,29 @@ class MANAGED Method : public AbstractMethod {
 };
 
 // C++ mirror of java.lang.reflect.Constructor.
-class MANAGED Constructor: public AbstractMethod {
+class MANAGED Constructor: public Executable {
  public:
-  template <bool kTransactionActive = false>
+  template <PointerSize kPointerSize, bool kTransactionActive>
   static Constructor* CreateFromArtMethod(Thread* self, ArtMethod* method)
-      SHARED_REQUIRES(Locks::mutator_lock_) REQUIRES(!Roles::uninterruptible_);
+      REQUIRES_SHARED(Locks::mutator_lock_) REQUIRES(!Roles::uninterruptible_);
 
-  static mirror::Class* StaticClass() SHARED_REQUIRES(Locks::mutator_lock_) {
+  static mirror::Class* StaticClass() REQUIRES_SHARED(Locks::mutator_lock_) {
     return static_class_.Read();
   }
 
-  static void SetClass(Class* klass) SHARED_REQUIRES(Locks::mutator_lock_);
+  static void SetClass(Class* klass) REQUIRES_SHARED(Locks::mutator_lock_);
 
-  static void ResetClass() SHARED_REQUIRES(Locks::mutator_lock_);
+  static void ResetClass() REQUIRES_SHARED(Locks::mutator_lock_);
 
-  static mirror::Class* ArrayClass() SHARED_REQUIRES(Locks::mutator_lock_) {
+  static mirror::Class* ArrayClass() REQUIRES_SHARED(Locks::mutator_lock_) {
     return array_class_.Read();
   }
 
-  static void SetArrayClass(Class* klass) SHARED_REQUIRES(Locks::mutator_lock_);
+  static void SetArrayClass(Class* klass) REQUIRES_SHARED(Locks::mutator_lock_);
 
-  static void ResetArrayClass() SHARED_REQUIRES(Locks::mutator_lock_);
+  static void ResetArrayClass() REQUIRES_SHARED(Locks::mutator_lock_);
 
-  static void VisitRoots(RootVisitor* visitor) SHARED_REQUIRES(Locks::mutator_lock_);
+  static void VisitRoots(RootVisitor* visitor) REQUIRES_SHARED(Locks::mutator_lock_);
 
  private:
   static GcRoot<Class> static_class_;  // java.lang.reflect.Constructor.class.

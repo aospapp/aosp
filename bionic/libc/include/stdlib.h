@@ -41,67 +41,56 @@ __BEGIN_DECLS
 #define EXIT_FAILURE 1
 #define EXIT_SUCCESS 0
 
-extern __noreturn void abort(void);
-extern __noreturn void exit(int);
-extern __noreturn void _Exit(int);
-extern int atexit(void (*)(void));
+__noreturn void abort(void);
+__noreturn void exit(int);
+__noreturn void _Exit(int) __INTRODUCED_IN(21);
+int atexit(void (*)(void));
 
-#if __ISO_C_VISIBLE >= 2011 || __cplusplus >= 201103L
-int at_quick_exit(void (*)(void));
-void quick_exit(int) __noreturn;
-#endif
+int at_quick_exit(void (*)(void)) __INTRODUCED_IN(21);
+void quick_exit(int) __noreturn __INTRODUCED_IN(21);
 
-extern char* getenv(const char*);
-extern int putenv(char*);
-extern int setenv(const char*, const char*, int);
-extern int unsetenv(const char*);
-extern int clearenv(void);
+char* getenv(const char*);
+int putenv(char*);
+int setenv(const char*, const char*, int);
+int unsetenv(const char*);
+int clearenv(void);
 
-extern char* mkdtemp(char*);
-extern char* mktemp(char*) __attribute__((deprecated("mktemp is unsafe, use mkstemp or tmpfile instead")));
+char* mkdtemp(char*);
+char* mktemp(char*) __attribute__((deprecated("mktemp is unsafe, use mkstemp or tmpfile instead")));
 
-extern int mkostemp64(char*, int);
-extern int mkostemp(char*, int);
-extern int mkostemps64(char*, int, int);
-extern int mkostemps(char*, int, int);
-extern int mkstemp64(char*);
-extern int mkstemp(char*);
-extern int mkstemps64(char*, int);
-extern int mkstemps(char*, int);
+int mkostemp64(char*, int) __INTRODUCED_IN(23);
+int mkostemp(char*, int) __INTRODUCED_IN(23);
+int mkostemps64(char*, int, int) __INTRODUCED_IN(23);
+int mkostemps(char*, int, int) __INTRODUCED_IN(23);
+int mkstemp64(char*) __INTRODUCED_IN(21);
+int mkstemp(char*);
+int mkstemps64(char*, int) __INTRODUCED_IN(23);
+int mkstemps(char*, int);
 
-extern long strtol(const char *, char **, int);
-extern long long strtoll(const char *, char **, int);
-extern unsigned long strtoul(const char *, char **, int);
-extern unsigned long long strtoull(const char *, char **, int);
+long strtol(const char *, char **, int);
+long long strtoll(const char *, char **, int);
+unsigned long strtoul(const char *, char **, int);
+unsigned long long strtoull(const char *, char **, int);
 
-extern int posix_memalign(void **memptr, size_t alignment, size_t size);
+int posix_memalign(void** memptr, size_t alignment, size_t size) __INTRODUCED_IN(16);
 
-extern double atof(const char*) __INTRODUCED_IN(21);
+double strtod(const char*, char**);
+long double strtold(const char*, char**) __INTRODUCED_IN(21);
 
-extern double strtod(const char*, char**) __LIBC_ABI_PUBLIC__;
-extern float strtof(const char*, char**) __LIBC_ABI_PUBLIC__ __INTRODUCED_IN(21);
-extern long double strtold(const char*, char**) __LIBC_ABI_PUBLIC__;
+unsigned long strtoul_l(const char*, char**, int, locale_t) __INTRODUCED_IN(26);
 
-extern long double strtold_l(const char *, char **, locale_t) __LIBC_ABI_PUBLIC__;
-extern long long strtoll_l(const char *, char **, int, locale_t) __LIBC_ABI_PUBLIC__;
-extern unsigned long long strtoull_l(const char *, char **, int, locale_t) __LIBC_ABI_PUBLIC__;
+int atoi(const char*) __attribute_pure__;
+long atol(const char*) __attribute_pure__;
+long long atoll(const char*) __attribute_pure__;
 
-extern int atoi(const char*) __purefunc;
-extern long atol(const char*) __purefunc;
-extern long long atoll(const char*) __purefunc;
+char * realpath(const char *path, char *resolved) __overloadable
+        __RENAME_CLANG(realpath);
+int system(const char *string);
 
-extern int abs(int) __pure2 __INTRODUCED_IN(21);
-extern long labs(long) __pure2 __INTRODUCED_IN(21);
-extern long long llabs(long long) __pure2 __INTRODUCED_IN(21);
+void* bsearch(const void* key, const void* base0, size_t nmemb, size_t size,
+              int (*compar)(const void*, const void*));
 
-extern char * realpath(const char *path, char *resolved);
-extern int system(const char *string);
-
-extern void * bsearch(const void *key, const void *base0,
-	size_t nmemb, size_t size,
-	int (*compar)(const void *, const void *));
-
-extern void qsort(void *, size_t, size_t, int (*)(const void *, const void *));
+void qsort(void*, size_t, size_t, int (*)(const void*, const void*));
 
 uint32_t arc4random(void);
 uint32_t arc4random_uniform(uint32_t);
@@ -109,94 +98,143 @@ void arc4random_buf(void*, size_t);
 
 #define RAND_MAX 0x7fffffff
 
-int rand(void) __INTRODUCED_IN(21);
-int rand_r(unsigned int*);
-void srand(unsigned int) __INTRODUCED_IN(21);
+int rand_r(unsigned int*) __INTRODUCED_IN(21);
 
 double drand48(void);
 double erand48(unsigned short[3]);
 long jrand48(unsigned short[3]);
-void lcong48(unsigned short[7]);
+void lcong48(unsigned short[7]) __INTRODUCED_IN(23);
 long lrand48(void);
 long mrand48(void);
 long nrand48(unsigned short[3]);
 unsigned short* seed48(unsigned short[3]);
 void srand48(long);
 
-char* initstate(unsigned int, char*, size_t);
-long random(void) __INTRODUCED_IN(21);
-char* setstate(char*);
-void srandom(unsigned int) __INTRODUCED_IN(21);
+char* initstate(unsigned int, char*, size_t) __INTRODUCED_IN(21);
+char* setstate(char*) __INTRODUCED_IN(21);
 
 int getpt(void);
-int grantpt(int) __INTRODUCED_IN(21);
-int posix_openpt(int);
+int posix_openpt(int) __INTRODUCED_IN(21);
 char* ptsname(int);
 int ptsname_r(int, char*, size_t);
 int unlockpt(int);
+
+int getsubopt(char**, char* const*, char**) __INTRODUCED_IN(26);
 
 typedef struct {
     int  quot;
     int  rem;
 } div_t;
 
-extern div_t   div(int, int) __pure2;
+div_t div(int, int) __attribute_const__;
 
 typedef struct {
     long int  quot;
     long int  rem;
 } ldiv_t;
 
-extern ldiv_t   ldiv(long, long) __pure2;
+ldiv_t ldiv(long, long) __attribute_const__;
 
 typedef struct {
     long long int  quot;
     long long int  rem;
 } lldiv_t;
 
-extern lldiv_t   lldiv(long long, long long) __pure2;
+lldiv_t lldiv(long long, long long) __attribute_const__;
 
 /* BSD compatibility. */
-extern const char* getprogname(void);
-extern void setprogname(const char*);
+const char* getprogname(void) __INTRODUCED_IN(21);
+void setprogname(const char*) __INTRODUCED_IN(21);
 
-/* make STLPort happy */
-extern int      mblen(const char *, size_t);
-extern size_t   mbstowcs(wchar_t *, const char *, size_t);
-extern int      mbtowc(wchar_t *, const char *, size_t);
+int mblen(const char*, size_t) __INTRODUCED_IN(26) __VERSIONER_NO_GUARD;
+size_t mbstowcs(wchar_t*, const char*, size_t);
+int mbtowc(wchar_t*, const char*, size_t) __INTRODUCED_IN(21) __VERSIONER_NO_GUARD;
+int wctomb(char*, wchar_t) __INTRODUCED_IN(21) __VERSIONER_NO_GUARD;
 
-/* Likewise, make libstdc++-v3 happy.  */
-extern int	wctomb(char *, wchar_t);
-extern size_t	wcstombs(char *, const wchar_t *, size_t);
+size_t wcstombs(char*, const wchar_t*, size_t);
 
-extern size_t __ctype_get_mb_cur_max(void);
+#if __ANDROID_API__ >= __ANDROID_API_L__
+size_t __ctype_get_mb_cur_max(void) __INTRODUCED_IN(21);
 #define MB_CUR_MAX __ctype_get_mb_cur_max()
-
-#if __ANDROID_API__ < 21
-#include <android/legacy_stdlib_inlines.h>
+#else
+/*
+ * Pre-L we didn't have any locale support and so we were always the POSIX
+ * locale. POSIX specifies that MB_CUR_MAX for the POSIX locale is 1:
+ * http://pubs.opengroup.org/onlinepubs/9699919799/basedefs/stdlib.h.html
+ */
+#define MB_CUR_MAX 1
 #endif
 
 #if defined(__BIONIC_FORTIFY)
+#define __realpath_buf_too_small_str \
+    "realpath output parameter must be NULL or a >= PATH_MAX bytes buffer"
 
-extern char* __realpath_real(const char*, char*) __RENAME(realpath);
-__errordecl(__realpath_size_error, "realpath output parameter must be NULL or a >= PATH_MAX bytes buffer");
+/* PATH_MAX is unavailable without polluting the namespace, but it's always 4096 on Linux */
+#define __PATH_MAX 4096
 
-#if !defined(__clang__)
+#if defined(__clang__)
+
+__BIONIC_ERROR_FUNCTION_VISIBILITY
+char* realpath(const char* path, char* resolved) __overloadable
+    __enable_if(__bos(resolved) != __BIONIC_FORTIFY_UNKNOWN_SIZE &&
+                __bos(resolved) < __PATH_MAX, __realpath_buf_too_small_str)
+    __errorattr(__realpath_buf_too_small_str);
+
+/* No need for a FORTIFY version; the only things we can catch are at
+ * compile-time.
+ */
+
+#else /* defined(__clang__) */
+
+char* __realpath_real(const char*, char*) __RENAME(realpath);
+__errordecl(__realpath_size_error, __realpath_buf_too_small_str);
+
 __BIONIC_FORTIFY_INLINE
 char* realpath(const char* path, char* resolved) {
     size_t bos = __bos(resolved);
 
-    /* PATH_MAX is unavailable without polluting the namespace, but it's always 4096 on Linux */
-    if (bos != __BIONIC_FORTIFY_UNKNOWN_SIZE && bos < 4096) {
+    if (bos != __BIONIC_FORTIFY_UNKNOWN_SIZE && bos < __PATH_MAX) {
         __realpath_size_error();
     }
 
     return __realpath_real(path, resolved);
 }
-#endif
 
+#endif /* defined(__clang__) */
+
+#undef __PATH_MAX
+#undef __realpath_buf_too_small_str
 #endif /* defined(__BIONIC_FORTIFY) */
 
+#if __ANDROID_API__ >= __ANDROID_API_L__
+float strtof(const char*, char**) __INTRODUCED_IN(21);
+double atof(const char*) __attribute_pure__ __INTRODUCED_IN(21);
+int abs(int) __attribute_const__ __INTRODUCED_IN(21);
+long labs(long) __attribute_const__ __INTRODUCED_IN(21);
+long long llabs(long long) __attribute_const__ __INTRODUCED_IN(21);
+int rand(void) __INTRODUCED_IN(21);
+void srand(unsigned int) __INTRODUCED_IN(21);
+long random(void) __INTRODUCED_IN(21);
+void srandom(unsigned int) __INTRODUCED_IN(21);
+int grantpt(int) __INTRODUCED_IN(21);
+
+long long strtoll_l(const char*, char**, int, locale_t) __INTRODUCED_IN(21);
+unsigned long long strtoull_l(const char*, char**, int, locale_t) __INTRODUCED_IN(21);
+long double strtold_l(const char*, char**, locale_t) __INTRODUCED_IN(21);
+#else
+// Implemented as static inlines before 21.
+#endif
+
+#if __ANDROID_API__ >= __ANDROID_API_FUTURE__
+double strtod_l(const char*, char**, locale_t) __INTRODUCED_IN(26);
+float strtof_l(const char*, char**, locale_t) __INTRODUCED_IN(26);
+long strtol_l(const char*, char**, int, locale_t) __INTRODUCED_IN(26);
+#else
+// Implemented as static inlines.
+#endif
+
 __END_DECLS
+
+#include <android/legacy_stdlib_inlines.h>
 
 #endif /* _STDLIB_H */

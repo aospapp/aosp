@@ -24,11 +24,12 @@ import static android.provider.Settings.EXTRA_AIRPLANE_MODE_ENABLED;
 import static android.provider.Settings.ACTION_VOICE_CONTROL_BATTERY_SAVER_MODE;
 import static android.provider.Settings.EXTRA_BATTERY_SAVER_MODE_ENABLED;
 
+import com.android.compatibility.common.util.BroadcastUtils;
+import com.android.compatibility.common.util.BroadcastUtils.TestcaseType;
+
 import android.app.VoiceInteractor;
 import android.content.Context;
 import android.content.Intent;
-import android.cts.util.BroadcastUtils;
-import android.cts.util.BroadcastUtils.TestcaseType;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.service.voice.VoiceInteractionSession;

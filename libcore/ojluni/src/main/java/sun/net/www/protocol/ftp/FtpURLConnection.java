@@ -52,7 +52,6 @@ import sun.net.NetworkClient;
 import sun.net.www.MessageHeader;
 import sun.net.www.MeteredStream;
 import sun.net.www.URLConnection;
-import sun.net.www.protocol.http.HttpURLConnection;
 import sun.net.ftp.FtpClient;
 import sun.net.ftp.FtpProtocolException;
 import sun.net.ProgressSource;
@@ -82,8 +81,10 @@ import sun.security.action.GetPropertyAction;
  */
 public class FtpURLConnection extends URLConnection {
 
-    // In case we have to use proxies, we use HttpURLConnection
-    HttpURLConnection http = null;
+// Android-changed: Removed support for proxying FTP over HTTP since it
+// relies on the removed sun.net.www.protocol.http.HttpURLConnection API.
+//    // In case we have to use proxies, we use HttpURLConnection
+//    HttpURLConnection http = null;
     private Proxy instProxy;
 
     InputStream is = null;
@@ -245,42 +246,50 @@ public class FtpURLConnection extends URLConnection {
                         continue;
                     }
                     // OK, we have an http proxy
-                    InetSocketAddress paddr = (InetSocketAddress) p.address();
-                    try {
-                        http = new HttpURLConnection(url, p);
-                        http.setDoInput(getDoInput());
-                        http.setDoOutput(getDoOutput());
-                        if (connectTimeout >= 0) {
-                            http.setConnectTimeout(connectTimeout);
-                        }
-                        if (readTimeout >= 0) {
-                            http.setReadTimeout(readTimeout);
-                        }
-                        http.connect();
-                        connected = true;
-                        return;
-                    } catch (IOException ioe) {
-                        sel.connectFailed(uri, paddr, ioe);
-                        http = null;
-                    }
+                    // Android-changed: Removed support for proxying FTP over HTTP since it
+                    // relies on the removed sun.net.www.protocol.http.HttpURLConnection API.
+                    sel.connectFailed(uri, p.address(), new IOException("FTP connections over HTTP proxy not supported"));
+                    continue;
+//                    InetSocketAddress paddr = (InetSocketAddress) p.address();
+//                    try {
+//                        http = new HttpURLConnection(url, p);
+//                        http.setDoInput(getDoInput());
+//                        http.setDoOutput(getDoOutput());
+//                        if (connectTimeout >= 0) {
+//                            http.setConnectTimeout(connectTimeout);
+//                        }
+//                        if (readTimeout >= 0) {
+//                            http.setReadTimeout(readTimeout);
+//                        }
+//                        http.connect();
+//                        connected = true;
+//                        return;
+//                    } catch (IOException ioe) {
+//                        sel.connectFailed(uri, paddr, ioe);
+//                        http = null;
+//                    }
                 }
             }
         } else { // per connection proxy specified
             p = instProxy;
-            if (p.type() == Proxy.Type.HTTP) {
-                http = new HttpURLConnection(url, instProxy);
-                http.setDoInput(getDoInput());
-                http.setDoOutput(getDoOutput());
-                if (connectTimeout >= 0) {
-                    http.setConnectTimeout(connectTimeout);
-                }
-                if (readTimeout >= 0) {
-                    http.setReadTimeout(readTimeout);
-                }
-                http.connect();
-                connected = true;
-                return;
-            }
+// Android-changed: Removed support for proxying FTP over HTTP since it
+// relies on the removed sun.net.www.protocol.http.HttpURLConnection API.
+// As specified in the documentation for URL.openConnection(Proxy), we
+// ignore the unsupported proxy and attempt a normal (direct) connection
+//            if (p.type() == Proxy.Type.HTTP) {
+//                http = new HttpURLConnection(url, instProxy);
+//                http.setDoInput(getDoInput());
+//                http.setDoOutput(getDoOutput());
+//                if (connectTimeout >= 0) {
+//                    http.setConnectTimeout(connectTimeout);
+//                }
+//                if (readTimeout >= 0) {
+//                    http.setReadTimeout(readTimeout);
+//                }
+//                http.connect();
+//                connected = true;
+//                return;
+//            }
         }
 
         if (user == null) {
@@ -401,10 +410,11 @@ public class FtpURLConnection extends URLConnection {
         if (!connected) {
             connect();
         }
-
-        if (http != null) {
-            return http.getInputStream();
-        }
+        // Android-changed: Removed support for proxying FTP over HTTP since it
+        // relies on the removed sun.net.www.protocol.http.HttpURLConnection API.
+//        if (http != null) {
+//            return http.getInputStream();
+//        }
 
         if (os != null) {
             throw new IOException("Already opened for output");
@@ -515,14 +525,15 @@ public class FtpURLConnection extends URLConnection {
         if (!connected) {
             connect();
         }
-
-        if (http != null) {
-            OutputStream out = http.getOutputStream();
-            // getInputStream() is neccessary to force a writeRequests()
-            // on the http client.
-            http.getInputStream();
-            return out;
-        }
+// Android-changed: Removed support for proxying FTP over HTTP since it
+// relies on the removed sun.net.www.protocol.http.HttpURLConnection API.
+//        if (http != null) {
+//            OutputStream out = http.getOutputStream();
+//            // getInputStream() is neccessary to force a writeRequests()
+//            // on the http client.
+//            http.getInputStream();
+//            return out;
+//        }
 
         if (is != null) {
             throw new IOException("Already opened for input");

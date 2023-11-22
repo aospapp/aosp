@@ -23,8 +23,14 @@ import com.android.storagemanager.deletionhelper.DeletionType;
  * Feature provider for the manual deletion helper.
  */
 public interface DeletionHelperFeatureProvider {
+    /** Creates a {@link DeletionType} for clearing out stored photos and videos on the device. */
+    DeletionType createPhotoVideoDeletionType(Context context, int thresholdType);
+
     /**
-     * Creates a {@link DeletionType} for clearing out stored photos and videos on the device.
+     * Returns how many days back the deletionType with this threshold will look for photos.
+     *
+     * @param thresholdType the threshold type.
+     * @return an int representing the number of days.
      */
-    DeletionType createPhotoVideoDeletionType(Context context);
+    int getDaysToKeep(int thresholdType);
 }

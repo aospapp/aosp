@@ -113,13 +113,10 @@ class ScanSettings {
   //   match_mode: MATCH_MODE_AGGRESSIVE
   //   match_count_per_filter: MATCH_COUNT_MAX_ADVERTISEMENTS
   ScanSettings();
-  ScanSettings(Mode mode,
-               CallbackTypeBitField callback_type,
-               ResultType result_type,
-               base::TimeDelta report_delay_ms,
-               MatchMode match_mode,
-               MatchCount match_count_per_filter);
-  ~ScanSettings() = default;
+  ScanSettings(Mode mode, CallbackTypeBitField callback_type,
+               ResultType result_type, base::TimeDelta report_delay_ms,
+               MatchMode match_mode, MatchCount match_count_per_filter);
+  virtual ~ScanSettings() = default;
 
   // Returns the scan mode.
   Mode mode() const { return mode_; }
@@ -152,7 +149,7 @@ class ScanSettings {
   // Comparison operator.
   bool operator==(const ScanSettings& rhs) const;
 
- private:
+ protected:
   Mode mode_;
   CallbackTypeBitField callback_type_;
   ResultType result_type_;

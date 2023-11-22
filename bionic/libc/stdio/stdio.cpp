@@ -31,11 +31,13 @@
  * SUCH DAMAGE.
  */
 
+#define __BIONIC_NO_STDIO_FORTIFY
 #include <stdio.h>
 
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
+#include <paths.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/param.h>
@@ -44,6 +46,7 @@
 
 #include "local.h"
 #include "glue.h"
+#include "private/bionic_fortify.h"
 #include "private/ErrnoRestorer.h"
 #include "private/thread_private.h"
 
@@ -51,6 +54,13 @@
 #define ALIGN(p) (((uintptr_t)(p) + ALIGNBYTES) &~ ALIGNBYTES)
 
 #define	NDYNAMIC 10		/* add ten more whenever necessary */
+
+#define PRINTF_IMPL(expr) \
+    va_list ap; \
+    va_start(ap, fmt); \
+    int result = (expr); \
+    va_end(ap); \
+    return result;
 
 #define std(flags, file) \
     {0,0,0,flags,file,{0,0},0,__sF+file,__sclose,__sread,nullptr,__swrite, \
@@ -90,7 +100,7 @@ static struct glue* lastglue = &__sglue;
 
 class ScopedFileLock {
  public:
-  ScopedFileLock(FILE* fp) : fp_(fp) {
+  explicit ScopedFileLock(FILE* fp) : fp_(fp) {
     FLOCKFILE(fp_);
   }
   ~ScopedFileLock() {
@@ -387,9 +397,45 @@ int fclose(FILE* fp) {
   return r;
 }
 
+int fileno_unlocked(FILE* fp) {
+  int fd = fp->_file;
+  if (fd == -1) {
+    errno = EBADF;
+    return -1;
+  }
+  return fd;
+}
+
 int fileno(FILE* fp) {
   ScopedFileLock sfl(fp);
   return fileno_unlocked(fp);
+}
+
+void clearerr_unlocked(FILE* fp) {
+  return __sclearerr(fp);
+}
+
+void clearerr(FILE* fp) {
+  ScopedFileLock sfl(fp);
+  clearerr_unlocked(fp);
+}
+
+int feof_unlocked(FILE* fp) {
+  return ((fp->_flags & __SEOF) != 0);
+}
+
+int feof(FILE* fp) {
+  ScopedFileLock sfl(fp);
+  return feof_unlocked(fp);
+}
+
+int ferror_unlocked(FILE* fp) {
+  return __sferror(fp);
+}
+
+int ferror(FILE* fp) {
+  ScopedFileLock sfl(fp);
+  return ferror_unlocked(fp);
 }
 
 int __sread(void* cookie, char* buf, int n) {
@@ -597,4 +643,221 @@ FILE* funopen64(const void* cookie,
     _EXT(fp)->_seek64 = seek_fn;
   }
   return fp;
+}
+
+int asprintf(char** s, const char* fmt, ...) {
+  PRINTF_IMPL(vasprintf(s, fmt, ap));
+}
+
+char* ctermid(char* s) {
+  return s ? strcpy(s, _PATH_TTY) : const_cast<char*>(_PATH_TTY);
+}
+
+int dprintf(int fd, const char* fmt, ...) {
+  PRINTF_IMPL(vdprintf(fd, fmt, ap));
+}
+
+int fprintf(FILE* fp, const char* fmt, ...) {
+  PRINTF_IMPL(vfprintf(fp, fmt, ap));
+}
+
+int fgetc(FILE* fp) {
+  return getc(fp);
+}
+
+int fputc(int c, FILE* fp) {
+  return putc(c, fp);
+}
+
+int fscanf(FILE* fp, const char* fmt, ...) {
+  PRINTF_IMPL(vfscanf(fp, fmt, ap));
+}
+
+int fwprintf(FILE* fp, const wchar_t* fmt, ...) {
+  PRINTF_IMPL(vfwprintf(fp, fmt, ap));
+}
+
+int fwscanf(FILE* fp, const wchar_t* fmt, ...) {
+  PRINTF_IMPL(vfwscanf(fp, fmt, ap));
+}
+
+int getc(FILE* fp) {
+  ScopedFileLock sfl(fp);
+  return getc_unlocked(fp);
+}
+
+int getc_unlocked(FILE* fp) {
+  return __sgetc(fp);
+}
+
+int getchar_unlocked() {
+  return getc_unlocked(stdin);
+}
+
+int getchar() {
+  return getc(stdin);
+}
+
+ssize_t getline(char** buf, size_t* len, FILE* fp) {
+  return getdelim(buf, len, '\n', fp);
+}
+
+wint_t getwc(FILE* fp) {
+  return fgetwc(fp);
+}
+
+wint_t getwchar() {
+  return fgetwc(stdin);
+}
+
+int printf(const char* fmt, ...) {
+  PRINTF_IMPL(vfprintf(stdout, fmt, ap));
+}
+
+int putc(int c, FILE* fp) {
+  ScopedFileLock sfl(fp);
+  return putc_unlocked(c, fp);
+}
+
+int putc_unlocked(int c, FILE* fp) {
+  if (cantwrite(fp)) {
+    errno = EBADF;
+    return EOF;
+  }
+  _SET_ORIENTATION(fp, -1);
+  if (--fp->_w >= 0 || (fp->_w >= fp->_lbfsize && c != '\n')) {
+    return (*fp->_p++ = c);
+  }
+  return (__swbuf(c, fp));
+}
+
+int putchar(int c) {
+  return putc(c, stdout);
+}
+
+int putchar_unlocked(int c) {
+  return putc_unlocked(c, stdout);
+}
+
+wint_t putwc(wchar_t wc, FILE* fp) {
+  return fputwc(wc, fp);
+}
+
+wint_t putwchar(wchar_t wc) {
+  return fputwc(wc, stdout);
+}
+
+int remove(const char* path) {
+  if (unlink(path) != -1) return 0;
+  if (errno != EISDIR) return -1;
+  return rmdir(path);
+}
+
+void rewind(FILE* fp) {
+  ScopedFileLock sfl(fp);
+  fseek(fp, 0, SEEK_SET);
+  clearerr_unlocked(fp);
+}
+
+int scanf(const char* fmt, ...) {
+  PRINTF_IMPL(vfscanf(stdin, fmt, ap));
+}
+
+void setbuf(FILE* fp, char* buf) {
+  setbuffer(fp, buf, BUFSIZ);
+}
+
+void setbuffer(FILE* fp, char* buf, int size) {
+  setvbuf(fp, buf, buf ? _IOFBF : _IONBF, size);
+}
+
+int setlinebuf(FILE* fp) {
+  return setvbuf(fp, nullptr, _IOLBF, 0);
+}
+
+int snprintf(char* s, size_t n, const char* fmt, ...) {
+  PRINTF_IMPL(vsnprintf(s, n, fmt, ap));
+}
+
+int sprintf(char* s, const char* fmt, ...) {
+  PRINTF_IMPL(vsprintf(s, fmt, ap));
+}
+
+int sscanf(const char* s, const char* fmt, ...) {
+  PRINTF_IMPL(vsscanf(s, fmt, ap));
+}
+
+int swprintf(wchar_t* s, size_t n, const wchar_t* fmt, ...) {
+  PRINTF_IMPL(vswprintf(s, n, fmt, ap));
+}
+
+int swscanf(const wchar_t* s, const wchar_t* fmt, ...) {
+  PRINTF_IMPL(vswscanf(s, fmt, ap));
+}
+
+int vprintf(const char* fmt, va_list ap) {
+  return vfprintf(stdout, fmt, ap);
+}
+
+int vscanf(const char* fmt, va_list ap) {
+  return vfscanf(stdin, fmt, ap);
+}
+
+int vsnprintf(char* s, size_t n, const char* fmt, va_list ap) {
+  // stdio internals use int rather than size_t.
+  static_assert(INT_MAX <= SSIZE_MAX, "SSIZE_MAX too large to fit in int");
+
+  __check_count("vsnprintf", "size", n);
+
+  // Stdio internals do not deal correctly with zero length buffer.
+  char dummy;
+  if (n == 0) {
+    s = &dummy;
+    n = 1;
+  }
+
+  FILE f;
+  __sfileext fext;
+  _FILEEXT_SETUP(&f, &fext);
+  f._file = -1;
+  f._flags = __SWR | __SSTR;
+  f._bf._base = f._p = reinterpret_cast<unsigned char*>(s);
+  f._bf._size = f._w = n - 1;
+
+  int result = __vfprintf(&f, fmt, ap);
+  *f._p = '\0';
+  return result;
+}
+
+int vsprintf(char* s, const char* fmt, va_list ap) {
+  return vsnprintf(s, SSIZE_MAX, fmt, ap);
+}
+
+int vwprintf(const wchar_t* fmt, va_list ap) {
+  return vfwprintf(stdout, fmt, ap);
+}
+
+int vwscanf(const wchar_t* fmt, va_list ap) {
+  return vfwscanf(stdin, fmt, ap);
+}
+
+int wprintf(const wchar_t* fmt, ...) {
+  PRINTF_IMPL(vfwprintf(stdout, fmt, ap));
+}
+
+int wscanf(const wchar_t* fmt, ...) {
+  PRINTF_IMPL(vfwscanf(stdin, fmt, ap));
+}
+
+namespace {
+
+namespace phony {
+#include <bits/struct_file.h>
+}
+
+static_assert(sizeof(::__sFILE) == sizeof(phony::__sFILE),
+              "size mismatch between `struct __sFILE` implementation and public stub");
+static_assert(alignof(::__sFILE) == alignof(phony::__sFILE),
+              "alignment mismatch between `struct __sFILE` implementation and public stub");
+
 }

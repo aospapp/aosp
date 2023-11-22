@@ -86,9 +86,13 @@
         <item name="colorPrimary">@color/suw_color_accent_glif_dark</item>
         <item name="listPreferredItemPaddingLeft">?attr/suwMarginSides</item>
         <item name="listPreferredItemPaddingRight">?attr/suwMarginSides</item>
+        <item name="suwColorPrimary">?attr/colorPrimary</item>
+        <item name="suwDividerInset">@dimen/suw_items_glif_icon_divider_inset</item>
+        <item name="suwGlifHeaderGravity">start</item>
         <item name="suwItemDescriptionStyle">@style/SuwItemContainer.Description.Glif</item>
         <item name="suwListItemIconColor">@color/suw_list_item_icon_color_dark</item>
         <item name="suwMarginSides">@dimen/suw_glif_margin_sides</item>
+        <item name="suwScrollIndicators">bottom</item>
         <item name="textAppearanceListItem">@style/TextAppearance.SuwGlifItemTitle</item>
         <item name="textAppearanceListItemSmall">@style/TextAppearance.SuwGlifItemSummary</item>
     </style>
@@ -112,9 +116,13 @@
         <item name="colorPrimary">@color/suw_color_accent_glif_light</item>
         <item name="listPreferredItemPaddingLeft">?attr/suwMarginSides</item>
         <item name="listPreferredItemPaddingRight">?attr/suwMarginSides</item>
+        <item name="suwColorPrimary">?attr/colorPrimary</item>
+        <item name="suwDividerInset">@dimen/suw_items_glif_icon_divider_inset</item>
+        <item name="suwGlifHeaderGravity">start</item>
         <item name="suwItemDescriptionStyle">@style/SuwItemContainer.Description.Glif</item>
         <item name="suwListItemIconColor">@color/suw_list_item_icon_color_light</item>
         <item name="suwMarginSides">@dimen/suw_glif_margin_sides</item>
+        <item name="suwScrollIndicators">bottom</item>
         <item name="textAppearanceListItem">@style/TextAppearance.SuwGlifItemTitle</item>
         <item name="textAppearanceListItemSmall">@style/TextAppearance.SuwGlifItemSummary</item>
     </style>
@@ -146,14 +154,49 @@
         <item name="android:textAppearance">?attr/textAppearanceListItemSmall</item>
     </style>
 
+    <style name="SuwSwitchStyle">
+        <item name="android:paddingEnd" tools:ignore="NewApi">@dimen/suw_switch_padding_end</item>
+        <item name="android:paddingLeft">@dimen/suw_switch_padding_start</item>
+        <item name="android:paddingRight">@dimen/suw_switch_padding_end</item>
+        <item name="android:paddingStart" tools:ignore="NewApi">@dimen/suw_switch_padding_start</item>
+    </style>
+
+    <style name="SuwSwitchStyle.Divided" parent="SuwSwitchStyle">
+        <item name="android:paddingEnd" tools:ignore="NewApi">?attr/listPreferredItemPaddingRight</item>
+        <item name="android:paddingRight">?attr/listPreferredItemPaddingRight</item>
+    </style>
+
     <!-- Button styles -->
 
-    <style name="SuwButtonItem" />
+    <style name="SuwGlifButton.Primary" parent="Widget.AppCompat.Button.Colored">
+        <!-- This style can be applied to a button either as a "style" in XML, or as a theme in
+             ContextThemeWrapper. These self-referencing attributes make sure this is applied as
+             both to the button. -->
+        <item name="android:buttonStyle">@style/SuwGlifButton.Primary</item>
+        <item name="buttonStyle">@style/SuwGlifButton.Primary</item>
 
-    <style name="SuwButtonItem.Colored">
-        <item name="android:buttonStyle">@style/Widget.AppCompat.Button</item>
-        <item name="android:textColor">?android:attr/textColorPrimaryInverse</item>
-        <item name="colorButtonNormal">?attr/colorAccent</item>
+        <!-- Values used in styles -->
+        <item name="android:minWidth">0dp</item>
+        <item name="android:paddingLeft">@dimen/suw_glif_button_padding</item>
+        <item name="android:paddingRight">@dimen/suw_glif_button_padding</item>
+    </style>
+
+    <style name="SuwGlifButton.Secondary" parent="Widget.AppCompat.Button.Borderless.Colored">
+        <!-- This style can be applied to a button either as a "style" in XML, or as a theme in
+             ContextThemeWrapper. These self-referencing attributes make sure this is applied as
+             both to the button. -->
+        <item name="android:buttonStyle">@style/SuwGlifButton.Secondary</item>
+        <item name="android:theme">@style/SuwGlifButton.Secondary</item>
+        <item name="buttonStyle">@style/SuwGlifButton.Secondary</item>
+
+        <!-- Values used in styles -->
+        <item name="android:minWidth">0dp</item>
+        <item name="android:paddingLeft">@dimen/suw_glif_button_padding</item>
+        <item name="android:paddingRight">@dimen/suw_glif_button_padding</item>
+
+        <!-- Values used in themes -->
+        <item name="android:colorControlHighlight" tools:targetApi="lollipop">@color/suw_flat_button_highlight</item>
+        <item name="colorControlHighlight">@color/suw_flat_button_highlight</item>
     </style>
 
     <!-- Card layout (for tablets) -->

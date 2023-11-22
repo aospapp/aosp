@@ -41,9 +41,8 @@ void OsReleaseReader::Load(const base::FilePath& root_dir) {
        path = enumerator.Next()) {
     std::string content;
     if (!base::ReadFileToString(path, &content)) {
-      // The only way to fail is if a file exist in /etc/os-release.d but we
-      // cannot read it.
-      PLOG(FATAL) << "Could not read " << path.value();
+      PLOG(ERROR) << "Could not read " << path.value();
+      continue;
     }
     // There might be a trailing new line. Strip it to keep only the first line
     // of the file.

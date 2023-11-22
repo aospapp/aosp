@@ -1,4 +1,4 @@
-# Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
+# Copyright (c) 2016 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
@@ -38,40 +38,57 @@ class EthernetDongle(object):
 class network_EthernetStressPlug(test.test):
     version = 1
 
-    def initialize(self):
+    def initialize(self, interface=None):
         """ Determines and defines the bus information and interface info. """
 
-        def get_ethernet_interface():
-            """ Gets the correct interface based on link and duplex status."""
-            avail_eth_interfaces =[x for x in os.listdir("/sys/class/net/")
-                                   if x.startswith("eth")]
+        self.link_speed_failures = 0
+        sysnet = os.path.join('/', 'sys', 'class', 'net')
 
-            for interface in avail_eth_interfaces:
+        def get_ethernet_interface(interface):
+            """ Valid interface requires link and duplex status."""
+            avail_eth_interfaces=[]
+            if interface is None:
                 # This is not the (bridged) eth dev we are looking for.
-                if os.path.exists("/sys/class/net/" + interface + "/brport"):
-                    continue
+                for x in os.listdir(sysnet):
+                    sysdev = os.path.join(sysnet,  x, 'device')
+                    syswireless = os.path.join(sysnet,  x, 'wireless')
+                    if os.path.exists(sysdev) and not os.path.exists(syswireless):
+                        avail_eth_interfaces.append(x)
+            else:
+                sysdev = os.path.join(sysnet,  interface, 'device')
+                if os.path.exists(sysdev):
+                    avail_eth_interfaces.append(interface)
+                else:
+                    raise error.TestError('Network Interface %s is not a device ' % iface)
 
+            link_status = 'unknown'
+            duplex_status = 'unknown'
+            iface = 'unknown'
+
+            for iface in avail_eth_interfaces:
+                syslink = os.path.join(sysnet, iface, 'operstate')
                 try:
-                    link_file = open("/sys/class/net/" + interface +
-                                     "/operstate")
+                    link_file = open(syslink)
                     link_status = link_file.readline().strip()
                     link_file.close()
                 except:
                     pass
 
+                sysduplex = os.path.join(sysnet, iface, 'duplex')
                 try:
-                    duplex_file = open("/sys/class/net/" + interface +
-                                       "/duplex")
+                    duplex_file = open(sysduplex)
                     duplex_status = duplex_file.readline().strip()
                     duplex_file.close()
                 except:
                     pass
 
                 if link_status == 'up' and duplex_status == 'full':
-                    return interface
-            return 'eth0'
+                    return iface
 
-        def get_net_device_path(device='eth0'):
+            raise error.TestError('Network Interface %s not usable (%s, %s)'
+                                  % (iface, link_status, duplex_status))
+
+        def get_net_device_path(device=''):
             """ Uses udev to get the path of the desired internet device.
             Args:
                 device: look for the /sys entry for this ethX device
@@ -80,13 +97,13 @@ class network_EthernetStressPlug(test.test):
             """
             net_list = pyudev.Context().list_devices(subsystem='net')
             for dev in net_list:
-                if dev.sys_path.endswith("net/%s" % device):
+                if dev.sys_path.endswith('net/%s' % device):
                     return dev.sys_path
 
             raise error.TestError('Could not find /sys device path for %s'
                                   % device)
 
-        self.interface = get_ethernet_interface()
+        self.interface = get_ethernet_interface(interface)
         self.eth_syspath = get_net_device_path(self.interface)
         self.eth_flagspath = os.path.join(self.eth_syspath, 'flags')
 
@@ -266,6 +283,18 @@ class network_EthernetStressPlug(test.test):
         while time.time() < end_time:
             status = self.GetEthernetStatus()
 
+
+            # If GetEthernetStatus() detects the wrong link rate, "bouncing"
+            # the link _should_ recover. Keep count of how many times this
+            # happens. Test should fail if happens "frequently".
+            if power and not status and 'speed' in self.test_status['reason']:
+                self._PowerEthernet(0)
+                time.sleep(1)
+                self._PowerEthernet(power)
+                self.link_speed_failures += 1
+                logging.warning('Link Renegotiated ' +
+                    self.test_status['reason'])
+
             # If ethernet is enabled  and has an IP, OR
             # if ethernet is disabled and does not have an IP,
             # then we are in the desired state.
@@ -299,7 +328,6 @@ class network_EthernetStressPlug(test.test):
 
     def _ParseEthTool_LinkModes(self, line):
         """ Parses Ethtool Link Mode Entries.
-
         Inputs:
             line: Space separated string of link modes that have the format
                   (\d+)baseT/(Half|Full) (eg. 100baseT/Full).
@@ -309,6 +337,11 @@ class network_EthernetStressPlug(test.test):
             { 'Speed': '<speed>', 'Duplex': '<duplex>' }
         """
         parameters = []
+
+        # QCA ESS EDMA driver doesn't report "Supported link modes:"
+        if 'Not reported' in line:
+            return parameters
+
         for speed_to_parse in line.split():
             speed_duplex = speed_to_parse.split('/')
             parameters.append(
@@ -382,6 +415,10 @@ class network_EthernetStressPlug(test.test):
         if 'No data available' in ethtool_out:
             return parameters
 
+        # bridged interfaces only have two lines of ethtool output.
+        if len(ethtool_out) < 3:
+            return parameters
+
         # For multiline entries, keep track of the key they belong to.
         current_key = ''
         for line in ethtool_out:
@@ -436,7 +473,8 @@ class network_EthernetStressPlug(test.test):
 
         # Ethtool output is ordered in terms of speed so this obtains the
         # fastest speed supported by dongle.
-        max_link = ethtool_dict['Supported link modes'][-1]
+        # QCA ESS EDMA driver doesn't report "Supported link modes".
+        max_link = ethtool_dict['Advertised link modes'][-1]
 
         return EthernetDongle(expect_speed=max_link['Speed'],
                               expect_duplex=max_link['Duplex'])
@@ -474,6 +512,12 @@ class network_EthernetStressPlug(test.test):
                                          (self.warning_threshold*100,
                                           num_iterations,
                                           self.secs_before_warning))
+
+            # Link speed failures are secondary.
+            # Report after all iterations complete.
+            if self.link_speed_failures > 1:
+                raise error.TestFail('ERROR: %s : Link Renegotiated %d times'
+                                % (self.interface, self.link_speed_failures))
 
         except Exception as e:
             exc_info = sys.exc_info()

@@ -19,6 +19,7 @@ package android.content.cts;
 import android.content.ClipData;
 import android.content.ClipDescription;
 import android.content.ClipboardManager;
+import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ClipData.Item;
@@ -128,6 +129,61 @@ public class ClipboardManagerTest extends InstrumentationTestCase {
                 new ExpectedClipItem(null, null, uri));
     }
 
+    @UiThreadTest
+    public void testSetPrimaryClip_multipleMimeTypes() {
+        ContentResolver contentResolver = mContext.getContentResolver();
+
+        Intent intent = new Intent(mContext, ClipboardManagerTest.class);
+        Uri uri = Uri.parse("http://www.google.com");
+        Uri contentUri1 = Uri.parse("content://ctstest/testtable1");
+        Uri contentUri2 = Uri.parse("content://ctstest/testtable2");
+        Uri contentUri3 = Uri.parse("content://ctstest/testtable1/0");
+        Uri contentUri4 = Uri.parse("content://ctstest/testtable1/1");
+        Uri contentUri5 = Uri.parse("content://ctstest/testtable2/0");
+        Uri contentUri6 = Uri.parse("content://ctstest/testtable2/1");
+        Uri contentUri7 = Uri.parse("content://ctstest/testtable2/2");
+        Uri contentUri8 = Uri.parse("content://ctstest/testtable2/3");
+
+        ClipData clipData = ClipData.newPlainText("TextLabel", "Text");
+        clipData.addItem(contentResolver, new Item("More Text"));
+        clipData.addItem(contentResolver, new Item(intent));
+        clipData.addItem(contentResolver, new Item(uri));
+        clipData.addItem(contentResolver, new Item(contentUri1));
+        clipData.addItem(contentResolver, new Item(contentUri2));
+        clipData.addItem(contentResolver, new Item(contentUri3));
+        clipData.addItem(contentResolver, new Item(contentUri4));
+        clipData.addItem(contentResolver, new Item(contentUri5));
+        clipData.addItem(contentResolver, new Item(contentUri6));
+        clipData.addItem(contentResolver, new Item(contentUri7));
+        clipData.addItem(contentResolver, new Item(contentUri8));
+
+        assertClipData(clipData, "TextLabel",
+                new String[] {
+                        ClipDescription.MIMETYPE_TEXT_PLAIN,
+                        ClipDescription.MIMETYPE_TEXT_INTENT,
+                        ClipDescription.MIMETYPE_TEXT_URILIST,
+                        "vnd.android.cursor.dir/com.android.content.testtable1",
+                        "vnd.android.cursor.dir/com.android.content.testtable2",
+                        "vnd.android.cursor.item/com.android.content.testtable1",
+                        "vnd.android.cursor.item/com.android.content.testtable2",
+                        "image/jpeg",
+                        "audio/mpeg",
+                        "video/mpeg"
+                },
+                new ExpectedClipItem("Text", null, null),
+                new ExpectedClipItem("More Text", null, null),
+                new ExpectedClipItem(null, intent, null),
+                new ExpectedClipItem(null, null, uri),
+                new ExpectedClipItem(null, null, contentUri1),
+                new ExpectedClipItem(null, null, contentUri2),
+                new ExpectedClipItem(null, null, contentUri3),
+                new ExpectedClipItem(null, null, contentUri4),
+                new ExpectedClipItem(null, null, contentUri5),
+                new ExpectedClipItem(null, null, contentUri6),
+                new ExpectedClipItem(null, null, contentUri7),
+                new ExpectedClipItem(null, null, contentUri8));
+    }
+
     private class ExpectedClipItem {
         CharSequence mText;
         Intent mIntent;
@@ -160,21 +216,25 @@ public class ClipboardManagerTest extends InstrumentationTestCase {
         assertNotNull(clipboardManager.getPrimaryClip());
         assertNotNull(clipboardManager.getPrimaryClipDescription());
 
-        ClipData data = clipboardManager.getPrimaryClip();
+        assertClipData(clipboardManager.getPrimaryClip(),
+                expectedLabel, expectedMimeTypes, expectedClipItems);
+
+        assertClipDescription(clipboardManager.getPrimaryClipDescription(),
+                expectedLabel, expectedMimeTypes);
+    }
+
+    private void assertClipData(ClipData actualData, String expectedLabel,
+            String[] expectedMimeTypes, ExpectedClipItem... expectedClipItems) {
         if (expectedClipItems != null) {
-            assertEquals(expectedClipItems.length, data.getItemCount());
+            assertEquals(expectedClipItems.length, actualData.getItemCount());
             for (int i = 0; i < expectedClipItems.length; i++) {
-                assertClipItem(expectedClipItems[i], data.getItemAt(i));
+                assertClipItem(expectedClipItems[i], actualData.getItemAt(i));
             }
         } else {
             throw new IllegalArgumentException("Should have at least one expectedClipItem...");
         }
 
-        assertClipDescription(data.getDescription(),
-                expectedLabel, expectedMimeTypes);
-
-        assertClipDescription(clipboardManager.getPrimaryClipDescription(),
-                expectedLabel, expectedMimeTypes);
+        assertClipDescription(actualData.getDescription(), expectedLabel, expectedMimeTypes);
     }
 
     private void assertClipDescription(ClipDescription description, String expectedLabel,

@@ -16,12 +16,15 @@
 
 package com.android.cts.verifier.bluetooth;
 
+import android.app.AlertDialog;
+import android.app.Dialog;
+import android.bluetooth.BluetoothAdapter;
+import android.content.DialogInterface;
+import android.os.Bundle;
+
 import com.android.cts.verifier.ManifestTestListAdapter;
 import com.android.cts.verifier.PassFailButtons;
 import com.android.cts.verifier.R;
-
-import android.bluetooth.BluetoothAdapter;
-import android.os.Bundle;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -44,5 +47,17 @@ public class BleAdvertiserTestActivity extends PassFailButtons.TestListActivity 
 
         setTestListAdapter(new ManifestTestListAdapter(this, getClass().getName(),
                 disabledTest.toArray(new String[disabledTest.size()])));
+        if (!adapter.isEnabled()) {
+            new AlertDialog.Builder(this)
+                    .setTitle(R.string.ble_bluetooth_disable_title)
+                    .setMessage(R.string.ble_bluetooth_disable_message)
+                    .setOnCancelListener(new Dialog.OnCancelListener() {
+                        @Override
+                        public void onCancel(DialogInterface dialog) {
+                            finish();
+                        }
+                    })
+                    .create().show();
+        }
     }
 }

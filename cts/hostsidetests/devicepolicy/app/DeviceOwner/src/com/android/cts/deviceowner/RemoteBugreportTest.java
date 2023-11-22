@@ -24,43 +24,18 @@ import android.test.InstrumentationTestCase;
 
 /**
  * Test class for remote bugreports.
- *
- * This class also handles making sure that the test is the device owner
- * and that it has an active admin registered, so that all tests may
- * assume these are done. The admin component can be accessed through
- * {@link BaseDeviceOwnerTest#getWho()}.
  */
-public class RemoteBugreportTest extends InstrumentationTestCase {
-
-    private static final String MESSAGE_ONLY_ONE_MANAGED_USER_ALLOWED =
-            "There should only be one user, managed by Device Owner";
-
-
-    private DevicePolicyManager mDevicePolicyManager;
-    private Context mContext;
-    private ComponentName mComponentName;
-
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        Instrumentation instrumentation = getInstrumentation();
-        mContext = instrumentation.getTargetContext();
-        mDevicePolicyManager = (DevicePolicyManager)
-                mContext.getSystemService(Context.DEVICE_POLICY_SERVICE);
-        BaseDeviceOwnerTest.assertDeviceOwner(mDevicePolicyManager);
-        mComponentName = BaseDeviceOwnerTest.getWho();
-    }
+public class RemoteBugreportTest extends BaseDeviceOwnerTest {
 
     /**
-     * Test: remote bugreport flow can only be started if there's one user on the device.
+     * Test: remote bugreport flow can only be started if there is only one user on the device or
+     * all existing secondary users/profiles are affiliated.
      */
-    public void testRequestBugreportNotStartedIfMoreThanOneUserPresent() {
-        boolean startedSuccessfully = false;
+    public void testRequestBugreportThrowsSecurityException() {
         try {
-            startedSuccessfully = mDevicePolicyManager.requestBugreport(mComponentName);
+            mDevicePolicyManager.requestBugreport(getWho());
             fail("did not throw expected SecurityException");
-        } catch (SecurityException e) {
-            assertEquals(e.getMessage(), MESSAGE_ONLY_ONE_MANAGED_USER_ALLOWED);
+        } catch (SecurityException expected) {
         }
     }
 

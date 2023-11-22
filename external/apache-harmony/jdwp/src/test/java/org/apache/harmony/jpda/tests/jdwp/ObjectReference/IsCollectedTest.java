@@ -44,6 +44,7 @@ public class IsCollectedTest extends JDWPSyncTestCase {
 
     static final String debuggeeSignature = "Lorg/apache/harmony/jpda/tests/jdwp/ObjectReference/IsCollectedDebuggee;";
 
+    @Override
     protected String getDebuggeeClassName() {
         return "org.apache.harmony.jpda.tests.jdwp.ObjectReference.IsCollectedDebuggee";
     }

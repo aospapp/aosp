@@ -1151,12 +1151,12 @@ public class DecimalFormatTest extends TestCase {
         // Scientific notation => use significant digit logic
         // '@' not present: Significant digits: Min: 1,
         // Max: "min integer digits" (1) + "max fractional digits (0) == 1
-        formatTester.format(df, "0E0", 0.0);
-        formatTester.format(df, "1E0", 1.0);
-        formatTester.format(df, "1E1", 12.0);
-        formatTester.format(df, "1E2", 123.0);
-        formatTester.format(df, "1E3", 1234.0);
-        formatTester.format(df, "1E4", 9999.0);
+        formatTester.format(df, "0.E0", 0.0);
+        formatTester.format(df, "1.E0", 1.0);
+        formatTester.format(df, "1.E1", 12.0);
+        formatTester.format(df, "1.E2", 123.0);
+        formatTester.format(df, "1.E3", 1234.0);
+        formatTester.format(df, "1.E4", 9999.0);
 
         df = new DecimalFormat("##0.00#E0", dfs);
         // ["##0.00#E0",isDecimalSeparatorAlwaysShown=false,groupingSize=0,multiplier=1,
@@ -1699,7 +1699,7 @@ public class DecimalFormatTest extends TestCase {
         // double 9999999999.999998 is decimal 9999999999.9999980926513671875
         assertEquals("9999999999.999998", df.format(9999999999.999998));
         // double 1E23 is decimal 99999999999999991611392
-        assertEquals("9999999999999999", df.format(1E23));
+        assertEquals("99999999999999990000000", df.format(1E23));
     }
 
     public void test_getDecimalFormatSymbols() {

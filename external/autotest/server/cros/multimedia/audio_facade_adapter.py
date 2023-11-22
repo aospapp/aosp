@@ -56,6 +56,11 @@ class AudioFacadeRemoteAdapter(object):
                 client_path, data_format, blocking)
 
 
+    def stop_playback(self):
+        """Stops playback process."""
+        self._audio_proxy.stop_playback()
+
+
     def set_playback_file(self, path):
         """Copies a file to client.
 
@@ -114,6 +119,15 @@ class AudioFacadeRemoteAdapter(object):
 
         """
         self._audio_proxy.set_selected_output_volume(volume)
+
+
+    def set_input_gain(self, gain):
+        """Sets the system capture gain.
+
+        @param gain: the capture gain in db*100 (100 = 1dB)
+
+        """
+        self._audio_proxy.set_input_gain(gain)
 
 
     def set_selected_node_types(self, output_node_types, input_node_types):
@@ -239,3 +253,47 @@ class AudioFacadeRemoteAdapter(object):
         """
         self._audio_proxy.set_chrome_active_node_type(
                 output_node_type, input_node_type)
+
+
+    def start_arc_recording(self):
+        """Starts recording using microphone app in container."""
+        self._audio_proxy.start_arc_recording()
+
+
+    def stop_arc_recording(self):
+        """Checks the recording is stopped and gets the recorded path.
+
+        The recording duration of microphone app is fixed, so this method just
+        asks Cros device to copy the recorded result from container to a path
+        on Cros device.
+
+        @returns: Path to the recorded file on DUT.
+
+        """
+        return self._audio_proxy.stop_arc_recording()
+
+
+    def set_arc_playback_file(self, path):
+        """Copies the file from server to Cros host and into container.
+
+        @param path: Path to the file on server.
+
+        @returns: Path to the file in container on Cros host.
+
+        """
+        client_file_path = self.set_playback_file(path)
+        return self._audio_proxy.set_arc_playback_file(client_file_path)
+
+
+    def start_arc_playback(self, path):
+        """Starts playback through ARC on Cros host.
+
+        @param path: Path to the file in container on Cros host.
+
+        """
+        self._audio_proxy.start_arc_playback(path)
+
+
+    def stop_arc_playback(self):
+        """Stops playback through ARC on Cros host."""
+        self._audio_proxy.stop_arc_playback()

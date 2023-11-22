@@ -21,8 +21,8 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
+import android.support.test.filters.SmallTest;
 import android.test.AndroidTestCase;
-import android.test.suitebuilder.annotation.SmallTest;
 
 import com.android.tv.testing.ComparatorTester;
 import com.android.tv.util.TvInputManagerHelper;
@@ -188,8 +188,7 @@ public class ChannelTest extends AndroidTestCase {
                     @Override
                     public Boolean answer(InvocationOnMock invocation) throws Throwable {
                         String inputId = (String) invocation.getArguments()[0];
-                        boolean isPartner = PARTNER_INPUT_ID.equals(inputId);
-                        return isPartner;
+                        return PARTNER_INPUT_ID.equals(inputId);
                     }
                 });
         Comparator<Channel> comparator = new TestChannelComparator(manager);

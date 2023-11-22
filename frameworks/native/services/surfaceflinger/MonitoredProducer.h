@@ -24,13 +24,15 @@ namespace android {
 class IProducerListener;
 class NativeHandle;
 class SurfaceFlinger;
+class Layer;
 
 // MonitoredProducer wraps an IGraphicBufferProducer so that SurfaceFlinger will
 // be notified upon its destruction
-class MonitoredProducer : public IGraphicBufferProducer {
+class MonitoredProducer : public BnGraphicBufferProducer {
 public:
     MonitoredProducer(const sp<IGraphicBufferProducer>& producer,
-            const sp<SurfaceFlinger>& flinger);
+            const sp<SurfaceFlinger>& flinger,
+            const wp<Layer>& layer);
     virtual ~MonitoredProducer();
 
     // From IGraphicBufferProducer
@@ -38,7 +40,8 @@ public:
     virtual status_t setMaxDequeuedBufferCount(int maxDequeuedBuffers);
     virtual status_t setAsyncMode(bool async);
     virtual status_t dequeueBuffer(int* slot, sp<Fence>* fence, uint32_t w,
-            uint32_t h, PixelFormat format, uint32_t usage);
+            uint32_t h, PixelFormat format, uint32_t usage,
+            FrameEventHistoryDelta* outTimestamps);
     virtual status_t detachBuffer(int slot);
     virtual status_t detachNextBuffer(sp<GraphicBuffer>* outBuffer,
             sp<Fence>* outFence);
@@ -50,7 +53,7 @@ public:
     virtual int query(int what, int* value);
     virtual status_t connect(const sp<IProducerListener>& token, int api,
             bool producerControlledByApp, QueueBufferOutput* output);
-    virtual status_t disconnect(int api);
+    virtual status_t disconnect(int api, DisconnectMode mode);
     virtual status_t setSidebandStream(const sp<NativeHandle>& stream);
     virtual void allocateBuffers(uint32_t width, uint32_t height,
             PixelFormat format, uint32_t usage);
@@ -63,11 +66,17 @@ public:
     virtual IBinder* onAsBinder();
     virtual status_t setSharedBufferMode(bool sharedBufferMode) override;
     virtual status_t setAutoRefresh(bool autoRefresh) override;
+    virtual void getFrameTimestamps(FrameEventHistoryDelta *outDelta) override;
     virtual status_t getUniqueId(uint64_t* outId) const override;
+
+    // The Layer which created this producer, and on which queued Buffer's will be displayed.
+    sp<Layer> getLayer() const;
 
 private:
     sp<IGraphicBufferProducer> mProducer;
     sp<SurfaceFlinger> mFlinger;
+    // The Layer which created this producer, and on which queued Buffer's will be displayed.
+    wp<Layer> mLayer;
 };
 
 }; // namespace android

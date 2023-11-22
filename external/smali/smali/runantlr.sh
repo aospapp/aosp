@@ -10,7 +10,7 @@
 # this script should be checked in to the repository
 
 # Update when switching to a different version of antlr
-EXPECTED_ANTLR_VERSION_STR="ANTLR Parser Generator  Version 3.5"
+EXPECTED_ANTLR_VERSION_STR="ANTLR Parser Generator  Version 3.5.2"
 
 # Get the location of this script used to find locations of other things in the tree.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

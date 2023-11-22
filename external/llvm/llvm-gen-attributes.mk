@@ -13,3 +13,4 @@ ifeq ($(LOCAL_IS_HOST_MODULE),true)
 else
 	$(call transform-device-td-to-out,attrs)
 endif
+$(call include-depfile, $(GENFILE).d, $(GENFILE))

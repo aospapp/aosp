@@ -1,3 +1,17 @@
+// Copyright (c) 2016, Google Inc.
+//
+// Permission to use, copy, modify, and/or distribute this software for any
+// purpose with or without fee is hereby granted, provided that the above
+// copyright notice and this permission notice appear in all copies.
+//
+// THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+// WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+// MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
+// SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+// WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
+// OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
+// CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
 package runner
 
 import (
@@ -72,38 +86,6 @@ func decodeHexOrPanic(in string) []byte {
 		panic(err)
 	}
 	return out
-}
-
-// See draft-agl-tls-chacha20poly1305-04, section 7.
-func TestChaCha20Poly1305Old(t *testing.T) {
-	key := decodeHexOrPanic("4290bcb154173531f314af57f3be3b5006da371ece272afa1b5dbdd1100a1007")
-	input := decodeHexOrPanic("86d09974840bded2a5ca")
-	nonce := decodeHexOrPanic("cd7cf67be39c794a")
-	ad := decodeHexOrPanic("87e229d4500845a079c0")
-	output := decodeHexOrPanic("e3e446f7ede9a19b62a4677dabf4e3d24b876bb284753896e1d6")
-
-	aead, err := newChaCha20Poly1305Old(key)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	out, err := aead.Open(nil, nonce, output, ad)
-	if err != nil {
-		t.Errorf("Open failed: %s", err)
-	} else if !bytes.Equal(out, input) {
-		t.Errorf("Open gave %x, wanted %x", out, input)
-	}
-
-	out = aead.Seal(nil, nonce, input, ad)
-	if !bytes.Equal(out, output) {
-		t.Errorf("Open gave %x, wanted %x", out, output)
-	}
-
-	out[0]++
-	_, err = aead.Open(nil, nonce, out, ad)
-	if err == nil {
-		t.Errorf("Open on malformed data unexpectedly succeeded")
-	}
 }
 
 var chaCha20Poly1305TestVectors = []struct {

@@ -16,7 +16,6 @@
 
 package com.android.internal.os;
 
-import static android.system.OsConstants.POLLIN;
 import static android.system.OsConstants.S_IRWXG;
 import static android.system.OsConstants.S_IRWXO;
 
@@ -27,23 +26,34 @@ import android.icu.text.DecimalFormatSymbols;
 import android.icu.util.ULocale;
 import android.net.LocalServerSocket;
 import android.opengl.EGL14;
+import android.os.Build;
+import android.os.IInstalld;
+import android.os.Environment;
 import android.os.Process;
+import android.os.RemoteException;
+import android.os.Seccomp;
+import android.os.ServiceManager;
+import android.os.ServiceSpecificException;
 import android.os.SystemClock;
 import android.os.SystemProperties;
 import android.os.Trace;
+import android.os.ZygoteProcess;
+import android.os.storage.StorageManager;
 import android.security.keystore.AndroidKeyStoreProvider;
 import android.system.ErrnoException;
 import android.system.Os;
 import android.system.OsConstants;
-import android.system.StructPollfd;
 import android.text.Hyphenator;
+import android.util.BootTimingsTraceLog;
 import android.util.EventLog;
 import android.util.Log;
+import android.util.Slog;
 import android.webkit.WebViewFactory;
 import android.widget.TextView;
 
-import com.android.internal.os.InstallerConnection.InstallerException;
+import com.android.internal.logging.MetricsLogger;
 
+import com.android.internal.util.Preconditions;
 import dalvik.system.DexFile;
 import dalvik.system.PathClassLoader;
 import dalvik.system.VMRuntime;
@@ -52,17 +62,14 @@ import dalvik.system.ZygoteHooks;
 import libcore.io.IoUtils;
 
 import java.io.BufferedReader;
-import java.io.FileDescriptor;
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import java.security.Security;
 import java.security.Provider;
-import java.util.ArrayList;
 
 /**
  * Startup class for the zygote process.
@@ -80,9 +87,8 @@ public class ZygoteInit {
     private static final String TAG = "Zygote";
 
     private static final String PROPERTY_DISABLE_OPENGL_PRELOADING = "ro.zygote.disable_gl_preload";
+    private static final String PROPERTY_GFX_DRIVER = "ro.gfx.driver.0";
     private static final String PROPERTY_RUNNING_IN_CONTAINER = "ro.boot.container";
-
-    private static final String ANDROID_SOCKET_PREFIX = "ANDROID_SOCKET_";
 
     private static final int LOG_BOOT_PROGRESS_PRELOAD_START = 3020;
     private static final int LOG_BOOT_PROGRESS_PRELOAD_END = 3030;
@@ -94,11 +100,8 @@ public class ZygoteInit {
 
     private static final String SOCKET_NAME_ARG = "--socket-name=";
 
-    private static LocalServerSocket sServerSocket;
-
     /**
-     * Used to pre-load resources.  We hold a global reference on it so it
-     * never gets destroyed.
+     * Used to pre-load resources.
      */
     private static Resources mResources;
 
@@ -110,95 +113,25 @@ public class ZygoteInit {
     /** Controls whether we should preload resources during zygote init. */
     public static final boolean PRELOAD_RESOURCES = true;
 
-    /**
-     * Registers a server socket for zygote command connections
-     *
-     * @throws RuntimeException when open fails
-     */
-    private static void registerZygoteSocket(String socketName) {
-        if (sServerSocket == null) {
-            int fileDesc;
-            final String fullSocketName = ANDROID_SOCKET_PREFIX + socketName;
-            try {
-                String env = System.getenv(fullSocketName);
-                fileDesc = Integer.parseInt(env);
-            } catch (RuntimeException ex) {
-                throw new RuntimeException(fullSocketName + " unset or invalid", ex);
-            }
-
-            try {
-                FileDescriptor fd = new FileDescriptor();
-                fd.setInt$(fileDesc);
-                sServerSocket = new LocalServerSocket(fd);
-            } catch (IOException ex) {
-                throw new RuntimeException(
-                        "Error binding to local socket '" + fileDesc + "'", ex);
-            }
-        }
-    }
-
-    /**
-     * Waits for and accepts a single command connection. Throws
-     * RuntimeException on failure.
-     */
-    private static ZygoteConnection acceptCommandPeer(String abiList) {
-        try {
-            return new ZygoteConnection(sServerSocket.accept(), abiList);
-        } catch (IOException ex) {
-            throw new RuntimeException(
-                    "IOException during accept()", ex);
-        }
-    }
-
-    /**
-     * Close and clean up zygote sockets. Called on shutdown and on the
-     * child's exit path.
-     */
-    static void closeServerSocket() {
-        try {
-            if (sServerSocket != null) {
-                FileDescriptor fd = sServerSocket.getFileDescriptor();
-                sServerSocket.close();
-                if (fd != null) {
-                    Os.close(fd);
-                }
-            }
-        } catch (IOException ex) {
-            Log.e(TAG, "Zygote:  error closing sockets", ex);
-        } catch (ErrnoException ex) {
-            Log.e(TAG, "Zygote:  error closing descriptor", ex);
-        }
-
-        sServerSocket = null;
-    }
-
-    /**
-     * Return the server socket's underlying file descriptor, so that
-     * ZygoteConnection can pass it to the native code for proper
-     * closure after a child process is forked off.
-     */
-
-    static FileDescriptor getServerSocketFileDescriptor() {
-        return sServerSocket.getFileDescriptor();
-    }
-
     private static final int UNPRIVILEGED_UID = 9999;
     private static final int UNPRIVILEGED_GID = 9999;
 
     private static final int ROOT_UID = 0;
     private static final int ROOT_GID = 0;
 
-    static void preload() {
+    private static boolean sPreloadComplete;
+
+    static void preload(BootTimingsTraceLog bootTimingsTraceLog) {
         Log.d(TAG, "begin preload");
-        Trace.traceBegin(Trace.TRACE_TAG_DALVIK, "BeginIcuCachePinning");
+        bootTimingsTraceLog.traceBegin("BeginIcuCachePinning");
         beginIcuCachePinning();
-        Trace.traceEnd(Trace.TRACE_TAG_DALVIK);
-        Trace.traceBegin(Trace.TRACE_TAG_DALVIK, "PreloadClasses");
+        bootTimingsTraceLog.traceEnd(); // BeginIcuCachePinning
+        bootTimingsTraceLog.traceBegin("PreloadClasses");
         preloadClasses();
-        Trace.traceEnd(Trace.TRACE_TAG_DALVIK);
-        Trace.traceBegin(Trace.TRACE_TAG_DALVIK, "PreloadResources");
+        bootTimingsTraceLog.traceEnd(); // PreloadClasses
+        bootTimingsTraceLog.traceBegin("PreloadResources");
         preloadResources();
-        Trace.traceEnd(Trace.TRACE_TAG_DALVIK);
+        bootTimingsTraceLog.traceEnd(); // PreloadResources
         Trace.traceBegin(Trace.TRACE_TAG_DALVIK, "PreloadOpenGL");
         preloadOpenGL();
         Trace.traceEnd(Trace.TRACE_TAG_DALVIK);
@@ -210,6 +143,15 @@ public class ZygoteInit {
         endIcuCachePinning();
         warmUpJcaProviders();
         Log.d(TAG, "end preload");
+
+        sPreloadComplete = true;
+    }
+
+    public static void lazyPreload() {
+        Preconditions.checkState(!sPreloadComplete);
+        Log.i(TAG, "Lazily preloading resources.");
+
+        preload(new BootTimingsTraceLog("ZygoteInitTiming_lazy", Trace.TRACE_TAG_DALVIK));
     }
 
     private static void beginIcuCachePinning() {
@@ -243,7 +185,9 @@ public class ZygoteInit {
     }
 
     private static void preloadOpenGL() {
-        if (!SystemProperties.getBoolean(PROPERTY_DISABLE_OPENGL_PRELOADING, false)) {
+        String driverPackageName = SystemProperties.get(PROPERTY_GFX_DRIVER);
+        if (!SystemProperties.getBoolean(PROPERTY_DISABLE_OPENGL_PRELOADING, false) &&
+                (driverPackageName == null || driverPackageName.isEmpty())) {
             EGL14.eglGetDisplay(EGL14.EGL_DEFAULT_DISPLAY);
         }
     }
@@ -340,7 +284,7 @@ public class ZygoteInit {
                     continue;
                 }
 
-                Trace.traceBegin(Trace.TRACE_TAG_DALVIK, "PreloadClass " + line);
+                Trace.traceBegin(Trace.TRACE_TAG_DALVIK, line);
                 try {
                     if (false) {
                         Log.v(TAG, "Preloading " + line + "...");
@@ -504,9 +448,7 @@ public class ZygoteInit {
      */
     private static void handleSystemServerProcess(
             ZygoteConnection.Arguments parsedArgs)
-            throws ZygoteInit.MethodAndArgsCaller {
-
-        closeServerSocket();
+            throws Zygote.MethodAndArgsCaller {
 
         // set umask to 0077 so new files and directories will default to owner-only permissions.
         Os.umask(S_IRWXG | S_IRWXO);
@@ -518,6 +460,23 @@ public class ZygoteInit {
         final String systemServerClasspath = Os.getenv("SYSTEMSERVERCLASSPATH");
         if (systemServerClasspath != null) {
             performSystemServerDexOpt(systemServerClasspath);
+            // Capturing profiles is only supported for debug or eng builds since selinux normally
+            // prevents it.
+            boolean profileSystemServer = SystemProperties.getBoolean(
+                    "dalvik.vm.profilesystemserver", false);
+            if (profileSystemServer && (Build.IS_USERDEBUG || Build.IS_ENG)) {
+                try {
+                    File profileDir = Environment.getDataProfilesDePackageDirectory(
+                            Process.SYSTEM_UID, "system_server");
+                    File profile = new File(profileDir, "primary.prof");
+                    profile.getParentFile().mkdirs();
+                    profile.createNewFile();
+                    String[] codePaths = systemServerClasspath.split(":");
+                    VMRuntime.registerAppInfo(profile.getPath(), codePaths);
+                } catch (Exception e) {
+                    Log.wtf(TAG, "Failed to set up system server profile", e);
+                }
+            }
         }
 
         if (parsedArgs.invokeWith != null) {
@@ -529,7 +488,8 @@ public class ZygoteInit {
                 String[] amendedArgs = new String[args.length + 2];
                 amendedArgs[0] = "-cp";
                 amendedArgs[1] = systemServerClasspath;
-                System.arraycopy(parsedArgs.remainingArgs, 0, amendedArgs, 2, parsedArgs.remainingArgs.length);
+                System.arraycopy(args, 0, amendedArgs, 2, args.length);
+                args = amendedArgs;
             }
 
             WrapperInit.execApplication(parsedArgs.invokeWith,
@@ -538,8 +498,7 @@ public class ZygoteInit {
         } else {
             ClassLoader cl = null;
             if (systemServerClasspath != null) {
-                cl = createSystemServerClassLoader(systemServerClasspath,
-                                                   parsedArgs.targetSdkVersion);
+                cl = createPathClassLoader(systemServerClasspath, parsedArgs.targetSdkVersion);
 
                 Thread.currentThread().setContextClassLoader(cl);
             }
@@ -547,24 +506,23 @@ public class ZygoteInit {
             /*
              * Pass the remaining arguments to SystemServer.
              */
-            RuntimeInit.zygoteInit(parsedArgs.targetSdkVersion, parsedArgs.remainingArgs, cl);
+            ZygoteInit.zygoteInit(parsedArgs.targetSdkVersion, parsedArgs.remainingArgs, cl);
         }
 
         /* should never reach here */
     }
 
     /**
-     * Creates a PathClassLoader for the system server. It also creates
-     * a shared namespace associated with the classloader to let it access
-     * platform-private native libraries.
+     * Creates a PathClassLoader for the given class path that is associated with a shared
+     * namespace, i.e., this classloader can access platform-private native libraries. The
+     * classloader will use java.library.path as the native library path.
      */
-    private static PathClassLoader createSystemServerClassLoader(String systemServerClasspath,
-                                                                 int targetSdkVersion) {
-      String librarySearchPath = System.getProperty("java.library.path");
+    static PathClassLoader createPathClassLoader(String classPath, int targetSdkVersion) {
+      String libraryPath = System.getProperty("java.library.path");
 
-      return PathClassLoaderFactory.createClassLoader(systemServerClasspath,
-                                                      librarySearchPath,
-                                                      null /* libraryPermittedPath */,
+      return PathClassLoaderFactory.createClassLoader(classPath,
+                                                      libraryPath,
+                                                      libraryPath,
                                                       ClassLoader.getSystemClassLoader(),
                                                       targetSdkVersion,
                                                       true /* isNamespaceShared */);
@@ -576,62 +534,64 @@ public class ZygoteInit {
      */
     private static void performSystemServerDexOpt(String classPath) {
         final String[] classPathElements = classPath.split(":");
-        final InstallerConnection installer = new InstallerConnection();
-        installer.waitForConnection();
+        final IInstalld installd = IInstalld.Stub
+                .asInterface(ServiceManager.getService("installd"));
         final String instructionSet = VMRuntime.getRuntime().vmInstructionSet();
 
-        try {
-            String sharedLibraries = "";
-            for (String classPathElement : classPathElements) {
-                // System server is fully AOTed and never profiled
-                // for profile guided compilation.
-                // TODO: Make this configurable between INTERPRET_ONLY, SPEED, SPACE and EVERYTHING?
+        String sharedLibraries = "";
+        for (String classPathElement : classPathElements) {
+            // System server is fully AOTed and never profiled
+            // for profile guided compilation.
+            // TODO: Make this configurable between INTERPRET_ONLY, SPEED, SPACE and EVERYTHING?
 
-                int dexoptNeeded;
-                try {
-                    dexoptNeeded = DexFile.getDexOptNeeded(
-                        classPathElement, instructionSet, "speed",
-                        false /* newProfile */);
-                } catch (FileNotFoundException ignored) {
-                    // Do not add to the classpath.
-                    Log.w(TAG, "Missing classpath element for system server: " + classPathElement);
-                    continue;
-                } catch (IOException e) {
-                    // Not fully clear what to do here as we don't know the cause of the
-                    // IO exception. Add to the classpath to be conservative, but don't
-                    // attempt to compile it.
-                    Log.w(TAG, "Error checking classpath element for system server: "
-                            + classPathElement, e);
-                    dexoptNeeded = DexFile.NO_DEXOPT_NEEDED;
-                }
-
-                if (dexoptNeeded != DexFile.NO_DEXOPT_NEEDED) {
-                    try {
-                        installer.dexopt(classPathElement, Process.SYSTEM_UID, instructionSet,
-                                dexoptNeeded, 0 /*dexFlags*/, "speed", null /*volumeUuid*/,
-                                sharedLibraries);
-                    } catch (InstallerException e) {
-                        // Ignore (but log), we need this on the classpath for fallback mode.
-                        Log.w(TAG, "Failed compiling classpath element for system server: "
-                                + classPathElement, e);
-                    }
-                }
-
-                if (!sharedLibraries.isEmpty()) {
-                    sharedLibraries += ":";
-                }
-                sharedLibraries += classPathElement;
+            int dexoptNeeded;
+            try {
+                dexoptNeeded = DexFile.getDexOptNeeded(
+                    classPathElement, instructionSet, "speed",
+                    false /* newProfile */);
+            } catch (FileNotFoundException ignored) {
+                // Do not add to the classpath.
+                Log.w(TAG, "Missing classpath element for system server: " + classPathElement);
+                continue;
+            } catch (IOException e) {
+                // Not fully clear what to do here as we don't know the cause of the
+                // IO exception. Add to the classpath to be conservative, but don't
+                // attempt to compile it.
+                Log.w(TAG, "Error checking classpath element for system server: "
+                        + classPathElement, e);
+                dexoptNeeded = DexFile.NO_DEXOPT_NEEDED;
             }
-        } finally {
-            installer.disconnect();
+
+            if (dexoptNeeded != DexFile.NO_DEXOPT_NEEDED) {
+                final String packageName = "*";
+                final String outputPath = null;
+                final int dexFlags = 0;
+                final String compilerFilter = "speed";
+                final String uuid = StorageManager.UUID_PRIVATE_INTERNAL;
+                final String seInfo = null;
+                try {
+                    installd.dexopt(classPathElement, Process.SYSTEM_UID, packageName,
+                            instructionSet, dexoptNeeded, outputPath, dexFlags, compilerFilter,
+                            uuid, sharedLibraries, seInfo);
+                } catch (RemoteException | ServiceSpecificException e) {
+                    // Ignore (but log), we need this on the classpath for fallback mode.
+                    Log.w(TAG, "Failed compiling classpath element for system server: "
+                            + classPathElement, e);
+                }
+            }
+
+            if (!sharedLibraries.isEmpty()) {
+                sharedLibraries += ":";
+            }
+            sharedLibraries += classPathElement;
         }
     }
 
     /**
      * Prepare the arguments and fork for the system server process.
      */
-    private static boolean startSystemServer(String abiList, String socketName)
-            throws MethodAndArgsCaller, RuntimeException {
+    private static boolean startSystemServer(String abiList, String socketName, ZygoteServer zygoteServer)
+            throws Zygote.MethodAndArgsCaller, RuntimeException {
         long capabilities = posixCapabilitiesAsBits(
             OsConstants.CAP_IPC_LOCK,
             OsConstants.CAP_KILL,
@@ -641,9 +601,10 @@ public class ZygoteInit {
             OsConstants.CAP_NET_RAW,
             OsConstants.CAP_SYS_MODULE,
             OsConstants.CAP_SYS_NICE,
-            OsConstants.CAP_SYS_RESOURCE,
+            OsConstants.CAP_SYS_PTRACE,
             OsConstants.CAP_SYS_TIME,
-            OsConstants.CAP_SYS_TTY_CONFIG
+            OsConstants.CAP_SYS_TTY_CONFIG,
+            OsConstants.CAP_WAKE_ALARM
         );
         /* Containers run without this capability, so avoid setting it in that case */
         if (!SystemProperties.getBoolean(PROPERTY_RUNNING_IN_CONTAINER, false)) {
@@ -653,7 +614,7 @@ public class ZygoteInit {
         String args[] = {
             "--setuid=1000",
             "--setgid=1000",
-            "--setgroups=1001,1002,1003,1004,1005,1006,1007,1008,1009,1010,1018,1021,1032,3001,3002,3003,3006,3007,3009,3010",
+            "--setgroups=1001,1002,1003,1004,1005,1006,1007,1008,1009,1010,1018,1021,1023,1032,3001,3002,3003,3006,3007,3009,3010",
             "--capabilities=" + capabilities + "," + capabilities,
             "--nice-name=system_server",
             "--runtime-args",
@@ -686,6 +647,7 @@ public class ZygoteInit {
                 waitForSecondaryZygote(socketName);
             }
 
+            zygoteServer.closeServerSocket();
             handleSystemServerProcess(parsedArgs);
         }
 
@@ -707,12 +669,30 @@ public class ZygoteInit {
     }
 
     public static void main(String argv[]) {
+        ZygoteServer zygoteServer = new ZygoteServer();
+
         // Mark zygote start. This ensures that thread creation will throw
         // an error.
         ZygoteHooks.startZygoteNoThreadCreation();
 
+        // Zygote goes into its own process group.
         try {
-            Trace.traceBegin(Trace.TRACE_TAG_DALVIK, "ZygoteInit");
+            Os.setpgid(0, 0);
+        } catch (ErrnoException ex) {
+            throw new RuntimeException("Failed to setpgid(0,0)", ex);
+        }
+
+        try {
+            // Report Zygote start time to tron unless it is a runtime restart
+            if (!"1".equals(SystemProperties.get("sys.boot_completed"))) {
+                MetricsLogger.histogram(null, "boot_zygote_init",
+                        (int) SystemClock.elapsedRealtime());
+            }
+
+            String bootTimeTag = Process.is64Bit() ? "Zygote64Timing" : "Zygote32Timing";
+            BootTimingsTraceLog bootTimingsTraceLog = new BootTimingsTraceLog(bootTimeTag,
+                    Trace.TRACE_TAG_DALVIK);
+            bootTimingsTraceLog.traceBegin("ZygoteInit");
             RuntimeInit.enableDdms();
             // Start profiling the zygote initialization.
             SamplingProfilerIntegration.start();
@@ -720,9 +700,12 @@ public class ZygoteInit {
             boolean startSystemServer = false;
             String socketName = "zygote";
             String abiList = null;
+            boolean enableLazyPreload = false;
             for (int i = 1; i < argv.length; i++) {
                 if ("start-system-server".equals(argv[i])) {
                     startSystemServer = true;
+                } else if ("--enable-lazy-preload".equals(argv[i])) {
+                    enableLazyPreload = true;
                 } else if (argv[i].startsWith(ABI_LIST_ARG)) {
                     abiList = argv[i].substring(ABI_LIST_ARG.length());
                 } else if (argv[i].startsWith(SOCKET_NAME_ARG)) {
@@ -736,25 +719,30 @@ public class ZygoteInit {
                 throw new RuntimeException("No ABI list supplied.");
             }
 
-            registerZygoteSocket(socketName);
-            Trace.traceBegin(Trace.TRACE_TAG_DALVIK, "ZygotePreload");
-            EventLog.writeEvent(LOG_BOOT_PROGRESS_PRELOAD_START,
-                SystemClock.uptimeMillis());
-            preload();
-            EventLog.writeEvent(LOG_BOOT_PROGRESS_PRELOAD_END,
-                SystemClock.uptimeMillis());
-            Trace.traceEnd(Trace.TRACE_TAG_DALVIK);
+            zygoteServer.registerServerSocket(socketName);
+            // In some configurations, we avoid preloading resources and classes eagerly.
+            // In such cases, we will preload things prior to our first fork.
+            if (!enableLazyPreload) {
+                bootTimingsTraceLog.traceBegin("ZygotePreload");
+                EventLog.writeEvent(LOG_BOOT_PROGRESS_PRELOAD_START,
+                    SystemClock.uptimeMillis());
+                preload(bootTimingsTraceLog);
+                EventLog.writeEvent(LOG_BOOT_PROGRESS_PRELOAD_END,
+                    SystemClock.uptimeMillis());
+                bootTimingsTraceLog.traceEnd(); // ZygotePreload
+            } else {
+                Zygote.resetNicePriority();
+            }
 
             // Finish profiling the zygote initialization.
             SamplingProfilerIntegration.writeZygoteSnapshot();
 
             // Do an initial gc to clean up after startup
-            Trace.traceBegin(Trace.TRACE_TAG_DALVIK, "PostZygoteInitGC");
+            bootTimingsTraceLog.traceBegin("PostZygoteInitGC");
             gcAndFinalize();
-            Trace.traceEnd(Trace.TRACE_TAG_DALVIK);
+            bootTimingsTraceLog.traceEnd(); // PostZygoteInitGC
 
-            Trace.traceEnd(Trace.TRACE_TAG_DALVIK);
-
+            bootTimingsTraceLog.traceEnd(); // ZygoteInit
             // Disable tracing so that forked processes do not inherit stale tracing tags from
             // Zygote.
             Trace.setTracingEnabled(false);
@@ -762,21 +750,24 @@ public class ZygoteInit {
             // Zygote process unmounts root storage spaces.
             Zygote.nativeUnmountStorageOnInit();
 
+            // Set seccomp policy
+            Seccomp.setPolicy();
+
             ZygoteHooks.stopZygoteNoThreadCreation();
 
             if (startSystemServer) {
-                startSystemServer(abiList, socketName);
+                startSystemServer(abiList, socketName, zygoteServer);
             }
 
             Log.i(TAG, "Accepting command socket connections");
-            runSelectLoop(abiList);
+            zygoteServer.runSelectLoop(abiList);
 
-            closeServerSocket();
-        } catch (MethodAndArgsCaller caller) {
+            zygoteServer.closeServerSocket();
+        } catch (Zygote.MethodAndArgsCaller caller) {
             caller.run();
         } catch (Throwable ex) {
-            Log.e(TAG, "Zygote died with exception", ex);
-            closeServerSocket();
+            Log.e(TAG, "System zygote died with exception", ex);
+            zygoteServer.closeServerSocket();
             throw ex;
         }
     }
@@ -797,7 +788,8 @@ public class ZygoteInit {
                 Process.SECONDARY_ZYGOTE_SOCKET : Process.ZYGOTE_SOCKET;
         while (true) {
             try {
-                final Process.ZygoteState zs = Process.ZygoteState.connect(otherZygoteName);
+                final ZygoteProcess.ZygoteState zs =
+                        ZygoteProcess.ZygoteState.connect(otherZygoteName);
                 zs.close();
                 break;
             } catch (IOException ioe) {
@@ -811,50 +803,8 @@ public class ZygoteInit {
         }
     }
 
-    /**
-     * Runs the zygote process's select loop. Accepts new connections as
-     * they happen, and reads commands from connections one spawn-request's
-     * worth at a time.
-     *
-     * @throws MethodAndArgsCaller in a child process when a main() should
-     * be executed.
-     */
-    private static void runSelectLoop(String abiList) throws MethodAndArgsCaller {
-        ArrayList<FileDescriptor> fds = new ArrayList<FileDescriptor>();
-        ArrayList<ZygoteConnection> peers = new ArrayList<ZygoteConnection>();
-
-        fds.add(sServerSocket.getFileDescriptor());
-        peers.add(null);
-
-        while (true) {
-            StructPollfd[] pollFds = new StructPollfd[fds.size()];
-            for (int i = 0; i < pollFds.length; ++i) {
-                pollFds[i] = new StructPollfd();
-                pollFds[i].fd = fds.get(i);
-                pollFds[i].events = (short) POLLIN;
-            }
-            try {
-                Os.poll(pollFds, -1);
-            } catch (ErrnoException ex) {
-                throw new RuntimeException("poll failed", ex);
-            }
-            for (int i = pollFds.length - 1; i >= 0; --i) {
-                if ((pollFds[i].revents & POLLIN) == 0) {
-                    continue;
-                }
-                if (i == 0) {
-                    ZygoteConnection newPeer = acceptCommandPeer(abiList);
-                    peers.add(newPeer);
-                    fds.add(newPeer.getFileDesciptor());
-                } else {
-                    boolean done = peers.get(i).runOnce();
-                    if (done) {
-                        peers.remove(i);
-                        fds.remove(i);
-                    }
-                }
-            }
-        }
+    static boolean isPreloadComplete() {
+        return sPreloadComplete;
     }
 
     /**
@@ -864,37 +814,31 @@ public class ZygoteInit {
     }
 
     /**
-     * Helper exception class which holds a method and arguments and
-     * can call them. This is used as part of a trampoline to get rid of
-     * the initial process setup stack frames.
+     * The main function called when started through the zygote process. This
+     * could be unified with main(), if the native code in nativeFinishInit()
+     * were rationalized with Zygote startup.<p>
+     *
+     * Current recognized args:
+     * <ul>
+     *   <li> <code> [--] &lt;start class name&gt;  &lt;args&gt;
+     * </ul>
+     *
+     * @param targetSdkVersion target SDK version
+     * @param argv arg strings
      */
-    public static class MethodAndArgsCaller extends Exception
-            implements Runnable {
-        /** method to call */
-        private final Method mMethod;
-
-        /** argument array */
-        private final String[] mArgs;
-
-        public MethodAndArgsCaller(Method method, String[] args) {
-            mMethod = method;
-            mArgs = args;
+    public static final void zygoteInit(int targetSdkVersion, String[] argv,
+            ClassLoader classLoader) throws Zygote.MethodAndArgsCaller {
+        if (RuntimeInit.DEBUG) {
+            Slog.d(RuntimeInit.TAG, "RuntimeInit: Starting application from zygote");
         }
 
-        public void run() {
-            try {
-                mMethod.invoke(null, new Object[] { mArgs });
-            } catch (IllegalAccessException ex) {
-                throw new RuntimeException(ex);
-            } catch (InvocationTargetException ex) {
-                Throwable cause = ex.getCause();
-                if (cause instanceof RuntimeException) {
-                    throw (RuntimeException) cause;
-                } else if (cause instanceof Error) {
-                    throw (Error) cause;
-                }
-                throw new RuntimeException(ex);
-            }
-        }
+        Trace.traceBegin(Trace.TRACE_TAG_ACTIVITY_MANAGER, "ZygoteInit");
+        RuntimeInit.redirectLogStreams();
+
+        RuntimeInit.commonInit();
+        ZygoteInit.nativeZygoteInit();
+        RuntimeInit.applicationInit(targetSdkVersion, argv, classLoader);
     }
+
+    private static final native void nativeZygoteInit();
 }

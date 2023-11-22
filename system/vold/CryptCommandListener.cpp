@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <assert.h>
 #include <stdlib.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
@@ -412,6 +413,11 @@ int CryptCommandListener::CryptfsCmd::runCommand(SocketClient *cli,
         if (!check_argc(cli, subcommand, argc, 5, "<uuid> <user> <flags>")) return 0;
         return sendGenericOkFailOnBool(cli,
                 e4crypt_destroy_user_storage(parseNull(argv[2]), atoi(argv[3]), atoi(argv[4])));
+
+    } else if (subcommand == "secdiscard") {
+        if (!check_argc(cli, subcommand, argc, 3, "<path>")) return 0;
+        return sendGenericOkFailOnBool(cli,
+                e4crypt_secdiscard(parseNull(argv[2])));
 
     } else {
         dumpArgs(argc, argv, -1);

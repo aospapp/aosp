@@ -10,10 +10,14 @@ from autotest_lib.client.bin import utils
 from autotest_lib.client.cros.multimedia import facade_resource
 
 class AudioExtensionHandlerError(Exception):
+    """Class for exceptions thrown from the AudioExtensionHandler"""
     pass
 
 
 class AudioExtensionHandler(object):
+    """Wrapper around test extension that uses chrome.audio API to get audio
+    device information
+    """
     def __init__(self, extension):
         """Initializes an AudioExtensionHandler.
 
@@ -39,34 +43,44 @@ class AudioExtensionHandler(object):
 
 
     @facade_resource.retry_chrome_call
-    def get_audio_info(self):
-        """Gets the audio info from Chrome audio API.
+    def get_audio_devices(self, device_filter=None):
+        """Gets the audio device info from Chrome audio API.
 
-        @returns: An array of [outputInfo, inputInfo].
-                  outputInfo is an array of output node info dicts. Each dict
+        @param device_filter: Filter for returned device nodes.
+            An optional dict that can have the following properties:
+                string array streamTypes
+                    Restricts stream types that returned devices can have.
+                    It should contain "INPUT" for result to include input
+                    devices, and "OUTPUT" for results to include output devices.
+                    If not set, returned devices will not be filtered by the
+                    stream type.
+
+                boolean isActive
+                   If true, only active devices will be included in the result.
+                   If false, only inactive devices will be included in the
+                   result.
+
+            The filter param defaults to {}, requests all available audio
+            devices.
+
+        @returns: An array of audioDeviceInfo.
+                  Each audioDeviceInfo dict
                   contains these key-value pairs:
                      string  id
-                         The unique identifier of the audio output device.
+                         The unique identifier of the audio device.
 
-                     string  name
+                     string stableDeviceId
+                         The stable identifier of the audio device.
+
+                     string  streamType
+                         "INPUT" if the device is an input audio device,
+                         "OUTPUT" if the device is an output audio device.
+
+                     string displayName
                          The user-friendly name (e.g. "Bose Amplifier").
 
-                     boolean isActive
-                         True if this is the current active device.
-
-                     boolean isMuted
-                         True if this is muted.
-
-                     double  volume
-                         The output volume ranging from 0.0 to 100.0.
-
-                  inputInfo is an arrya of input node info dicts. Each dict
-                  contains these key-value pairs:
-                     string  id
-                         The unique identifier of the audio input device.
-
-                     string  name
-                         The user-friendly name (e.g. "USB Microphone").
+                     string deviceName
+                         The devuce name
 
                      boolean isActive
                          True if this is the current active device.
@@ -74,57 +88,55 @@ class AudioExtensionHandler(object):
                      boolean isMuted
                          True if this is muted.
 
-                     double  gain
-                         The input gain ranging from 0.0 to 100.0.
+                     long level
+                         The output volume or input gain.
 
         """
-        self._extension.ExecuteJavaScript('window.__audio_info = null;')
+        def filter_to_str(device_filter):
+            """Converts python dict device filter to JS object string.
+
+            @param device_filter: Device filter dict.
+
+            @returns: Device filter as a srting representation of a
+                      JavaScript object.
+
+            """
+            return str(device_filter or {}).replace('True', 'true').replace(
+                        'False', 'false')
+
+        self._extension.ExecuteJavaScript('window.__audio_devices = null;')
         self._extension.ExecuteJavaScript(
-                "chrome.audio.getInfo(function(outputInfo, inputInfo) {"
-                "window.__audio_info = [outputInfo, inputInfo];})")
+                "chrome.audio.getDevices(%s, function(devices) {"
+                "window.__audio_devices = devices;})"
+                % filter_to_str(device_filter))
         utils.wait_for_value(
                 lambda: (self._extension.EvaluateJavaScript(
-                         "window.__audio_info") != None),
+                         "window.__audio_devices") != None),
                 expected_value=True)
-        return self._extension.EvaluateJavaScript("window.__audio_info")
+        return self._extension.EvaluateJavaScript("window.__audio_devices")
 
 
-    def _get_active_id(self):
-        """Gets active output and input node id.
-
-        Assume there is only one active output node and one active input node.
-
-        @returns: (output_id, input_id) where output_id and input_id are
-                  strings for active node id.
-
-        """
-        output_nodes, input_nodes = self.get_audio_info()
-
-        return (self._get_active_id_from_nodes(output_nodes),
-                self._get_active_id_from_nodes(input_nodes))
-
-
-    def _get_active_id_from_nodes(self, nodes):
-        """Gets active node id from nodes.
+    def _get_active_id_for_stream_type(self, stream_type):
+        """Gets active node id of the specified stream type.
 
         Assume there is only one active node.
 
-        @param nodes: A list of input/output nodes got from get_audio_info().
+        @param stream_type: 'INPUT' to get the active input device,
+                            'OUTPUT' to get the active output device.
 
-        @returns: node['id'] where node['isActive'] is True.
+        @returns: A string for the active device id.
 
         @raises: AudioExtensionHandlerError if active id is not unique.
 
         """
-        active_ids = [x['id'] for x in nodes if x['isActive']]
-        if len(active_ids) != 1:
+        nodes = self.get_audio_devices(
+            {'streamTypes': [stream_type], 'isActive': True})
+        if len(nodes) != 1:
             logging.error(
                     'Node info contains multiple active nodes: %s', nodes)
-            raise AudioExtensionHandlerError(
-                    'Active id should be unique')
+            raise AudioExtensionHandlerError('Active id should be unique')
 
-        return active_ids[0]
-
+        return nodes[0]['id']
 
 
     @facade_resource.retry_chrome_call
@@ -136,20 +148,20 @@ class AudioExtensionHandler(object):
         @param volume: Volume to set (0~100).
 
         """
-        output_id, _ = self._get_active_id()
+        output_id = self._get_active_id_for_stream_type('OUTPUT')
         logging.debug('output_id: %s', output_id)
 
-        self._extension.ExecuteJavaScript('window.__set_volume_done = null;')
+        self.set_mute(False)
 
+        self._extension.ExecuteJavaScript('window.__set_volume_done = null;')
         self._extension.ExecuteJavaScript(
                 """
                 chrome.audio.setProperties(
                     '%s',
-                    {isMuted: false, volume: %s},
+                    {level: %s},
                     function() {window.__set_volume_done = true;});
                 """
                 % (output_id, volume))
-
         utils.wait_for_value(
                 lambda: (self._extension.EvaluateJavaScript(
                          "window.__set_volume_done") != None),
@@ -158,31 +170,45 @@ class AudioExtensionHandler(object):
 
     @facade_resource.retry_chrome_call
     def set_mute(self, mute):
-        """Mutes the active audio output using chrome.audio API.
+        """Mutes the audio output using chrome.audio API.
 
         @param mute: True to mute. False otherwise.
 
         """
-        output_id, _ = self._get_active_id()
-        logging.debug('output_id: %s', output_id)
-
         is_muted_string = 'true' if mute else 'false'
 
         self._extension.ExecuteJavaScript('window.__set_mute_done = null;')
 
         self._extension.ExecuteJavaScript(
                 """
-                chrome.audio.setProperties(
-                    '%s',
-                    {isMuted: %s},
+                chrome.audio.setMute(
+                    'OUTPUT', %s,
                     function() {window.__set_mute_done = true;});
                 """
-                % (output_id, is_muted_string))
+                % (is_muted_string))
 
         utils.wait_for_value(
                 lambda: (self._extension.EvaluateJavaScript(
                          "window.__set_mute_done") != None),
                 expected_value=True)
+
+
+    @facade_resource.retry_chrome_call
+    def get_mute(self):
+        """Determines whether audio output is muted.
+
+        @returns Whether audio output is muted.
+
+        """
+        self._extension.ExecuteJavaScript('window.__output_muted = null;')
+        self._extension.ExecuteJavaScript(
+                "chrome.audio.getMute('OUTPUT', function(isMute) {"
+                "window.__output_muted = isMute;})")
+        utils.wait_for_value(
+                lambda: (self._extension.EvaluateJavaScript(
+                         "window.__output_muted") != None),
+                expected_value=True)
+        return self._extension.EvaluateJavaScript("window.__output_muted")
 
 
     @facade_resource.retry_chrome_call
@@ -193,11 +219,13 @@ class AudioExtensionHandler(object):
                         is True if node is muted, False otherwise.
 
         """
-        output_nodes, _ = self.get_audio_info()
-        active_id = self._get_active_id_from_nodes(output_nodes)
-        for node in output_nodes:
-            if node['id'] == active_id:
-                return (node['volume'], node['isMuted'])
+        nodes = self.get_audio_devices(
+            {'streamTypes': ['OUTPUT'], 'isActive': True})
+        if len(nodes) != 1:
+            logging.error('Node info contains multiple active nodes: %s', nodes)
+            raise AudioExtensionHandlerError('Active id should be unique')
+
+        return (nodes[0]['level'], self.get_mute())
 
 
     @facade_resource.retry_chrome_call
@@ -207,14 +235,27 @@ class AudioExtensionHandler(object):
         The current active node will be disabled first if the new active node
         is different from the current one.
 
-        @param node_id: The node id obtained from cras_utils.get_cras_nodes.
+        @param node_id: Node id obtained from cras_utils.get_cras_nodes.
                         Chrome.audio also uses this id to specify input/output
                         nodes.
+                        Note that node id returned by cras_utils.get_cras_nodes
+                        is a number, while chrome.audio API expects a string.
 
         @raises AudioExtensionHandlerError if there is no such id.
 
         """
-        if node_id in self._get_active_id():
+        nodes = self.get_audio_devices({})
+        target_node = None
+        for node in nodes:
+            if node['id'] == str(node_id):
+                target_node = node
+                break
+
+        if not target_node:
+            logging.error('Node %s not found.', node_id)
+            raise AudioExtensionHandlerError('Node id not found')
+
+        if target_node['isActive']:
             logging.debug('Node %s is already active.', node_id)
             return
 
@@ -222,13 +263,15 @@ class AudioExtensionHandler(object):
 
         self._extension.ExecuteJavaScript('window.__set_active_done = null;')
 
+        is_input = target_node['streamType'] == 'INPUT'
+        stream_type = 'input' if is_input else 'output'
         self._extension.ExecuteJavaScript(
                 """
                 chrome.audio.setActiveDevices(
-                    ['%s'],
+                    {'%s': ['%s']},
                     function() {window.__set_active_done = true;});
                 """
-                % (node_id))
+                % (stream_type, node_id))
 
         utils.wait_for_value(
                 lambda: (self._extension.EvaluateJavaScript(

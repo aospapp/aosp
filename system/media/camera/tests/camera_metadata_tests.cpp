@@ -16,13 +16,15 @@
 
 #define LOG_NDEBUG 1
 #define LOG_TAG "camera_metadata_tests"
-#include "cutils/log.h"
 
 #include <errno.h>
 
 #include <vector>
 #include <algorithm>
-#include "gtest/gtest.h"
+
+#include <gtest/gtest.h>
+#include <log/log.h>
+
 #include "system/camera_metadata.h"
 #include "camera_metadata_hidden.h"
 
@@ -1867,4 +1869,38 @@ TEST(camera_metadata, data_alignment) {
             }
         }
     }
+}
+
+TEST(camera_metadata, buffer_alignment) {
+    // Verify that misaligned metadata buffers only fail VALIDATION_SHIFTED, nothing else
+    const size_t entry_capacity = 50;
+    const size_t data_capacity = 450;
+    const size_t offsetRange = 16;
+    const uint32_t validAlignment = 8;
+
+    camera_metadata_t *m = NULL;
+    m = allocate_camera_metadata(entry_capacity, data_capacity);
+
+    add_test_metadata(m, 15);
+
+    size_t m_size = get_camera_metadata_size(m);
+    size_t dst_size = m_size + offsetRange;
+    uint8_t *dst = new uint8_t[dst_size];
+
+    for (size_t i = 0; i < offsetRange; i++) {
+        memset(dst, 0, dst_size);
+        memcpy(dst + i, m, m_size);
+        camera_metadata_t *m_shifted = (camera_metadata_t*)(dst + i);
+
+        int err = validate_camera_metadata_structure(m_shifted, &m_size);
+        if (i % validAlignment == 0) {
+            ASSERT_EQ(OK, err) << "For alignment shift " << i << ", expected OK" ;
+        } else {
+            ASSERT_EQ(CAMERA_METADATA_VALIDATION_SHIFTED, err) <<
+                    "For alignment shift " << i << ", expected VALIDATION_SHIFTED" ;
+        }
+    }
+
+    delete[] dst;
+    FINISH_USING_CAMERA_METADATA(m);
 }

@@ -9,6 +9,7 @@
  * %End-Header%
  */
 
+#include "config.h"
 #include <stdio.h>
 #include <string.h>
 #if HAVE_UNISTD_H
@@ -18,6 +19,7 @@
 
 #include "ext2_fs.h"
 #include "ext2fs.h"
+#include "ext2fsP.h"
 
 #undef PUNCH_DEBUG
 
@@ -46,7 +48,7 @@ static int check_zero_block(char *buf, int blocksize)
  */
 static errcode_t ind_punch(ext2_filsys fs, struct ext2_inode *inode,
 			   char *block_buf, blk_t *p, int level,
-			   blk_t start, blk_t count, int max)
+			   blk64_t start, blk64_t count, int max)
 {
 	errcode_t	retval;
 	blk_t		b;
@@ -55,11 +57,11 @@ static errcode_t ind_punch(ext2_filsys fs, struct ext2_inode *inode,
 	int		freed = 0;
 
 #ifdef PUNCH_DEBUG
-	printf("Entering ind_punch, level %d, start %u, count %u, "
+	printf("Entering ind_punch, level %d, start %llu, count %llu, "
 	       "max %d\n", level, start, count, max);
 #endif
-	incr = 1ULL << ((EXT2_BLOCK_SIZE_BITS(fs->super)-2)*level);
-	for (i=0, offset=0; i < max; i++, p++, offset += incr) {
+	incr = 1ULL << ((EXT2_BLOCK_SIZE_BITS(fs->super) - 2) * level);
+	for (i = 0, offset = 0; i < max; i++, p++, offset += incr) {
 		if (offset >= start + count)
 			break;
 		if (*p == 0 || (offset+incr) <= start)
@@ -99,8 +101,9 @@ static errcode_t ind_punch(ext2_filsys fs, struct ext2_inode *inode,
 	return ext2fs_iblk_sub_blocks(fs, inode, freed);
 }
 
+#define BLK_T_MAX ((blk_t)~0ULL)
 static errcode_t ext2fs_punch_ind(ext2_filsys fs, struct ext2_inode *inode,
-				  char *block_buf, blk_t start, blk_t count)
+				  char *block_buf, blk64_t start, blk64_t end)
 {
 	errcode_t		retval;
 	char			*buf = 0;
@@ -109,6 +112,15 @@ static errcode_t ext2fs_punch_ind(ext2_filsys fs, struct ext2_inode *inode,
 	blk_t			*bp = inode->i_block;
 	blk_t			addr_per_block;
 	blk64_t			max = EXT2_NDIR_BLOCKS;
+	blk_t			count;
+
+	/* Check start/end don't overflow the 2^32-1 indirect block limit */
+	if (start > BLK_T_MAX)
+		return 0;
+	if (end >= BLK_T_MAX || end - start + 1 >= BLK_T_MAX)
+		count = BLK_T_MAX - start;
+	else
+		count = end - start + 1;
 
 	if (!block_buf) {
 		retval = ext2fs_get_array(3, fs->blocksize, &buf);
@@ -117,11 +129,11 @@ static errcode_t ext2fs_punch_ind(ext2_filsys fs, struct ext2_inode *inode,
 		block_buf = buf;
 	}
 
-	addr_per_block = (blk_t) fs->blocksize >> 2;
+	addr_per_block = (blk_t)fs->blocksize >> 2;
 
 	for (level = 0; level < 4; level++, max *= (blk64_t)addr_per_block) {
 #ifdef PUNCH_DEBUG
-		printf("Main loop level %d, start %u count %u "
+		printf("Main loop level %d, start %llu count %u "
 		       "max %llu num %d\n", level, start, count, max, num);
 #endif
 		if (start < max) {
@@ -148,6 +160,7 @@ errout:
 		ext2fs_free_mem(&buf);
 	return retval;
 }
+#undef BLK_T_MAX
 
 #ifdef PUNCH_DEBUG
 
@@ -219,7 +232,7 @@ static errcode_t punch_extent_blocks(ext2_filsys fs, ext2_ino_t ino,
 	}
 
 	/* Free whole clusters from the middle of the range. */
-	while (free_count > 0 && free_count >= EXT2FS_CLUSTER_RATIO(fs)) {
+	while (free_count > 0 && free_count >= (unsigned) EXT2FS_CLUSTER_RATIO(fs)) {
 		ext2fs_block_alloc_stats2(fs, free_start, -1);
 		freed_now++;
 		cluster_freed = EXT2FS_CLUSTER_RATIO(fs);
@@ -287,8 +300,12 @@ static errcode_t ext2fs_punch_extent(ext2_filsys fs, ext2_ino_t ino,
 			   (unsigned long long) end,
 			   (unsigned long long) next);
 		if (start <= extent.e_lblk) {
+			/*
+			 * Have we iterated past the end of the punch region?
+			 * If so, we can stop.
+			 */
 			if (end < extent.e_lblk)
-				goto next_extent;
+				break;
 			dbg_printf("Case #%d\n", 1);
 			/* Start of deleted region before extent; 
 			   adjust beginning of extent */
@@ -302,8 +319,13 @@ static errcode_t ext2fs_punch_extent(ext2_filsys fs, ext2_ino_t ino,
 			extent.e_lblk += free_count;
 			extent.e_pblk += free_count;
 		} else if (end >= next-1) {
+			/*
+			 * Is the punch region beyond this extent?  This can
+			 * happen if start is already inside a hole.  Try to
+			 * advance to the next extent if this is the case.
+			 */
 			if (start >= next)
-				break;
+				goto next_extent;
 			/* End of deleted region after extent;
 			   adjust end of extent */
 			dbg_printf("Case #%d\n", 2);
@@ -333,16 +355,25 @@ static errcode_t ext2fs_punch_extent(ext2_filsys fs, ext2_ino_t ino,
 					EXT2_EXTENT_INSERT_AFTER, &newex);
 			if (retval)
 				goto errout;
-			/* Now pointing at inserted extent; so go back */
-			retval = ext2fs_extent_get(handle,
-						   EXT2_EXTENT_PREV_LEAF,
-						   &newex);
+			retval = ext2fs_extent_fix_parents(handle);
+			if (retval)
+				goto errout;
+			/*
+			 * Now pointing at inserted extent; so go back.
+			 *
+			 * We cannot use EXT2_EXTENT_PREV to go back; note the
+			 * subtlety in the comment for fix_parents().
+			 */
+			retval = ext2fs_extent_goto(handle, extent.e_lblk);
 			if (retval)
 				goto errout;
 		} 
 		if (extent.e_len) {
 			dbg_print_extent("replacing", &extent);
 			retval = ext2fs_extent_replace(handle, 0, &extent);
+			if (retval)
+				goto errout;
+			retval = ext2fs_extent_fix_parents(handle);
 		} else {
 			struct ext2fs_extent	newex;
 			blk64_t			old_lblk, next_lblk;
@@ -377,8 +408,17 @@ static errcode_t ext2fs_punch_extent(ext2_filsys fs, ext2_ino_t ino,
 			if (retval)
 				goto errout;
 
-			/* Jump forward to the next extent. */
-			ext2fs_extent_goto(handle, next_lblk);
+			retval = ext2fs_extent_fix_parents(handle);
+			if (retval && retval != EXT2_ET_NO_CURRENT_NODE)
+				goto errout;
+			retval = 0;
+
+			/*
+			 * Jump forward to the next extent.  If there are
+			 * errors, the ext2fs_extent_get down below will
+			 * capture them for us.
+			 */
+			(void)ext2fs_extent_goto(handle, next_lblk);
 			op = EXT2_EXTENT_CURRENT;
 		}
 		if (retval)
@@ -405,9 +445,34 @@ errout:
 	return retval;
 }
 	
+static errcode_t ext2fs_punch_inline_data(ext2_filsys fs, ext2_ino_t ino,
+					  struct ext2_inode *inode,
+					  blk64_t start,
+					  blk64_t end EXT2FS_ATTR((unused)))
+{
+	errcode_t retval;
+
+	/*
+	 * In libext2fs ext2fs_punch is based on block unit.  So that
+	 * means that if start > 0 we don't need to do nothing.  Due
+	 * to this we will remove all inline data in ext2fs_punch()
+	 * now.
+	 */
+	if (start > 0)
+		return 0;
+
+	memset((char *)inode->i_block, 0, EXT4_MIN_INLINE_DATA_SIZE);
+	inode->i_size = 0;
+	retval = ext2fs_write_inode(fs, ino, inode);
+	if (retval)
+		return retval;
+
+	return ext2fs_inline_data_ea_remove(fs, ino);
+}
+
 /*
- * Deallocate all logical blocks starting at start to end, inclusive.
- * If end is ~0, then this is effectively truncate.
+ * Deallocate all logical _blocks_ starting at start to end, inclusive.
+ * If end is ~0ULL, then this is effectively truncate.
  */
 errcode_t ext2fs_punch(ext2_filsys fs, ext2_ino_t ino,
 		       struct ext2_inode *inode,
@@ -427,21 +492,18 @@ errcode_t ext2fs_punch(ext2_filsys fs, ext2_ino_t ino,
 			return retval;
 		inode = &inode_buf;
 	}
-	if (inode->i_flags & EXT4_EXTENTS_FL)
+	if (inode->i_flags & EXT4_INLINE_DATA_FL)
+		return ext2fs_punch_inline_data(fs, ino, inode, start, end);
+	else if (inode->i_flags & EXT4_EXTENTS_FL)
 		retval = ext2fs_punch_extent(fs, ino, inode, start, end);
-	else {
-		blk_t	count;
-
-		if (start > ~0U)
-			return 0;
-		if (end > ~0U)
-			end = ~0U;
-		count = ((end - start + 1) < ~0U) ? (end - start + 1) : ~0U;
-		retval = ext2fs_punch_ind(fs, inode, block_buf, 
-					  (blk_t) start, count);
-	}
+	else
+		retval = ext2fs_punch_ind(fs, inode, block_buf, start, end);
 	if (retval)
 		return retval;
 
+#ifdef PUNCH_DEBUG
+	printf("%u: write inode size now %u blocks %u\n",
+		ino, inode->i_size, inode->i_blocks);
+#endif
 	return ext2fs_write_inode(fs, ino, inode);
 }

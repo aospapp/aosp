@@ -9,7 +9,7 @@ board.
 
 import logging
 import os
-import time, threading
+import time
 
 from autotest_lib.client.bin import utils
 from autotest_lib.client.common_lib import error
@@ -18,6 +18,7 @@ from autotest_lib.client.cros.chameleon import audio_test_utils
 from autotest_lib.client.cros.chameleon import chameleon_audio_helper
 from autotest_lib.client.cros.chameleon import chameleon_audio_ids
 from autotest_lib.server.cros.audio import audio_test
+from autotest_lib.server.cros.multimedia import remote_facade_factory
 
 
 class audio_AudioBasicBluetoothPlaybackRecord(audio_test.AudioTest):
@@ -114,11 +115,12 @@ class audio_AudioBasicBluetoothPlaybackRecord(audio_test.AudioTest):
         # channels.
         golden_file = audio_test_data.SIMPLE_FREQUENCY_TEST_FILE
 
-        factory = self.create_remote_facade_factory(host)
+        factory = remote_facade_factory.RemoteFacadeFactory(
+                host, results_dir=self.resultsdir)
         self.audio_facade = factory.create_audio_facade()
 
         chameleon_board = host.chameleon
-        chameleon_board.reset()
+        chameleon_board.setup_and_reset(self.outputdir)
 
         widget_factory = chameleon_audio_helper.AudioWidgetFactory(
                 factory, host)
@@ -148,10 +150,18 @@ class audio_AudioBasicBluetoothPlaybackRecord(audio_test.AudioTest):
                         host, self.audio_facade, self.resultsdir,
                         'after_binding')
 
+                # For DUTs with permanently connected audio jack cable
+                # Bluetooth output node should be selected explicitly.
+                output_nodes, _ = self.audio_facade.get_plugged_node_types()
+                audio_jack_plugged = False
+                if 'HEADPHONE' in output_nodes:
+                    audio_jack_plugged = True
+                    audio_test_utils.check_audio_nodes(self.audio_facade,
+                                                       (None, ['MIC']))
                 # Checks the input node selected by Cras is internal microphone.
                 # Checks crbug.com/495537 for the reason to lower bluetooth
                 # microphone priority.
-                if audio_test_utils.has_internal_microphone(host):
+                elif audio_test_utils.has_internal_microphone(host):
                     audio_test_utils.check_audio_nodes(self.audio_facade,
                                                        (None, ['INTERNAL_MIC']))
 
@@ -163,7 +173,8 @@ class audio_AudioBasicBluetoothPlaybackRecord(audio_test.AudioTest):
                 # on its preference again. See crbug.com/535643.
 
                 # Selects bluetooth mic to be the active input node.
-                if audio_test_utils.has_internal_microphone(host):
+                if (audio_test_utils.has_internal_microphone(host) or
+                    audio_jack_plugged):
                     self.audio_facade.set_chrome_active_node_type(
                             None, 'BLUETOOTH')
 
@@ -289,20 +300,27 @@ class audio_AudioBasicBluetoothPlaybackRecord(audio_test.AudioTest):
         # and HDMI.
         # Use a second peak ratio that can tolerate more noise because HSP
         # is low-quality.
-        second_peak_ratio = audio_test_utils.HSP_SECOND_PEAK_RATIO
+        playback_second_peak_ratio = audio_test_utils.get_second_peak_ratio(
+                source_id=playback_source.port_id,
+                recorder_id=playback_recorder.port_id,
+                is_hsp=True)
+        record_second_peak_ratio = audio_test_utils.get_second_peak_ratio(
+                source_id=record_source.port_id,
+                recorder_id=record_recorder.port_id,
+                is_hsp=True)
 
         error_messages = ''
         try:
             audio_test_utils.check_recorded_frequency(
                     golden_file, playback_recorder, check_anomaly=check_quality,
-                    second_peak_ratio=second_peak_ratio)
+                    second_peak_ratio=playback_second_peak_ratio)
         except error.TestFail, e:
             error_messages += str(e)
 
         try:
             audio_test_utils.check_recorded_frequency(
                     golden_file, record_recorder, check_anomaly=check_quality,
-                    second_peak_ratio=second_peak_ratio)
+                    second_peak_ratio=record_second_peak_ratio)
         except error.TestFail, e:
             error_messages += str(e)
 

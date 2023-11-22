@@ -55,6 +55,8 @@ EmulatedCameraFactory::EmulatedCameraFactory()
         createQemuCameras();
     }
 
+    waitForQemuSfFakeCameraPropertyAvailable();
+
     if (isBackFakeCameraEmulationOn()) {
         /* Camera ID. */
         const int camera_id = mEmulatedCameraNum;
@@ -169,7 +171,7 @@ EmulatedCameraFactory::EmulatedCameraFactory()
         }
     }
 
-    ALOGV("%d cameras are being emulated. %d of them are fake cameras.",
+    ALOGE("%d cameras are being emulated. %d of them are fake cameras.",
           mEmulatedCameraNum, mFakeCameraNum);
 
     /* Create hotplug thread */
@@ -435,6 +437,26 @@ void EmulatedCameraFactory::createQemuCameras()
     }
 
     mEmulatedCameraNum = index;
+}
+
+void EmulatedCameraFactory::waitForQemuSfFakeCameraPropertyAvailable() {
+    // Camera service may start running before qemu-props sets qemu.sf.fake_camera to
+    // any of the follwing four values: "none,front,back,both"; so we need to wait.
+    // android/camera/camera-service.c
+    // bug: 30768229
+    int numAttempts = 100;
+    char prop[PROPERTY_VALUE_MAX];
+    bool timeout = true;
+    for (int i = 0; i < numAttempts; ++i) {
+        if (property_get("qemu.sf.fake_camera", prop, NULL) != 0 ) {
+            timeout = false;
+            break;
+        }
+        usleep(5000);
+    }
+    if (timeout) {
+        ALOGE("timeout (%dms) waiting for property qemu.sf.fake_camera to be set\n", 5 * numAttempts);
+    }
 }
 
 bool EmulatedCameraFactory::isBackFakeCameraEmulationOn()

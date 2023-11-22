@@ -118,7 +118,6 @@ public class ContentFragment extends Fragment implements LiteFragment {
 
     @Override
     public void onDestroyView() {
-        mBase.onDestroyView();
         super.onDestroyView();
     }
 
@@ -132,10 +131,6 @@ public class ContentFragment extends Fragment implements LiteFragment {
 
     public int getIconResourceId() {
         return mBase.getIconResourceId();
-    }
-
-    public Uri getIconResourceUri() {
-        return mBase.getIconResourceUri();
     }
 
     public Bitmap getIconBitmap() {
@@ -176,10 +171,6 @@ public class ContentFragment extends Fragment implements LiteFragment {
 
     public void setIcon(int iconResourceId) {
         mBase.setIcon(iconResourceId);
-    }
-
-    public void setIcon(Uri iconUri) {
-        mBase.setIcon(iconUri);
     }
 
     public void setIcon(Drawable iconDrawable) {

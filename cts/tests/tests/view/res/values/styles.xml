@@ -136,6 +136,7 @@
         <item name="android:windowNoTitle">true</item>
         <item name="android:panelColorForeground">#ff000000</item>
         <item name="android:panelColorBackground">#ffffffff</item>
+        <item name="includeLayout">@layout/include_layout_from_attr</item>
     </style>
 
     <style name="Theme_OverrideOuter">

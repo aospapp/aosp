@@ -16,8 +16,9 @@
 
 package android.app.stubs;
 
-import android.cts.util.CTSResult;
 import android.test.InstrumentationTestCase;
+
+import com.android.compatibility.common.util.CTSResult;
 
 public class CTSActivityTestCaseBase extends InstrumentationTestCase implements CTSResult {
 

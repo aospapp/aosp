@@ -30,7 +30,6 @@ import android.text.TextUtils;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.View;
-import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.TextView;
 
@@ -40,7 +39,6 @@ import com.android.tv.data.Channel;
 import com.android.tv.util.BitmapUtils;
 import com.android.tv.util.ImageLoader;
 import com.android.tv.util.TvInputManagerHelper;
-import com.android.tv.util.Utils;
 
 /**
  * A view to render an app link card.
@@ -49,10 +47,6 @@ public class AppLinkCardView extends BaseCardView<Channel> {
     private static final String TAG = MenuView.TAG;
     private static final boolean DEBUG = MenuView.DEBUG;
 
-    private final float mCardHeight;
-    private final float mExtendedCardHeight;
-    private final float mTextViewHeight;
-    private final float mExtendedTextViewCardHeight;
     private final int mCardImageWidth;
     private final int mCardImageHeight;
     private final int mIconWidth;
@@ -63,12 +57,9 @@ public class AppLinkCardView extends BaseCardView<Channel> {
     private ImageView mImageView;
     private View mGradientView;
     private TextView mAppInfoView;
-    private TextView mMetaViewFocused;
-    private TextView mMetaViewUnfocused;
     private View mMetaViewHolder;
     private Channel mChannel;
     private Intent mIntent;
-    private boolean mExtendViewOnFocus;
     private final PackageManager mPackageManager;
     private final TvInputManagerHelper mTvInputManagerHelper;
 
@@ -85,19 +76,12 @@ public class AppLinkCardView extends BaseCardView<Channel> {
 
         mCardImageWidth = getResources().getDimensionPixelSize(R.dimen.card_image_layout_width);
         mCardImageHeight = getResources().getDimensionPixelSize(R.dimen.card_image_layout_height);
-        mCardHeight = getResources().getDimensionPixelSize(R.dimen.card_layout_height);
-        mExtendedCardHeight = getResources().getDimensionPixelOffset(
-                R.dimen.card_layout_height_extended);
         mIconWidth = getResources().getDimensionPixelSize(R.dimen.app_link_card_icon_width);
         mIconHeight = getResources().getDimensionPixelSize(R.dimen.app_link_card_icon_height);
         mIconPadding = getResources().getDimensionPixelOffset(R.dimen.app_link_card_icon_padding);
         mPackageManager = context.getPackageManager();
         mTvInputManagerHelper = ((MainActivity) context).getTvInputManagerHelper();
-        mTextViewHeight = getResources().getDimensionPixelSize(
-                R.dimen.card_meta_layout_height);
-        mExtendedTextViewCardHeight = getResources().getDimensionPixelOffset(
-                R.dimen.card_meta_layout_height_extended);
-        mIconColorFilter = Utils.getColor(getResources(), R.color.app_link_card_icon_color_filter);
+        mIconColorFilter = getResources().getColor(R.color.app_link_card_icon_color_filter, null);
     }
 
     /**
@@ -120,7 +104,7 @@ public class AppLinkCardView extends BaseCardView<Channel> {
 
         switch (linkType) {
             case Channel.APP_LINK_TYPE_CHANNEL:
-                setMetaViewText(mChannel.getAppLinkText());
+                setText(mChannel.getAppLinkText());
                 mAppInfoView.setVisibility(VISIBLE);
                 mGradientView.setVisibility(VISIBLE);
                 mAppInfoView.setCompoundDrawablePadding(mIconPadding);
@@ -138,7 +122,7 @@ public class AppLinkCardView extends BaseCardView<Channel> {
                 }
                 break;
             case Channel.APP_LINK_TYPE_APP:
-                setMetaViewText(getContext().getString(
+                setText(getContext().getString(
                         R.string.channels_item_app_link_app_launcher,
                         mPackageManager.getApplicationLabel(appInfo)));
                 mAppInfoView.setVisibility(GONE);
@@ -164,17 +148,8 @@ public class AppLinkCardView extends BaseCardView<Channel> {
         } else {
             setCardImageWithBanner(appInfo);
         }
-
-        mMetaViewFocused.measure(MeasureSpec.makeMeasureSpec(mCardImageWidth, MeasureSpec.EXACTLY),
-                MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED));
-        mExtendViewOnFocus = mMetaViewFocused.getLineCount() > 1;
-        if (mExtendViewOnFocus) {
-            setMetaViewFocusedAlpha(selected ? 1f : 0f);
-        } else {
-            setMetaViewFocusedAlpha(1f);
-        }
-
-        // Call super.onBind() at the end in order to make getCardHeight() return a proper value.
+        // Call super.onBind() at the end intentionally. In order to correctly handle extension of
+        // text view, text should be set before calling super.onBind.
         super.onBind(channel, selected);
     }
 
@@ -228,32 +203,6 @@ public class AppLinkCardView extends BaseCardView<Channel> {
         mGradientView = findViewById(R.id.image_gradient);
         mAppInfoView = (TextView) findViewById(R.id.app_info);
         mMetaViewHolder = findViewById(R.id.app_link_text_holder);
-        mMetaViewFocused = (TextView) findViewById(R.id.app_link_text_focused);
-        mMetaViewUnfocused = (TextView) findViewById(R.id.app_link_text_unfocused);
-    }
-
-    @Override
-    protected void onFocusAnimationStart(boolean selected) {
-        if (mExtendViewOnFocus) {
-            setMetaViewFocusedAlpha(selected ? 1f : 0f);
-        }
-    }
-
-    @Override
-    protected void onSetFocusAnimatedValue(float animatedValue) {
-        super.onSetFocusAnimatedValue(animatedValue);
-        if (mExtendViewOnFocus) {
-            ViewGroup.LayoutParams params = mMetaViewUnfocused.getLayoutParams();
-            params.height = Math.round(mTextViewHeight
-                    + (mExtendedTextViewCardHeight - mTextViewHeight) * animatedValue);
-            setMetaViewLayoutParams(params);
-            setMetaViewFocusedAlpha(animatedValue);
-        }
-    }
-
-    @Override
-    protected float getCardHeight() {
-        return (mExtendViewOnFocus && isFocused()) ? mExtendedCardHeight : mCardHeight;
     }
 
     // Try to set the card image with following order:
@@ -302,23 +251,8 @@ public class AppLinkCardView extends BaseCardView<Channel> {
             @Override
             public void onGenerated(Palette palette) {
                 mMetaViewHolder.setBackgroundColor(palette.getDarkVibrantColor(
-                        Utils.getColor(getResources(), R.color.channel_card_meta_background)));
+                        getResources().getColor(R.color.channel_card_meta_background, null)));
             }
         });
-    }
-
-    private void setMetaViewLayoutParams(ViewGroup.LayoutParams params) {
-        mMetaViewFocused.setLayoutParams(params);
-        mMetaViewUnfocused.setLayoutParams(params);
-    }
-
-    private void setMetaViewText(String text) {
-        mMetaViewFocused.setText(text);
-        mMetaViewUnfocused.setText(text);
-    }
-
-    private void setMetaViewFocusedAlpha(float focusedAlpha) {
-        mMetaViewFocused.setAlpha(focusedAlpha);
-        mMetaViewUnfocused.setAlpha(1f - focusedAlpha);
     }
 }

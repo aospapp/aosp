@@ -425,7 +425,6 @@ public:
 	bool		isStagePresent		(glu::ShaderType stage) const;
 	bool		isStageReferencing	(glu::ShaderType stage) const;
 
-	deUint32	getPresentMask		(void) const;
 	deUint32	getReferencingMask	(void) const;
 
 	const glu::GLSLVersion	m_version;
@@ -481,17 +480,6 @@ bool ShaderSet::isStageReferencing (glu::ShaderType stage) const
 {
 	DE_ASSERT(stage < glu::SHADERTYPE_LAST);
 	return m_stageReferencing[stage];
-}
-
-deUint32 ShaderSet::getPresentMask (void) const
-{
-	deUint32 mask = 0;
-	for (deUint32 stage = 0; stage < glu::SHADERTYPE_LAST; ++stage)
-	{
-		if (m_stagePresent[stage])
-			mask |= (1u << stage);
-	}
-	return mask;
 }
 
 deUint32 ShaderSet::getReferencingMask (void) const
@@ -1026,7 +1014,13 @@ bool ResourceListTestCase::verifyResourceList (const std::vector<std::string>& r
 	m_testCtx.getLog() << tcu::TestLog::Message << "GL returned resources:" << tcu::TestLog::EndMessage;
 
 	for (int ndx = 0; ndx < (int)resourceList.size(); ++ndx)
-		m_testCtx.getLog() << tcu::TestLog::Message << "\t" << ndx << ": " << resourceList[ndx] << tcu::TestLog::EndMessage;
+	{
+		// dummyZero is a uniform that may be added by
+		// generateProgramInterfaceProgramSources.  Omit it here to avoid
+		// confusion about the output.
+		if (resourceList[ndx] != getDummyZeroUniformName())
+			m_testCtx.getLog() << tcu::TestLog::Message << "\t" << ndx << ": " << resourceList[ndx] << tcu::TestLog::EndMessage;
+	}
 
 	m_testCtx.getLog() << tcu::TestLog::Message << "Expected list of resources:" << tcu::TestLog::EndMessage;
 
@@ -1048,8 +1042,11 @@ bool ResourceListTestCase::verifyResourceList (const std::vector<std::string>& r
 	{
 		if (!de::contains(expectedResources.begin(), expectedResources.end(), resourceList[ndx]))
 		{
-			// Ignore all builtin variables, mismatch causes errors otherwise
-			if (deStringBeginsWith(resourceList[ndx].c_str(), "gl_") == DE_FALSE)
+			// Ignore all builtin variables or the variable dummyZero,
+			// mismatch causes errors otherwise.  dummyZero is a uniform that
+			// may be added by generateProgramInterfaceProgramSources.
+			if (deStringBeginsWith(resourceList[ndx].c_str(), "gl_") == DE_FALSE &&
+				resourceList[ndx] != getDummyZeroUniformName())
 			{
 				m_testCtx.getLog() << tcu::TestLog::Message << "Error, resource list contains unexpected resource name " << resourceList[ndx] << tcu::TestLog::EndMessage;
 				error = true;
@@ -4492,7 +4489,7 @@ static ResourceDefinition::Node::SharedPtr generateRandomExtShaderSet (de::Rando
 		const glu::ShaderType						shaderType	= (selector == 0) ? (glu::SHADERTYPE_GEOMETRY)
 																: (selector == 1) ? (glu::SHADERTYPE_TESSELLATION_CONTROL)
 																: (selector == 2) ? (glu::SHADERTYPE_TESSELLATION_EVALUATION)
-																: 					(glu::SHADERTYPE_LAST);
+																:					(glu::SHADERTYPE_LAST);
 
 		return ResourceDefinition::Node::SharedPtr(new ResourceDefinition::Shader(program, shaderType, glu::GLSL_VERSION_310_ES));
 	}

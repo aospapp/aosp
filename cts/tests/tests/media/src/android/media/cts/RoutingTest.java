@@ -352,6 +352,11 @@ public class RoutingTest extends AndroidTestCase {
     }
 
     public void test_audioTrack_getRoutedDevice() {
+        if (!DeviceUtils.hasOutputDevice(mAudioManager)) {
+            Log.i(TAG, "No output devices. Test skipped");
+            return; // nothing to test here
+        }
+
         int bufferSize =
                 AudioTrack.getMinBufferSize(
                     41000,
@@ -413,6 +418,11 @@ public class RoutingTest extends AndroidTestCase {
     public void test_audioRecord_getRoutedDevice() {
         if (!mContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_MICROPHONE)) {
             return;
+        }
+
+        if (!DeviceUtils.hasInputDevice(mAudioManager)) {
+            Log.i(TAG, "No input devices. Test skipped");
+            return; // nothing to test here
         }
 
         int bufferSize =

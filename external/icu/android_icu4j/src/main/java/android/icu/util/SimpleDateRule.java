@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 1996-2010, International Business Machines Corporation and    *
@@ -213,9 +215,7 @@ public class SimpleDateRule implements DateRule
 //        calendar = c;
 //    }
 
-    private static GregorianCalendar gCalendar = new GregorianCalendar();
-
-    private Calendar calendar = gCalendar;
+    private Calendar calendar = new GregorianCalendar();
 
     private int     month;
     private int     dayOfMonth;

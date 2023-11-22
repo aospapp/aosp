@@ -16,13 +16,21 @@
 
 package com.android.server.telecom;
 
+import android.Manifest;
+import android.app.AppOpsManager;
+import android.content.Context;
 import android.net.Uri;
+import android.os.Binder;
+import android.os.Build;
 import android.os.IBinder;
 import android.os.Looper;
 import android.os.RemoteException;
+import android.os.UserHandle;
 import android.telecom.Connection;
 import android.telecom.InCallService;
+import android.telecom.Log;
 import android.telecom.VideoProfile;
+import android.text.TextUtils;
 import android.view.Surface;
 
 import com.android.internal.telecom.IVideoCallback;
@@ -31,6 +39,8 @@ import com.android.internal.telecom.IVideoProvider;
 import java.util.Collections;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+
+import static android.Manifest.permission.CALL_PHONE;
 
 /**
  * Proxies video provider messages from {@link InCallService.VideoCall}
@@ -80,6 +90,11 @@ public class VideoProviderProxy extends Connection.VideoProvider {
      */
     private Call mCall;
 
+    /**
+     * Interface providing access to the currently logged in user.
+     */
+    private CurrentUserProxy mCurrentUserProxy;
+
     private IBinder.DeathRecipient mDeathRecipient = new IBinder.DeathRecipient() {
         @Override
         public void binderDied() {
@@ -98,7 +113,8 @@ public class VideoProviderProxy extends Connection.VideoProvider {
      * @throws RemoteException Remote exception.
      */
     VideoProviderProxy(TelecomSystem.SyncRoot lock,
-            IVideoProvider videoProvider, Call call) throws RemoteException {
+            IVideoProvider videoProvider, Call call, CurrentUserProxy currentUserProxy)
+            throws RemoteException {
 
         super(Looper.getMainLooper());
 
@@ -110,6 +126,7 @@ public class VideoProviderProxy extends Connection.VideoProvider {
         mVideoCallListenerBinder = new VideoCallListenerBinder();
         mConectionServiceVideoProvider.addVideoCallback(mVideoCallListenerBinder);
         mCall = call;
+        mCurrentUserProxy = currentUserProxy;
     }
 
     /**
@@ -129,7 +146,7 @@ public class VideoProviderProxy extends Connection.VideoProvider {
                 Log.startSession("VPP.rSMR");
                 synchronized (mLock) {
                     logFromVideoProvider("receiveSessionModifyRequest: " + videoProfile);
-                    Log.event(mCall, Log.Events.RECEIVE_VIDEO_REQUEST,
+                    Log.addEvent(mCall, LogUtils.Events.RECEIVE_VIDEO_REQUEST,
                             VideoProfile.videoStateToString(videoProfile.getVideoState()));
 
                     mCall.getAnalytics().addVideoEvent(
@@ -142,7 +159,7 @@ public class VideoProviderProxy extends Connection.VideoProvider {
                         // a request to upgrade to video, automatically reject it without informing
                         // the InCallService.
 
-                        Log.event(mCall, Log.Events.SEND_VIDEO_RESPONSE, "video not supported");
+                        Log.addEvent(mCall, LogUtils.Events.SEND_VIDEO_RESPONSE, "video not supported");
                         VideoProfile responseProfile = new VideoProfile(
                                 VideoProfile.STATE_AUDIO_ONLY);
                         try {
@@ -182,12 +199,14 @@ public class VideoProviderProxy extends Connection.VideoProvider {
                     " requestProfile=" + requestProfile + " responseProfile=" + responseProfile);
             String eventMessage = "Status Code : " + status + " Video State: " +
                     (responseProfile != null ? responseProfile.getVideoState() : "null");
-            Log.event(mCall, Log.Events.RECEIVE_VIDEO_RESPONSE, eventMessage);
+            Log.addEvent(mCall, LogUtils.Events.RECEIVE_VIDEO_RESPONSE, eventMessage);
             synchronized (mLock) {
                 if (status == Connection.VideoProvider.SESSION_MODIFY_REQUEST_SUCCESS) {
                     mCall.getAnalytics().addVideoEvent(
                             Analytics.RECEIVE_REMOTE_SESSION_MODIFY_RESPONSE,
-                            requestProfile.getVideoState());
+                            responseProfile == null ?
+                                    VideoProfile.STATE_AUDIO_ONLY :
+                                    responseProfile.getVideoState());
                 }
                 VideoProviderProxy.this.receiveSessionModifyResponse(status, requestProfile,
                         responseProfile);
@@ -203,7 +222,8 @@ public class VideoProviderProxy extends Connection.VideoProvider {
         @Override
         public void handleCallSessionEvent(int event) {
             synchronized (mLock) {
-                logFromVideoProvider("handleCallSessionEvent: " + event);
+                logFromVideoProvider("handleCallSessionEvent: " +
+                        Connection.VideoProvider.sessionEventToString(event));
                 VideoProviderProxy.this.handleCallSessionEvent(event);
             }
         }
@@ -271,19 +291,56 @@ public class VideoProviderProxy extends Connection.VideoProvider {
         }
     }
 
+    @Override
+    public void onSetCamera(String cameraId) {
+        // No-op.  We implement the other prototype of onSetCamera so that we can use the calling
+        // package, uid and pid to verify permission.
+    }
+
     /**
      * Proxies a request from the {@link InCallService} to the
      * {@link #mConectionServiceVideoProvider} to change the camera.
      *
      * @param cameraId The id of the camera.
+     * @param callingPackage The package calling in.
+     * @param callingUid The UID of the caller.
+     * @param callingPid The PID of the caller.
+     * @param targetSdkVersion The target SDK version of the calling InCallService where the camera
+     *      request originated.
      */
     @Override
-    public void onSetCamera(String cameraId) {
+    public void onSetCamera(String cameraId, String callingPackage, int callingUid,
+            int callingPid, int targetSdkVersion) {
         synchronized (mLock) {
-            logFromInCall("setCamera: " + cameraId);
+            logFromInCall("setCamera: " + cameraId + " callingPackage=" + callingPackage +
+                    "; callingUid=" + callingUid);
+
+            if (!TextUtils.isEmpty(cameraId)) {
+                if (!canUseCamera(mCall.getContext(), callingPackage, callingUid, callingPid)) {
+                    // Calling app is not permitted to use the camera.  Ignore the request and send
+                    // back a call session event indicating the error.
+                    Log.i(this, "onSetCamera: camera permission denied; package=%s, uid=%d, "
+                            + "pid=%d, targetSdkVersion=%d",
+                            callingPackage, callingUid, callingPid, targetSdkVersion);
+
+                    // API 26 introduces a new camera permission error we can use here since the
+                    // caller supports that API version.
+                    if (targetSdkVersion > Build.VERSION_CODES.N_MR1) {
+                        VideoProviderProxy.this.handleCallSessionEvent(
+                                Connection.VideoProvider.SESSION_EVENT_CAMERA_PERMISSION_ERROR);
+                    } else {
+                        VideoProviderProxy.this.handleCallSessionEvent(
+                                Connection.VideoProvider.SESSION_EVENT_CAMERA_FAILURE);
+                    }
+                    return;
+                }
+            }
             try {
-                mConectionServiceVideoProvider.setCamera(cameraId);
+                mConectionServiceVideoProvider.setCamera(cameraId, callingPackage,
+                        targetSdkVersion);
             } catch (RemoteException e) {
+                VideoProviderProxy.this.handleCallSessionEvent(
+                        Connection.VideoProvider.SESSION_EVENT_CAMERA_FAILURE);
             }
         }
     }
@@ -368,7 +425,7 @@ public class VideoProviderProxy extends Connection.VideoProvider {
     public void onSendSessionModifyRequest(VideoProfile fromProfile, VideoProfile toProfile) {
         synchronized (mLock) {
             logFromInCall("sendSessionModifyRequest: from=" + fromProfile + " to=" + toProfile);
-            Log.event(mCall, Log.Events.SEND_VIDEO_REQUEST,
+            Log.addEvent(mCall, LogUtils.Events.SEND_VIDEO_REQUEST,
                     VideoProfile.videoStateToString(toProfile.getVideoState()));
             mCall.getAnalytics().addVideoEvent(
                     Analytics.SEND_LOCAL_SESSION_MODIFY_REQUEST,
@@ -390,7 +447,7 @@ public class VideoProviderProxy extends Connection.VideoProvider {
     public void onSendSessionModifyResponse(VideoProfile responseProfile) {
         synchronized (mLock) {
             logFromInCall("sendSessionModifyResponse: " + responseProfile);
-            Log.event(mCall, Log.Events.SEND_VIDEO_RESPONSE,
+            Log.addEvent(mCall, LogUtils.Events.SEND_VIDEO_RESPONSE,
                     VideoProfile.videoStateToString(responseProfile.getVideoState()));
             mCall.getAnalytics().addVideoEvent(
                     Analytics.SEND_LOCAL_SESSION_MODIFY_RESPONSE,
@@ -475,7 +532,7 @@ public class VideoProviderProxy extends Connection.VideoProvider {
      * @param toLog The message to log.
      */
     private void logFromInCall(String toLog) {
-        Log.v(this, "IC->VP: " + toLog);
+        Log.i(this, "IC->VP (callId=" + (mCall == null ? "?" : mCall.getId()) + "): " + toLog);
     }
 
     /**
@@ -485,6 +542,47 @@ public class VideoProviderProxy extends Connection.VideoProvider {
      * @param toLog The message to log.
      */
     private void logFromVideoProvider(String toLog) {
-        Log.v(this, "VP->IC: " + toLog);
+        Log.i(this, "VP->IC (callId=" + (mCall == null ? "?" : mCall.getId()) + "): " + toLog);
     }
+
+    /**
+     * Determines if the caller has permission to use the camera.
+     *
+     * @param context The context.
+     * @param callingPackage The package name of the caller (i.e. Dialer).
+     * @param callingUid The UID of the caller.
+     * @param callingPid The PID of the caller.
+     * @return {@code true} if the calling uid and package can use the camera, {@code false}
+     *      otherwise.
+     */
+    private boolean canUseCamera(Context context, String callingPackage, int callingUid,
+            int callingPid) {
+
+        UserHandle callingUser = UserHandle.getUserHandleForUid(callingUid);
+        UserHandle currentUserHandle = mCurrentUserProxy.getCurrentUserHandle();
+        if (currentUserHandle != null && !currentUserHandle.equals(callingUser)) {
+            Log.w(this, "canUseCamera attempt to user camera by background user.");
+            return false;
+        }
+
+        try {
+            context.enforcePermission(Manifest.permission.CAMERA, callingPid, callingUid,
+                    "Camera permission required.");
+        } catch (SecurityException se) {
+            return false;
+        }
+
+        AppOpsManager appOpsManager = (AppOpsManager) context.getSystemService(
+                Context.APP_OPS_SERVICE);
+
+        try {
+            // Some apps that have the permission can be restricted via app ops.
+            return appOpsManager != null && appOpsManager.noteOp(AppOpsManager.OP_CAMERA,
+                    callingUid, callingPackage) == AppOpsManager.MODE_ALLOWED;
+        } catch (SecurityException se) {
+            Log.w(this, "canUseCamera got appOpps Exception " + se.toString());
+            return false;
+        }
+    }
+
 }

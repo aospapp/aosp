@@ -27,6 +27,8 @@ import android.util.DisplayMetrics;
 import android.view.Display;
 import android.view.WindowManager;
 
+import com.android.compatibility.common.util.CddTest;
+
 import java.util.HashMap;
 import java.util.Map;
 
@@ -148,6 +150,7 @@ public class ActivityManagerMemoryClassTest
         }
     }
 
+    @CddTest(requirement="3.7")
     public void testGetMemoryClass() throws Exception {
         int memoryClass = getMemoryClass();
         int screenDensity = getScreenDensity();

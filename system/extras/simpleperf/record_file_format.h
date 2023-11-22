@@ -32,6 +32,22 @@
 //    data section of feature 2
 //    ....
 
+// file feature section:
+//  file_struct files[];
+//
+//  struct file_struct {
+//    uint32_t size;  // size of rest fields in file_struct
+//    char file_path[];
+//    uint32_t file_type;
+//    uint64_t min_vaddr;
+//    uint32_t symbol_count;
+//    struct {
+//      uint64_t start_vaddr;
+//      uint32_t len;
+//      char symbol_name[];
+//    } symbol_table;
+//  };
+
 namespace PerfFileFormat {
 
 enum {
@@ -55,6 +71,9 @@ enum {
   FEAT_PMU_MAPPINGS,
   FEAT_GROUP_DESC,
   FEAT_LAST_FEATURE,
+
+  FEAT_SIMPLEPERF_START = 128,
+  FEAT_FILE = FEAT_SIMPLEPERF_START,
   FEAT_MAX_NUM = 256,
 };
 

@@ -179,5 +179,7 @@ external</code></td>
 <h3 id=open-source_components>Open source components</h3>
 
 <p>The deqp uses <code>libpng</code> and <code>zlib</code>, which can be fetched
-using the script <code>external/fetch_sources.py </code>or via git from
-<code>platform/external/[libpng,zlib]</code>.</p>
+using the script <a href=
+"https://android.googlesource.com/platform/external/deqp/+/master/external/fetch_sources.py">
+<code>platform/external/deqp/external/fetch_sources.py</code></a> or via git
+from <code>platform/external/[libpng,zlib]</code>.</p>

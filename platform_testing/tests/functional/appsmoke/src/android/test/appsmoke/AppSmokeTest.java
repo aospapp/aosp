@@ -16,13 +16,14 @@
 
 package android.test.appsmoke;
 
-import android.app.ActivityManagerNative;
+import android.app.ActivityManager;
 import android.app.IActivityController;
 import android.app.Instrumentation;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.LauncherActivityInfo;
 import android.content.pm.LauncherApps;
+import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.RemoteException;
 import android.os.SystemClock;
@@ -66,6 +67,7 @@ public class AppSmokeTest {
 
     private boolean mAppHasError = false;
     private boolean mLaunchIntentDetected = false;
+    private boolean mHasLeanback = false;
     private ILauncherStrategy mLauncherStrategy = null;
     private static UiDevice sDevice = null;
 
@@ -202,8 +204,16 @@ public class AppSmokeTest {
 
     @Before
     public void before() throws RemoteException {
-        ActivityManagerNative.getDefault().setActivityController(mActivityController, false);
-        mLauncherStrategy = LauncherStrategyFactory.getInstance(sDevice).getLauncherStrategy();
+        ActivityManager.getService().setActivityController(mActivityController, false);
+        LauncherStrategyFactory factory = LauncherStrategyFactory.getInstance(sDevice);
+        mLauncherStrategy = factory.getLauncherStrategy();
+        // Inject an instance of instrumentation only if leanback. This enables to launch any app
+        // in the Apps and Games row on leanback launcher.
+        Instrumentation instr = InstrumentationRegistry.getInstrumentation();
+        mHasLeanback = hasLeanback(instr.getTargetContext());
+        if (mHasLeanback) {
+            factory.getLeanbackLauncherStrategy().setInstrumentation(instr);
+        }
         mAppHasError = false;
         mLaunchIntentDetected = false;
     }
@@ -217,9 +227,9 @@ public class AppSmokeTest {
     @After
     public void after() throws RemoteException {
         sDevice.pressHome();
-        ActivityManagerNative.getDefault().forceStopPackage(
+        ActivityManager.getService().forceStopPackage(
                 mAppInfo.packageName, UserHandle.USER_ALL);
-        ActivityManagerNative.getDefault().setActivityController(null, false);
+        ActivityManager.getService().setActivityController(null, false);
     }
 
     @AfterClass
@@ -248,12 +258,23 @@ public class AppSmokeTest {
     }
 
     private void pokeApp() {
-        int w = sDevice.getDisplayWidth();
-        int h = sDevice.getDisplayHeight();
-        int dY = h / 4;
-        boolean ret = sDevice.swipe(w / 2, h / 2 + dY, w / 2, h / 2 - dY, 40);
-        if (!ret) {
-            Log.w(TAG, "Failed while attempting to poke front end window with swipe");
+        // The swipe action on leanback launcher that doesn't support swipe gesture may
+        // cause unnecessary focus change and test to fail.
+        // Use the dpad key to poke the app instead.
+        if (!mHasLeanback) {
+            int w = sDevice.getDisplayWidth();
+            int h = sDevice.getDisplayHeight();
+            int dY = h / 4;
+            boolean ret = sDevice.swipe(w / 2, h / 2 + dY, w / 2, h / 2 - dY, 40);
+            if (!ret) {
+                Log.w(TAG, "Failed while attempting to poke front end window with swipe");
+            }
+        } else {
+            sDevice.pressDPadUp();
         }
+    }
+
+    private boolean hasLeanback(Context context) {
+        return context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_LEANBACK);
     }
 }

@@ -109,22 +109,17 @@ public class ListActivityTest extends ActivityInstrumentationTestCase2<MockListA
     private static void runOnMainAndDrawSync(Instrumentation instrumentation,
             final View view, final Runnable runner) {
         final Semaphore token = new Semaphore(0);
-        final Runnable releaseToken = new Runnable() {
-            @Override
-            public void run() {
-                token.release();
-            }
-        };
 
         instrumentation.runOnMainSync(new Runnable() {
             @Override
             public void run() {
                 final ViewTreeObserver observer = view.getViewTreeObserver();
-                final ViewTreeObserver.OnDrawListener listener = new ViewTreeObserver.OnDrawListener() {
+                final ViewTreeObserver.OnDrawListener listener =
+                        new ViewTreeObserver.OnDrawListener() {
                     @Override
                     public void onDraw() {
-                        observer.removeOnDrawListener(this);
-                        view.post(releaseToken);
+                        view.post(() -> view.getViewTreeObserver().removeOnDrawListener(this));
+                        view.post(() -> token.release());
                     }
                 };
 

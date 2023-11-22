@@ -16,37 +16,53 @@
 
 package android.widget.cts;
 
-import android.widget.cts.R;
-
-
-import org.xmlpull.v1.XmlPullParser;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
 
 import android.app.Activity;
-import android.test.ActivityInstrumentationTestCase;
-import android.test.UiThreadTest;
+import android.app.Instrumentation;
+import android.os.SystemClock;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.annotation.UiThreadTest;
+import android.support.test.filters.LargeTest;
+import android.support.test.filters.MediumTest;
+import android.support.test.rule.ActivityTestRule;
+import android.support.test.runner.AndroidJUnit4;
 import android.util.AttributeSet;
 import android.util.Xml;
 import android.view.View;
 import android.widget.TextView;
 import android.widget.ViewFlipper;
 
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.xmlpull.v1.XmlPullParser;
+
 /**
  * Test {@link ViewFlipper}.
  */
-public class ViewFlipperTest extends ActivityInstrumentationTestCase<ViewFlipperCtsActivity> {
+@MediumTest
+@RunWith(AndroidJUnit4.class)
+public class ViewFlipperTest {
+    private Instrumentation mInstrumentation;
     private Activity mActivity;
 
-    public ViewFlipperTest() {
-        super("android.widget.cts", ViewFlipperCtsActivity.class);
-    }
+    @Rule
+    public ActivityTestRule<ViewFlipperCtsActivity> mActivityRule =
+            new ActivityTestRule<>(ViewFlipperCtsActivity.class);
 
-    protected void setUp() throws Exception {
-        super.setUp();
-        mActivity = getActivity();
-        assertNotNull(mActivity);
+    @Before
+    public void setup() {
+        mInstrumentation = InstrumentationRegistry.getInstrumentation();
+        mActivity = mActivityRule.getActivity();
     }
 
     @UiThreadTest
+    @Test
     public void testConstructor() {
         new ViewFlipper(mActivity);
 
@@ -55,87 +71,75 @@ public class ViewFlipperTest extends ActivityInstrumentationTestCase<ViewFlipper
         XmlPullParser parser = mActivity.getResources().getXml(R.layout.viewflipper_layout);
         AttributeSet attrs = Xml.asAttributeSet(parser);
         new ViewFlipper(mActivity, attrs);
-
-        try {
-            new ViewFlipper(null, null);
-            fail("should throw NullPointerException.");
-        } catch (NullPointerException e) {
-        }
     }
 
     @UiThreadTest
+    @Test(expected=NullPointerException.class)
+    public void testConstructorNullContext() {
+        new ViewFlipper(null, null);
+    }
+
+    @UiThreadTest
+    @Test
     public void testSetFlipInterval() {
         ViewFlipper viewFlipper = new ViewFlipper(mActivity);
         viewFlipper.setFlipInterval(0);
         viewFlipper.setFlipInterval(-1);
     }
 
+    @LargeTest
+    @Test
     public void testViewFlipper() throws Throwable {
-        // NOTE: This value needs to be kept in sync with the value set in
-        // layout/viewflipper_layout.xml
-        final int FLIP_INTERVAL = 1000;
+        final int flipInterval = mActivity.getResources().getInteger(
+                R.integer.view_flipper_interval);
 
-        runTestOnUiThread(new Runnable() {
-            public void run() {
-                ViewFlipper viewFlipper =
-                        (ViewFlipper) mActivity.findViewById(R.id.viewflipper_test);
+        mActivityRule.runOnUiThread(() -> {
+            ViewFlipper viewFlipper =
+                    (ViewFlipper) mActivity.findViewById(R.id.viewflipper_test);
 
-                TextView iv1 = (TextView) mActivity.findViewById(R.id.viewflipper_textview1);
-                TextView iv2 = (TextView) mActivity.findViewById(R.id.viewflipper_textview2);
+            TextView iv1 = (TextView) mActivity.findViewById(R.id.viewflipper_textview1);
+            TextView iv2 = (TextView) mActivity.findViewById(R.id.viewflipper_textview2);
 
-                assertFalse(viewFlipper.isFlipping());
-                assertSame(iv1, viewFlipper.getCurrentView());
+            assertFalse(viewFlipper.isFlipping());
+            assertSame(iv1, viewFlipper.getCurrentView());
 
-                viewFlipper.startFlipping();
-                assertTrue(viewFlipper.isFlipping());
-                assertSame(iv1, viewFlipper.getCurrentView());
-                assertEquals(View.VISIBLE, iv1.getVisibility());
-                assertEquals(View.GONE, iv2.getVisibility());
-            }
+            viewFlipper.startFlipping();
+            assertTrue(viewFlipper.isFlipping());
+            assertSame(iv1, viewFlipper.getCurrentView());
+            assertEquals(View.VISIBLE, iv1.getVisibility());
+            assertEquals(View.GONE, iv2.getVisibility());
         });
 
         // wait for a longer time to make sure the view flipping is completed.
-        waitForViewFlipping(FLIP_INTERVAL + 200);
-        getInstrumentation().waitForIdleSync();
-        runTestOnUiThread(new Runnable() {
-            public void run() {
-                ViewFlipper viewFlipper =
-                        (ViewFlipper) mActivity.findViewById(R.id.viewflipper_test);
+        SystemClock.sleep(flipInterval + 200);
+        mInstrumentation.waitForIdleSync();
+        mActivityRule.runOnUiThread(() -> {
+            ViewFlipper viewFlipper =
+                    (ViewFlipper) mActivity.findViewById(R.id.viewflipper_test);
 
-                TextView iv1 = (TextView) mActivity.findViewById(R.id.viewflipper_textview1);
-                TextView iv2 = (TextView) mActivity.findViewById(R.id.viewflipper_textview2);
+            TextView iv1 = (TextView) mActivity.findViewById(R.id.viewflipper_textview1);
+            TextView iv2 = (TextView) mActivity.findViewById(R.id.viewflipper_textview2);
 
-                assertSame(iv2, viewFlipper.getCurrentView());
-                assertEquals(View.GONE, iv1.getVisibility());
-                assertEquals(View.VISIBLE, iv2.getVisibility());
-            }
+            assertSame(iv2, viewFlipper.getCurrentView());
+            assertEquals(View.GONE, iv1.getVisibility());
+            assertEquals(View.VISIBLE, iv2.getVisibility());
         });
 
-        waitForViewFlipping(FLIP_INTERVAL + 200);
-        getInstrumentation().waitForIdleSync();
-        runTestOnUiThread(new Runnable() {
-            public void run() {
-                ViewFlipper viewFlipper =
-                        (ViewFlipper) mActivity.findViewById(R.id.viewflipper_test);
+        SystemClock.sleep(flipInterval + 200);
+        mInstrumentation.waitForIdleSync();
+        mActivityRule.runOnUiThread(() -> {
+            ViewFlipper viewFlipper =
+                    (ViewFlipper) mActivity.findViewById(R.id.viewflipper_test);
 
-                TextView iv1 = (TextView) mActivity.findViewById(R.id.viewflipper_textview1);
-                TextView iv2 = (TextView) mActivity.findViewById(R.id.viewflipper_textview2);
+            TextView iv1 = (TextView) mActivity.findViewById(R.id.viewflipper_textview1);
+            TextView iv2 = (TextView) mActivity.findViewById(R.id.viewflipper_textview2);
 
-                assertSame(iv1, viewFlipper.getCurrentView());
-                assertEquals(View.VISIBLE, iv1.getVisibility());
-                assertEquals(View.GONE, iv2.getVisibility());
+            assertSame(iv1, viewFlipper.getCurrentView());
+            assertEquals(View.VISIBLE, iv1.getVisibility());
+            assertEquals(View.GONE, iv2.getVisibility());
 
-                viewFlipper.stopFlipping();
-                assertFalse(viewFlipper.isFlipping());
-            }
+            viewFlipper.stopFlipping();
+            assertFalse(viewFlipper.isFlipping());
         });
-    }
-
-    private void waitForViewFlipping(int timeout) {
-        try {
-            Thread.sleep(timeout);
-        } catch (InterruptedException e) {
-            fail(e.getMessage());
-        }
     }
 }

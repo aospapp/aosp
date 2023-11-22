@@ -122,8 +122,7 @@ class server_list(action_common.atest_list, server):
                                      'note\t\tserver1  | primary | scheduler | '
                                      'lab'),
                                action='store_true',
-                               default=False,
-                               metavar='TABLE')
+                               default=False)
         self.parser.add_option('-s', '--status',
                                help='Only show servers with given status',
                                type='string',
@@ -135,14 +134,18 @@ class server_list(action_common.atest_list, server):
                                      'server2(backup)\t\tdrone: server3(primary'
                                      ') server4(backup)'),
                                action='store_true',
-                               default=False,
-                               metavar='SUMMARY')
+                               default=False)
+        self.parser.add_option('--json',
+                               help='Format output as JSON.',
+                               action='store_true',
+                               default=False)
 
 
     def parse(self):
         """Parse command arguments.
         """
         (options, leftover) = super(server_list, self).parse()
+        self.json = options.json
         self.table = options.table
         self.status = options.status
         self.summary = options.summary
@@ -173,13 +176,20 @@ class server_list(action_common.atest_list, server):
         @param results: return of the execute call, a list of server object that
                         contains server information.
         """
-        if not results:
+        if results:
+            if self.json:
+                formatter = server_manager_utils.format_servers_json
+            elif self.table:
+                formatter = server_manager_utils.format_servers_table
+            elif self.summary:
+                formatter = server_manager_utils.format_servers_summary
+            else:
+                formatter = server_manager_utils.format_servers
+            print formatter(results)
+        else:
             self.failure('No server is found.',
                          what_failed='Failed to find servers',
                          item=self.hostname, fatal=True)
-        else:
-            print server_manager_utils.get_server_details(results, self.table,
-                                                          self.summary)
 
 
 class server_create(server):

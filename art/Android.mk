@@ -42,7 +42,7 @@ clean-oat: clean-oat-host clean-oat-target
 
 .PHONY: clean-oat-host
 clean-oat-host:
-	find $(OUT_DIR) -name "*.oat" -o -name "*.odex" -o -name "*.art" | xargs rm -f
+	find $(OUT_DIR) -name "*.oat" -o -name "*.odex" -o -name "*.art" -o -name '*.vdex' | xargs rm -f
 ifneq ($(TMPDIR),)
 	rm -rf $(TMPDIR)/$(USER)/test-*/dalvik-cache/*
 	rm -rf $(TMPDIR)/android-data/dalvik-cache/*
@@ -76,51 +76,21 @@ include $(art_path)/build/Android.cpplint.mk
 ########################################################################
 # product rules
 
-include $(art_path)/runtime/Android.mk
-include $(art_path)/runtime/simulator/Android.mk
-include $(art_path)/compiler/Android.mk
-include $(art_path)/dexdump/Android.mk
-include $(art_path)/dexlist/Android.mk
-include $(art_path)/dex2oat/Android.mk
-include $(art_path)/disassembler/Android.mk
 include $(art_path)/oatdump/Android.mk
-include $(art_path)/imgdiag/Android.mk
-include $(art_path)/patchoat/Android.mk
-include $(art_path)/profman/Android.mk
-include $(art_path)/dalvikvm/Android.mk
 include $(art_path)/tools/Android.mk
 include $(art_path)/tools/ahat/Android.mk
 include $(art_path)/tools/dexfuzz/Android.mk
-include $(art_path)/tools/dmtracedump/Android.mk
-include $(art_path)/sigchainlib/Android.mk
 include $(art_path)/libart_fake/Android.mk
+include $(art_path)/test/Android.run-test-jvmti-java-library.mk
 
-
-# ART_HOST_DEPENDENCIES depends on Android.executable.mk above for ART_HOST_EXECUTABLES
 ART_HOST_DEPENDENCIES := \
-	$(ART_HOST_EXECUTABLES) \
-	$(HOST_OUT_JAVA_LIBRARIES)/core-libart-hostdex.jar \
-	$(HOST_OUT_JAVA_LIBRARIES)/core-oj-hostdex.jar \
-	$(ART_HOST_OUT_SHARED_LIBRARIES)/libjavacore$(ART_HOST_SHLIB_EXTENSION) \
-	$(ART_HOST_OUT_SHARED_LIBRARIES)/libopenjdk$(ART_HOST_SHLIB_EXTENSION) \
-	$(ART_HOST_OUT_SHARED_LIBRARIES)/libopenjdkjvm$(ART_HOST_SHLIB_EXTENSION)
+  $(ART_HOST_EXECUTABLES) \
+  $(ART_HOST_DEX_DEPENDENCIES) \
+  $(ART_HOST_SHARED_LIBRARY_DEPENDENCIES)
 ART_TARGET_DEPENDENCIES := \
-	$(ART_TARGET_EXECUTABLES) \
-	$(TARGET_OUT_JAVA_LIBRARIES)/core-libart.jar \
-	$(TARGET_OUT_JAVA_LIBRARIES)/core-oj.jar \
-	$(TARGET_OUT_SHARED_LIBRARIES)/libjavacore.so \
-	$(TARGET_OUT_SHARED_LIBRARIES)/libopenjdk.so \
-	$(TARGET_OUT_SHARED_LIBRARIES)/libopenjdkjvm.so
-ifdef TARGET_2ND_ARCH
-ART_TARGET_DEPENDENCIES += $(2ND_TARGET_OUT_SHARED_LIBRARIES)/libjavacore.so
-ART_TARGET_DEPENDENCIES += $(2ND_TARGET_OUT_SHARED_LIBRARIES)/libopenjdk.so
-ART_TARGET_DEPENDENCIES += $(2ND_TARGET_OUT_SHARED_LIBRARIES)/libopenjdkjvm.so
-endif
-ifdef HOST_2ND_ARCH
-ART_HOST_DEPENDENCIES += $(2ND_HOST_OUT_SHARED_LIBRARIES)/libjavacore.so
-ART_HOST_DEPENDENCIES += $(2ND_HOST_OUT_SHARED_LIBRARIES)/libopenjdk.so
-ART_HOST_DEPENDENCIES += $(2ND_HOST_OUT_SHARED_LIBRARIES)/libopenjdkjvm.so
-endif
+  $(ART_TARGET_EXECUTABLES) \
+  $(ART_TARGET_DEX_DEPENDENCIES) \
+  $(ART_TARGET_SHARED_LIBRARY_DEPENDENCIES)
 
 ########################################################################
 # test rules
@@ -133,7 +103,6 @@ TEST_ART_TARGET_SYNC_DEPS :=
 include $(art_path)/build/Android.common_test.mk
 include $(art_path)/build/Android.gtest.mk
 include $(art_path)/test/Android.run-test.mk
-include $(art_path)/benchmark/Android.mk
 
 TEST_ART_ADB_ROOT_AND_REMOUNT := \
     (adb root && \
@@ -358,57 +327,20 @@ test-art-target-jit$(2ND_ART_PHONY_TEST_TARGET_SUFFIX): test-art-target-run-test
 	$(hide) $(call ART_TEST_PREREQ_FINISHED,$@)
 endif
 
+# Valgrind.
+.PHONY: valgrind-test-art-target
+valgrind-test-art-target: valgrind-test-art-target-gtest
+	$(hide) $(call ART_TEST_PREREQ_FINISHED,$@)
+
+.PHONY: valgrind-test-art-target32
+valgrind-test-art-target32: valgrind-test-art-target-gtest32
+	$(hide) $(call ART_TEST_PREREQ_FINISHED,$@)
+
+.PHONY: valgrind-test-art-target64
+valgrind-test-art-target64: valgrind-test-art-target-gtest64
+	$(hide) $(call ART_TEST_PREREQ_FINISHED,$@)
+
 endif  # art_test_bother
-
-########################################################################
-# oat-target and oat-target-sync rules
-
-OAT_TARGET_RULES :=
-
-# $(1): input jar or apk target location
-define declare-oat-target-target
-OUT_OAT_FILE := $(PRODUCT_OUT)/$(basename $(1)).odex
-
-ifeq ($(ONE_SHOT_MAKEFILE),)
-# ONE_SHOT_MAKEFILE is empty for a top level build and we don't want
-# to define the oat-target-* rules there because they will conflict
-# with the build/core/dex_preopt.mk defined rules.
-.PHONY: oat-target-$(1)
-oat-target-$(1):
-
-else
-.PHONY: oat-target-$(1)
-oat-target-$(1): $$(OUT_OAT_FILE)
-
-$$(OUT_OAT_FILE): $(PRODUCT_OUT)/$(1) $(DEFAULT_DEX_PREOPT_BUILT_IMAGE) $(DEX2OAT_DEPENDENCY)
-	@mkdir -p $$(dir $$@)
-	$(DEX2OAT) --runtime-arg -Xms$(DEX2OAT_XMS) --runtime-arg -Xmx$(DEX2OAT_XMX) \
-		--boot-image=$(DEFAULT_DEX_PREOPT_BUILT_IMAGE) --dex-file=$(PRODUCT_OUT)/$(1) \
-		--dex-location=/$(1) --oat-file=$$@ \
-		--instruction-set=$(DEX2OAT_TARGET_ARCH) \
-		--instruction-set-variant=$(DEX2OAT_TARGET_CPU_VARIANT) \
-		--instruction-set-features=$(DEX2OAT_TARGET_INSTRUCTION_SET_FEATURES) \
-		--android-root=$(PRODUCT_OUT)/system --include-patch-information \
-		--runtime-arg -Xnorelocate
-
-endif
-
-OAT_TARGET_RULES += oat-target-$(1)
-endef
-
-$(foreach file,\
-  $(filter-out\
-    $(addprefix $(TARGET_OUT_JAVA_LIBRARIES)/,$(addsuffix .jar,$(LIBART_TARGET_BOOT_JARS))),\
-    $(wildcard $(TARGET_OUT_APPS)/*.apk) $(wildcard $(TARGET_OUT_JAVA_LIBRARIES)/*.jar)),\
-  $(eval $(call declare-oat-target-target,$(subst $(PRODUCT_OUT)/,,$(file)))))
-
-.PHONY: oat-target
-oat-target: $(ART_TARGET_DEPENDENCIES) $(DEFAULT_DEX_PREOPT_INSTALLED_IMAGE) $(OAT_TARGET_RULES)
-
-.PHONY: oat-target-sync
-oat-target-sync: oat-target
-	$(TEST_ART_ADB_ROOT_AND_REMOUNT)
-	adb sync
 
 ####################################################################################################
 # Fake packages to ensure generation of libopenjdkd when one builds with mm/mmm/mmma.
@@ -449,6 +381,31 @@ build-art-host:   $(HOST_OUT_EXECUTABLES)/art $(ART_HOST_DEPENDENCIES) $(HOST_CO
 
 .PHONY: build-art-target
 build-art-target: $(TARGET_OUT_EXECUTABLES)/art $(ART_TARGET_DEPENDENCIES) $(TARGET_CORE_IMG_OUTS)
+
+########################################################################
+# Phony target for only building what go/lem requires on target.
+.PHONY: build-art-target-golem
+# Also include libartbenchmark, we always include it when running golem.
+# libstdc++ is needed when building for ART_TARGET_LINUX.
+ART_TARGET_SHARED_LIBRARY_BENCHMARK := $(TARGET_OUT_SHARED_LIBRARIES)/libartbenchmark.so
+build-art-target-golem: dex2oat dalvikvm patchoat linker libstdc++ \
+                        $(TARGET_OUT_EXECUTABLES)/art \
+                        $(TARGET_OUT)/etc/public.libraries.txt \
+                        $(ART_TARGET_DEX_DEPENDENCIES) \
+                        $(ART_TARGET_SHARED_LIBRARY_DEPENDENCIES) \
+                        $(ART_TARGET_SHARED_LIBRARY_BENCHMARK) \
+                        $(TARGET_CORE_IMG_OUT_BASE).art \
+                        $(TARGET_CORE_IMG_OUT_BASE)-interpreter.art
+	sed -i '/libartd.so/d' $(TARGET_OUT)/etc/public.libraries.txt
+	# remove libartd.so from public.libraries.txt because golem builds won't have it.
+
+########################################################################
+# Phony target for building what go/lem requires on host.
+.PHONY: build-art-host-golem
+# Also include libartbenchmark, we always include it when running golem.
+ART_HOST_SHARED_LIBRARY_BENCHMARK := $(ART_HOST_OUT_SHARED_LIBRARIES)/libartbenchmark.so
+build-art-host-golem: build-art-host \
+                      $(ART_HOST_SHARED_LIBRARY_BENCHMARK)
 
 ########################################################################
 # Rules for building all dependencies for tests.
@@ -558,11 +515,17 @@ art_dont_bother :=
 art_test_bother :=
 TEST_ART_TARGET_SYNC_DEPS :=
 
-include $(art_path)/runtime/openjdkjvm/Android.mk
-
 # Helper target that depends on boot image creation.
 #
 # Can be used, for example, to dump initialization failures:
 #   m art-boot-image ART_BOOT_IMAGE_EXTRA_ARGS=--dump-init-failures=fails.txt
 .PHONY: art-boot-image
 art-boot-image: $(DEFAULT_DEX_PREOPT_BUILT_IMAGE_FILENAME)
+
+.PHONY: art-job-images
+art-job-images: \
+  $(DEFAULT_DEX_PREOPT_BUILT_IMAGE_FILENAME) \
+  $(2ND_DEFAULT_DEX_PREOPT_BUILT_IMAGE_FILENAME) \
+  $(HOST_OUT_EXECUTABLES)/dex2oats \
+  $(HOST_OUT_EXECUTABLES)/dex2oatds \
+  $(HOST_OUT_EXECUTABLES)/profman

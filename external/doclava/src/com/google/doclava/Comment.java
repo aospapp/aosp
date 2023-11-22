@@ -44,6 +44,7 @@ public class Comment {
           "@serial",
           "@implNote",
           "@implSpec",
+          "@usesMathJax",
       }));
 
   public Comment(String text, ContainerInfo base, SourcePositionInfo sp) {
@@ -372,6 +373,12 @@ public class Comment {
       mInlineTagsList.add(new SampleTagInfo(name, "@include", text, mBase, pos));
     } else if (name.equals("@apiNote") || name.equals("@implSpec") || name.equals("@implNote")) {
       mTagsList.add(new ParsedTagInfo(name, name, text, mBase, pos));
+    } else if (name.equals("@memberDoc")) {
+      mMemberDocTagsList.add(new ParsedTagInfo("@memberDoc", "@memberDoc", text, mBase, pos));
+    } else if (name.equals("@paramDoc")) {
+      mParamDocTagsList.add(new ParsedTagInfo("@paramDoc", "@paramDoc", text, mBase, pos));
+    } else if (name.equals("@returnDoc")) {
+      mReturnDocTagsList.add(new ParsedTagInfo("@returnDoc", "@returnDoc", text, mBase, pos));
     } else {
       boolean known = KNOWN_TAGS.contains(name);
       if (!known) {
@@ -485,6 +492,21 @@ public class Comment {
     return mBriefTags;
   }
 
+  public ParsedTagInfo[] memberDocTags() {
+    init();
+    return mMemberDocTags;
+  }
+
+  public ParsedTagInfo[] paramDocTags() {
+    init();
+    return mParamDocTags;
+  }
+
+  public ParsedTagInfo[] returnDocTags() {
+    init();
+    return mReturnDocTags;
+  }
+
   public boolean isHidden() {
     if (mHidden == null) {
       mHidden = !Doclava.checkLevel(Doclava.SHOW_HIDDEN) &&
@@ -554,6 +576,9 @@ public class Comment {
     mUndeprecateTags = mUndeprecateTagsList.toArray(TagInfo.getArray(mUndeprecateTagsList.size()));
     mAttrTags = mAttrTagsList.toArray(AttrTagInfo.getArray(mAttrTagsList.size()));
     mBriefTags = mBriefTagsList.toArray(TagInfo.getArray(mBriefTagsList.size()));
+    mMemberDocTags = mMemberDocTagsList.toArray(ParsedTagInfo.getArray(mMemberDocTagsList.size()));
+    mParamDocTags = mParamDocTagsList.toArray(ParsedTagInfo.getArray(mParamDocTagsList.size()));
+    mReturnDocTags = mReturnDocTagsList.toArray(ParsedTagInfo.getArray(mReturnDocTagsList.size()));
 
     mTagsList = null;
     mParamTagsList = null;
@@ -564,6 +589,9 @@ public class Comment {
     mUndeprecateTagsList = null;
     mAttrTagsList = null;
     mBriefTagsList = null;
+    mMemberDocTagsList = null;
+    mParamDocTagsList = null;
+    mReturnDocTagsList = null;
   }
 
   boolean mInitialized;
@@ -586,6 +614,9 @@ public class Comment {
   TagInfo[] mDeprecatedTags;
   TagInfo[] mUndeprecateTags;
   AttrTagInfo[] mAttrTags;
+  ParsedTagInfo[] mMemberDocTags;
+  ParsedTagInfo[] mParamDocTags;
+  ParsedTagInfo[] mReturnDocTags;
 
   ArrayList<TagInfo> mInlineTagsList = new ArrayList<TagInfo>();
   ArrayList<TagInfo> mTagsList = new ArrayList<TagInfo>();
@@ -597,6 +628,8 @@ public class Comment {
   ArrayList<ParsedTagInfo> mDeprecatedTagsList = new ArrayList<ParsedTagInfo>();
   ArrayList<TagInfo> mUndeprecateTagsList = new ArrayList<TagInfo>();
   ArrayList<AttrTagInfo> mAttrTagsList = new ArrayList<AttrTagInfo>();
-
+  ArrayList<ParsedTagInfo> mMemberDocTagsList = new ArrayList<ParsedTagInfo>();
+  ArrayList<ParsedTagInfo> mParamDocTagsList = new ArrayList<ParsedTagInfo>();
+  ArrayList<ParsedTagInfo> mReturnDocTagsList = new ArrayList<ParsedTagInfo>();
 
 }

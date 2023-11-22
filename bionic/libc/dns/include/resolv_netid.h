@@ -71,7 +71,7 @@ struct android_net_context {
     unsigned dns_netid;
     unsigned dns_mark;
     uid_t uid;
-} __attribute__((packed));
+};
 
 #define NET_CONTEXT_INVALID_UID ((uid_t)-1)
 
@@ -100,9 +100,6 @@ extern void _resolv_delete_cache_for_net(unsigned netid) __used_in_netd;
 struct hostent *android_gethostbyaddrfornet_proxy(const void *, socklen_t, int , unsigned, unsigned) __LIBC_HIDDEN__;
 int android_getnameinfofornet(const struct sockaddr *, socklen_t, char *, size_t, char *, size_t, int, unsigned, unsigned) __LIBC_HIDDEN__;
 FILE* android_open_proxy(void) __LIBC_HIDDEN__;
-
-/* delete the cache associated with a certain network */
-extern void _resolv_delete_cache_for_net(unsigned netid);
 
 __END_DECLS
 

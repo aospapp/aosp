@@ -17,38 +17,36 @@
  ******************************************************************************/
 
 /*****************************************************************************
-**
-**  Name        vendor_hcidefs.h
-**
-**  Function    This file contains Broadcom Specific Host Controller Interface
-**              definitions.
-**
-******************************************************************************/
+ *
+ *  Name        vendor_hcidefs.h
+ *
+ *  Function    This file contains Broadcom Specific Host Controller Interface
+ *              definitions.
+ *
+ *****************************************************************************/
 
 #ifndef VENDOR_HCIDEFS_H
 #define VENDOR_HCIDEFS_H
 
 /*****************************************************************************
-** Private address resolution VSC
-******************************************************************************/
+ * Private address resolution VSC
+ *****************************************************************************/
 
 /* VSC */
-#define HCI_VENDOR_BLE_RPA_VSC                (0x0155 | HCI_GRP_VENDOR_SPECIFIC)
+#define HCI_VENDOR_BLE_RPA_VSC (0x0155 | HCI_GRP_VENDOR_SPECIFIC)
 
 /* Sub codes */
-#define HCI_VENDOR_BLE_RPA_ENABLE       0x01
-#define HCI_VENDOR_BLE_RPA_ADD_IRK      0x02
-#define HCI_VENDOR_BLE_RPA_REMOVE_IRK   0x03
-#define HCI_VENDOR_BLE_RPA_CLEAR_IRK    0x04
-#define HCI_VENDOR_BLE_RPA_READ_IRK     0x05
-
+#define HCI_VENDOR_BLE_RPA_ENABLE 0x01
+#define HCI_VENDOR_BLE_RPA_ADD_IRK 0x02
+#define HCI_VENDOR_BLE_RPA_REMOVE_IRK 0x03
+#define HCI_VENDOR_BLE_RPA_CLEAR_IRK 0x04
+#define HCI_VENDOR_BLE_RPA_READ_IRK 0x05
 
 /*****************************************************************************
-** Advertising data payload filter VSC
-******************************************************************************/
+ * Advertising data payload filter VSC
+ *****************************************************************************/
 
 /* VSC */
-#define HCI_VENDOR_BLE_PCF_VSC                (0x0157 | HCI_GRP_VENDOR_SPECIFIC)
+#define HCI_VENDOR_BLE_PCF_VSC (0x0157 | HCI_GRP_VENDOR_SPECIFIC)
 
 #endif
-

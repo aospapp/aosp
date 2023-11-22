@@ -1,5 +1,7 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
- * Copyright (C) 1996-2015, International Business Machines
+ * Copyright (C) 1996-2016, International Business Machines
  * Corporation and others.  All Rights Reserved.
  */
 
@@ -164,7 +166,7 @@ import com.ibm.icu.util.ULocale.Category;
 
  * @see          Calendar
  * @see          TimeZone
- * @author David Goldsmith, Mark Davis, Chen-Lieh Huang, Alan Liu
+ * @author Deborah Goldsmith, Mark Davis, Chen-Lieh Huang, Alan Liu
  * @stable ICU 2.0
  */
 public class GregorianCalendar extends Calendar {
@@ -768,7 +770,7 @@ public class GregorianCalendar extends Calendar {
             eyear = (int) floorDivide(4*julianEpochDay + 1464, 1461);
             
             // Compute the Julian calendar day number for January 1, eyear
-            long january1 = 365*(eyear-1) + floorDivide(eyear-1, 4);
+            long january1 = 365L*(eyear-1L) + floorDivide(eyear-1L, 4L);
             dayOfYear = (int)(julianEpochDay - january1); // 0-based
             
             // Julian leap years occurred historically every 4 years starting

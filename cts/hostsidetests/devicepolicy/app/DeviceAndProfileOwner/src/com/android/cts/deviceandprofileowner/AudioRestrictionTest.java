@@ -17,6 +17,7 @@
 package com.android.cts.deviceandprofileowner;
 
 import android.content.Context;
+import android.content.pm.PackageManager;
 import android.media.AudioManager;
 import android.os.SystemClock;
 import android.os.UserManager;
@@ -27,6 +28,7 @@ import java.util.concurrent.Callable;
 public class AudioRestrictionTest extends BaseDeviceAdminTest {
 
     private AudioManager mAudioManager;
+    private PackageManager mPackageManager;
     private final Callable<Boolean> mCheckIfMasterVolumeMuted = new Callable<Boolean>() {
         @Override
         public Boolean call() throws Exception {
@@ -38,10 +40,15 @@ public class AudioRestrictionTest extends BaseDeviceAdminTest {
     protected void setUp() throws Exception {
         super.setUp();
         mAudioManager = (AudioManager) mContext.getSystemService(Context.AUDIO_SERVICE);
+        mPackageManager = mContext.getPackageManager();
     }
 
     // Here we test that DISALLOW_ADJUST_VOLUME disallows to unmute volume.
     public void testDisallowAdjustVolume_muted() throws Exception {
+        if (!mPackageManager.hasSystemFeature(PackageManager.FEATURE_AUDIO_OUTPUT)) {
+            return;
+        }
+
         // If we check that some value did not change, we must wait until the action is applied.
         // Method waitUntil() may check old value before changes took place.
         final int WAIT_TIME_MS = 1000;
@@ -71,6 +78,10 @@ public class AudioRestrictionTest extends BaseDeviceAdminTest {
     }
 
     public void testDisallowAdjustVolume() throws Exception {
+        if (!mPackageManager.hasSystemFeature(PackageManager.FEATURE_AUDIO_OUTPUT)) {
+            return;
+        }
+
         try {
             // Set volume of ringtone to be 1.
             mAudioManager.setStreamVolume(AudioManager.STREAM_RING, 1, /* flag= */ 0);
@@ -106,6 +117,10 @@ public class AudioRestrictionTest extends BaseDeviceAdminTest {
     }
 
     public void testDisallowUnmuteMicrophone() throws Exception {
+        if (!mPackageManager.hasSystemFeature(PackageManager.FEATURE_MICROPHONE)) {
+            return;
+        }
+
         try {
             mAudioManager.setMicrophoneMute(false);
             assertFalse(mAudioManager.isMicrophoneMute());

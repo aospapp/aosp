@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -30,19 +30,14 @@
 #ifndef __GR_ADRENO_INFO_H__
 #define __GR_ADRENO_INFO_H__
 
-#ifdef VENUS_COLOR_FORMAT
 #include <media/msm_media_info.h>
-#else
-#define VENUS_Y_STRIDE(args...) 0
-#define VENUS_Y_SCANLINES(args...) 0
-#define VENUS_BUFFER_SIZE(args...) 0
-#endif
 
 namespace gralloc1 {
 
 // Adreno Pixel Formats
 typedef enum {
   ADRENO_PIXELFORMAT_UNKNOWN = 0,
+  ADRENO_PIXELFORMAT_R10G10B10A2_UNORM = 24,  // Vertex, Normalized GL_UNSIGNED_INT_10_10_10_2_OES
   ADRENO_PIXELFORMAT_R8G8B8A8 = 28,
   ADRENO_PIXELFORMAT_R8G8B8A8_SRGB = 29,
   ADRENO_PIXELFORMAT_B5G6R5 = 85,
@@ -59,6 +54,10 @@ typedef enum {
   ADRENO_PIXELFORMAT_A1B5G5R5 = 519,       //  GL_RGB5_A1
   ADRENO_PIXELFORMAT_R8G8B8X8_SRGB = 520,  //  GL_SRGB8
   ADRENO_PIXELFORMAT_R8G8B8_SRGB = 521,    //  GL_SRGB8
+  ADRENO_PIXELFORMAT_A2B10G10R10_UNORM = 532,
+                                          // Vertex, Normalized GL_UNSIGNED_INT_10_10_10_2_OES
+  ADRENO_PIXELFORMAT_R10G10B10X2_UNORM = 537,
+                                          // Vertex, Normalized GL_UNSIGNED_INT_10_10_10_2_OES
   ADRENO_PIXELFORMAT_R5G6B5 = 610,         //  RGBA version of B5G6R5
   ADRENO_PIXELFORMAT_R5G5B5A1 = 611,       //  RGBA version of B5G5R5A1
   ADRENO_PIXELFORMAT_R4G4B4A4 = 612,       //  RGBA version of B4G4R4A4
@@ -112,14 +111,6 @@ class AdrenoMemInfo {
   uint32_t GetGpuPixelAlignment();
 
   /*
-   * Function to return whether GPU support MacroTile feature
-   *
-   * @return >0 : supported
-   *          0 : not supported
-   */
-  bool IsMacroTilingSupportedByGPU();
-
-  /*
    * Function to query whether GPU supports UBWC for given HAL format
    * @return > 0 : supported
    *           0 : not supported
@@ -139,7 +130,6 @@ class AdrenoMemInfo {
                                                        int tile_mode, int raster_mode,
                                                        int padding_threshold, int *aligned_w,
                                                        int *aligned_h) = NULL;
-  int (*LINK_adreno_isMacroTilingSupportedByGpu)(void) = NULL;
   void (*LINK_adreno_compute_compressedfmt_aligned_width_and_height)(
       int width, int height, int format, int tile_mode, int raster_mode, int padding_threshold,
       int *aligned_w, int *aligned_h, int *bpp) = NULL;

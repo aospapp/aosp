@@ -55,7 +55,7 @@ abstract class SensorSettingContainer {
     public synchronized void requestToSetMode(
             ISensorTestStateContainer stateContainer,
             boolean modeOn) throws InterruptedException {
-        if (!isSettingAvailable() && !isSettingUiAvailable(stateContainer)) {
+        if (!isSettingAvailable() || !isSettingUiAvailable(stateContainer)) {
             return;
         }
         trySetMode(stateContainer, modeOn);

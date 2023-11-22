@@ -26,7 +26,8 @@
             android:divider="#FFCC00"
             android:dividerHeight="4px">
     </ListView>
-    <LinearLayout
+    <GridLayout
+        android:columnCount="4"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:orientation="horizontal">
@@ -44,7 +45,26 @@
             android:id="@+id/hold_button"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="@string/holdButton" >
-        </Button>
-    </LinearLayout>
+            android:text="@string/holdButton"/>
+        <Button
+            android:id="@+id/rtt_iface_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/rttIfaceButton"/>
+        <Button
+            android:id="@+id/answer_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/answerCallButton"/>
+        <Button
+            android:id="@+id/start_rtt_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/startRttButton"/>
+        <Button
+            android:id="@+id/accept_rtt_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/acceptRttButton"/>
+    </GridLayout>
 </LinearLayout>

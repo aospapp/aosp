@@ -78,6 +78,9 @@ public:
                           camera_frame_metadata_t *metadata);
     virtual void postDataTimestamp(nsecs_t timestamp, int32_t msgType, const sp<IMemory>& dataPtr);
     virtual void postRecordingFrameHandleTimestamp(nsecs_t timestamp, native_handle_t* handle);
+    virtual void postRecordingFrameHandleTimestampBatch(
+            const std::vector<nsecs_t>& timestamps,
+            const std::vector<native_handle_t*>& handles);
     void postMetadata(JNIEnv *env, int32_t msgType, camera_frame_metadata_t *metadata);
     void addCallbackBuffer(JNIEnv *env, jbyteArray cbb, int msgType);
     void setCallbackMode(JNIEnv *env, bool installed, bool manualMode);
@@ -350,9 +353,32 @@ void JNICameraContext::postDataTimestamp(nsecs_t timestamp, int32_t msgType, con
     postData(msgType, dataPtr, NULL);
 }
 
-void JNICameraContext::postRecordingFrameHandleTimestamp(nsecs_t, native_handle_t*) {
-    // This is not needed at app layer. This should not be called because JNICameraContext cannot
-    // start video recording.
+void JNICameraContext::postRecordingFrameHandleTimestamp(nsecs_t, native_handle_t* handle) {
+    // Video buffers are not needed at app layer so just return the video buffers here.
+    // This may be called when stagefright just releases camera but there are still outstanding
+    // video buffers.
+    if (mCamera != nullptr) {
+        mCamera->releaseRecordingFrameHandle(handle);
+    } else {
+        native_handle_close(handle);
+        native_handle_delete(handle);
+    }
+}
+
+void JNICameraContext::postRecordingFrameHandleTimestampBatch(
+        const std::vector<nsecs_t>&,
+        const std::vector<native_handle_t*>& handles) {
+    // Video buffers are not needed at app layer so just return the video buffers here.
+    // This may be called when stagefright just releases camera but there are still outstanding
+    // video buffers.
+    if (mCamera != nullptr) {
+        mCamera->releaseRecordingFrameHandleBatch(handles);
+    } else {
+        for (auto& handle : handles) {
+            native_handle_close(handle);
+            native_handle_delete(handle);
+        }
+    }
 }
 
 void JNICameraContext::postMetadata(JNIEnv *env, int32_t msgType, camera_frame_metadata_t *metadata)

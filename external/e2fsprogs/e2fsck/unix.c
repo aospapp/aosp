@@ -11,6 +11,7 @@
 
 #define _XOPEN_SOURCE 600 /* for inclusion of sa_handler in Solaris */
 
+#include "config.h"
 #include <stdio.h>
 #ifdef HAVE_STDLIB_H
 #include <stdlib.h>
@@ -44,12 +45,15 @@ extern int optind;
 #ifdef HAVE_DIRENT_H
 #include <dirent.h>
 #endif
+#include <libgen.h>
 
 #include "e2p/e2p.h"
 #include "et/com_err.h"
 #include "e2p/e2p.h"
+#include "support/plausible.h"
 #include "e2fsck.h"
 #include "problem.h"
+#include "jfs_user.h"
 #include "../version.h"
 
 /* Command line options */
@@ -63,21 +67,16 @@ static char *bad_blocks_file;
 
 e2fsck_t e2fsck_global_ctx;	/* Try your very best not to use this! */
 
-#ifdef CONFIG_JBD_DEBUG		/* Enabled by configure --enable-jfs-debug */
+#ifdef CONFIG_JBD_DEBUG		/* Enabled by configure --enable-jbd-debug */
 int journal_enable_debug = -1;
-#endif
-
-#ifndef ROOT_SYSCONFDIR
-#define ROOT_SYSCONFDIR "/etc"
 #endif
 
 static void usage(e2fsck_t ctx)
 {
 	fprintf(stderr,
-		_("Usage: %s [-panyrcdfvtDFV] [-b superblock] [-B blocksize]\n"
-		"\t\t[-I inode_buffer_blocks] [-P process_inode_size]\n"
+		_("Usage: %s [-panyrcdfktvDFV] [-b superblock] [-B blocksize]\n"
 		"\t\t[-l|-L bad_blocks_file] [-C fd] [-j external_journal]\n"
-		"\t\t[-E extended-options] device\n"),
+		"\t\t[-E extended-options] [-z undo_file] device\n"),
 		ctx->program_name);
 
 	fprintf(stderr, "%s", _("\nEmergency help:\n"
@@ -93,6 +92,7 @@ static void usage(e2fsck_t ctx)
 		" -j external_journal  Set location of the external journal\n"
 		" -l bad_blocks_file   Add to badblocks list\n"
 		" -L bad_blocks_file   Set badblocks list\n"
+		" -z undo_file         Create an undo file\n"
 		));
 
 	exit(FSCK_USAGE);
@@ -252,15 +252,19 @@ static void check_mount(e2fsck_t ctx)
 	     ((ctx->options & E2F_OPT_FORCE) &&
 	      (ctx->mount_flags & EXT2_MF_READONLY))) &&
 	    !(ctx->options & E2F_OPT_WRITECHECK)) {
-		log_out(ctx, _("Warning!  %s is %s.\n"),
-			ctx->filesystem_name,
-			ctx->mount_flags & EXT2_MF_MOUNTED ?
-				"mounted" : "in use");
+		if (ctx->mount_flags & EXT2_MF_MOUNTED)
+			log_out(ctx, _("Warning!  %s is mounted.\n"),
+					ctx->filesystem_name);
+		else
+			log_out(ctx, _("Warning!  %s is in use.\n"),
+					ctx->filesystem_name);
 		return;
 	}
 
-	log_out(ctx, _("%s is %s.\n"), ctx->filesystem_name,
-		ctx->mount_flags & EXT2_MF_MOUNTED ? "mounted" : "in use");
+	if (ctx->mount_flags & EXT2_MF_MOUNTED)
+		log_out(ctx, _("%s is mounted.\n"), ctx->filesystem_name);
+	else
+		log_out(ctx, _("%s is in use.\n"), ctx->filesystem_name);
 	if (!ctx->interactive || ctx->mount_flags & EXT2_MF_BUSY)
 		fatal_error(ctx, _("Cannot continue, aborting.\n\n"));
 	puts("\007\007\007\007");
@@ -339,6 +343,9 @@ static void check_if_skip(e2fsck_t ctx)
 	int defer_check_on_battery;
 	int broken_system_clock;
 	time_t lastcheck;
+
+	if (ctx->flags & E2F_FLAG_PROBLEMS_FIXED)
+		return;
 
 	profile_get_boolean(ctx->profile, "options", "broken_system_clock",
 			    0, 0, &broken_system_clock);
@@ -454,8 +461,7 @@ static void check_if_skip(e2fsck_t ctx)
 	}
 	log_out(ctx, "\n");
 skip:
-	ext2fs_close(fs);
-	ctx->fs = NULL;
+	ext2fs_close_free(&ctx->fs);
 	e2fsck_free_context(ctx);
 	exit(FSCK_OK);
 }
@@ -646,6 +652,7 @@ static void parse_extended_opts(e2fsck_t ctx, const char *opts)
 	char	*buf, *token, *next, *p, *arg;
 	int	ea_ver;
 	int	extended_usage = 0;
+	unsigned long long reada_kb;
 
 	buf = string_copy(ctx, opts, 0);
 	for (token = buf; token && *token; token = next) {
@@ -674,6 +681,19 @@ static void parse_extended_opts(e2fsck_t ctx, const char *opts)
 				continue;
 			}
 			ctx->ext_attr_ver = ea_ver;
+		} else if (strcmp(token, "readahead_kb") == 0) {
+			if (!arg) {
+				extended_usage++;
+				continue;
+			}
+			reada_kb = strtoull(arg, &p, 0);
+			if (*p) {
+				fprintf(stderr, "%s",
+					_("Invalid readahead buffer size.\n"));
+				extended_usage++;
+				continue;
+			}
+			ctx->readahead_kb = reada_kb;
 		} else if (strcmp(token, "fragcheck") == 0) {
 			ctx->options |= E2F_OPT_FRAGCHECK;
 			continue;
@@ -695,6 +715,12 @@ static void parse_extended_opts(e2fsck_t ctx, const char *opts)
 			else
 				ctx->log_fn = string_copy(ctx, arg, 0);
 			continue;
+		} else if (strcmp(token, "bmap2extent") == 0) {
+			ctx->options |= E2F_OPT_CONVERT_BMAP;
+			continue;
+		} else if (strcmp(token, "fixes_only") == 0) {
+			ctx->options |= E2F_OPT_FIXES_ONLY;
+			continue;
 		} else {
 			fprintf(stderr, _("Unknown extended option: %s\n"),
 				token);
@@ -713,6 +739,8 @@ static void parse_extended_opts(e2fsck_t ctx, const char *opts)
 		fputs(("\tjournal_only\n"), stderr);
 		fputs(("\tdiscard\n"), stderr);
 		fputs(("\tnodiscard\n"), stderr);
+		fputs(("\treadahead_kb=<buffer size>\n"), stderr);
+		fputs(("\tbmap2extent\n"), stderr);
 		fputc('\n', stderr);
 		exit(1);
 	}
@@ -746,16 +774,18 @@ static errcode_t PRS(int argc, char *argv[], e2fsck_t *ret_ctx)
 #ifdef CONFIG_JBD_DEBUG
 	char 		*jbd_debug;
 #endif
+	unsigned long long phys_mem_kb;
 
 	retval = e2fsck_allocate_context(&ctx);
 	if (retval)
 		return retval;
 
 	*ret_ctx = ctx;
+	e2fsck_global_ctx = ctx;
 
 	setvbuf(stdout, NULL, _IONBF, BUFSIZ);
 	setvbuf(stderr, NULL, _IONBF, BUFSIZ);
-	if (isatty(0) && isatty(1)) {
+	if (getenv("E2FSCK_FORCE_INTERACTIVE") || (isatty(0) && isatty(1))) {
 		ctx->interactive = 1;
 	} else {
 		ctx->start_meta[0] = '\001';
@@ -772,7 +802,9 @@ static errcode_t PRS(int argc, char *argv[], e2fsck_t *ret_ctx)
 	else
 		ctx->program_name = "e2fsck";
 
-	while ((c = getopt (argc, argv, "panyrcC:B:dE:fvtFVM:b:I:j:P:l:L:N:SsDk")) != EOF)
+	phys_mem_kb = get_memory_size() / 1024;
+	ctx->readahead_kb = ~0ULL;
+	while ((c = getopt(argc, argv, "panyrcC:B:dE:fvtFVM:b:I:j:P:l:L:N:SsDkz:")) != EOF)
 		switch (c) {
 		case 'C':
 			ctx->progress = e2fsck_update_progress;
@@ -904,6 +936,9 @@ static errcode_t PRS(int argc, char *argv[], e2fsck_t *ret_ctx)
 		case 'k':
 			keep_bad_blocks++;
 			break;
+		case 'z':
+			ctx->undo_file = optarg;
+			break;
 		default:
 			usage(ctx);
 		}
@@ -942,6 +977,22 @@ static errcode_t PRS(int argc, char *argv[], e2fsck_t *ret_ctx)
 	if (extended_opts)
 		parse_extended_opts(ctx, extended_opts);
 
+	/* Complain about mutually exclusive rebuilding activities */
+	if (getenv("E2FSCK_FIXES_ONLY"))
+		ctx->options |= E2F_OPT_FIXES_ONLY;
+	if ((ctx->options & E2F_OPT_COMPRESS_DIRS) &&
+	    (ctx->options & E2F_OPT_FIXES_ONLY)) {
+		com_err(ctx->program_name, 0, "%s",
+			_("The -D and -E fixes_only options are incompatible."));
+		fatal_error(ctx, 0);
+	}
+	if ((ctx->options & E2F_OPT_CONVERT_BMAP) &&
+	    (ctx->options & E2F_OPT_FIXES_ONLY)) {
+		com_err(ctx->program_name, 0, "%s",
+			_("The -E bmap2extent and fixes_only options are incompatible."));
+		fatal_error(ctx, 0);
+	}
+
 	if ((cp = getenv("E2FSCK_CONFIG")) != NULL)
 		config_fn[0] = cp;
 	profile_set_syntax_err_cb(syntax_err_report);
@@ -955,6 +1006,20 @@ static errcode_t PRS(int argc, char *argv[], e2fsck_t *ret_ctx)
 			    &c);
 	if (c)
 		verbose = 1;
+
+	if (ctx->readahead_kb == ~0ULL) {
+		profile_get_integer(ctx->profile, "options",
+				    "readahead_mem_pct", 0, -1, &c);
+		if (c >= 0 && c <= 100)
+			ctx->readahead_kb = phys_mem_kb * c / 100;
+		profile_get_integer(ctx->profile, "options",
+				    "readahead_kb", 0, -1, &c);
+		if (c >= 0)
+			ctx->readahead_kb = c;
+		if (ctx->readahead_kb != ~0ULL &&
+		    ctx->readahead_kb > phys_mem_kb)
+			ctx->readahead_kb = phys_mem_kb;
+	}
 
 	/* Turn off discard in read-only mode */
 	if ((ctx->options & E2F_OPT_NO) &&
@@ -993,7 +1058,6 @@ static errcode_t PRS(int argc, char *argv[], e2fsck_t *ret_ctx)
 #ifdef SA_RESTART
 	sa.sa_flags = SA_RESTART;
 #endif
-	e2fsck_global_ctx = ctx;
 	sa.sa_handler = signal_progress_on;
 	sigaction(SIGUSR1, &sa, 0);
 	sa.sa_handler = signal_progress_off;
@@ -1069,9 +1133,11 @@ static errcode_t try_open_fs(e2fsck_t ctx, int flags, io_manager io_ptr,
 		retval = ext2fs_open2(ctx->filesystem_name, ctx->io_options,
 				      flags, 0, 0, io_ptr, ret_fs);
 
-	if (retval == 0)
+	if (retval == 0) {
+		(*ret_fs)->priv_data = ctx;
 		e2fsck_set_bitmap_type(*ret_fs, EXT2FS_BMAP64_RBTREE,
 				       "default", NULL);
+	}
 	return retval;
 }
 
@@ -1156,7 +1222,101 @@ check_error:
 			ext2fs_mmp_clear(fs);
 			retval = 0;
 		}
+	} else if (retval == EXT2_ET_MMP_CSUM_INVALID) {
+		if (fix_problem(ctx, PR_0_MMP_CSUM_INVALID, &pctx)) {
+			ext2fs_mmp_clear(fs);
+			retval = 0;
+		}
+	} else
+		com_err(ctx->program_name, retval, "%s",
+			_("while reading MMP block"));
+	return retval;
+}
+
+static int e2fsck_setup_tdb(e2fsck_t ctx, io_manager *io_ptr)
+{
+	errcode_t retval = ENOMEM;
+	char *tdb_dir = NULL, *tdb_file = NULL;
+	char *dev_name, *tmp_name;
+	int free_tdb_dir = 0;
+
+	/* (re)open a specific undo file */
+	if (ctx->undo_file && ctx->undo_file[0] != 0) {
+		retval = set_undo_io_backing_manager(*io_ptr);
+		if (retval)
+			goto err;
+		*io_ptr = undo_io_manager;
+		retval = set_undo_io_backup_file(ctx->undo_file);
+		if (retval)
+			goto err;
+		printf(_("Overwriting existing filesystem; this can be undone "
+			 "using the command:\n"
+			 "    e2undo %s %s\n\n"),
+			ctx->undo_file, ctx->filesystem_name);
+		return retval;
 	}
+
+	/*
+	 * Configuration via a conf file would be
+	 * nice
+	 */
+	tdb_dir = getenv("E2FSPROGS_UNDO_DIR");
+	if (!tdb_dir) {
+		profile_get_string(ctx->profile, "defaults",
+				   "undo_dir", 0, "/var/lib/e2fsprogs",
+				   &tdb_dir);
+		free_tdb_dir = 1;
+	}
+
+	if (!strcmp(tdb_dir, "none") || (tdb_dir[0] == 0) ||
+	    access(tdb_dir, W_OK)) {
+		if (free_tdb_dir)
+			free(tdb_dir);
+		return 0;
+	}
+
+	tmp_name = strdup(ctx->filesystem_name);
+	if (!tmp_name)
+		goto errout;
+	dev_name = basename(tmp_name);
+	tdb_file = malloc(strlen(tdb_dir) + 8 + strlen(dev_name) + 7 + 1);
+	if (!tdb_file) {
+		free(tmp_name);
+		goto errout;
+	}
+	sprintf(tdb_file, "%s/e2fsck-%s.e2undo", tdb_dir, dev_name);
+	free(tmp_name);
+
+	if ((unlink(tdb_file) < 0) && (errno != ENOENT)) {
+		retval = errno;
+		com_err(ctx->program_name, retval,
+			_("while trying to delete %s"), tdb_file);
+		goto errout;
+	}
+
+	retval = set_undo_io_backing_manager(*io_ptr);
+	if (retval)
+		goto errout;
+	*io_ptr = undo_io_manager;
+	retval = set_undo_io_backup_file(tdb_file);
+	if (retval)
+		goto errout;
+	printf(_("Overwriting existing filesystem; this can be undone "
+		 "using the command:\n"
+		 "    e2undo %s %s\n\n"), tdb_file, ctx->filesystem_name);
+
+	if (free_tdb_dir)
+		free(tdb_dir);
+	free(tdb_file);
+	return 0;
+
+errout:
+	if (free_tdb_dir)
+		free(tdb_dir);
+	free(tdb_file);
+err:
+	com_err(ctx->program_name, retval, "%s",
+		_("while trying to setup undo file\n"));
 	return retval;
 }
 
@@ -1172,13 +1332,14 @@ int main (int argc, char *argv[])
 	e2fsck_t	ctx;
 	blk64_t		orig_superblock;
 	struct problem_context pctx;
-	int flags, run_result;
+	int flags, run_result, was_changed;
 	int journal_size;
 	int sysval, sys_page_size = 4096;
 	int old_bitmaps;
 	__u32 features[3];
 	char *cp;
-	int qtype = -99;  /* quota type */
+	unsigned int qtype_bits = 0;
+	enum quota_type qtype;
 
 	clear_problem_context(&pctx);
 	sigcatcher_setup();
@@ -1269,11 +1430,19 @@ restart:
 			flags &= ~EXT2_FLAG_EXCLUSIVE;
 	}
 
+	if (ctx->undo_file) {
+		retval = e2fsck_setup_tdb(ctx, &io_ptr);
+		if (retval)
+			exit(FSCK_ERROR);
+	}
+
+	ctx->openfs_flags = flags;
 	retval = try_open_fs(ctx, flags, io_ptr, &fs);
 
 	if (!ctx->superblock && !(ctx->options & E2F_OPT_PREEN) &&
 	    !(ctx->flags & E2F_FLAG_SB_SPECIFIED) &&
 	    ((retval == EXT2_ET_BAD_MAGIC) ||
+	     (retval == EXT2_ET_SB_CSUM_INVALID) ||
 	     (retval == EXT2_ET_CORRUPT_SUPERBLOCK) ||
 	     ((retval == 0) && (retval2 = ext2fs_check_desc(fs))))) {
 		if (retval) {
@@ -1301,12 +1470,12 @@ restart:
 			orig_superblock = ctx->superblock;
 			get_backup_sb(ctx, fs, ctx->filesystem_name, io_ptr);
 			if (fs)
-				ext2fs_close(fs);
+				ext2fs_close_free(&fs);
 			orig_retval = retval;
 			retval = try_open_fs(ctx, flags, io_ptr, &fs);
 			if ((orig_retval == 0) && retval != 0) {
 				if (fs)
-					ext2fs_close(fs);
+					ext2fs_close_free(&fs);
 				log_out(ctx, _("%s: %s while using the "
 					       "backup blocks"),
 					ctx->program_name,
@@ -1368,8 +1537,12 @@ failure:
 					     "-n option to do a read-only\n"
 					     "check of the device.\n"));
 #endif
-		else
+		else {
 			fix_problem(ctx, PR_0_SB_CORRUPT, &pctx);
+			if (retval == EXT2_ET_BAD_MAGIC)
+				check_plausibility(ctx->filesystem_name,
+						   CHECK_FS_EXIST, NULL);
+		}
 		fatal_error(ctx, 0);
 	}
 	/*
@@ -1400,7 +1573,7 @@ failure:
 		 * reopen the filesystem after we get the device size.
 		 */
 		if (pctx.errcode == EBUSY) {
-			ext2fs_close(fs);
+			ext2fs_close_free(&fs);
 			need_restart++;
 			pctx.errcode =
 				ext2fs_get_device_size2(ctx->filesystem_name,
@@ -1420,7 +1593,6 @@ failure:
 	}
 
 	ctx->fs = fs;
-	fs->priv_data = ctx;
 	fs->now = ctx->now;
 	sb = fs->super;
 
@@ -1449,7 +1621,7 @@ failure:
 
 	ehandler_init(fs->io);
 
-	if ((fs->super->s_feature_incompat & EXT4_FEATURE_INCOMPAT_MMP) &&
+	if (ext2fs_has_feature_mmp(fs->super) &&
 	    (flags & EXT2_FLAG_SKIP_MMP)) {
 		if (e2fsck_check_mmp(fs, ctx))
 			fatal_error(ctx, 0);
@@ -1457,8 +1629,7 @@ failure:
 		/*
 		 * Restart in order to reopen fs but this time start mmp.
 		 */
-		ext2fs_close(fs);
-		ctx->fs = NULL;
+		ext2fs_close_free(&ctx->fs);
 		flags &= ~EXT2_FLAG_SKIP_MMP;
 		goto restart;
 	}
@@ -1470,19 +1641,22 @@ failure:
 	/*
 	 * Make sure the ext3 superblock fields are consistent.
 	 */
-	retval = e2fsck_check_ext3_journal(ctx);
-	if (retval) {
-		com_err(ctx->program_name, retval,
-			_("while checking ext3 journal for %s"),
-			ctx->device_name);
-		fatal_error(ctx, 0);
+	if ((ctx->mount_flags & (EXT2_MF_MOUNTED | EXT2_MF_BUSY)) == 0) {
+		retval = e2fsck_check_ext3_journal(ctx);
+		if (retval) {
+			com_err(ctx->program_name, retval,
+				_("while checking journal for %s"),
+				ctx->device_name);
+			fatal_error(ctx,
+				_("Cannot proceed with file system check"));
+		}
 	}
 
 	/*
 	 * Check to see if we need to do ext3-style recovery.  If so,
 	 * do it, and then restart the fsck.
 	 */
-	if (sb->s_feature_incompat & EXT3_FEATURE_INCOMPAT_RECOVER) {
+	if (ext2fs_has_feature_journal_needs_recovery(sb)) {
 		if (ctx->options & E2F_OPT_READONLY) {
 			log_out(ctx, "%s",
 				_("Warning: skipping journal recovery because "
@@ -1502,14 +1676,19 @@ failure:
 				fatal_error(ctx, 0);
 			}
 			retval = e2fsck_run_ext3_journal(ctx);
-			if (retval) {
-				com_err(ctx->program_name, retval,
-				_("while recovering ext3 journal of %s"),
+			if (retval == EFSBADCRC) {
+				log_out(ctx, _("Journal checksum error "
+					       "found in %s\n"),
 					ctx->device_name);
-				fatal_error(ctx, 0);
+			} else if (retval == EFSCORRUPTED) {
+				log_out(ctx, _("Journal corrupted in %s\n"),
+					ctx->device_name);
+			} else if (retval) {
+				com_err(ctx->program_name, retval,
+				_("while recovering journal of %s"),
+					ctx->device_name);
 			}
-			ext2fs_close(ctx->fs);
-			ctx->fs = 0;
+			ext2fs_close_free(&ctx->fs);
 			ctx->flags |= E2F_FLAG_RESTARTED;
 			goto restart;
 		}
@@ -1541,20 +1720,6 @@ print_unsupp_features:
 		log_err(ctx, "\n");
 		goto get_newer;
 	}
-#ifdef ENABLE_COMPRESSION
-	if (sb->s_feature_incompat & EXT2_FEATURE_INCOMPAT_COMPRESSION)
-		log_err(ctx, _("%s: warning: compression support "
-			       "is experimental.\n"),
-			ctx->program_name);
-#endif
-#ifndef ENABLE_HTREE
-	if (sb->s_feature_compat & EXT2_FEATURE_COMPAT_DIR_INDEX) {
-		log_err(ctx, _("%s: e2fsck not compiled with HTREE support,\n\t"
-			  "but filesystem %s has HTREE directories.\n"),
-			ctx->program_name, ctx->device_name);
-		goto get_newer;
-	}
-#endif
 
 	/*
 	 * If the user specified a specific superblock, presumably the
@@ -1619,27 +1784,32 @@ print_unsupp_features:
 	else
 		journal_size = -1;
 
-	if (sb->s_feature_ro_compat & EXT4_FEATURE_RO_COMPAT_QUOTA) {
+	if (ext2fs_has_feature_quota(sb)) {
 		/* Quotas were enabled. Do quota accounting during fsck. */
-		if ((sb->s_usr_quota_inum && sb->s_grp_quota_inum) ||
-		    (!sb->s_usr_quota_inum && !sb->s_grp_quota_inum))
-			qtype = -1;
-		else
-			qtype = sb->s_usr_quota_inum ? USRQUOTA : GRPQUOTA;
+		for (qtype = 0; qtype < MAXQUOTAS; qtype++) {
+			if (*quota_sb_inump(sb, qtype) != 0)
+				qtype_bits |= 1 << qtype;
+		}
 
-		quota_init_context(&ctx->qctx, ctx->fs, qtype);
+		clear_problem_context(&pctx);
+		pctx.errcode = quota_init_context(&ctx->qctx, ctx->fs,
+						  qtype_bits);
+		if (pctx.errcode) {
+			fix_problem(ctx, PR_0_QUOTA_INIT_CTX, &pctx);
+			fatal_error(ctx, 0);
+		}
 	}
 
 	run_result = e2fsck_run(ctx);
 	e2fsck_clear_progbar(ctx);
 
-	if (ctx->flags & E2F_FLAG_JOURNAL_INODE) {
+	if (!ctx->invalid_bitmaps &&
+	    (ctx->flags & E2F_FLAG_JOURNAL_INODE)) {
 		if (fix_problem(ctx, PR_6_RECREATE_JOURNAL, &pctx)) {
 			if (journal_size < 1024)
 				journal_size = ext2fs_default_journal_size(ext2fs_blocks_count(fs->super));
 			if (journal_size < 0) {
-				fs->super->s_feature_compat &=
-					~EXT3_FEATURE_COMPAT_HAS_JOURNAL;
+				ext2fs_clear_feature_journal(fs->super);
 				fs->flags &= ~EXT2_FLAG_MASTER_SB_ONLY;
 				log_out(ctx, "%s: Couldn't determine "
 					"journal size\n", ctx->program_name);
@@ -1657,24 +1827,35 @@ print_unsupp_features:
 			}
 			log_out(ctx, "%s", _(" Done.\n"));
 			log_out(ctx, "%s",
-				_("\n*** journal has been re-created - "
-				  "filesystem is now ext3 again ***\n"));
+				_("\n*** journal has been regenerated ***\n"));
 		}
 	}
 no_journal:
 
-	if (ctx->qctx) {
-		int i, needs_writeout;
-		for (i = 0; i < MAXQUOTAS; i++) {
-			if (qtype != -1 && qtype != i)
+	if (run_result & E2F_FLAG_ABORT) {
+		fatal_error(ctx, _("aborted"));
+	} else if (run_result & E2F_FLAG_CANCEL) {
+		log_out(ctx, _("%s: e2fsck canceled.\n"), ctx->device_name ?
+			ctx->device_name : ctx->filesystem_name);
+		exit_value |= FSCK_CANCELED;
+	} else if (ctx->qctx && !ctx->invalid_bitmaps) {
+		int needs_writeout;
+
+		for (qtype = 0; qtype < MAXQUOTAS; qtype++) {
+			if (((1 << qtype) & qtype_bits) == 0)
 				continue;
 			needs_writeout = 0;
-			pctx.num = i;
-			retval = quota_compare_and_update(ctx->qctx, i,
+			pctx.num = qtype;
+			retval = quota_compare_and_update(ctx->qctx, qtype,
 							  &needs_writeout);
 			if ((retval || needs_writeout) &&
-			    fix_problem(ctx, PR_6_UPDATE_QUOTAS, &pctx))
-				quota_write_inode(ctx->qctx, i);
+			    fix_problem(ctx, PR_6_UPDATE_QUOTAS, &pctx)) {
+				pctx.errcode = quota_write_inode(ctx->qctx,
+								 1 << qtype);
+				if (pctx.errcode)
+					(void) fix_problem(ctx,
+						PR_6_WRITE_QUOTAS, &pctx);
+			}
 		}
 		quota_release_context(&ctx->qctx);
 	}
@@ -1688,32 +1869,64 @@ no_journal:
 				_("while resetting context"));
 			fatal_error(ctx, 0);
 		}
-		ext2fs_close(fs);
+		ext2fs_close_free(&ctx->fs);
 		goto restart;
-	}
-	if (run_result & E2F_FLAG_CANCEL) {
-		log_out(ctx, _("%s: e2fsck canceled.\n"), ctx->device_name ?
-			ctx->device_name : ctx->filesystem_name);
-		exit_value |= FSCK_CANCELED;
-	}
-	if (run_result & E2F_FLAG_ABORT)
-		fatal_error(ctx, _("aborted"));
-	if (check_backup_super_block(ctx)) {
-		fs->flags &= ~EXT2_FLAG_MASTER_SB_ONLY;
-		ext2fs_mark_super_dirty(fs);
 	}
 
 #ifdef MTRACE
 	mtrace_print("Cleanup");
 #endif
-	if (ext2fs_test_changed(fs)) {
-		exit_value |= FSCK_NONDESTRUCT;
-		if (!(ctx->options & E2F_OPT_PREEN))
-			log_out(ctx, _("\n%s: ***** FILE SYSTEM WAS "
-				       "MODIFIED *****\n"),
+	was_changed = ext2fs_test_changed(fs);
+	if (!(ctx->flags & E2F_FLAG_RUN_RETURN) &&
+	    !(ctx->options & E2F_OPT_READONLY)) {
+		if (ext2fs_test_valid(fs)) {
+			if (!(sb->s_state & EXT2_VALID_FS))
+				exit_value |= FSCK_NONDESTRUCT;
+			sb->s_state = EXT2_VALID_FS;
+			if (check_backup_super_block(ctx))
+				fs->flags &= ~EXT2_FLAG_MASTER_SB_ONLY;
+		} else
+			sb->s_state &= ~EXT2_VALID_FS;
+		if (!(ctx->flags & E2F_FLAG_TIME_INSANE))
+			sb->s_lastcheck = ctx->now;
+		sb->s_mnt_count = 0;
+		memset(((char *) sb) + EXT4_S_ERR_START, 0, EXT4_S_ERR_LEN);
+		pctx.errcode = ext2fs_set_gdt_csum(ctx->fs);
+		if (pctx.errcode)
+			fix_problem(ctx, PR_6_SET_BG_CHECKSUM, &pctx);
+		ext2fs_mark_super_dirty(fs);
+	}
+
+	e2fsck_write_bitmaps(ctx);
+	if (fs->flags & EXT2_FLAG_DIRTY) {
+		pctx.errcode = ext2fs_flush(ctx->fs);
+		if (pctx.errcode)
+			fix_problem(ctx, PR_6_FLUSH_FILESYSTEM, &pctx);
+	}
+	pctx.errcode = io_channel_flush(ctx->fs->io);
+	if (pctx.errcode)
+		fix_problem(ctx, PR_6_IO_FLUSH, &pctx);
+
+	if (was_changed) {
+		int fs_fixed = (ctx->flags & E2F_FLAG_PROBLEMS_FIXED);
+
+		if (fs_fixed)
+			exit_value |= FSCK_NONDESTRUCT;
+		if (!(ctx->options & E2F_OPT_PREEN)) {
+#if 0	/* Do this later; it breaks too many tests' golden outputs */
+			log_out(ctx, fs_fixed ?
+				_("\n%s: ***** FILE SYSTEM ERRORS "
+				  "CORRECTED *****\n") :
+				_("%s: File system was modified.\n"),
 				ctx->device_name);
+#else
+			log_out(ctx,
+				_("\n%s: ***** FILE SYSTEM WAS MODIFIED *****\n"),
+				ctx->device_name);
+#endif
+		}
 		if (ctx->mount_flags & EXT2_MF_ISROOT) {
-			log_out(ctx, _("%s: ***** REBOOT LINUX *****\n"),
+			log_out(ctx, _("%s: ***** REBOOT SYSTEM *****\n"),
 				ctx->device_name);
 			exit_value |= FSCK_REBOOT;
 		}
@@ -1737,41 +1950,12 @@ no_journal:
 		    (sb->s_state & EXT2_VALID_FS) &&
 		    !(sb->s_state & EXT2_ERROR_FS))
 			exit_value = 0;
-	} else {
+	} else
 		show_stats(ctx);
-		if (!(ctx->options & E2F_OPT_READONLY)) {
-			if (ext2fs_test_valid(fs)) {
-				if (!(sb->s_state & EXT2_VALID_FS))
-					exit_value |= FSCK_NONDESTRUCT;
-				sb->s_state = EXT2_VALID_FS;
-			} else
-				sb->s_state &= ~EXT2_VALID_FS;
-			sb->s_mnt_count = 0;
-			if (!(ctx->flags & E2F_FLAG_TIME_INSANE))
-				sb->s_lastcheck = ctx->now;
-			memset(((char *) sb) + EXT4_S_ERR_START, 0,
-			       EXT4_S_ERR_LEN);
-			ext2fs_mark_super_dirty(fs);
-		}
-	}
 
-	if ((run_result & E2F_FLAG_CANCEL) == 0 &&
-	    sb->s_feature_ro_compat & EXT4_FEATURE_RO_COMPAT_GDT_CSUM &&
-	    !(ctx->options & E2F_OPT_READONLY)) {
-		retval = ext2fs_set_gdt_csum(ctx->fs);
-		if (retval) {
-			com_err(ctx->program_name, retval, "%s",
-				_("while setting block group checksum info"));
-			fatal_error(ctx, 0);
-		}
-	}
-
-	e2fsck_write_bitmaps(ctx);
-	io_channel_flush(ctx->fs->io);
 	print_resource_track(ctx, NULL, &ctx->global_rtrack, ctx->fs->io);
 
-	ext2fs_close(fs);
-	ctx->fs = NULL;
+	ext2fs_close_free(&ctx->fs);
 	free(ctx->journal_name);
 
 	e2fsck_free_context(ctx);

@@ -21,9 +21,6 @@ import com.android.tradefed.build.BuildInfo;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.config.OptionSetter;
 import com.android.tradefed.device.ITestDevice;
-import com.android.tradefed.targetprep.TargetSetupError;
-
-import java.awt.Dimension;
 
 import junit.framework.TestCase;
 
@@ -36,15 +33,12 @@ public class MediaPreparerTest extends TestCase {
     private ITestDevice mMockDevice;
     private OptionSetter mOptionSetter;
 
-    private final Dimension DEFAULT_DIMENSION =
-            MediaPreparer.resolutions[MediaPreparer.RES_DEFAULT];
-
     @Override
     public void setUp() throws Exception {
         super.setUp();
         mMediaPreparer = new MediaPreparer();
         mMockDevice = EasyMock.createMock(ITestDevice.class);
-        mMockBuildInfo = new BuildInfo("0", "", "");
+        mMockBuildInfo = new BuildInfo("0", "");
         mOptionSetter = new OptionSetter(mMediaPreparer);
     }
 
@@ -58,53 +52,44 @@ public class MediaPreparerTest extends TestCase {
     }
 
     public void testCopyMediaFiles() throws Exception {
-        // by jumping directly into copyMediaFiles, the baseDeviceShortDir variable won't be set
-        // thus, the string "null" replaces the variable
-        EasyMock.expect(mMockDevice.doesFileExist("null176x144")).andReturn(true).anyTimes();
-        EasyMock.expect(mMockDevice.doesFileExist("null480x360")).andReturn(true).anyTimes();
+        mMediaPreparer.mMaxRes = MediaPreparer.DEFAULT_MAX_RESOLUTION;
+        mMediaPreparer.mBaseDeviceShortDir = "/sdcard/test/bbb_short/";
+        mMediaPreparer.mBaseDeviceFullDir = "/sdcard/test/bbb_full/";
+        for (MediaPreparer.Resolution resolution : MediaPreparer.RESOLUTIONS) {
+            String shortFile = String.format("%s%s", mMediaPreparer.mBaseDeviceShortDir,
+                    resolution.toString());
+            String fullFile = String.format("%s%s", mMediaPreparer.mBaseDeviceFullDir,
+                    resolution.toString());
+            EasyMock.expect(mMockDevice.doesFileExist(shortFile)).andReturn(true).once();
+            EasyMock.expect(mMockDevice.doesFileExist(fullFile)).andReturn(true).once();
+        }
         EasyMock.replay(mMockDevice);
-        mMediaPreparer.copyMediaFiles(mMockDevice, DEFAULT_DIMENSION);
+        mMediaPreparer.copyMediaFiles(mMockDevice);
     }
 
     public void testMediaFilesExistOnDeviceTrue() throws Exception {
-        // by jumping directly into copyMediaFiles, the baseDeviceShortDir variable won't be set
-        // thus, the string "null" replaces the variable
-        EasyMock.expect(mMockDevice.doesFileExist("null176x144")).andReturn(true).anyTimes();
-        EasyMock.expect(mMockDevice.doesFileExist("null480x360")).andReturn(true).anyTimes();
+        mMediaPreparer.mMaxRes = MediaPreparer.DEFAULT_MAX_RESOLUTION;
+        mMediaPreparer.mBaseDeviceShortDir = "/sdcard/test/bbb_short/";
+        mMediaPreparer.mBaseDeviceFullDir = "/sdcard/test/bbb_full/";
+        for (MediaPreparer.Resolution resolution : MediaPreparer.RESOLUTIONS) {
+            String shortFile = String.format("%s%s", mMediaPreparer.mBaseDeviceShortDir,
+                    resolution.toString());
+            String fullFile = String.format("%s%s", mMediaPreparer.mBaseDeviceFullDir,
+                    resolution.toString());
+            EasyMock.expect(mMockDevice.doesFileExist(shortFile)).andReturn(true).anyTimes();
+            EasyMock.expect(mMockDevice.doesFileExist(fullFile)).andReturn(true).anyTimes();
+        }
         EasyMock.replay(mMockDevice);
-        assertTrue(mMediaPreparer.mediaFilesExistOnDevice(mMockDevice, DEFAULT_DIMENSION));
+        assertTrue(mMediaPreparer.mediaFilesExistOnDevice(mMockDevice));
     }
 
     public void testMediaFilesExistOnDeviceFalse() throws Exception {
-        // by jumping directly into copyMediaFiles, the baseDeviceShortDir variable won't be set
-        // thus, the string "null" replaces the variable
-        EasyMock.expect(mMockDevice.doesFileExist("null176x144")).andReturn(false).anyTimes();
-        EasyMock.expect(mMockDevice.doesFileExist("null480x360")).andReturn(true).anyTimes();
+        mMediaPreparer.mMaxRes = MediaPreparer.DEFAULT_MAX_RESOLUTION;
+        mMediaPreparer.mBaseDeviceShortDir = "/sdcard/test/bbb_short/";
+        String firstFileChecked = "/sdcard/test/bbb_short/176x144";
+        EasyMock.expect(mMockDevice.doesFileExist(firstFileChecked)).andReturn(false).once();
         EasyMock.replay(mMockDevice);
-        assertFalse(mMediaPreparer.mediaFilesExistOnDevice(mMockDevice, DEFAULT_DIMENSION));
-    }
-
-    public void testGetMaxVideoPlaybackResolutionFound() throws Exception {
-        String mockDumpsysOutput = "mBaseDisplayInfo=DisplayInfo{\"Built-in Screen\", uniqueId " +
-                "\"local:0\", app 1440 x 2560, real 1440 x 2560, largest app 1440 x 2560, " +
-                "smallest app 360 x 480, mode 1, defaultMode 1, modes [{id=1, width=1440, " +
-                "height=2560, fps=60.0}], rotation 0, density 560 (494.27 x 492.606) dpi, " +
-                "layerStack 0, appVsyncOff 2500000, presDeadline 17666667, type BUILT_IN, state " +
-                "ON, FLAG_SECURE, FLAG_SUPPORTS_PROTECTED_BUFFERS}\n";
-        EasyMock.expect(mMockDevice.executeShellCommand(
-                "dumpsys display | grep mBaseDisplayInfo")).andReturn(mockDumpsysOutput).once();
-        EasyMock.replay(mMockDevice);
-        Dimension result = mMediaPreparer.getMaxVideoPlaybackResolution(mMockDevice);
-        assertEquals(result, DEFAULT_DIMENSION);
-    }
-
-    public void testGetMaxVideoPlaybackResolutionNotFound() throws Exception {
-        String mockDumpsysOutput = "incorrect output";
-        EasyMock.expect(mMockDevice.executeShellCommand(
-                "dumpsys display | grep mBaseDisplayInfo")).andReturn(mockDumpsysOutput).once();
-        EasyMock.replay(mMockDevice);
-        Dimension result = mMediaPreparer.getMaxVideoPlaybackResolution(mMockDevice);
-        assertEquals(result, MediaPreparer.resolutions[MediaPreparer.RES_1920_1080]);
+        assertFalse(mMediaPreparer.mediaFilesExistOnDevice(mMockDevice));
     }
 
     public void testSkipMediaDownload() throws Exception {

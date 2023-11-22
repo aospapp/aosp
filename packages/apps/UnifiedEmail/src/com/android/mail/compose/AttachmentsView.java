@@ -15,18 +15,21 @@
  */
 package com.android.mail.compose;
 
+import android.annotation.TargetApi;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteException;
 import android.net.Uri;
 import android.os.ParcelFileDescriptor;
+import android.provider.DocumentsContract;
 import android.provider.OpenableColumns;
 import android.text.TextUtils;
 import android.util.AttributeSet;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.inputmethod.InputMethodManager;
+import android.webkit.MimeTypeMap;
 import android.widget.LinearLayout;
 
 import com.android.mail.R;
@@ -37,6 +40,7 @@ import com.android.mail.ui.AttachmentTile.AttachmentPreview;
 import com.android.mail.ui.AttachmentTileGrid;
 import com.android.mail.utils.LogTag;
 import com.android.mail.utils.LogUtils;
+import com.android.mail.utils.Utils;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Lists;
 
@@ -206,6 +210,39 @@ class AttachmentsView extends LinearLayout {
     }
 
     /**
+     * Checks if the passed Uri is a virtual document.
+     *
+     * @param contentUri
+     * @return true if virtual, false if regular.
+     */
+    @TargetApi(24)
+    private boolean isVirtualDocument(Uri contentUri) {
+        // For SAF files, check if it's a virtual document.
+        if (!DocumentsContract.isDocumentUri(getContext(), contentUri)) {
+          return false;
+        }
+
+        final ContentResolver contentResolver = getContext().getContentResolver();
+        final Cursor metadataCursor = contentResolver.query(contentUri,
+                new String[] { DocumentsContract.Document.COLUMN_FLAGS }, null, null, null);
+        if (metadataCursor != null) {
+            try {
+                int flags = 0;
+                if (metadataCursor.moveToNext()) {
+                    flags = metadataCursor.getInt(0);
+                }
+                if ((flags & DocumentsContract.Document.FLAG_VIRTUAL_DOCUMENT) != 0) {
+                    return true;
+                }
+            } finally {
+                metadataCursor.close();
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Generate an {@link Attachment} object for a given local content URI. Attempts to populate
      * the {@link Attachment#name}, {@link Attachment#size}, and {@link Attachment#contentType}
      * fields using a {@link ContentResolver}.
@@ -226,13 +263,26 @@ class AttachmentsView extends LinearLayout {
         if (contentType == null) contentType = "";
 
         final Attachment attachment = new Attachment();
-        attachment.uri = null; // URI will be assigned by the provider upon send/save
-        attachment.setName(null);
-        attachment.size = 0;
+        attachment.uri = null;  // URI will be assigned by the provider upon send/save
         attachment.contentUri = contentUri;
         attachment.thumbnailUri = contentUri;
 
         Cursor metadataCursor = null;
+        String name = null;
+        int size = -1;  // Unknown, will be determined either now or in the service
+        final boolean isVirtual = Utils.isRunningNOrLater()
+                ? isVirtualDocument(contentUri) : false;
+
+        if (isVirtual) {
+            final String[] mimeTypes = contentResolver.getStreamTypes(contentUri, "*/*");
+            if (mimeTypes != null && mimeTypes.length > 0) {
+                attachment.virtualMimeType = mimeTypes[0];
+            } else{
+                throw new AttachmentFailureException(
+                        "Cannot attach a virtual document without any streamable format.");
+            }
+        }
+
         try {
             metadataCursor = contentResolver.query(
                     contentUri, new String[]{OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE},
@@ -240,8 +290,12 @@ class AttachmentsView extends LinearLayout {
             if (metadataCursor != null) {
                 try {
                     if (metadataCursor.moveToNext()) {
-                        attachment.setName(metadataCursor.getString(0));
-                        attachment.size = metadataCursor.getInt(1);
+                        name =  metadataCursor.getString(0);
+                        // For virtual document this size is not the one which will be attached,
+                        // so ignore it.
+                        if (!isVirtual) {
+                            size = metadataCursor.getInt(1);
+                        }
                     }
                 } finally {
                     metadataCursor.close();
@@ -259,38 +313,55 @@ class AttachmentsView extends LinearLayout {
                 metadataCursor = getOptionalColumn(contentResolver, contentUri,
                         OpenableColumns.DISPLAY_NAME);
                 if (metadataCursor != null && metadataCursor.moveToNext()) {
-                    attachment.setName(metadataCursor.getString(0));
+                    name = metadataCursor.getString(0);
                 }
             } finally {
                 if (metadataCursor != null) metadataCursor.close();
             }
 
             // Let's try to get SIZE
-            try {
-                metadataCursor =
-                        getOptionalColumn(contentResolver, contentUri, OpenableColumns.SIZE);
-                if (metadataCursor != null && metadataCursor.moveToNext()) {
-                    attachment.size = metadataCursor.getInt(0);
-                } else {
-                    // Unable to get the size from the metadata cursor. Open the file and seek.
-                    attachment.size = getSizeFromFile(contentUri, contentResolver);
+            if (!isVirtual) {
+                try {
+                    metadataCursor =
+                            getOptionalColumn(contentResolver, contentUri, OpenableColumns.SIZE);
+                    if (metadataCursor != null && metadataCursor.moveToNext()) {
+                        size = metadataCursor.getInt(0);
+                    } else {
+                        // Unable to get the size from the metadata cursor. Open the file and seek.
+                        size = getSizeFromFile(contentUri, contentResolver);
+                    }
+                } finally {
+                    if (metadataCursor != null) metadataCursor.close();
                 }
-            } finally {
-                if (metadataCursor != null) metadataCursor.close();
             }
         } catch (SecurityException e) {
             throw new AttachmentFailureException("Security Exception from attachment uri", e);
         }
 
-        if (attachment.getName() == null) {
-            attachment.setName(contentUri.getLastPathSegment());
-        }
-        if (attachment.size == 0) {
-            // if the attachment is not a content:// for example, a file:// URI
-            attachment.size = getSizeFromFile(contentUri, contentResolver);
+        if (name == null) {
+            name = contentUri.getLastPathSegment();
         }
 
+        // For virtual files append the inferred extension name.
+        if (isVirtual) {
+            String extension = MimeTypeMap.getSingleton()
+                    .getExtensionFromMimeType(attachment.virtualMimeType);
+            if (extension != null) {
+                name += "." + extension;
+            }
+        }
+
+        // TODO: This can't work with pipes. Fix it.
+        if (size == -1 && !isVirtual) {
+            // if the attachment is not a content:// for example, a file:// URI
+            size = getSizeFromFile(contentUri, contentResolver);
+        }
+
+        // Save the computed values into the attachment.
+        attachment.size = size;
+        attachment.setName(name);
         attachment.setContentType(contentType);
+
         return attachment;
     }
 
@@ -300,28 +371,28 @@ class AttachmentsView extends LinearLayout {
      * @param account
      * @param attachment the attachment to be added.
      *
-     * @return size of the attachment added.
      * @throws AttachmentFailureException if an error occurs adding the attachment.
      */
-    public long addAttachment(Account account, Attachment attachment)
+    public void addAttachment(Account account, Attachment attachment)
             throws AttachmentFailureException {
         final int maxSize = account.settings.getMaxAttachmentSize();
 
-        // Error getting the size or the size was too big.
-        if (attachment.size == -1 || attachment.size > maxSize) {
+        // The attachment size is known and it's too big.
+        if (attachment.size > maxSize) {
             throw new AttachmentFailureException(
                     "Attachment too large to attach", R.string.too_large_to_attach_single);
-        } else if ((getTotalAttachmentsSize()
+        } else if (attachment.size != -1 && (getTotalAttachmentsSize()
                 + attachment.size) > maxSize) {
             throw new AttachmentFailureException(
                     "Attachment too large to attach", R.string.too_large_to_attach_additional);
         } else {
             addAttachment(attachment);
         }
-
-        return attachment.size;
     }
 
+    /**
+     * @return size of the file or -1 if unknown.
+     */
     private static int getSizeFromFile(Uri uri, ContentResolver contentResolver) {
         int size = -1;
         ParcelFileDescriptor file = null;
@@ -339,9 +410,7 @@ class AttachmentsView extends LinearLayout {
                 LogUtils.w(LOG_TAG, "Error closing file opened to obtain size.");
             }
         }
-        // We only want to return a non-negative value. (ParcelFileDescriptor#getStatSize() will
-        // return -1 if the fd is not a file
-        return Math.max(size, 0);
+        return size;
     }
 
     /**

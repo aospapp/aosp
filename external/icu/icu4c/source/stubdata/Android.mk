@@ -24,8 +24,6 @@ dat_file := $(notdir $(wildcard $(stubdata_path)/*.dat))
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := icu-data
-LOCAL_ADDITIONAL_DEPENDENCIES += $(LOCAL_PATH)/Android.mk
-LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE_CLASS := ETC
 LOCAL_MODULE_PATH := $(TARGET_OUT)/usr/icu
 LOCAL_MODULE_STEM := $(dat_file)
@@ -33,9 +31,7 @@ LOCAL_SRC_FILES := $(dat_file)
 include $(BUILD_PREBUILT)
 
 include $(CLEAR_VARS)
-LOCAL_MODULE := icu-data-host
-LOCAL_ADDITIONAL_DEPENDENCIES += $(LOCAL_PATH)/Android.mk
-LOCAL_MODULE_TAGS := optional
+LOCAL_MODULE := icu-data
 LOCAL_MODULE_CLASS := ETC
 LOCAL_MODULE_PATH := $(HOST_OUT)/usr/icu
 LOCAL_MODULE_STEM := $(dat_file)

@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 2002-2014, International Business Machines Corporation and         *
@@ -11,12 +13,12 @@ package android.icu.dev.test.collator;
 import java.util.Locale;
 import java.util.Random;
 
+import org.junit.Test;
+
 import android.icu.dev.test.TestFmwk;
 import android.icu.text.CollationKey;
 import android.icu.text.Collator;
 import android.icu.text.RuleBasedCollator;
-import org.junit.runner.RunWith;
-import android.icu.junit.IcuTestFmwkRunner;
 
 
 /**
@@ -27,15 +29,9 @@ import android.icu.junit.IcuTestFmwkRunner;
  * @author Brian Rower - IBM - August 2008
  *
  */
-@RunWith(IcuTestFmwkRunner.class)
 public class CollationCreationMethodTest extends TestFmwk 
 {
-    
-    public static void main(String[] args) throws Exception 
-    {
-        new CollationCreationMethodTest().run(args);
-    }
-
+    @Test
     public void TestRuleVsLocaleCreationMonkey()
     {
         //create a RBC from a collator reader by reading in a locale collation file
@@ -123,7 +119,7 @@ public class CollationCreationMethodTest extends TestFmwk
             msg.append("  localeCollator key: ").append(CollationTest.prettify(k1)).append('\n');
             msg.append("  ruleCollator   key: ").append(CollationTest.prettify(k2)).append('\n');
             // Android patch: Add --omitCollationRules to genrb.
-            warnln(msg.toString());
+            logln(msg.toString());
             // Android patch end.
         }
     }

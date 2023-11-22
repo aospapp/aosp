@@ -16,11 +16,6 @@
 
 package com.android.cts.verifier.tv;
 
-import com.android.cts.verifier.PassFailButtons;
-import com.android.cts.verifier.R;
-
-import android.content.Intent;
-import android.media.tv.TvContract;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -28,6 +23,9 @@ import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.TextView;
+
+import com.android.cts.verifier.PassFailButtons;
+import com.android.cts.verifier.R;
 
 /**
  * Base class for TV app tests.

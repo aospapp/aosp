@@ -1,14 +1,20 @@
 #!/usr/bin/python
+# pylint: disable=missing-docstring
 
-import logging, os, shutil, sys, time, StringIO
+import logging
+import os
+import shutil
+import StringIO
+import sys
+import unittest
+
 import common
-
-from autotest_lib.client.bin import job, boottool, config, sysinfo, harness
-from autotest_lib.client.bin import test, xen, kernel, utils
-from autotest_lib.client.common_lib import packages, error, log
+from autotest_lib.client.bin import job, sysinfo, harness
+from autotest_lib.client.bin import utils
+from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib import logging_manager, logging_config
 from autotest_lib.client.common_lib import base_job_unittest
-from autotest_lib.client.common_lib.test_utils import mock, unittest
+from autotest_lib.client.common_lib.test_utils import mock
 
 
 class job_test_case(unittest.TestCase):
@@ -49,7 +55,7 @@ class abstract_test_init(base_job_unittest.test_init.generic_tests):
     job.__init__ generic tests."""
     OPTIONAL_ATTRIBUTES = (
         base_job_unittest.test_init.generic_tests.OPTIONAL_ATTRIBUTES
-        - set(['control', 'bootloader', 'harness']))
+        - set(['control', 'harness']))
 
 
 class test_init_minimal_options(abstract_test_init, job_test_case):
@@ -76,7 +82,6 @@ class test_init_minimal_options(abstract_test_init, job_test_case):
         class stub_harness:
             run_start = lambda self: None
         self.god.stub_function_to_return(job.harness, 'select', stub_harness())
-        self.god.stub_function_to_return(job.boottool, 'boottool', object())
         class options:
             tag = ''
             verbose = False
@@ -151,9 +156,7 @@ class test_base_job(unittest.TestCase):
         self.god.stub_function(harness, 'select')
         self.god.stub_function(sysinfo, 'log_per_reboot_data')
 
-        self.god.stub_class(config, 'config')
         self.god.stub_class(job.local_host, 'LocalHost')
-        self.god.stub_class(boottool, 'boottool')
         self.god.stub_class(sysinfo, 'sysinfo')
 
         self.god.stub_class_method(job.base_client_job,
@@ -208,23 +211,12 @@ class test_base_job(unittest.TestCase):
             shutil.copyfile.expect_call(mock.is_string_comparator(),
                                  os.path.join(resultdir, 'control'))
 
-        self.config = config.config.expect_new(self.job)
-        self.job.config_get.expect_call(
-                'boottool.executable').and_return(None)
-        bootloader = boottool.boottool.expect_new(None)
-        job.local_host.LocalHost.expect_new(hostname='localhost',
-                                            bootloader=bootloader)
+        job.local_host.LocalHost.expect_new(hostname='localhost')
         job_sysinfo.log_per_reboot_data.expect_call()
         if not cont:
             self.job.record.expect_call('START', None, None)
 
         my_harness.run_start.expect_call()
-
-        self.god.stub_function(utils, 'read_one_line')
-        utils.read_one_line.expect_call('/proc/cmdline').and_return(
-            'blah more-blah root=lala IDENT=81234567 blah-again console=tty1')
-        self.job.config_set.expect_call('boot.default_args',
-                                        'more-blah console=tty1')
 
 
     def construct_job(self, cont):
@@ -248,8 +240,7 @@ class test_base_job(unittest.TestCase):
         options.args = ''
         options.output_dir = ''
         options.tap_report = None
-        self.job.__init__(self.control, options,
-                          extra_copy_cmdline=['more-blah'])
+        self.job.__init__(self.control, options)
 
         # check
         self.god.check_playback()
@@ -297,24 +288,17 @@ class test_base_job(unittest.TestCase):
 
         self._setup_pre_record_init(False)
         self.job._post_record_init.expect_call(
-                self.control, options, True, ['more-blah']).and_raises(error)
+                self.control, options, True).and_raises(error)
         self.job.record.expect_call(
                 'ABORT', None, None,'client.bin.job.__init__ failed: %s' %
                 str(error))
 
         self.assertRaises(
                 Exception, self.job.__init__, self.control, options,
-                drop_caches=True, extra_copy_cmdline=['more-blah'])
+                drop_caches=True)
 
         # check
         self.god.check_playback()
-
-
-    def test_relative_path(self):
-        self.construct_job(True)
-        dummy = "asdf"
-        ret = self.job.relative_path(os.path.join(self.job.resultdir, dummy))
-        self.assertEquals(ret, dummy)
 
 
     def test_control_functions(self):
@@ -335,36 +319,6 @@ class test_base_job(unittest.TestCase):
 
         # run and test
         self.job.harness_select(which, harness_args)
-        self.god.check_playback()
-
-
-    def test_config_set(self):
-        self.construct_job(True)
-
-        # unstub config_set
-        self.god.unstub(self.job, 'config_set')
-        # record
-        name = "foo"
-        val = 10
-        self.config.set.expect_call(name, val)
-
-        # run and test
-        self.job.config_set(name, val)
-        self.god.check_playback()
-
-
-    def test_config_get(self):
-        self.construct_job(True)
-
-        # unstub config_get
-        self.god.unstub(self.job, 'config_get')
-        # record
-        name = "foo"
-        val = 10
-        self.config.get.expect_call(name).and_return(val)
-
-        # run and test
-        self.job.config_get(name)
         self.god.check_playback()
 
 
@@ -407,85 +361,6 @@ class test_base_job(unittest.TestCase):
         self.assertEqual(self.job.setup_dirs(None, tmp_dir),
                          (results_dir3, tmp_dir))
         self.god.check_playback()
-
-
-    def test_xen(self):
-        self.construct_job(True)
-
-        # setup
-        self.god.stub_function(self.job, "setup_dirs")
-        self.god.stub_class(xen, "xen")
-        results = 'results_dir'
-        tmp = 'tmp'
-        build = 'xen'
-        base_tree = object()
-
-        # record
-        self.job.setup_dirs.expect_call(results,
-                                        tmp).and_return((results, tmp))
-        myxen = xen.xen.expect_new(self.job, base_tree, results, tmp, build,
-                                   False, None)
-
-        # run job and check
-        axen = self.job.xen(base_tree, results, tmp)
-        self.god.check_playback()
-        self.assertEquals(myxen, axen)
-
-
-    def test_kernel_rpm(self):
-        self.construct_job(True)
-
-        # setup
-        self.god.stub_function(self.job, "setup_dirs")
-        self.god.stub_class(kernel, "rpm_kernel")
-        self.god.stub_function(kernel, "preprocess_path")
-        self.god.stub_function(self.job.pkgmgr, "fetch_pkg")
-        self.god.stub_function(utils, "get_os_vendor")
-        results = 'results_dir'
-        tmp = 'tmp'
-        build = 'xen'
-        path = "somepath.rpm"
-        packages_dir = os.path.join("autodir/packages", path)
-
-        # record
-        self.job.setup_dirs.expect_call(results,
-                                        tmp).and_return((results, tmp))
-        kernel.preprocess_path.expect_call(path).and_return(path)
-        os.path.exists.expect_call(path).and_return(False)
-        self.job.pkgmgr.fetch_pkg.expect_call(path, packages_dir, repo_url='')
-        utils.get_os_vendor.expect_call()
-        mykernel = kernel.rpm_kernel.expect_new(self.job, [packages_dir],
-                                                results)
-
-        # check
-        akernel = self.job.kernel(path, results, tmp)
-        self.god.check_playback()
-        self.assertEquals(mykernel, akernel)
-
-
-    def test_kernel(self):
-        self.construct_job(True)
-
-        # setup
-        self.god.stub_function(self.job, "setup_dirs")
-        self.god.stub_class(kernel, "kernel")
-        self.god.stub_function(kernel, "preprocess_path")
-        results = 'results_dir'
-        tmp = 'tmp'
-        build = 'linux'
-        path = "somepath.deb"
-
-        # record
-        self.job.setup_dirs.expect_call(results,
-                                        tmp).and_return((results, tmp))
-        kernel.preprocess_path.expect_call(path).and_return(path)
-        mykernel = kernel.kernel.expect_new(self.job, path, results, tmp,
-                                            build, False)
-
-        # check
-        akernel = self.job.kernel(path, results, tmp)
-        self.god.check_playback()
-        self.assertEquals(mykernel, akernel)
 
 
     def test_run_test_logs_test_error_from_unhandled_error(self):
@@ -635,73 +510,6 @@ class test_base_job(unittest.TestCase):
 
         # playback
         self.assertRaises(error.JobError, self.job._check_post_reboot, "sub")
-        self.god.check_playback()
-
-
-    def test_end_boot(self):
-        self.construct_job(True)
-        self.god.stub_function(self.job, "_check_post_reboot")
-
-        # set up the job class
-        self.job._record_prefix = '\t\t'
-
-        self.job._check_post_reboot.expect_call("sub", running_id=None)
-        self.job.record.expect_call("END GOOD", "sub", "reboot",
-                                    optional_fields={"kernel": "2.6.15-smp",
-                                                     "patch0": "patchname"})
-
-        # run test
-        self.job.end_reboot("sub", "2.6.15-smp", ["patchname"])
-        self.god.check_playback()
-
-
-    def test_end_boot_and_verify_success(self):
-        self.construct_job(True)
-        self.god.stub_function(self.job, "_check_post_reboot")
-
-        # set up the job class
-        self.job._record_prefix = '\t\t'
-
-        self.god.stub_function(utils, "running_os_ident")
-        utils.running_os_ident.expect_call().and_return("2.6.15-smp")
-
-        utils.read_one_line.expect_call("/proc/cmdline").and_return(
-            "blah more-blah root=lala IDENT=81234567 blah-again")
-
-        self.god.stub_function(utils, "running_os_full_version")
-        running_id = "2.6.15-smp"
-        utils.running_os_full_version.expect_call().and_return(running_id)
-
-        self.job.record.expect_call("GOOD", "sub", "reboot.verify",
-                                    running_id)
-        self.job._check_post_reboot.expect_call("sub", running_id=running_id)
-        self.job.record.expect_call("END GOOD", "sub", "reboot",
-                                    optional_fields={"kernel": running_id})
-
-        # run test
-        self.job.end_reboot_and_verify(81234567, "2.6.15-smp", "sub")
-        self.god.check_playback()
-
-
-    def test_end_boot_and_verify_failure(self):
-        self.construct_job(True)
-        self.god.stub_function(self.job, "_record_reboot_failure")
-
-        # set up the job class
-        self.job._record_prefix = '\t\t'
-
-        self.god.stub_function(utils, "running_os_ident")
-        utils.running_os_ident.expect_call().and_return("2.6.15-smp")
-
-        utils.read_one_line.expect_call("/proc/cmdline").and_return(
-            "blah more-blah root=lala IDENT=81234567 blah-again")
-
-        self.job._record_reboot_failure.expect_call("sub", "reboot.verify",
-                "boot failure", running_id="2.6.15-smp")
-
-        # run test
-        self.assertRaises(error.JobError, self.job.end_reboot_and_verify,
-                          91234567, "2.6.16-smp", "sub")
         self.god.check_playback()
 
 

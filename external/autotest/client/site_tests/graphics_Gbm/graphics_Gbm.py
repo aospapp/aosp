@@ -8,6 +8,7 @@ from autotest_lib.client.bin import test
 from autotest_lib.client.common_lib import error, utils
 from autotest_lib.client.cros.graphics import graphics_utils
 
+
 class graphics_Gbm(test.test):
     """
     Test the gbm implementation.
@@ -32,11 +33,11 @@ class graphics_Gbm(test.test):
         cmd = os.path.join(self.srcdir, 'gbmtest')
         cmd = graphics_utils.xcommand(cmd)
         result = utils.run(cmd,
-                           stderr_is_expected = False,
-                           stdout_tee = utils.TEE_TO_LOGS,
-                           stderr_tee = utils.TEE_TO_LOGS,
-                           ignore_status = True)
+                           stderr_is_expected=False,
+                           stdout_tee=utils.TEE_TO_LOGS,
+                           stderr_tee=utils.TEE_TO_LOGS,
+                           ignore_status=True)
         report = re.findall(r'\[  PASSED  \]', result.stdout)
         if not report:
-            raise error.TestFail('Gbm test failed (' + result.stdout + ')')
-
+            raise error.TestFail('Failed: Gbm test failed (' + result.stdout +
+                                 ')')

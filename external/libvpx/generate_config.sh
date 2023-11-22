@@ -61,12 +61,9 @@ function print_config_basic {
 # Generate *_rtcd.h files.
 # $1 - Header file directory.
 # $2 - Architecture.
+# $3 - Optional - any additional arguments to pass through.
 function gen_rtcd_header {
   echo "Generate $LIBVPX_CONFIG_DIR/$1/*_rtcd.h files."
-
-  # We don't properly persist the config options specificed on the configure
-  # line. Until that is fixed, force them here.
-  DISABLE_CONFIG="--disable-sse4_1 --disable-avx --disable-avx2"
 
   rm -rf $BASE_DIR/$TEMP_DIR/libvpx.config
   if [[ "$2" == *mips* ]]; then
@@ -80,33 +77,29 @@ function gen_rtcd_header {
 
   $BASE_DIR/$LIBVPX_SRC_DIR/build/make/rtcd.pl \
     --arch=$2 \
-    --sym=vp8_rtcd \
-    $DISABLE_CONFIG \
+    --sym=vp8_rtcd $3 \
     --config=$BASE_DIR/$TEMP_DIR/libvpx.config \
     $BASE_DIR/$LIBVPX_SRC_DIR/vp8/common/rtcd_defs.pl \
     > $BASE_DIR/$LIBVPX_CONFIG_DIR/$1/vp8_rtcd.h
 
   $BASE_DIR/$LIBVPX_SRC_DIR/build/make/rtcd.pl \
     --arch=$2 \
-    --sym=vp9_rtcd \
+    --sym=vp9_rtcd $3 \
     --config=$BASE_DIR/$TEMP_DIR/libvpx.config \
-    $DISABLE_CONFIG \
     $BASE_DIR/$LIBVPX_SRC_DIR/vp9/common/vp9_rtcd_defs.pl \
     > $BASE_DIR/$LIBVPX_CONFIG_DIR/$1/vp9_rtcd.h
 
   $BASE_DIR/$LIBVPX_SRC_DIR/build/make/rtcd.pl \
     --arch=$2 \
-    --sym=vpx_scale_rtcd \
+    --sym=vpx_scale_rtcd $3 \
     --config=$BASE_DIR/$TEMP_DIR/libvpx.config \
-    $DISABLE_CONFIG \
     $BASE_DIR/$LIBVPX_SRC_DIR/vpx_scale/vpx_scale_rtcd.pl \
     > $BASE_DIR/$LIBVPX_CONFIG_DIR/$1/vpx_scale_rtcd.h
 
   $BASE_DIR/$LIBVPX_SRC_DIR/build/make/rtcd.pl \
     --arch=$2 \
-    --sym=vpx_dsp_rtcd \
+    --sym=vpx_dsp_rtcd $3 \
     --config=$BASE_DIR/$TEMP_DIR/libvpx.config \
-    $DISABLE_CONFIG \
     $BASE_DIR/$LIBVPX_SRC_DIR/vpx_dsp/vpx_dsp_rtcd_defs.pl \
     > $BASE_DIR/$LIBVPX_CONFIG_DIR/$1/vpx_dsp_rtcd.h
 
@@ -147,16 +140,18 @@ cp -R $LIBVPX_SRC_DIR $TEMP_DIR
 cd $TEMP_DIR
 
 echo "Generate config files."
-all_platforms="--enable-external-build --enable-realtime-only --enable-pic --disable-runtime-cpu-detect"
+all_platforms="--enable-external-build --enable-realtime-only --enable-pic --disable-runtime-cpu-detect --disable-install-docs --size-limit=4096x3072"
 intel="--disable-sse4_1 --disable-avx --disable-avx2 --as=yasm"
 gen_config_files x86 "--target=x86-linux-gcc ${intel} ${all_platforms}"
 gen_config_files x86_64 "--target=x86_64-linux-gcc ${intel} ${all_platforms}"
-gen_config_files arm "--target=armv6-linux-gcc  ${all_platforms}"
+gen_config_files arm "--target=armv7-linux-gcc --disable-neon ${all_platforms}"
 gen_config_files arm-neon "--target=armv7-linux-gcc ${all_platforms}"
 gen_config_files arm64 "--force-target=armv8-linux-gcc ${all_platforms}"
-gen_config_files mips32 "--target=mips32-linux-gcc --disable-dspr2 ${all_platforms}"
+gen_config_files mips32 "--target=mips32-linux-gcc --disable-dspr2 --disable-msa ${all_platforms}"
 gen_config_files mips32-dspr2 "--target=mips32-linux-gcc --enable-dspr2 ${all_platforms}"
-gen_config_files mips64 "--target=mips64-linux-gcc ${all_platforms}"
+gen_config_files mips32-msa "--target=mips32-linux-gcc --enable-msa ${all_platforms}"
+gen_config_files mips64 "--target=mips64-linux-gcc --disable-msa ${all_platforms}"
+gen_config_files mips64-msa "--target=mips64-linux-gcc --enable-msa ${all_platforms}"
 gen_config_files generic "--target=generic-gnu ${all_platforms}"
 
 echo "Remove temporary directory."
@@ -171,7 +166,9 @@ lint_config arm-neon
 lint_config arm64
 lint_config mips32
 lint_config mips32-dspr2
+lint_config mips32-msa
 lint_config mips64
+lint_config mips64-msa
 lint_config generic
 
 echo "Create temporary directory."
@@ -180,14 +177,16 @@ rm -rf $TEMP_DIR
 cp -R $LIBVPX_SRC_DIR $TEMP_DIR
 cd $TEMP_DIR
 
-gen_rtcd_header x86 x86
-gen_rtcd_header x86_64 x86_64
-gen_rtcd_header arm armv6
+gen_rtcd_header x86 x86 "${intel}"
+gen_rtcd_header x86_64 x86_64 "${intel}"
+gen_rtcd_header arm armv7 "--disable-neon"
 gen_rtcd_header arm-neon armv7
 gen_rtcd_header arm64 armv8
 gen_rtcd_header mips32 mips32
 gen_rtcd_header mips32-dspr2 mips32
+gen_rtcd_header mips32-msa mips32
 gen_rtcd_header mips64 mips64
+gen_rtcd_header mips64-msa mips64
 gen_rtcd_header generic generic
 
 echo "Prepare Makefile."
@@ -236,11 +235,23 @@ make_clean
 make libvpx_srcs.txt target=libs $config > /dev/null
 cp libvpx_srcs.txt $BASE_DIR/$LIBVPX_CONFIG_DIR/mips32-dspr2/
 
+echo "Generate MIPS MSA source list."
+config=$(print_config_basic mips32-msa)
+make_clean
+make libvpx_srcs.txt target=libs $config > /dev/null
+cp libvpx_srcs.txt $BASE_DIR/$LIBVPX_CONFIG_DIR/mips32-msa/
+
 echo "Generate MIPS64 source list."
 config=$(print_config_basic mips64)
 make_clean
 make libvpx_srcs.txt target=libs $config > /dev/null
 cp libvpx_srcs.txt $BASE_DIR/$LIBVPX_CONFIG_DIR/mips64/
+
+echo "Generate MIPS64 MSA source list."
+config=$(print_config_basic mips64-msa)
+make_clean
+make libvpx_srcs.txt target=libs $config > /dev/null
+cp libvpx_srcs.txt $BASE_DIR/$LIBVPX_CONFIG_DIR/mips64-msa/
 
 echo "Generate GENERIC source list."
 config=$(print_config_basic generic)

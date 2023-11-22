@@ -25,12 +25,14 @@ import android.animation.TypeEvaluator;
 import android.animation.ValueAnimator;
 import android.animation.ValueAnimator.AnimatorUpdateListener;
 import android.annotation.SuppressLint;
+import android.app.Activity;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.content.res.Resources;
 import android.graphics.Point;
 import android.hardware.display.DisplayManager;
 import android.os.Handler;
+import android.os.Message;
 import android.preference.PreferenceManager;
 import android.util.Log;
 import android.util.Property;
@@ -43,11 +45,11 @@ import android.view.ViewGroup.MarginLayoutParams;
 import android.view.animation.AnimationUtils;
 import android.widget.FrameLayout;
 
+import com.android.tv.Features;
 import com.android.tv.R;
 import com.android.tv.TvOptionsManager;
 import com.android.tv.data.DisplayMode;
 import com.android.tv.util.TvSettings;
-import com.android.tv.util.Utils;
 
 /**
  * The TvViewUiManager is responsible for handling UI layouting and animation of main and PIP
@@ -60,6 +62,8 @@ public class TvViewUiManager {
 
     private static final float DISPLAY_MODE_EPSILON = 0.001f;
     private static final float DISPLAY_ASPECT_RATIO_EPSILON = 0.01f;
+
+    private static final int MSG_SET_LAYOUT_PARAMS = 1000;
 
     private final Context mContext;
     private final Resources mResources;
@@ -80,7 +84,27 @@ public class TvViewUiManager {
     private final SharedPreferences mSharedPreferences;
     private final TimeInterpolator mLinearOutSlowIn;
     private final TimeInterpolator mFastOutLinearIn;
-    private final Handler mHandler = new Handler();
+    private final Handler mHandler = new Handler() {
+        @Override
+        public void handleMessage(Message msg) {
+            switch(msg.what) {
+                case MSG_SET_LAYOUT_PARAMS:
+                    FrameLayout.LayoutParams layoutParams = (FrameLayout.LayoutParams) msg.obj;
+                    if (DEBUG) {
+                        Log.d(TAG, "setFixedSize: w=" + layoutParams.width + " h="
+                                + layoutParams.height);
+                    }
+                    mTvView.setLayoutParams(layoutParams);
+                    // Smooth PIP size change, we don't change surface size when
+                    // isInPictureInPictureMode is true.
+                    if (!Features.PICTURE_IN_PICTURE.isEnabled(mContext)
+                            || !((Activity) mContext).isInPictureInPictureMode()) {
+                        mTvView.setFixedSurfaceSize(layoutParams.width, layoutParams.height);
+                    }
+                    break;
+            }
+        }
+    };
     private int mDisplayMode;
     // Used to restore the previous state from ShrunkenTvView state.
     private int mTvViewStartMarginBeforeShrunken;
@@ -148,21 +172,16 @@ public class TvViewUiManager {
                 .getDimensionPixelOffset(R.dimen.pipview_margin_horizontal);
         mPipViewTopMargin = mResources.getDimensionPixelOffset(R.dimen.pipview_margin_top);
         mPipViewBottomMargin = mResources.getDimensionPixelOffset(R.dimen.pipview_margin_bottom);
-        mContentView.addOnLayoutChangeListener(new View.OnLayoutChangeListener() {
-            @Override
-            public void onLayoutChange(View v, int left, int top, int right, int bottom,
-                    int oldLeft, int oldTop, int oldRight, int oldBottom) {
-                int windowWidth = right - left;
-                int windowHeight = bottom - top;
-                if (windowWidth > 0 && windowHeight > 0) {
-                    if (mWindowWidth != windowWidth || mWindowHeight != windowHeight) {
-                        mWindowWidth = windowWidth;
-                        mWindowHeight = windowHeight;
-                        applyDisplayMode(mTvView.getVideoDisplayAspectRatio(), false, true);
-                    }
-                }
+    }
+
+    public void onConfigurationChanged(final int windowWidth, final int windowHeight) {
+        if (windowWidth > 0 && windowHeight > 0) {
+            if (mWindowWidth != windowWidth || mWindowHeight != windowHeight) {
+                mWindowWidth = windowWidth;
+                mWindowHeight = windowHeight;
+                applyDisplayMode(mTvView.getVideoDisplayAspectRatio(), false, true);
             }
-        });
+        }
     }
 
     /**
@@ -514,18 +533,10 @@ public class TvViewUiManager {
             // This block is also called when animation ends.
             if (isTvViewFullScreen()) {
                 // When this layout is for full screen, fix the surface size after layout to make
-                // resize animation smooth.
-                mTvView.post(new Runnable() {
-                    @Override
-                    public void run() {
-                        if (DEBUG) {
-                            Log.d(TAG, "setFixedSize: w=" + layoutParams.width + " h="
-                                    + layoutParams.height);
-                        }
-                        mTvView.setLayoutParams(layoutParams);
-                        mTvView.setFixedSurfaceSize(layoutParams.width, layoutParams.height);
-                    }
-                });
+                // resize animation smooth. During PIP size change, the multiple messages can be
+                // queued, if we don't remove MSG_SET_LAYOUT_PARAMS.
+                mHandler.removeMessages(MSG_SET_LAYOUT_PARAMS);
+                mHandler.obtainMessage(MSG_SET_LAYOUT_PARAMS, layoutParams).sendToTarget();
             } else {
                 mTvView.setLayoutParams(layoutParams);
             }
@@ -715,6 +726,9 @@ public class TvViewUiManager {
 
     private void applyDisplayMode(float videoDisplayAspectRatio, boolean animate,
             boolean forceUpdate) {
+        if (videoDisplayAspectRatio <= 0f) {
+            videoDisplayAspectRatio = (float) mWindowWidth / mWindowHeight;
+        }
         if (mAppliedDisplayedMode == mDisplayMode
                 && mAppliedTvViewStartMargin == mTvViewStartMargin
                 && mAppliedTvViewEndMargin == mTvViewEndMargin
@@ -743,11 +757,7 @@ public class TvViewUiManager {
                     + availableAreaHeight + ")");
         } else {
             availableAreaRatio = (double) availableAreaWidth / availableAreaHeight;
-            if (videoDisplayAspectRatio <= 0f) {
-                videoRatio = (double) mWindowWidth / mWindowHeight;
-            } else {
-                videoRatio = videoDisplayAspectRatio;
-            }
+            videoRatio = videoDisplayAspectRatio;
         }
 
         int tvViewFrameTop = (mWindowHeight - availableAreaHeight) / 2;
@@ -764,22 +774,22 @@ public class TvViewUiManager {
                 if (videoRatio < availableAreaRatio) {
                     // Y axis will be clipped.
                     layoutParams.width = availableAreaWidth;
-                    layoutParams.height = (int) (availableAreaWidth / videoRatio);
+                    layoutParams.height = (int) Math.round(availableAreaWidth / videoRatio);
                 } else {
                     // X axis will be clipped.
-                    layoutParams.width = (int) (availableAreaHeight * videoRatio);
+                    layoutParams.width = (int) Math.round(availableAreaHeight * videoRatio);
                     layoutParams.height = availableAreaHeight;
                 }
                 break;
             case DisplayMode.MODE_NORMAL:
                 if (videoRatio < availableAreaRatio) {
                     // X axis has black area.
-                    layoutParams.width = (int) (availableAreaHeight * videoRatio);
+                    layoutParams.width = (int) Math.round(availableAreaHeight * videoRatio);
                     layoutParams.height = availableAreaHeight;
                 } else {
                     // Y axis has black area.
                     layoutParams.width = availableAreaWidth;
-                    layoutParams.height = (int) (availableAreaWidth / videoRatio);
+                    layoutParams.height = (int) Math.round(availableAreaWidth / videoRatio);
                 }
                 break;
         }
@@ -791,9 +801,9 @@ public class TvViewUiManager {
         // Set marginEnd as well because setTvViewPosition uses both start/end margin.
         layoutParams.setMarginEnd(mWindowWidth - layoutParams.width - marginStart);
 
-        setBackgroundColor(Utils.getColor(mResources, isTvViewFullScreen()
-                ? R.color.tvactivity_background : R.color.tvactivity_background_on_shrunken_tvview),
-                layoutParams, animate);
+        setBackgroundColor(mResources.getColor(isTvViewFullScreen()
+                ? R.color.tvactivity_background : R.color.tvactivity_background_on_shrunken_tvview,
+                        null), layoutParams, animate);
         setTvViewPosition(layoutParams, tvViewFrame, animate);
 
         // Update the current display mode.

@@ -100,6 +100,10 @@ public abstract class ChannelHelper {
          */
         public abstract boolean isEmpty();
         /**
+         * @return true if the collection contains all available channels
+         */
+        public abstract boolean isAllChannels();
+        /**
          * Remove all channels from the collection
          */
         public abstract void clear();
@@ -218,10 +222,10 @@ public abstract class ChannelHelper {
         public abstract void fillBucketSettings(WifiNative.BucketSettings bucket, int maxChannels);
 
         /**
-         * Gets the list of channels that should be supplied to supplicant for a scan. Will either
-         * be a collection of all channels or null if all channels should be scanned.
+         * Gets the list of channels scan. Will either be a collection of all channels or null
+         * if all channels should be scanned.
          */
-        public abstract Set<Integer> getSupplicantScanFreqs();
+        public abstract Set<Integer> getScanFreqs();
     }
 
 

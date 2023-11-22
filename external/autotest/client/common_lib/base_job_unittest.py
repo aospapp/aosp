@@ -1,10 +1,16 @@
 #!/usr/bin/python
 
-import os, stat, tempfile, shutil, logging, tempfile
+# pylint: disable=missing-docstring
+
+import logging
+import os
+import shutil
+import stat
+import tempfile
+import unittest
 
 import common
 from autotest_lib.client.common_lib import base_job, error
-from autotest_lib.client.common_lib.test_utils import unittest
 
 
 class stub_job_directory(object):
@@ -76,12 +82,12 @@ class test_init(unittest.TestCase):
             'profdir', 'toolsdir',
 
             # other special attributes
-            'args', 'automatic_test_tag', 'bootloader', 'control',
+            'args', 'automatic_test_tag', 'control',
             'default_profile_only', 'drop_caches',
             'drop_caches_between_iterations', 'harness', 'hosts',
-            'last_boot_tag', 'logging', 'machines', 'num_tests_failed',
-            'num_tests_run', 'pkgmgr', 'profilers', 'resultdir',
-            'run_test_cleanup', 'sysinfo', 'tag', 'user', 'use_sequence_number',
+            'logging', 'machines', 'num_tests_failed', 'num_tests_run',
+            'pkgmgr', 'profilers', 'resultdir', 'run_test_cleanup',
+            'sysinfo', 'tag', 'user', 'use_sequence_number',
             'warning_loggers', 'warning_manager', 'label', 'test_retry',
             'parent_job_id', 'in_lab', 'machine_dict_list'
             ])
@@ -89,10 +95,9 @@ class test_init(unittest.TestCase):
         OPTIONAL_ATTRIBUTES = set([
             'serverdir',
 
-            'automatic_test_tag', 'bootloader', 'control', 'harness',
-            'last_boot_tag', 'num_tests_run', 'num_tests_failed', 'tag',
-            'warning_manager', 'warning_loggers', 'label', 'test_retry',
-            'parent_job_id'
+            'automatic_test_tag', 'control', 'harness', 'num_tests_run',
+            'num_tests_failed', 'tag', 'warning_manager',
+            'warning_loggers', 'label', 'test_retry', 'parent_job_id'
             ])
 
         OPTIONAL_ATTRIBUTES_DEVICE_ERROR = set(['failed_with_device_error'])

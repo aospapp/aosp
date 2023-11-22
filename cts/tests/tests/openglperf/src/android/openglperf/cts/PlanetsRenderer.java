@@ -16,8 +16,9 @@
 
 package android.openglperf.cts;
 
+import com.android.compatibility.common.util.WatchDog;
+
 import android.content.Context;
-import android.cts.util.WatchDog;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.opengl.GLES20;

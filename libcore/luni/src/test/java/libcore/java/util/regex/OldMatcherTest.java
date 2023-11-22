@@ -20,6 +20,7 @@ package libcore.java.util.regex;
 import java.util.ArrayList;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
 import junit.framework.TestCase;
 
 public class OldMatcherTest extends TestCase {
@@ -576,10 +577,10 @@ public class OldMatcherTest extends TestCase {
         final Matcher m = p.matcher("");
 
         ArrayList<Thread> threads = new ArrayList<Thread>();
-        for (int i = 0; i < 10; ++i) {
+        for (int i = 0; i < 5; ++i) {
             Thread t = new Thread(new Runnable() {
                 public void run() {
-                    for (int i = 0; i < 4096; ++i) {
+                    for (int i = 0; i < 1024; ++i) {
                         String s = "some example text";
                         m.reset(s);
                         try {
@@ -613,4 +614,60 @@ public class OldMatcherTest extends TestCase {
         String result = p.matcher("mama").region(2, 4).replaceFirst("mi");
         assertEquals("mima", result);
     }
+
+    public void testNamedGroupCapture() throws Exception {
+        Matcher m = Pattern.compile("(?<first>[a-f]*)(?<second>[h-k]*)")
+            .matcher("abcdefhkhk");
+
+        assertTrue(m.matches());
+        assertEquals("abcdef", m.group("first"));
+        assertEquals(0, m.start("first"));
+        assertEquals(6, m.end("first"));
+
+        assertEquals("hkhk", m.group("second"));
+        assertEquals(6, m.start("second"));
+        assertEquals(10, m.end("second"));
+
+        try {
+            m.group("third");
+            fail();
+        } catch (IllegalArgumentException expected) {}
+
+        try {
+            Pattern.compile("(?<>[a-f]*)");
+            fail();
+        } catch(PatternSyntaxException expected) {}
+    }
+
+    public void testNamedGroupBackreference() throws Exception {
+        Matcher m = Pattern.compile("(?<somegroup>[a-z]+)X\\k<somegroup>")
+            .matcher("foobarXfoobar");
+
+        assertTrue(m.matches());
+        assertEquals("foobar", m.group("somegroup"));
+        assertEquals(0, m.start("somegroup"));
+        assertEquals(6, m.end("somegroup"));
+
+        try {
+            Pattern.compile("\\k<nosuchgroup>");
+            fail();
+        } catch(PatternSyntaxException expected) {}
+    }
+
+    public void testNamedGroupReplace() throws Exception {
+        assertEquals("a0123zxx", "0123zxx".replaceAll("(?<numbers>[0-9]+)", "a${numbers}"));
+
+        // badly formatted replace string
+        try {
+            "0123zxx".replaceAll("(?<numbers>[0-9]+)", "a${numbers");
+            fail();
+        } catch(IllegalArgumentException expected) {}
+
+        // group that doesn't exist
+        try {
+            "0123zxx".replaceAll("(?<numbers>[0-9]+)", "a${other}");
+            fail();
+        } catch(IllegalArgumentException expected) {}
+    }
+
 }

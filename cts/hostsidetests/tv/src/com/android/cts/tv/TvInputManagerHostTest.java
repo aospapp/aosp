@@ -16,9 +16,8 @@
 
 package com.android.cts.tv;
 
+import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
 import com.android.ddmlib.Log.LogLevel;
-import com.android.compatibility.common.util.VersionCodes;
-import com.android.cts.migration.MigrationHelper;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
@@ -51,8 +50,8 @@ public class TvInputManagerHostTest extends DeviceTestCase implements IAbiReceiv
 
     private void installPackage(String apk) throws FileNotFoundException,
             DeviceNotAvailableException {
-        assertNull(getDevice().installPackage(
-                MigrationHelper.getTestFile(mCtsBuildInfo, apk), true));
+        CompatibilityBuildHelper buildHelper = new CompatibilityBuildHelper(mCtsBuildInfo);
+        assertNull(getDevice().installPackage(buildHelper.getTestFile(apk), true));
     }
 
     private void uninstallPackage(String packageName, boolean shouldSucceed)

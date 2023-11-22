@@ -16,6 +16,8 @@
 
 package com.android.compatibility.common.util;
 
+import com.android.tradefed.util.FileUtil;
+
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -35,8 +37,7 @@ import java.util.Map;
 
 public class DynamicConfigHandler {
 
-    private static final String LOG_TAG = DynamicConfigHandler.class.getSimpleName();
-
+    private final static String MERGED_CONFIG_FILE_FOLDER = "dynamic-config-files-merged";
     private static final String NS = null; //xml constant representing null namespace
     private static final String ENCODING = "UTF-8";
 
@@ -75,9 +76,7 @@ public class DynamicConfigHandler {
     private static File storeMergedConfigFile(Map<String, List<String>> configMap,
             String moduleName) throws XmlPullParserException, IOException {
 
-        File folder = new File(DynamicConfig.MERGED_CONFIG_FILE_FOLDER);
-        folder.mkdirs();
-
+        File folder = FileUtil.createTempDir(MERGED_CONFIG_FILE_FOLDER);
         File mergedConfigFile = new File(folder, moduleName + ".dynamic");
         OutputStream stream = new FileOutputStream(mergedConfigFile);
         XmlSerializer serializer = XmlPullParserFactory.newInstance().newSerializer();

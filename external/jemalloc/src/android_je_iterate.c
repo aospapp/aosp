@@ -101,7 +101,7 @@ static void je_iterate_chunk(arena_chunk_t *chunk,
       void *rpages;
 
       size = arena_mapbits_large_size_get(chunk, pageind);
-      rpages = arena_miscelm_to_rpages(arena_miscelm_get(chunk, pageind));
+      rpages = arena_miscelm_to_rpages(arena_miscelm_get_mutable(chunk, pageind));
       callback((uintptr_t)rpages, size, arg);
     } else {
       /* Run of small allocations */
@@ -110,7 +110,7 @@ static void je_iterate_chunk(arena_chunk_t *chunk,
 
       assert(arena_mapbits_small_runind_get(chunk, pageind) == pageind);
       binind = arena_mapbits_binind_get(chunk, pageind);
-      run = &arena_miscelm_get(chunk, pageind)->run;
+      run = &arena_miscelm_get_mutable(chunk, pageind)->run;
       assert(run->binind == binind);
       size = arena_bin_info[binind].run_size;
 

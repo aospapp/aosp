@@ -29,13 +29,13 @@
 #include <base/time/time.h>
 #include <gtest/gtest_prod.h>  // for FRIEND_TEST
 
-#include "debugd/dbus-proxies.h"
+#if USE_LIBCROS
 #include "update_engine/chrome_browser_proxy_resolver.h"
+#endif  // USE_LIBCROS
 #include "update_engine/certificate_checker.h"
 #include "update_engine/client_library/include/update_engine/update_status.h"
 #include "update_engine/common/action_processor.h"
 #include "update_engine/common/cpu_limiter.h"
-#include "update_engine/libcros_proxy.h"
 #include "update_engine/omaha_request_params.h"
 #include "update_engine/omaha_response_handler_action.h"
 #include "update_engine/payload_consumer/download_action.h"
@@ -55,6 +55,7 @@ class PolicyProvider;
 
 namespace chromeos_update_engine {
 
+class LibCrosProxy;
 class UpdateEngineAdaptor;
 
 class UpdateAttempter : public ActionProcessorDelegate,
@@ -68,8 +69,7 @@ class UpdateAttempter : public ActionProcessorDelegate,
 
   UpdateAttempter(SystemState* system_state,
                   CertificateChecker* cert_checker,
-                  LibCrosProxy* libcros_proxy,
-                  org::chromium::debugdProxyInterface* debugd_proxy);
+                  LibCrosProxy* libcros_proxy);
   ~UpdateAttempter() override;
 
   // Further initialization to be done post construction.
@@ -385,10 +385,6 @@ class UpdateAttempter : public ActionProcessorDelegate,
   // |update_completed_marker_| is empty.
   void WriteUpdateCompletedMarker();
 
-  // Sends a D-Bus message to the Chrome OS power manager asking it to reboot
-  // the system. Returns true on success.
-  bool RequestPowerManagerReboot();
-
   // Reboots the system directly by calling /sbin/shutdown. Returns true on
   // success.
   bool RebootDirectly();
@@ -514,8 +510,6 @@ class UpdateAttempter : public ActionProcessorDelegate,
   // actually scheduled.
   std::string forced_app_version_;
   std::string forced_omaha_url_;
-
-  org::chromium::debugdProxyInterface* debugd_proxy_;
 
   DISALLOW_COPY_AND_ASSIGN(UpdateAttempter);
 };

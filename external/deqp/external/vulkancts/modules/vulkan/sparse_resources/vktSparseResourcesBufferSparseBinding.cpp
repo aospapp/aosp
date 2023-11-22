@@ -98,40 +98,23 @@ BufferSparseBindingInstance::BufferSparseBindingInstance (Context&			context,
 tcu::TestStatus BufferSparseBindingInstance::iterate (void)
 {
 	const InstanceInterface&	instance		= m_context.getInstanceInterface();
-	const DeviceInterface&		deviceInterface	= m_context.getDeviceInterface();
 	const VkPhysicalDevice		physicalDevice	= m_context.getPhysicalDevice();
 
-	VkPhysicalDeviceFeatures deviceFeatures;
-	instance.getPhysicalDeviceFeatures(physicalDevice, &deviceFeatures);
+	if (!getPhysicalDeviceFeatures(instance, physicalDevice).sparseBinding)
+		TCU_THROW(NotSupportedError, "Sparse binding not supported");
 
-	if (deviceFeatures.sparseBinding == false)
 	{
-		return tcu::TestStatus(QP_TEST_RESULT_NOT_SUPPORTED, "Sparse binding not supported");
+		// Create logical device supporting both sparse and compute operations
+		QueueRequirementsVec queueRequirements;
+		queueRequirements.push_back(QueueRequirements(VK_QUEUE_SPARSE_BINDING_BIT, 1u));
+		queueRequirements.push_back(QueueRequirements(VK_QUEUE_COMPUTE_BIT, 1u));
+
+		createDeviceSupportingQueues(queueRequirements);
 	}
 
-	VkPhysicalDeviceProperties deviceProperties;
-	instance.getPhysicalDeviceProperties(physicalDevice, &deviceProperties);
-
-	QueueRequirementsVec queueRequirements;
-	queueRequirements.push_back(QueueRequirements(VK_QUEUE_SPARSE_BINDING_BIT, 1u));
-	queueRequirements.push_back(QueueRequirements(VK_QUEUE_COMPUTE_BIT, 1u));
-
-	// Create logical device supporting both sparse and transfer queues
-	if (!createDeviceSupportingQueues(queueRequirements))
-	{
-		return tcu::TestStatus(QP_TEST_RESULT_FAIL, "Could not create device supporting sparse and compute queue");
-	}
-
-	const VkPhysicalDeviceMemoryProperties deviceMemoryProperties = getPhysicalDeviceMemoryProperties(instance, physicalDevice);
-
-	// Create memory allocator for logical device
-	const de::UniquePtr<Allocator> allocator(new SimpleAllocator(deviceInterface, *m_logicalDevice, deviceMemoryProperties));
-
-	// Create queue supporting sparse binding operations
-	const Queue& sparseQueue = getQueue(VK_QUEUE_SPARSE_BINDING_BIT, 0);
-
-	// Create queue supporting compute and transfer operations
-	const Queue& computeQueue = getQueue(VK_QUEUE_COMPUTE_BIT, 0);
+	const DeviceInterface&	deviceInterface	= getDeviceInterface();
+	const Queue&			sparseQueue		= getQueue(VK_QUEUE_SPARSE_BINDING_BIT, 0);
+	const Queue&			computeQueue	= getQueue(VK_QUEUE_COMPUTE_BIT, 0);
 
 	VkBufferCreateInfo bufferCreateInfo;
 
@@ -155,142 +138,130 @@ tcu::TestStatus BufferSparseBindingInstance::iterate (void)
 	}
 
 	// Create sparse buffer
-	const Unique<VkBuffer> sparseBuffer(createBuffer(deviceInterface, *m_logicalDevice, &bufferCreateInfo));
+	const Unique<VkBuffer> sparseBuffer(createBuffer(deviceInterface, getDevice(), &bufferCreateInfo));
 
-	const VkMemoryRequirements bufferMemRequirement = getBufferMemoryRequirements(deviceInterface, *m_logicalDevice, *sparseBuffer);
+	// Create sparse buffer memory bind semaphore
+	const Unique<VkSemaphore> bufferMemoryBindSemaphore(makeSemaphore(deviceInterface, getDevice()));
 
-	if (bufferMemRequirement.size > deviceProperties.limits.sparseAddressSpaceSize)
-	{
-		return tcu::TestStatus(QP_TEST_RESULT_NOT_SUPPORTED, "Required memory size for sparse resources exceeds device limits");
-	}
+	const VkMemoryRequirements bufferMemRequirement = getBufferMemoryRequirements(deviceInterface, getDevice(), *sparseBuffer);
+
+	if (bufferMemRequirement.size > getPhysicalDeviceProperties(instance, physicalDevice).limits.sparseAddressSpaceSize)
+		TCU_THROW(NotSupportedError, "Required memory size for sparse resources exceeds device limits");
 
 	DE_ASSERT((bufferMemRequirement.size % bufferMemRequirement.alignment) == 0);
 
-	const deUint32 numSparseBinds = static_cast<deUint32>(bufferMemRequirement.size / bufferMemRequirement.alignment);
+	std::vector<DeviceMemorySp> deviceMemUniquePtrVec;
 
-	typedef de::SharedPtr< Unique<VkDeviceMemory> > DeviceMemoryUniquePtr;
-
-	std::vector<VkSparseMemoryBind>		sparseMemoryBinds;
-	std::vector<DeviceMemoryUniquePtr>	deviceMemUniquePtrVec;
-	const deUint32						memoryType = findMatchingMemoryType(deviceMemoryProperties, bufferMemRequirement, MemoryRequirement::Any);
-
-	if (memoryType == NO_MATCH_FOUND)
 	{
-		return tcu::TestStatus(QP_TEST_RESULT_FAIL, "No matching memory type found");
-	}
+		std::vector<VkSparseMemoryBind>	sparseMemoryBinds;
+		const deUint32					numSparseBinds = static_cast<deUint32>(bufferMemRequirement.size / bufferMemRequirement.alignment);
+		const deUint32					memoryType = findMatchingMemoryType(instance, physicalDevice, bufferMemRequirement, MemoryRequirement::Any);
 
-	for (deUint32 sparseBindNdx = 0; sparseBindNdx < numSparseBinds; ++sparseBindNdx)
-	{
-		const VkMemoryAllocateInfo allocInfo =
+		if (memoryType == NO_MATCH_FOUND)
+			return tcu::TestStatus::fail("No matching memory type found");
+
+		for (deUint32 sparseBindNdx = 0; sparseBindNdx < numSparseBinds; ++sparseBindNdx)
 		{
-			VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,	//	VkStructureType			sType;
-			DE_NULL,								//	const void*				pNext;
-			bufferMemRequirement.alignment,			//	VkDeviceSize			allocationSize;
-			memoryType,								//	deUint32				memoryTypeIndex;
+			const VkSparseMemoryBind sparseMemoryBind = makeSparseMemoryBind(deviceInterface, getDevice(), bufferMemRequirement.alignment, memoryType, bufferMemRequirement.alignment * sparseBindNdx);
+
+			deviceMemUniquePtrVec.push_back(makeVkSharedPtr(Move<VkDeviceMemory>(check<VkDeviceMemory>(sparseMemoryBind.memory), Deleter<VkDeviceMemory>(deviceInterface, getDevice(), DE_NULL))));
+
+			sparseMemoryBinds.push_back(sparseMemoryBind);
+		}
+
+		const VkSparseBufferMemoryBindInfo sparseBufferBindInfo = makeSparseBufferMemoryBindInfo(*sparseBuffer, numSparseBinds, &sparseMemoryBinds[0]);
+
+		const VkBindSparseInfo bindSparseInfo =
+		{
+			VK_STRUCTURE_TYPE_BIND_SPARSE_INFO,			//VkStructureType							sType;
+			DE_NULL,									//const void*								pNext;
+			0u,											//deUint32									waitSemaphoreCount;
+			DE_NULL,									//const VkSemaphore*						pWaitSemaphores;
+			1u,											//deUint32									bufferBindCount;
+			&sparseBufferBindInfo,						//const VkSparseBufferMemoryBindInfo*		pBufferBinds;
+			0u,											//deUint32									imageOpaqueBindCount;
+			DE_NULL,									//const VkSparseImageOpaqueMemoryBindInfo*	pImageOpaqueBinds;
+			0u,											//deUint32									imageBindCount;
+			DE_NULL,									//const VkSparseImageMemoryBindInfo*		pImageBinds;
+			1u,											//deUint32									signalSemaphoreCount;
+			&bufferMemoryBindSemaphore.get()			//const VkSemaphore*						pSignalSemaphores;
 		};
 
-		VkDeviceMemory deviceMemory = 0;
-		VK_CHECK(deviceInterface.allocateMemory(*m_logicalDevice, &allocInfo, DE_NULL, &deviceMemory));
-
-		deviceMemUniquePtrVec.push_back(makeVkSharedPtr(Move<VkDeviceMemory>(check<VkDeviceMemory>(deviceMemory), Deleter<VkDeviceMemory>(deviceInterface, *m_logicalDevice, DE_NULL))));
-
-		const VkSparseMemoryBind sparseMemoryBind = makeSparseMemoryBind
-		(
-			bufferMemRequirement.alignment * sparseBindNdx,	//VkDeviceSize				resourceOffset
-			bufferMemRequirement.alignment,					//VkDeviceSize				size
-			deviceMemory,									//VkDeviceMemory			memory
-			0u,												//VkDeviceSize				memoryOffset
-			0u												//VkSparseMemoryBindFlags	flags
-		);
-
-		sparseMemoryBinds.push_back(sparseMemoryBind);
+		// Submit sparse bind commands for execution
+		VK_CHECK(deviceInterface.queueBindSparse(sparseQueue.queueHandle, 1u, &bindSparseInfo, DE_NULL));
 	}
 
-	const VkSparseBufferMemoryBindInfo sparseBufferBindInfo = makeSparseBufferMemoryBindInfo
-	(
-		*sparseBuffer,			//VkBuffer					buffer;
-		numSparseBinds,			//deUint32					bindCount;
-		&sparseMemoryBinds[0]	//const VkSparseMemoryBind*	Binds;
-	);
-
-	const Unique<VkSemaphore> bufferMemoryBindSemaphore(makeSemaphore(deviceInterface, *m_logicalDevice));
-
-	const VkBindSparseInfo bindSparseInfo =
-	{
-		VK_STRUCTURE_TYPE_BIND_SPARSE_INFO,			//VkStructureType							sType;
-		DE_NULL,									//const void*								pNext;
-		0u,											//deUint32									waitSemaphoreCount;
-		DE_NULL,									//const VkSemaphore*						pWaitSemaphores;
-		1u,											//deUint32									bufferBindCount;
-		&sparseBufferBindInfo,						//const VkSparseBufferMemoryBindInfo*		pBufferBinds;
-		0u,											//deUint32									imageOpaqueBindCount;
-		DE_NULL,									//const VkSparseImageOpaqueMemoryBindInfo*	pImageOpaqueBinds;
-		0u,											//deUint32									imageBindCount;
-		DE_NULL,									//const VkSparseImageMemoryBindInfo*		pImageBinds;
-		1u,											//deUint32									signalSemaphoreCount;
-		&bufferMemoryBindSemaphore.get()			//const VkSemaphore*						pSignalSemaphores;
-	};
-
-	// Submit sparse bind commands for execution
-	VK_CHECK(deviceInterface.queueBindSparse(sparseQueue.queueHandle, 1u, &bindSparseInfo, DE_NULL));
-
 	// Create command buffer for transfer oparations
-	const Unique<VkCommandPool>		commandPool(makeCommandPool(deviceInterface, *m_logicalDevice, computeQueue.queueFamilyIndex));
-	const Unique<VkCommandBuffer>	commandBuffer(makeCommandBuffer(deviceInterface, *m_logicalDevice, *commandPool));
+	const Unique<VkCommandPool>		commandPool(makeCommandPool(deviceInterface, getDevice(), computeQueue.queueFamilyIndex));
+	const Unique<VkCommandBuffer>	commandBuffer(makeCommandBuffer(deviceInterface, getDevice(), *commandPool));
 
 	// Start recording transfer commands
 	beginCommandBuffer(deviceInterface, *commandBuffer);
 
-	const VkBufferCreateInfo	inputBufferCreateInfo = makeBufferCreateInfo(m_bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
-	const de::UniquePtr<Buffer>	inputBuffer(new Buffer(deviceInterface, *m_logicalDevice, *allocator, inputBufferCreateInfo, MemoryRequirement::HostVisible));
+	const VkBufferCreateInfo		inputBufferCreateInfo = makeBufferCreateInfo(m_bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
+	const Unique<VkBuffer>			inputBuffer				(createBuffer(deviceInterface, getDevice(), &inputBufferCreateInfo));
+	const de::UniquePtr<Allocation>	inputBufferAlloc		(bindBuffer(deviceInterface, getDevice(), getAllocator(), *inputBuffer, MemoryRequirement::HostVisible));
 
 	std::vector<deUint8> referenceData;
 	referenceData.resize(m_bufferSize);
 
 	for (deUint32 valueNdx = 0; valueNdx < m_bufferSize; ++valueNdx)
-	{	
+	{
 		referenceData[valueNdx] = static_cast<deUint8>((valueNdx % bufferMemRequirement.alignment) + 1u);
 	}
 
-	deMemcpy(inputBuffer->getAllocation().getHostPtr(), &referenceData[0], m_bufferSize);
+	deMemcpy(inputBufferAlloc->getHostPtr(), &referenceData[0], m_bufferSize);
 
-	flushMappedMemoryRange(deviceInterface, *m_logicalDevice, inputBuffer->getAllocation().getMemory(), inputBuffer->getAllocation().getOffset(), m_bufferSize);
+	flushMappedMemoryRange(deviceInterface, getDevice(), inputBufferAlloc->getMemory(), inputBufferAlloc->getOffset(), m_bufferSize);
 
-	const VkBufferMemoryBarrier inputBufferBarrier 
-		= makeBufferMemoryBarrier(	VK_ACCESS_HOST_WRITE_BIT,
-									VK_ACCESS_TRANSFER_READ_BIT,
-									inputBuffer->get(),
-									0u,
-									m_bufferSize);
+	{
+		const VkBufferMemoryBarrier inputBufferBarrier
+			= makeBufferMemoryBarrier(	VK_ACCESS_HOST_WRITE_BIT,
+										VK_ACCESS_TRANSFER_READ_BIT,
+										*inputBuffer,
+										0u,
+										m_bufferSize);
 
-	deviceInterface.cmdPipelineBarrier(*commandBuffer, VK_PIPELINE_STAGE_HOST_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0u, 0u, DE_NULL, 1u, &inputBufferBarrier, 0u, DE_NULL);
+		deviceInterface.cmdPipelineBarrier(*commandBuffer, VK_PIPELINE_STAGE_HOST_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0u, 0u, DE_NULL, 1u, &inputBufferBarrier, 0u, DE_NULL);
+	}
 
-	const VkBufferCopy bufferCopy = makeBufferCopy(0u, 0u, m_bufferSize);
+	{
+		const VkBufferCopy bufferCopy = makeBufferCopy(0u, 0u, m_bufferSize);
 
-	deviceInterface.cmdCopyBuffer(*commandBuffer, inputBuffer->get(), *sparseBuffer, 1u, &bufferCopy);
+		deviceInterface.cmdCopyBuffer(*commandBuffer, *inputBuffer, *sparseBuffer, 1u, &bufferCopy);
+	}
 
-	const VkBufferMemoryBarrier sparseBufferBarrier 
-		= makeBufferMemoryBarrier(	VK_ACCESS_TRANSFER_WRITE_BIT,
-									VK_ACCESS_TRANSFER_READ_BIT,
-									*sparseBuffer,
-									0u,
-									m_bufferSize);
+	{
+		const VkBufferMemoryBarrier sparseBufferBarrier
+			= makeBufferMemoryBarrier(	VK_ACCESS_TRANSFER_WRITE_BIT,
+										VK_ACCESS_TRANSFER_READ_BIT,
+										*sparseBuffer,
+										0u,
+										m_bufferSize);
 
-	deviceInterface.cmdPipelineBarrier(*commandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0u, 0u, DE_NULL, 1u, &sparseBufferBarrier, 0u, DE_NULL);
+		deviceInterface.cmdPipelineBarrier(*commandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0u, 0u, DE_NULL, 1u, &sparseBufferBarrier, 0u, DE_NULL);
+	}
 
-	const VkBufferCreateInfo	outputBufferCreateInfo = makeBufferCreateInfo(m_bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT);
-	const de::UniquePtr<Buffer>	outputBuffer(new Buffer(deviceInterface, *m_logicalDevice, *allocator, outputBufferCreateInfo, MemoryRequirement::HostVisible));
+	const VkBufferCreateInfo		outputBufferCreateInfo	= makeBufferCreateInfo(m_bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT);
+	const Unique<VkBuffer>			outputBuffer			(createBuffer(deviceInterface, getDevice(), &outputBufferCreateInfo));
+	const de::UniquePtr<Allocation>	outputBufferAlloc		(bindBuffer(deviceInterface, getDevice(), getAllocator(), *outputBuffer, MemoryRequirement::HostVisible));
 
-	deviceInterface.cmdCopyBuffer(*commandBuffer, *sparseBuffer, outputBuffer->get(), 1u, &bufferCopy);
+	{
+		const VkBufferCopy bufferCopy = makeBufferCopy(0u, 0u, m_bufferSize);
 
-	const VkBufferMemoryBarrier outputBufferBarrier 
-		= makeBufferMemoryBarrier(	VK_ACCESS_TRANSFER_WRITE_BIT,
-									VK_ACCESS_HOST_READ_BIT,
-									outputBuffer->get(),
-									0u,
-									m_bufferSize);
+		deviceInterface.cmdCopyBuffer(*commandBuffer, *sparseBuffer, *outputBuffer, 1u, &bufferCopy);
+	}
 
-	deviceInterface.cmdPipelineBarrier(*commandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_HOST_BIT, 0u, 0u, DE_NULL, 1u, &outputBufferBarrier, 0u, DE_NULL);
+	{
+		const VkBufferMemoryBarrier outputBufferBarrier
+			= makeBufferMemoryBarrier(	VK_ACCESS_TRANSFER_WRITE_BIT,
+										VK_ACCESS_HOST_READ_BIT,
+										*outputBuffer,
+										0u,
+										m_bufferSize);
+
+		deviceInterface.cmdPipelineBarrier(*commandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_HOST_BIT, 0u, 0u, DE_NULL, 1u, &outputBufferBarrier, 0u, DE_NULL);
+	}
 
 	// End recording transfer commands
 	endCommandBuffer(deviceInterface, *commandBuffer);
@@ -298,26 +269,21 @@ tcu::TestStatus BufferSparseBindingInstance::iterate (void)
 	const VkPipelineStageFlags waitStageBits[] = { VK_PIPELINE_STAGE_TRANSFER_BIT };
 
 	// Submit transfer commands for execution and wait for completion
-	submitCommandsAndWait(deviceInterface, *m_logicalDevice, computeQueue.queueHandle, *commandBuffer, 1u, &bufferMemoryBindSemaphore.get(), waitStageBits);
+	submitCommandsAndWait(deviceInterface, getDevice(), computeQueue.queueHandle, *commandBuffer, 1u, &bufferMemoryBindSemaphore.get(), waitStageBits);
 
 	// Retrieve data from output buffer to host memory
-	const Allocation& allocation = outputBuffer->getAllocation();
+	invalidateMappedMemoryRange(deviceInterface, getDevice(), outputBufferAlloc->getMemory(), outputBufferAlloc->getOffset(), m_bufferSize);
 
-	invalidateMappedMemoryRange(deviceInterface, *m_logicalDevice, allocation.getMemory(), allocation.getOffset(), m_bufferSize);
-
-	const deUint8*	outputData = static_cast<const deUint8*>(allocation.getHostPtr());
-	tcu::TestStatus testStatus = tcu::TestStatus::incomplete();
-
-	// Compare output data with reference data
-	if (deMemCmp(&referenceData[0], outputData, m_bufferSize) == 0)
-		testStatus = tcu::TestStatus::pass("Passed");
-	else
-		testStatus = tcu::TestStatus::fail("Failed");
+	const deUint8* outputData = static_cast<const deUint8*>(outputBufferAlloc->getHostPtr());
 
 	// Wait for sparse queue to become idle
 	deviceInterface.queueWaitIdle(sparseQueue.queueHandle);
 
-	return testStatus;
+	// Compare output data with reference data
+	if (deMemCmp(&referenceData[0], outputData, m_bufferSize) != 0)
+		return tcu::TestStatus::fail("Failed");
+	else
+		return tcu::TestStatus::pass("Passed");
 }
 
 TestInstance* BufferSparseBindingCase::createInstance (Context& context) const
@@ -327,18 +293,14 @@ TestInstance* BufferSparseBindingCase::createInstance (Context& context) const
 
 } // anonymous ns
 
-tcu::TestCaseGroup* createBufferSparseBindingTests (tcu::TestContext& testCtx)
+void addBufferSparseBindingTests (tcu::TestCaseGroup* group)
 {
-	de::MovePtr<tcu::TestCaseGroup> testGroup(new tcu::TestCaseGroup(testCtx, "buffer_sparse_binding", "Buffer Sparse Binding"));
-
-	testGroup->addChild(new BufferSparseBindingCase(testCtx, "buffer_size_2_10", "", 1 << 10));
-	testGroup->addChild(new BufferSparseBindingCase(testCtx, "buffer_size_2_12", "", 1 << 12));
-	testGroup->addChild(new BufferSparseBindingCase(testCtx, "buffer_size_2_16", "", 1 << 16));
-	testGroup->addChild(new BufferSparseBindingCase(testCtx, "buffer_size_2_17", "", 1 << 17));
-	testGroup->addChild(new BufferSparseBindingCase(testCtx, "buffer_size_2_20", "", 1 << 20));
-	testGroup->addChild(new BufferSparseBindingCase(testCtx, "buffer_size_2_24", "", 1 << 24));
-
-	return testGroup.release();
+	group->addChild(new BufferSparseBindingCase(group->getTestContext(), "buffer_size_2_10", "", 1 << 10));
+	group->addChild(new BufferSparseBindingCase(group->getTestContext(), "buffer_size_2_12", "", 1 << 12));
+	group->addChild(new BufferSparseBindingCase(group->getTestContext(), "buffer_size_2_16", "", 1 << 16));
+	group->addChild(new BufferSparseBindingCase(group->getTestContext(), "buffer_size_2_17", "", 1 << 17));
+	group->addChild(new BufferSparseBindingCase(group->getTestContext(), "buffer_size_2_20", "", 1 << 20));
+	group->addChild(new BufferSparseBindingCase(group->getTestContext(), "buffer_size_2_24", "", 1 << 24));
 }
 
 } // sparse

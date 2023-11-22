@@ -118,23 +118,21 @@ class desktopui_SonicExtension(test.test):
         logging.info('Starting sonic client test.')
         kwargs = {
             'extension_paths': [self._extension_dir],
-            'is_component': True,
             'extra_chrome_flags': [self._settings['extra_flags']],
         }
+
         with chromedriver.chromedriver(**kwargs) as chromedriver_instance:
             driver = chromedriver_instance.driver
-            extension = chromedriver_instance.get_extension(
-                    self._extension_dir)
-            extension_id = extension.extension_id
-            time.sleep(self.wait_time)
-            self._test_utils.close_popup_tabs(driver)
-            self._test_utils.block_setup_dialog(driver, extension_id)
+            extension_id = chromedriver_instance.get_extension(
+                    self._extension_dir).extension_id
+            self._test_utils.enable_automatic_send_usage(driver)
+            self._test_utils.set_local_storage_mr_mirroring(
+                    driver, extension_id)
             test_info = self._get_run_information(driver, self._settings)
+
             logging.info('Starting tabcast to extension: %s', extension_id)
-            self._test_utils.set_mirroring_options(
-                    driver, extension_id, self._settings)
             current_tab_handle = driver.current_window_handle
-            self._test_utils.start_v2_mirroring_test_utils(
+            self._test_utils.start_mirroring_media_router(
                     driver, extension_id, self._sonic_hostname,
                     self._settings['video_site'],
                     self._settings['full_screen'] == 'on')
@@ -142,8 +140,8 @@ class desktopui_SonicExtension(test.test):
             driver.switch_to_window(current_tab_handle)
             cpu_usage = self._test_utils.cpu_usage_interval(
                     int(self._settings['mirror_duration']))
-            self._test_utils.stop_v2_mirroring_test_utils(driver, extension_id)
-            crash_id = self._test_utils.upload_v2_mirroring_logs(
+            self._test_utils.stop_mirroring_media_router(driver, extension_id)
+            crash_id = self._test_utils.upload_mirroring_logs_media_router(
                     driver, extension_id)
             test_info['crash_id'] = crash_id
             if self._settings.get('sender_root_dir'):
@@ -158,7 +156,7 @@ class desktopui_SonicExtension(test.test):
                 json.dump(cpu_usage, open(cpu_json_file, 'wb'))
                 json.dump(cpu_bound, open(cpu_bound_json_file, 'wb'))
             time.sleep(self.wait_time)
-            #To cehck encoder acceleration used while casting
+            #To check encoder acceleration used while casting
             histogram_verifier.verify(
                  chromedriver_instance.chrome_instance,
                  MEDIA_GVD_INIT_STATUS, MEDIA_GVD_BUCKET)

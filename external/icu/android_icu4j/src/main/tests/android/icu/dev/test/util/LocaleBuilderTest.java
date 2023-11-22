@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 2009-2012, International Business Machines Corporation and    *
@@ -9,23 +11,18 @@ package android.icu.dev.test.util;
 
 import java.util.Arrays;
 
+import org.junit.Test;
+
 import android.icu.dev.test.TestFmwk;
 import android.icu.util.IllformedLocaleException;
 import android.icu.util.ULocale;
 import android.icu.util.ULocale.Builder;
-import org.junit.runner.RunWith;
-import android.icu.junit.IcuTestFmwkRunner;
 
 /**
  * Test cases for ULocale.LocaleBuilder
  */
-@RunWith(IcuTestFmwkRunner.class)
 public class LocaleBuilderTest extends TestFmwk {
-
-    public static void main(String[] args) throws Exception {
-        new LocaleBuilderTest().run(args);
-    }
-
+    @Test
     public void TestLocaleBuilder() {
         // "L": +1 = language
         // "S": +1 = script
@@ -198,6 +195,7 @@ public class LocaleBuilderTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestSetLocale() {
         ULocale loc = new ULocale("th_TH@calendar=gregorian");
         Builder bld = new Builder();

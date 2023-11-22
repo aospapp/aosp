@@ -10,13 +10,12 @@ All of the individual Khronos tests must pass.
 """
 #TODO(ihf): Port to waffle and enable again (crbug.com/413088).
 #ATTRIBUTES = "suite:graphics, suite:graphics_browser, suite:graphics_per-day"
-#SUITE = 'graphics_per-day, graphics, graphics_browser'
 TIME = 'MEDIUM'
 TEST_CATEGORY = 'Functional'
 TEST_CLASS = 'graphics'
 TEST_TYPE = 'client'
 BUG_TEMPLATE = {
-    'labels': ['Cr-OS-Kernel-Graphics'],
+    'components': ['OS>Kernel>Graphics'],
 }
 
 DOC = """

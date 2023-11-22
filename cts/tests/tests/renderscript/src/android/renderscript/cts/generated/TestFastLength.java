@@ -37,17 +37,25 @@ public class TestFastLength extends RSBaseCompute {
         scriptRelaxed = new ScriptC_TestFastLengthRelaxed(mRS);
     }
 
+    @Override
+    protected void tearDown() throws Exception {
+        script.destroy();
+        scriptRelaxed.destroy();
+        super.tearDown();
+    }
+
     public class ArgumentsFloatFloat {
         public float inV;
         public Target.Floaty out;
     }
 
     private void checkFastLengthFloatFloat() {
-        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 1, 0xa2660e8fl, false);
+        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 1, 0xebac65aea2660e8fl, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 1), INPUTSIZE);
             script.forEach_testFastLengthFloatFloat(inV, out);
             verifyResultsFastLengthFloatFloat(inV, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testFastLengthFloatFloat: " + e.toString());
         }
@@ -55,9 +63,11 @@ public class TestFastLength extends RSBaseCompute {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 1), INPUTSIZE);
             scriptRelaxed.forEach_testFastLengthFloatFloat(inV, out);
             verifyResultsFastLengthFloatFloat(inV, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testFastLengthFloatFloat: " + e.toString());
         }
+        inV.destroy();
     }
 
     private void verifyResultsFastLengthFloatFloat(Allocation inV, Allocation out, boolean relaxed) {
@@ -114,11 +124,12 @@ public class TestFastLength extends RSBaseCompute {
     }
 
     private void checkFastLengthFloat2Float() {
-        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 2, 0xf85e6cadl, false);
+        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 2, 0x95f43650f85e6cadl, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 1), INPUTSIZE);
             script.forEach_testFastLengthFloat2Float(inV, out);
             verifyResultsFastLengthFloat2Float(inV, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testFastLengthFloat2Float: " + e.toString());
         }
@@ -126,9 +137,11 @@ public class TestFastLength extends RSBaseCompute {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 1), INPUTSIZE);
             scriptRelaxed.forEach_testFastLengthFloat2Float(inV, out);
             verifyResultsFastLengthFloat2Float(inV, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testFastLengthFloat2Float: " + e.toString());
         }
+        inV.destroy();
     }
 
     private void verifyResultsFastLengthFloat2Float(Allocation inV, Allocation out, boolean relaxed) {
@@ -185,11 +198,12 @@ public class TestFastLength extends RSBaseCompute {
     }
 
     private void checkFastLengthFloat3Float() {
-        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 3, 0x5764fb0el, false);
+        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 3, 0x95f440f25764fb0el, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 1), INPUTSIZE);
             script.forEach_testFastLengthFloat3Float(inV, out);
             verifyResultsFastLengthFloat3Float(inV, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testFastLengthFloat3Float: " + e.toString());
         }
@@ -197,9 +211,11 @@ public class TestFastLength extends RSBaseCompute {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 1), INPUTSIZE);
             scriptRelaxed.forEach_testFastLengthFloat3Float(inV, out);
             verifyResultsFastLengthFloat3Float(inV, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testFastLengthFloat3Float: " + e.toString());
         }
+        inV.destroy();
     }
 
     private void verifyResultsFastLengthFloat3Float(Allocation inV, Allocation out, boolean relaxed) {
@@ -256,11 +272,12 @@ public class TestFastLength extends RSBaseCompute {
     }
 
     private void checkFastLengthFloat4Float() {
-        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 4, 0xb66b896fl, false);
+        Allocation inV = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 4, 0x95f44b93b66b896fl, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 1), INPUTSIZE);
             script.forEach_testFastLengthFloat4Float(inV, out);
             verifyResultsFastLengthFloat4Float(inV, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testFastLengthFloat4Float: " + e.toString());
         }
@@ -268,9 +285,11 @@ public class TestFastLength extends RSBaseCompute {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 1), INPUTSIZE);
             scriptRelaxed.forEach_testFastLengthFloat4Float(inV, out);
             verifyResultsFastLengthFloat4Float(inV, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testFastLengthFloat4Float: " + e.toString());
         }
+        inV.destroy();
     }
 
     private void verifyResultsFastLengthFloat4Float(Allocation inV, Allocation out, boolean relaxed) {

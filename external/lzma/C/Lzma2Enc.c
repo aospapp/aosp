@@ -238,7 +238,7 @@ void Lzma2EncProps_Normalize(CLzma2EncProps *p)
     if (temp > p->lzmaProps.reduceSize)
     {
       UInt64 numBlocks = temp / p->blockSize;
-      if (numBlocks < t2)
+      if (t2 >= 0 && numBlocks < (UInt64) t2)
       {
         t2 = (UInt32)numBlocks;
         t3 = t1 * t2;

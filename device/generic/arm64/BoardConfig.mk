@@ -34,7 +34,6 @@ BUILD_EMULATOR_OPENGL := true
 USE_OPENGL_RENDERER := true
 
 BOARD_USE_LEGACY_UI := true
-VSYNC_EVENT_PHASE_OFFSET_NS := 0
 
 # PDK does not use ext4 image, but it is added here to prevent build break.
 TARGET_USERIMAGES_USE_EXT4 := true

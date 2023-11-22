@@ -71,6 +71,14 @@ public abstract class NetworkSecurityPolicy {
      */
     public abstract boolean isCleartextTrafficPermitted(String hostname);
 
+    /**
+     * Returns {@code true} if Certificate Transparency information is required to be presented by
+     * the server and verified by the client in TLS connections to {@code hostname}.
+     *
+     * <p>See RFC6962 section 3.3 for more details.
+     */
+    public abstract boolean isCertificateTransparencyVerificationRequired(String hostname);
+
     public static final class DefaultNetworkSecurityPolicy extends NetworkSecurityPolicy {
         @Override
         public boolean isCleartextTrafficPermitted() {
@@ -80,6 +88,11 @@ public abstract class NetworkSecurityPolicy {
         @Override
         public boolean isCleartextTrafficPermitted(String hostname) {
             return isCleartextTrafficPermitted();
+        }
+
+        @Override
+        public boolean isCertificateTransparencyVerificationRequired(String hostname) {
+            return false;
         }
     }
 }

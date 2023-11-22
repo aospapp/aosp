@@ -16,27 +16,49 @@
 
 package android.widget.cts;
 
-import android.widget.cts.R;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 
-import android.test.ActivityInstrumentationTestCase2;
+import android.app.Activity;
+import android.content.res.XmlResourceParser;
+import android.support.test.filters.MediumTest;
+import android.support.test.rule.ActivityTestRule;
+import android.support.test.runner.AndroidJUnit4;
 import android.test.ViewAsserts;
 import android.util.LayoutDirection;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.ViewGroup.MarginLayoutParams;
 import android.widget.RelativeLayout;
+import android.widget.cts.util.XmlUtils;
+
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.xmlpull.v1.XmlPullParserException;
+
+import java.io.IOException;
 
 /**
  * Test {@link RelativeLayout.LayoutParams}.
  */
-public class RelativeLayout_LayoutParamsTest extends
-        ActivityInstrumentationTestCase2<RelativeLayoutCtsActivity> {
+@MediumTest
+@RunWith(AndroidJUnit4.class)
+public class RelativeLayout_LayoutParamsTest {
+    private Activity mActivity;
 
-    public RelativeLayout_LayoutParamsTest() {
-        super("android.widget.cts", RelativeLayoutCtsActivity.class);
+    @Rule
+    public ActivityTestRule<RelativeLayoutCtsActivity> mActivityRule =
+            new ActivityTestRule<>(RelativeLayoutCtsActivity.class);
+
+    @Before
+    public void setup() {
+        mActivity = mActivityRule.getActivity();
     }
 
-    public void testConstructor() {
-
+    @Test
+    public void testConstructor() throws XmlPullParserException, IOException {
         RelativeLayout.LayoutParams layoutParams = new RelativeLayout.LayoutParams(200, 300);
         assertEquals(200, layoutParams.width);
         assertEquals(300, layoutParams.height);
@@ -46,22 +68,32 @@ public class RelativeLayout_LayoutParamsTest extends
         assertEquals(200, layoutParams.width);
         assertEquals(300, layoutParams.height);
 
+        ViewGroup.LayoutParams tempViewGroupLayoutParams = new ViewGroup.LayoutParams(300, 400);
+        layoutParams = new RelativeLayout.LayoutParams(tempViewGroupLayoutParams);
+        assertEquals(300, layoutParams.width);
+        assertEquals(400, layoutParams.height);
+
         MarginLayoutParams tempMarginLayoutParams = new MarginLayoutParams(400, 500);
         layoutParams = new RelativeLayout.LayoutParams(tempMarginLayoutParams);
         assertEquals(400, layoutParams.width);
         assertEquals(500, layoutParams.height);
 
+        XmlResourceParser p = mActivity.getResources().getLayout(R.layout.relative_layout);
+        XmlUtils.beginDocument(p, "RelativeLayout");
+        layoutParams = new RelativeLayout.LayoutParams(mActivity, p);
+        assertEquals(ViewGroup.LayoutParams.MATCH_PARENT, layoutParams.width);
+        assertEquals(ViewGroup.LayoutParams.MATCH_PARENT, layoutParams.height);
+
         // Test RelativeLayout.Params which generated from the xml file.
         int rules[];
-        RelativeLayoutCtsActivity activity = getActivity();
 
         // test attributes used in RelativeLayout.
-        RelativeLayout relativeLayout = (RelativeLayout) activity.findViewById(
+        RelativeLayout relativeLayout = (RelativeLayout) mActivity.findViewById(
                 R.id.relative_sublayout_attrs);
 
         // view1, centered within its parent.
         // TEST: android:layout_centerInParent
-        View view1 = activity.findViewById(R.id.relative_view1);
+        View view1 = mActivity.findViewById(R.id.relative_view1);
         ViewAsserts.assertHorizontalCenterAligned(relativeLayout, view1);
         ViewAsserts.assertVerticalCenterAligned(relativeLayout, view1);
         layoutParams = (RelativeLayout.LayoutParams) (view1.getLayoutParams());
@@ -70,7 +102,7 @@ public class RelativeLayout_LayoutParamsTest extends
 
         // view2, below view1 and has same left position with view1.
         // TEST: android:layout_below; android:layout_alignLeft
-        View view2 = activity.findViewById(R.id.relative_view2);
+        View view2 = mActivity.findViewById(R.id.relative_view2);
         ViewAsserts.assertLeftAligned(view1, view2);
         assertEquals(view1.getBottom(), view2.getTop());
         layoutParams = (RelativeLayout.LayoutParams) (view2.getLayoutParams());
@@ -81,7 +113,7 @@ public class RelativeLayout_LayoutParamsTest extends
         // view3, has same top position with view1 and same bottom position with view2,
         // and on the right of view1.1.
         // TEST: android:layout_alignTop; android:layout_alignBottom; android:layout_toRightOf
-        View view3 = activity.findViewById(R.id.relative_view3);
+        View view3 = mActivity.findViewById(R.id.relative_view3);
         ViewAsserts.assertTopAligned(view1, view3);
         ViewAsserts.assertBottomAligned(view2, view3);
         assertEquals(view1.getRight(), view3.getLeft());
@@ -93,7 +125,7 @@ public class RelativeLayout_LayoutParamsTest extends
 
         // view4, has same right position with view3 and above view3.
         // TEST: android:layout_alignRight; android:layout_above
-        View view4 = activity.findViewById(R.id.relative_view4);
+        View view4 = mActivity.findViewById(R.id.relative_view4);
         ViewAsserts.assertRightAligned(view3, view4);
         assertEquals(view3.getTop(), view4.getBottom());
         layoutParams = (RelativeLayout.LayoutParams) (view4.getLayoutParams());
@@ -103,7 +135,7 @@ public class RelativeLayout_LayoutParamsTest extends
 
         // view5 goes on the left-bottom.
         // TEST: android:layout_alignParentBottom; android:layout_alignParentLeft
-        View view5 = activity.findViewById(R.id.relative_view5);
+        View view5 = mActivity.findViewById(R.id.relative_view5);
         ViewAsserts.assertLeftAligned(relativeLayout, view5);
         ViewAsserts.assertBottomAligned(relativeLayout, view5);
         layoutParams = (RelativeLayout.LayoutParams) (view5.getLayoutParams());
@@ -113,7 +145,7 @@ public class RelativeLayout_LayoutParamsTest extends
 
         // view6 goes on the top-right.
         // TEST: android:layout_alignParentTop; android:layout_alignParentRight
-        View view6 = activity.findViewById(R.id.relative_view6);
+        View view6 = mActivity.findViewById(R.id.relative_view6);
         ViewAsserts.assertTopAligned(relativeLayout, view6);
         ViewAsserts.assertRightAligned(relativeLayout, view6);
         layoutParams = (RelativeLayout.LayoutParams) (view6.getLayoutParams());
@@ -123,7 +155,7 @@ public class RelativeLayout_LayoutParamsTest extends
 
         // view7, has same baseline with view6 and centered horizontally within its parent.
         // TEST: android:layout_alignBaseline; android:layout_centerHorizontal
-        View view7 = activity.findViewById(R.id.relative_view7);
+        View view7 = mActivity.findViewById(R.id.relative_view7);
         ViewAsserts.assertBaselineAligned(view6, view7);
         ViewAsserts.assertHorizontalCenterAligned(relativeLayout, view7);
         layoutParams = (RelativeLayout.LayoutParams) (view7.getLayoutParams());
@@ -133,7 +165,7 @@ public class RelativeLayout_LayoutParamsTest extends
 
         // view8, centered vertically within its parent and on the left of view1.
         // TEST: android:layout_toLeftOf; android:layout_centerVertical
-        View view8 = activity.findViewById(R.id.relative_view8);
+        View view8 = mActivity.findViewById(R.id.relative_view8);
         ViewAsserts.assertVerticalCenterAligned(relativeLayout, view8);
         assertEquals(view1.getLeft(), view8.getRight());
         layoutParams = (RelativeLayout.LayoutParams) (view8.getLayoutParams());
@@ -144,7 +176,7 @@ public class RelativeLayout_LayoutParamsTest extends
         // view9, has same top and bottom position with view3 and same left position with its parent
         // TEST: android:layout_alignLeft; android:layout_alignTop; android:layout_alignBottom;
         // android:layout_alignWithParentIfMissing
-        View view9 = activity.findViewById(R.id.relative_view9);
+        View view9 = mActivity.findViewById(R.id.relative_view9);
         ViewAsserts.assertTopAligned(view3, view9);
         ViewAsserts.assertBottomAligned(view3, view9);
         ViewAsserts.assertLeftAligned(relativeLayout, view9);
@@ -155,20 +187,20 @@ public class RelativeLayout_LayoutParamsTest extends
         assertEquals(R.id.relative_view3, rules[RelativeLayout.ALIGN_BOTTOM]);
     }
 
+    @Test
     public void testStartEnd() {
         RelativeLayout.LayoutParams layoutParams;
 
         // Test RelativeLayout.Params which generated from the xml file.
         int rules[];
-        RelativeLayoutCtsActivity activity = getActivity();
 
         // test attributes used in RelativeLayout.
-        RelativeLayout relativeLayout = (RelativeLayout) activity.findViewById(
+        RelativeLayout relativeLayout = (RelativeLayout) mActivity.findViewById(
                 R.id.relative_sublayout_attrs_2);
 
         // view1, centered within its parent.
         // TEST: android:layout_centerInParent
-        View view1 = activity.findViewById(R.id.relative_view21);
+        View view1 = mActivity.findViewById(R.id.relative_view21);
         ViewAsserts.assertHorizontalCenterAligned(relativeLayout, view1);
         ViewAsserts.assertVerticalCenterAligned(relativeLayout, view1);
         layoutParams = (RelativeLayout.LayoutParams) (view1.getLayoutParams());
@@ -177,7 +209,7 @@ public class RelativeLayout_LayoutParamsTest extends
 
         // view2, below view1 and has same left position with view1.
         // TEST: android:layout_below; android:layout_alignStart
-        View view2 = activity.findViewById(R.id.relative_view22);
+        View view2 = mActivity.findViewById(R.id.relative_view22);
         ViewAsserts.assertLeftAligned(view1, view2);
         assertEquals(view1.getBottom(), view2.getTop());
         layoutParams = (RelativeLayout.LayoutParams) (view2.getLayoutParams());
@@ -197,7 +229,7 @@ public class RelativeLayout_LayoutParamsTest extends
         // view3, has same top position with view1 and same bottom position with view2,
         // and on the right of view1.1.
         // TEST: android:layout_alignTop; android:layout_alignBottom; android:layout_toEndOf
-        View view3 = activity.findViewById(R.id.relative_view23);
+        View view3 = mActivity.findViewById(R.id.relative_view23);
         ViewAsserts.assertTopAligned(view1, view3);
         ViewAsserts.assertBottomAligned(view2, view3);
         assertEquals(view1.getRight(), view3.getLeft());
@@ -219,7 +251,7 @@ public class RelativeLayout_LayoutParamsTest extends
 
         // view4, has same right position with view3 and above view3.
         // TEST: android:layout_alignEnd; android:layout_above
-        View view4 = activity.findViewById(R.id.relative_view24);
+        View view4 = mActivity.findViewById(R.id.relative_view24);
         ViewAsserts.assertRightAligned(view3, view4);
         assertEquals(view3.getTop(), view4.getBottom());
         layoutParams = (RelativeLayout.LayoutParams) (view4.getLayoutParams());
@@ -238,7 +270,7 @@ public class RelativeLayout_LayoutParamsTest extends
 
         // view5 goes on the left-bottom.
         // TEST: android:layout_alignParentBottom; android:layout_alignParentStart
-        View view5 = activity.findViewById(R.id.relative_view25);
+        View view5 = mActivity.findViewById(R.id.relative_view25);
         ViewAsserts.assertLeftAligned(relativeLayout, view5);
         ViewAsserts.assertBottomAligned(relativeLayout, view5);
         layoutParams = (RelativeLayout.LayoutParams) (view5.getLayoutParams());
@@ -257,7 +289,7 @@ public class RelativeLayout_LayoutParamsTest extends
 
         // view6 goes on the top-right.
         // TEST: android:layout_alignParentTop; android:layout_alignParentEnd
-        View view6 = activity.findViewById(R.id.relative_view26);
+        View view6 = mActivity.findViewById(R.id.relative_view26);
         ViewAsserts.assertTopAligned(relativeLayout, view6);
         ViewAsserts.assertRightAligned(relativeLayout, view6);
         layoutParams = (RelativeLayout.LayoutParams) (view6.getLayoutParams());
@@ -276,7 +308,7 @@ public class RelativeLayout_LayoutParamsTest extends
 
         // view7, has same baseline with view6 and centered horizontally within its parent.
         // TEST: android:layout_alignBaseline; android:layout_centerHorizontal
-        View view7 = activity.findViewById(R.id.relative_view27);
+        View view7 = mActivity.findViewById(R.id.relative_view27);
         ViewAsserts.assertBaselineAligned(view6, view7);
         ViewAsserts.assertHorizontalCenterAligned(relativeLayout, view7);
         layoutParams = (RelativeLayout.LayoutParams) (view7.getLayoutParams());
@@ -291,7 +323,7 @@ public class RelativeLayout_LayoutParamsTest extends
 
         // view8, centered vertically within its parent and on the left of view1.
         // TEST: android:layout_toStartOf; android:layout_centerVertical
-        View view8 = activity.findViewById(R.id.relative_view28);
+        View view8 = mActivity.findViewById(R.id.relative_view28);
         ViewAsserts.assertVerticalCenterAligned(relativeLayout, view8);
         assertEquals(view1.getLeft(), view8.getRight());
         layoutParams = (RelativeLayout.LayoutParams) (view8.getLayoutParams());
@@ -311,7 +343,7 @@ public class RelativeLayout_LayoutParamsTest extends
         // view9, has same top and bottom position with view3 and same left position with its parent
         // TEST: android:layout_alignStart; android:layout_alignTop; android:layout_alignBottom;
         // android:layout_alignWithParentIfMissing
-        View view9 = activity.findViewById(R.id.relative_view29);
+        View view9 = mActivity.findViewById(R.id.relative_view29);
         ViewAsserts.assertTopAligned(view3, view9);
         ViewAsserts.assertBottomAligned(view3, view9);
         ViewAsserts.assertLeftAligned(relativeLayout, view9);
@@ -332,9 +364,10 @@ public class RelativeLayout_LayoutParamsTest extends
         layoutParams.resolveLayoutDirection(View.LAYOUT_DIRECTION_LTR);
     }
 
-    public void testAccessRule1() {
+    @Test
+    public void testAccessRuleVerb() {
         RelativeLayout.LayoutParams layoutParams = new RelativeLayout.LayoutParams(200, 300);
-        int rules[]= layoutParams.getRules();
+        int rules[] = layoutParams.getRules();
 
         // normal value
         assertEquals(0, rules[RelativeLayout.CENTER_IN_PARENT]);
@@ -346,24 +379,24 @@ public class RelativeLayout_LayoutParamsTest extends
         assertEquals(0, rules[RelativeLayout.ALIGN_LEFT]);
         layoutParams.addRule(RelativeLayout.ALIGN_LEFT);
         assertEquals(RelativeLayout.TRUE, rules[RelativeLayout.ALIGN_LEFT]);
-
-        // exceptional value
-        try {
-            layoutParams.addRule(-1);
-            fail("Should throw ArrayIndexOutOfBoundsException");
-        } catch (ArrayIndexOutOfBoundsException e) {
-            // issue 1695243, not clear what is supposed to happen when verb is exceptional.
-        }
-
-        try {
-            layoutParams.addRule(Integer.MAX_VALUE);
-            fail("Should throw ArrayIndexOutOfBoundsException");
-        } catch (ArrayIndexOutOfBoundsException e) {
-            // issue 1695243, not clear what is supposed to happen when verb is exceptional.
-        }
     }
 
-    public void testAccessRule2() {
+    @Test(expected=ArrayIndexOutOfBoundsException.class)
+    public void testAddRuleVerbTooLow() {
+        RelativeLayout.LayoutParams layoutParams = new RelativeLayout.LayoutParams(200, 300);
+
+        layoutParams.addRule(-1);
+    }
+
+    @Test(expected=ArrayIndexOutOfBoundsException.class)
+    public void testAddRuleVerbTooHigh() {
+        RelativeLayout.LayoutParams layoutParams = new RelativeLayout.LayoutParams(200, 300);
+
+        layoutParams.addRule(Integer.MAX_VALUE);
+    }
+
+    @Test
+    public void testAccessRuleVerbSubject() {
         int rules[];
         RelativeLayout.LayoutParams layoutParams = new RelativeLayout.LayoutParams(200, 300);
 
@@ -393,20 +426,6 @@ public class RelativeLayout_LayoutParamsTest extends
         rules = layoutParams.getRules();
         assertEquals(R.id.relative_view1, rules[RelativeLayout.ALIGN_PARENT_LEFT]);
 
-        try {
-            layoutParams.addRule(-1, 0);
-            fail("Should throw ArrayIndexOutOfBoundsException");
-        } catch (ArrayIndexOutOfBoundsException e) {
-            // issue 1695243, not clear what is supposed to happen when verb is exceptional.
-        }
-
-        try {
-            layoutParams.addRule(Integer.MAX_VALUE, 0);
-            fail("Should throw ArrayIndexOutOfBoundsException");
-        } catch (ArrayIndexOutOfBoundsException e) {
-            // issue 1695243, not clear what is supposed to happen when verb is exceptional.
-        }
-
         layoutParams.addRule(RelativeLayout.ALIGN_LEFT, Integer.MAX_VALUE);
         rules = layoutParams.getRules();
         assertEquals(Integer.MAX_VALUE, rules[RelativeLayout.ALIGN_LEFT]);
@@ -416,6 +435,21 @@ public class RelativeLayout_LayoutParamsTest extends
         assertEquals(Integer.MIN_VALUE, rules[RelativeLayout.ALIGN_LEFT]);
     }
 
+    @Test(expected=ArrayIndexOutOfBoundsException.class)
+    public void testAddRuleVerbSubjectTooLow() {
+        RelativeLayout.LayoutParams layoutParams = new RelativeLayout.LayoutParams(200, 300);
+
+        layoutParams.addRule(-1, 0);
+    }
+
+    @Test(expected=ArrayIndexOutOfBoundsException.class)
+    public void testAddRuleVerbSubjectTooHigh() {
+        RelativeLayout.LayoutParams layoutParams = new RelativeLayout.LayoutParams(200, 300);
+
+        layoutParams.addRule(Integer.MAX_VALUE, 0);
+    }
+
+    @Test
     public void testRemoveRule() {
         RelativeLayout.LayoutParams layoutParams = new RelativeLayout.LayoutParams(200, 300);
 
@@ -439,6 +473,7 @@ public class RelativeLayout_LayoutParamsTest extends
         assertEquals(0, layoutParams.getRule(RelativeLayout.CENTER_HORIZONTAL));
     }
 
+    @Test
     public void testDebug() {
         RelativeLayout.LayoutParams layoutParams = new RelativeLayout.LayoutParams(200, 300);
         assertNotNull(layoutParams.debug("test: "));

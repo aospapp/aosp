@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  * Copyright (C) 1996-2010, International Business Machines Corporation and
  * others. All Rights Reserved.
@@ -24,6 +26,7 @@ class UnicodeNameTransliterator extends Transliterator {
      */
     static void register() {
         Transliterator.registerFactory(_ID, new Transliterator.Factory() {
+            @Override
             public Transliterator getInstance(String ID) {
                 return new UnicodeNameTransliterator(null);
             }
@@ -40,20 +43,21 @@ class UnicodeNameTransliterator extends Transliterator {
     /**
      * Implements {@link Transliterator#handleTransliterate}.
      */
+    @Override
     protected void handleTransliterate(Replaceable text,
                                        Position offsets, boolean isIncremental) {
         int cursor = offsets.start;
         int limit = offsets.limit;
-        
+
         StringBuilder str = new StringBuilder();
         str.append(OPEN_DELIM);
         int len;
         String name;
-        
+
         while (cursor < limit) {
             int c = text.char32At(cursor);
             if ((name=UCharacter.getExtendedName(c)) != null) {
-                
+
                 str.setLength(OPEN_DELIM_LEN);
                 str.append(name).append(CLOSE_DELIM);
 

@@ -20,4 +20,4 @@
 
 typedef struct config_t config_t;
 
-config_t *btif_config_transcode(const char *xml_filename);
+config_t* btif_config_transcode(const char* xml_filename);

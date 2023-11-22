@@ -15,21 +15,30 @@
  */
 package android.graphics.cts;
 
+import static org.junit.Assert.assertEquals;
+
 import android.graphics.Bitmap;
-import android.graphics.Canvas;
-import android.graphics.Paint;
 import android.graphics.Bitmap.Config;
+import android.graphics.Canvas;
 import android.graphics.Canvas.VertexMode;
-import android.test.AndroidTestCase;
+import android.graphics.Paint;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 
-public class Canvas_VertexModeTest extends AndroidTestCase {
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class Canvas_VertexModeTest {
+    @Test
     public void testValueOf(){
         assertEquals(VertexMode.TRIANGLES, VertexMode.valueOf("TRIANGLES"));
         assertEquals(VertexMode.TRIANGLE_STRIP, VertexMode.valueOf("TRIANGLE_STRIP"));
         assertEquals(VertexMode.TRIANGLE_FAN, VertexMode.valueOf("TRIANGLE_FAN"));
     }
 
+    @Test
     public void testValues(){
         VertexMode[] verMode = VertexMode.values();
 

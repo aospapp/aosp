@@ -9,11 +9,11 @@ from autotest_lib.client.common_lib import error
 
 class firmware_UpdateKernelVersion(FirmwareTest):
     """
-    This is a servod based kernel update test which should run in developer
+    This is a server based kernel update test which should run in developer
     mode. On runtime, this test modifies the kernel version of kernel b and
     modifies cgpt to reboot with kernel b. Check kernel version after reboot,
     and then recover kernel b version to original version. Here also tries to
-    reboot with kernel b after recovery. If sccuess, reboot with kernel a.
+    reboot with kernel b after recovery. If success, reboot with kernel a.
     """
     version = 1
 

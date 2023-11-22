@@ -3,7 +3,6 @@
 import os, sys, unittest, optparse
 import common
 from autotest_lib.utils import parallel
-from autotest_lib.client.common_lib.test_utils import unittest as custom_unittest
 
 parser = optparse.OptionParser()
 parser.add_option("-r", action="store", type="string", dest="start",
@@ -61,7 +60,6 @@ REQUIRES_GWT = set((
         ))
 
 REQUIRES_SIMPLEJSON = set((
-        'resources_test.py',
         'serviceHandler_unittest.py',
         ))
 
@@ -82,7 +80,7 @@ REQUIRES_SELENIUM = set((
     ))
 
 LONG_RUNTIME = set((
-    'base_barrier_unittest.py',
+    'barrier_unittest.py',
     'logging_manager_test.py',
     'task_loop_unittest.py'  # crbug.com/254030
     ))
@@ -99,7 +97,7 @@ SKIP = set((
     'ap_configurator_test.py',
     'chaos_base_test.py',
     'chaos_interop_test.py',
-    'atomic_group_unittests.py',
+    'only_if_needed_unittests.py',
     # crbug.com/251395
     'dev_server_test.py',
     'full_release_test.py',
@@ -110,6 +108,8 @@ SKIP = set((
     'des_02_test.py',
     # Rquire lxc to be installed
     'lxc_functional_test.py',
+    # Require sponge utils installed in site-packages
+    'sponge_utils_functional_test.py',
     ))
 
 LONG_TESTS = (REQUIRES_MYSQLDB |
@@ -142,15 +142,14 @@ def run_test(mod_names, options):
     print "Running %s" % '.'.join(mod_names)
     mod = common.setup_modules.import_module(mod_names[-1],
                                              '.'.join(mod_names[:-1]))
-    for ut_module in [unittest, custom_unittest]:
-        test = ut_module.defaultTestLoader.loadTestsFromModule(mod)
-        suite = ut_module.TestSuite(test)
-        runner = ut_module.TextTestRunner(verbosity=2)
-        result = runner.run(suite)
-        if result.errors or result.failures:
-            msg = '%s had %d failures and %d errors.'
-            msg %= '.'.join(mod_names), len(result.failures), len(result.errors)
-            raise TestFailure(msg)
+    test = unittest.defaultTestLoader.loadTestsFromModule(mod)
+    suite = unittest.TestSuite(test)
+    runner = unittest.TextTestRunner(verbosity=2)
+    result = runner.run(suite)
+    if result.errors or result.failures:
+        msg = '%s had %d failures and %d errors.'
+        msg %= '.'.join(mod_names), len(result.failures), len(result.errors)
+        raise TestFailure(msg)
 
 
 def scan_for_modules(start, options):

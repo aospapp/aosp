@@ -27,7 +27,7 @@ LOCAL_PROGUARD_ENABLED := disabled
 
 LOCAL_MULTILIB := both
 
-LOCAL_STATIC_JAVA_LIBRARIES := compatibility-device-util ctsdeviceutil ctstestrunner
+LOCAL_STATIC_JAVA_LIBRARIES := compatibility-device-util ctstestrunner
 
 LOCAL_JNI_SHARED_LIBRARIES := libctsabioverride
 

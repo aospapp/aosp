@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
 *******************************************************************************
 *   Copyright (C) 2007-2013, International Business Machines
@@ -8,9 +10,9 @@
 
 package android.icu.dev.test.bidi;
 
+import org.junit.Test;
+
 import android.icu.text.Bidi;
-import org.junit.runner.RunWith;
-import android.icu.junit.IcuTestFmwkRunner;
 
 /**
  * Regression test for Bidi failure recovery
@@ -18,9 +20,9 @@ import android.icu.junit.IcuTestFmwkRunner;
  * @author Lina Kemmel, Matitiahu Allouche
  */
 
-@RunWith(IcuTestFmwkRunner.class)
-public class TestFailureRecovery extends BidiTest {
+public class TestFailureRecovery extends BidiFmwk {
 
+    @Test
     public void testFailureRecovery()
     {
         logln("\nEntering TestFailureRecovery\n");
@@ -119,15 +121,5 @@ public class TestFailureRecovery extends BidiTest {
         }
 
         logln("\nExiting TestFailureRecovery\n");
-    }
-
-
-    public static void main(String[] args) {
-        try {
-            new TestFailureRecovery().run(args);
-        }
-        catch (Exception e) {
-            System.out.println(e);
-        }
     }
 }

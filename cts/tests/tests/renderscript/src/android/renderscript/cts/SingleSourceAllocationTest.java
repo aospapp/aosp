@@ -44,6 +44,12 @@ public class SingleSourceAllocationTest extends RSBaseCompute {
         s.set_gStart(start);
     }
 
+    @Override
+    protected void tearDown() throws Exception {
+        s.destroy();
+        super.tearDown();
+    }
+
     public void testElementCreation() {
         s.invoke_TestElementCreation();
         waitForMessage();

@@ -22,14 +22,14 @@ import android.widget.ExpandableListView;
 import android.widget.cts.util.ExpandableListScenario;
 
 public class ExpandableListWithHeaders extends ExpandableListScenario {
-    private static final int[] sNumChildren = {1, 4, 3, 2, 6};
-    private static final int sNumOfHeadersAndFooters = 12;
+    private static final int[] CHILD_COUNT = {1, 4, 3, 2, 6};
+    private static final int HEADER_FOOTER_COUNT = 12;
 
     @Override
     protected void init(ExpandableParams params) {
         params.setStackFromBottom(false)
                 .setStartingSelectionPosition(-1)
-                .setNumChildren(sNumChildren)
+                .setNumChildren(CHILD_COUNT)
                 .setItemScreenSizeFactor(0.14)
                 .setConnectAdapter(false);
     }
@@ -41,13 +41,13 @@ public class ExpandableListWithHeaders extends ExpandableListScenario {
         final ExpandableListView expandableListView = getExpandableListView();
         expandableListView.setItemsCanFocus(true);
 
-        for (int i = 0; i < sNumOfHeadersAndFooters; i++) {
+        for (int i = 0; i < HEADER_FOOTER_COUNT; i++) {
             Button header = new Button(this);
             header.setText("Header View");
             expandableListView.addHeaderView(header);
         }
 
-        for (int i = 0; i < sNumOfHeadersAndFooters; i++) {
+        for (int i = 0; i < HEADER_FOOTER_COUNT; i++) {
             Button footer = new Button(this);
             footer.setText("Footer View");
             expandableListView.addFooterView(footer);
@@ -61,6 +61,6 @@ public class ExpandableListWithHeaders extends ExpandableListScenario {
      * @return The number of headers (and the same number of footers)
      */
     public int getNumOfHeadersAndFooters() {
-        return sNumOfHeadersAndFooters;
+        return HEADER_FOOTER_COUNT;
     }
 }

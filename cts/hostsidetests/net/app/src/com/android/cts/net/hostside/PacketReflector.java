@@ -151,6 +151,15 @@ public class PacketReflector extends Thread {
         request[hdrLen] = buf[hdrLen];          // Type.
         request[hdrLen + 2] = buf[hdrLen + 2];  // Checksum byte 1.
         request[hdrLen + 3] = buf[hdrLen + 3];  // Checksum byte 2.
+
+        // Since Linux kernel 4.2, net.ipv6.auto_flowlabels is set by default, and therefore
+        // the request and reply may have different IPv6 flow label: ignore that as well.
+        if (version == 6) {
+            request[1] = (byte)(request[1] & 0xf0 | buf[1] & 0x0f);
+            request[2] = buf[2];
+            request[3] = buf[3];
+        }
+
         for (int i = 0; i < len; i++) {
             if (buf[i] != request[i]) {
                 Log.i(TAG, "Received non-matching packet when expecting ping response.");

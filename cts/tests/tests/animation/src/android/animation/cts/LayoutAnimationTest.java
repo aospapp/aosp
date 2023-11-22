@@ -15,11 +15,10 @@
  */
 package android.animation.cts;
 
-import java.util.Iterator;
-import java.util.LinkedList;
-import java.util.List;
-
-import android.animation.cts.R;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
 import android.animation.Animator;
 import android.animation.LayoutTransition;
@@ -27,33 +26,48 @@ import android.animation.LayoutTransition.TransitionListener;
 import android.animation.ObjectAnimator;
 import android.animation.PropertyValuesHolder;
 import android.animation.TimeInterpolator;
-import android.test.ActivityInstrumentationTestCase2;
+import android.os.SystemClock;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.filters.MediumTest;
+import android.support.test.rule.ActivityTestRule;
+import android.support.test.runner.AndroidJUnit4;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.animation.AccelerateInterpolator;
 import android.widget.Button;
 import android.widget.LinearLayout;
 
-public class LayoutAnimationTest extends
-        ActivityInstrumentationTestCase2<LayoutAnimationActivity> {
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
+
+@MediumTest
+@RunWith(AndroidJUnit4.class)
+public class LayoutAnimationTest {
     private LayoutAnimationActivity mActivity;
-    private MyLayoutTransition mLayoutTransition;
+    private LayoutTransition mLayoutTransition;
     private LinearLayout mView;
     private Button mButton;
 
-    public LayoutAnimationTest() {
-        super(LayoutAnimationActivity.class);
-    }
+    @Rule
+    public ActivityTestRule<LayoutAnimationActivity> mActivityRule =
+            new ActivityTestRule<>(LayoutAnimationActivity.class);
 
-    public void setUp() throws Exception {
-        super.setUp();
-        setActivityInitialTouchMode(true);
-        mActivity = getActivity();
+    @Before
+    public void setup() {
+        InstrumentationRegistry.getInstrumentation().setInTouchMode(true);
+        mActivity = mActivityRule.getActivity();
         mView = (LinearLayout) mActivity.findViewById(R.id.container);
         mButton = (Button)mActivity.findViewById(R.id.button1);
-        mLayoutTransition = new MyLayoutTransition();
+        mLayoutTransition = new LayoutTransition();
     }
 
+    @Test
     public void testAddTransitionListener() throws Throwable {
         MyTransitionListener listener = new MyTransitionListener();
         assertNull(mLayoutTransition.getTransitionListeners());
@@ -65,6 +79,7 @@ public class LayoutAnimationTest extends
         assertEquals(listener, actualListener);
     }
 
+    @Test
     public void testIsRunning() throws Throwable {
         setDefaultTransition();
         assertFalse(mLayoutTransition.isRunning());
@@ -72,6 +87,7 @@ public class LayoutAnimationTest extends
         assertTrue(mLayoutTransition.isRunning());
     }
 
+    @Test
     public void testIsChangingLayout() throws Throwable {
         long duration = 2000l;
         mView.setLayoutTransition(mLayoutTransition);
@@ -84,6 +100,7 @@ public class LayoutAnimationTest extends
         assertTrue(mLayoutTransition.isChangingLayout());
     }
 
+    @Test
     public void testSetDuration() {
         long duration = 1000l;
         mLayoutTransition.setDuration(duration);
@@ -95,12 +112,14 @@ public class LayoutAnimationTest extends
         assertEquals(duration, mLayoutTransition.getDuration(LayoutTransition.DISAPPEARING));
     }
 
+    @Test
     public void testSetDurationForTransitionType() {
         long duration = 1000l;
         mLayoutTransition.setDuration(LayoutTransition.APPEARING, duration);
         assertEquals(duration, mLayoutTransition.getDuration(LayoutTransition.APPEARING));
     }
 
+    @Test
     public void testSetInterpolator() {
         TimeInterpolator interpolator = new AccelerateInterpolator();
         mLayoutTransition.setInterpolator(LayoutTransition.APPEARING, interpolator);
@@ -108,18 +127,20 @@ public class LayoutAnimationTest extends
                 LayoutTransition.APPEARING));
     }
 
+    @Test
     public void testSetAnimator() {
         float startAlpha = 0.0f;
         float endAlpha = 0.5f;
         PropertyValuesHolder pvhAlpha = PropertyValuesHolder.ofFloat("alpha", startAlpha,
                 endAlpha);
-        ObjectAnimator appearingAnimator =  (ObjectAnimator) ObjectAnimator.ofPropertyValuesHolder(
-                (Object)null, pvhAlpha);
+        ObjectAnimator appearingAnimator = ObjectAnimator.ofPropertyValuesHolder(
+                (Object) null, pvhAlpha);
         appearingAnimator.setInterpolator(new AccelerateInterpolator());
         mLayoutTransition.setAnimator(LayoutTransition.APPEARING, appearingAnimator);
         assertEquals(appearingAnimator, mLayoutTransition.getAnimator(LayoutTransition.APPEARING));
     }
 
+    @Test
     public void testAnimationWithAnimator() throws Throwable {
         MyTransitionListener listener = new MyTransitionListener();
         mLayoutTransition.addTransitionListener(listener);
@@ -131,18 +152,18 @@ public class LayoutAnimationTest extends
         float endAlpha = 0.5f;
         PropertyValuesHolder pvhAlpha = PropertyValuesHolder.ofFloat("alpha", startAlpha,
                 endAlpha);
-        ObjectAnimator appearingAnimator =  (ObjectAnimator) ObjectAnimator.ofPropertyValuesHolder(
-                (Object)null, pvhAlpha);
+        ObjectAnimator appearingAnimator = ObjectAnimator.ofPropertyValuesHolder(
+                (Object) null, pvhAlpha);
         appearingAnimator.setInterpolator(new AccelerateInterpolator());
 
         mLayoutTransition.setAnimator(LayoutTransition.APPEARING, appearingAnimator);
 
-        List<Float> alphaList = new LinkedList<Float>();
+        List<Float> alphaList = new LinkedList<>();
         clickButton();
-        while(listener.mTransition) {
+        while (listener.mTransition) {
             float alpha = mActivity.getLastButton().getAlpha();
             alphaList.add(alpha);
-            Thread.sleep(200);
+            SystemClock.sleep(200);
         }
         Iterator<Float> iterator = alphaList.iterator();
         float lastValue = 0.0f;
@@ -155,6 +176,7 @@ public class LayoutAnimationTest extends
         }
     }
 
+    @Test
     public void testStartDelay() {
         long delay = 100l;
         int transitionType = LayoutTransition.APPEARING;
@@ -162,6 +184,7 @@ public class LayoutAnimationTest extends
         assertEquals(delay, mLayoutTransition.getStartDelay(transitionType));
     }
 
+    @Test
     public void testSetStagger() {
         long duration = 100;
         int transitionType = LayoutTransition.CHANGE_APPEARING;
@@ -178,12 +201,8 @@ public class LayoutAnimationTest extends
     }
 
     private void clickButton() throws Throwable {
-        runTestOnUiThread(new Runnable() {
-            public void run() {
-                mButton.callOnClick();
-            }
-        });
-        getInstrumentation().waitForIdleSync();
+        mActivityRule.runOnUiThread(mButton::callOnClick);
+        InstrumentationRegistry.getInstrumentation().waitForIdleSync();
     }
 
     class MyTransitionListener implements LayoutTransition.TransitionListener {

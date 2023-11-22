@@ -37,15 +37,17 @@
 #include "vkRefUtil.hpp"
 #include "vkImageUtil.hpp"
 
-#include "vktDynamicStateCreateInfoUtil.hpp"
-#include "vktDynamicStateImageObjectUtil.hpp"
-#include "vktDynamicStateBufferObjectUtil.hpp"
+#include "vktDrawCreateInfoUtil.hpp"
+#include "vktDrawImageObjectUtil.hpp"
+#include "vktDrawBufferObjectUtil.hpp"
 #include "vkPrograms.hpp"
 
 namespace vkt
 {
 namespace DynamicState
 {
+
+using namespace Draw;
 
 namespace
 {
@@ -277,7 +279,7 @@ protected:
 		vk::flushMappedMemoryRange(m_vk, device,
 			m_vertexBuffer->getBoundMemory().getMemory(),
 			m_vertexBuffer->getBoundMemory().getOffset(),
-			sizeof(dataSize));
+			dataSize);
 
 		const CmdPoolCreateInfo cmdPoolCreateInfo(m_context.getUniversalQueueFamilyIndex());
 		m_cmdPool = vk::createCommandPool(m_vk, device, &cmdPoolCreateInfo);
@@ -327,14 +329,14 @@ protected:
 		memBarrier.sType = vk::VK_STRUCTURE_TYPE_MEMORY_BARRIER;
 		memBarrier.pNext = NULL;
 		memBarrier.srcAccessMask = vk::VK_ACCESS_TRANSFER_WRITE_BIT;
- 		memBarrier.dstAccessMask = vk::VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | vk::VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT |
+		memBarrier.dstAccessMask = vk::VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | vk::VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT |
 					   vk::VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | vk::VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
- 
+
 		m_vk.cmdPipelineBarrier(*m_cmdBuffer, vk::VK_PIPELINE_STAGE_TRANSFER_BIT,
 						      vk::VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT |
 						      vk::VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | vk::VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
 						      0, 1, &memBarrier, 0, NULL, 0, NULL);
- 
+
 		const vk::VkRect2D renderArea = { { 0, 0 }, { WIDTH, HEIGHT } };
 		const RenderPassBeginInfo renderPassBegin(*m_renderPass, *m_framebuffer, renderArea);
 
@@ -434,11 +436,11 @@ public:
 		m_data.push_back(PositionColorVertex(tcu::Vec4(1.0f, -1.0f, 1.0f, 1.0f), tcu::RGBA::blue().toVec()));
 
 		m_depthStencilState_1 = PipelineCreateInfo::DepthStencilState(
-			vk::VK_TRUE, vk::VK_TRUE, vk::VK_COMPARE_OP_ALWAYS, vk::VK_FALSE);
+			VK_TRUE, VK_TRUE, vk::VK_COMPARE_OP_ALWAYS, VK_FALSE);
 
 		// enable depth bounds test
 		m_depthStencilState_2 = PipelineCreateInfo::DepthStencilState(
-			vk::VK_FALSE, vk::VK_FALSE, vk::VK_COMPARE_OP_NEVER, vk::VK_TRUE);
+			VK_FALSE, VK_FALSE, vk::VK_COMPARE_OP_NEVER, VK_TRUE);
 
 		DepthStencilBaseCase::initialize();
 	}
@@ -587,10 +589,10 @@ public:
 
 		// enable stencil test
 		m_depthStencilState_1 = PipelineCreateInfo::DepthStencilState(
-			vk::VK_FALSE, vk::VK_FALSE, vk::VK_COMPARE_OP_NEVER, vk::VK_FALSE, vk::VK_TRUE, frontState_1, backState_1);
+			VK_FALSE, VK_FALSE, vk::VK_COMPARE_OP_NEVER, VK_FALSE, VK_TRUE, frontState_1, backState_1);
 
 		m_depthStencilState_2 = PipelineCreateInfo::DepthStencilState(
-			vk::VK_FALSE, vk::VK_FALSE, vk::VK_COMPARE_OP_NEVER, vk::VK_FALSE, vk::VK_TRUE, frontState_2, backState_2);
+			VK_FALSE, VK_FALSE, vk::VK_COMPARE_OP_NEVER, VK_FALSE, VK_TRUE, frontState_2, backState_2);
 
 		DepthStencilBaseCase::initialize();
 	}
@@ -757,10 +759,10 @@ public:
 
 		// enable stencil test
 		m_depthStencilState_1 = PipelineCreateInfo::DepthStencilState(
-			vk::VK_FALSE, vk::VK_FALSE, vk::VK_COMPARE_OP_NEVER, vk::VK_FALSE, vk::VK_TRUE, frontState_1, backState_1);
+			VK_FALSE, VK_FALSE, vk::VK_COMPARE_OP_NEVER, VK_FALSE, VK_TRUE, frontState_1, backState_1);
 
 		m_depthStencilState_2 = PipelineCreateInfo::DepthStencilState(
-			vk::VK_FALSE, vk::VK_FALSE, vk::VK_COMPARE_OP_NEVER, vk::VK_FALSE, vk::VK_TRUE, frontState_2, backState_2);
+			VK_FALSE, VK_FALSE, vk::VK_COMPARE_OP_NEVER, VK_FALSE, VK_TRUE, frontState_2, backState_2);
 
 		DepthStencilBaseCase::initialize();
 	}

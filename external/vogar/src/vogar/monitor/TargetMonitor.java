@@ -23,7 +23,6 @@ import java.io.PrintStream;
 import java.net.ServerSocket;
 import java.net.Socket;
 import vogar.Result;
-import vogar.target.Runner;
 
 /**
  * Accepts a connection from the host process. Once connected, XML is sent over
@@ -64,12 +63,9 @@ public class TargetMonitor {
         }
     }
 
-    public void outcomeStarted(Class<? extends Runner> runnerClass, String outcomeName) {
+    public void outcomeStarted(String outcomeName) {
         JsonObject jsonObject = new JsonObject();
         jsonObject.addProperty("outcome", outcomeName);
-        if (runnerClass != null) {
-            jsonObject.addProperty("runner", runnerClass.getName());
-        }
         writer.print(marker + gson.toJson(jsonObject) + "\n");
     }
 

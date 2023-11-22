@@ -16,7 +16,6 @@
 
 package android.database.cts;
 
-
 import android.content.Context;
 import android.database.AbstractCursor;
 import android.database.CharArrayBuffer;
@@ -27,9 +26,9 @@ import android.database.DataSetObserver;
 import android.database.sqlite.SQLiteDatabase;
 import android.net.Uri;
 import android.os.Bundle;
+import android.provider.Settings;
 import android.test.InstrumentationTestCase;
 
-import java.lang.Math;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Random;
@@ -135,9 +134,9 @@ public class AbstractCursorTest extends InstrumentationTestCase {
     }
 
     public void testSetNotificationUri() {
-        String MOCK_URI = "content://abstractrcursortest/testtable";
+        final Uri testUri = Settings.System.getUriFor(Settings.System.TIME_12_24);
         mDatabaseCursor.setNotificationUri(getInstrumentation().getContext().getContentResolver(),
-                Uri.parse(MOCK_URI));
+                testUri);
     }
 
     public void testRespond() {

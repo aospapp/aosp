@@ -22,25 +22,19 @@
 static const char BT_UTILS_MODULE[] = "bt_utils_module";
 
 /*******************************************************************************
-**  Type definitions
-********************************************************************************/
+ *  Type definitions
+ ******************************************************************************/
 
 typedef enum {
-    TASK_HIGH_MEDIA = 0,
-    TASK_HIGH_GKI_TIMER,
-    TASK_HIGH_BTU,
-    TASK_HIGH_HCI_WORKER,
-    TASK_HIGH_USERIAL_READ,
-    TASK_UIPC_READ,
-    TASK_JAVA_ALARM,
-    TASK_HIGH_MAX
+  TASK_HIGH_MEDIA = 0,
+  TASK_UIPC_READ,
+  TASK_HIGH_MAX
 } tHIGH_PRIORITY_TASK;
 
 /*******************************************************************************
-**  Functions
-********************************************************************************/
+ *  Functions
+ ******************************************************************************/
 
 void raise_priority_a2dp(tHIGH_PRIORITY_TASK high_task);
-void adjust_priority_a2dp(int start);
-#define UNUSED(x) (void)(x)
+
 #endif /* BT_UTILS_H */

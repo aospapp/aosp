@@ -197,6 +197,11 @@ _cpri__TestKeyRSA(
    }
    else
    {
+       if (BN_is_zero(bnP))
+       {
+           retVal = CRYPT_PARAMETER;
+           goto Cleanup;
+       }
        // One prime provided so find the second prime by division
        BN_bin2bn(publicKey->buffer, publicKey->size, bnN);
         // Get q = n/p;
@@ -800,11 +805,19 @@ RSASSA_Encode(
    INT32               fillSize;
    pAssert(eOut != NULL && hIn != NULL);
    // Can't use this scheme if the algorithm doesn't have a DER string defined.
-   if(derSize == 0 )
+   if(
+#if defined(SUPPORT_PADDING_ONLY_RSASSA) && SUPPORT_PADDING_ONLY_RSASSA == YES
+       hashAlg != TPM_ALG_NULL &&
+#endif
+       derSize == 0)
        return CRYPT_SCHEME;
    // If the digest size of 'hashAl' doesn't match the input digest size, then
    // the DER will misidentify the digest so return an error
-   if((unsigned)_cpri__GetDigestSize(hashAlg) != hInSize)
+   if(
+#if defined(SUPPORT_PADDING_ONLY_RSASSA) && SUPPORT_PADDING_ONLY_RSASSA == YES
+       hashAlg != TPM_ALG_NULL &&
+#endif
+       (unsigned)_cpri__GetDigestSize(hashAlg) != hInSize)
        return CRYPT_PARAMETER;
    fillSize = eOutSize - derSize - hInSize - 3;
    // Make sure that this combination will fit in the provided space

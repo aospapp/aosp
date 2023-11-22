@@ -500,7 +500,7 @@ static RequiredExtensions getQueryExtension (QueryType query)
 
 static bool isCoreTester (TesterType tester)
 {
-#define COMPARE_PURE_SETTERS(TESTER, X) (TESTER == X ## _SET_PURE_INT) || (TESTER == X ## _SET_PURE_UINT)
+#define COMPARE_PURE_SETTERS(TESTER, X) ((TESTER) == X ## _SET_PURE_INT) || ((TESTER) == X ## _SET_PURE_UINT)
 
 	return	es31::isCoreTester(tester)										||
 			COMPARE_PURE_SETTERS(tester, TESTER_TEXTURE_SWIZZLE_R)			||
@@ -1208,7 +1208,7 @@ TextureLODCase::TextureLODCase (tcu::TestContext& testCtx, const glu::RenderCont
 void TextureLODCase::test (glu::CallLogWrapper& gl, tcu::ResultCollector& result) const
 {
 	const bool	isPureCase		= isPureIntTester(m_tester) || isPureUintTester(m_tester);
-	const int	initialValue 	= (m_pname == GL_TEXTURE_MIN_LOD) ? (-1000)
+	const int	initialValue	= (m_pname == GL_TEXTURE_MIN_LOD) ? (-1000)
 								: (m_pname == GL_TEXTURE_MAX_LOD) ? (1000)
 								: (-1);
 
@@ -2045,7 +2045,7 @@ SamplerLODCase::SamplerLODCase (tcu::TestContext& testCtx, const glu::RenderCont
 void SamplerLODCase::test (glu::CallLogWrapper& gl, tcu::ResultCollector& result) const
 {
 	const bool	isPureCase		= isPureIntTester(m_tester) || isPureUintTester(m_tester);
-	const int	initialValue 	= (m_pname == GL_TEXTURE_MIN_LOD) ? (-1000)
+	const int	initialValue	= (m_pname == GL_TEXTURE_MIN_LOD) ? (-1000)
 								: (m_pname == GL_TEXTURE_MAX_LOD) ? (1000)
 								: (-1);
 

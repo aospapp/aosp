@@ -9,6 +9,7 @@
 #if SK_SUPPORT_GPU
 #include "GrCaps.h"
 #include "GrContext.h"
+#include "GrResourceProvider.h"
 #include "SkCanvas.h"
 #include "SkSurface.h"
 
@@ -138,7 +139,8 @@ void read_and_check_pixels(skiatest::Reporter* reporter, GrTexture* texture, uin
 
 // TODO: Add tests for copySurface between srgb/linear textures. Add tests for unpremul/premul
 // conversion during read/write along with srgb/linear conversions.
-DEF_GPUTEST_FOR_RENDERING_CONTEXTS(SRGBReadWritePixels, reporter, context) {
+DEF_GPUTEST_FOR_RENDERING_CONTEXTS(SRGBReadWritePixels, reporter, ctxInfo) {
+    GrContext* context = ctxInfo.grContext();
 #if defined(GOOGLE3)
     // Stack frame size is limited in GOOGLE3.
     static const int kW = 63;
@@ -161,8 +163,7 @@ DEF_GPUTEST_FOR_RENDERING_CONTEXTS(SRGBReadWritePixels, reporter, context) {
     desc.fConfig = kSRGBA_8888_GrPixelConfig;
     if (context->caps()->isConfigRenderable(desc.fConfig, false) &&
         context->caps()->isConfigTexturable(desc.fConfig)) {
-        SkAutoTUnref<GrTexture> tex(context->textureProvider()->createTexture(
-                desc, SkBudgeted::kNo));
+        sk_sp<GrTexture> tex(context->resourceProvider()->createTexture(desc, SkBudgeted::kNo));
         if (!tex) {
             ERRORF(reporter, "Could not create SRGBA texture.");
             return;
@@ -177,10 +178,10 @@ DEF_GPUTEST_FOR_RENDERING_CONTEXTS(SRGBReadWritePixels, reporter, context) {
             // the shader.
             float smallError = context->caps()->shaderCaps()->floatPrecisionVaries() ? 1.f :
                     0.0f;
-            read_and_check_pixels(reporter, tex, origData, kSRGBA_8888_GrPixelConfig,
+            read_and_check_pixels(reporter, tex.get(), origData, kSRGBA_8888_GrPixelConfig,
                                   check_srgb_to_linear_to_srgb_conversion, smallError,
                                   "write/read srgba to srgba texture");
-            read_and_check_pixels(reporter, tex, origData, kRGBA_8888_GrPixelConfig,
+            read_and_check_pixels(reporter, tex.get(), origData, kRGBA_8888_GrPixelConfig,
                                   check_srgb_to_linear_conversion, error,
                                   "write srgba/read rgba with srgba texture");
         } else {
@@ -190,10 +191,10 @@ DEF_GPUTEST_FOR_RENDERING_CONTEXTS(SRGBReadWritePixels, reporter, context) {
         // Now verify that we can write linear data
         if (tex->writePixels(0, 0, kW, kH, kRGBA_8888_GrPixelConfig, origData)) {
             // We allow more error on GPUs with lower precision shader variables.
-            read_and_check_pixels(reporter, tex, origData, kSRGBA_8888_GrPixelConfig,
+            read_and_check_pixels(reporter, tex.get(), origData, kSRGBA_8888_GrPixelConfig,
                                   check_linear_to_srgb_conversion, error,
                                   "write rgba/read srgba with srgba texture");
-            read_and_check_pixels(reporter, tex, origData, kRGBA_8888_GrPixelConfig,
+            read_and_check_pixels(reporter, tex.get(), origData, kRGBA_8888_GrPixelConfig,
                                   check_linear_to_srgb_to_linear_conversion, error,
                                   "write/read rgba with srgba texture");
         } else {
@@ -201,7 +202,7 @@ DEF_GPUTEST_FOR_RENDERING_CONTEXTS(SRGBReadWritePixels, reporter, context) {
         }
 
         desc.fConfig = kRGBA_8888_GrPixelConfig;
-        tex.reset(context->textureProvider()->createTexture(desc, SkBudgeted::kNo));
+        tex.reset(context->resourceProvider()->createTexture(desc, SkBudgeted::kNo));
         if (!tex) {
             ERRORF(reporter, "Could not create RGBA texture.");
             return;
@@ -209,10 +210,10 @@ DEF_GPUTEST_FOR_RENDERING_CONTEXTS(SRGBReadWritePixels, reporter, context) {
 
         // Write srgba data to a rgba texture and read back as srgba and rgba
         if (tex->writePixels(0, 0, kW, kH, kSRGBA_8888_GrPixelConfig, origData)) {
-            read_and_check_pixels(reporter, tex, origData, kSRGBA_8888_GrPixelConfig,
+            read_and_check_pixels(reporter, tex.get(), origData, kSRGBA_8888_GrPixelConfig,
                                   check_srgb_to_linear_to_srgb_conversion, error,
                                   "write/read srgba to rgba texture");
-            read_and_check_pixels(reporter, tex, origData, kRGBA_8888_GrPixelConfig,
+            read_and_check_pixels(reporter, tex.get(), origData, kRGBA_8888_GrPixelConfig,
                                   check_srgb_to_linear_conversion, error,
                                   "write srgba/read rgba to rgba texture");
         } else {
@@ -221,7 +222,7 @@ DEF_GPUTEST_FOR_RENDERING_CONTEXTS(SRGBReadWritePixels, reporter, context) {
 
         // Write rgba data to a rgba texture and read back as srgba
         if (tex->writePixels(0, 0, kW, kH, kRGBA_8888_GrPixelConfig, origData)) {
-            read_and_check_pixels(reporter, tex, origData, kSRGBA_8888_GrPixelConfig,
+            read_and_check_pixels(reporter, tex.get(), origData, kSRGBA_8888_GrPixelConfig,
                                   check_linear_to_srgb_conversion, 1.2f,
                                   "write rgba/read srgba to rgba texture");
         } else {

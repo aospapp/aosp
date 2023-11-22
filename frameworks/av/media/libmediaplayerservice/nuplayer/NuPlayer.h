@@ -19,6 +19,7 @@
 #define NU_PLAYER_H_
 
 #include <media/AudioResamplerPublic.h>
+#include <media/ICrypto.h>
 #include <media/MediaPlayerInterface.h>
 #include <media/stagefright/foundation/AHandler.h>
 
@@ -33,7 +34,7 @@ class MetaData;
 struct NuPlayerDriver;
 
 struct NuPlayer : public AHandler {
-    NuPlayer(pid_t pid);
+    explicit NuPlayer(pid_t pid);
 
     void setUID(uid_t uid);
 
@@ -49,6 +50,9 @@ struct NuPlayer : public AHandler {
     void setDataSourceAsync(int fd, int64_t offset, int64_t length);
 
     void setDataSourceAsync(const sp<DataSource> &source);
+
+    status_t getDefaultBufferingSettings(BufferingSettings* buffering /* nonnull */);
+    status_t setBufferingSettings(const BufferingSettings& buffering);
 
     void prepareAsync();
 
@@ -70,7 +74,10 @@ struct NuPlayer : public AHandler {
 
     // Will notify the driver through "notifySeekComplete" once finished
     // and needNotify is true.
-    void seekToAsync(int64_t seekTimeUs, bool needNotify = false);
+    void seekToAsync(
+            int64_t seekTimeUs,
+            MediaPlayerSeekMode mode = MediaPlayerSeekMode::SEEK_PREVIOUS_SYNC,
+            bool needNotify = false);
 
     status_t setVideoScalingMode(int32_t mode);
     status_t getTrackInfo(Parcel* reply) const;
@@ -81,6 +88,12 @@ struct NuPlayer : public AHandler {
 
     sp<MetaData> getFileMeta();
     float getFrameRate();
+
+    // Modular DRM
+    status_t prepareDrm(const uint8_t uuid[16], const Vector<uint8_t> &drmSessionId);
+    status_t releaseDrm();
+
+    const char *getDataSourceType();
 
 protected:
     virtual ~NuPlayer();
@@ -134,6 +147,10 @@ private:
         kWhatGetTrackInfo               = 'gTrI',
         kWhatGetSelectedTrack           = 'gSel',
         kWhatSelectTrack                = 'selT',
+        kWhatGetDefaultBufferingSettings = 'gDBS',
+        kWhatSetBufferingSettings       = 'sBuS',
+        kWhatPrepareDrm                 = 'pDrm',
+        kWhatReleaseDrm                 = 'rDrm',
     };
 
     wp<NuPlayerDriver> mDriver;
@@ -154,6 +171,8 @@ private:
     int32_t mAudioDecoderGeneration;
     int32_t mVideoDecoderGeneration;
     int32_t mRendererGeneration;
+
+    int64_t mLastStartedPlayingTimeNs;
 
     int64_t mPreviousSeekTimeUs;
 
@@ -201,6 +220,8 @@ private:
     bool mPrepared;
     bool mResetting;
     bool mSourceStarted;
+    bool mAudioDecoderError;
+    bool mVideoDecoderError;
 
     // Actual pause state, either as requested by client or due to buffering.
     bool mPaused;
@@ -212,6 +233,22 @@ private:
 
     // Pause state as requested by source (internally) due to buffering
     bool mPausedForBuffering;
+
+    // Modular DRM
+    sp<ICrypto> mCrypto;
+    bool mIsDrmProtected;
+
+    typedef enum {
+        DATA_SOURCE_TYPE_NONE,
+        DATA_SOURCE_TYPE_HTTP_LIVE,
+        DATA_SOURCE_TYPE_RTSP,
+        DATA_SOURCE_TYPE_GENERIC_URL,
+        DATA_SOURCE_TYPE_GENERIC_FD,
+        DATA_SOURCE_TYPE_MEDIA,
+        DATA_SOURCE_TYPE_STREAM,
+    } DATA_SOURCE_TYPE;
+
+    std::atomic<DATA_SOURCE_TYPE> mDataSourceType;
 
     inline const sp<DecoderBase> &getDecoder(bool audio) {
         return audio ? mAudioDecoder : mVideoDecoder;
@@ -245,7 +282,9 @@ private:
     void handleFlushComplete(bool audio, bool isDecoder);
     void finishFlushIfPossible();
 
-    void onStart(int64_t startPositionUs = -1);
+    void onStart(
+            int64_t startPositionUs = -1,
+            MediaPlayerSeekMode mode = MediaPlayerSeekMode::SEEK_PREVIOUS_SYNC);
     void onResume();
     void onPause();
 
@@ -263,7 +302,7 @@ private:
 
     void processDeferredActions();
 
-    void performSeek(int64_t seekTimeUs);
+    void performSeek(int64_t seekTimeUs, MediaPlayerSeekMode mode);
     void performDecoderFlush(FlushCommand audio, FlushCommand video);
     void performReset();
     void performScanSources();
@@ -280,7 +319,10 @@ private:
     void sendTimedMetaData(const sp<ABuffer> &buffer);
     void sendTimedTextData(const sp<ABuffer> &buffer);
 
-    void writeTrackInfo(Parcel* reply, const sp<AMessage> format) const;
+    void writeTrackInfo(Parcel* reply, const sp<AMessage>& format) const;
+
+    status_t onPrepareDrm(const sp<AMessage> &msg);
+    status_t onReleaseDrm();
 
     DISALLOW_EVIL_CONSTRUCTORS(NuPlayer);
 };

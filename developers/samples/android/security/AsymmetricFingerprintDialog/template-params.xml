@@ -48,7 +48,7 @@ before proceeding some actions such as purchasing an item. This version uses asy
 
     <metadata>
         <!-- Values: {DRAFT | PUBLISHED | INTERNAL | DEPRECATED | SUPERCEDED} -->
-        <status>DRAFT</status>
+        <status>PUBLISHED</status>
         <categories>security</categories>
         <technologies>Android</technologies>
         <languages>Java</languages>

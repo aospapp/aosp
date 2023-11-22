@@ -17,7 +17,6 @@
 Continuously poll for energy info for a single Android Device
 """
 
-from contextlib import suppress
 from queue import Empty
 from acts.test_utils.bt.BluetoothBaseTest import BluetoothBaseTest
 
@@ -30,7 +29,9 @@ class EnergyTest(BluetoothBaseTest):
     @BluetoothBaseTest.bt_test_wrap
     def test_continuous_energy_report(self):
         while (True):
-            with suppress(Exception):
+            try:
                 self.log.info(self.android_devices[
                     0].droid.bluetoothGetControllerActivityEnergyInfo(1))
+            except Exception:
+                self.log.error("Failed to log energy info... continuing.")
         return True

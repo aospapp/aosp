@@ -37,20 +37,20 @@ public abstract class AbstractDetailsDescriptionPresenter extends Presenter {
      * The ViewHolder for the {@link AbstractDetailsDescriptionPresenter}.
      */
     public static class ViewHolder extends Presenter.ViewHolder {
-        private final TextView mTitle;
-        private final TextView mSubtitle;
-        private final TextView mBody;
-        private final int mTitleMargin;
-        private final int mUnderTitleBaselineMargin;
-        private final int mUnderSubtitleBaselineMargin;
-        private final int mTitleLineSpacing;
-        private final int mBodyLineSpacing;
-        private final int mBodyMaxLines;
-        private final int mBodyMinLines;
-        private final FontMetricsInt mTitleFontMetricsInt;
-        private final FontMetricsInt mSubtitleFontMetricsInt;
-        private final FontMetricsInt mBodyFontMetricsInt;
-        private final int mTitleMaxLines;
+        final TextView mTitle;
+        final TextView mSubtitle;
+        final TextView mBody;
+        final int mTitleMargin;
+        final int mUnderTitleBaselineMargin;
+        final int mUnderSubtitleBaselineMargin;
+        final int mTitleLineSpacing;
+        final int mBodyLineSpacing;
+        final int mBodyMaxLines;
+        final int mBodyMinLines;
+        final FontMetricsInt mTitleFontMetricsInt;
+        final FontMetricsInt mSubtitleFontMetricsInt;
+        final FontMetricsInt mBodyFontMetricsInt;
+        final int mTitleMaxLines;
         private ViewTreeObserver.OnPreDrawListener mPreDrawListener;
 
         public ViewHolder(final View view) {
@@ -101,9 +101,9 @@ public abstract class AbstractDetailsDescriptionPresenter extends Presenter {
             mPreDrawListener = new ViewTreeObserver.OnPreDrawListener() {
                 @Override
                 public boolean onPreDraw() {
-                    if (mSubtitle.getVisibility() == View.VISIBLE &&
-                            mSubtitle.getTop() > view.getHeight() &&
-                            mTitle.getLineCount() > 1) {
+                    if (mSubtitle.getVisibility() == View.VISIBLE
+                            && mSubtitle.getTop() > view.getHeight()
+                            && mTitle.getLineCount() > 1) {
                         mTitle.setMaxLines(mTitle.getLineCount() - 1);
                         return false;
                     }
@@ -166,8 +166,8 @@ public abstract class AbstractDetailsDescriptionPresenter extends Presenter {
             hasTitle = false;
         } else {
             vh.mTitle.setVisibility(View.VISIBLE);
-            vh.mTitle.setLineSpacing(vh.mTitleLineSpacing - vh.mTitle.getLineHeight() +
-                    vh.mTitle.getLineSpacingExtra(), vh.mTitle.getLineSpacingMultiplier());
+            vh.mTitle.setLineSpacing(vh.mTitleLineSpacing - vh.mTitle.getLineHeight()
+                    + vh.mTitle.getLineSpacingExtra(), vh.mTitle.getLineSpacingMultiplier());
             vh.mTitle.setMaxLines(vh.mTitleMaxLines);
         }
         setTopMargin(vh.mTitle, vh.mTitleMargin);
@@ -179,8 +179,8 @@ public abstract class AbstractDetailsDescriptionPresenter extends Presenter {
         } else {
             vh.mSubtitle.setVisibility(View.VISIBLE);
             if (hasTitle) {
-                setTopMargin(vh.mSubtitle, vh.mUnderTitleBaselineMargin +
-                        vh.mSubtitleFontMetricsInt.ascent - vh.mTitleFontMetricsInt.descent);
+                setTopMargin(vh.mSubtitle, vh.mUnderTitleBaselineMargin
+                        + vh.mSubtitleFontMetricsInt.ascent - vh.mTitleFontMetricsInt.descent);
             } else {
                 setTopMargin(vh.mSubtitle, 0);
             }
@@ -190,15 +190,15 @@ public abstract class AbstractDetailsDescriptionPresenter extends Presenter {
             vh.mBody.setVisibility(View.GONE);
         } else {
             vh.mBody.setVisibility(View.VISIBLE);
-            vh.mBody.setLineSpacing(vh.mBodyLineSpacing - vh.mBody.getLineHeight() +
-                    vh.mBody.getLineSpacingExtra(), vh.mBody.getLineSpacingMultiplier());
+            vh.mBody.setLineSpacing(vh.mBodyLineSpacing - vh.mBody.getLineHeight()
+                    + vh.mBody.getLineSpacingExtra(), vh.mBody.getLineSpacingMultiplier());
 
             if (hasSubtitle) {
-                setTopMargin(vh.mBody, vh.mUnderSubtitleBaselineMargin +
-                        vh.mBodyFontMetricsInt.ascent - vh.mSubtitleFontMetricsInt.descent);
+                setTopMargin(vh.mBody, vh.mUnderSubtitleBaselineMargin
+                        + vh.mBodyFontMetricsInt.ascent - vh.mSubtitleFontMetricsInt.descent);
             } else if (hasTitle) {
-                setTopMargin(vh.mBody, vh.mUnderTitleBaselineMargin +
-                        vh.mBodyFontMetricsInt.ascent - vh.mTitleFontMetricsInt.descent);
+                setTopMargin(vh.mBody, vh.mUnderTitleBaselineMargin
+                        + vh.mBodyFontMetricsInt.ascent - vh.mTitleFontMetricsInt.descent);
             } else {
                 setTopMargin(vh.mBody, 0);
             }

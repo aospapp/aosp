@@ -155,8 +155,8 @@ protected:
 };
 
 
-} // renderscript
-} // android
+} // namespace renderscript
+} // namespace android
 #endif //ANDROID_RS_STREAM_H
 
 

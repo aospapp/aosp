@@ -21,35 +21,40 @@ import android.app.Activity;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.support.v14.preference.PreferenceFragment;
+import android.support.v7.preference.PreferenceScreen;
 import android.text.format.Formatter;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.View;
 import android.widget.Button;
 import com.android.internal.logging.MetricsLogger;
-import com.android.internal.logging.MetricsProto.MetricsEvent;
+import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
 import com.android.settingslib.HelpUtils;
 import com.android.storagemanager.ButtonBarProvider;
 import com.android.storagemanager.R;
-
-import com.android.storagemanager.overlay.FeatureFactory;
 import com.android.storagemanager.overlay.DeletionHelperFeatureProvider;
-
+import com.android.storagemanager.overlay.FeatureFactory;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
 
 /**
  * Settings screen for the deletion helper, which manually removes data which is not recently used.
  */
-public class DeletionHelperSettings extends PreferenceFragment implements
-        DeletionType.FreeableChangedListener,
-        View.OnClickListener {
-    private static final String APPS_KEY = "apps_group";
-    private static final String KEY_DOWNLOADS_PREFERENCE = "delete_downloads";
-    private static final String KEY_PHOTOS_VIDEOS_PREFERENCE = "delete_photos";
-    private static final int DOWNLOADS_LOADER_ID = 1;
+public class DeletionHelperSettings extends PreferenceFragment
+        implements DeletionType.FreeableChangedListener, View.OnClickListener {
+    public static final boolean COUNT_UNCHECKED = true;
+    public static final boolean COUNT_CHECKED_ONLY = false;
 
+    protected static final String APPS_KEY = "apps_group";
+    protected static final String KEY_DOWNLOADS_PREFERENCE = "delete_downloads";
+    protected static final String KEY_PHOTOS_VIDEOS_PREFERENCE = "delete_photos";
+
+    private static final String THRESHOLD_KEY = "threshold_key";
+    private static final int DOWNLOADS_LOADER_ID = 1;
+    private static final int NUM_DELETION_TYPES = 3;
+
+    private List<DeletionType> mDeletableContentList;
     private AppDeletionPreferenceGroup mApps;
     private AppDeletionType mAppBackend;
     private DownloadsDeletionPreferenceGroup mDownloadsPreference;
@@ -58,15 +63,27 @@ public class DeletionHelperSettings extends PreferenceFragment implements
     private DeletionType mPhotoVideoDeletion;
     private Button mCancel, mFree;
     private DeletionHelperFeatureProvider mProvider;
+    private int mThresholdType;
 
-    public static DeletionHelperSettings newInstance() {
-        return new DeletionHelperSettings();
+    public static DeletionHelperSettings newInstance(int thresholdType) {
+        DeletionHelperSettings instance = new DeletionHelperSettings();
+        Bundle bundle = new Bundle(1);
+        bundle.putInt(THRESHOLD_KEY, thresholdType);
+        instance.setArguments(bundle);
+        return instance;
     }
 
     @Override
     public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
         addPreferencesFromResource(R.xml.deletion_helper_list);
+        mThresholdType = getArguments().getInt(THRESHOLD_KEY, AppsAsyncLoader.NORMAL_THRESHOLD);
         mApps = (AppDeletionPreferenceGroup) findPreference(APPS_KEY);
+        mPhotoPreference = (PhotosDeletionPreference) findPreference(KEY_PHOTOS_VIDEOS_PREFERENCE);
+        mProvider = FeatureFactory.getFactory(getActivity()).getDeletionHelperFeatureProvider();
+        if (mProvider != null) {
+            mPhotoVideoDeletion =
+                    mProvider.createPhotoVideoDeletionType(getContext(), mThresholdType);
+        }
 
         HashSet<String> checkedApplications = null;
         if (savedInstanceState != null) {
@@ -74,16 +91,12 @@ public class DeletionHelperSettings extends PreferenceFragment implements
                     (HashSet<String>) savedInstanceState.getSerializable(
                             AppDeletionType.EXTRA_CHECKED_SET);
         }
-        mAppBackend = new AppDeletionType(getActivity().getApplication(), checkedApplications);
+        mAppBackend = new AppDeletionType(this, checkedApplications, mThresholdType);
         mAppBackend.registerView(mApps);
         mAppBackend.registerFreeableChangedListener(this);
         mApps.setDeletionType(mAppBackend);
 
-        mPhotoPreference = (PhotosDeletionPreference) findPreference(KEY_PHOTOS_VIDEOS_PREFERENCE);
-        mProvider = FeatureFactory.getFactory(getActivity()).getDeletionHelperFeatureProvider();
-        if (mProvider != null) {
-            mPhotoVideoDeletion = mProvider.createPhotoVideoDeletionType(getContext());
-        }
+        mDeletableContentList = new ArrayList<>(NUM_DELETION_TYPES);
     }
 
     @Override
@@ -91,7 +104,6 @@ public class DeletionHelperSettings extends PreferenceFragment implements
         super.onActivityCreated(savedInstanceState);
         initializeButtons();
         setHasOptionsMenu(true);
-
         Activity activity = getActivity();
         if (activity.checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE)
                 != PackageManager.PERMISSION_GRANTED) {
@@ -100,17 +112,20 @@ public class DeletionHelperSettings extends PreferenceFragment implements
                     0);
         }
 
-        if (mProvider == null || mPhotoVideoDeletion == null) {
-            getPreferenceScreen().removePreference(mPhotoPreference);
-            mPhotoPreference = null;
-        } else {
+        if (mProvider != null && mPhotoVideoDeletion != null) {
+            mPhotoPreference.setDaysToKeep(mProvider.getDaysToKeep(mThresholdType));
             mPhotoPreference.registerFreeableChangedListener(this);
             mPhotoPreference.registerDeletionService(mPhotoVideoDeletion);
+            mDeletableContentList.add(mPhotoVideoDeletion);
+        } else {
+            getPreferenceScreen().removePreference(mPhotoPreference);
+            mPhotoPreference.setEnabled(false);
         }
 
         String[] uncheckedFiles = null;
         if (savedInstanceState != null) {
-            uncheckedFiles = savedInstanceState.getStringArray(
+            uncheckedFiles =
+                    savedInstanceState.getStringArray(
                             DownloadsDeletionType.EXTRA_UNCHECKED_DOWNLOADS);
         }
         mDownloadsPreference =
@@ -118,42 +133,54 @@ public class DeletionHelperSettings extends PreferenceFragment implements
         mDownloadsDeletion = new DownloadsDeletionType(getActivity(), uncheckedFiles);
         mDownloadsPreference.registerFreeableChangedListener(this);
         mDownloadsPreference.registerDeletionService(mDownloadsDeletion);
+        mDeletableContentList.add(mDownloadsDeletion);
+        if (isEmptyState()) {
+            setupEmptyState();
+        }
+        mDeletableContentList.add(mAppBackend);
         updateFreeButtonText();
+    }
+
+    private void setupEmptyState() {
+        mDownloadsPreference.setChecked(false);
+        final PreferenceScreen screen = getPreferenceScreen();
+        screen.removePreference(mDownloadsPreference);
+        screen.removePreference(mApps);
+    }
+
+    private boolean isEmptyState() {
+        // We know we are in the empty state if our loader is not using a threshold.
+        return mThresholdType == AppsAsyncLoader.NO_THRESHOLD;
     }
 
     @Override
     public void onResume() {
         super.onResume();
-        mAppBackend.onResume();
-        mDownloadsDeletion.onResume();
+        for (int i = 0, size = mDeletableContentList.size(); i < size; i++) {
+            mDeletableContentList.get(i).onResume();
+        }
 
-        if (getActivity().checkSelfPermission(
-                Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED) {
+        if (mDownloadsDeletion != null
+                && getActivity().checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE)
+                        == PackageManager.PERMISSION_GRANTED) {
             getLoaderManager().initLoader(DOWNLOADS_LOADER_ID, new Bundle(), mDownloadsDeletion);
         }
-
-        if (mPhotoVideoDeletion != null) {
-            mPhotoVideoDeletion.onResume();
-        }
     }
-
 
     @Override
     public void onPause() {
         super.onPause();
-        mAppBackend.onPause();
-        mDownloadsDeletion.onPause();
-
-        if (mPhotoVideoDeletion != null) {
-            mPhotoVideoDeletion.onPause();
+        for (int i = 0, size = mDeletableContentList.size(); i < size; i++) {
+            mDeletableContentList.get(i).onPause();
         }
     }
 
     @Override
     public void onSaveInstanceState(Bundle outState) {
         super.onSaveInstanceState(outState);
-        mAppBackend.onSaveInstanceStateBundle(outState);
-        mDownloadsDeletion.onSaveInstanceStateBundle(outState);
+        for (int i = 0, size = mDeletableContentList.size(); i < size; i++) {
+            mDeletableContentList.get(i).onSaveInstanceStateBundle(outState);
+        }
     }
 
     @Override
@@ -161,13 +188,31 @@ public class DeletionHelperSettings extends PreferenceFragment implements
         // bytesFreeable is the number of bytes freed by a single deletion type. If it is non-zero,
         // there is stuff to free and we can enable it. If it is zero, though, we still need to get
         // getTotalFreeableSpace to check all deletion types.
-        mFree.setEnabled(bytesFreeable != 0 || getTotalFreeableSpace() != 0);
+        mFree.setEnabled(bytesFreeable != 0 || getTotalFreeableSpace(COUNT_CHECKED_ONLY) != 0);
         updateFreeButtonText();
+
+        // Transition to empty state if all types have reported there is nothing to delete. Skip
+        // the transition if we are already in no threshold mode
+        if (allTypesEmpty() && !isEmptyState()) {
+            startEmptyState();
+        }
     }
 
-    /**
-     * Clears out the selected apps and data from the device and closes the fragment.
-     */
+    private boolean allTypesEmpty() {
+
+        return mAppBackend.isEmpty()
+                && mDownloadsDeletion.isEmpty()
+                && (mPhotoVideoDeletion == null || mPhotoVideoDeletion.isEmpty());
+    }
+
+    private void startEmptyState() {
+        if (getActivity() instanceof DeletionHelperActivity) {
+            DeletionHelperActivity activity = (DeletionHelperActivity) getActivity();
+            activity.setIsEmptyState(true /* isEmptyState */);
+        }
+    }
+
+    /** Clears out the selected apps and data from the device and closes the fragment. */
     protected void clearData() {
         // This should be fine as long as there is only one extra deletion feature.
         // In the future, this should be done in an async queue in order to not
@@ -175,7 +220,9 @@ public class DeletionHelperSettings extends PreferenceFragment implements
         if (mPhotoPreference != null && mPhotoPreference.isChecked()) {
             mPhotoVideoDeletion.clearFreeableData(getActivity());
         }
-        mDownloadsDeletion.clearFreeableData(getActivity());
+        if (mDownloadsPreference != null) {
+            mDownloadsDeletion.clearFreeableData(getActivity());
+        }
         mAppBackend.clearFreeableData(getActivity());
     }
 
@@ -183,7 +230,7 @@ public class DeletionHelperSettings extends PreferenceFragment implements
     public void onClick(View v) {
         if (v.getId() == R.id.next_button) {
             ConfirmDeletionDialog dialog =
-                    ConfirmDeletionDialog.newInstance(getTotalFreeableSpace());
+                    ConfirmDeletionDialog.newInstance(getTotalFreeableSpace(COUNT_CHECKED_ONLY));
             // The 0 is a placeholder for an optional result code.
             dialog.setTargetFragment(this, 0);
             dialog.show(getFragmentManager(), ConfirmDeletionDialog.TAG);
@@ -231,17 +278,26 @@ public class DeletionHelperSettings extends PreferenceFragment implements
     }
 
     private void updateFreeButtonText() {
-        mFree.setText(String.format(getActivity().getString(R.string.deletion_helper_free_button),
-                Formatter.formatFileSize(getActivity(), getTotalFreeableSpace())));
+        Activity activity = getActivity();
+        if (activity == null) {
+            return;
+        }
+        mFree.setText(
+                String.format(
+                        activity.getString(R.string.deletion_helper_free_button),
+                        Formatter.formatFileSize(
+                                activity, getTotalFreeableSpace(COUNT_CHECKED_ONLY))));
     }
 
-    private long getTotalFreeableSpace() {
+    private long getTotalFreeableSpace(boolean countUnchecked) {
         long freeableSpace = 0;
-        freeableSpace += mAppBackend.getTotalAppsFreeableSpace(false);
+        freeableSpace += mAppBackend.getTotalAppsFreeableSpace(countUnchecked);
         if (mPhotoPreference != null) {
-            freeableSpace += mPhotoPreference.getFreeableBytes();
+            freeableSpace += mPhotoPreference.getFreeableBytes(countUnchecked);
         }
-        freeableSpace += mDownloadsDeletion.getFreeableBytes();
+        if (mDownloadsPreference != null) {
+            freeableSpace += mDownloadsDeletion.getFreeableBytes(countUnchecked);
+        }
         return freeableSpace;
     }
 }

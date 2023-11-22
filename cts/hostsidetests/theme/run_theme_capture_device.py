@@ -27,7 +27,6 @@ from android_device import *
 CTS_THEME_dict = {
     120 : "ldpi",
     160 : "mdpi",
-    213 : "tvdpi",
     240 : "hdpi",
     320 : "xhdpi",
     480 : "xxhdpi",
@@ -97,12 +96,21 @@ def doCapturing(setup, deviceSerial):
     print "Found device: " + deviceSerial
     device = androidDevice(deviceSerial)
 
-    outPath = outPath + "/%d" % (device.getSdkLevel())
+    version = device.getVersionCodename()
+    if version == "REL":
+        version = str(device.getVersionSdkInt())
+
     density = device.getDensity()
+
+    # Reference images generated for tv should not be categorized by density
+    # rather by tv type. This is because TV uses leanback-specific material
+    # themes.
     if CTS_THEME_dict.has_key(density):
-        resName = CTS_THEME_dict[density]
+        densityBucket = CTS_THEME_dict[density]
     else:
-        resName = str(density) + "dpi"
+        densityBucket = str(density) + "dpi"
+
+    resName = os.path.join(version, densityBucket)
 
     device.uninstallApk("android.theme.app")
 

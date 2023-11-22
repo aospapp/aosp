@@ -515,7 +515,7 @@ public class HostEmulationManager {
     }
 
     public void dump(FileDescriptor fd, PrintWriter pw, String[] args) {
-        pw.println("Bound services: ");
+        pw.println("Bound HCE-A/HCE-B services: ");
         if (mPaymentServiceBound) {
             pw.println("    payment: " + mPaymentServiceName);
         }

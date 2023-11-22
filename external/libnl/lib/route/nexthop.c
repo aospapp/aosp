@@ -15,7 +15,7 @@
  * @{
  */
 
-#include <netlink-local.h>
+#include <netlink-private/netlink.h>
 #include <netlink/netlink.h>
 #include <netlink/utils.h>
 #include <netlink/route/rtnl.h>
@@ -109,7 +109,7 @@ static void nh_dump_line(struct rtnl_nexthop *nh, struct nl_dump_params *dp)
 	struct nl_cache *link_cache;
 	char buf[128];
 
-	link_cache = nl_cache_mngt_require("route/link");
+	link_cache = nl_cache_mngt_require_safe("route/link");
 
 	nl_dump(dp, "via");
 
@@ -128,6 +128,9 @@ static void nh_dump_line(struct rtnl_nexthop *nh, struct nl_dump_params *dp)
 	}
 
 	nl_dump(dp, " ");
+
+	if (link_cache)
+		nl_cache_put(link_cache);
 }
 
 static void nh_dump_details(struct rtnl_nexthop *nh, struct nl_dump_params *dp)
@@ -135,7 +138,7 @@ static void nh_dump_details(struct rtnl_nexthop *nh, struct nl_dump_params *dp)
 	struct nl_cache *link_cache;
 	char buf[128];
 
-	link_cache = nl_cache_mngt_require("route/link");
+	link_cache = nl_cache_mngt_require_safe("route/link");
 
 	nl_dump(dp, "nexthop");
 
@@ -164,44 +167,11 @@ static void nh_dump_details(struct rtnl_nexthop *nh, struct nl_dump_params *dp)
 	if (nh->ce_mask & NH_ATTR_FLAGS)
 		nl_dump(dp, " <%s>", rtnl_route_nh_flags2str(nh->rtnh_flags,
 							buf, sizeof(buf)));
+
+	if (link_cache)
+		nl_cache_put(link_cache);
 }
 
-static void nh_dump_env(struct rtnl_nexthop *nh, struct nl_dump_params *dp)
-{
-	struct nl_cache *link_cache;
-	char buf[128];
-
-	link_cache = nl_cache_mngt_require("route/link");
-
-	if (nh->ce_mask & NH_ATTR_GATEWAY)
-		nl_dump_line(dp, "ROUTE_NH%d_VIA=%s\n", dp->dp_ivar,
-			nl_addr2str(nh->rtnh_gateway, buf, sizeof(buf)));
-
-	if(nh->ce_mask & NH_ATTR_IFINDEX) {
-		if (link_cache) {
-			nl_dump_line(dp, "ROUTE_NH%d_DEV=%s\n", dp->dp_ivar,
-					rtnl_link_i2name(link_cache,
-						 nh->rtnh_ifindex,
-						 buf, sizeof(buf)));
-		} else
-			nl_dump_line(dp, "ROUTE_NH%d_DEV=%d\n", dp->dp_ivar,
-					nh->rtnh_ifindex);
-	}
-
-	if (nh->ce_mask & NH_ATTR_WEIGHT)
-		nl_dump_line(dp, "ROUTE_NH%d_WEIGHT=%u\n", dp->dp_ivar,
-				nh->rtnh_weight);
-
-	if (nh->ce_mask & NH_ATTR_REALMS)
-		nl_dump_line(dp, "ROUTE_NH%d_REALM=%04x:%04x\n", dp->dp_ivar,
-			RTNL_REALM_FROM(nh->rtnh_realms),
-			RTNL_REALM_TO(nh->rtnh_realms));
-
-	if (nh->ce_mask & NH_ATTR_FLAGS)
-		nl_dump_line(dp, "ROUTE_NH%d_FLAGS=<%s>\n", dp->dp_ivar,
-			rtnl_route_nh_flags2str(nh->rtnh_flags,
-							buf, sizeof(buf)));
-}
 void rtnl_route_nh_dump(struct rtnl_nexthop *nh, struct nl_dump_params *dp)
 {
 	switch (dp->dp_type) {
@@ -215,10 +185,6 @@ void rtnl_route_nh_dump(struct rtnl_nexthop *nh, struct nl_dump_params *dp)
 			nh_dump_details(nh, dp);
 		break;
 
-	case NL_DUMP_ENV:
-		nh_dump_env(nh, dp);
-		break;
-	
 	default:
 		break;
 	}
@@ -251,6 +217,7 @@ int rtnl_route_nh_get_ifindex(struct rtnl_nexthop *nh)
 	return nh->rtnh_ifindex;
 }	
 
+/* FIXME: Convert to return an int */
 void rtnl_route_nh_set_gateway(struct rtnl_nexthop *nh, struct nl_addr *addr)
 {
 	struct nl_addr *old = nh->rtnh_gateway;
@@ -309,7 +276,7 @@ uint32_t rtnl_route_nh_get_realms(struct rtnl_nexthop *nh)
  * @{
  */
 
-static struct trans_tbl nh_flags[] = {
+static const struct trans_tbl nh_flags[] = {
 	__ADD(RTNH_F_DEAD, dead)
 	__ADD(RTNH_F_PERVASIVE, pervasive)
 	__ADD(RTNH_F_ONLINK, onlink)

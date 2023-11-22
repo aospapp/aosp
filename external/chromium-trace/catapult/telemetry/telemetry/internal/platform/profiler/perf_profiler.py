@@ -83,16 +83,18 @@ class _SingleProcessPerfProfiler(object):
     cmd_prefix = []
     perf_args = ['record', '--pid', str(pid)]
     if self._is_android:
-      cmd_prefix = ['adb', '-s', browser_backend.device.adb.GetDeviceSerial(),
-                   'shell', perf_binary]
+      cmd_prefix = [
+          browser_backend.device.adb.GetAdbPath(),
+          '-s', browser_backend.device.adb.GetDeviceSerial(),
+          'shell', perf_binary]
       perf_args += _PERF_OPTIONS_ANDROID
       output_file = os.path.join('/sdcard', 'perf_profiles',
                                  os.path.basename(output_file))
       self._device_output_file = output_file
       browser_backend.device.RunShellCommand(
-          'mkdir -p ' + os.path.dirname(self._device_output_file))
-      browser_backend.device.RunShellCommand(
-          'rm -f ' + self._device_output_file)
+          ['mkdir', '-p', os.path.dirname(self._device_output_file)],
+          check_return=True)
+      browser_backend.device.RemovePath(self._device_output_file, force=True)
     else:
       cmd_prefix = [perf_binary]
     perf_args += ['--output', output_file] + _PERF_OPTIONS
@@ -133,15 +135,13 @@ Try rerunning this script under sudo or setting
                                   self._output_file)
     if self._is_android:
       device = self._browser_backend.device
-      try:
-        device.PullFile(self._device_output_file, self._output_file)
-      except:
-        logging.exception('New exception caused by DeviceUtils conversion')
-        raise
+      device.PullFile(self._device_output_file, self._output_file)
       required_libs = \
           android_profiling_helper.GetRequiredLibrariesForPerfProfile(
               self._output_file)
-      symfs_root = os.path.dirname(self._output_file)
+      symfs_root = os.path.join(os.path.dirname(self._output_file), 'symfs')
+      if not os.path.exists(symfs_root):
+        os.makedirs(symfs_root)
       kallsyms = android_profiling_helper.CreateSymFs(device,
                                                       symfs_root,
                                                       required_libs,

@@ -37,7 +37,6 @@ PRODUCT_COPY_FILES := \
     vendor/qcom/angler/proprietary/ssr_setup:system/bin/ssr_setup:qcom \
     vendor/qcom/angler/proprietary/subsystem_ramdump:system/bin/subsystem_ramdump:qcom \
     vendor/qcom/angler/proprietary/test_diag:system/bin/test_diag:qcom \
-    vendor/qcom/angler/proprietary/Angler_Radio-general.cfg:system/etc/diag/Angler_Radio-general.cfg:qcom \
     vendor/qcom/angler/proprietary/cneapiclient.xml:system/etc/permissions/cneapiclient.xml:qcom \
     vendor/qcom/angler/proprietary/embms.xml:system/etc/permissions/embms.xml:qcom \
     vendor/qcom/angler/proprietary/qcrilhook.xml:system/etc/permissions/qcrilhook.xml:qcom \
@@ -45,9 +44,10 @@ PRODUCT_COPY_FILES := \
     vendor/qcom/angler/proprietary/embmslibrary.jar:system/framework/embmslibrary.jar:qcom \
     vendor/qcom/angler/proprietary/qcrilhook.jar:system/framework/qcrilhook.jar:qcom \
     vendor/qcom/angler/proprietary/lib64/libiperf.so:system/lib64/libiperf.so:qcom \
-    vendor/qcom/angler/proprietary/lib64/libtinyxml.so:system/lib64/libtinyxml.so:qcom \
     vendor/qcom/angler/proprietary/libiperf.so:system/lib/libiperf.so:qcom \
     vendor/qcom/angler/proprietary/libmm-qcamera.so:system/lib/libmm-qcamera.so:qcom \
-    vendor/qcom/angler/proprietary/libtinyxml.so:system/lib/libtinyxml.so:qcom \
     vendor/qcom/angler/proprietary/iperf3:system/xbin/iperf3:qcom \
-
+    vendor/qcom/angler/proprietary/lib64/android.hardware.biometrics.fingerprint@2.1.so:system/lib64/android.hardware.biometrics.fingerprint@2.1.so:qcom \
+    vendor/qcom/angler/proprietary/lib64/android.hardware.configstore@1.0.so:system/lib64/android.hardware.configstore@1.0.so:qcom \
+    vendor/qcom/angler/proprietary/lib64/android.hardware.usb@1.0.so:system/lib64/android.hardware.usb@1.0.so:qcom \
+    vendor/qcom/angler/proprietary/lib64/android.hardware.wifi@1.0.so:system/lib64/android.hardware.wifi@1.0.so:qcom \

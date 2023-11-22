@@ -49,8 +49,7 @@ class SoftKeymasterDevice {
   public:
     SoftKeymasterDevice();
 
-    // Public only for testing.
-    SoftKeymasterDevice(SoftKeymasterContext* context);
+    explicit SoftKeymasterDevice(SoftKeymasterContext* context);
 
     /**
      * Set SoftKeymasterDevice to wrap the speicified HW keymaster0 device.  Takes ownership of the
@@ -81,6 +80,8 @@ class SoftKeymasterDevice {
 
     bool configured() const { return configured_; }
 
+    bool supports_all_digests() { return supports_all_digests_; }
+
     typedef std::pair<keymaster_algorithm_t, keymaster_purpose_t> AlgPurposePair;
     typedef std::map<AlgPurposePair, std::vector<keymaster_digest_t>> DigestMap;
 
@@ -105,7 +106,7 @@ class SoftKeymasterDevice {
      * keymaster_device.
      */
 
-    // Keymaster1 methods
+    // Keymaster1 methods -- needed for testing.
     static keymaster_error_t get_supported_algorithms(const keymaster1_device_t* dev,
                                                       keymaster_algorithm_t** algorithms,
                                                       size_t* algorithms_length);
@@ -247,6 +248,7 @@ class SoftKeymasterDevice {
     std::string module_name_;
     hw_module_t updated_module_;
     bool configured_;
+    bool supports_all_digests_;
 };
 
 }  // namespace keymaster

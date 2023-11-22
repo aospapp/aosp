@@ -16,23 +16,31 @@
 
 package android.graphics.cts;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-
-import junit.framework.TestCase;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Matrix;
 import android.graphics.Paint;
+import android.graphics.Paint.Style;
 import android.graphics.Picture;
 import android.graphics.Rect;
-import android.graphics.Paint.Style;
 import android.graphics.Region.Op;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 
-public class PictureTest extends TestCase {
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class PictureTest {
     private static final int TEST_WIDTH = 4; // must be >= 2
     private static final int TEST_HEIGHT = 3; // must >= 2
 
@@ -44,7 +52,8 @@ public class PictureTest extends TestCase {
     //   - copy constructed picture from actively recording picture
     //   - writeToStream/createFromStream created picture from actively recording picture
     //   - actively recording picture after draw call
-    public void testSaveRestoreBalance() throws Exception {
+    @Test
+    public void testSaveRestoreBalance() {
         Picture original = new Picture();
         Canvas canvas = original.beginRecording(TEST_WIDTH, TEST_HEIGHT);
         assertNotNull(canvas);
@@ -53,7 +62,7 @@ public class PictureTest extends TestCase {
         int expectedSaveCount = canvas.getSaveCount();
 
         Picture copy = new Picture(original);
-        checkBalance(copy);
+        verifyBalance(copy);
 
         assertEquals(expectedSaveCount, canvas.getSaveCount());
 
@@ -64,14 +73,14 @@ public class PictureTest extends TestCase {
 
         Picture serialized = Picture.createFromStream(new ByteArrayInputStream(bout.toByteArray()));
         // The serialization/deserialization process will balance the saves and restores
-        checkBalance(serialized);
+        verifyBalance(serialized);
 
         assertEquals(expectedSaveCount, canvas.getSaveCount());
 
         Bitmap bitmap = Bitmap.createBitmap(TEST_WIDTH, TEST_HEIGHT, Bitmap.Config.ARGB_8888);
         Canvas drawDest = new Canvas(bitmap);
         original.draw(drawDest);
-        checkBalance(original);
+        verifyBalance(original);
     }
 
     // Add an extra save with a transform and clip
@@ -84,7 +93,7 @@ public class PictureTest extends TestCase {
         canvas.drawRect(0, 0, 10, 10, paint);
     }
 
-    private void checkBalance(Picture picture) {
+    private void verifyBalance(Picture picture) {
         Bitmap bitmap = Bitmap.createBitmap(TEST_WIDTH, TEST_HEIGHT, Bitmap.Config.ARGB_8888);
         Canvas canvas = new Canvas(bitmap);
 
@@ -107,7 +116,8 @@ public class PictureTest extends TestCase {
         assertEquals(beforeClip, afterClip);
     }
 
-    public void testPicture() throws Exception {
+    @Test
+    public void testPicture() {
         Picture picture = new Picture();
         ByteArrayOutputStream bout = new ByteArrayOutputStream();
 
@@ -119,8 +129,8 @@ public class PictureTest extends TestCase {
         Bitmap bitmap = Bitmap.createBitmap(TEST_WIDTH, TEST_HEIGHT, Bitmap.Config.ARGB_8888);
         canvas = new Canvas(bitmap);
         picture.draw(canvas);
-        checkSize(picture);
-        checkBitmap(bitmap);
+        verifySize(picture);
+        verifyBitmap(bitmap);
 
         picture.writeToStream(bout);
         picture = Picture.createFromStream(new ByteArrayInputStream(bout.toByteArray()));
@@ -129,18 +139,18 @@ public class PictureTest extends TestCase {
         bitmap = Bitmap.createBitmap(TEST_WIDTH, TEST_HEIGHT, Bitmap.Config.ARGB_8888);
         canvas = new Canvas(bitmap);
         picture.draw(canvas);
-        checkSize(picture);
-        checkBitmap(bitmap);
+        verifySize(picture);
+        verifyBitmap(bitmap);
 
         Picture pic = new Picture(picture);
         bitmap = Bitmap.createBitmap(TEST_WIDTH, TEST_HEIGHT, Bitmap.Config.ARGB_8888);
         canvas = new Canvas(bitmap);
         pic.draw(canvas);
-        checkSize(pic);
-        checkBitmap(bitmap);
+        verifySize(pic);
+        verifyBitmap(bitmap);
     }
 
-    private void checkSize(Picture picture) {
+    private void verifySize(Picture picture) {
         assertEquals(TEST_WIDTH, picture.getWidth());
         assertEquals(TEST_HEIGHT, picture.getHeight());
     }
@@ -159,7 +169,7 @@ public class PictureTest extends TestCase {
         canvas.drawPoint(0, 0, paint);
     }
 
-    private void checkBitmap(Bitmap bitmap) {
+    private void verifyBitmap(Bitmap bitmap) {
         // first pixel is BLUE, rest of the line is RED
         assertEquals(Color.BLUE, bitmap.getPixel(0, 0));
         for (int x = 1; x < TEST_WIDTH; x++) {

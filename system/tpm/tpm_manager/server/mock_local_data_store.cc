@@ -17,6 +17,7 @@
 #include "tpm_manager/server/mock_local_data_store.h"
 
 using testing::_;
+using testing::ByRef;
 using testing::DoAll;
 using testing::Return;
 using testing::SaveArg;
@@ -26,7 +27,7 @@ namespace tpm_manager {
 
 MockLocalDataStore::MockLocalDataStore() {
   ON_CALL(*this, Read(_))
-      .WillByDefault(DoAll(SetArgPointee<0>(fake_), Return(true)));
+      .WillByDefault(DoAll(SetArgPointee<0>(ByRef(fake_)), Return(true)));
   ON_CALL(*this, Write(_))
       .WillByDefault(DoAll(SaveArg<0>(&fake_), Return(true)));
 }

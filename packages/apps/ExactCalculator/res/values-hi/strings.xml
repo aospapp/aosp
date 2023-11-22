@@ -57,14 +57,18 @@
     <string name="desc_del" msgid="7879515781929311432">"हटाएं"</string>
     <string name="desc_inv_off" msgid="3672218250519616068">"प्रतिलोम फ़ंक्शन दिखाएं"</string>
     <string name="desc_inv_on" msgid="2515675590767677178">"प्रतिलोम फ़ंक्शन छिपाएं"</string>
+    <string name="desc_formula" msgid="8056588859637585007">"कोई फ़ार्मूला नहीं"</string>
+    <string name="desc_result" msgid="1794073190203126821">"कोई परिणाम नहीं"</string>
+    <string name="desc_num_pad" msgid="515720457459745571">"संख्याएं और मूल संचालन"</string>
+    <string name="desc_adv_pad" msgid="3794276256462677914">"उन्नत संचालन"</string>
     <string name="error_nan" msgid="5674077944929888710">"संख्या नहीं है"</string>
     <string name="error_syntax" msgid="4786987111228645602">"खराब व्यंजक"</string>
     <string name="error_aborted" msgid="3402238176316342537">"निरस्त किया गया"</string>
     <string name="error_overflow" msgid="7800547394563434764">"असीमित?"</string>
     <string name="error_zero_divide" msgid="458040988686661801">"0 से विभाजित नहीं कर सकते"</string>
     <string name="text_copied_toast" msgid="2104264466812485425">"लेख की प्रति बनाई गई"</string>
-    <string name="cancelled" msgid="1618889609742874632">"गणना रोक दी गई"</string>
-    <string name="timeout" msgid="802690170415591535">"समयबाह्य हो गया. मूल्‍य अनंत या अपरिभाषित हो सकता है."</string>
+    <string name="cancelled" msgid="2207323593183640994">"गणना रोक दी गई."</string>
+    <string name="timeout" msgid="5461892570729418573">"मूल्‍य अनंत या अपरिभाषित हो सकता है."</string>
     <string name="ok_remove_timeout" msgid="8344529153919268011">"अधिक बड़े समयबाह्य का उपयोग करें"</string>
     <string name="dismiss" msgid="7872443888515066216">"ख़ारिज करें"</string>
     <string name="exact" msgid="2597237880041789948">"(सटीक)"</string>
@@ -72,4 +76,12 @@
     <string name="menu_leading" msgid="2338520833272667740">"आगे वाले अंक से उत्तर दें"</string>
     <string name="menu_fraction" msgid="1247477377840252234">"भिन्न में उत्तर दें"</string>
     <string name="menu_licenses" msgid="1890541368064108592">"ओपन सोर्स लाइसेंस"</string>
+    <string name="menu_history" msgid="9006222701220105452">"इतिहास"</string>
+    <string name="menu_clear_history" msgid="2336526604226069572">"साफ़ करें"</string>
+    <string name="title_history" msgid="7820912156315181539">"इतिहास"</string>
+    <string name="desc_navigate_up" msgid="6208699569165589623">"ऊपर नेविगेट करें"</string>
+    <string name="dialog_timeout" msgid="9069768442342329065">"समयबाह्य"</string>
+    <string name="dialog_clear" msgid="7137395395908350702">"इतिहास और मेमोरी साफ़ करना है?"</string>
+    <string name="title_current_expression" msgid="2442754548537900591">"वर्तमान अभिव्यक्ति"</string>
+    <string name="no_history" msgid="4331262030447527188">"कोई इतिहास नहीं"</string>
 </resources>

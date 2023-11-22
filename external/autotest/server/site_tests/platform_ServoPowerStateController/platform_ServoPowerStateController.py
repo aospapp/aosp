@@ -85,7 +85,6 @@ class platform_ServoPowerStateController(test.test):
         logging.info('Power DUT off in recovery mode without booting.')
         self.host.servo.switch_usbkey('off')
         self.controller.power_on(self.controller.REC_ON)
-        time.sleep(10)
         self.controller.power_off()
         self.assert_dut_off('power_state:off failed at recovery screen ')
 

@@ -3,12 +3,11 @@
 # found in the LICENSE file.
 
 import os
-import StringIO
-import zipfile
 
 from telemetry.internal.platform import profiler
-from telemetry.timeline import trace_data as trace_data_module
+from telemetry.timeline import chrome_trace_category_filter
 from telemetry.timeline import tracing_config
+from tracing.trace_data import trace_data as trace_data_module
 
 
 class TraceProfiler(profiler.Profiler):
@@ -24,8 +23,10 @@ class TraceProfiler(profiler.Profiler):
       categories_with_flow += ',%s' % categories
     config = tracing_config.TracingConfig()
     config.enable_chrome_trace = True
-    self._browser_backend.StartTracing(
-        config, categories_with_flow, timeout=10)
+    config.chrome_trace_config.SetCategoryFilter(
+        chrome_trace_category_filter.ChromeTraceCategoryFilter(
+            categories_with_flow))
+    self._browser_backend.StartTracing(config, timeout=10)
 
   @classmethod
   def name(cls):
@@ -39,19 +40,17 @@ class TraceProfiler(profiler.Profiler):
     print 'Processing trace...'
 
     trace_result_builder = trace_data_module.TraceDataBuilder()
-    self._browser_backend.StopTracing(trace_result_builder)
+    self._browser_backend.StopTracing()
+    self._browser_backend.CollectTracingData(trace_result_builder)
     trace_result = trace_result_builder.AsData()
+    try:
+      trace_file = '%s.html' % self._output_path
+      title = os.path.basename(self._output_path)
+      trace_result.Serialize(trace_file, trace_title=title)
+    finally:
+      trace_result.CleanUpAllTraces()
 
-    trace_file = '%s.zip' % self._output_path
-
-    with zipfile.ZipFile(trace_file, 'w', zipfile.ZIP_DEFLATED) as z:
-      trace_data = StringIO.StringIO()
-      trace_result.Serialize(trace_data)
-      trace_name = '%s.json' % os.path.basename(self._output_path)
-      z.writestr(trace_name, trace_data.getvalue())
-
-    print 'Trace saved as %s' % trace_file
-    print 'To view, open in chrome://tracing'
+    print 'Trace saved as file:///%s' % os.path.abspath(trace_file)
 
     return [trace_file]
 

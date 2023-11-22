@@ -36,7 +36,7 @@
             <Button
                 android:id="@+id/encrypt_button"
                 style="@style/TransparentButton"
-                android:text="@string/encrypt_device_launch_settings"
+                android:text="@string/encrypt"
                 android:paddingTop="@dimen/button_padding_top"/>
         </LinearLayout>
     </LinearLayout>

@@ -36,6 +36,10 @@
 
 #include <fcntl.h>
 
+/* some libcs are guilty of messing up with O_ACCMODE */
+#undef O_ACCMODE
+#define O_ACCMODE 03
+
 #ifdef O_LARGEFILE
 # if O_LARGEFILE == 0          /* biarch platforms in 64-bit mode */
 #  undef O_LARGEFILE
@@ -73,7 +77,7 @@ print_dirfd(struct tcb *tcp, int fd)
  * other bits are real flags.
  */
 const char *
-sprint_open_modes(int flags)
+sprint_open_modes(unsigned int flags)
 {
 	static char outstr[(1 + ARRAY_SIZE(open_mode_flags)) * sizeof("O_LARGEFILE")];
 	char *p;
@@ -110,10 +114,17 @@ sprint_open_modes(int flags)
 }
 
 void
-tprint_open_modes(int flags)
+tprint_open_modes(unsigned int flags)
 {
 	tprints(sprint_open_modes(flags) + sizeof("flags"));
 }
+
+#ifdef O_TMPFILE
+/* The kernel & C libraries often inline O_DIRECTORY. */
+# define STRACE_O_TMPFILE (O_TMPFILE & ~O_DIRECTORY)
+#else /* !O_TMPFILE */
+# define STRACE_O_TMPFILE 0
+#endif
 
 static int
 decode_open(struct tcb *tcp, int offset)
@@ -122,9 +133,10 @@ decode_open(struct tcb *tcp, int offset)
 	tprints(", ");
 	/* flags */
 	tprint_open_modes(tcp->u_arg[offset + 1]);
-	if (tcp->u_arg[offset + 1] & O_CREAT) {
+	if (tcp->u_arg[offset + 1] & (O_CREAT | STRACE_O_TMPFILE)) {
 		/* mode */
-		tprintf(", %#lo", tcp->u_arg[offset + 2]);
+		tprints(", ");
+		print_numeric_umode_t(tcp->u_arg[offset + 2]);
 	}
 
 	return RVAL_DECODED | RVAL_FD;
@@ -144,7 +156,8 @@ SYS_FUNC(openat)
 SYS_FUNC(creat)
 {
 	printpath(tcp, tcp->u_arg[0]);
-	tprintf(", %#lo", tcp->u_arg[1]);
+	tprints(", ");
+	print_numeric_umode_t(tcp->u_arg[1]);
 
 	return RVAL_DECODED | RVAL_FD;
 }

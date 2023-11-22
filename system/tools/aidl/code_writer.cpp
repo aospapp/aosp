@@ -31,7 +31,7 @@ namespace {
 
 class StringCodeWriter : public CodeWriter {
  public:
-  StringCodeWriter(std::string* output_buffer) : output_(output_buffer) {}
+  explicit StringCodeWriter(std::string* output_buffer) : output_(output_buffer) {}
   virtual ~StringCodeWriter() = default;
 
   bool Write(const char* format, ...) override {

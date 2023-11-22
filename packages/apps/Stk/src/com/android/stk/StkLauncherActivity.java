@@ -16,6 +16,7 @@
 
 package com.android.stk;
 
+import android.app.ActionBar;
 import android.app.ListActivity;
 import android.content.Context;
 import android.content.Intent;
@@ -62,7 +63,11 @@ public class StkLauncherActivity extends ListActivity {
         mContext = getBaseContext();
         mTm = (TelephonyManager) mContext.getSystemService(
                 Context.TELEPHONY_SERVICE);
-        requestWindowFeature(Window.FEATURE_NO_TITLE);
+
+        ActionBar actionBar = getActionBar();
+        actionBar.setCustomView(R.layout.stk_title);
+        actionBar.setDisplayShowCustomEnabled(true);
+
         setContentView(R.layout.stk_menu_list);
         mTitleTextView = (TextView) findViewById(R.id.title_text);
         mTitleIconView = (ImageView) findViewById(R.id.title_icon);
@@ -161,6 +166,8 @@ public class StkLauncherActivity extends ListActivity {
 
     private int addStkMenuListItems() {
         String appName = mContext.getResources().getString(R.string.app_name);
+        StkAppService appService = StkAppService.getInstance();
+        String stkMenuTitle = null;
         String stkItemName = null;
         int simCount = TelephonyManager.from(mContext).getSimCount();
         mStkMenuList = new ArrayList<Item>();
@@ -171,8 +178,9 @@ public class StkLauncherActivity extends ListActivity {
             if (mTm.hasIccCard(i)) {
                 CatLog.d(LOG_TAG, "SIM " + i + " add to menu.");
                 mSingleSimId = i;
-                stkItemName = new StringBuilder(appName).append(" ")
-                        .append(Integer.toString(i + 1)).toString();
+                stkMenuTitle = appService.getMainMenu(i).title;
+                stkItemName = new StringBuilder(stkMenuTitle == null ? appName : stkMenuTitle)
+                    .append(" ").append(Integer.toString(i + 1)).toString();
                 Item item = new Item(i + 1, stkItemName, mBitMap);
                 item.id = i;
                 mStkMenuList.add(item);

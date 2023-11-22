@@ -5,7 +5,6 @@
 AUTHOR = "Chrome OS Team"
 NAME = "Power Requirements tests"
 ATTRIBUTES = "suite:power_requirements"
-SUITE = "power_requirements"
 TIME = "LONG"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "suite"
@@ -30,7 +29,7 @@ from autotest_lib.client.common_lib import error
 
 def _run_client_test(machine):
     client = hosts.create_host(machine)
-    client_attributes = site_host_attributes.HostAttributes(machine)
+    client_attributes = site_host_attributes.HostAttributes(client.hostname)
     client_at = autotest.Autotest(client)
     if client.has_power():
         client.power_on()
@@ -43,8 +42,8 @@ def _run_client_test(machine):
     # Run the full 60/20/10/10 load test, draining a full battery
     client_at.run_test('power_BatteryCharge', percent_target_charge=100,
                        max_run_time=60*60*6, tag='CHARGE_100')
-    client.power_off()
     try:
+        client.power_off()
         if hasattr(client_attributes, 'wifi'):
             ap, sec, pw = client_attributes.wifi.split(',')
             client_at.run_test('power_LoadTest', loop_count=12, loop_time=3600,

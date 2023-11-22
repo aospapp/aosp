@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <cstdlib>
 #include <inttypes.h>
 
 #define LOG_TAG "ActivityRecognitionHAL"
@@ -28,7 +29,11 @@ using namespace android;
 static const int kVersionMajor = 1;
 static const int kVersionMinor = 0;
 
-static const int ACTIVITY_TYPE_TILTING_INDEX = 6;
+// The maximum delta between events at which point their timestamps are to be
+// considered equal.
+static const int64_t kEventTimestampThresholdNanos = 100000000; // 100ms.
+static const int64_t kMaxEventAgeNanos = 10000000000; // 10000ms.
+static const useconds_t kFlushDelayMicros = 10000; // 10ms.
 
 static const char *const kActivityList[] = {
     ACTIVITY_TYPE_IN_VEHICLE,
@@ -36,14 +41,29 @@ static const char *const kActivityList[] = {
     ACTIVITY_TYPE_WALKING,
     ACTIVITY_TYPE_RUNNING,
     ACTIVITY_TYPE_STILL,
-    "com.google.android.contexthub.ar.inconsistent",
     ACTIVITY_TYPE_TILTING
+};
+
+static const int kActivitySensorMap[ARRAY_SIZE(kActivityList)][2] = {
+    { COMMS_SENSOR_ACTIVITY_IN_VEHICLE_START,
+      COMMS_SENSOR_ACTIVITY_IN_VEHICLE_STOP, },
+    { COMMS_SENSOR_ACTIVITY_ON_BICYCLE_START,
+      COMMS_SENSOR_ACTIVITY_ON_BICYCLE_STOP, },
+    { COMMS_SENSOR_ACTIVITY_WALKING_START,
+      COMMS_SENSOR_ACTIVITY_WALKING_STOP, },
+    { COMMS_SENSOR_ACTIVITY_RUNNING_START,
+      COMMS_SENSOR_ACTIVITY_RUNNING_STOP, },
+    { COMMS_SENSOR_ACTIVITY_STILL_START,
+      COMMS_SENSOR_ACTIVITY_STILL_STOP, },
+    { COMMS_SENSOR_ACTIVITY_TILTING,
+      COMMS_SENSOR_ACTIVITY_TILTING, },
 };
 
 // The global ActivityContext singleton.
 static ActivityContext *gActivityContext = NULL;
 
 static int ActivityClose(struct hw_device_t *) {
+    ALOGI("close_activity");
     delete gActivityContext;
     gActivityContext = NULL;
     return 0;
@@ -78,8 +98,10 @@ static int FlushWrapper(const struct activity_recognition_device *) {
 ActivityContext::ActivityContext(const struct hw_module_t *module)
     : mHubConnection(HubConnection::getInstance()),
       mCallback(NULL),
-      mPrevActivity(-1),
-      mInitExitDone(false) {
+      mNewestPublishedEventIndexIsKnown(false),
+      mNewestPublishedEventIndex(0),
+      mNewestPublishedTimestamp(0),
+      mOutstandingFlushEvents(0) {
     memset(&device, 0, sizeof(device));
 
     device.common.tag = HARDWARE_DEVICE_TAG;
@@ -93,8 +115,12 @@ ActivityContext::ActivityContext(const struct hw_module_t *module)
 
     if (getHubAlive()) {
         mHubConnection->setActivityCallback(this);
-        mHubConnection->queueActivate(
-            COMMS_SENSOR_ACTIVITY, false /* enable */);
+
+        // Reset the system to a known good state by disabling all transitions.
+        for (int i = COMMS_SENSOR_ACTIVITY_FIRST;
+                i <= COMMS_SENSOR_ACTIVITY_LAST; i++) {
+            mHubConnection->queueActivate(i, false /* enable */);
+        }
     }
 }
 
@@ -102,94 +128,161 @@ ActivityContext::~ActivityContext() {
     mHubConnection->setActivityCallback(NULL);
 }
 
-void ActivityContext::OnActivityEvent(int activityRaw, uint64_t whenNs) {
+/*
+ * Obtain the activity handle for a given activity sensor index.
+ */
+static int GetActivityHandleFromSensorIndex(int sensorIndex) {
+    int normalizedSensorIndex = sensorIndex - COMMS_SENSOR_ACTIVITY_FIRST;
+    return normalizedSensorIndex / 2;
+}
+
+/*
+ * Obtain the activity type for a given activity sensor index.
+ */
+static int GetActivityTypeFromSensorIndex(int sensorIndex) {
+    int normalizedSensorIndex = sensorIndex - COMMS_SENSOR_ACTIVITY_FIRST;
+    return (normalizedSensorIndex % 2) + 1;
+}
+
+void ActivityContext::PublishUnpublishedEvents() {
+    if (mUnpublishedEvents.empty()) {
+        return;
+    }
+
+    while (mUnpublishedEvents.size() > 0) {
+        bool eventWasPublished = false;
+
+        for (size_t i = 0; i < mUnpublishedEvents.size(); i++) {
+            const ActivityEvent *event = &mUnpublishedEvents[i];
+            if (event->eventIndex == (uint8_t)(mNewestPublishedEventIndex + 1)) {
+                PublishEvent(*event);
+                eventWasPublished = true;
+                mUnpublishedEvents.removeAt(i);
+                break;
+            }
+        }
+
+        if (!eventWasPublished) {
+            ALOGD("Waiting on unpublished events");
+            break;
+        }
+    }
+}
+
+void ActivityContext::PublishEvent(const ActivityEvent& event) {
+    activity_event_t halEvent;
+    memset(&halEvent, 0, sizeof(halEvent));
+
+    int64_t timestampDelta = event.whenNs - mNewestPublishedTimestamp;
+    if (std::abs(timestampDelta) > kEventTimestampThresholdNanos) {
+      mNewestPublishedTimestamp = event.whenNs;
+    }
+
+    halEvent.activity = GetActivityHandleFromSensorIndex(event.sensorIndex);
+    halEvent.timestamp = mNewestPublishedTimestamp;
+
+    if (event.sensorIndex == COMMS_SENSOR_ACTIVITY_TILTING) {
+        ALOGD("Publishing tilt event (enter/exit)");
+
+        // Publish two events (enter/exit) for TILTING events.
+        halEvent.event_type = ACTIVITY_EVENT_ENTER;
+        (*mCallback->activity_callback)(mCallback, &halEvent, 1);
+
+        halEvent.event_type = ACTIVITY_EVENT_EXIT;
+    } else {
+        ALOGD("Publishing event - activity_handle: %d, event_type: %d"
+              ", timestamp: %" PRIu64,
+              halEvent.activity, halEvent.event_type, halEvent.timestamp);
+
+        // Just a single event is required for all other activity types.
+        halEvent.event_type = GetActivityTypeFromSensorIndex(event.sensorIndex);
+    }
+
+    (*mCallback->activity_callback)(mCallback, &halEvent, 1);
+    mNewestPublishedEventIndex = event.eventIndex;
+    mNewestPublishedEventIndexIsKnown = true;
+}
+
+void ActivityContext::DiscardExpiredUnpublishedEvents(uint64_t whenNs) {
+    // Determine the current oldest buffered event.
+    uint64_t oldestEventTimestamp = UINT64_MAX;
+    for (size_t i = 0; i < mUnpublishedEvents.size(); i++) {
+        const ActivityEvent *event = &mUnpublishedEvents[i];
+        if (event->whenNs < oldestEventTimestamp) {
+            oldestEventTimestamp = event->whenNs;
+        }
+    }
+
+    // If the age of the oldest buffered event is too large an AR sample
+    // has been lost. When this happens all AR transitions are set to
+    // ACTIVITY_EVENT_EXIT and the event ordering logic is reset.
+    if (oldestEventTimestamp != UINT64_MAX
+        && (whenNs - oldestEventTimestamp) > kMaxEventAgeNanos) {
+        ALOGD("Lost event detected, discarding buffered events");
+
+        // Publish stop events for all activity types except for TILTING.
+        for (uint32_t activity = 0;
+             activity < (ARRAY_SIZE(kActivityList) - 1); activity++) {
+            activity_event_t halEvent;
+            memset(&halEvent, 0, sizeof(halEvent));
+
+            halEvent.activity = activity;
+            halEvent.timestamp = oldestEventTimestamp;
+            halEvent.event_type = ACTIVITY_EVENT_EXIT;
+            (*mCallback->activity_callback)(mCallback, &halEvent, 1);
+        }
+
+        // Reset the event reordering logic.
+        OnSensorHubReset();
+    }
+}
+
+void ActivityContext::OnActivityEvent(int sensorIndex, uint8_t eventIndex,
+                                      uint64_t whenNs) {
+    ALOGD("OnActivityEvent sensorIndex = %d, eventIndex = %" PRIu8
+          ", whenNs = %" PRIu64, sensorIndex, eventIndex, whenNs);
+
     Mutex::Autolock autoLock(mCallbackLock);
     if (!mCallback) {
         return;
     }
 
-    ALOGV("activityRaw = %d", activityRaw);
+    DiscardExpiredUnpublishedEvents(whenNs);
 
-    if (mPrevActivity >= 0 && mPrevActivity == activityRaw) {
-        // same old, same old...
-        return;
-    }
+    ActivityEvent event = {
+        .eventIndex = eventIndex,
+        .sensorIndex = sensorIndex,
+        .whenNs = whenNs,
+    };
 
-    activity_event_t ev[8];
-    memset(&ev, 0, 8*sizeof(activity_event_t));
-    int num_events = 0;
-
-    // exit all other activities when first enabled.
-    if (!mInitExitDone) {
-        mInitExitDone = true;
-
-        int numActivities = sizeof(kActivityList) / sizeof(kActivityList[0]);
-        for (int i = 0; i < numActivities; ++i) {
-            if ((i == activityRaw) || !isEnabled(i, ACTIVITY_EVENT_EXIT)) {
-                continue;
-            }
-
-            activity_event_t *curr_ev = &ev[num_events];
-            curr_ev->event_type = ACTIVITY_EVENT_EXIT;
-            curr_ev->activity = i;
-            curr_ev->timestamp = whenNs;
-            curr_ev->reserved[0] = curr_ev->reserved[1] = curr_ev->reserved[2] = curr_ev->reserved[3] = 0;
-            num_events++;
-        }
-    }
-
-    // tilt activities do not change the current activity type, but have a
-    // simultaneous enter and exit event type
-    if (activityRaw == ACTIVITY_TYPE_TILTING_INDEX) {
-        if (isEnabled(activityRaw, ACTIVITY_EVENT_ENTER)) {
-            activity_event_t *curr_ev = &ev[num_events];
-            curr_ev->event_type = ACTIVITY_EVENT_ENTER;
-            curr_ev->activity = activityRaw;
-            curr_ev->timestamp = whenNs;
-            curr_ev->reserved[0] = curr_ev->reserved[1] = curr_ev->reserved[2] = curr_ev->reserved[3] = 0;
-            num_events++;
-        }
-
-        if (isEnabled(activityRaw, ACTIVITY_EVENT_EXIT)) {
-            activity_event_t *curr_ev = &ev[num_events];
-            curr_ev->event_type = ACTIVITY_EVENT_EXIT;
-            curr_ev->activity = activityRaw;
-            curr_ev->timestamp = whenNs;
-            curr_ev->reserved[0] = curr_ev->reserved[1] = curr_ev->reserved[2] = curr_ev->reserved[3] = 0;
-            num_events++;
-        }
+    if (!mNewestPublishedEventIndexIsKnown
+            || eventIndex == (uint8_t)(mNewestPublishedEventIndex + 1)) {
+        PublishEvent(event);
+        PublishUnpublishedEvents();
     } else {
-        if ((mPrevActivity >= 0) &&
-            (isEnabled(mPrevActivity, ACTIVITY_EVENT_EXIT))) {
-            activity_event_t *curr_ev = &ev[num_events];
-            curr_ev->event_type = ACTIVITY_EVENT_EXIT;
-            curr_ev->activity = mPrevActivity;
-            curr_ev->timestamp = whenNs;
-            curr_ev->reserved[0] = curr_ev->reserved[1] = curr_ev->reserved[2] = curr_ev->reserved[3] = 0;
-            num_events++;
-        }
-
-        if (isEnabled(activityRaw, ACTIVITY_EVENT_ENTER)) {
-            activity_event_t *curr_ev = &ev[num_events];
-            curr_ev->event_type = ACTIVITY_EVENT_ENTER;
-            curr_ev->activity = activityRaw;
-            curr_ev->timestamp = whenNs;
-            curr_ev->reserved[0] = curr_ev->reserved[1] = curr_ev->reserved[2] = curr_ev->reserved[3] = 0;
-            num_events++;
-        }
-
-        mPrevActivity = activityRaw;
-    }
-
-    if (num_events > 0) {
-        (*mCallback->activity_callback)(mCallback, ev, num_events);
+        ALOGD("OnActivityEvent out of order, pushing back");
+        mUnpublishedEvents.push(event);
     }
 }
 
 void ActivityContext::OnFlush() {
+    // Once the number of outstanding flush events has reached zero, publish an
+    // event via the AR HAL.
     Mutex::Autolock autoLock(mCallbackLock);
     if (!mCallback) {
         return;
+    }
+
+    // For each flush event from the sensor hub, decrement the counter of
+    // outstanding flushes.
+    mOutstandingFlushEvents--;
+    if (mOutstandingFlushEvents > 0) {
+        ALOGV("OnFlush with %d outstanding flush events", mOutstandingFlushEvents);
+        return;
+    } else if (mOutstandingFlushEvents < 0) {
+        // This can happen on app start.
+        ALOGD("more flush events received than requested");
+        mOutstandingFlushEvents = 0;
     }
 
     activity_event_t ev = {
@@ -199,6 +292,16 @@ void ActivityContext::OnFlush() {
     };
 
     (*mCallback->activity_callback)(mCallback, &ev, 1);
+    ALOGD("OnFlush published");
+}
+
+void ActivityContext::OnSensorHubReset() {
+    // Reset the unpublished event queue and clear the last known published
+    // event index.
+    mUnpublishedEvents.clear();
+    mNewestPublishedEventIndexIsKnown = false;
+    mOutstandingFlushEvents = 0;
+    mNewestPublishedTimestamp = 0;
 }
 
 void ActivityContext::registerActivityCallback(
@@ -209,73 +312,77 @@ void ActivityContext::registerActivityCallback(
     mCallback = callback;
 }
 
-int ActivityContext::enableActivityEvent(
-        uint32_t activity_handle,
-        uint32_t event_type,
-        int64_t max_batch_report_latency_ns) {
+/*
+ * Returns a sensor index for a given activity handle and transition type.
+ */
+int GetActivitySensorForHandleAndType(uint32_t activity_handle,
+                                      uint32_t event_type) {
+    // Ensure that the requested activity index is valid.
+    if (activity_handle >= ARRAY_SIZE(kActivityList)) {
+        return 0;
+    }
+
+    // Ensure that the event type is either an ENTER or EXIT.
+    if (event_type < ACTIVITY_EVENT_ENTER || event_type > ACTIVITY_EVENT_EXIT) {
+        return 0;
+    }
+
+    return kActivitySensorMap[activity_handle][event_type - 1];
+}
+
+int ActivityContext::enableActivityEvent(uint32_t activity_handle,
+        uint32_t event_type, int64_t max_report_latency_ns) {
     ALOGI("enableActivityEvent - activity_handle: %" PRIu32
           ", event_type: %" PRIu32 ", latency: %" PRId64,
-          activity_handle, event_type, max_batch_report_latency_ns);
+          activity_handle, event_type, max_report_latency_ns);
 
-    bool wasEnabled = !mMaxBatchReportLatencyNs.isEmpty();
-    int64_t prev_latency = calculateReportLatencyNs();
-
-    mMaxBatchReportLatencyNs.add(
-            ((uint64_t)activity_handle << 32) | event_type,
-            max_batch_report_latency_ns);
-
-    if (!wasEnabled) {
-        mPrevActivity = -1;
-        mInitExitDone = false;
-
-        mHubConnection->queueBatch(COMMS_SENSOR_ACTIVITY, 1000000,
-                                   max_batch_report_latency_ns);
-        mHubConnection->queueActivate(COMMS_SENSOR_ACTIVITY, true /* enable */);
-    } else if (max_batch_report_latency_ns != prev_latency) {
-        mHubConnection->queueBatch(COMMS_SENSOR_ACTIVITY, 1000000,
-                                   max_batch_report_latency_ns);
+    int sensor_index = GetActivitySensorForHandleAndType(activity_handle,
+                                                         event_type);
+    if (sensor_index <= 0) {
+        ALOGE("Enabling invalid activity_handle: %" PRIu32
+              ", event_type: %" PRIu32, activity_handle, event_type);
+        return 1;
     }
 
+    mHubConnection->queueBatch(sensor_index, 1000000, max_report_latency_ns);
+    mHubConnection->queueActivate(sensor_index, true /* enable */);
     return 0;
 }
 
-int64_t ActivityContext::calculateReportLatencyNs() {
-    int64_t ret = INT64_MAX;
-
-    for (size_t i = 0 ; i < mMaxBatchReportLatencyNs.size(); ++i) {
-        if (mMaxBatchReportLatencyNs[i] <ret) {
-            ret = mMaxBatchReportLatencyNs[i];
-        }
-    }
-    return ret;
-}
-
-int ActivityContext::disableActivityEvent(
-        uint32_t activity_handle, uint32_t event_type) {
+int ActivityContext::disableActivityEvent(uint32_t activity_handle,
+                                          uint32_t event_type) {
     ALOGI("disableActivityEvent");
 
-    bool wasEnabled = !mMaxBatchReportLatencyNs.isEmpty();
-
-    mMaxBatchReportLatencyNs.removeItem(
-            ((uint64_t)activity_handle << 32) | event_type);
-
-    bool isEnabled = !mMaxBatchReportLatencyNs.isEmpty();
-
-    if (wasEnabled && !isEnabled) {
-        mHubConnection->queueActivate(COMMS_SENSOR_ACTIVITY, false /* enable */);
+    // Obtain the sensor index for the requested activity and transition types.
+    int sensor_index = kActivitySensorMap[activity_handle][event_type - 1];
+    if (sensor_index > 0) {
+        mHubConnection->queueActivate(sensor_index, false /* enable */);
+    } else {
+        ALOGE("Disabling invalid activity_handle: %" PRIu32
+              ", event_type: %" PRIu32, activity_handle, event_type);
     }
 
     return 0;
-}
-
-bool ActivityContext::isEnabled(
-        uint32_t activity_handle, uint32_t event_type) const {
-    return mMaxBatchReportLatencyNs.indexOfKey(
-            ((uint64_t)activity_handle << 32) | event_type) >= 0;
 }
 
 int ActivityContext::flush() {
-    mHubConnection->queueFlush(COMMS_SENSOR_ACTIVITY);
+    {
+        // Aquire a lock for the mOutstandingFlushEvents shared state. OnFlush
+        // modifies this value as flush results are returned. Nested scope is
+        // used here to control the lifecycle of the lock as OnFlush may be
+        // invoked before this method returns.
+        Mutex::Autolock autoLock(mCallbackLock);
+        mOutstandingFlushEvents +=
+            (COMMS_SENSOR_ACTIVITY_LAST - COMMS_SENSOR_ACTIVITY_FIRST) + 1;
+    }
+
+    // Flush all activity sensors.
+    for (int i = COMMS_SENSOR_ACTIVITY_FIRST;
+            i <= COMMS_SENSOR_ACTIVITY_LAST; i++) {
+        mHubConnection->queueFlush(i);
+        usleep(kFlushDelayMicros);
+    }
+
     return 0;
 }
 

@@ -9,7 +9,6 @@
  * %End-Header%
  */
 
-#include <stdint.h>
 typedef __u32 problem_t;
 
 struct problem_context {
@@ -41,6 +40,7 @@ struct problem_context {
 #define PR_LATCH_TOOBIG	0x0080	/* Latch for file to big errors */
 #define PR_LATCH_OPTIMIZE_DIR 0x0090 /* Latch for optimize directories */
 #define PR_LATCH_BG_CHECKSUM 0x00A0  /* Latch for block group checksums */
+#define PR_LATCH_OPTIMIZE_EXT 0x00B0  /* Latch for rebuild extents */
 
 #define PR_LATCH(x)	((((x) & PR_LATCH_MASK) >> 4) - 1)
 
@@ -250,8 +250,36 @@ struct problem_context {
 /* Checking group descriptor failed */
 #define PR_0_CHECK_DESC_FAILED			0x000045
 
+/*
+ * metadata_csum supersedes uninit_bg; both feature bits cannot be set
+ * simultaneously.
+ */
+#define PR_0_META_AND_GDT_CSUM_SET		0x000046
+
+/* Superblock has invalid MMP checksum. */
+#define PR_0_MMP_CSUM_INVALID			0x000047
+
 /* 64bit is set but extents are not set. */
 #define PR_0_64BIT_WITHOUT_EXTENTS		0x000048
+
+/* The first_meta_bg is too big */
+#define PR_0_FIRST_META_BG_TOO_BIG		0x000049
+
+/* External journal has corrupt superblock */
+#define PR_0_EXT_JOURNAL_SUPER_CSUM_INVALID	0x00004A
+
+/* metadata_csum_seed means nothing without metadata_csum */
+#define PR_0_CSUM_SEED_WITHOUT_META_CSUM	0x00004B
+
+/* Error initializing quota context */
+#define PR_0_QUOTA_INIT_CTX			0x00004C
+
+/* Bad s_min_extra_isize in superblock */
+#define PR_0_BAD_MIN_EXTRA_ISIZE		0x00004D
+
+/* Bad s_want_extra_isize in superblock */
+#define PR_0_BAD_WANT_EXTRA_ISIZE		0x00004E
+
 
 /*
  * Pass 1 errors
@@ -401,8 +429,8 @@ struct problem_context {
 /* Immutable flag set on a device or socket inode */
 #define PR_1_SET_IMMUTABLE		0x010030
 
-/* Compression flag set on a non-compressed filesystem */
-#define PR_1_COMPR_SET			0x010031
+/* Compression flag set on a non-compressed filesystem -- no longer used*/
+/* #define PR_1_COMPR_SET			0x010031 */
 
 /* Non-zero size on on device, fifo or socket inode */
 #define PR_1_SET_NONZSIZE		0x010032
@@ -562,10 +590,86 @@ struct problem_context {
 /* Extent has zero length */
 #define PR_1_EXTENT_LENGTH_ZERO		0x010066
 
+/* inode seems to contain garbage */
+#define PR_1_INODE_IS_GARBAGE		0x010067
+
+/* inode passes checks, but checksum does not match inode */
+#define PR_1_INODE_ONLY_CSUM_INVALID   0x010068
+
+/* Inode EA allocation collision */
+#define PR_1_INODE_EA_ALLOC_COLLISION	0x010069
+
+/* extent block passes checks, but checksum does not match extent block */
+#define PR_1_EXTENT_ONLY_CSUM_INVALID  0x01006A
+
+/* ea block passes checks, but checksum invalid */
+#define PR_1_EA_BLOCK_ONLY_CSUM_INVALID        0x01006C
+
 /* Index start doesn't match start of next extent down */
 #define PR_1_EXTENT_INDEX_START_INVALID	0x01006D
 
 #define PR_1_EXTENT_END_OUT_OF_BOUNDS	0x01006E
+
+/* Inode has inline data, but superblock is missing INLINE_DATA feature. */
+#define PR_1_INLINE_DATA_FEATURE       0x01006F
+
+/* INLINE_DATA feature is set in a non-inline-data filesystem */
+#define PR_1_INLINE_DATA_SET	       0x010070
+
+/* file metadata collides with critical metadata */
+#define PR_1_CRITICAL_METADATA_COLLISION	0x010071
+
+/* Directory inode has a missing block (hole) */
+#define PR_1_COLLAPSE_DBLOCK		0x010072
+
+/* uninit directory block */
+#define PR_1_UNINIT_DBLOCK		0x010073
+
+/* Inode logical block is misaligned */
+#define PR_1_MISALIGNED_CLUSTER		0x010074
+
+/* Inode has INLINE_DATA_FL flag but extended attribute not found */
+#define PR_1_INLINE_DATA_NO_ATTR	0x010075
+
+/* extents/inlinedata set on fifo/socket/device */
+#define PR_1_SPECIAL_EXTENTS_IDATA	0x010076
+
+/* idata/extent flag set and extent header found, clear idata flag */
+#define PR_1_CLEAR_INLINE_DATA_FOR_EXTENT	0x010077
+
+/* inlinedata/extent set and no extent header found, clear extent flag */
+#define PR_1_CLEAR_EXTENT_FOR_INLINE_DATA	0x010078
+
+/* inlinedata/extent set, clear both flags */
+#define PR_1_CLEAR_EXTENT_INLINE_DATA_FLAGS	0x010079
+
+/* inlinedata/extent set, clear inode */
+#define PR_1_CLEAR_EXTENT_INLINE_DATA_INODE	0x01007A
+
+/* badblocks is in badblocks */
+#define PR_1_BADBLOCKS_IN_BADBLOCKS		0x01007B
+
+/* can't allocate extent region */
+#define PR_1_EXTENT_ALLOC_REGION_ABORT		0x01007C
+
+/* leaf extent collision */
+#define PR_1_EXTENT_COLLISION			0x01007D
+
+/* Error allocating memory for encrypted directory list */
+#define PR_1_ALLOCATE_ENCRYPTED_DIRLIST		0x01007E
+
+/* extent tree max depth too big */
+#define PR_1_EXTENT_BAD_MAX_DEPTH		0x01007F
+
+/* bigalloc fs cannot have blockmap files */
+#define PR_1_NO_BIGALLOC_BLOCKMAP_FILES		0x010080
+
+/* Missing extent header */
+#define PR_1_MISSING_EXTENT_HEADER		0x010081
+
+/* Timestamp(s) on inode beyond 2310-04-04 are likely pre-1970. */
+#define PR_1_EA_TIME_OUT_OF_RANGE		0x010082
+
 /*
  * Pass 1b errors
  */
@@ -593,6 +697,9 @@ struct problem_context {
 
 /* Error adjusting EA refcount */
 #define PR_1B_ADJ_EA_REFCOUNT	0x011007
+
+/* Duplicate/bad block range in inode */
+#define PR_1B_DUP_RANGE		0x011008
 
 /* Pass 1C: Scan directories for inodes with dup blocks. */
 #define PR_1C_PASS_HEADER	0x012000
@@ -625,8 +732,32 @@ struct problem_context {
 /* Couldn't clone file (error) */
 #define PR_1D_CLONE_ERROR	0x013008
 
-/* Error allocating memory for encrypted directory list */
-#define PR_1_ALLOCATE_ENCRYPTED_DIRLIST		0x01007E
+/*
+ * Pass 1e --- rebuilding extent trees
+ */
+/* Pass 1e: Rebuilding extent trees */
+#define PR_1E_PASS_HEADER		0x014000
+
+/* Error rehash directory */
+#define PR_1E_OPTIMIZE_EXT_ERR		0x014001
+
+/* Rebuilding extent trees */
+#define PR_1E_OPTIMIZE_EXT_HEADER	0x014002
+
+/* Rebuilding extent %d */
+#define PR_1E_OPTIMIZE_EXT		0x014003
+
+/* Rebuilding extent tree end */
+#define PR_1E_OPTIMIZE_EXT_END		0x014004
+
+/* Internal error: extent tree depth too large */
+#define PR_1E_MAX_EXTENT_TREE_DEPTH	0x014005
+
+/* Inode extent tree could be shorter */
+#define PR_1E_CAN_COLLAPSE_EXTENT_TREE	0x014006
+
+/* Inode extent tree could be narrower */
+#define PR_1E_CAN_NARROW_EXTENT_TREE	0x014007
 
 /*
  * Pass 2 errors
@@ -833,6 +964,24 @@ struct problem_context {
 /* i_file_acl_hi should be zero */
 #define PR_2_I_FILE_ACL_HI_ZERO		0x020048
 
+/* htree root node fails checksum */
+#define PR_2_HTREE_ROOT_CSUM_INVALID	0x020049
+
+/* htree node fails checksum */
+#define PR_2_HTREE_NODE_CSUM_INVALID	0x02004A
+
+/* no space in leaf for checksum */
+#define PR_2_LEAF_NODE_MISSING_CSUM	0x02004C
+
+/* dir leaf node passes checks, but fails checksum */
+#define PR_2_LEAF_NODE_ONLY_CSUM_INVALID	0x02004D
+
+/* bad inline directory size */
+#define PR_2_BAD_INLINE_DIR_SIZE	0x02004E
+
+/* fixing inline dir size failed */
+#define PR_2_FIX_INLINE_DIR_FAILED	0x02004F
+
 /* Encrypted directory entry is too short */
 #define PR_2_BAD_ENCRYPTED_NAME		0x020050
 
@@ -912,6 +1061,18 @@ struct problem_context {
 /* Lost+found is not a directory */
 #define PR_3_LPF_NOTDIR			0x030017
 
+/* Lost+found has inline data */
+#define PR_3_LPF_INLINE_DATA		0x030018
+
+/* Cannot allocate lost+found */
+#define PR_3_LPF_NO_SPACE		0x030019
+
+/* Insufficient space to recover lost files */
+#define PR_3_NO_SPACE_TO_RECOVER	0x03001A
+
+/* Lost+found is encrypted */
+#define PR_3_LPF_ENCRYPTED		0x03001B
+
 /*
  * Pass 3a --- rehashing diretories
  */
@@ -932,6 +1093,8 @@ struct problem_context {
 
 /* Rehashing dir end */
 #define PR_3A_OPTIMIZE_DIR_END		0x031005
+
+/* Pass 3B is really just 1E */
 
 /*
  * Pass 4 errors
@@ -1034,6 +1197,12 @@ struct problem_context {
 /* Inode in use but group is marked INODE_UNINIT */
 #define PR_5_INODE_UNINIT		0x050019
 
+/* Inode bitmap checksum does not match */
+#define PR_5_INODE_BITMAP_CSUM_INVALID	0x05001A
+
+/* Block bitmap checksum does not match */
+#define PR_5_BLOCK_BITMAP_CSUM_INVALID	0x05001B
+
 /*
  * Post-Pass 5 errors
  */
@@ -1043,6 +1212,19 @@ struct problem_context {
 
 /* Update quota information if it is inconsistent */
 #define PR_6_UPDATE_QUOTAS		0x060002
+
+/* Error setting block group checksum info */
+#define PR_6_SET_BG_CHECKSUM		0x060003
+
+/* Error writing file system info */
+#define PR_6_FLUSH_FILESYSTEM		0x060004
+
+/* Error flushing writes to storage device */
+#define PR_6_IO_FLUSH			0x060005
+
+/* Error updating quota information */
+#define PR_6_WRITE_QUOTAS		0x060006
+
 
 /*
  * Function declarations

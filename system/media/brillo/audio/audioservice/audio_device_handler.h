@@ -23,6 +23,7 @@
 #include <set>
 #include <vector>
 
+#include <base/bind.h>
 #include <base/files/file_path.h>
 #include <gtest/gtest_prod.h>
 #include <linux/input.h>
@@ -30,9 +31,11 @@
 #include <system/audio.h>
 #include <system/audio_policy.h>
 
+#include "audio_daemon_handler.h"
+
 namespace brillo {
 
-class AudioDeviceHandler {
+class AudioDeviceHandler : public AudioDaemonHandler {
  public:
   AudioDeviceHandler();
   virtual ~AudioDeviceHandler();
@@ -41,7 +44,7 @@ class AudioDeviceHandler {
   // the initial state.
   //
   // |aps| is a pointer to the binder object.
-  void Init(android::sp<android::IAudioPolicyService> aps);
+  virtual void Init(android::sp<android::IAudioPolicyService> aps) override;
 
   // Process input events from the kernel. Connecting/disconnecting an audio
   // device will result in multiple calls to this method.
@@ -49,7 +52,7 @@ class AudioDeviceHandler {
   // |event| is a pointer to an input_event. This function should be able to
   // gracefully handle input events that are not relevant to the functionality
   // provided by this class.
-  void ProcessEvent(const struct input_event& event);
+  virtual void ProcessEvent(const struct input_event& event) override;
 
   // Inform the handler that the audio policy service has been disconnected.
   void APSDisconnect();
@@ -57,10 +60,49 @@ class AudioDeviceHandler {
   // Inform the handler that the audio policy service is reconnected.
   //
   // |aps| is a pointer to the binder object.
-  void APSConnect(android::sp<android::IAudioPolicyService> aps);
+  virtual void APSConnect(
+      android::sp<android::IAudioPolicyService> aps) override;
+
+  // Get the list of connected devices.
+  //
+  // |devices_list| is the vector to copy list of connected input devices to.
+  void GetInputDevices(std::vector<int>* devices_list);
+
+  // Get the list of connected output devices.
+  //
+  // |devices_list| is the vector to copy the list of connected output devices
+  // to.
+  void GetOutputDevices(std::vector<int>* devices_list);
+
+  // Set device.
+  //
+  // |usage| is an int of type audio_policy_force_use_t
+  // |config| is an int of type audio_policy_forced_cfg_t.
+  //
+  // Returns 0 on sucess and errno on failure.
+  int SetDevice(audio_policy_force_use_t usage,
+                audio_policy_forced_cfg_t config);
+
+  // Enum used to represent whether devices are being connected or not. This is
+  // used when triggering callbacks.
+  enum DeviceConnectionState {
+    kDevicesConnected,
+    kDevicesDisconnected
+  };
+
+  // Register a callback function to call when device state changes.
+  //
+  // |callback| is an object of type base::Callback that accepts a
+  // DeviceConnectionState and a vector of ints. See DeviceCallback() in
+  // audio_daemon.h.
+  void RegisterDeviceCallback(
+      base::Callback<void(DeviceConnectionState,
+                          const std::vector<int>& )>& callback);
 
  private:
   friend class AudioDeviceHandlerTest;
+  friend class AudioVolumeHandler;
+  friend class AudioVolumeHandlerTest;
   FRIEND_TEST(AudioDeviceHandlerTest,
               DisconnectAllSupportedDevicesCallsDisconnect);
   FRIEND_TEST(AudioDeviceHandlerTest, InitCallsDisconnectAllSupportedDevices);
@@ -86,6 +128,7 @@ class AudioDeviceHandler {
   FRIEND_TEST(AudioDeviceHandlerTest, ConnectAudioDeviceOutput);
   FRIEND_TEST(AudioDeviceHandlerTest, DisconnectAudioDeviceInput);
   FRIEND_TEST(AudioDeviceHandlerTest, DisconnectAudioDeviceOutput);
+  FRIEND_TEST(AudioVolumeHandlerTest, FileGeneration);
 
   // Read the initial state of audio devices in /sys/class/* and update
   // the audio policy service.
@@ -125,26 +168,32 @@ class AudioDeviceHandler {
   // Disconnect all supported audio devices.
   void DisconnectAllSupportedDevices();
 
+  // Trigger a callback when a device is either connected or disconnected.
+  //
+  // |state| is kDevicesConnected when |devices| are being connected.
+  virtual void TriggerCallback(DeviceConnectionState state);
+
   // All input devices currently supported by AudioDeviceHandler.
-  std::vector<audio_devices_t> kSupportedInputDevices_{
-      AUDIO_DEVICE_IN_WIRED_HEADSET};
+  static const std::vector<audio_devices_t> kSupportedInputDevices_;
   // All output devices currently supported by AudioDeviceHandler.
-  std::vector<audio_devices_t> kSupportedOutputDevices_{
-      AUDIO_DEVICE_OUT_WIRED_HEADSET, AUDIO_DEVICE_OUT_WIRED_HEADPHONE};
-  // Pointer to the audio policy service.
-  android::sp<android::IAudioPolicyService> aps_;
+  static const std::vector<audio_devices_t> kSupportedOutputDevices_;
 
  protected:
   // Set of connected input devices.
   std::set<audio_devices_t> connected_input_devices_;
   // Set of connected output devices.
   std::set<audio_devices_t> connected_output_devices_;
+  // Vector of devices changed (used for callbacks to clients).
+  std::vector<int> changed_devices_;
   // Keeps track of whether a headphone has been connected. Used by ProcessEvent
   // and UpdateAudioSystem.
   bool headphone_;
   // Keeps track of whether a microphone has been connected. Used by
   // ProcessEvent and UpdateAudioSystem.
   bool microphone_;
+  // Callback object to call when device state changes.
+  base::Callback<void(DeviceConnectionState,
+                      const std::vector<int>& )> callback_;
 };
 
 }  // namespace brillo

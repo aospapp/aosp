@@ -24,6 +24,7 @@
 #include <signal.h>
 #include <stdio.h>
 #include <sys/mman.h>
+#include <sys/prctl.h>
 #include <sys/syscall.h>
 #include <time.h>
 #include <unistd.h>
@@ -260,10 +261,10 @@ TEST(pthread, pthread_create_EAGAIN) {
 }
 
 TEST(pthread, pthread_no_join_after_detach) {
-  SpinFunctionHelper spinhelper;
+  SpinFunctionHelper spin_helper;
 
   pthread_t t1;
-  ASSERT_EQ(0, pthread_create(&t1, NULL, spinhelper.GetFunction(), NULL));
+  ASSERT_EQ(0, pthread_create(&t1, NULL, spin_helper.GetFunction(), NULL));
 
   // After a pthread_detach...
   ASSERT_EQ(0, pthread_detach(t1));
@@ -274,10 +275,10 @@ TEST(pthread, pthread_no_join_after_detach) {
 }
 
 TEST(pthread, pthread_no_op_detach_after_join) {
-  SpinFunctionHelper spinhelper;
+  SpinFunctionHelper spin_helper;
 
   pthread_t t1;
-  ASSERT_EQ(0, pthread_create(&t1, NULL, spinhelper.GetFunction(), NULL));
+  ASSERT_EQ(0, pthread_create(&t1, NULL, spin_helper.GetFunction(), NULL));
 
   // If thread 2 is already waiting to join thread 1...
   pthread_t t2;
@@ -292,7 +293,7 @@ TEST(pthread, pthread_no_op_detach_after_join) {
 #endif
   AssertDetached(t1, false);
 
-  spinhelper.UnSpin();
+  spin_helper.UnSpin();
 
   // ...but t2's join on t1 still goes ahead (which we can tell because our join on t2 finishes).
   void* join_result;
@@ -396,32 +397,77 @@ TEST(pthread, pthread_sigmask) {
   ASSERT_EQ(0, pthread_sigmask(SIG_SETMASK, &original_set, NULL));
 }
 
-TEST(pthread, pthread_setname_np__too_long) {
+static void test_pthread_setname_np__pthread_getname_np(pthread_t t) {
+  ASSERT_EQ(0, pthread_setname_np(t, "short"));
+  char name[32];
+  ASSERT_EQ(0, pthread_getname_np(t, name, sizeof(name)));
+  ASSERT_STREQ("short", name);
+
   // The limit is 15 characters --- the kernel's buffer is 16, but includes a NUL.
-  ASSERT_EQ(0, pthread_setname_np(pthread_self(), "123456789012345"));
-  ASSERT_EQ(ERANGE, pthread_setname_np(pthread_self(), "1234567890123456"));
+  ASSERT_EQ(0, pthread_setname_np(t, "123456789012345"));
+  ASSERT_EQ(0, pthread_getname_np(t, name, sizeof(name)));
+  ASSERT_STREQ("123456789012345", name);
+
+  ASSERT_EQ(ERANGE, pthread_setname_np(t, "1234567890123456"));
+
+  // The passed-in buffer should be at least 16 bytes.
+  ASSERT_EQ(0, pthread_getname_np(t, name, 16));
+  ASSERT_EQ(ERANGE, pthread_getname_np(t, name, 15));
 }
 
-TEST(pthread, pthread_setname_np__self) {
-  ASSERT_EQ(0, pthread_setname_np(pthread_self(), "short 1"));
+TEST(pthread, pthread_setname_np__pthread_getname_np__self) {
+  test_pthread_setname_np__pthread_getname_np(pthread_self());
 }
 
-TEST(pthread, pthread_setname_np__other) {
-  SpinFunctionHelper spinhelper;
+TEST(pthread, pthread_setname_np__pthread_getname_np__other) {
+  SpinFunctionHelper spin_helper;
 
-  pthread_t t1;
-  ASSERT_EQ(0, pthread_create(&t1, NULL, spinhelper.GetFunction(), NULL));
-  ASSERT_EQ(0, pthread_setname_np(t1, "short 2"));
-  spinhelper.UnSpin();
-  ASSERT_EQ(0, pthread_join(t1, nullptr));
+  pthread_t t;
+  ASSERT_EQ(0, pthread_create(&t, nullptr, spin_helper.GetFunction(), nullptr));
+  test_pthread_setname_np__pthread_getname_np(t);
+  spin_helper.UnSpin();
+  ASSERT_EQ(0, pthread_join(t, nullptr));
 }
 
-TEST(pthread, pthread_setname_np__no_such_thread) {
+// http://b/28051133: a kernel misfeature means that you can't change the
+// name of another thread if you've set PR_SET_DUMPABLE to 0.
+TEST(pthread, pthread_setname_np__pthread_getname_np__other_PR_SET_DUMPABLE) {
+  ASSERT_EQ(0, prctl(PR_SET_DUMPABLE, 0)) << strerror(errno);
+
+  SpinFunctionHelper spin_helper;
+
+  pthread_t t;
+  ASSERT_EQ(0, pthread_create(&t, nullptr, spin_helper.GetFunction(), nullptr));
+  test_pthread_setname_np__pthread_getname_np(t);
+  spin_helper.UnSpin();
+  ASSERT_EQ(0, pthread_join(t, nullptr));
+}
+
+TEST_F(pthread_DeathTest, pthread_setname_np__no_such_thread) {
   pthread_t dead_thread;
   MakeDeadThread(dead_thread);
 
-  // Call pthread_setname_np after thread has already exited.
-  ASSERT_EQ(ENOENT, pthread_setname_np(dead_thread, "short 3"));
+  EXPECT_DEATH(pthread_setname_np(dead_thread, "short 3"), "invalid pthread_t");
+}
+
+TEST_F(pthread_DeathTest, pthread_setname_np__null_thread) {
+  pthread_t null_thread = 0;
+  EXPECT_EQ(ENOENT, pthread_setname_np(null_thread, "short 3"));
+}
+
+TEST_F(pthread_DeathTest, pthread_getname_np__no_such_thread) {
+  pthread_t dead_thread;
+  MakeDeadThread(dead_thread);
+
+  char name[64];
+  EXPECT_DEATH(pthread_getname_np(dead_thread, name, sizeof(name)), "invalid pthread_t");
+}
+
+TEST_F(pthread_DeathTest, pthread_getname_np__null_thread) {
+  pthread_t null_thread = 0;
+
+  char name[64];
+  EXPECT_EQ(ENOENT, pthread_getname_np(null_thread, name, sizeof(name)));
 }
 
 TEST(pthread, pthread_kill__0) {
@@ -447,72 +493,107 @@ TEST(pthread, pthread_kill__in_signal_handler) {
   ASSERT_EQ(0, pthread_kill(pthread_self(), SIGALRM));
 }
 
-TEST(pthread, pthread_detach__no_such_thread) {
+TEST_F(pthread_DeathTest, pthread_detach__no_such_thread) {
   pthread_t dead_thread;
   MakeDeadThread(dead_thread);
 
-  ASSERT_EQ(ESRCH, pthread_detach(dead_thread));
+  EXPECT_DEATH(pthread_detach(dead_thread), "invalid pthread_t");
+}
+
+TEST_F(pthread_DeathTest, pthread_detach__null_thread) {
+  pthread_t null_thread = 0;
+  EXPECT_EQ(ESRCH, pthread_detach(null_thread));
 }
 
 TEST(pthread, pthread_getcpuclockid__clock_gettime) {
-  SpinFunctionHelper spinhelper;
+  SpinFunctionHelper spin_helper;
 
   pthread_t t;
-  ASSERT_EQ(0, pthread_create(&t, NULL, spinhelper.GetFunction(), NULL));
+  ASSERT_EQ(0, pthread_create(&t, NULL, spin_helper.GetFunction(), NULL));
 
   clockid_t c;
   ASSERT_EQ(0, pthread_getcpuclockid(t, &c));
   timespec ts;
   ASSERT_EQ(0, clock_gettime(c, &ts));
-  spinhelper.UnSpin();
+  spin_helper.UnSpin();
   ASSERT_EQ(0, pthread_join(t, nullptr));
 }
 
-TEST(pthread, pthread_getcpuclockid__no_such_thread) {
+TEST_F(pthread_DeathTest, pthread_getcpuclockid__no_such_thread) {
   pthread_t dead_thread;
   MakeDeadThread(dead_thread);
 
   clockid_t c;
-  ASSERT_EQ(ESRCH, pthread_getcpuclockid(dead_thread, &c));
+  EXPECT_DEATH(pthread_getcpuclockid(dead_thread, &c), "invalid pthread_t");
 }
 
-TEST(pthread, pthread_getschedparam__no_such_thread) {
+TEST_F(pthread_DeathTest, pthread_getcpuclockid__null_thread) {
+  pthread_t null_thread = 0;
+  clockid_t c;
+  EXPECT_EQ(ESRCH, pthread_getcpuclockid(null_thread, &c));
+}
+
+TEST_F(pthread_DeathTest, pthread_getschedparam__no_such_thread) {
   pthread_t dead_thread;
   MakeDeadThread(dead_thread);
 
   int policy;
   sched_param param;
-  ASSERT_EQ(ESRCH, pthread_getschedparam(dead_thread, &policy, &param));
+  EXPECT_DEATH(pthread_getschedparam(dead_thread, &policy, &param), "invalid pthread_t");
 }
 
-TEST(pthread, pthread_setschedparam__no_such_thread) {
+TEST_F(pthread_DeathTest, pthread_getschedparam__null_thread) {
+  pthread_t null_thread = 0;
+  int policy;
+  sched_param param;
+  EXPECT_EQ(ESRCH, pthread_getschedparam(null_thread, &policy, &param));
+}
+
+TEST_F(pthread_DeathTest, pthread_setschedparam__no_such_thread) {
   pthread_t dead_thread;
   MakeDeadThread(dead_thread);
 
   int policy = 0;
   sched_param param;
-  ASSERT_EQ(ESRCH, pthread_setschedparam(dead_thread, policy, &param));
+  EXPECT_DEATH(pthread_setschedparam(dead_thread, policy, &param), "invalid pthread_t");
 }
 
-TEST(pthread, pthread_join__no_such_thread) {
+TEST_F(pthread_DeathTest, pthread_setschedparam__null_thread) {
+  pthread_t null_thread = 0;
+  int policy = 0;
+  sched_param param;
+  EXPECT_EQ(ESRCH, pthread_setschedparam(null_thread, policy, &param));
+}
+
+TEST_F(pthread_DeathTest, pthread_join__no_such_thread) {
   pthread_t dead_thread;
   MakeDeadThread(dead_thread);
 
-  ASSERT_EQ(ESRCH, pthread_join(dead_thread, NULL));
+  EXPECT_DEATH(pthread_join(dead_thread, NULL), "invalid pthread_t");
 }
 
-TEST(pthread, pthread_kill__no_such_thread) {
+TEST_F(pthread_DeathTest, pthread_join__null_thread) {
+  pthread_t null_thread = 0;
+  EXPECT_EQ(ESRCH, pthread_join(null_thread, NULL));
+}
+
+TEST_F(pthread_DeathTest, pthread_kill__no_such_thread) {
   pthread_t dead_thread;
   MakeDeadThread(dead_thread);
 
-  ASSERT_EQ(ESRCH, pthread_kill(dead_thread, 0));
+  EXPECT_DEATH(pthread_kill(dead_thread, 0), "invalid pthread_t");
+}
+
+TEST_F(pthread_DeathTest, pthread_kill__null_thread) {
+  pthread_t null_thread = 0;
+  EXPECT_EQ(ESRCH, pthread_kill(null_thread, 0));
 }
 
 TEST(pthread, pthread_join__multijoin) {
-  SpinFunctionHelper spinhelper;
+  SpinFunctionHelper spin_helper;
 
   pthread_t t1;
-  ASSERT_EQ(0, pthread_create(&t1, NULL, spinhelper.GetFunction(), NULL));
+  ASSERT_EQ(0, pthread_create(&t1, NULL, spin_helper.GetFunction(), NULL));
 
   pthread_t t2;
   ASSERT_EQ(0, pthread_create(&t2, NULL, JoinFn, reinterpret_cast<void*>(t1)));
@@ -522,7 +603,7 @@ TEST(pthread, pthread_join__multijoin) {
   // Multiple joins to the same thread should fail.
   ASSERT_EQ(EINVAL, pthread_join(t1, NULL));
 
-  spinhelper.UnSpin();
+  spin_helper.UnSpin();
 
   // ...but t2's join on t1 still goes ahead (which we can tell because our join on t2 finishes).
   void* join_result;
@@ -897,7 +978,7 @@ class RwlockKindTestHelper {
   pthread_rwlock_t lock;
 
  public:
-  RwlockKindTestHelper(int kind_type) {
+  explicit RwlockKindTestHelper(int kind_type) {
     InitRwlock(kind_type);
   }
 
@@ -1318,7 +1399,8 @@ TEST(pthread, pthread_attr_getstack__main_thread) {
 
 struct GetStackSignalHandlerArg {
   volatile bool done;
-  void* signal_handler_sp;
+  void* signal_stack_base;
+  size_t signal_stack_size;
   void* main_stack_base;
   size_t main_stack_size;
 };
@@ -1334,9 +1416,17 @@ static void getstack_signal_handler(int sig) {
   void* stack_base;
   size_t stack_size;
   ASSERT_EQ(0, pthread_attr_getstack(&attr, &stack_base, &stack_size));
-  getstack_signal_handler_arg.signal_handler_sp = &attr;
-  getstack_signal_handler_arg.main_stack_base = stack_base;
-  getstack_signal_handler_arg.main_stack_size = stack_size;
+
+  // Verify if the stack used by the signal handler is the alternate stack just registered.
+  ASSERT_LE(getstack_signal_handler_arg.signal_stack_base, &attr);
+  ASSERT_LT(static_cast<void*>(&attr),
+            static_cast<char*>(getstack_signal_handler_arg.signal_stack_base) +
+            getstack_signal_handler_arg.signal_stack_size);
+
+  // Verify if the main thread's stack got in the signal handler is correct.
+  ASSERT_EQ(getstack_signal_handler_arg.main_stack_base, stack_base);
+  ASSERT_LE(getstack_signal_handler_arg.main_stack_size, stack_size);
+
   getstack_signal_handler_arg.done = true;
 }
 
@@ -1369,17 +1459,12 @@ TEST(pthread, pthread_attr_getstack_in_signal_handler) {
 
   ScopedSignalHandler handler(SIGUSR1, getstack_signal_handler, SA_ONSTACK);
   getstack_signal_handler_arg.done = false;
+  getstack_signal_handler_arg.signal_stack_base = sig_stack;
+  getstack_signal_handler_arg.signal_stack_size = sig_stack_size;
+  getstack_signal_handler_arg.main_stack_base = main_stack_base;
+  getstack_signal_handler_arg.main_stack_size = main_stack_size;
   kill(getpid(), SIGUSR1);
   ASSERT_EQ(true, getstack_signal_handler_arg.done);
-
-  // Verify if the stack used by the signal handler is the alternate stack just registered.
-  ASSERT_LE(sig_stack, getstack_signal_handler_arg.signal_handler_sp);
-  ASSERT_GE(reinterpret_cast<char*>(sig_stack) + sig_stack_size,
-            getstack_signal_handler_arg.signal_handler_sp);
-
-  // Verify if the main thread's stack got in the signal handler is correct.
-  ASSERT_EQ(main_stack_base, getstack_signal_handler_arg.main_stack_base);
-  ASSERT_LE(main_stack_size, getstack_signal_handler_arg.main_stack_size);
 
   ASSERT_EQ(0, sigaltstack(&oss, nullptr));
   ASSERT_EQ(0, munmap(sig_stack, sig_stack_size));
@@ -1510,7 +1595,7 @@ TEST(pthread, pthread_mutexattr_gettype) {
 struct PthreadMutex {
   pthread_mutex_t lock;
 
-  PthreadMutex(int mutex_type) {
+  explicit PthreadMutex(int mutex_type) {
     init(mutex_type);
   }
 
@@ -1611,7 +1696,7 @@ class MutexWakeupHelper {
   }
 
  public:
-  MutexWakeupHelper(int mutex_type) : m(mutex_type) {
+  explicit MutexWakeupHelper(int mutex_type) : m(mutex_type) {
   }
 
   void test() {
@@ -1751,7 +1836,14 @@ TEST(pthread, pthread_types_allow_four_bytes_alignment) {
 
 TEST(pthread, pthread_mutex_lock_null_32) {
 #if defined(__BIONIC__) && !defined(__LP64__)
-  ASSERT_EQ(EINVAL, pthread_mutex_lock(NULL));
+  // For LP32, the pthread lock/unlock functions allow a NULL mutex and return
+  // EINVAL in that case: http://b/19995172.
+  //
+  // We decorate the public defintion with _Nonnull so that people recompiling
+  // their code with get a warning and might fix their bug, but need to pass
+  // NULL here to test that we remain compatible.
+  pthread_mutex_t* null_value = nullptr;
+  ASSERT_EQ(EINVAL, pthread_mutex_lock(null_value));
 #else
   GTEST_LOG_(INFO) << "This test tests bionic implementation details on 32 bit devices.";
 #endif
@@ -1759,7 +1851,14 @@ TEST(pthread, pthread_mutex_lock_null_32) {
 
 TEST(pthread, pthread_mutex_unlock_null_32) {
 #if defined(__BIONIC__) && !defined(__LP64__)
-  ASSERT_EQ(EINVAL, pthread_mutex_unlock(NULL));
+  // For LP32, the pthread lock/unlock functions allow a NULL mutex and return
+  // EINVAL in that case: http://b/19995172.
+  //
+  // We decorate the public defintion with _Nonnull so that people recompiling
+  // their code with get a warning and might fix their bug, but need to pass
+  // NULL here to test that we remain compatible.
+  pthread_mutex_t* null_value = nullptr;
+  ASSERT_EQ(EINVAL, pthread_mutex_unlock(null_value));
 #else
   GTEST_LOG_(INFO) << "This test tests bionic implementation details on 32 bit devices.";
 #endif
@@ -1787,19 +1886,37 @@ extern _Unwind_Reason_Code FrameCounter(_Unwind_Context* ctx, void* arg);
 
 static volatile bool signal_handler_on_altstack_done;
 
-static void SignalHandlerOnAltStack(int signo, siginfo_t*, void*) {
-  ASSERT_EQ(SIGUSR1, signo);
+__attribute__((__noinline__))
+static void signal_handler_backtrace() {
   // Check if we have enough stack space for unwinding.
   int count = 0;
   _Unwind_Backtrace(FrameCounter, &count);
   ASSERT_GT(count, 0);
+}
+
+__attribute__((__noinline__))
+static void signal_handler_logging() {
   // Check if we have enough stack space for logging.
   std::string s(2048, '*');
   GTEST_LOG_(INFO) << s;
   signal_handler_on_altstack_done = true;
 }
 
-TEST(pthread, big_enough_signal_stack_for_64bit_arch) {
+__attribute__((__noinline__))
+static void signal_handler_snprintf() {
+  // Check if we have enough stack space for snprintf to a PATH_MAX buffer, plus some extra.
+  char buf[PATH_MAX + 2048];
+  ASSERT_GT(snprintf(buf, sizeof(buf), "/proc/%d/status", getpid()), 0);
+}
+
+static void SignalHandlerOnAltStack(int signo, siginfo_t*, void*) {
+  ASSERT_EQ(SIGUSR1, signo);
+  signal_handler_backtrace();
+  signal_handler_logging();
+  signal_handler_snprintf();
+}
+
+TEST(pthread, big_enough_signal_stack) {
   signal_handler_on_altstack_done = false;
   ScopedSignalHandler handler(SIGUSR1, SignalHandlerOnAltStack, SA_SIGINFO | SA_ONSTACK);
   kill(getpid(), SIGUSR1);
@@ -1845,8 +1962,9 @@ static void BarrierTestHelper(BarrierTestHelperArg* arg) {
     } else {
       ASSERT_EQ(0, result);
     }
-    arg->data->finished_mask |= (1 << arg->id);
-    if (arg->data->finished_mask == ((1 << arg->data->thread_count) - 1)) {
+    int mask = arg->data->finished_mask.fetch_or(1 << arg->id);
+    mask |= 1 << arg->id;
+    if (mask == ((1 << arg->data->thread_count) - 1)) {
       ASSERT_EQ(1, arg->data->serial_thread_count);
       arg->data->finished_iteration_count++;
       arg->data->finished_mask = 0;

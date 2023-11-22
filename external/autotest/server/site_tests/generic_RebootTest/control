@@ -7,6 +7,7 @@ from autotest_lib.client.common_lib import error, utils
 
 
 AUTHOR = "sbasi, chromeos-lab-infrastructure@google.com"
+ATTRIBUTES = "suite:bvt-cq"
 NAME = "generic_RebootTest"
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"
@@ -45,7 +46,7 @@ def run_reboot_test(machine):
             'hostname through test_that --args="device_hostname=<android ip>".'
             % (machine, e))
 
-    job.run_test("generic_RebootTest", host=host, disable_sysinfo=True)
+    job.run_test("generic_RebootTest", host=host)
 
 
 parallel_simple(run_reboot_test, machines)

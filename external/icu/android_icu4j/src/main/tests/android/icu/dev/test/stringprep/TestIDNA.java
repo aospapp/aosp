@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 2003-2011, International Business Machines Corporation and    *
@@ -9,6 +11,9 @@ package android.icu.dev.test.stringprep;
 
 import java.util.Random;
 
+import org.junit.Ignore;
+import org.junit.Test;
+
 import android.icu.dev.test.TestFmwk;
 import android.icu.impl.Utility;
 import android.icu.text.IDNA;
@@ -16,18 +21,14 @@ import android.icu.text.StringPrep;
 import android.icu.text.StringPrepParseException;
 import android.icu.text.UCharacterIterator;
 import android.icu.text.UTF16;
-import org.junit.runner.RunWith;
-import android.icu.junit.IcuTestFmwkRunner;
 
 /**
  * @author ram
  */
-@RunWith(IcuTestFmwkRunner.class)
 public class TestIDNA extends TestFmwk {
-    public static void main(String[] args) throws Exception {
-        new TestIDNA().run(args);
-    }
     private StringPrepParseException unassignedException = new StringPrepParseException("",StringPrepParseException.UNASSIGNED_ERROR);
+
+    @Test
     public void TestToUnicode() throws Exception{
         for(int i=0; i<TestData.asciiIn.length; i++){
             // test StringBuffer toUnicode
@@ -39,6 +40,7 @@ public class TestIDNA extends TestFmwk {
         }
     }
     
+    @Test
     public void TestToASCII() throws Exception{
         for(int i=0; i<TestData.asciiIn.length; i++){
             // test StringBuffer toUnicode
@@ -50,6 +52,7 @@ public class TestIDNA extends TestFmwk {
         }
     }
     
+    @Test
     public void TestIDNToASCII() throws Exception{
         for(int i=0; i<TestData.domainNames.length; i++){
             doTestIDNToASCII(TestData.domainNames[i],TestData.domainNames[i],IDNA.DEFAULT, null);
@@ -63,6 +66,7 @@ public class TestIDNA extends TestFmwk {
             doTestIDNToASCII(TestData.domainNames1Uni[i],TestData.domainNamesToASCIIOut[i],IDNA.ALLOW_UNASSIGNED, null);
         }
     }
+    @Test
     public void TestIDNToUnicode() throws Exception{
         for(int i=0; i<TestData.domainNames.length; i++){
             doTestIDNToUnicode(TestData.domainNames[i],TestData.domainNames[i],IDNA.DEFAULT, null);
@@ -276,6 +280,7 @@ public class TestIDNA extends TestFmwk {
             }
         }
     }
+    @Test
     public void TestConformance()throws Exception{
         for(int i=0; i<TestData.conformanceTestCases.length;i++){
             
@@ -289,6 +294,7 @@ public class TestIDNA extends TestFmwk {
             //doTestToUnicode(testCase.input,testCase.output,IDNA.DEFAULT,testCase.expected);
         }
     }
+    @Test
     public void TestNamePrepConformance() throws Exception{
         StringPrep namePrep = StringPrep.getInstance(StringPrep.RFC3491_NAMEPREP);
         for(int i=0; i<TestData.conformanceTestCases.length;i++){
@@ -327,6 +333,7 @@ public class TestIDNA extends TestFmwk {
         }
         
     }
+    @Test
     public void TestErrorCases() throws Exception{
         for(int i=0; i < TestData.errorCases.length; i++){
             TestData.ErrorCase errCase = TestData.errorCases[i];
@@ -402,6 +409,7 @@ public class TestIDNA extends TestFmwk {
             errln("Unexpected exception thrown by IDNA.compare");
         }
     }
+    @Test
     public void TestCompare() throws Exception{
         String www = "www.";
         String com = ".com";
@@ -455,7 +463,7 @@ public class TestIDNA extends TestFmwk {
 
     //  test and ascertain
     //  func(func(func(src))) == func(src)
-    public void doTestChainingToASCII(String source)throws Exception{
+    private void doTestChainingToASCII(String source) throws Exception {
         StringBuffer expected; 
         StringBuffer chained;
         
@@ -478,9 +486,10 @@ public class TestIDNA extends TestFmwk {
             errln("Chaining test failed for convertToASCII");
         }   
     }
+    
     //  test and ascertain
     //  func(func(func(src))) == func(src)
-    public void doTestChainingToUnicode(String source)throws Exception{
+    private void doTestChainingToUnicode(String source) throws Exception {
         StringBuffer expected; 
         StringBuffer chained;
         
@@ -503,6 +512,7 @@ public class TestIDNA extends TestFmwk {
             errln("Chaining test failed for convertToUnicode");
         }   
     }
+    @Test
     public void TestChaining() throws Exception{
         for(int i=0; i< TestData.asciiIn.length; i++){
             doTestChainingToUnicode(TestData.asciiIn[i]);
@@ -521,6 +531,7 @@ public class TestIDNA extends TestFmwk {
     be explicit as in "www.example.com." or implicit as in
     "www.example.com", is not considered a label in this specification.)
     */
+    @Test
     public void TestRootLabelSeparator() throws Exception{
         String www = "www.";
         String com = ".com."; //root label separator
@@ -614,6 +625,10 @@ public class TestIDNA extends TestFmwk {
         return fillIn;
        
     }
+    
+    // TODO(junit): turned off because not running before
+    @Ignore
+    @Test
     public void MonkeyTest() throws Exception{
          StringBuffer source = new StringBuffer();
          /* do the monkey test   */       
@@ -706,6 +721,7 @@ public class TestIDNA extends TestFmwk {
         }
     }
 
+    @Test
     public void TestCompareRefImpl() throws Exception {
         for (int i = 65; i < 0x10FFFF; i++) {
             StringBuffer src = new StringBuffer();
@@ -721,6 +737,7 @@ public class TestIDNA extends TestFmwk {
         }
     }
 
+    @Test
     public void TestJB4490(){
         String[] in = new String[]{
                 "\u00F5\u00dE\u00dF\u00dD",
@@ -740,6 +757,7 @@ public class TestIDNA extends TestFmwk {
             }
         }
     }
+    @Test
     public void TestJB4475(){
         String[] in = new String[]{
                         "TEST",
@@ -759,6 +777,7 @@ public class TestIDNA extends TestFmwk {
             
     }
         
+    @Test
     public void TestDebug(){     
         try{
             String src = "\u00ED4dn";
@@ -778,6 +797,7 @@ public class TestIDNA extends TestFmwk {
             logln("Got the expected exception: " + ex.getMessage());
         }
     }
+    @Test
     public void TestJB5273(){
         String INVALID_DOMAIN_NAME = "xn--m\u00FCller.de";
         try {
@@ -822,6 +842,7 @@ public class TestIDNA extends TestFmwk {
         }
     }
     
+    @Test
     public void TestLength(){
         String ul = "my_very_very_very_very_very_very_very_very_very_very_very_very_very_long_and_incredibly_uncreative_domain_label";
 
@@ -892,6 +913,7 @@ public class TestIDNA extends TestFmwk {
     }
     
     /* Tests the method public static StringBuffer convertToASCII(String src, int options) */
+    @Test
     public void TestConvertToASCII() {
         try {
             if (!IDNA.convertToASCII("dummy", 0).toString().equals("dummy")) {
@@ -907,6 +929,7 @@ public class TestIDNA extends TestFmwk {
      * static StringBuffer public static StringBuffer convertIDNToASCII(StringBuffer src, int options), public static
      * StringBuffer convertIDNToASCII(UCharacterIterator src, int options)
      */
+    @Test
     public void TestConvertIDNToASCII() {
         try {
             UCharacterIterator uci = UCharacterIterator.getInstance("dummy");
@@ -926,6 +949,7 @@ public class TestIDNA extends TestFmwk {
      * Tests the method public static StringBuffer convertToUnicode(String src, int options), public static StringBuffer
      * convertToUnicode(StringBuffer src, int options)
      */
+    @Test
     public void TestConvertToUnicode() {
         try {
             if (!IDNA.convertToUnicode("dummy", 0).toString().equals("dummy")) {
@@ -940,6 +964,7 @@ public class TestIDNA extends TestFmwk {
     }
 
     /* Tests the method public static StringBuffer convertIDNToUnicode(UCharacterIterator src, int options) */
+    @Test
     public void TestConvertIDNToUnicode() {
         try {
             UCharacterIterator uci = UCharacterIterator.getInstance("dummy");
@@ -956,6 +981,7 @@ public class TestIDNA extends TestFmwk {
     }
 
     /* Tests the method public static int compare */
+    @Test
     public void TestIDNACompare() {
         // Testing the method public static int compare(String s1, String s2, int options)
         try {

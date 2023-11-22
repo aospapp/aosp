@@ -19,6 +19,7 @@
 
 #include <regex>
 #include <cassert>
+#include "test_macros.h"
 #include "test_iterators.h"
 
 #include "platform_support.h" // locale name macros
@@ -616,11 +617,12 @@ int main()
     }
     std::locale::global(std::locale(LOCALE_cs_CZ_ISO8859_2));
 */    {
+    /*
         std::cmatch m;
         const char s[] = "m";
-       /* assert(std::regex_match(s, m,*/ std::regex("[a[=M=]z]"/*,
-                                                 std::regex_constants::awk*/);//));
-/*        assert(m.size() == 1);
+        assert(std::regex_match(s, m, std::regex("[a[=M=]z]",
+                                                 std::regex_constants::awk);
+       assert(m.size() == 1);
         assert(!m.prefix().matched);
         assert(m.prefix().first == s);
         assert(m.prefix().second == m[0].first);

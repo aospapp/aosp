@@ -2,17 +2,15 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-AUTHOR = "krishnargv"
-NAME = "policy_CookiesAllowedForUrls"
-ATTRIBUTES = "suite:regression"
-SUITE = "regression"
-TIME = "SHORT"
-TEST_CATEGORY = "General"
-TEST_CLASS = "enterprise"
-TEST_TYPE = "client"
+AUTHOR = 'krishnargv'
+NAME = 'policy_CookiesAllowedForUrls'
+TIME = 'SHORT'
+TEST_CATEGORY = 'General'
+TEST_CLASS = 'enterprise'
+TEST_TYPE = 'client'
 
-DOC = """
-Verify effects of CookiesAllowedForUrls policy on client behavior.
+DOC = '''
+Verify effects of CookiesAllowedForUrls policy.
 
 This test verifies the effect of the CookiesAllowedForUrls user policy on
 Chrome OS client behavior when the DefaultCookiesSetting user policy is set
@@ -21,27 +19,19 @@ NotSet_CookiesBlocked, SingleUrl_CookiesAllowed, MultipleUrls_CookiesAllowed,
 and MultipleUrls_CookiesBlocked. See the test file for a full description of
 what each test case does.
 
-In general, a test shall pass if the browser allows cookies on a test page
-with a URL that matches one or more of the URL patterns listed in the
-CookiesAllowedForUrls policy value.
+A test case shall pass iff the browser allows cookies on a test page with an
+URL that matches one or more of the URL patterns listed in
+CookiesAllowedForUrls. It shall fail if the browser:
+- Blocks cookies on a test page with an URL that matches one or more of the
+  URL patterns listed in the CookiesAllowedForUrls policy value.
+- Allows cookies on a test page with an URL that does not match any of the
+  URL patterns listed in the CookiesAllowedForUrls policy value.
 
-A test shall fail if the browser:
-- Does not store cookies for URLs that match the URL patterns listed in the
-  CookiesAllowedForUrls policy value.
-- Stores cookies for URLs that do not match the URL patterns listed in the
-  CookiesAllowedForUrls policy value.
+This control file allows CloudDPC E2E tests to run any test case defined in
+this test via command-line.
 
+'''
 
-Usage example:
-$ test_that <IPAddress> policy_CookiesAllowedForUrls --args="mode=single
-case=SingleUrl_CookiesAllowed env=dm-test dms_name=xot-dmst
-username=test@crosprqa4.com password=test0000"
+args_dict = utils.args_to_dict(args)
 
-Runs a single test case (e.g., SingleUrl_CookiesAllowed) against a device
-with the specified IP address, using the DM Test environment with the given
-DM Server name, and signing in to the device with the given username and
-password.
-
-"""
-
-job.run_test("policy_CookiesAllowedForUrls", args=args)
+job.run_test('policy_CookiesAllowedForUrls', **args_dict)

@@ -53,16 +53,25 @@
 #include "hwdefs/dxva_msg.h"
 #include "hwdefs/msvdx_cmds_io2.h"
 
+#define PSB_VIDEO_DEBUG_FILE "/data/mediadrm/log"
+#define PSB_VIDEO_TRACE_FILE "/data/mediadrm/trace"
+#define PSB_VIDEO_DUMP_VABUF_FILE "/data/mediadrm/dump.va"
+#define PSB_VIDEO_DUMP_VABUF_VERBOSE_FILE "/data/mediadrm/dump.va.verbose"
+#define PSB_VIDEO_DUMP_YUVBUF_FILE "/data/mediadrm/dump.yuv"
+
 void psb__open_log(void)
 {
     char log_fn[1024] = {0};
     unsigned int suffix;
+    char env_fn[1024] = {0};//used to get file name from psbvideo.conf, only to check if value is set
 
     if ((psb_video_debug_fp != NULL) && (psb_video_debug_fp != stderr)) {
         debug_fp_count++;
     } else {
         /* psb video info debug */
-        if (psb_parse_config("PSB_VIDEO_DEBUG", &log_fn[0]) == 0) {
+        if (psb_parse_config("PSB_VIDEO_DEBUG", &env_fn[0]) == 0) {
+            strcpy(log_fn, PSB_VIDEO_DEBUG_FILE);
+            drv_debug_msg(VIDEO_DEBUG_GENERAL, "Log file %s , force use %s\n", env_fn, log_fn);
             suffix = 0xffff & ((unsigned int)time(NULL));
             snprintf(log_fn + strnlen(log_fn, 1024),
                      (1024 - 8 - strnlen(log_fn, 1024)),
@@ -84,7 +93,9 @@ void psb__open_log(void)
         }
     }
 
-    if(psb_parse_config("PSB_VIDEO_TRACE", &log_fn[0]) == 0) {
+    if(psb_parse_config("PSB_VIDEO_TRACE", &env_fn[0]) == 0) {
+        strcpy(log_fn, PSB_VIDEO_TRACE_FILE);
+        drv_debug_msg(VIDEO_DEBUG_GENERAL, "Log file %s , force use %s\n", env_fn, log_fn);
         unsigned int suffix = 0xffff & ((unsigned int)time(NULL));
         time_t curtime;
         
@@ -106,8 +117,8 @@ void psb__open_log(void)
     }
 
     /* debug level include error, warning, general, init, entry, ...... */
-    if(psb_parse_config("PSB_VIDEO_DEBUG_LEVEL", &log_fn[0]) == 0) {
-        psb_video_debug_level = atoi(log_fn);
+    if(psb_parse_config("PSB_VIDEO_DEBUG_LEVEL", &env_fn[0]) == 0) {
+        psb_video_debug_level = atoi(env_fn);
 #ifdef ANDROID
         ALOGD("psb_video_debug_level is %d parsed.\n", psb_video_debug_level);
 #endif
@@ -116,8 +127,8 @@ void psb__open_log(void)
     }
 
     /* control debug output option, logcat output or print to file */
-    if(psb_parse_config("PSB_VIDEO_DEBUG_OPTION", &log_fn[0]) == 0) {
-        psb_video_debug_option = atoi(log_fn);
+    if(psb_parse_config("PSB_VIDEO_DEBUG_OPTION", &env_fn[0]) == 0) {
+        psb_video_debug_option = atoi(env_fn);
 #ifdef ANDROID
         ALOGD("psb_video_debug_option is %d parsed.\n", psb_video_debug_option);
 #endif
@@ -126,8 +137,8 @@ void psb__open_log(void)
     }
 
     /* trace level include vabuf, cmdmsg buf, aux buffer, lldma */
-    if(psb_parse_config("PSB_VIDEO_TRACE_LEVEL", &log_fn[0]) == 0) {
-        psb_video_trace_level = atoi(log_fn);
+    if(psb_parse_config("PSB_VIDEO_TRACE_LEVEL", &env_fn[0]) == 0) {
+        psb_video_trace_level = atoi(env_fn);
 #ifdef ANDROID
         ALOGD("psb_video_trace_level is %d parsed.\n", psb_video_trace_level);
 #endif
@@ -136,8 +147,8 @@ void psb__open_log(void)
     }
 
     /* control trace output option, logcat output or print to file */
-    if(psb_parse_config("PSB_VIDEO_TRACE_OPTION", &log_fn[0]) == 0) {
-        psb_video_trace_option = atoi(log_fn);
+    if(psb_parse_config("PSB_VIDEO_TRACE_OPTION", &env_fn[0]) == 0) {
+        psb_video_trace_option = atoi(env_fn);
 #ifdef ANDROID
         ALOGD("psb_video_debug_option is %d parsed.\n", psb_video_trace_option);
 #endif
@@ -146,8 +157,8 @@ void psb__open_log(void)
     }
 
     /* cmdbuf dump, every frame decoded cmdbuf dump to /data/ctrlAlloc%i.txt */
-    if(psb_parse_config("PSB_VIDEO_DUMP_CMDBUF", &log_fn[0]) == 0) {
-        if(strstr(log_fn, "true") != NULL)
+    if(psb_parse_config("PSB_VIDEO_DUMP_CMDBUF", &env_fn[0]) == 0) {
+        if(strstr(env_fn, "true") != NULL)
             psb_video_dump_cmdbuf = TRUE;
         else
             psb_video_dump_cmdbuf = FALSE;
@@ -159,7 +170,9 @@ void psb__open_log(void)
     }
 
     /* psb video va buffers dump */
-    if(psb_parse_config("PSB_VIDEO_DUMP_VABUF", &log_fn[0]) == 0) {
+    if(psb_parse_config("PSB_VIDEO_DUMP_VABUF", &env_fn[0]) == 0) {
+        strcpy(log_fn, PSB_VIDEO_DUMP_VABUF_FILE);
+        drv_debug_msg(VIDEO_DEBUG_GENERAL, "Log file %s , force use %s\n", env_fn, log_fn);
         unsigned int suffix = 0xffff & ((unsigned int)time(NULL));
         /* Make sure there is space left for suffix */
         log_fn[1024 - 12] = '\0';
@@ -174,7 +187,9 @@ void psb__open_log(void)
     }
 
     /* psb video va buffer verbose dump */
-    if(psb_parse_config("PSB_VIDEO_DUMP_VABUF_VERBOSE", &log_fn[0]) == 0) {
+    if(psb_parse_config("PSB_VIDEO_DUMP_VABUF_VERBOSE", &env_fn[0]) == 0) {
+        strcpy(log_fn, PSB_VIDEO_DUMP_VABUF_VERBOSE_FILE);
+        drv_debug_msg(VIDEO_DEBUG_GENERAL, "Log file %s , force use %s\n", env_fn, log_fn);
         unsigned int suffix = 0xffff & ((unsigned int)time(NULL));
         /* Make sure there is space left for suffix */
         log_fn[1024 - 12] = '\0';
@@ -189,7 +204,9 @@ void psb__open_log(void)
     }
 
     /* dump decoded surface to a yuv file */
-    if(psb_parse_config("PSB_VIDEO_DUMP_YUVBUF", &log_fn[0]) == 0) {
+    if(psb_parse_config("PSB_VIDEO_DUMP_YUVBUF", &env_fn[0]) == 0) {
+        strcpy(log_fn, PSB_VIDEO_DUMP_YUVBUF_FILE);
+        drv_debug_msg(VIDEO_DEBUG_GENERAL, "Log file %s , force use %s\n", env_fn, log_fn);
         unsigned int suffix = 0xffff & ((unsigned int)time(NULL));
         /* Make sure there is space left for suffix */
         log_fn[1024 - 12] = '\0';

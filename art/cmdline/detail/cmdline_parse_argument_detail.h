@@ -25,6 +25,8 @@
 #include <numeric>
 #include <memory>
 
+#include "android-base/strings.h"
+
 #include "cmdline_parse_result.h"
 #include "cmdline_types.h"
 #include "token_range.h"
@@ -108,7 +110,7 @@ namespace art {
       // If this is true, then the wildcard matching later on can still fail, so this is not
       // a guarantee that the argument is correct, it's more of a strong hint that the
       // user-provided input *probably* was trying to match this argument.
-      size_t MaybeMatches(TokenRange token_list) const {
+      size_t MaybeMatches(const TokenRange& token_list) const {
         auto best_match = FindClosestMatch(token_list);
 
         return best_match.second;
@@ -118,7 +120,7 @@ namespace art {
       //
       // Returns the token range that was the closest match and the # of tokens that
       // this range was matched up until.
-      std::pair<const TokenRange*, size_t> FindClosestMatch(TokenRange token_list) const {
+      std::pair<const TokenRange*, size_t> FindClosestMatch(const TokenRange& token_list) const {
         const TokenRange* best_match_ptr = nullptr;
 
         size_t best_match = 0;
@@ -399,7 +401,7 @@ namespace art {
             allowed_values.push_back(name);
           }
 
-          std::string allowed_values_flat = Join(allowed_values, ',');
+          std::string allowed_values_flat = android::base::Join(allowed_values, ',');
           return CmdlineResult(CmdlineResult::kFailure,
                                "Argument value '" + argument + "' does not match any of known valid"
                                 "values: {" + allowed_values_flat + "}");
@@ -426,7 +428,7 @@ namespace art {
             allowed_values.push_back(arg_name);
           }
 
-          std::string allowed_values_flat = Join(allowed_values, ',');
+          std::string allowed_values_flat = android::base::Join(allowed_values, ',');
           return CmdlineResult(CmdlineResult::kFailure,
                                "Argument value '" + argument + "' does not match any of known valid"
                                 "values: {" + allowed_values_flat + "}");
@@ -497,7 +499,7 @@ namespace art {
       std::function<void(TArg&)> save_argument_;
       std::function<TArg&(void)> load_argument_;
     };
-  } // namespace detail // NOLINT [readability/namespace] [5] [whitespace/comments] [2]
+  }  // namespace detail  // NOLINT [readability/namespace] [5]
 }  // namespace art
 
 #endif  // ART_CMDLINE_DETAIL_CMDLINE_PARSE_ARGUMENT_DETAIL_H_

@@ -30,6 +30,8 @@ message Job {
         repeated Iteration iterations = 9;
         repeated KeyVal attributes = 10;
         repeated string labels = 11;
+        // Could be none. Don't depend it as the key for a test.
+        optional int64 test_idx = 12;
     }
 
     required string dir = 1;
@@ -47,4 +49,10 @@ message Job {
     required int64 aborted_on = 13;
     required string afe_job_id = 14;
     repeated KeyVal keyval_dict = 15;
+    optional string afe_parent_job_id = 16; // If none, assuming parent job.
+     // Could be none, use a generated id as foreign key to tests.
+    optional int64 job_idx = 17;
+    optional string build_version = 18;
+    optional string suite = 19;
+    optional string board = 20;
 }

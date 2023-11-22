@@ -23,11 +23,14 @@
 #include <vector>
 
 #include <errno.h>
+#include <stdio.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
+#include <openssl/err.h>
+#include <openssl/evp.h>
 #include <openssl/sha.h>
 
 #include <android-base/file.h>
@@ -37,7 +40,8 @@
 
 #include <hardware/hw_auth_token.h>
 
-#include <keymaster/authorization_set.h>
+#include <keystore/authorization_set.h>
+#include <keystore/keystore_hidl_support.h>
 
 extern "C" {
 
@@ -46,6 +50,7 @@ extern "C" {
 
 namespace android {
 namespace vold {
+using namespace keystore;
 
 const KeyAuthentication kEmptyAuthentication{"", ""};
 
@@ -64,8 +69,11 @@ static const char* kSecdiscardPath = "/system/bin/secdiscard";
 static const char* kStretch_none = "none";
 static const char* kStretch_nopassword = "nopassword";
 static const std::string kStretchPrefix_scrypt = "scrypt ";
+static const char* kHashPrefix_secdiscardable = "Android secdiscardable SHA512";
+static const char* kHashPrefix_keygen = "Android key wrapping key generation SHA512";
 static const char* kFn_encrypted_key = "encrypted_key";
 static const char* kFn_keymaster_key_blob = "keymaster_key_blob";
+static const char* kFn_keymaster_key_blob_upgraded = "keymaster_key_blob_upgraded";
 static const char* kFn_salt = "salt";
 static const char* kFn_secdiscardable = "secdiscardable";
 static const char* kFn_stretching = "stretching";
@@ -80,17 +88,17 @@ static bool checkSize(const std::string& kind, size_t actual, size_t expected) {
     return true;
 }
 
-static std::string hashSecdiscardable(const std::string& secdiscardable) {
+static std::string hashWithPrefix(char const* prefix, const std::string& tohash) {
     SHA512_CTX c;
 
     SHA512_Init(&c);
     // Personalise the hashing by introducing a fixed prefix.
     // Hashing applications should use personalization except when there is a
     // specific reason not to; see section 4.11 of https://www.schneier.com/skein1.3.pdf
-    std::string secdiscardableHashingPrefix = "Android secdiscardable SHA512";
-    secdiscardableHashingPrefix.resize(SHA512_CBLOCK);
-    SHA512_Update(&c, secdiscardableHashingPrefix.data(), secdiscardableHashingPrefix.size());
-    SHA512_Update(&c, secdiscardable.data(), secdiscardable.size());
+    std::string hashingPrefix = prefix;
+    hashingPrefix.resize(SHA512_CBLOCK);
+    SHA512_Update(&c, hashingPrefix.data(), hashingPrefix.size());
+    SHA512_Update(&c, tohash.data(), tohash.size());
     std::string res(SHA512_DIGEST_LENGTH, '\0');
     SHA512_Final(reinterpret_cast<uint8_t*>(&res[0]), &c);
     return res;
@@ -98,15 +106,15 @@ static std::string hashSecdiscardable(const std::string& secdiscardable) {
 
 static bool generateKeymasterKey(Keymaster& keymaster, const KeyAuthentication& auth,
                                  const std::string& appId, std::string* key) {
-    auto paramBuilder = keymaster::AuthorizationSetBuilder()
+    auto paramBuilder = AuthorizationSetBuilder()
                             .AesEncryptionKey(AES_KEY_BYTES * 8)
-                            .Authorization(keymaster::TAG_BLOCK_MODE, KM_MODE_GCM)
-                            .Authorization(keymaster::TAG_MIN_MAC_LENGTH, GCM_MAC_BYTES * 8)
-                            .Authorization(keymaster::TAG_PADDING, KM_PAD_NONE);
-    addStringParam(&paramBuilder, keymaster::TAG_APPLICATION_ID, appId);
+                            .Authorization(TAG_BLOCK_MODE, BlockMode::GCM)
+                            .Authorization(TAG_MIN_MAC_LENGTH, GCM_MAC_BYTES * 8)
+                            .Authorization(TAG_PADDING, PaddingMode::NONE)
+                            .Authorization(TAG_APPLICATION_ID, blob2hidlVec(appId));
     if (auth.token.empty()) {
         LOG(DEBUG) << "Creating key that doesn't need auth token";
-        paramBuilder.Authorization(keymaster::TAG_NO_AUTH_REQUIRED);
+        paramBuilder.Authorization(TAG_NO_AUTH_REQUIRED);
     } else {
         LOG(DEBUG) << "Auth token required for key";
         if (auth.token.size() != sizeof(hw_auth_token_t)) {
@@ -115,63 +123,25 @@ static bool generateKeymasterKey(Keymaster& keymaster, const KeyAuthentication& 
             return false;
         }
         const hw_auth_token_t* at = reinterpret_cast<const hw_auth_token_t*>(auth.token.data());
-        paramBuilder.Authorization(keymaster::TAG_USER_SECURE_ID, at->user_id);
-        paramBuilder.Authorization(keymaster::TAG_USER_AUTH_TYPE, HW_AUTH_PASSWORD);
-        paramBuilder.Authorization(keymaster::TAG_AUTH_TIMEOUT, AUTH_TIMEOUT);
+        paramBuilder.Authorization(TAG_USER_SECURE_ID, at->user_id);
+        paramBuilder.Authorization(TAG_USER_AUTH_TYPE, HardwareAuthenticatorType::PASSWORD);
+        paramBuilder.Authorization(TAG_AUTH_TIMEOUT, AUTH_TIMEOUT);
     }
-    return keymaster.generateKey(paramBuilder.build(), key);
+    return keymaster.generateKey(paramBuilder, key);
 }
 
-static keymaster::AuthorizationSetBuilder beginParams(const KeyAuthentication& auth,
-                                                      const std::string& appId) {
-    auto paramBuilder = keymaster::AuthorizationSetBuilder()
-                            .Authorization(keymaster::TAG_BLOCK_MODE, KM_MODE_GCM)
-                            .Authorization(keymaster::TAG_MAC_LENGTH, GCM_MAC_BYTES * 8)
-                            .Authorization(keymaster::TAG_PADDING, KM_PAD_NONE);
-    addStringParam(&paramBuilder, keymaster::TAG_APPLICATION_ID, appId);
+static AuthorizationSet beginParams(const KeyAuthentication& auth,
+                                               const std::string& appId) {
+    auto paramBuilder = AuthorizationSetBuilder()
+                            .Authorization(TAG_BLOCK_MODE, BlockMode::GCM)
+                            .Authorization(TAG_MAC_LENGTH, GCM_MAC_BYTES * 8)
+                            .Authorization(TAG_PADDING, PaddingMode::NONE)
+                            .Authorization(TAG_APPLICATION_ID, blob2hidlVec(appId));
     if (!auth.token.empty()) {
         LOG(DEBUG) << "Supplying auth token to Keymaster";
-        addStringParam(&paramBuilder, keymaster::TAG_AUTH_TOKEN, auth.token);
+        paramBuilder.Authorization(TAG_AUTH_TOKEN, blob2hidlVec(auth.token));
     }
     return paramBuilder;
-}
-
-static bool encryptWithKeymasterKey(Keymaster& keymaster, const std::string& key,
-                                    const KeyAuthentication& auth, const std::string& appId,
-                                    const std::string& message, std::string* ciphertext) {
-    auto params = beginParams(auth, appId).build();
-    keymaster::AuthorizationSet outParams;
-    auto opHandle = keymaster.begin(KM_PURPOSE_ENCRYPT, key, params, &outParams);
-    if (!opHandle) return false;
-    keymaster_blob_t nonceBlob;
-    if (!outParams.GetTagValue(keymaster::TAG_NONCE, &nonceBlob)) {
-        LOG(ERROR) << "GCM encryption but no nonce generated";
-        return false;
-    }
-    // nonceBlob here is just a pointer into existing data, must not be freed
-    std::string nonce(reinterpret_cast<const char*>(nonceBlob.data), nonceBlob.data_length);
-    if (!checkSize("nonce", nonce.size(), GCM_NONCE_BYTES)) return false;
-    std::string body;
-    if (!opHandle.updateCompletely(message, &body)) return false;
-
-    std::string mac;
-    if (!opHandle.finishWithOutput(&mac)) return false;
-    if (!checkSize("mac", mac.size(), GCM_MAC_BYTES)) return false;
-    *ciphertext = nonce + body + mac;
-    return true;
-}
-
-static bool decryptWithKeymasterKey(Keymaster& keymaster, const std::string& key,
-                                    const KeyAuthentication& auth, const std::string& appId,
-                                    const std::string& ciphertext, std::string* message) {
-    auto nonce = ciphertext.substr(0, GCM_NONCE_BYTES);
-    auto bodyAndMac = ciphertext.substr(GCM_NONCE_BYTES);
-    auto params = addStringParam(beginParams(auth, appId), keymaster::TAG_NONCE, nonce).build();
-    auto opHandle = keymaster.begin(KM_PURPOSE_DECRYPT, key, params);
-    if (!opHandle) return false;
-    if (!opHandle.updateCompletely(bodyAndMac, message)) return false;
-    if (!opHandle.finish()) return false;
-    return true;
 }
 
 static bool readFileToString(const std::string& filename, std::string* result) {
@@ -190,11 +160,89 @@ static bool writeStringToFile(const std::string& payload, const std::string& fil
     return true;
 }
 
-static std::string getStretching() {
-    char paramstr[PROPERTY_VALUE_MAX];
+static KeymasterOperation begin(Keymaster& keymaster, const std::string& dir,
+                                KeyPurpose purpose,
+                                const AuthorizationSet &keyParams,
+                                const AuthorizationSet &opParams,
+                                AuthorizationSet* outParams) {
+    auto kmKeyPath = dir + "/" + kFn_keymaster_key_blob;
+    std::string kmKey;
+    if (!readFileToString(kmKeyPath, &kmKey)) return KeymasterOperation();
+    AuthorizationSet inParams(keyParams);
+    inParams.append(opParams.begin(), opParams.end());
+    for (;;) {
+        auto opHandle = keymaster.begin(purpose, kmKey, inParams, outParams);
+        if (opHandle) {
+            return opHandle;
+        }
+        if (opHandle.errorCode() != ErrorCode::KEY_REQUIRES_UPGRADE) return opHandle;
+        LOG(DEBUG) << "Upgrading key: " << dir;
+        std::string newKey;
+        if (!keymaster.upgradeKey(kmKey, keyParams, &newKey)) return KeymasterOperation();
+        auto newKeyPath = dir + "/" + kFn_keymaster_key_blob_upgraded;
+        if (!writeStringToFile(newKey, newKeyPath)) return KeymasterOperation();
+        if (rename(newKeyPath.c_str(), kmKeyPath.c_str()) != 0) {
+            PLOG(ERROR) << "Unable to move upgraded key to location: " << kmKeyPath;
+            return KeymasterOperation();
+        }
+        if (!keymaster.deleteKey(kmKey)) {
+            LOG(ERROR) << "Key deletion failed during upgrade, continuing anyway: " << dir;
+        }
+        kmKey = newKey;
+        LOG(INFO) << "Key upgraded: " << dir;
+    }
+}
 
-    property_get(SCRYPT_PROP, paramstr, SCRYPT_DEFAULTS);
-    return std::string() + kStretchPrefix_scrypt + paramstr;
+static bool encryptWithKeymasterKey(Keymaster& keymaster, const std::string& dir,
+                                    const AuthorizationSet &keyParams,
+                                    const std::string& message, std::string* ciphertext) {
+    AuthorizationSet opParams;
+    AuthorizationSet outParams;
+    auto opHandle = begin(keymaster, dir, KeyPurpose::ENCRYPT, keyParams, opParams, &outParams);
+    if (!opHandle) return false;
+    auto nonceBlob = outParams.GetTagValue(TAG_NONCE);
+    if (!nonceBlob.isOk()) {
+        LOG(ERROR) << "GCM encryption but no nonce generated";
+        return false;
+    }
+    // nonceBlob here is just a pointer into existing data, must not be freed
+    std::string nonce(reinterpret_cast<const char*>(&nonceBlob.value()[0]), nonceBlob.value().size());
+    if (!checkSize("nonce", nonce.size(), GCM_NONCE_BYTES)) return false;
+    std::string body;
+    if (!opHandle.updateCompletely(message, &body)) return false;
+
+    std::string mac;
+    if (!opHandle.finish(&mac)) return false;
+    if (!checkSize("mac", mac.size(), GCM_MAC_BYTES)) return false;
+    *ciphertext = nonce + body + mac;
+    return true;
+}
+
+static bool decryptWithKeymasterKey(Keymaster& keymaster, const std::string& dir,
+                                    const AuthorizationSet &keyParams,
+                                    const std::string& ciphertext, std::string* message) {
+    auto nonce = ciphertext.substr(0, GCM_NONCE_BYTES);
+    auto bodyAndMac = ciphertext.substr(GCM_NONCE_BYTES);
+    auto opParams = AuthorizationSetBuilder()
+            .Authorization(TAG_NONCE, blob2hidlVec(nonce));
+    auto opHandle = begin(keymaster, dir, KeyPurpose::DECRYPT, keyParams, opParams, nullptr);
+    if (!opHandle) return false;
+    if (!opHandle.updateCompletely(bodyAndMac, message)) return false;
+    if (!opHandle.finish(nullptr)) return false;
+    return true;
+}
+
+static std::string getStretching(const KeyAuthentication& auth) {
+    if (!auth.usesKeymaster()) {
+        return kStretch_none;
+    } else if (auth.secret.empty()) {
+        return kStretch_nopassword;
+    } else {
+        char paramstr[PROPERTY_VALUE_MAX];
+
+        property_get(SCRYPT_PROP, paramstr, SCRYPT_DEFAULTS);
+        return std::string() + kStretchPrefix_scrypt + paramstr;
+    }
 }
 
 static bool stretchingNeedsSalt(const std::string& stretching) {
@@ -239,7 +287,116 @@ static bool generateAppId(const KeyAuthentication& auth, const std::string& stre
                           std::string* appId) {
     std::string stretched;
     if (!stretchSecret(stretching, auth.secret, salt, &stretched)) return false;
-    *appId = hashSecdiscardable(secdiscardable) + stretched;
+    *appId = hashWithPrefix(kHashPrefix_secdiscardable, secdiscardable) + stretched;
+    return true;
+}
+
+static bool readRandomBytesOrLog(size_t count, std::string* out) {
+    auto status = ReadRandomBytes(count, *out);
+    if (status != OK) {
+        LOG(ERROR) << "Random read failed with status: " << status;
+        return false;
+    }
+    return true;
+}
+
+static void logOpensslError() {
+    LOG(ERROR) << "Openssl error: " << ERR_get_error();
+}
+
+static bool encryptWithoutKeymaster(const std::string& preKey,
+                                    const std::string& plaintext, std::string* ciphertext) {
+    auto key = hashWithPrefix(kHashPrefix_keygen, preKey);
+    key.resize(AES_KEY_BYTES);
+    if (!readRandomBytesOrLog(GCM_NONCE_BYTES, ciphertext)) return false;
+    auto ctx = std::unique_ptr<EVP_CIPHER_CTX, decltype(&::EVP_CIPHER_CTX_free)>(
+        EVP_CIPHER_CTX_new(), EVP_CIPHER_CTX_free);
+    if (!ctx) {
+        logOpensslError();
+        return false;
+    }
+    if (1 != EVP_EncryptInit_ex(ctx.get(), EVP_aes_256_gcm(), NULL,
+            reinterpret_cast<const uint8_t*>(key.data()),
+            reinterpret_cast<const uint8_t*>(ciphertext->data()))) {
+        logOpensslError();
+        return false;
+    }
+    ciphertext->resize(GCM_NONCE_BYTES + plaintext.size() + GCM_MAC_BYTES);
+    int outlen;
+    if (1 != EVP_EncryptUpdate(ctx.get(),
+        reinterpret_cast<uint8_t*>(&(*ciphertext)[0] + GCM_NONCE_BYTES), &outlen,
+        reinterpret_cast<const uint8_t*>(plaintext.data()), plaintext.size())) {
+        logOpensslError();
+        return false;
+    }
+    if (outlen != static_cast<int>(plaintext.size())) {
+        LOG(ERROR) << "GCM ciphertext length should be " << plaintext.size() << " was " << outlen;
+        return false;
+    }
+    if (1 != EVP_EncryptFinal_ex(ctx.get(),
+        reinterpret_cast<uint8_t*>(&(*ciphertext)[0] + GCM_NONCE_BYTES + plaintext.size()), &outlen)) {
+        logOpensslError();
+        return false;
+    }
+    if (outlen != 0) {
+        LOG(ERROR) << "GCM EncryptFinal should be 0, was " << outlen;
+        return false;
+    }
+    if (1 != EVP_CIPHER_CTX_ctrl(ctx.get(), EVP_CTRL_GCM_GET_TAG, GCM_MAC_BYTES,
+        reinterpret_cast<uint8_t*>(&(*ciphertext)[0] + GCM_NONCE_BYTES + plaintext.size()))) {
+        logOpensslError();
+        return false;
+    }
+    return true;
+}
+
+static bool decryptWithoutKeymaster(const std::string& preKey,
+                                    const std::string& ciphertext, std::string* plaintext) {
+    if (ciphertext.size() < GCM_NONCE_BYTES + GCM_MAC_BYTES) {
+        LOG(ERROR) << "GCM ciphertext too small: " << ciphertext.size();
+        return false;
+    }
+    auto key = hashWithPrefix(kHashPrefix_keygen, preKey);
+    key.resize(AES_KEY_BYTES);
+    auto ctx = std::unique_ptr<EVP_CIPHER_CTX, decltype(&::EVP_CIPHER_CTX_free)>(
+        EVP_CIPHER_CTX_new(), EVP_CIPHER_CTX_free);
+    if (!ctx) {
+        logOpensslError();
+        return false;
+    }
+    if (1 != EVP_DecryptInit_ex(ctx.get(), EVP_aes_256_gcm(), NULL,
+            reinterpret_cast<const uint8_t*>(key.data()),
+            reinterpret_cast<const uint8_t*>(ciphertext.data()))) {
+        logOpensslError();
+        return false;
+    }
+    plaintext->resize(ciphertext.size() - GCM_NONCE_BYTES - GCM_MAC_BYTES);
+    int outlen;
+    if (1 != EVP_DecryptUpdate(ctx.get(),
+        reinterpret_cast<uint8_t*>(&(*plaintext)[0]), &outlen,
+        reinterpret_cast<const uint8_t*>(ciphertext.data() + GCM_NONCE_BYTES), plaintext->size())) {
+        logOpensslError();
+        return false;
+    }
+    if (outlen != static_cast<int>(plaintext->size())) {
+        LOG(ERROR) << "GCM plaintext length should be " << plaintext->size() << " was " << outlen;
+        return false;
+    }
+    if (1 != EVP_CIPHER_CTX_ctrl(ctx.get(), EVP_CTRL_GCM_SET_TAG, GCM_MAC_BYTES,
+        const_cast<void *>(
+            reinterpret_cast<const void*>(ciphertext.data() + GCM_NONCE_BYTES + plaintext->size())))) {
+        logOpensslError();
+        return false;
+    }
+    if (1 != EVP_DecryptFinal_ex(ctx.get(),
+        reinterpret_cast<uint8_t*>(&(*plaintext)[0] + plaintext->size()), &outlen)) {
+        logOpensslError();
+        return false;
+    }
+    if (outlen != 0) {
+        LOG(ERROR) << "GCM EncryptFinal should be 0, was " << outlen;
+        return false;
+    }
     return true;
 }
 
@@ -250,13 +407,9 @@ bool storeKey(const std::string& dir, const KeyAuthentication& auth, const std::
     }
     if (!writeStringToFile(kCurrentVersion, dir + "/" + kFn_version)) return false;
     std::string secdiscardable;
-    if (ReadRandomBytes(SECDISCARDABLE_BYTES, secdiscardable) != OK) {
-        // TODO status_t plays badly with PLOG, fix it.
-        LOG(ERROR) << "Random read failed";
-        return false;
-    }
+    if (!readRandomBytesOrLog(SECDISCARDABLE_BYTES, &secdiscardable)) return false;
     if (!writeStringToFile(secdiscardable, dir + "/" + kFn_secdiscardable)) return false;
-    std::string stretching = auth.secret.empty() ? kStretch_nopassword : getStretching();
+    std::string stretching = getStretching(auth);
     if (!writeStringToFile(stretching, dir + "/" + kFn_stretching)) return false;
     std::string salt;
     if (stretchingNeedsSalt(stretching)) {
@@ -268,13 +421,18 @@ bool storeKey(const std::string& dir, const KeyAuthentication& auth, const std::
     }
     std::string appId;
     if (!generateAppId(auth, stretching, salt, secdiscardable, &appId)) return false;
-    Keymaster keymaster;
-    if (!keymaster) return false;
-    std::string kmKey;
-    if (!generateKeymasterKey(keymaster, auth, appId, &kmKey)) return false;
-    if (!writeStringToFile(kmKey, dir + "/" + kFn_keymaster_key_blob)) return false;
     std::string encryptedKey;
-    if (!encryptWithKeymasterKey(keymaster, kmKey, auth, appId, key, &encryptedKey)) return false;
+    if (auth.usesKeymaster()) {
+        Keymaster keymaster;
+        if (!keymaster) return false;
+        std::string kmKey;
+        if (!generateKeymasterKey(keymaster, auth, appId, &kmKey)) return false;
+        if (!writeStringToFile(kmKey, dir + "/" + kFn_keymaster_key_blob)) return false;
+        auto keyParams = beginParams(auth, appId);
+        if (!encryptWithKeymasterKey(keymaster, dir, keyParams, key, &encryptedKey)) return false;
+    } else {
+        if (!encryptWithoutKeymaster(appId, key, &encryptedKey)) return false;
+    }
     if (!writeStringToFile(encryptedKey, dir + "/" + kFn_encrypted_key)) return false;
     return true;
 }
@@ -296,13 +454,17 @@ bool retrieveKey(const std::string& dir, const KeyAuthentication& auth, std::str
     }
     std::string appId;
     if (!generateAppId(auth, stretching, salt, secdiscardable, &appId)) return false;
-    std::string kmKey;
-    if (!readFileToString(dir + "/" + kFn_keymaster_key_blob, &kmKey)) return false;
     std::string encryptedMessage;
     if (!readFileToString(dir + "/" + kFn_encrypted_key, &encryptedMessage)) return false;
-    Keymaster keymaster;
-    if (!keymaster) return false;
-    return decryptWithKeymasterKey(keymaster, kmKey, auth, appId, encryptedMessage, key);
+    if (auth.usesKeymaster()) {
+        Keymaster keymaster;
+        if (!keymaster) return false;
+        auto keyParams = beginParams(auth, appId);
+        if (!decryptWithKeymasterKey(keymaster, dir, keyParams, encryptedMessage, key)) return false;
+    } else {
+        if (!decryptWithoutKeymaster(appId, encryptedMessage, key)) return false;
+    }
+    return true;
 }
 
 static bool deleteKey(const std::string& dir) {
@@ -321,6 +483,16 @@ static bool runSecdiscard(const std::string& dir) {
                 dir + "/" + kFn_keymaster_key_blob,
                 dir + "/" + kFn_secdiscardable,
                 }) != 0) {
+        LOG(ERROR) << "secdiscard failed";
+        return false;
+    }
+    return true;
+}
+
+bool runSecdiscardSingle(const std::string& file) {
+    if (ForkExecvp(
+            std::vector<std::string>{kSecdiscardPath, "--",
+                file}) != 0) {
         LOG(ERROR) << "secdiscard failed";
         return false;
     }

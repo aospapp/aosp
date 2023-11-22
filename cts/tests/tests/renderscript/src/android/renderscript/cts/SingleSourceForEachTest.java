@@ -64,6 +64,16 @@ public class SingleSourceForEachTest extends RSBaseCompute {
         testInputAlloc2.copyFrom(testInputArray2);
     }
 
+    @Override
+    protected void tearDown() throws Exception {
+        testInputAlloc.destroy();
+        testInputAlloc2.destroy();
+        testOutputAlloc.destroy();
+        baselineOutputAlloc.destroy();
+        s.destroy();
+        super.tearDown();
+    }
+
     public void testSingleInputKernelLaunch() {
         s.forEach_foo(testInputAlloc, baselineOutputAlloc);
         s.invoke_testSingleInput(testInputAlloc, testOutputAlloc);
@@ -83,6 +93,12 @@ public class SingleSourceForEachTest extends RSBaseCompute {
     }
 
     public void testKernelLaunchWithOptions() {
+        // Initialize the testOutputAlloc and baselineOutputAlloc to be the same
+        // as the input. When we the check the entire output later, the lower half
+        // of the output Allocations should also be the same.
+        baselineOutputAlloc.copyFrom(testInputArray);
+        testOutputAlloc.copyFrom(testInputArray);
+
         Script.LaunchOptions sc = new Script.LaunchOptions();
         sc.setX(0, X);
         sc.setY(0, Y / 2);

@@ -16,7 +16,6 @@
 
 #include "elf_file.h"
 
-#include "base/stringprintf.h"
 #include "base/unix_file/fd_file.h"
 #include "common_compiler_test.h"
 #include "elf_file.h"
@@ -38,16 +37,15 @@ class ElfWriterTest : public CommonCompilerTest {
 
 #define EXPECT_ELF_FILE_ADDRESS(ef, expected_value, symbol_name, build_map) \
   do { \
-    void* addr = reinterpret_cast<void*>(ef->FindSymbolAddress(SHT_DYNSYM, \
-                                                               symbol_name, \
-                                                               build_map)); \
+    void* addr = reinterpret_cast<void*>((ef)->FindSymbolAddress(SHT_DYNSYM, \
+                                                                 symbol_name, \
+                                                                 build_map)); \
     EXPECT_NE(nullptr, addr); \
-    EXPECT_LT(static_cast<uintptr_t>(ART_BASE_ADDRESS), reinterpret_cast<uintptr_t>(addr)); \
-    if (expected_value == nullptr) { \
-      expected_value = addr; \
+    if ((expected_value) == nullptr) { \
+      (expected_value) = addr; \
     }                        \
     EXPECT_EQ(expected_value, addr); \
-    EXPECT_EQ(expected_value, ef->FindDynamicSymbolAddress(symbol_name)); \
+    EXPECT_EQ(expected_value, (ef)->FindDynamicSymbolAddress(symbol_name)); \
   } while (false)
 
 TEST_F(ElfWriterTest, dlsym) {
@@ -61,7 +59,7 @@ TEST_F(ElfWriterTest, dlsym) {
   void* dl_oatlastword = nullptr;
 
   std::unique_ptr<File> file(OS::OpenFileForReading(elf_filename.c_str()));
-  ASSERT_TRUE(file.get() != nullptr);
+  ASSERT_TRUE(file.get() != nullptr) << elf_filename;
   {
     std::string error_msg;
     std::unique_ptr<ElfFile> ef(ElfFile::Open(file.get(),
@@ -87,17 +85,41 @@ TEST_F(ElfWriterTest, dlsym) {
     EXPECT_ELF_FILE_ADDRESS(ef, dl_oatlastword, "oatlastword", true);
   }
   {
+    uint8_t* base = reinterpret_cast<uint8_t*>(ART_BASE_ADDRESS);
     std::string error_msg;
     std::unique_ptr<ElfFile> ef(ElfFile::Open(file.get(),
                                               false,
                                               true,
                                               /*low_4gb*/false,
+                                              &error_msg,
+                                              base));
+    CHECK(ef.get() != nullptr) << error_msg;
+    CHECK(ef->Load(file.get(), false, /*low_4gb*/false, &error_msg)) << error_msg;
+    EXPECT_EQ(reinterpret_cast<uintptr_t>(dl_oatdata) + reinterpret_cast<uintptr_t>(base),
+        reinterpret_cast<uintptr_t>(ef->FindDynamicSymbolAddress("oatdata")));
+    EXPECT_EQ(reinterpret_cast<uintptr_t>(dl_oatexec) + reinterpret_cast<uintptr_t>(base),
+        reinterpret_cast<uintptr_t>(ef->FindDynamicSymbolAddress("oatexec")));
+    EXPECT_EQ(reinterpret_cast<uintptr_t>(dl_oatlastword) + reinterpret_cast<uintptr_t>(base),
+        reinterpret_cast<uintptr_t>(ef->FindDynamicSymbolAddress("oatlastword")));
+  }
+}
+
+TEST_F(ElfWriterTest, CheckBuildIdPresent) {
+  std::string elf_location = GetCoreOatLocation();
+  std::string elf_filename = GetSystemImageFilename(elf_location.c_str(), kRuntimeISA);
+  LOG(INFO) << "elf_filename=" << elf_filename;
+
+  std::unique_ptr<File> file(OS::OpenFileForReading(elf_filename.c_str()));
+  ASSERT_TRUE(file.get() != nullptr);
+  {
+    std::string error_msg;
+    std::unique_ptr<ElfFile> ef(ElfFile::Open(file.get(),
+                                              false,
+                                              false,
+                                              /*low_4gb*/false,
                                               &error_msg));
     CHECK(ef.get() != nullptr) << error_msg;
-    CHECK(ef->Load(false, /*low_4gb*/false, &error_msg)) << error_msg;
-    EXPECT_EQ(dl_oatdata, ef->FindDynamicSymbolAddress("oatdata"));
-    EXPECT_EQ(dl_oatexec, ef->FindDynamicSymbolAddress("oatexec"));
-    EXPECT_EQ(dl_oatlastword, ef->FindDynamicSymbolAddress("oatlastword"));
+    EXPECT_TRUE(ef->HasSection(".note.gnu.build-id"));
   }
 }
 

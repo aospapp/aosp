@@ -18,10 +18,10 @@ package com.android.systemui.statusbar.notification;
 
 import android.util.ArraySet;
 import android.util.Pools;
-import android.view.NotificationHeaderView;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewParent;
+import android.view.animation.Interpolator;
 import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
@@ -30,6 +30,7 @@ import com.android.systemui.Interpolators;
 import com.android.systemui.R;
 import com.android.systemui.statusbar.CrossFadeHelper;
 import com.android.systemui.statusbar.ExpandableNotificationRow;
+import com.android.systemui.statusbar.TransformableView;
 import com.android.systemui.statusbar.ViewTransformationHelper;
 
 /**
@@ -37,10 +38,11 @@ import com.android.systemui.statusbar.ViewTransformationHelper;
 */
 public class TransformState {
 
+    public static final int TRANSFORM_X = 0x1;
+    public static final int TRANSFORM_Y = 0x10;
+    public static final int TRANSFORM_ALL = TRANSFORM_X | TRANSFORM_Y;
+
     private static final float UNDEFINED = -1f;
-    private static final int TRANSOFORM_X = 0x1;
-    private static final int TRANSOFORM_Y = 0x10;
-    private static final int TRANSOFORM_ALL = TRANSOFORM_X | TRANSOFORM_Y;
     private static final int CLIP_CLIPPING_SET = R.id.clip_children_set_tag;
     private static final int CLIP_CHILDREN_TAG = R.id.clip_children_tag;
     private static final int CLIP_TO_PADDING = R.id.clip_to_padding_tag;
@@ -67,7 +69,8 @@ public class TransformState {
     public void transformViewFrom(TransformState otherState, float transformationAmount) {
         mTransformedView.animate().cancel();
         if (sameAs(otherState)) {
-            if (mTransformedView.getVisibility() == View.INVISIBLE) {
+            if (mTransformedView.getVisibility() == View.INVISIBLE
+                    || mTransformedView.getAlpha() != 1.0f) {
                 // We have the same content, lets show ourselves
                 mTransformedView.setAlpha(1.0f);
                 mTransformedView.setVisibility(View.VISIBLE);
@@ -79,25 +82,31 @@ public class TransformState {
     }
 
     public void transformViewFullyFrom(TransformState otherState, float transformationAmount) {
-        transformViewFrom(otherState, TRANSOFORM_ALL, null, transformationAmount);
+        transformViewFrom(otherState, TRANSFORM_ALL, null, transformationAmount);
+    }
+
+    public void transformViewFullyFrom(TransformState otherState,
+            ViewTransformationHelper.CustomTransformation customTransformation,
+            float transformationAmount) {
+        transformViewFrom(otherState, TRANSFORM_ALL, customTransformation, transformationAmount);
     }
 
     public void transformViewVerticalFrom(TransformState otherState,
             ViewTransformationHelper.CustomTransformation customTransformation,
             float transformationAmount) {
-        transformViewFrom(otherState, TRANSOFORM_Y, customTransformation, transformationAmount);
+        transformViewFrom(otherState, TRANSFORM_Y, customTransformation, transformationAmount);
     }
 
     public void transformViewVerticalFrom(TransformState otherState, float transformationAmount) {
-        transformViewFrom(otherState, TRANSOFORM_Y, null, transformationAmount);
+        transformViewFrom(otherState, TRANSFORM_Y, null, transformationAmount);
     }
 
     private void transformViewFrom(TransformState otherState, int transformationFlags,
             ViewTransformationHelper.CustomTransformation customTransformation,
             float transformationAmount) {
         final View transformedView = mTransformedView;
-        boolean transformX = (transformationFlags & TRANSOFORM_X) != 0;
-        boolean transformY = (transformationFlags & TRANSOFORM_Y) != 0;
+        boolean transformX = (transformationFlags & TRANSFORM_X) != 0;
+        boolean transformY = (transformationFlags & TRANSFORM_Y) != 0;
         boolean transformScale = transformScale();
         // lets animate the positions correctly
         if (transformationAmount == 0.0f
@@ -152,14 +161,30 @@ public class TransformState {
         float interpolatedValue = Interpolators.FAST_OUT_SLOW_IN.getInterpolation(
                 transformationAmount);
         if (transformX) {
+            float interpolation = interpolatedValue;
+            if (customTransformation != null) {
+                Interpolator customInterpolator =
+                        customTransformation.getCustomInterpolator(TRANSFORM_X, true /* isFrom */);
+                if (customInterpolator != null) {
+                    interpolation = customInterpolator.getInterpolation(transformationAmount);
+                }
+            }
             transformedView.setTranslationX(NotificationUtils.interpolate(getTransformationStartX(),
                     0.0f,
-                    interpolatedValue));
+                    interpolation));
         }
         if (transformY) {
+            float interpolation = interpolatedValue;
+            if (customTransformation != null) {
+                Interpolator customInterpolator =
+                        customTransformation.getCustomInterpolator(TRANSFORM_Y, true /* isFrom */);
+                if (customInterpolator != null) {
+                    interpolation = customInterpolator.getInterpolation(transformationAmount);
+                }
+            }
             transformedView.setTranslationY(NotificationUtils.interpolate(getTransformationStartY(),
                     0.0f,
-                    interpolatedValue));
+                    interpolation));
         }
         if (transformScale) {
             float transformationStartScaleX = getTransformationStartScaleX();
@@ -206,17 +231,23 @@ public class TransformState {
     }
 
     public void transformViewFullyTo(TransformState otherState, float transformationAmount) {
-        transformViewTo(otherState, TRANSOFORM_ALL, null, transformationAmount);
+        transformViewTo(otherState, TRANSFORM_ALL, null, transformationAmount);
+    }
+
+    public void transformViewFullyTo(TransformState otherState,
+            ViewTransformationHelper.CustomTransformation customTransformation,
+            float transformationAmount) {
+        transformViewTo(otherState, TRANSFORM_ALL, customTransformation, transformationAmount);
     }
 
     public void transformViewVerticalTo(TransformState otherState,
             ViewTransformationHelper.CustomTransformation customTransformation,
             float transformationAmount) {
-        transformViewTo(otherState, TRANSOFORM_Y, customTransformation, transformationAmount);
+        transformViewTo(otherState, TRANSFORM_Y, customTransformation, transformationAmount);
     }
 
     public void transformViewVerticalTo(TransformState otherState, float transformationAmount) {
-        transformViewTo(otherState, TRANSOFORM_Y, null, transformationAmount);
+        transformViewTo(otherState, TRANSFORM_Y, null, transformationAmount);
     }
 
     private void transformViewTo(TransformState otherState, int transformationFlags,
@@ -225,8 +256,8 @@ public class TransformState {
         // lets animate the positions correctly
 
         final View transformedView = mTransformedView;
-        boolean transformX = (transformationFlags & TRANSOFORM_X) != 0;
-        boolean transformY = (transformationFlags & TRANSOFORM_Y) != 0;
+        boolean transformX = (transformationFlags & TRANSFORM_X) != 0;
+        boolean transformY = (transformationFlags & TRANSFORM_Y) != 0;
         boolean transformScale = transformScale();
         // lets animate the positions correctly
         if (transformationAmount == 0.0f) {
@@ -263,23 +294,37 @@ public class TransformState {
         int[] ownPosition = getLaidOutLocationOnScreen();
         if (transformX) {
             float endX = otherStablePosition[0] - ownPosition[0];
-            if (customTransformation != null
-                    && customTransformation.customTransformTarget(this, otherState)) {
-                endX = mTransformationEndX;
+            float interpolation = interpolatedValue;
+            if (customTransformation != null) {
+                if (customTransformation.customTransformTarget(this, otherState)) {
+                    endX = mTransformationEndX;
+                }
+                Interpolator customInterpolator =
+                        customTransformation.getCustomInterpolator(TRANSFORM_X, false /* isFrom */);
+                if (customInterpolator != null) {
+                    interpolation = customInterpolator.getInterpolation(transformationAmount);
+                }
             }
             transformedView.setTranslationX(NotificationUtils.interpolate(getTransformationStartX(),
                     endX,
-                    interpolatedValue));
+                    interpolation));
         }
         if (transformY) {
             float endY = otherStablePosition[1] - ownPosition[1];
-            if (customTransformation != null
-                    && customTransformation.customTransformTarget(this, otherState)) {
-                endY = mTransformationEndY;
+            float interpolation = interpolatedValue;
+            if (customTransformation != null) {
+                if (customTransformation.customTransformTarget(this, otherState)) {
+                    endY = mTransformationEndY;
+                }
+                Interpolator customInterpolator =
+                        customTransformation.getCustomInterpolator(TRANSFORM_Y, false /* isFrom */);
+                if (customInterpolator != null) {
+                    interpolation = customInterpolator.getInterpolation(transformationAmount);
+                }
             }
             transformedView.setTranslationY(NotificationUtils.interpolate(getTransformationStartY(),
                     endY,
-                    interpolatedValue));
+                    interpolation));
         }
         if (transformScale) {
             View otherView = otherState.getTransformedView();
@@ -357,6 +402,7 @@ public class TransformState {
 
     public int[] getLaidOutLocationOnScreen() {
         int[] location = getLocationOnScreen();
+        // remove translation
         location[0] -= mTransformedView.getTranslationX();
         location[1] -= mTransformedView.getTranslationY();
         return location;
@@ -364,11 +410,29 @@ public class TransformState {
 
     public int[] getLocationOnScreen() {
         mTransformedView.getLocationOnScreen(mOwnPosition);
+
+        // remove scale
+        mOwnPosition[0] -= (1.0f - mTransformedView.getScaleX()) * mTransformedView.getPivotX();
+        mOwnPosition[1] -= (1.0f - mTransformedView.getScaleY()) * mTransformedView.getPivotY();
         return mOwnPosition;
     }
 
     protected boolean sameAs(TransformState otherState) {
         return false;
+    }
+
+    public void appear(float transformationAmount, TransformableView otherView) {
+        // There's no other view, lets fade us in
+        // Certain views need to prepare the fade in and make sure its children are
+        // completely visible. An example is the notification header.
+        if (transformationAmount == 0.0f) {
+            prepareFadeIn();
+        }
+        CrossFadeHelper.fadeIn(mTransformedView, transformationAmount);
+    }
+
+    public void disappear(float transformationAmount, TransformableView otherView) {
+        CrossFadeHelper.fadeOut(mTransformedView, transformationAmount);
     }
 
     public static TransformState createFrom(View view) {
@@ -379,11 +443,6 @@ public class TransformState {
         }
         if (view.getId() == com.android.internal.R.id.actions_container) {
             ActionListTransformState result = ActionListTransformState.obtain();
-            result.initFrom(view);
-            return result;
-        }
-        if (view instanceof NotificationHeaderView) {
-            HeaderTransformState result = HeaderTransformState.obtain();
             result.initFrom(view);
             return result;
         }

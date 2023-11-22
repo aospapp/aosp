@@ -28,7 +28,6 @@ import android.os.Process;
 import android.os.RemoteException;
 import android.util.Log;
 
-import com.android.car.hal.VehicleHal;
 import com.android.car.hal.RadioHalService;
 
 import java.io.PrintWriter;
@@ -36,7 +35,7 @@ import java.util.HashMap;
 
 public class CarRadioService extends ICarRadio.Stub
         implements CarServiceBase, RadioHalService.RadioListener {
-    public static boolean DBG = true;
+    public static boolean DBG = false;
     public static String TAG = CarLog.TAG_RADIO + ".CarRadioService";
 
     private RadioHalService mRadioHal;
@@ -46,8 +45,8 @@ public class CarRadioService extends ICarRadio.Stub
         new HashMap<IBinder, RadioDeathRecipient>();
     private final Context mContext;
 
-    public CarRadioService(Context context) {
-        mRadioHal = VehicleHal.getInstance().getRadioHal();
+    public CarRadioService(Context context, RadioHalService radioHal) {
+        mRadioHal = radioHal;
         mContext = context;
     }
 

@@ -439,18 +439,11 @@ public class OldRuntimeTest extends junit.framework.TestCase {
     }
 
     public void test_traceMethodCalls() {
+        Runtime.getRuntime().traceMethodCalls(false);
         try {
-            Runtime.getRuntime().traceMethodCalls(false);
             Runtime.getRuntime().traceMethodCalls(true);
-            Runtime.getRuntime().traceMethodCalls(false);
-        } catch (RuntimeException ex) {
-            // Slightly ugly: we default to the SD card, which may or may not
-            // be there. So we also accept the error case as a success, since
-            // it means we actually did enable tracing (or tried to).
-            if (!"file open failed".equals(ex.getMessage())) {
-                throw ex;
-            }
-        }
+            fail();
+        } catch (UnsupportedOperationException expected) {}
     }
 
     @SuppressWarnings("deprecation")

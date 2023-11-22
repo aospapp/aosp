@@ -5,7 +5,6 @@
 AUTHOR = "Rohit Makasana <rohitbm@chromium.org>/chromeos-test@google.com"
 NAME = "audio"
 PURPOSE = "Test basic, required functionality."
-CRITERIA = "All tests with SUITE=audio must pass."
 
 TIME = "MEDIUM"
 TEST_CATEGORY = "General"

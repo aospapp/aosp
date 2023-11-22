@@ -1,6 +1,8 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
- * Copyright (C) 2009-2014, International Business Machines Corporation and
+ * Copyright (C) 2009-2016, International Business Machines Corporation and
  * others. All Rights Reserved.
  *******************************************************************************
  */
@@ -11,6 +13,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.MissingResourceException;
 import java.util.Set;
 import java.util.TreeMap;
 
@@ -18,6 +21,7 @@ import com.ibm.icu.impl.CurrencyData.CurrencyDisplayInfo;
 import com.ibm.icu.impl.CurrencyData.CurrencyDisplayInfoProvider;
 import com.ibm.icu.impl.CurrencyData.CurrencyFormatInfo;
 import com.ibm.icu.impl.CurrencyData.CurrencySpacingInfo;
+import com.ibm.icu.impl.ICUResourceBundle.OpenType;
 import com.ibm.icu.util.ULocale;
 import com.ibm.icu.util.UResourceBundle;
 
@@ -25,18 +29,24 @@ public class ICUCurrencyDisplayInfoProvider implements CurrencyDisplayInfoProvid
     public ICUCurrencyDisplayInfoProvider() {
     }
 
+    @Override
     public CurrencyDisplayInfo getInstance(ULocale locale, boolean withFallback) {
-        ICUResourceBundle rb = (ICUResourceBundle) UResourceBundle.getBundleInstance(
-                ICUResourceBundle.ICU_CURR_BASE_NAME, locale);
-        if (!withFallback) {
-            int status = rb.getLoadingStatus();
-            if (status == ICUResourceBundle.FROM_DEFAULT || status == ICUResourceBundle.FROM_ROOT) {
+        ICUResourceBundle rb;
+        if (withFallback) {
+            rb = ICUResourceBundle.getBundleInstance(
+                    ICUData.ICU_CURR_BASE_NAME, locale, OpenType.LOCALE_DEFAULT_ROOT);
+        } else {
+            try {
+                rb = ICUResourceBundle.getBundleInstance(
+                        ICUData.ICU_CURR_BASE_NAME, locale, OpenType.LOCALE_ONLY);
+            } catch (MissingResourceException e) {
                 return null;
             }
         }
         return new ICUCurrencyDisplayInfo(rb, withFallback);
     }
 
+    @Override
     public boolean hasData() {
         return true;
     }
@@ -75,12 +85,8 @@ public class ICUCurrencyDisplayInfoProvider implements CurrencyDisplayInfoProvid
             if (currencies != null) {
                 ICUResourceBundle result = currencies.findWithFallback(isoCode);
                 if (result != null) {
-                    if (!fallback) {
-                        int status = result.getLoadingStatus();
-                        if (status == ICUResourceBundle.FROM_DEFAULT ||
-                                status == ICUResourceBundle.FROM_ROOT) {
-                            return null;
-                        }
+                    if (!fallback && !rb.isRoot() && result.isRoot()) {
+                        return null;
                     }
                     return result.getString(symbolName ? 0 : 1);
                 }
@@ -134,14 +140,14 @@ public class ICUCurrencyDisplayInfoProvider implements CurrencyDisplayInfoProvid
             return map;
         }
 
-       @Override
+        @Override
         public Map<String, String> getUnitPatterns() {
             Map<String, String> result = new HashMap<String, String>();
 
             ULocale locale = rb.getULocale();
             for (;locale != null; locale = locale.getFallback()) {
                 ICUResourceBundle r = (ICUResourceBundle) UResourceBundle.getBundleInstance(
-                        ICUResourceBundle.ICU_CURR_BASE_NAME, locale);
+                        ICUData.ICU_CURR_BASE_NAME, locale);
                 if (r == null) {
                     continue;
                 }
@@ -171,8 +177,8 @@ public class ICUCurrencyDisplayInfoProvider implements CurrencyDisplayInfoProvid
                 crb = crb.at(2);
                 if (crb != null) {
                   String pattern = crb.getString(0);
-                  char separator = crb.getString(1).charAt(0);
-                  char groupingSeparator = crb.getString(2).charAt(0);
+                  String separator = crb.getString(1);
+                  String groupingSeparator = crb.getString(2);
                   return new CurrencyFormatInfo(pattern, separator, groupingSeparator);
                 }
             }
@@ -181,24 +187,72 @@ public class ICUCurrencyDisplayInfoProvider implements CurrencyDisplayInfoProvid
 
         @Override
         public CurrencySpacingInfo getSpacingInfo() {
-            ICUResourceBundle srb = rb.findWithFallback("currencySpacing");
-            if (srb != null) {
-                ICUResourceBundle brb = srb.findWithFallback("beforeCurrency");
-                ICUResourceBundle arb = srb.findWithFallback("afterCurrency");
-                if (arb != null && brb != null) {
-                    String beforeCurrencyMatch = brb.findStringWithFallback("currencyMatch");
-                    String beforeContextMatch = brb.findStringWithFallback("surroundingMatch");
-                    String beforeInsert = brb.findStringWithFallback("insertBetween");
-                    String afterCurrencyMatch = arb.findStringWithFallback("currencyMatch");
-                    String afterContextMatch = arb.findStringWithFallback("surroundingMatch");
-                    String afterInsert = arb.findStringWithFallback("insertBetween");
+            SpacingInfoSink sink = new SpacingInfoSink();
+            rb.getAllItemsWithFallback("currencySpacing", sink);
+            return sink.getSpacingInfo(fallback);
+        }
 
-                    return new CurrencySpacingInfo(
-                            beforeCurrencyMatch, beforeContextMatch, beforeInsert,
-                            afterCurrencyMatch, afterContextMatch, afterInsert);
+        private final class SpacingInfoSink extends UResource.Sink {
+            CurrencySpacingInfo spacingInfo = new CurrencySpacingInfo();
+            boolean hasBeforeCurrency = false;
+            boolean hasAfterCurrency = false;
+
+            /*
+             *  currencySpacing{
+             *      afterCurrency{
+             *          currencyMatch{"[:^S:]"}
+             *          insertBetween{" "}
+             *          surroundingMatch{"[:digit:]"}
+             *      }
+             *      beforeCurrency{
+             *          currencyMatch{"[:^S:]"}
+             *          insertBetween{" "}
+             *          surroundingMatch{"[:digit:]"}
+             *      }
+             *  }
+             */
+            @Override
+            public void put(UResource.Key key, UResource.Value value, boolean noFallback) {
+                UResource.Table spacingTypesTable = value.getTable();
+                for (int i = 0; spacingTypesTable.getKeyAndValue(i, key, value); ++i) {
+                    CurrencySpacingInfo.SpacingType type;
+                    if (key.contentEquals("beforeCurrency")) {
+                        type = CurrencySpacingInfo.SpacingType.BEFORE;
+                        hasBeforeCurrency = true;
+                    } else if (key.contentEquals("afterCurrency")) {
+                        type = CurrencySpacingInfo.SpacingType.AFTER;
+                        hasAfterCurrency = true;
+                    } else {
+                        continue;
+                    }
+
+                    UResource.Table patternsTable = value.getTable();
+                    for (int j = 0; patternsTable.getKeyAndValue(j, key, value); ++j) {
+                        CurrencySpacingInfo.SpacingPattern pattern;
+                        if (key.contentEquals("currencyMatch")) {
+                            pattern = CurrencySpacingInfo.SpacingPattern.CURRENCY_MATCH;
+                        } else if (key.contentEquals("surroundingMatch")) {
+                            pattern = CurrencySpacingInfo.SpacingPattern.SURROUNDING_MATCH;
+                        } else if (key.contentEquals("insertBetween")) {
+                            pattern = CurrencySpacingInfo.SpacingPattern.INSERT_BETWEEN;
+                        } else {
+                            continue;
+                        }
+
+                        spacingInfo.setSymbolIfNull(type, pattern, value.getString());
+                    }
                 }
             }
-            return fallback ? CurrencySpacingInfo.DEFAULT : null;
+
+            CurrencySpacingInfo getSpacingInfo(boolean fallback) {
+                if (hasBeforeCurrency && hasAfterCurrency) {
+                    return spacingInfo;
+                } else if (fallback) {
+                    return CurrencySpacingInfo.DEFAULT;
+                } else {
+                    return null;
+                }
+            }
         }
 
         private Map<String, String> _createSymbolMap() {
@@ -206,7 +260,7 @@ public class ICUCurrencyDisplayInfoProvider implements CurrencyDisplayInfoProvid
 
             for (ULocale locale = rb.getULocale(); locale != null; locale = locale.getFallback()) {
                 ICUResourceBundle bundle = (ICUResourceBundle)
-                    UResourceBundle.getBundleInstance(ICUResourceBundle.ICU_CURR_BASE_NAME, locale);
+                    UResourceBundle.getBundleInstance(ICUData.ICU_CURR_BASE_NAME, locale);
                 ICUResourceBundle curr = bundle.findTopLevel("Currencies");
                 if (curr == null) {
                     continue;
@@ -235,7 +289,7 @@ public class ICUCurrencyDisplayInfoProvider implements CurrencyDisplayInfoProvid
             Map<String, Set<String>> visitedPlurals = new HashMap<String, Set<String>>();
             for (ULocale locale = rb.getULocale(); locale != null; locale = locale.getFallback()) {
                 ICUResourceBundle bundle = (ICUResourceBundle)
-                    UResourceBundle.getBundleInstance(ICUResourceBundle.ICU_CURR_BASE_NAME, locale);
+                    UResourceBundle.getBundleInstance(ICUData.ICU_CURR_BASE_NAME, locale);
                 ICUResourceBundle curr = bundle.findTopLevel("Currencies");
                 if (curr != null) {
                     for (int i = 0; i < curr.getSize(); ++i) {

@@ -16,6 +16,8 @@
 
 package android.support.v7.app;
 
+import static android.support.annotation.RestrictTo.Scope.LIBRARY_GROUP;
+
 import android.app.Notification;
 import android.app.PendingIntent;
 import android.content.Context;
@@ -25,6 +27,8 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.os.Parcel;
+import android.support.annotation.RequiresApi;
+import android.support.annotation.RestrictTo;
 import android.support.v4.app.BundleCompat;
 import android.support.v4.app.NotificationBuilderWithBuilderAccessor;
 import android.support.v4.media.session.MediaSessionCompat;
@@ -79,6 +83,7 @@ public class NotificationCompat extends android.support.v4.app.NotificationCompa
         return null;
     }
 
+    @RequiresApi(24)
     private static void addStyleToBuilderApi24(NotificationBuilderWithBuilderAccessor builder,
             android.support.v4.app.NotificationCompat.Builder b) {
         if (b.mStyle instanceof DecoratedCustomViewStyle) {
@@ -90,6 +95,7 @@ public class NotificationCompat extends android.support.v4.app.NotificationCompa
         }
     }
 
+    @RequiresApi(21)
     private static RemoteViews addStyleGetContentViewLollipop(
             NotificationBuilderWithBuilderAccessor builder,
             android.support.v4.app.NotificationCompat.Builder b) {
@@ -128,6 +134,7 @@ public class NotificationCompat extends android.support.v4.app.NotificationCompa
         return addStyleGetContentViewJellybean(builder, b);
     }
 
+    @RequiresApi(16)
     private static RemoteViews addStyleGetContentViewJellybean(
             NotificationBuilderWithBuilderAccessor builder,
             android.support.v4.app.NotificationCompat.Builder b) {
@@ -169,29 +176,22 @@ public class NotificationCompat extends android.support.v4.app.NotificationCompa
                     ? b.getColor()
                     : color;
         }
-        CharSequence senderText = bidiWrapIfNotSpanned(bidi, replyName);
+        CharSequence senderText = bidi.unicodeWrap(replyName);
         sb.append(senderText);
         sb.setSpan(makeFontColorSpan(color),
                 sb.length() - senderText.length(),
                 sb.length(),
                 Spanned.SPAN_EXCLUSIVE_EXCLUSIVE /* flags */);
         CharSequence text = m.getText() == null ? "" : m.getText();
-        sb.append("  ").append(bidiWrapIfNotSpanned(bidi, text));
+        sb.append("  ").append(bidi.unicodeWrap(text));
         return sb;
-    }
-
-    private static CharSequence bidiWrapIfNotSpanned(BidiFormatter bidi, CharSequence replyName) {
-        // Unfortunately bidiFormatter doesn't support CharSequences in support
-        if (replyName instanceof Spanned) {
-            return replyName;
-        }
-        return bidi.unicodeWrap(replyName.toString());
     }
 
     private static TextAppearanceSpan makeFontColorSpan(int color) {
         return new TextAppearanceSpan(null, 0, 0, ColorStateList.valueOf(color), null);
     }
 
+    @RequiresApi(16)
     private static void addMessagingFallBackStyle(MessagingStyle style,
             NotificationBuilderWithBuilderAccessor builder,
             android.support.v4.app.NotificationCompat.Builder b) {
@@ -222,6 +222,7 @@ public class NotificationCompat extends android.support.v4.app.NotificationCompa
         return false;
     }
 
+    @RequiresApi(14)
     private static RemoteViews addStyleGetContentViewIcs(
             NotificationBuilderWithBuilderAccessor builder,
             android.support.v4.app.NotificationCompat.Builder b) {
@@ -245,6 +246,7 @@ public class NotificationCompat extends android.support.v4.app.NotificationCompa
         return null;
     }
 
+    @RequiresApi(16)
     private static void addBigStyleToBuilderJellybean(Notification n,
             android.support.v4.app.NotificationCompat.Builder b) {
         if (b.mStyle instanceof MediaStyle) {
@@ -264,7 +266,7 @@ public class NotificationCompat extends android.support.v4.app.NotificationCompa
                         innerView);
             }
         } else if (b.mStyle instanceof DecoratedCustomViewStyle) {
-            addDecoratedBigStyleToBuilder(n, b);
+            addDecoratedBigStyleToBuilderJellybean(n, b);
         }
     }
 
@@ -284,7 +286,8 @@ public class NotificationCompat extends android.support.v4.app.NotificationCompa
         return remoteViews;
     }
 
-    private static void addDecoratedBigStyleToBuilder(Notification n,
+    @RequiresApi(16)
+    private static void addDecoratedBigStyleToBuilderJellybean(Notification n,
             android.support.v4.app.NotificationCompat.Builder b) {
         RemoteViews bigContentView = b.getBigContentView();
         RemoteViews innerView = bigContentView != null ? bigContentView : b.getContentView();
@@ -301,7 +304,8 @@ public class NotificationCompat extends android.support.v4.app.NotificationCompa
         n.bigContentView = remoteViews;
     }
 
-    private static void addDecoratedHeadsUpToBuilder(Notification n,
+    @RequiresApi(21)
+    private static void addDecoratedHeadsUpToBuilderLollipop(Notification n,
             android.support.v4.app.NotificationCompat.Builder b) {
         RemoteViews headsUp = b.getHeadsUpContentView();
         RemoteViews innerView = headsUp != null ? headsUp : b.getContentView();
@@ -318,6 +322,7 @@ public class NotificationCompat extends android.support.v4.app.NotificationCompa
         n.headsUpContentView = remoteViews;
     }
 
+    @RequiresApi(21)
     private static void addBigStyleToBuilderLollipop(Notification n,
             android.support.v4.app.NotificationCompat.Builder b) {
         RemoteViews innerView = b.getBigContentView() != null
@@ -333,7 +338,7 @@ public class NotificationCompat extends android.support.v4.app.NotificationCompa
                             innerView);
             setBackgroundColor(b.mContext, n.bigContentView, b.getColor());
         } else if (b.mStyle instanceof DecoratedCustomViewStyle) {
-            addDecoratedBigStyleToBuilder(n, b);
+            addDecoratedBigStyleToBuilderJellybean(n, b);
         }
     }
 
@@ -345,6 +350,7 @@ public class NotificationCompat extends android.support.v4.app.NotificationCompa
         views.setInt(R.id.status_bar_latest_event_content, "setBackgroundColor", color);
     }
 
+    @RequiresApi(21)
     private static void addHeadsUpToBuilderLollipop(Notification n,
             android.support.v4.app.NotificationCompat.Builder b) {
         RemoteViews innerView = b.getHeadsUpContentView() != null
@@ -360,7 +366,7 @@ public class NotificationCompat extends android.support.v4.app.NotificationCompa
                     innerView);
             setBackgroundColor(b.mContext, n.headsUpContentView, b.getColor());
         } else if (b.mStyle instanceof DecoratedCustomViewStyle) {
-            addDecoratedHeadsUpToBuilder(n, b);
+            addDecoratedHeadsUpToBuilderLollipop(n, b);
         }
     }
 
@@ -382,6 +388,7 @@ public class NotificationCompat extends android.support.v4.app.NotificationCompa
          *
          * @hide
          */
+        @RestrictTo(LIBRARY_GROUP)
         @Override
         protected CharSequence resolveText() {
             if (mStyle instanceof MessagingStyle) {
@@ -401,6 +408,7 @@ public class NotificationCompat extends android.support.v4.app.NotificationCompa
          *
          * @hide
          */
+        @RestrictTo(LIBRARY_GROUP)
         @Override
         protected CharSequence resolveTitle() {
             if (mStyle instanceof MessagingStyle) {
@@ -417,6 +425,7 @@ public class NotificationCompat extends android.support.v4.app.NotificationCompa
         /**
          * @hide
          */
+        @RestrictTo(LIBRARY_GROUP)
         @Override
         protected BuilderExtender getExtender() {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
@@ -433,7 +442,11 @@ public class NotificationCompat extends android.support.v4.app.NotificationCompa
         }
     }
 
+    @RequiresApi(14)
     private static class IceCreamSandwichExtender extends BuilderExtender {
+
+        IceCreamSandwichExtender() {
+        }
 
         @Override
         public Notification build(android.support.v4.app.NotificationCompat.Builder b,
@@ -451,7 +464,11 @@ public class NotificationCompat extends android.support.v4.app.NotificationCompa
         }
     }
 
+    @RequiresApi(16)
     private static class JellybeanExtender extends BuilderExtender {
+
+        JellybeanExtender() {
+        }
 
         @Override
         public Notification build(android.support.v4.app.NotificationCompat.Builder b,
@@ -468,7 +485,11 @@ public class NotificationCompat extends android.support.v4.app.NotificationCompa
         }
     }
 
+    @RequiresApi(21)
     private static class LollipopExtender extends BuilderExtender {
+
+        LollipopExtender() {
+        }
 
         @Override
         public Notification build(android.support.v4.app.NotificationCompat.Builder b,
@@ -486,6 +507,7 @@ public class NotificationCompat extends android.support.v4.app.NotificationCompa
         }
     }
 
+    @RequiresApi(24)
     private static class Api24Extender extends BuilderExtender {
 
         @Override
@@ -629,7 +651,7 @@ public class NotificationCompat extends android.support.v4.app.NotificationCompa
      * Notification noti = new NotificationCompat.Builder()
      *     .setSmallIcon(R.drawable.ic_stat_player)
      *     .setLargeIcon(albumArtBitmap))
-     *     .setCustomContentView(contentView);
+     *     .setCustomContentView(contentView)
      *     .setStyle(<b>new NotificationCompat.DecoratedCustomViewStyle()</b>)
      *     .build();
      * </pre>
@@ -663,7 +685,7 @@ public class NotificationCompat extends android.support.v4.app.NotificationCompa
      * Notification noti = new Notification.Builder()
      *     .setSmallIcon(R.drawable.ic_stat_player)
      *     .setLargeIcon(albumArtBitmap))
-     *     .setCustomContentView(contentView);
+     *     .setCustomContentView(contentView)
      *     .setStyle(<b>new NotificationCompat.DecoratedMediaCustomViewStyle()</b>
      *          .setMediaSession(mySession))
      *     .build();

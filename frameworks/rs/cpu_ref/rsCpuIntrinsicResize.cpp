@@ -18,9 +18,6 @@
 #include "rsCpuIntrinsic.h"
 #include "rsCpuIntrinsicInlines.h"
 
-using namespace android;
-using namespace android::renderscript;
-
 namespace android {
 namespace renderscript {
 
@@ -65,10 +62,6 @@ protected:
                          uint32_t xstart, uint32_t xend,
                          uint32_t outstep);
 };
-
-}
-}
-
 
 void RsdCpuScriptIntrinsicResize::setGlobalObj(uint32_t slot, ObjectBase *data) {
     rsAssert(slot == 0);
@@ -652,7 +645,6 @@ void RsdCpuScriptIntrinsicResize::preLaunch(uint32_t slot,
     }
     const uint32_t srcHeight = mAlloc->mHal.drvState.lod[0].dimY;
     const uint32_t srcWidth = mAlloc->mHal.drvState.lod[0].dimX;
-    const size_t stride = mAlloc->mHal.drvState.lod[0].stride;
 
     //check the data type to determine F or U.
     if (mAlloc->getType()->getElement()->getType() == RS_TYPE_UNSIGNED_8) {
@@ -696,8 +688,10 @@ void RsdCpuScriptIntrinsicResize::invokeFreeChildren() {
     mAlloc.clear();
 }
 
-
 RsdCpuScriptImpl * rsdIntrinsic_Resize(RsdCpuReferenceImpl *ctx, const Script *s, const Element *e) {
 
     return new RsdCpuScriptIntrinsicResize(ctx, s, e);
 }
+
+} // namespace renderscript
+} // namespace android

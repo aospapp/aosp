@@ -16,14 +16,22 @@
 
 package android.text.style.cts;
 
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 import android.os.Parcel;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.text.TextPaint;
 import android.text.style.UnderlineSpan;
 
-import junit.framework.TestCase;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
-public class UnderlineSpanTest extends TestCase {
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class UnderlineSpanTest {
+    @Test
     public void testConstructor() {
         new UnderlineSpan();
 
@@ -35,6 +43,7 @@ public class UnderlineSpanTest extends TestCase {
         }
     }
 
+    @Test
     public void testUpdateDrawState() {
         UnderlineSpan underlineSpan = new UnderlineSpan();
 
@@ -44,25 +53,28 @@ public class UnderlineSpanTest extends TestCase {
 
         underlineSpan.updateDrawState(tp);
         assertTrue(tp.isUnderlineText());
-
-        try {
-            underlineSpan.updateDrawState(null);
-            fail("should throw NullPointerException.");
-        } catch (NullPointerException e) {
-            // expected, test success.
-        }
     }
 
+    @Test(expected=NullPointerException.class)
+    public void testUpdateDrawStateNull() {
+        UnderlineSpan underlineSpan = new UnderlineSpan();
+
+        underlineSpan.updateDrawState(null);
+    }
+
+    @Test
     public void testDescribeContents() {
         UnderlineSpan underlineSpan = new UnderlineSpan();
         underlineSpan.describeContents();
     }
 
+    @Test
     public void testGetSpanTypeId() {
         UnderlineSpan underlineSpan = new UnderlineSpan();
         underlineSpan.getSpanTypeId();
     }
 
+    @Test
     public void testWriteToParcel() {
         Parcel p = Parcel.obtain();
         try {

@@ -17,6 +17,7 @@
 #define LOG_TAG "PersistableBundle"
 
 #include <binder/PersistableBundle.h>
+#include <private/binder/ParcelValTypes.h>
 
 #include <limits>
 
@@ -32,34 +33,33 @@ using android::Parcel;
 using android::sp;
 using android::status_t;
 using android::UNEXPECTED_NULL;
+using std::map;
+using std::set;
+using std::vector;
+using namespace ::android::binder;
 
 enum {
     // Keep in sync with BUNDLE_MAGIC in frameworks/base/core/java/android/os/BaseBundle.java.
     BUNDLE_MAGIC = 0x4C444E42,
 };
 
-enum {
-    // Keep in sync with frameworks/base/core/java/android/os/Parcel.java.
-    VAL_STRING = 0,
-    VAL_INTEGER = 1,
-    VAL_LONG = 6,
-    VAL_DOUBLE = 8,
-    VAL_BOOLEAN = 9,
-    VAL_STRINGARRAY = 14,
-    VAL_INTARRAY = 18,
-    VAL_LONGARRAY = 19,
-    VAL_BOOLEANARRAY = 23,
-    VAL_PERSISTABLEBUNDLE = 25,
-    VAL_DOUBLEARRAY = 28,
-};
-
 namespace {
 template <typename T>
-bool getValue(const android::String16& key, T* out, const std::map<android::String16, T>& map) {
+bool getValue(const android::String16& key, T* out, const map<android::String16, T>& map) {
     const auto& it = map.find(key);
     if (it == map.end()) return false;
     *out = it->second;
     return true;
+}
+
+template <typename T>
+set<android::String16> getKeys(const map<android::String16, T>& map) {
+    if (map.empty()) return set<android::String16>();
+    set<android::String16> keys;
+    for (const auto& key_value_pair : map) {
+        keys.emplace(key_value_pair.first);
+    }
+    return keys;
 }
 }  // namespace
 
@@ -78,7 +78,7 @@ namespace os {
 
 #define RETURN_IF_ENTRY_ERASED(map, key)                                 \
     {                                                                    \
-        size_t num_erased = map.erase(key);                              \
+        size_t num_erased = (map).erase(key);                            \
         if (num_erased) {                                                \
             ALOGE("Failed at %s:%d (%s)", __FILE__, __LINE__, __func__); \
             return num_erased;                                           \
@@ -188,27 +188,27 @@ void PersistableBundle::putString(const String16& key, const String16& value) {
     mStringMap[key] = value;
 }
 
-void PersistableBundle::putBooleanVector(const String16& key, const std::vector<bool>& value) {
+void PersistableBundle::putBooleanVector(const String16& key, const vector<bool>& value) {
     erase(key);
     mBoolVectorMap[key] = value;
 }
 
-void PersistableBundle::putIntVector(const String16& key, const std::vector<int32_t>& value) {
+void PersistableBundle::putIntVector(const String16& key, const vector<int32_t>& value) {
     erase(key);
     mIntVectorMap[key] = value;
 }
 
-void PersistableBundle::putLongVector(const String16& key, const std::vector<int64_t>& value) {
+void PersistableBundle::putLongVector(const String16& key, const vector<int64_t>& value) {
     erase(key);
     mLongVectorMap[key] = value;
 }
 
-void PersistableBundle::putDoubleVector(const String16& key, const std::vector<double>& value) {
+void PersistableBundle::putDoubleVector(const String16& key, const vector<double>& value) {
     erase(key);
     mDoubleVectorMap[key] = value;
 }
 
-void PersistableBundle::putStringVector(const String16& key, const std::vector<String16>& value) {
+void PersistableBundle::putStringVector(const String16& key, const vector<String16>& value) {
     erase(key);
     mStringVectorMap[key] = value;
 }
@@ -238,28 +238,72 @@ bool PersistableBundle::getString(const String16& key, String16* out) const {
     return getValue(key, out, mStringMap);
 }
 
-bool PersistableBundle::getBooleanVector(const String16& key, std::vector<bool>* out) const {
+bool PersistableBundle::getBooleanVector(const String16& key, vector<bool>* out) const {
     return getValue(key, out, mBoolVectorMap);
 }
 
-bool PersistableBundle::getIntVector(const String16& key, std::vector<int32_t>* out) const {
+bool PersistableBundle::getIntVector(const String16& key, vector<int32_t>* out) const {
     return getValue(key, out, mIntVectorMap);
 }
 
-bool PersistableBundle::getLongVector(const String16& key, std::vector<int64_t>* out) const {
+bool PersistableBundle::getLongVector(const String16& key, vector<int64_t>* out) const {
     return getValue(key, out, mLongVectorMap);
 }
 
-bool PersistableBundle::getDoubleVector(const String16& key, std::vector<double>* out) const {
+bool PersistableBundle::getDoubleVector(const String16& key, vector<double>* out) const {
     return getValue(key, out, mDoubleVectorMap);
 }
 
-bool PersistableBundle::getStringVector(const String16& key, std::vector<String16>* out) const {
+bool PersistableBundle::getStringVector(const String16& key, vector<String16>* out) const {
     return getValue(key, out, mStringVectorMap);
 }
 
 bool PersistableBundle::getPersistableBundle(const String16& key, PersistableBundle* out) const {
     return getValue(key, out, mPersistableBundleMap);
+}
+
+set<String16> PersistableBundle::getBooleanKeys() const {
+    return getKeys(mBoolMap);
+}
+
+set<String16> PersistableBundle::getIntKeys() const {
+    return getKeys(mIntMap);
+}
+
+set<String16> PersistableBundle::getLongKeys() const {
+    return getKeys(mLongMap);
+}
+
+set<String16> PersistableBundle::getDoubleKeys() const {
+    return getKeys(mDoubleMap);
+}
+
+set<String16> PersistableBundle::getStringKeys() const {
+    return getKeys(mStringMap);
+}
+
+set<String16> PersistableBundle::getBooleanVectorKeys() const {
+    return getKeys(mBoolVectorMap);
+}
+
+set<String16> PersistableBundle::getIntVectorKeys() const {
+    return getKeys(mIntVectorMap);
+}
+
+set<String16> PersistableBundle::getLongVectorKeys() const {
+    return getKeys(mLongVectorMap);
+}
+
+set<String16> PersistableBundle::getDoubleVectorKeys() const {
+    return getKeys(mDoubleVectorMap);
+}
+
+set<String16> PersistableBundle::getStringVectorKeys() const {
+    return getKeys(mStringVectorMap);
+}
+
+set<String16> PersistableBundle::getPersistableBundleKeys() const {
+    return getKeys(mPersistableBundleMap);
 }
 
 status_t PersistableBundle::writeToParcelInner(Parcel* parcel) const {
@@ -363,7 +407,6 @@ status_t PersistableBundle::readFromParcelInner(const Parcel* parcel, size_t len
     RETURN_IF_FAILED(parcel->readInt32(&num_entries));
 
     for (; num_entries > 0; --num_entries) {
-        size_t start_pos = parcel->dataPosition();
         String16 key;
         int32_t value_type;
         RETURN_IF_FAILED(parcel->readString16(&key));

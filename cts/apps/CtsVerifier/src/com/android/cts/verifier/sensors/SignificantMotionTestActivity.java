@@ -31,16 +31,17 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.hardware.cts.helpers.SensorNotSupportedException;
+import android.hardware.cts.helpers.SuspendStateMonitor;
+import android.hardware.cts.helpers.TestSensorEnvironment;
 import android.hardware.Sensor;
 import android.hardware.SensorManager;
 import android.hardware.TriggerEvent;
 import android.hardware.TriggerEventListener;
-import android.hardware.cts.helpers.SensorNotSupportedException;
-import android.hardware.cts.helpers.TestSensorEnvironment;
-import android.hardware.cts.helpers.SuspendStateMonitor;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.PowerManager;
+import android.os.PowerManager.WakeLock;
 import android.os.SystemClock;
 import android.support.v4.content.LocalBroadcastManager;
 import android.util.Log;
@@ -80,6 +81,7 @@ public class SignificantMotionTestActivity extends SensorCtsVerifierTestActivity
     private Sensor mSensorSignificantMotion;
     private TriggerVerifier mVerifier;
     private SensorTestScreenManipulator mScreenManipulator;
+    private WakeLock mPartialWakeLock;
 
     /**
      * Test cases.
@@ -146,12 +148,20 @@ public class SignificantMotionTestActivity extends SensorCtsVerifierTestActivity
         mSensorManager.requestTriggerSensor(verifier, mSensorSignificantMotion);
         logger.logWaitForSound();
 
-        // wait for the first event to trigger
-        verifier.verifyEventTriggered();
+        String result;
+        try {
+            mPartialWakeLock.acquire();
 
-        // wait for a second event not to trigger
-        String result = verifier.verifyEventNotTriggered();
-        playSound();
+            // wait for the first event to trigger
+            verifier.verifyEventTriggered();
+
+            // wait for a second event not to trigger
+            result = verifier.verifyEventNotTriggered();
+        } finally {
+            playSound();
+            mScreenManipulator.turnScreenOn();
+            mPartialWakeLock.release();
+        }
         return result;
     }
 
@@ -254,6 +264,8 @@ public class SignificantMotionTestActivity extends SensorCtsVerifierTestActivity
 
         String result;
         try {
+            mPartialWakeLock.acquire();
+
             if (isMotionExpected) {
                 result = verifier.verifyEventTriggered();
             } else {
@@ -261,7 +273,11 @@ public class SignificantMotionTestActivity extends SensorCtsVerifierTestActivity
             }
         } finally {
             mSensorManager.cancelTriggerSensor(verifier, mSensorSignificantMotion);
+
+            // notify user test finished
             playSound();
+            mScreenManipulator.turnScreenOn();
+            mPartialWakeLock.release();
         }
         return result;
     }
@@ -281,6 +297,7 @@ public class SignificantMotionTestActivity extends SensorCtsVerifierTestActivity
         } catch (InterruptedException e) {
         }
         PowerManager pm = (PowerManager)getSystemService(Context.POWER_SERVICE);
+        mPartialWakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "SignificantMotionTestActivity");
         LocalBroadcastManager.getInstance(this).registerReceiver(myBroadCastReceiver,
                                             new IntentFilter(ACTION_ALARM));
     }
@@ -288,7 +305,11 @@ public class SignificantMotionTestActivity extends SensorCtsVerifierTestActivity
     @Override
     protected void activityCleanUp() {
         if (mScreenManipulator != null) {
-            mScreenManipulator.turnScreenOff();
+            // after this screen does not have to be on constantly
+            mScreenManipulator.releaseScreenOn();
+        }
+        if (mPartialWakeLock != null && mPartialWakeLock.isHeld()) {
+            mPartialWakeLock.release();
         }
         LocalBroadcastManager.getInstance(this).unregisterReceiver(myBroadCastReceiver);
     }
@@ -400,7 +421,6 @@ public class SignificantMotionTestActivity extends SensorCtsVerifierTestActivity
             }
 
             mEventRegistry = null;
-            playSound();
             return registry != null ? registry : new TriggerEventRegistry(null, 0);
         }
     }

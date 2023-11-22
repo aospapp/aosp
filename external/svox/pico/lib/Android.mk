@@ -4,6 +4,7 @@ LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := libsvoxpico
+LOCAL_MULTILIB := 32
 
 LOCAL_SRC_FILES := \
 	picoacph.c \

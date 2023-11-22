@@ -6,6 +6,8 @@ void Function1() {
 }
 
 int main() {
-  Function1();
+  while (true) {
+    Function1();
+  }
   return 0;
 }

@@ -17,11 +17,22 @@
 
     <include name="everything" />
     <include name="cts-preconditions" />
+    <include name="cts-system-checkers" />
     <include name="cts-known-failures" />
 
-    <option name="compatibility:plan" value="cts" />
+    <option name="plan" value="cts" />
+    <option name="test-tag" value="cts" />
 
     <option name="enable-root" value="false" />
+    <!-- retain 200MB of host log -->
+    <option name="max-log-size" value="200" />
+    <!--  retain 200MB of logcat -->
+    <option name="max-tmp-logcat-file" value="209715200" />
+
+    <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
+        <option name="run-command" value="settings put global package_verifier_enable 0" />
+        <option name="teardown-command" value="settings put global package_verifier_enable 1"/>
+    </target_preparer>
 
     <target_preparer class="com.android.compatibility.common.tradefed.targetprep.PropertyCheck">
         <option name="property-name" value="ro.build.type" />
@@ -35,5 +46,8 @@
         <option name="throw-error" value="false"/> <!-- Only print warning if not en-US -->
     </target_preparer>
     <template-include name="reporters" default="basic-reporters" />
+
+    <!-- Include additional test metadata output. -->
+    <template-include name="metadata-reporters" default="empty" />
 
 </configuration>

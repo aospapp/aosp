@@ -17,18 +17,22 @@
 This test script exercises different GATT write procedures.
 """
 
+from acts.test_decorators import test_tracker_info
 from acts.test_utils.bt.BluetoothBaseTest import BluetoothBaseTest
 from acts.test_utils.bt.GattConnectedBaseTest import GattConnectedBaseTest
 from acts.test_utils.bt.GattEnum import GattCharacteristic
 from acts.test_utils.bt.GattEnum import GattDescriptor
-from acts.test_utils.bt.GattEnum import MtuSize
 from acts.test_utils.bt.GattEnum import GattEvent
 from acts.test_utils.bt.GattEnum import GattCbStrings
 from acts.test_utils.bt.GattEnum import GattConnectionPriority
+from acts.test_utils.bt.GattEnum import GattCharacteristicAttrLength
+from acts.test_utils.bt.GattEnum import MtuSize
+from acts.test_utils.bt.bt_gatt_utils import setup_gatt_mtu
 
 
 class GattWriteTest(GattConnectedBaseTest):
     @BluetoothBaseTest.bt_test_wrap
+    @test_tracker_info(uuid='513f4cef-489e-4bb6-96cc-c298c589225c')
     def test_write_char(self):
         """Test write characteristic value
 
@@ -87,6 +91,7 @@ class GattWriteTest(GattConnectedBaseTest):
         return True
 
     @BluetoothBaseTest.bt_test_wrap
+    @test_tracker_info(uuid='329dbef8-1b54-47e2-a388-b33ef9384464')
     def test_write_descr(self):
         """Test write descriptor value
 
@@ -141,6 +146,7 @@ class GattWriteTest(GattConnectedBaseTest):
         return True
 
     @BluetoothBaseTest.bt_test_wrap
+    @test_tracker_info(uuid='85757307-5bb1-43e5-9331-f1d7bdcbd6a0')
     def test_write_char_no_resp(self):
         """Test write characteristic value
 
@@ -191,6 +197,7 @@ class GattWriteTest(GattConnectedBaseTest):
         return True
 
     @BluetoothBaseTest.bt_test_wrap
+    @test_tracker_info(uuid='0bf0182a-c315-4160-81be-9ce09f93608b')
     def test_write_characteristic_long_no_resp(self):
         """Test write characteristic value
 
@@ -246,6 +253,109 @@ class GattWriteTest(GattConnectedBaseTest):
         return True
 
     @BluetoothBaseTest.bt_test_wrap
+    @test_tracker_info(uuid='b80f1b5a-a223-441e-a6ed-d3c284c83cc7')
+    def test_write_characteristic_value_longer_than_mtu_request(self):
+        """Test writing characteristic value longer than what mtu limts
+
+        Test establishing a gatt connection between a GATT Peripheral and GATT
+        Client. Request mtu size equal to the max MTU.
+        The max number of bytes can be sent within a characteristic is
+        (MTU - GattCharacteristicAttrLength.MTU_ATTR_2) since
+        the GattCharacteristicAttrLength.MTU_ATTR_2 (3 bytes) are
+        used for its attribute of the command code and its handle.
+        Then reduce mtu by 1 and re-send the same characteristic.
+        Make sure the characteristic value received by the remote side is
+        also reduced properly.
+
+        Steps:
+        1. Create a GATT connection between the scanner(Client) and
+           advertiser(Peripheral).
+        2. Client: request new mtu size change to max MTU.
+        3. Client: write a characteristic with char_value of max MTU bytes.
+        4. Peripheral: receive the written data.  Check it was properly
+           truncated to (max MTU - GattCharacteristicAttrLength.MTU_ATTR_2).
+        5. Client: request mtu size change to (max MTU - 1).
+        6. Client: write the same characteristic again.
+        7. Peripheral: receive the written data.  Check it was properly
+           truncated to (max MTU - 1 - GattCharacteristicAttrLength.MTU_ATTR_2)
+
+        Expected Result:
+        Verify that data received by the Peripheral side is properly truncated
+        when mtu is set.
+
+        Returns:
+          Pass if True
+          Fail if False
+
+        TAGS: LE, GATT, Characteristic, MTU
+        Priority: 2
+        """
+        self.mtu = MtuSize.MAX.value
+        self.log.info("Set mtu to max MTU: {}".format(self.mtu))
+        # set new MTU to the middle point of min and max of MTU
+        if not setup_gatt_mtu(self.cen_ad, self.bluetooth_gatt,
+                              self.gatt_callback, self.mtu):
+            return False
+
+        # create a characteristic with max MTU (217) bytes
+        char_value = []
+        for i in range(MtuSize.MAX.value):
+            char_value.append(i)
+
+        self.cen_ad.droid.gattClientCharacteristicSetValue(
+            self.bluetooth_gatt, self.discovered_services_index,
+            self.test_service_index, self.WRITABLE_CHAR_UUID, char_value)
+
+        self.cen_ad.droid.gattClientCharacteristicSetWriteType(
+            self.bluetooth_gatt, self.discovered_services_index,
+            self.test_service_index, self.WRITABLE_CHAR_UUID,
+            GattCharacteristic.WRITE_TYPE_NO_RESPONSE.value)
+
+        # write data to the characteristic of the Peripheral
+        self.cen_ad.droid.gattClientWriteCharacteristic(
+            self.bluetooth_gatt, self.discovered_services_index,
+            self.test_service_index, self.WRITABLE_CHAR_UUID)
+
+        event = self._server_wait(GattEvent.CHAR_WRITE_REQ)
+        self.log.info("Received value with mtu = max MTU: {}".format(event[
+            'data']['value']))
+
+        # check the data received by Peripheral shall be truncated to
+        # (mtu - GattCharacteristicAttrLength.MTU_ATTR_2) bytes
+        data_length = self.mtu - GattCharacteristicAttrLength.MTU_ATTR_2
+        expected_value = char_value[:data_length]
+        self.assertEqual(
+            expected_value, event['data']['value'],
+            "Received value should have {} bytes".format(data_length))
+
+        # set the mtu to max MTU-1
+        self.mtu = MtuSize.MAX.value - 1
+        self.log.info("Set mtu to max MTU - 1 : {}".format(self.mtu))
+        data_length = self.mtu - GattCharacteristicAttrLength.MTU_ATTR_2
+        if not setup_gatt_mtu(self.cen_ad, self.bluetooth_gatt,
+                              self.gatt_callback, self.mtu):
+            return False
+
+        # write the same characteric to Peripheral again
+        self.cen_ad.droid.gattClientWriteCharacteristic(
+            self.bluetooth_gatt, self.discovered_services_index,
+            self.test_service_index, self.WRITABLE_CHAR_UUID)
+
+        event = self._server_wait(GattEvent.CHAR_WRITE_REQ)
+        self.log.info("Data received when mtu = max MTU - 1: {}".format(event[
+            'data']['value']))
+
+        # check the data received by Peripheral shall be truncated to
+        # (mtu - GattCharacteristicAttrLength.MTU_ATTR_2) bytes
+        # when mtu is reduced
+        expected_value = char_value[:data_length]
+        self.assertEqual(
+            expected_value, event['data']['value'],
+            "Received value should have {} bytes".format(data_length))
+        return True
+
+    @BluetoothBaseTest.bt_test_wrap
+    @test_tracker_info(uuid='319eee6d-22d9-4498-bb15-21d0018e45e6')
     def test_write_characteristic_stress(self):
         """Stress test write characteristic value
 
@@ -321,6 +431,7 @@ class GattWriteTest(GattConnectedBaseTest):
         return True
 
     @BluetoothBaseTest.bt_test_wrap
+    @test_tracker_info(uuid='b19d42dc-58ba-4b20-b6c1-6628e7d21de4')
     def test_write_descriptor_stress(self):
         """Stress test write descriptor value
 
@@ -389,6 +500,7 @@ class GattWriteTest(GattConnectedBaseTest):
         return True
 
     @BluetoothBaseTest.bt_test_wrap
+    @test_tracker_info(uuid='74c147eb-2702-4cd8-be1f-efff3e9eaa6c')
     def test_write_characteristic_no_resp_stress(self):
         """Stress test write characteristic value
 

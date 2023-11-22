@@ -17,12 +17,10 @@
 package android.assist.cts;
 
 import android.assist.common.Utils;
-
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.provider.Settings;
 import android.util.Log;
 
 import java.util.concurrent.CountDownLatch;
@@ -39,6 +37,7 @@ public class AssistStructureTest extends AssistTestBase {
 
     private BroadcastReceiver mReceiver;
     private CountDownLatch mHasResumedLatch = new CountDownLatch(1);
+    private CountDownLatch mHasDrawedLatch = new CountDownLatch(1);
     private CountDownLatch mReadyLatch = new CountDownLatch(1);
 
     public AssistStructureTest() {
@@ -68,6 +67,7 @@ public class AssistStructureTest extends AssistTestBase {
         mReceiver = new AssistStructureTestBroadcastReceiver();
         IntentFilter filter = new IntentFilter();
         filter.addAction(Utils.APP_3P_HASRESUMED);
+        filter.addAction(Utils.APP_3P_HASDRAWED);
         filter.addAction(Utils.ASSIST_RECEIVER_REGISTERED);
         mContext.registerReceiver(mReceiver, filter);
     }
@@ -77,6 +77,15 @@ public class AssistStructureTest extends AssistTestBase {
         if (!mHasResumedLatch.await(Utils.ACTIVITY_ONRESUME_TIMEOUT_MS, TimeUnit.MILLISECONDS)) {
             fail("Activity failed to resume in " + Utils.ACTIVITY_ONRESUME_TIMEOUT_MS + "msec");
         }
+
+    }
+
+    private void waitForOnDraw() throws Exception {
+        Log.i(TAG, "waiting for onDraw() before continuing");
+        if (!mHasDrawedLatch.await(Utils.ACTIVITY_ONRESUME_TIMEOUT_MS, TimeUnit.MILLISECONDS)) {
+            fail("Activity failed to draw in " + Utils.ACTIVITY_ONRESUME_TIMEOUT_MS + "msec");
+        }
+
     }
 
     public void testAssistStructure() throws Throwable {
@@ -88,6 +97,7 @@ public class AssistStructureTest extends AssistTestBase {
         mTestActivity.startTest(TEST_CASE_TYPE);
         waitForAssistantToBeReady(mReadyLatch);
         waitForOnResume();
+        waitForOnDraw();
         startSession();
         waitForContext();
         getInstrumentation().waitForIdleSync();
@@ -111,6 +121,10 @@ public class AssistStructureTest extends AssistTestBase {
             } else if (action.equals(Utils.ASSIST_RECEIVER_REGISTERED)) {
                 if (mReadyLatch != null) {
                     mReadyLatch.countDown();
+                }
+            }else if (action.equals(Utils.APP_3P_HASDRAWED)) {
+                if (mHasDrawedLatch != null) {
+                    mHasDrawedLatch.countDown();
                 }
             }
         }

@@ -46,6 +46,7 @@ class ScopedBool {
     target_ = target;
     *target_ = true;
   }
+
  private:
   bool* target_;
 };
@@ -56,34 +57,26 @@ namespace trunks {
 
 ResourceManager::ResourceManager(const TrunksFactory& factory,
                                  CommandTransceiver* next_transceiver)
-    : factory_(factory),
-      next_transceiver_(next_transceiver) {}
+    : factory_(factory), next_transceiver_(next_transceiver) {}
 
 ResourceManager::~ResourceManager() {}
 
 void ResourceManager::Initialize() {
-  TPM_RC result = factory_.GetTpm()->StartupSync(TPM_SU_CLEAR, nullptr);
-  // Ignore TPM_RC_INITIALIZE, that means it was already started.
-  CHECK(result == TPM_RC_SUCCESS || result == TPM_RC_INITIALIZE)
-      << "TPM startup failure: " << GetErrorString(result);
-  result = factory_.GetTpm()->SelfTestSync(YES /* Full test. */, nullptr);
-  CHECK_EQ(result, TPM_RC_SUCCESS) << "TPM self-test failure: "
-                                   << GetErrorString(result);
+  // Abort if the TPM is not in a reasonable state and we can't get it into one.
+  std::unique_ptr<TpmUtility> tpm_utility = factory_.GetTpmUtility();
+  CHECK_EQ(tpm_utility->Startup(), TPM_RC_SUCCESS);
+  CHECK_EQ(tpm_utility->InitializeTpm(), TPM_RC_SUCCESS);
   // Full control of the TPM is assumed and required. Existing transient object
   // and session handles are mercilessly flushed.
-  for (UINT32 handle_type : {HR_TRANSIENT,
-                             HR_HMAC_SESSION,
-                             HR_POLICY_SESSION}) {
+  for (UINT32 handle_type :
+       {HR_TRANSIENT, HR_HMAC_SESSION, HR_POLICY_SESSION}) {
     TPMI_YES_NO more_data = YES;
     TPMS_CAPABILITY_DATA data;
     UINT32 handle_range = handle_type;
     while (more_data) {
-      result = factory_.GetTpm()->GetCapabilitySync(TPM_CAP_HANDLES,
-                                                    handle_range,
-                                                    MAX_CAP_HANDLES,
-                                                    &more_data,
-                                                    &data,
-                                                    nullptr);
+      TPM_RC result = factory_.GetTpm()->GetCapabilitySync(
+          TPM_CAP_HANDLES, handle_range, MAX_CAP_HANDLES, &more_data, &data,
+          nullptr);
       if (result != TPM_RC_SUCCESS) {
         LOG(WARNING) << "Failed to query existing handles: "
                      << GetErrorString(result);
@@ -96,15 +89,14 @@ void ResourceManager::Initialize() {
       if (more_data) {
         // Adjust the range to be greater than the most recent handle so on the
         // next query we'll start where we left off.
-        handle_range = handle_list.handle[handle_list.count-1];
+        handle_range = handle_list.handle[handle_list.count - 1];
       }
     }
   }
 }
 
-void ResourceManager::SendCommand(
-    const std::string& command,
-    const ResponseCallback& callback) {
+void ResourceManager::SendCommand(const std::string& command,
+                                  const ResponseCallback& callback) {
   callback.Run(SendCommandAndWait(command));
 }
 
@@ -141,8 +133,8 @@ std::string ResourceManager::SendCommandAndWait(const std::string& command) {
   }
   // On a ContextLoad we may need to map virtualized context data.
   if (command_info.code == TPM_CC_ContextLoad) {
-    std::string actual_load_data = GetActualContextFromExternalContext(
-        command_info.parameter_data);
+    std::string actual_load_data =
+        GetActualContextFromExternalContext(command_info.parameter_data);
     // Check equality to see if replacement is necessary, and check size to see
     // if the command looks like we expect (the idea is to avoid 'fixing'
     // malformed commands). Note: updated_command.size() is guaranteed to be >=
@@ -208,8 +200,7 @@ bool ResourceManager::ChooseSessionToEvict(
   for (auto& item : session_handles_) {
     HandleInfo& info = item.second;
     if (info.is_loaded &&
-        std::find(sessions_to_retain.begin(),
-                  sessions_to_retain.end(),
+        std::find(sessions_to_retain.begin(), sessions_to_retain.end(),
                   info.tpm_handle) == sessions_to_retain.end()) {
       candidates.push_back(item.first);
     }
@@ -220,8 +211,7 @@ bool ResourceManager::ChooseSessionToEvict(
   }
   // Choose the candidate with the earliest |time_of_last_use|.
   auto oldest_iter = std::min_element(
-      candidates.begin(), candidates.end(),
-      [this](TPM_HANDLE a, TPM_HANDLE b) {
+      candidates.begin(), candidates.end(), [this](TPM_HANDLE a, TPM_HANDLE b) {
         return (session_handles_[a].time_of_last_use <
                 session_handles_[b].time_of_last_use);
       });
@@ -297,8 +287,7 @@ void ResourceManager::EvictObjects(const MessageInfo& command_info) {
   for (auto& item : virtual_object_handles_) {
     HandleInfo& info = item.second;
     if (!info.is_loaded ||
-        std::find(command_info.handles.begin(),
-                  command_info.handles.end(),
+        std::find(command_info.handles.begin(), command_info.handles.end(),
                   item.first) != command_info.handles.end()) {
       continue;
     }
@@ -435,8 +424,8 @@ void ResourceManager::FlushSession(const MessageInfo& command_info) {
   if (!ChooseSessionToEvict(command_info.session_handles, &session_to_flush)) {
     return;
   }
-  TPM_RC result = factory_.GetTpm()->FlushContextSync(session_to_flush,
-                                                      nullptr);
+  TPM_RC result =
+      factory_.GetTpm()->FlushContextSync(session_to_flush, nullptr);
   if (result != TPM_RC_SUCCESS) {
     LOG(WARNING) << "Failed to flush session: " << GetErrorString(result);
     return;
@@ -468,16 +457,15 @@ TPM_RC ResourceManager::LoadContext(const MessageInfo& command_info,
   TPM_RC result = TPM_RC_SUCCESS;
   int attempts = 0;
   while (attempts++ < kMaxCommandAttempts) {
-    result = factory_.GetTpm()->ContextLoadSync(handle_info->context,
-                                                &handle_info->tpm_handle,
-                                                nullptr);
+    result = factory_.GetTpm()->ContextLoadSync(
+        handle_info->context, &handle_info->tpm_handle, nullptr);
     if (!FixWarnings(command_info, result)) {
       break;
     }
   }
   if (result != TPM_RC_SUCCESS) {
-    LOG(ERROR) << __func__ << ": Failed to load context: "
-               << GetErrorString(result);
+    LOG(ERROR) << __func__
+               << ": Failed to load context: " << GetErrorString(result);
     return result;
   }
   handle_info->is_loaded = true;
@@ -667,9 +655,8 @@ void ResourceManager::ProcessExternalContextSave(
   std::string mutable_parameter = response_info.parameter_data;
   TPMS_CONTEXT context;
   std::string context_blob;
-  TPM_RC result = Parse_TPMS_CONTEXT(&mutable_parameter,
-                                     &context,
-                                     &context_blob);
+  TPM_RC result =
+      Parse_TPMS_CONTEXT(&mutable_parameter, &context, &context_blob);
   if (result != TPM_RC_SUCCESS) {
     LOG(WARNING) << "Invalid context save response: " << GetErrorString(result);
     return;
@@ -720,8 +707,8 @@ std::string ResourceManager::ProcessFlushContext(
   // parameter.
   std::string handle_blob;
   Serialize_TPM_HANDLE(actual_handle, &handle_blob);
-  std::string updated_command = command.substr(0, kMessageHeaderSize) +
-                                handle_blob;
+  std::string updated_command =
+      command.substr(0, kMessageHeaderSize) + handle_blob;
   // No need to loop and fix warnings, there are no actionable warnings on when
   // flushing context.
   std::string response = next_transceiver_->SendCommandAndWait(updated_command);
@@ -820,25 +807,21 @@ TPM_RC ResourceManager::SaveContext(const MessageInfo& command_info,
     Serialize_TPM_HANDLE(handle_info->tpm_handle, &tpm_handle_name);
     result = factory_.GetTpm()->ContextSaveSync(handle_info->tpm_handle,
                                                 tpm_handle_name,
-                                                &handle_info->context,
-                                                nullptr);
+                                                &handle_info->context, nullptr);
     if (!FixWarnings(command_info, result)) {
       break;
     }
   }
   if (result != TPM_RC_SUCCESS) {
-    LOG(ERROR) << __func__ << ": Failed to load context: "
-               << GetErrorString(result);
+    LOG(ERROR) << __func__
+               << ": Failed to load context: " << GetErrorString(result);
     return result;
   }
   handle_info->is_loaded = false;
   return result;
 }
 
-
-ResourceManager::HandleInfo::HandleInfo()
-    : is_loaded(false),
-      tpm_handle(0) {
+ResourceManager::HandleInfo::HandleInfo() : is_loaded(false), tpm_handle(0) {
   memset(&context, 0, sizeof(TPMS_CONTEXT));
 }
 

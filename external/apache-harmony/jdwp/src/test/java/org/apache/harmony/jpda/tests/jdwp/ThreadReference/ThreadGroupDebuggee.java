@@ -65,7 +65,8 @@ public class ThreadGroupDebuggee extends SyncDebuggee {
             }
         }
     }
-    
+
+    @Override
     public void run() {
         ThreadGroup thrdGroup = new ThreadGroup(TESTED_GROUP);
         DebuggeeThread thrd = new DebuggeeThread(thrdGroup, TESTED_THREAD,
@@ -93,7 +94,7 @@ public class ThreadGroupDebuggee extends SyncDebuggee {
         synchronizer.receiveMessage(JPDADebuggeeSynchronizer.SGNL_CONTINUE);
     }
 
-    class DebuggeeThread extends Thread {
+    static class DebuggeeThread extends Thread {
 
         LogWriter logWriter;
         DebuggeeSynchronizer synchronizer;
@@ -105,6 +106,7 @@ public class ThreadGroupDebuggee extends SyncDebuggee {
             this.synchronizer = synchronizer;
         }
 
+        @Override
         public void run() {
 
             synchronized(ThreadGroupDebuggee.waitForFinish){

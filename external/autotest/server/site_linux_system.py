@@ -93,6 +93,8 @@ class LinuxSystem(object):
 
         self._phy_list = None
         self.phys_for_frequency, self.phy_bus_type = self._get_phy_info()
+        logging.debug('Current regulatory domain %r',
+                      self.iw_runner.get_regulatory_domain())
         self._interfaces = []
         for interface in self.iw_runner.list_interfaces():
             if self.inherit_interfaces:

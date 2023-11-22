@@ -28,6 +28,7 @@ import static com.android.cts.externalstorageapp.CommonExternalStorageTest.logCo
 import android.Manifest;
 import android.content.pm.PackageManager;
 import android.os.Environment;
+import org.junit.Before;
 import org.junit.Test;
 
 /**
@@ -35,6 +36,16 @@ import org.junit.Test;
  */
 public class UsePermissionTest23 extends BasePermissionsTest {
     private static final int REQUEST_CODE_PERMISSIONS = 42;
+
+    private boolean mLeanback;
+    private boolean mWatch;
+
+    @Before
+    public void initialize() {
+        PackageManager pm = getInstrumentation().getContext().getPackageManager();
+        mLeanback = pm.hasSystemFeature(PackageManager.FEATURE_LEANBACK);
+        mWatch = pm.hasSystemFeature(PackageManager.FEATURE_WATCH);
+    }
 
     public void testFail() throws Exception {
         fail("Expected");
@@ -564,12 +575,11 @@ public class UsePermissionTest23 extends BasePermissionsTest {
     }
 
     private void denyWithPrejudice() throws Exception {
-        if (!getInstrumentation().getContext().getPackageManager()
-                .hasSystemFeature(PackageManager.FEATURE_LEANBACK)) {
+        if (mLeanback || mWatch) {
+            clickDontAskAgainButton();
+        } else {
             clickDontAskAgainCheckbox();
             clickDenyButton();
-        } else {
-            clickDontAskAgainButton();
         }
     }
 }

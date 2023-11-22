@@ -43,6 +43,13 @@ import junit.framework.TestCase;
  */
 public class HttpsURLConnectionTest extends TestCase {
 
+    @Override
+    public void setUp() throws Exception {
+        // Set the default SSL Socket factory to avoid an unmatched SSLSocketFactory
+        HttpsURLConnection.setDefaultSSLSocketFactory(
+            (SSLSocketFactory)SSLSocketFactory.getDefault());
+    }
+
     /**
      * javax.net.ssl.HttpsURLConnection#HttpsURLConnection(java_net_URL)
      */

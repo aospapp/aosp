@@ -20,8 +20,6 @@
 
 #include <openssl/ssl.h>
 
-#include "../crypto/test/scoped_types.h"
-#include "../ssl/test/scoped_types.h"
 #include "internal.h"
 
 
@@ -33,8 +31,8 @@ bool Ciphers(const std::vector<std::string> &args) {
 
   const std::string &ciphers_string = args.back();
 
-  ScopedSSL_CTX ctx(SSL_CTX_new(SSLv23_client_method()));
-  if (!SSL_CTX_set_cipher_list(ctx.get(), ciphers_string.c_str())) {
+  bssl::UniquePtr<SSL_CTX> ctx(SSL_CTX_new(SSLv23_client_method()));
+  if (!SSL_CTX_set_strict_cipher_list(ctx.get(), ciphers_string.c_str())) {
     fprintf(stderr, "Failed to parse cipher suite config.\n");
     ERR_print_errors_fp(stderr);
     return false;

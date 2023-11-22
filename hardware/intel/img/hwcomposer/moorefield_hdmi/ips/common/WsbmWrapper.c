@@ -136,7 +136,8 @@ int psbWsbmInitialize(int drmFD)
         goto out;
     }
 
-    VLOGTRACE("ioctl offset %#x", arg.rep.driver_ioctl_offset);
+    unsigned int ioctl_offset = arg.rep.driver_ioctl_offset;
+    ILOGTRACE("ioctl offset %#x", ioctl_offset);
 
     mainPool = wsbmTTMPoolInit(drmFD, arg.rep.driver_ioctl_offset);
     if(!mainPool) {
@@ -356,8 +357,9 @@ void * psbWsbmGetCPUAddress(void * buf)
         return NULL;
     }
 
+    unsigned long buf_size = wsbmBOSize((struct _WsbmBufferObject *)buf);
     VLOGTRACE("mapped successfully. %p, size %ld",
-        address, wsbmBOSize((struct _WsbmBufferObject *)buf));
+        address, buf_size);
 
     return address;
 }
@@ -374,7 +376,8 @@ uint32_t psbWsbmGetGttOffset(void * buf)
     uint32_t offset =
         wsbmBOOffsetHint((struct _WsbmBufferObject *)buf) - 0x10000000;
 
-    VLOGTRACE("offset %#x", offset >> 12);
+    uint32_t offset_tmp = offset >> 12;
+    VLOGTRACE("offset %#x", offset_tmp);
 
     return offset >> 12;
 }

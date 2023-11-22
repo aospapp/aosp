@@ -1,5 +1,28 @@
+/*
+ * Copyright (C) 2017 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 package com.googlecode.android_scripting.facade.wifi;
+
+import com.googlecode.android_scripting.FileUtils;
+import com.googlecode.android_scripting.Log;
+import com.googlecode.android_scripting.facade.FacadeManager;
+import com.googlecode.android_scripting.jsonrpc.RpcReceiver;
+import com.googlecode.android_scripting.rpc.Rpc;
+import com.googlecode.android_scripting.rpc.RpcOptional;
+import com.googlecode.android_scripting.rpc.RpcParameter;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedReader;
@@ -18,12 +41,6 @@ import java.net.UnknownHostException;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 
-import com.googlecode.android_scripting.Log;
-import com.googlecode.android_scripting.facade.FacadeManager;
-import com.googlecode.android_scripting.jsonrpc.RpcReceiver;
-import com.googlecode.android_scripting.rpc.Rpc;
-import com.googlecode.android_scripting.rpc.RpcParameter;
-import com.googlecode.android_scripting.rpc.RpcOptional;
 
 /**
  * Basic http operations.
@@ -71,6 +88,7 @@ public class HttpFacade extends RpcReceiver {
         while ((str = r.readLine()) != null) {
             sb.append(str);
         }
+        r.close();
         return sb.toString();
     }
 
@@ -92,10 +110,6 @@ public class HttpFacade extends RpcReceiver {
         } catch (IOException e) {
             Log.e("Failed to open a connection to " + url);
             Log.e(e.toString());
-        } finally {
-            if (urlConnection != null) {
-                urlConnection.disconnect();
-            }
         }
         return urlConnection;
     }
@@ -113,31 +127,54 @@ public class HttpFacade extends RpcReceiver {
         return socketCnt;
     }
 
-    @Rpc(description = "Download a file from specified url.")
-    public void httpDownloadFile(@RpcParameter(name = "url") String url) throws IOException {
+    @Rpc(description = "Download a file from specified url, to an (optionally) specified path.")
+    public void httpDownloadFile(@RpcParameter(name = "url") String url,
+            @RpcParameter(name="outPath") @RpcOptional String outPath) throws IOException {
+        // Create the input stream
         HttpURLConnection urlConnection = httpRequest(url);
-        String filename = null;
-        String contentDisposition = urlConnection.getHeaderField("Content-Disposition");
-        // Try to figure out the name of the file being downloaded.
-        // If the server returned a filename, use it.
-        if (contentDisposition != null) {
-            int idx = contentDisposition.toLowerCase().indexOf("filename");
-            if (idx != -1) {
-                filename = contentDisposition.substring(idx + 9);
-                Log.d("Using name returned by server: " + filename);
+        // Parse destination path and create the output stream. The function assumes that the path
+        // is specified relative to the system default Download dir.
+        File outFile = FileUtils.getExternalDownload();
+        if (outPath != null && outPath.trim().length() != 0) {
+            // Check to see if the path is absolute.
+            if (outPath.startsWith("/")) {
+                outFile = new File(outPath);
+            } else {
+                outFile = new File(outFile, outPath);
+            }
+            // Check to see if specified path should be a dir.
+            if (outPath.endsWith("/")) {
+                if (!outFile.isDirectory() && !outFile.mkdirs()) {
+                    throw new IOException("Failed to create the path: " + outPath);
+                }
             }
         }
-        // If the server did not provide a filename to us, use the last part of url.
-        if (filename == null) {
-            int lastIdx = url.lastIndexOf('/');
-            filename = url.substring(lastIdx + 1);
-            Log.d("Using name from url: " + filename);
+        // If no filename was specified, use the filename provided by the server.
+        if (outFile.isDirectory()) {
+            String filename = "";
+            String contentDisposition = urlConnection.getHeaderField("Content-Disposition");
+            // Try to figure out the name of the file being downloaded.
+            // If the server returned a filename, use it.
+            if (contentDisposition != null) {
+                int idx = contentDisposition.toLowerCase().indexOf("filename");
+                if (idx != -1) {
+                    filename = contentDisposition.substring(idx + 9);
+                    Log.d("Using filename returned by server: " + filename);
+                }
+            }
+            // If the server did not provide a filename to us, use the last part of url.
+            if (filename.trim().length() == 0) {
+               int lastIdx = url.lastIndexOf('/');
+                filename = url.substring(lastIdx + 1);
+                Log.d("Using name from url: " + filename);
+            }
+            outFile = new File(outFile, filename);
         }
         InputStream in = new BufferedInputStream(urlConnection.getInputStream());
-        String outPath = "/sdcard/Download/" + filename;
-        OutputStream output = new FileOutputStream(new File(outPath));
+        OutputStream output = new FileOutputStream(outFile);
         inputStreamToOutputStream(in, output);
-        Log.d("Downloaded file at " + outPath);
+        Log.d("Downloaded file from " + url + " to " + outPath);
+        urlConnection.disconnect();
     }
 
     @Rpc(description = "Make an http request and return the response message.")
@@ -145,6 +182,7 @@ public class HttpFacade extends RpcReceiver {
         try {
             HttpURLConnection urlConnection = null;
             urlConnection = httpRequest(url);
+            urlConnection.disconnect();
             return urlConnection;
         } catch (UnknownHostException e) {
             return null;
@@ -157,6 +195,7 @@ public class HttpFacade extends RpcReceiver {
         InputStream in = new BufferedInputStream(urlConnection.getInputStream());
         String result = inputStreamToString(in);
         Log.d("Fetched: " + result);
+        urlConnection.disconnect();
         return result;
     }
 
@@ -170,7 +209,8 @@ public class HttpFacade extends RpcReceiver {
     @Rpc(description = "Ping to host(URL or IP), return success (true) or fail (false).")
     // The optional timeout parameter is in unit of second.
     public Boolean pingHost(@RpcParameter(name = "host") String hostString,
-            @RpcParameter(name = "timeout") @RpcOptional Integer timeout) {
+            @RpcParameter(name = "timeout") @RpcOptional Integer timeout,
+            @RpcParameter(name = "ping") @RpcOptional String pingType) {
         try {
             String host;
             try {
@@ -183,6 +223,9 @@ public class HttpFacade extends RpcReceiver {
 
             Log.d("Host:" + host);
             String pingCmdString = "ping -c 1 ";
+            if(pingType!=null && pingType.equals("ping6")) {
+                pingCmdString = "ping6 -c 1 ";
+            }
             if (timeout != null) {
                 pingCmdString = pingCmdString + "-W " + timeout + " ";
             }

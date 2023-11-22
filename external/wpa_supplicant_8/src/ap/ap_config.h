@@ -41,6 +41,10 @@ struct mesh_conf {
 #define MESH_CONF_SEC_AUTH BIT(1)
 #define MESH_CONF_SEC_AMPE BIT(2)
 	unsigned int security;
+	enum mfp_options ieee80211w;
+	unsigned int pairwise_cipher;
+	unsigned int group_cipher;
+	unsigned int mgmt_group_cipher;
 	int dot11MeshMaxRetries;
 	int dot11MeshRetryTimeout; /* msec */
 	int dot11MeshConfirmTimeout; /* msec */
@@ -220,6 +224,12 @@ struct anqp_element {
 	struct wpabuf *payload;
 };
 
+struct fils_realm {
+	struct dl_list list;
+	u8 hash[2];
+	char realm[];
+};
+
 
 /**
  * struct hostapd_bss_config - Per-BSS configuration
@@ -259,6 +269,7 @@ struct hostapd_bss_config {
 	int radius_das_port;
 	unsigned int radius_das_time_window;
 	int radius_das_require_event_timestamp;
+	int radius_das_require_message_authenticator;
 	struct hostapd_ip_addr radius_das_client_addr;
 	u8 *radius_das_shared_secret;
 	size_t radius_das_shared_secret_len;
@@ -282,7 +293,7 @@ struct hostapd_bss_config {
 	char iapp_iface[IFNAMSIZ + 1]; /* interface used with IAPP broadcast
 					* frames */
 
-	enum {
+	enum macaddr_acl {
 		ACCEPT_UNLESS_DENIED = 0,
 		DENY_UNLESS_ACCEPTED = 1,
 		USE_EXTERNAL_RADIUS_AUTH = 2
@@ -319,12 +330,14 @@ struct hostapd_bss_config {
 	int wpa_strict_rekey;
 	int wpa_gmk_rekey;
 	int wpa_ptk_rekey;
+	u32 wpa_group_update_count;
+	u32 wpa_pairwise_update_count;
 	int rsn_pairwise;
 	int rsn_preauth;
 	char *rsn_preauth_interfaces;
 	int peerkey;
 
-#ifdef CONFIG_IEEE80211R
+#ifdef CONFIG_IEEE80211R_AP
 	/* IEEE 802.11r - Fast BSS Transition */
 	u8 mobility_domain[MOBILITY_DOMAIN_ID_LEN];
 	u8 r1_key_holder[FT_R1KH_ID_LEN];
@@ -334,7 +347,8 @@ struct hostapd_bss_config {
 	struct ft_remote_r1kh *r1kh_list;
 	int pmk_r1_push;
 	int ft_over_ds;
-#endif /* CONFIG_IEEE80211R */
+	int ft_psk_generate_local;
+#endif /* CONFIG_IEEE80211R_AP */
 
 	char *ctrl_interface; /* directory for UNIX domain sockets */
 #ifndef CONFIG_NATIVE_WINDOWS
@@ -503,7 +517,8 @@ struct hostapd_bss_config {
 	struct dl_list anqp_elem; /* list of struct anqp_element */
 
 	u16 gas_comeback_delay;
-	int gas_frag_limit;
+	size_t gas_frag_limit;
+	int gas_address3;
 
 	u8 qos_map_set[16 + 2 * 21];
 	unsigned int qos_map_set_len;
@@ -557,6 +572,7 @@ struct hostapd_bss_config {
 #endif /* CONFIG_RADIUS_TEST */
 
 	struct wpabuf *vendor_elements;
+	struct wpabuf *assocresp_elements;
 
 	unsigned int sae_anti_clogging_threshold;
 	int *sae_groups;
@@ -572,9 +588,10 @@ struct hostapd_bss_config {
 #define MESH_ENABLED BIT(0)
 	int mesh;
 
-	int radio_measurements;
+	u8 radio_measurements[RRM_CAPABILITIES_IE_LEN];
 
 	int vendor_vht;
+	int use_sta_nsts;
 
 	char *no_probe_resp_if_seen_on;
 	char *no_auth_if_seen_on;
@@ -584,8 +601,42 @@ struct hostapd_bss_config {
 #ifdef CONFIG_MBO
 	int mbo_enabled;
 #endif /* CONFIG_MBO */
+
+	int ftm_responder;
+	int ftm_initiator;
+
+#ifdef CONFIG_FILS
+	u8 fils_cache_id[FILS_CACHE_ID_LEN];
+	int fils_cache_id_set;
+	struct dl_list fils_realms; /* list of struct fils_realm */
+	struct hostapd_ip_addr dhcp_server;
+	int dhcp_rapid_commit_proxy;
+	unsigned int fils_hlp_wait_time;
+	u16 dhcp_server_port;
+	u16 dhcp_relay_port;
+#endif /* CONFIG_FILS */
+
+	int multicast_to_unicast;
 };
 
+/**
+ * struct he_phy_capabilities_info - HE PHY capabilities
+ */
+struct he_phy_capabilities_info {
+	Boolean he_su_beamformer;
+	Boolean he_su_beamformee;
+	Boolean he_mu_beamformer;
+};
+
+/**
+ * struct he_operation - HE operation
+ */
+struct he_operation {
+	u8 he_bss_color;
+	u8 he_default_pe_duration;
+	u8 he_twt_required;
+	u8 he_rts_threshold;
+};
 
 /**
  * struct hostapd_config - Per-radio interface configuration
@@ -609,6 +660,8 @@ struct hostapd_config {
 
 	int *supported_rates;
 	int *basic_rates;
+	unsigned int beacon_rate;
+	enum beacon_rate_type rate_type;
 
 	const struct wpa_driver_ops *driver;
 	char *driver_params;
@@ -693,6 +746,16 @@ struct hostapd_config {
 	} *acs_chan_bias;
 	unsigned int num_acs_chan_bias;
 #endif /* CONFIG_ACS */
+
+	struct wpabuf *lci;
+	struct wpabuf *civic;
+	int stationary_ap;
+
+	int ieee80211ax;
+#ifdef CONFIG_IEEE80211AX
+	struct he_phy_capabilities_info he_phy_capab;
+	struct he_operation he_op;
+#endif /* CONFIG_IEEE80211AX */
 };
 
 
@@ -700,6 +763,7 @@ int hostapd_mac_comp(const void *a, const void *b);
 struct hostapd_config * hostapd_config_defaults(void);
 void hostapd_config_defaults_bss(struct hostapd_bss_config *bss);
 void hostapd_config_free_eap_user(struct hostapd_eap_user *user);
+void hostapd_config_free_eap_users(struct hostapd_eap_user *user);
 void hostapd_config_clear_wpa_psk(struct hostapd_wpa_psk **p);
 void hostapd_config_free_bss(struct hostapd_bss_config *conf);
 void hostapd_config_free(struct hostapd_config *conf);

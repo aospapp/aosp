@@ -16,6 +16,7 @@
 
 package com.android.tv.guide;
 
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.res.ColorStateList;
 import android.content.res.Resources;
@@ -24,7 +25,6 @@ import android.graphics.drawable.LayerDrawable;
 import android.graphics.drawable.StateListDrawable;
 import android.os.Handler;
 import android.os.SystemClock;
-import android.support.v4.os.BuildCompat;
 import android.text.SpannableStringBuilder;
 import android.text.Spanned;
 import android.text.TextUtils;
@@ -34,6 +34,7 @@ import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.android.tv.ApplicationSingletons;
 import com.android.tv.MainActivity;
@@ -43,10 +44,10 @@ import com.android.tv.analytics.Tracker;
 import com.android.tv.common.feature.CommonFeatures;
 import com.android.tv.data.Channel;
 import com.android.tv.dvr.DvrManager;
-import com.android.tv.dvr.ui.DvrDialogFragment;
-import com.android.tv.dvr.ui.DvrRecordDeleteFragment;
-import com.android.tv.dvr.ui.DvrRecordScheduleFragment;
+import com.android.tv.dvr.DvrUiHelper;
+import com.android.tv.dvr.ScheduledRecording;
 import com.android.tv.guide.ProgramManager.TableEntry;
+import com.android.tv.util.ToastUtils;
 import com.android.tv.util.Utils;
 
 import java.lang.reflect.InvocationTargetException;
@@ -66,11 +67,13 @@ public class ProgramItemView extends TextView {
 
     private static int sVisibleThreshold;
     private static int sItemPadding;
+    private static int sCompoundDrawablePadding;
     private static TextAppearanceSpan sProgramTitleStyle;
     private static TextAppearanceSpan sGrayedOutProgramTitleStyle;
     private static TextAppearanceSpan sEpisodeTitleStyle;
     private static TextAppearanceSpan sGrayedOutEpisodeTitleStyle;
 
+    private DvrManager mDvrManager;
     private TableEntry mTableEntry;
     private int mMaxWidthForRipple;
     private int mTextWidth;
@@ -91,10 +94,9 @@ public class ProgramItemView extends TextView {
             ApplicationSingletons singletons = TvApplication.getSingletons(view.getContext());
             Tracker tracker = singletons.getTracker();
             tracker.sendEpgItemClicked();
+            final MainActivity tvActivity = (MainActivity) view.getContext();
+            final Channel channel = tvActivity.getChannelDataManager().getChannel(entry.channelId);
             if (entry.isCurrentProgram()) {
-                final MainActivity tvActivity = (MainActivity) view.getContext();
-                final Channel channel = tvActivity.getChannelDataManager()
-                        .getChannel(entry.channelId);
                 view.postDelayed(new Runnable() {
                     @Override
                     public void run() {
@@ -104,36 +106,29 @@ public class ProgramItemView extends TextView {
                 }, entry.getWidth() > ((ProgramItemView) view).mMaxWidthForRipple ? 0
                         : view.getResources()
                                 .getInteger(R.integer.program_guide_ripple_anim_duration));
-            } else if (CommonFeatures.DVR.isEnabled(view.getContext()) && BuildCompat
-                    .isAtLeastN()) {
-                final MainActivity tvActivity = (MainActivity) view.getContext();
-                final DvrManager dvrManager = singletons.getDvrManager();
-                final Channel channel = tvActivity.getChannelDataManager()
-                        .getChannel(entry.channelId);
-                if (dvrManager.canRecord(channel.getInputId()) && entry.program != null) {
+            } else if (CommonFeatures.DVR.isEnabled(view.getContext())) {
+                DvrManager dvrManager = singletons.getDvrManager();
+                if (entry.entryStartUtcMillis > System.currentTimeMillis()
+                        && dvrManager.isProgramRecordable(entry.program)) {
                     if (entry.scheduledRecording == null) {
-                        showDvrDialog(view, entry);
+                        if (DvrUiHelper.checkStorageStatusAndShowErrorMessage(tvActivity,
+                                channel.getInputId())
+                                && DvrUiHelper.handleCreateSchedule(tvActivity, entry.program)) {
+                            String msg = view.getContext().getString(
+                                    R.string.dvr_msg_program_scheduled, entry.program.getTitle());
+                            ToastUtils.show(view.getContext(), msg, Toast.LENGTH_SHORT);
+                        }
                     } else {
-                        showRecordDeleteDialog(view, entry);
+                        dvrManager.removeScheduledRecording(entry.scheduledRecording);
+                        String msg = view.getResources().getString(
+                                R.string.dvr_schedules_deletion_info, entry.program.getTitle());
+                        ToastUtils.show(view.getContext(), msg, Toast.LENGTH_SHORT);
                     }
+                } else {
+                    ToastUtils.show(view.getContext(), view.getResources()
+                            .getString(R.string.dvr_msg_cannot_record_program), Toast.LENGTH_SHORT);
                 }
             }
-        }
-
-        private void showDvrDialog(final View view, TableEntry entry) {
-            Utils.showToastMessageForDeveloperFeature(view.getContext());
-            DvrRecordScheduleFragment dvrRecordScheduleFragment =
-                    new DvrRecordScheduleFragment(entry);
-            DvrDialogFragment dvrDialogFragment = new DvrDialogFragment(dvrRecordScheduleFragment);
-            ((MainActivity) view.getContext()).getOverlayManager().showDialogFragment(
-                    DvrDialogFragment.DIALOG_TAG, dvrDialogFragment, true, true);
-        }
-
-        private void showRecordDeleteDialog(final View view, final TableEntry entry) {
-            DvrRecordDeleteFragment recordDeleteDialogFragment = new DvrRecordDeleteFragment(entry);
-            DvrDialogFragment dvrDialogFragment = new DvrDialogFragment(recordDeleteDialogFragment);
-            ((MainActivity) view.getContext()).getOverlayManager().showDialogFragment(
-                    DvrDialogFragment.DIALOG_TAG, dvrDialogFragment, true, true);
         }
     };
 
@@ -185,6 +180,7 @@ public class ProgramItemView extends TextView {
         super(context, attrs, defStyle);
         setOnClickListener(ON_CLICKED);
         setOnFocusChangeListener(ON_FOCUS_CHANGED);
+        mDvrManager = TvApplication.getSingletons(getContext()).getDvrManager();
     }
 
     private void initIfNeeded() {
@@ -197,15 +193,18 @@ public class ProgramItemView extends TextView {
                 R.dimen.program_guide_table_item_visible_threshold);
 
         sItemPadding = res.getDimensionPixelOffset(R.dimen.program_guide_table_item_padding);
+        sCompoundDrawablePadding = res.getDimensionPixelOffset(
+                R.dimen.program_guide_table_item_compound_drawable_padding);
 
-        ColorStateList programTitleColor = ColorStateList.valueOf(Utils.getColor(res,
-                R.color.program_guide_table_item_program_title_text_color));
-        ColorStateList grayedOutProgramTitleColor = Utils.getColorStateList(res,
-                R.color.program_guide_table_item_grayed_out_program_text_color);
-        ColorStateList episodeTitleColor = ColorStateList.valueOf(Utils.getColor(res,
-                R.color.program_guide_table_item_program_episode_title_text_color));
-        ColorStateList grayedOutEpisodeTitleColor = ColorStateList.valueOf(Utils.getColor(res,
-                R.color.program_guide_table_item_grayed_out_program_episode_title_text_color));
+        ColorStateList programTitleColor = ColorStateList.valueOf(res.getColor(
+                R.color.program_guide_table_item_program_title_text_color, null));
+        ColorStateList grayedOutProgramTitleColor = res.getColorStateList(
+                R.color.program_guide_table_item_grayed_out_program_text_color, null);
+        ColorStateList episodeTitleColor = ColorStateList.valueOf(res.getColor(
+                R.color.program_guide_table_item_program_episode_title_text_color, null));
+        ColorStateList grayedOutEpisodeTitleColor = ColorStateList.valueOf(res.getColor(
+                R.color.program_guide_table_item_grayed_out_program_episode_title_text_color,
+                null));
         int programTitleSize = res.getDimensionPixelSize(
                 R.dimen.program_guide_table_item_program_title_font_size);
         int episodeTitleSize = res.getDimensionPixelSize(
@@ -247,6 +246,7 @@ public class ProgramItemView extends TextView {
         return mTableEntry;
     }
 
+    @SuppressLint("SwitchIntDef")
     public void setValues(TableEntry entry, int selectedGenreId, long fromUtcMillis,
             long toUtcMillis, String gapTitle) {
         mTableEntry = entry;
@@ -275,11 +275,6 @@ public class ProgramItemView extends TextView {
             if (TextUtils.isEmpty(title)) {
                 title = getResources().getString(R.string.program_title_for_no_information);
             }
-            if (mTableEntry.scheduledRecording != null) {
-                //TODO(dvr): use a proper icon for UI status.
-                title = "®" + title;
-            }
-
             SpannableStringBuilder description = new SpannableStringBuilder();
             description.append(title);
             if (!TextUtils.isEmpty(episode)) {
@@ -302,15 +297,45 @@ public class ProgramItemView extends TextView {
                         Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
             }
             setText(description);
+
+            // Sets recording icons if needed.
+            int iconResId = 0;
+            if (mTableEntry.scheduledRecording != null) {
+                if (mDvrManager.isConflicting(mTableEntry.scheduledRecording)) {
+                    iconResId = R.drawable.ic_warning_white_18dp;
+                } else {
+                    switch (mTableEntry.scheduledRecording.getState()) {
+                        case ScheduledRecording.STATE_RECORDING_NOT_STARTED:
+                            iconResId = R.drawable.ic_scheduled_recording;
+                            break;
+                        case ScheduledRecording.STATE_RECORDING_IN_PROGRESS:
+                            iconResId = R.drawable.ic_recording_program;
+                            break;
+                    }
+                }
+            }
+            setCompoundDrawablePadding(iconResId != 0 ? sCompoundDrawablePadding : 0);
+            setCompoundDrawablesRelativeWithIntrinsicBounds(0, 0, iconResId, 0);
         }
         measure(MeasureSpec.UNSPECIFIED, MeasureSpec.UNSPECIFIED);
         mTextWidth = getMeasuredWidth() - getPaddingStart() - getPaddingEnd();
-        int start = GuideUtils.convertMillisToPixel(entry.entryStartUtcMillis);
-        int guideStart = GuideUtils.convertMillisToPixel(fromUtcMillis);
-        layoutVisibleArea(guideStart - start);
-
         // Maximum width for us to use a ripple
         mMaxWidthForRipple = GuideUtils.convertMillisToPixel(fromUtcMillis, toUtcMillis);
+    }
+
+    /**
+     * Update programItemView to handle alignments of text.
+     */
+    public void updateVisibleArea() {
+        View parentView = ((View) getParent());
+        if (parentView == null) {
+            return;
+        }
+        if (getLayoutDirection() == LAYOUT_DIRECTION_LTR) {
+            layoutVisibleArea(parentView.getLeft() - getLeft(), getRight() - parentView.getRight());
+        } else  {
+            layoutVisibleArea(getRight() - parentView.getRight(), parentView.getLeft() - getLeft());
+        }
     }
 
     /**
@@ -322,19 +347,25 @@ public class ProgramItemView extends TextView {
      *      but do not wrap text less than 30min.
      *   3. Episode title is visible only if title isn't multi-line.
      *
-     * @param offset Offset of the start position from the enclosing view's start position.
+     * @param startOffset Offset of the start position from the enclosing view's start position.
+     * @param endOffset Offset of the end position from the enclosing view's end position.
      */
-     public void layoutVisibleArea(int offset) {
+     private void layoutVisibleArea(int startOffset, int endOffset) {
         int width = mTableEntry.getWidth();
-        int startPadding = Math.max(0, offset);
+        int startPadding = Math.max(0, startOffset);
+        int endPadding = Math.max(0, endOffset);
         int minWidth = Math.min(width, mTextWidth + 2 * sItemPadding);
         if (startPadding > 0 && width - startPadding < minWidth) {
             startPadding = Math.max(0, width - minWidth);
         }
+        if (endPadding > 0 && width - endPadding < minWidth) {
+            endPadding = Math.max(0, width - minWidth);
+        }
 
-        if (startPadding + sItemPadding != getPaddingStart()) {
+        if (startPadding + sItemPadding != getPaddingStart()
+                || endPadding + sItemPadding != getPaddingEnd()) {
             mPreventParentRelayout = true; // The size of this view is kept, no need to tell parent.
-            setPaddingRelative(startPadding + sItemPadding, 0, sItemPadding, 0);
+            setPaddingRelative(startPadding + sItemPadding, 0, endPadding + sItemPadding, 0);
             mPreventParentRelayout = false;
         }
     }

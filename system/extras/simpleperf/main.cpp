@@ -24,10 +24,12 @@
 #include "command.h"
 #include "utils.h"
 
+constexpr int SIMPLEPERF_VERSION = 1;
+
 int main(int argc, char** argv) {
-  InitLogging(argv, android::base::StderrLogger);
+  android::base::InitLogging(argv, android::base::StderrLogger);
   std::vector<std::string> args;
-  android::base::LogSeverity log_severity = android::base::WARNING;
+  android::base::LogSeverity log_severity = android::base::INFO;
 
   for (int i = 1; i < argc; ++i) {
     if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
@@ -43,6 +45,10 @@ int main(int argc, char** argv) {
         LOG(ERROR) << "Missing argument for --log option.\n";
         return 1;
       }
+    } else if (strcmp(argv[i], "--version") == 0) {
+      LOG(INFO) << "Simpleperf version " << SIMPLEPERF_VERSION << ", revision "
+                << SIMPLEPERF_REVISION;
+      return 0;
     } else {
       args.push_back(argv[i]);
     }

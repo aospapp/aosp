@@ -30,7 +30,7 @@ import dot.junit.opcodes.iget_short.d.T_iget_short_8;
 import dot.junit.opcodes.iget_short.d.T_iget_short_9;
 
 public class Test_iget_short extends DxTestCase {
-    
+
     /**
      * @title get short from field
      */
@@ -58,7 +58,7 @@ public class Test_iget_short extends DxTestCase {
     }
 
     /**
-     * @constraint A11 
+     * @constraint A11
      * @title constant pool index
      */
     public void testVFE1() {
@@ -66,24 +66,22 @@ public class Test_iget_short extends DxTestCase {
     }
 
     /**
-     * 
-     * @constraint A23 
+     * @constraint A23
      * @title number of registers
      */
     public void testVFE2() {
         load("dot.junit.opcodes.iget_short.d.T_iget_short_3", VerifyError.class);
     }
-    
+
     /**
-     * 
-     * @constraint B13 
-     * @title read short from long field - only field with same name but 
+     * @constraint B13
+     * @title read short from long field - only field with same name but
      * different type exists
      */
     public void testVFE3() {
         loadAndRun("dot.junit.opcodes.iget_short.d.T_iget_short_13", NoSuchFieldError.class);
     }
-    
+
     /**
      * @constraint n/a
      * @title Attempt to read inaccessible field.
@@ -108,7 +106,7 @@ public class Test_iget_short extends DxTestCase {
     public void testVFE6() {
         loadAndRun("dot.junit.opcodes.iget_short.d.T_iget_short_8", NoSuchFieldError.class);
     }
-    
+
     /**
      * @constraint n/a
      * @title Attempt to read superclass' private field from subclass.
@@ -117,69 +115,63 @@ public class Test_iget_short extends DxTestCase {
         //@uses dot.junit.opcodes.iget_short.d.T_iget_short_1
         loadAndRun("dot.junit.opcodes.iget_short.d.T_iget_short_12", IllegalAccessError.class);
     }
-   
+
     /**
-     * @constraint B1 
+     * @constraint B1
      * @title iget_short shall not work for reference fields
      */
     public void testVFE8() {
         load("dot.junit.opcodes.iget_short.d.T_iget_short_14", VerifyError.class);
     }
-    
+
     /**
-     * 
-     * @constraint B1 
+     * @constraint B1
      * @title iget_short shall not work for char fields
      */
     public void testVFE9() {
         load("dot.junit.opcodes.iget_short.d.T_iget_short_15", VerifyError.class);
     }
-    
+
     /**
-     * 
-     * @constraint B1 
+     * @constraint B1
      * @title iget_short shall not work for int fields
      */
     public void testVFE10() {
         load("dot.junit.opcodes.iget_short.d.T_iget_short_16", VerifyError.class);
     }
-    
+
     /**
-     * 
-     * @constraint B1 
+     * @constraint B1
      * @title iget_short shall not work for byte fields
      */
     public void testVFE11() {
         load("dot.junit.opcodes.iget_short.d.T_iget_short_17", VerifyError.class);
     }
-    
+
     /**
-     * 
-     * @constraint B1 
+     * @constraint B1
      * @title iget_short shall not work for boolean fields
      */
     public void testVFE12() {
         load("dot.junit.opcodes.iget_short.d.T_iget_short_18", VerifyError.class);
-    }    
-    
+    }
+
     /**
-     * 
-     * @constraint B1 
+     * @constraint B1
      * @title iget_short shall not work for double fields
      */
     public void testVFE13() {
         load("dot.junit.opcodes.iget_short.d.T_iget_short_19", VerifyError.class);
-    } 
-    
+    }
+
     /**
-     * 
-     * @constraint B1 
+     * @constraint B1
      * @title iget_short shall not work for long fields
      */
     public void testVFE14() {
         load("dot.junit.opcodes.iget_short.d.T_iget_short_20", VerifyError.class);
     }
-    
+
     /**
      * @constraint B12
      * @title Attempt to read inaccessible protected field.
@@ -194,24 +186,32 @@ public class Test_iget_short extends DxTestCase {
      * @title Attempt to read static  field.
      */
     public void testVFE16() {
-        //@uses dot.junit.opcodes.iget_short.TestStubs
         loadAndRun("dot.junit.opcodes.iget_short.d.T_iget_short_5",
                    IncompatibleClassChangeError.class);
     }
 
     /**
-     * @constraint B6 
-     * @title instance fields may only be accessed on already initialized instances. 
+     * @constraint B6
+     * @title instance fields may only be accessed on already initialized instances.
      */
     public void testVFE30() {
         load("dot.junit.opcodes.iget_short.d.T_iget_short_30", VerifyError.class);
     }
 
     /**
-     * @constraint N/A 
-     * @title instance fields may only be accessed on already initialized instances. 
+     * @constraint N/A
+     * @title instance fields may only be accessed on already initialized instances.
      */
     public void testVFE31() {
         load("dot.junit.opcodes.iget_short.d.T_iget_short_31", VerifyError.class);
+    }
+
+    /**
+     * @constraint N/A
+     * @title Attempt to read inaccessible protected field on uninitialized reference.
+     */
+    public void testVFE35() {
+        //@uses dot.junit.opcodes.iget_short.TestStubs
+        load("dot.junit.opcodes.iget_short.d.T_iget_short_35", VerifyError.class);
     }
 }

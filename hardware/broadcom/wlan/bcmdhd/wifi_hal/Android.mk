@@ -36,6 +36,7 @@ LOCAL_SRC_FILES := \
 	wifi_offload.cpp
 
 LOCAL_MODULE := libwifi-hal-bcm
+LOCAL_PROPRIETARY_MODULE := true
 
 include $(BUILD_STATIC_LIBRARY)
 

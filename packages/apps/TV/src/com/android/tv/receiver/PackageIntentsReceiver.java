@@ -29,6 +29,7 @@ public class PackageIntentsReceiver extends BroadcastReceiver {
 
     @Override
     public void onReceive(Context context, Intent intent) {
+        TvApplication.setCurrentRunningProcess(context, true);
         ((TvApplication) context.getApplicationContext()).handleInputCountChanged();
     }
 }

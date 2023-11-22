@@ -171,13 +171,13 @@ public class MigrateStorageActivity extends Activity {
     }
 
     private void showMigrationSuccessToast() {
-        Toast.makeText(MigrateStorageActivity.this,
+        Toast.makeText(this,
                 getString(R.string.storage_wizard_migrate_toast_success, mTargetVolumeDesc),
                 Toast.LENGTH_SHORT).show();
     }
 
     private void showMigrationFailureToast() {
-        Toast.makeText(MigrateStorageActivity.this,
+        Toast.makeText(this,
                 getString(R.string.storage_wizard_migrate_toast_failure, mTargetVolumeDesc),
                 Toast.LENGTH_SHORT).show();
     }

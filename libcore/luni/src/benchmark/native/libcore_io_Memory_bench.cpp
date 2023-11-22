@@ -21,7 +21,7 @@
 
 template<typename T, size_t ALIGN>
 void swap_bench(benchmark::State& state, void (*swap_func)(T*, const T*, size_t)) {
-  size_t num_elements = state.range_x();
+  size_t num_elements = state.range(0);
 
   T* src;
   T* dst;

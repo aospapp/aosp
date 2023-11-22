@@ -23,7 +23,6 @@
 #include <utils/Log.h>
 
 #include <gui/BufferQueue.h>
-#include <gui/GraphicBufferAlloc.h>
 #include <gui/Surface.h>
 #include <cutils/properties.h>
 #include <utils/misc.h>
@@ -203,7 +202,6 @@ void Overlay::processFrame_l() {
     mGlConsumer->getTransformMatrix(texMatrix);
     nsecs_t monotonicNsec = mGlConsumer->getTimestamp();
     nsecs_t frameNumber = mGlConsumer->getFrameNumber();
-    int64_t droppedFrames = 0;
 
     if (mLastFrameNumber > 0) {
         mTotalDroppedFrames += size_t(frameNumber - mLastFrameNumber) - 1;
@@ -258,6 +256,11 @@ void Overlay::getTimeString_l(nsecs_t monotonicNsec, char* buf, size_t bufLen) {
     //const char* format = "%m-%d %T";    // matches log output
     const char* format = "%T";
     struct tm tm;
+
+    if (mUseMonotonicTimestamps) {
+        snprintf(buf, bufLen, "%" PRId64, monotonicNsec);
+        return;
+    }
 
     // localtime/strftime is not the fastest way to do this, but a trivial
     // benchmark suggests that the cost is negligible.

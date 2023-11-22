@@ -19,14 +19,15 @@
 #include <alloca.h>
 #include <dirent.h>
 #include <dlfcn.h>
-#include <mutex>
-#include <sys/prctl.h>
-#include <string>
 #include <string.h>
+#include <sys/prctl.h>
+
+#include <mutex>
+#include <string>
 #include <vector>
 
-#include <android-base/strings.h>
 #include <android/dlext.h>
+#include <android-base/strings.h>
 #include <cutils/properties.h>
 #include <log/log.h>
 #include <ziparchive/zip_archive.h>
@@ -68,7 +69,7 @@ const char kSystemLayerLibraryDir[] = "/data/local/debug/vulkan";
 
 class LayerLibrary {
    public:
-    LayerLibrary(const std::string& path)
+    explicit LayerLibrary(const std::string& path)
         : path_(path), dlhandle_(nullptr), refcount_(0) {}
 
     LayerLibrary(LayerLibrary&& other)

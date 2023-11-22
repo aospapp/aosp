@@ -16,6 +16,11 @@
 
 package android.graphics.drawable.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.fail;
+
+import android.content.res.Resources;
 import android.content.res.XmlResourceParser;
 import android.graphics.Bitmap;
 import android.graphics.Bitmap.Config;
@@ -24,25 +29,32 @@ import android.graphics.Color;
 import android.graphics.PixelFormat;
 import android.graphics.PorterDuff.Mode;
 import android.graphics.PorterDuffColorFilter;
+import android.graphics.cts.R;
 import android.graphics.drawable.ColorDrawable;
-import android.test.AndroidTestCase;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.util.AttributeSet;
 import android.util.Xml;
 
-import android.graphics.cts.R;
-
+import org.junit.Test;
+import org.junit.runner.RunWith;
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
 
 import java.io.IOException;
 
-public class ColorDrawableTest extends AndroidTestCase {
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class ColorDrawableTest {
+    @Test
     public void testConstructors() {
         new ColorDrawable();
         new ColorDrawable(0);
         new ColorDrawable(1);
     }
 
+    @Test
     public void testAccessAlpha() {
         ColorDrawable colorDrawable = new ColorDrawable();
         assertEquals(0, colorDrawable.getAlpha());
@@ -60,6 +72,7 @@ public class ColorDrawableTest extends AndroidTestCase {
         assertEquals(1, colorDrawable.getAlpha());
     }
 
+    @Test
     public void testGetChangingConfigurations() {
         final ColorDrawable colorDrawable = new ColorDrawable();
         assertEquals(0, colorDrawable.getChangingConfigurations());
@@ -74,6 +87,7 @@ public class ColorDrawableTest extends AndroidTestCase {
         assertEquals(Integer.MAX_VALUE, colorDrawable.getChangingConfigurations());
     }
 
+    @Test
     public void testGetConstantState() {
         final ColorDrawable colorDrawable = new ColorDrawable();
         assertNotNull(colorDrawable.getConstantState());
@@ -81,6 +95,7 @@ public class ColorDrawableTest extends AndroidTestCase {
                 colorDrawable.getConstantState().getChangingConfigurations());
     }
 
+    @Test
     public void testGetOpacity() {
         ColorDrawable colorDrawable = new ColorDrawable();
         assertEquals(PixelFormat.TRANSPARENT, colorDrawable.getOpacity());
@@ -92,11 +107,13 @@ public class ColorDrawableTest extends AndroidTestCase {
         assertEquals(PixelFormat.TRANSLUCENT, colorDrawable.getOpacity());
     }
 
+    @Test
     public void testInflate() throws XmlPullParserException, IOException {
         int eventType = -1;
         final ColorDrawable colorDrawable = new ColorDrawable();
 
-        final XmlPullParser parser = mContext.getResources().getXml(R.drawable.colordrawable_test);
+        Resources resources = InstrumentationRegistry.getTargetContext().getResources();
+        final XmlPullParser parser = resources.getXml(R.drawable.colordrawable_test);
         // start to parse XML document
         while (eventType != XmlResourceParser.START_TAG
                 && eventType != XmlResourceParser.END_DOCUMENT) {
@@ -110,7 +127,7 @@ public class ColorDrawableTest extends AndroidTestCase {
         }
         if (eventType == XmlResourceParser.START_TAG) {
             final AttributeSet attrs = Xml.asAttributeSet(parser);
-            colorDrawable.inflate(mContext.getResources(), parser, attrs);
+            colorDrawable.inflate(resources, parser, attrs);
             // set the alpha to 2 in colordrawable_test.xml
             assertEquals(2, colorDrawable.getAlpha());
         } else {
@@ -118,6 +135,7 @@ public class ColorDrawableTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testSetColorFilter() {
         final ColorDrawable d = new ColorDrawable(Color.WHITE);
         assertEquals(Color.WHITE, DrawableTestUtils.getPixel(d, 0, 0));
@@ -129,6 +147,7 @@ public class ColorDrawableTest extends AndroidTestCase {
         assertEquals(Color.BLACK, DrawableTestUtils.getPixel(d, 0, 0));
     }
 
+    @Test
     public void testSetTint() {
         final ColorDrawable d = new ColorDrawable(Color.WHITE);
         assertEquals(Color.WHITE, DrawableTestUtils.getPixel(d, 0, 0));
@@ -138,6 +157,7 @@ public class ColorDrawableTest extends AndroidTestCase {
         assertEquals(Color.BLACK, DrawableTestUtils.getPixel(d, 0, 0));
     }
 
+    @Test
     public void testDraw() {
         final ColorDrawable d = new ColorDrawable(Color.WHITE);
         final Bitmap b = Bitmap.createBitmap(1, 1, Config.ARGB_8888);

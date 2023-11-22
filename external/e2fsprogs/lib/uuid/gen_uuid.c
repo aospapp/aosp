@@ -37,7 +37,9 @@
  * gcc-wall wall mode
  */
 #define _SVID_SOURCE
+#define _DEFAULT_SOURCE	  /* since glibc 2.20 _SVID_SOURCE is deprecated */
 
+#include "config.h"
 
 #ifdef _WIN32
 #define _WIN32_WINNT 0x0500
@@ -325,10 +327,12 @@ static int get_clock(uint32_t *clock_high, uint32_t *clock_low,
 		state_fd = open("/var/lib/libuuid/clock.txt",
 				O_RDWR|O_CREAT, 0660);
 		(void) umask(save_umask);
-		state_f = fdopen(state_fd, "r+");
-		if (!state_f) {
-			close(state_fd);
-			state_fd = -1;
+		if (state_fd >= 0) {
+			state_f = fdopen(state_fd, "r+");
+			if (!state_f) {
+				close(state_fd);
+				state_fd = -1;
+			}
 		}
 	}
 	fl.l_type = F_WRLCK;
@@ -342,7 +346,6 @@ static int get_clock(uint32_t *clock_high, uint32_t *clock_low,
 			if ((errno == EAGAIN) || (errno == EINTR))
 				continue;
 			fclose(state_f);
-			close(state_fd);
 			state_fd = -1;
 			break;
 		}
@@ -411,7 +414,10 @@ try_again:
 		}
 		rewind(state_f);
 		fl.l_type = F_UNLCK;
-		fcntl(state_fd, F_SETLK, &fl);
+		if (fcntl(state_fd, F_SETLK, &fl) < 0) {
+			fclose(state_f);
+			state_fd = -1;
+		}
 	}
 
 	*clock_high = clock_reg >> 32;
@@ -420,6 +426,7 @@ try_again:
 	return 0;
 }
 
+#if defined(USE_UUIDD) && defined(HAVE_SYS_UN_H)
 static ssize_t read_all(int fd, char *buf, size_t count)
 {
 	ssize_t ret;
@@ -470,8 +477,12 @@ static void close_all_fds(void)
 			open("/dev/null", O_RDWR);
 	}
 }
+#endif /* defined(USE_UUIDD) && defined(HAVE_SYS_UN_H) */
 
-
+#pragma GCC diagnostic push
+#if !defined(USE_UUIDD) || !defined(HAVE_SYS_UN_H)
+#pragma GCC diagnostic ignored "-Wunused-parameter"
+#endif
 /*
  * Try using the uuidd daemon to generate the UUID
  *
@@ -554,6 +565,7 @@ fail:
 #endif
 	return -1;
 }
+#pragma GCC diagnostic pop
 
 void uuid__generate_time(uuid_t out, int *num)
 {

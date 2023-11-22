@@ -55,20 +55,22 @@ class Thread;
 // [1] http://www.drdobbs.com/parallel/use-lock-hierarchies-to-avoid-deadlock/204801163
 enum LockLevel {
   kLoggingLock = 0,
-  kMemMapsLock,
   kSwapMutexesLock,
   kUnexpectedSignalLock,
   kThreadSuspendCountLock,
   kAbortLock,
-  kLambdaTableLock,
+  kJdwpAdbStateLock,
   kJdwpSocketLock,
   kRegionSpaceRegionLock,
+  kMarkSweepMarkStackLock,
   kRosAllocGlobalLock,
   kRosAllocBracketLock,
   kRosAllocBulkFreeLock,
-  kMarkSweepMarkStackLock,
+  kTaggingLockLevel,
   kTransactionLogLock,
+  kJniFunctionTableLock,
   kJniWeakGlobalsLock,
+  kJniGlobalsLock,
   kReferenceQueueSoftReferencesLock,
   kReferenceQueuePhantomReferencesLock,
   kReferenceQueueFinalizerReferencesLock,
@@ -79,26 +81,25 @@ enum LockLevel {
   kAllocSpaceLock,
   kBumpPointerSpaceBlockLock,
   kArenaPoolLock,
-  kDexFileMethodInlinerLock,
-  kDexFileToMethodInlinerMapLock,
   kInternTableLock,
   kOatFileSecondaryLookupLock,
   kHostDlOpenHandlesLock,
+  kVerifierDepsLock,
   kOatFileManagerLock,
   kTracingUniqueMethodsLock,
   kTracingStreamingLock,
   kDeoptimizedMethodsLock,
-  kJitCodeCacheLock,
   kClassLoaderClassesLock,
   kDefaultMutexLevel,
+  kDexLock,
   kMarkSweepLargeObjectLock,
-  kPinTableLock,
   kJdwpObjectRegistryLock,
   kModifyLdtLock,
   kAllocatedThreadIdsLock,
   kMonitorPoolLock,
-  kMethodVerifiersLock,
   kClassLinkerClassesLock,  // TODO rename.
+  kJitCodeCacheLock,
+  kCHALock,
   kBreakpointLock,
   kMonitorLock,
   kMonitorListLock,
@@ -152,6 +153,16 @@ class BaseMutex {
 
   static void DumpAll(std::ostream& os);
 
+  bool ShouldRespondToEmptyCheckpointRequest() const {
+    return should_respond_to_empty_checkpoint_request_;
+  }
+
+  void SetShouldRespondToEmptyCheckpointRequest(bool value) {
+    should_respond_to_empty_checkpoint_request_ = value;
+  }
+
+  virtual void WakeupToRespondToEmptyCheckpoint() = 0;
+
  protected:
   friend class ConditionVariable;
 
@@ -168,6 +179,7 @@ class BaseMutex {
 
   const LockLevel level_;  // Support for lock hierarchy.
   const char* const name_;
+  bool should_respond_to_empty_checkpoint_request_;
 
   // A log entry that records contention but makes no guarantee that either tid will be held live.
   struct ContentionLogEntry {
@@ -265,6 +277,8 @@ class LOCKABLE Mutex : public BaseMutex {
 
   // For negative capabilities in clang annotations.
   const Mutex& operator!() const { return *this; }
+
+  void WakeupToRespondToEmptyCheckpoint() OVERRIDE;
 
  private:
 #if ART_USE_FUTEXES
@@ -386,6 +400,8 @@ class SHARED_LOCKABLE ReaderWriterMutex : public BaseMutex {
   // For negative capabilities in clang annotations.
   const ReaderWriterMutex& operator!() const { return *this; }
 
+  void WakeupToRespondToEmptyCheckpoint() OVERRIDE;
+
  private:
 #if ART_USE_FUTEXES
   // Out-of-inline path for handling contention for a SharedLock.
@@ -501,12 +517,12 @@ class SCOPED_CAPABILITY MutexLock {
 // construction and releases it upon destruction.
 class SCOPED_CAPABILITY ReaderMutexLock {
  public:
-  ReaderMutexLock(Thread* self, ReaderWriterMutex& mu) ACQUIRE(mu) :
+  ReaderMutexLock(Thread* self, ReaderWriterMutex& mu) ACQUIRE(mu) ALWAYS_INLINE :
       self_(self), mu_(mu) {
     mu_.SharedLock(self_);
   }
 
-  ~ReaderMutexLock() RELEASE() {
+  ~ReaderMutexLock() RELEASE() ALWAYS_INLINE {
     mu_.SharedUnlock(self_);
   }
 
@@ -557,6 +573,24 @@ class Locks {
  public:
   static void Init();
   static void InitConditions() NO_THREAD_SAFETY_ANALYSIS;  // Condition variables.
+
+  // Destroying various lock types can emit errors that vary depending upon
+  // whether the client (art::Runtime) is currently active.  Allow the client
+  // to set a callback that is used to check when it is acceptable to call
+  // Abort.  The default behavior is that the client *is not* able to call
+  // Abort if no callback is established.
+  using ClientCallback = bool();
+  static void SetClientCallback(ClientCallback* is_safe_to_call_abort_cb) NO_THREAD_SAFETY_ANALYSIS;
+  // Checks for whether it is safe to call Abort() without using locks.
+  static bool IsSafeToCallAbortRacy() NO_THREAD_SAFETY_ANALYSIS;
+
+  // Add a mutex to expected_mutexes_on_weak_ref_access_.
+  static void AddToExpectedMutexesOnWeakRefAccess(BaseMutex* mutex, bool need_lock = true);
+  // Remove a mutex from expected_mutexes_on_weak_ref_access_.
+  static void RemoveFromExpectedMutexesOnWeakRefAccess(BaseMutex* mutex, bool need_lock = true);
+  // Check if the given mutex is in expected_mutexes_on_weak_ref_access_.
+  static bool IsExpectedOnWeakRefAccess(BaseMutex* mutex);
+
   // Guards allocation entrypoint instrumenting.
   static Mutex* instrument_entrypoints_lock_;
 
@@ -617,12 +651,12 @@ class Locks {
   // TODO: improve name, perhaps instrumentation_update_lock_.
   static Mutex* deoptimization_lock_ ACQUIRED_AFTER(alloc_tracker_lock_);
 
-  // Guards String initializer register map in interpreter.
-  static Mutex* interpreter_string_init_map_lock_ ACQUIRED_AFTER(deoptimization_lock_);
+  // Guards Class Hierarchy Analysis (CHA).
+  static Mutex* cha_lock_ ACQUIRED_AFTER(deoptimization_lock_);
 
   // The thread_list_lock_ guards ThreadList::list_. It is also commonly held to stop threads
   // attaching and detaching.
-  static Mutex* thread_list_lock_ ACQUIRED_AFTER(interpreter_string_init_map_lock_);
+  static Mutex* thread_list_lock_ ACQUIRED_AFTER(cha_lock_);
 
   // Signaled when threads terminate. Used to determine when all non-daemons have terminated.
   static ConditionVariable* thread_exit_cond_ GUARDED_BY(Locks::thread_list_lock_);
@@ -648,11 +682,16 @@ class Locks {
   // Guards modification of the LDT on x86.
   static Mutex* modify_ldt_lock_ ACQUIRED_AFTER(allocated_thread_ids_lock_);
 
+  static ReaderWriterMutex* dex_lock_ ACQUIRED_AFTER(modify_ldt_lock_);
+
   // Guards opened oat files in OatFileManager.
-  static ReaderWriterMutex* oat_file_manager_lock_ ACQUIRED_AFTER(modify_ldt_lock_);
+  static ReaderWriterMutex* oat_file_manager_lock_ ACQUIRED_AFTER(dex_lock_);
+
+  // Guards extra string entries for VerifierDeps.
+  static ReaderWriterMutex* verifier_deps_lock_ ACQUIRED_AFTER(oat_file_manager_lock_);
 
   // Guards dlopen_handles_ in DlOpenOatFile.
-  static Mutex* host_dlopen_handles_lock_ ACQUIRED_AFTER(oat_file_manager_lock_);
+  static Mutex* host_dlopen_handles_lock_ ACQUIRED_AFTER(verifier_deps_lock_);
 
   // Guards intern table.
   static Mutex* intern_table_lock_ ACQUIRED_AFTER(host_dlopen_handles_lock_);
@@ -675,8 +714,17 @@ class Locks {
   // Guards soft references queue.
   static Mutex* reference_queue_soft_references_lock_ ACQUIRED_AFTER(reference_queue_phantom_references_lock_);
 
+  // Guard accesses to the JNI Global Reference table.
+  static ReaderWriterMutex* jni_globals_lock_ ACQUIRED_AFTER(reference_queue_soft_references_lock_);
+
+  // Guard accesses to the JNI Weak Global Reference table.
+  static Mutex* jni_weak_globals_lock_ ACQUIRED_AFTER(jni_globals_lock_);
+
+  // Guard accesses to the JNI function table override.
+  static Mutex* jni_function_table_lock_ ACQUIRED_AFTER(jni_weak_globals_lock_);
+
   // Have an exclusive aborting thread.
-  static Mutex* abort_lock_ ACQUIRED_AFTER(reference_queue_soft_references_lock_);
+  static Mutex* abort_lock_ ACQUIRED_AFTER(jni_function_table_lock_);
 
   // Allow mutual exclusion when manipulating Thread::suspend_count_.
   // TODO: Does the trade-off of a per-thread lock make sense?
@@ -685,15 +733,16 @@ class Locks {
   // One unexpected signal at a time lock.
   static Mutex* unexpected_signal_lock_ ACQUIRED_AFTER(thread_suspend_count_lock_);
 
-  // Guards the maps in mem_map.
-  static Mutex* mem_maps_lock_ ACQUIRED_AFTER(unexpected_signal_lock_);
-
   // Have an exclusive logging thread.
   static Mutex* logging_lock_ ACQUIRED_AFTER(unexpected_signal_lock_);
 
-  // Allow reader-writer mutual exclusion on the boxed table of lambda objects.
-  // TODO: this should be a RW mutex lock, except that ConditionVariables don't work with it.
-  static Mutex* lambda_table_lock_ ACQUIRED_AFTER(mutator_lock_);
+  // List of mutexes that we expect a thread may hold when accessing weak refs. This is used to
+  // avoid a deadlock in the empty checkpoint while weak ref access is disabled (b/34964016). If we
+  // encounter an unexpected mutex on accessing weak refs,
+  // Thread::CheckEmptyCheckpointFromWeakRefAccess will detect it.
+  static std::vector<BaseMutex*> expected_mutexes_on_weak_ref_access_;
+  static Atomic<const BaseMutex*> expected_mutexes_on_weak_ref_access_guard_;
+  class ScopedExpectedMutexesOnWeakRefAccessLock;
 };
 
 class Roles {

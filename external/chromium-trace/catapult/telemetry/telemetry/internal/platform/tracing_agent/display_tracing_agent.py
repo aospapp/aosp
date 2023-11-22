@@ -3,7 +3,7 @@
 # found in the LICENSE file.
 
 from telemetry.internal.platform import tracing_agent
-from telemetry.timeline import trace_data
+from tracing.trace_data import trace_data
 
 
 class DisplayTracingAgent(tracing_agent.TracingAgent):
@@ -20,7 +20,13 @@ class DisplayTracingAgent(tracing_agent.TracingAgent):
       self._platform_backend.StartDisplayTracing()
       return True
 
-  def StopAgentTracing(self, trace_data_builder):
+  def StopAgentTracing(self):
+    # TODO: Split collection and stopping.
+    pass
+
+  def CollectAgentTraceData(self, trace_data_builder, timeout=None):
+    # TODO: Move stopping to StopAgentTracing.
+    del timeout
     surface_flinger_trace_data = self._platform_backend.StopDisplayTracing()
-    trace_data_builder.AddEventsTo(
+    trace_data_builder.AddTraceFor(
           trace_data.SURFACE_FLINGER_PART, surface_flinger_trace_data)

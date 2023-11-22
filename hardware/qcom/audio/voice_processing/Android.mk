@@ -5,6 +5,8 @@ include $(CLEAR_VARS)
 
 LOCAL_MODULE:= libqcomvoiceprocessing
 LOCAL_MODULE_TAGS := optional
+LOCAL_MODULE_OWNER := qcom
+LOCAL_PROPRIETARY_MODULE := true
 LOCAL_MODULE_RELATIVE_PATH := soundfx
 
 LOCAL_SRC_FILES:= \
@@ -14,6 +16,7 @@ LOCAL_C_INCLUDES += \
     $(call include-path-for, audio-effects)
 
 LOCAL_SHARED_LIBRARIES := \
+    liblog \
     libcutils
 
 LOCAL_SHARED_LIBRARIES += libdl

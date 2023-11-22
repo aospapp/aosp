@@ -14,6 +14,22 @@ generate very high packet rates and with few systems saturate network devices as
 routers or bridges.
 """
 
-job.run_test('pktgen', eth='eth0', count=50000, clone_skb=0, tag='clone_skb_off')
-job.run_test('pktgen', eth='eth0', count=50000, clone_skb=1, tag='clone_skb_on')
+interface='eth0'
+count=50000
+
+# Parse comma-separated args.
+for arg in args:
+    for item in arg.split(','):
+        key, val = item.split('=')
+        if key == 'interface':
+            interface = val
+        if key == 'count':
+            count = int(val)
+        if key == 'num_iterations':
+            num_iterations = int(val)
+
+job.run_test('pktgen', eth=interface, count=count, clone_skb=0,
+             tag='clone_skb_off', num_iterations=num_iterations)
+job.run_test('pktgen', eth=interface, count=count, clone_skb=1,
+             tag='clone_skb_on', num_iterations=num_iterations)
 

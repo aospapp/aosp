@@ -34,16 +34,16 @@ libdivsufsort_cflags := \
     -Wextra \
     -DHAVE_CONFIG_H=1
 
-# libdivsufsort using 32-bit integers for the suffix array (host shared lib)
+# libdivsufsort using 32-bit integers for the suffix array (host static lib)
 include $(CLEAR_VARS)
 LOCAL_MODULE := libdivsufsort
 LOCAL_SRC_FILES := $(libdivsufsort_src_files)
 LOCAL_C_INCLUDES := $(libdivsufsort_c_includes)
 LOCAL_EXPORT_C_INCLUDE_DIRS := $(libdivsufsort_export_c_include_dirs)
 LOCAL_CFLAGS := $(libdivsufsort_cflags)
-include $(BUILD_HOST_SHARED_LIBRARY)
+include $(BUILD_HOST_STATIC_LIBRARY)
 
-# libdivsufsort using 64-bit integers for the suffix array (host shared lib)
+# libdivsufsort using 64-bit integers for the suffix array (host static lib)
 include $(CLEAR_VARS)
 LOCAL_MODULE := libdivsufsort64
 LOCAL_SRC_FILES := $(libdivsufsort_src_files)
@@ -52,4 +52,24 @@ LOCAL_EXPORT_C_INCLUDE_DIRS := $(libdivsufsort_export_c_include_dirs)
 LOCAL_CFLAGS := \
     $(libdivsufsort_cflags) \
     -DBUILD_DIVSUFSORT64
-include $(BUILD_HOST_SHARED_LIBRARY)
+include $(BUILD_HOST_STATIC_LIBRARY)
+
+# libdivsufsort using 32-bit integers for the suffix array (target static lib)
+include $(CLEAR_VARS)
+LOCAL_MODULE := libdivsufsort
+LOCAL_SRC_FILES := $(libdivsufsort_src_files)
+LOCAL_C_INCLUDES := $(libdivsufsort_c_includes)
+LOCAL_EXPORT_C_INCLUDE_DIRS := $(libdivsufsort_export_c_include_dirs)
+LOCAL_CFLAGS := $(libdivsufsort_cflags)
+include $(BUILD_STATIC_LIBRARY)
+
+# libdivsufsort using 64-bit integers for the suffix array (target static lib)
+include $(CLEAR_VARS)
+LOCAL_MODULE := libdivsufsort64
+LOCAL_SRC_FILES := $(libdivsufsort_src_files)
+LOCAL_C_INCLUDES := $(libdivsufsort_c_includes)
+LOCAL_EXPORT_C_INCLUDE_DIRS := $(libdivsufsort_export_c_include_dirs)
+LOCAL_CFLAGS := \
+    $(libdivsufsort_cflags) \
+    -DBUILD_DIVSUFSORT64
+include $(BUILD_STATIC_LIBRARY)

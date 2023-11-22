@@ -16,29 +16,41 @@
 
 package com.android.managedprovisioning.model;
 
-import static com.android.internal.util.Preconditions.checkArgument;
+import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_DEVICE_ADMIN_PACKAGE_DOWNLOAD_LOCATION;
+import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_DEVICE_ADMIN_PACKAGE_DOWNLOAD_COOKIE_HEADER;
+import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_DEVICE_ADMIN_PACKAGE_CHECKSUM;
+import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_DEVICE_ADMIN_SIGNATURE_CHECKSUM;
+import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_DEVICE_ADMIN_MINIMUM_VERSION_CODE;
 import static com.android.internal.util.Preconditions.checkNotNull;
 
 import android.os.Parcel;
 import android.os.Parcelable;
+import android.os.PersistableBundle;
 import android.support.annotation.Nullable;
 import android.text.TextUtils;
-
+import com.android.internal.annotations.Immutable;
+import com.android.managedprovisioning.common.PersistableBundlable;
+import com.android.managedprovisioning.common.StoreUtils;
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.Objects;
-
-import com.android.internal.annotations.Immutable;
+import org.xmlpull.v1.XmlPullParser;
+import org.xmlpull.v1.XmlPullParserException;
+import org.xmlpull.v1.XmlSerializer;
 
 /**
  * Stores the device admin package download information.
  */
 @Immutable
-public final class PackageDownloadInfo implements Parcelable {
+public final class PackageDownloadInfo extends PersistableBundlable {
     public static final byte[] DEFAULT_PACKAGE_CHECKSUM = new byte[0];
     public static final byte[] DEFAULT_SIGNATURE_CHECKSUM = new byte[0];
     public static final boolean DEFAULT_PACKAGE_CHECKSUM_SUPPORTS_SHA1 = false;
     // Always download packages if no minimum version given.
     public static final int DEFAULT_MINIMUM_VERSION = Integer.MAX_VALUE;
+
+    private static final String TAG_PROVISIONING_DEVICE_ADMIN_SUPPORT_SHA1_PACKAGE_CHECKSUM
+            = "supports-sha1-checksum";
 
     public static final Parcelable.Creator<PackageDownloadInfo> CREATOR
             = new Parcelable.Creator<PackageDownloadInfo>() {
@@ -89,14 +101,8 @@ public final class PackageDownloadInfo implements Parcelable {
     }
 
     private PackageDownloadInfo(Parcel in) {
-        minVersion = in.readInt();
-        location = in.readString();
-        cookieHeader = in.readString();
-        packageChecksum = checkNotNull(in.createByteArray());
-        signatureChecksum = checkNotNull(in.createByteArray());
-        packageChecksumSupportsSha1 = in.readInt() == 1;
-
-        validateFields();
+        this(createBuilderFromPersistableBundle(
+                PersistableBundlable.getPersistableBundleFromParcel(in)));
     }
 
     private void validateFields() {
@@ -109,36 +115,41 @@ public final class PackageDownloadInfo implements Parcelable {
         }
     }
 
-    @Override
-    public int describeContents() {
-        return 0;
+    /* package */ static PackageDownloadInfo fromPersistableBundle(PersistableBundle bundle) {
+        return createBuilderFromPersistableBundle(bundle).build();
+    }
+
+    private static Builder createBuilderFromPersistableBundle(PersistableBundle bundle) {
+        Builder builder = new Builder();
+        builder.setMinVersion(bundle.getInt(EXTRA_PROVISIONING_DEVICE_ADMIN_MINIMUM_VERSION_CODE));
+        builder.setLocation(bundle.getString(
+                EXTRA_PROVISIONING_DEVICE_ADMIN_PACKAGE_DOWNLOAD_LOCATION));
+        builder.setCookieHeader(bundle.getString(
+                EXTRA_PROVISIONING_DEVICE_ADMIN_PACKAGE_DOWNLOAD_COOKIE_HEADER));
+        builder.setPackageChecksum(StoreUtils.stringToByteArray(bundle.getString(
+                EXTRA_PROVISIONING_DEVICE_ADMIN_PACKAGE_CHECKSUM)));
+        builder.setSignatureChecksum(StoreUtils.stringToByteArray(bundle.getString(
+                EXTRA_PROVISIONING_DEVICE_ADMIN_SIGNATURE_CHECKSUM)));
+        builder.setPackageChecksumSupportsSha1(bundle.getBoolean(
+                TAG_PROVISIONING_DEVICE_ADMIN_SUPPORT_SHA1_PACKAGE_CHECKSUM));
+        return builder;
     }
 
     @Override
-    public void writeToParcel(Parcel out, int flags) {
-        out.writeInt(minVersion);
-        out.writeString(location);
-        out.writeString(cookieHeader);
-        out.writeByteArray(packageChecksum);
-        out.writeByteArray(signatureChecksum);
-        out.writeInt(packageChecksumSupportsSha1 ? 1 : 0);
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        PackageDownloadInfo that = (PackageDownloadInfo) o;
-        return minVersion == that.minVersion
-                && packageChecksumSupportsSha1 == that.packageChecksumSupportsSha1
-                && Objects.equals(location, that.location)
-                && Objects.equals(cookieHeader, that.cookieHeader)
-                && Arrays.equals(packageChecksum, that.packageChecksum)
-                && Arrays.equals(signatureChecksum, that.signatureChecksum);
+    public PersistableBundle toPersistableBundle() {
+        final PersistableBundle bundle = new PersistableBundle();
+        bundle.putInt(EXTRA_PROVISIONING_DEVICE_ADMIN_MINIMUM_VERSION_CODE,
+                minVersion);
+        bundle.putString(EXTRA_PROVISIONING_DEVICE_ADMIN_PACKAGE_DOWNLOAD_LOCATION, location);
+        bundle.putString(EXTRA_PROVISIONING_DEVICE_ADMIN_PACKAGE_DOWNLOAD_COOKIE_HEADER,
+                cookieHeader);
+        bundle.putString(EXTRA_PROVISIONING_DEVICE_ADMIN_PACKAGE_CHECKSUM,
+                StoreUtils.byteArrayToString(packageChecksum));
+        bundle.putString(EXTRA_PROVISIONING_DEVICE_ADMIN_SIGNATURE_CHECKSUM,
+                StoreUtils.byteArrayToString(signatureChecksum));
+        bundle.putBoolean(TAG_PROVISIONING_DEVICE_ADMIN_SUPPORT_SHA1_PACKAGE_CHECKSUM,
+                packageChecksumSupportsSha1);
+        return bundle;
     }
 
     public final static class Builder {

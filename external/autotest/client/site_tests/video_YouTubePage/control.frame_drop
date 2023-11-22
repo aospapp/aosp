@@ -8,8 +8,6 @@ PURPOSE = "Verify that YouTube page HTML5 video plays back smoothly"
 CRITERIA = """
 This test will fail if YouTube page HTML5 video has excessive frame drops.
 """
-ATTRIBUTES = "suite:youtube_page"
-SUITE = "youtube_page"
 TIME = "MEDIUM"
 TEST_CATEGORY = "General"
 TEST_CLASS = "video"

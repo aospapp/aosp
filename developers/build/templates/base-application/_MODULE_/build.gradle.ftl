@@ -19,7 +19,7 @@ buildscript {
     }
 
     dependencies {
-        classpath 'com.android.tools.build:gradle:2.1.2'
+        classpath 'com.android.tools.build:gradle:2.3.2'
     }
 }
 
@@ -37,15 +37,15 @@ dependencies {
 
 <#if !sample.auto_add_support_lib?has_content || sample.auto_add_support_lib == "true">
   <#if sample.minSdk?matches(r'^\d+$') && sample.minSdk?number < 7>
-    compile "com.android.support:support-v4:24.1.1"
+    compile "com.android.support:support-v4:25.1.1"
   <#elseif sample.minSdk?matches(r'^\d+$') && sample.minSdk?number < 13>
-    compile "com.android.support:support-v4:24.1.1"
-    compile "com.android.support:gridlayout-v7:24.1.1"
-    compile "com.android.support:cardview-v7:24.1.1"
+    compile "com.android.support:support-v4:25.1.1"
+    compile "com.android.support:gridlayout-v7:25.1.1"
+    compile "com.android.support:cardview-v7:25.1.1"
   <#else>
-    compile "com.android.support:support-v4:24.1.1"
-    compile "com.android.support:support-v13:24.1.1"
-    compile "com.android.support:cardview-v7:24.1.1"
+    compile "com.android.support:support-v4:25.1.1"
+    compile "com.android.support:support-v13:25.1.1"
+    compile "com.android.support:cardview-v7:25.1.1"
   </#if>
 </#if>
 
@@ -76,6 +76,10 @@ android {
     defaultConfig {
         minSdkVersion ${min_sdk}
         targetSdkVersion ${compile_sdk}
+
+<#if sample.use_support_library_vector_drawables?has_content && sample.use_support_library_vector_drawables == "true">
+        vectorDrawables.useSupportLibrary = true
+</#if>
     }
 
     compileOptions {

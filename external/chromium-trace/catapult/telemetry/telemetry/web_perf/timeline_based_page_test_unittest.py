@@ -7,9 +7,11 @@ from telemetry.page import page as page_module
 from telemetry.testing import browser_test_case
 from telemetry.testing import options_for_unittests
 from telemetry.testing import page_test_test_case
-from telemetry.timeline import tracing_category_filter
+from telemetry.timeline import chrome_trace_category_filter
 from telemetry.util import wpr_modes
 from telemetry.web_perf import timeline_based_measurement as tbm_module
+from telemetry.web_perf.metrics import gpu_timeline
+from telemetry.web_perf.metrics import smoothness
 
 class TestTimelinebasedMeasurementPage(page_module.Page):
 
@@ -48,14 +50,16 @@ class TimelineBasedPageTestTest(page_test_test_case.PageTestTestCase):
   # This test is flaky when run in parallel on the mac: crbug.com/426676
   # Also, fails on android: crbug.com/437057, and chromeos: crbug.com/483212
   @decorators.Disabled('android', 'mac', 'chromeos')
-  @decorators.Disabled('win')  # crbug.com/570955
+  @decorators.Disabled('win')  # catapult/issues/2282
   @decorators.Isolated  # Needed because of py_trace_event
   def testSmoothnessTimelineBasedMeasurementForSmoke(self):
     ps = self.CreateEmptyPageSet()
     ps.AddStory(TestTimelinebasedMeasurementPage(
         ps, ps.base_dir, trigger_animation=True))
 
-    tbm = tbm_module.TimelineBasedMeasurement(tbm_module.Options())
+    options = tbm_module.Options()
+    options.SetLegacyTimelineBasedMetrics([smoothness.SmoothnessMetric()])
+    tbm = tbm_module.TimelineBasedMeasurement(options)
     results = self.RunMeasurement(tbm, ps, options=self._options)
 
     self.assertEquals(0, len(results.failures))
@@ -68,15 +72,17 @@ class TimelineBasedPageTestTest(page_test_test_case.PageTestTestCase):
 
   # This test should eventually work on all platforms, but currently this
   # this metric is flaky on desktop: crbug.com/453131
-  @decorators.Enabled('android')
+  # https://github.com/catapult-project/catapult/issues/3099 (Android)
+  @decorators.Disabled('all')
   def testGPUTimesTimelineBasedMeasurementForSmoke(self):
     ps = self.CreateEmptyPageSet()
     ps.AddStory(TestTimelinebasedMeasurementPage(
         ps, ps.base_dir, trigger_animation=True))
 
-    cat_filter = tracing_category_filter.TracingCategoryFilter(
+    cat_filter = chrome_trace_category_filter.ChromeTraceCategoryFilter(
         'disabled-by-default-gpu.service')
     tbm_option = tbm_module.Options(overhead_level=cat_filter)
+    tbm_option.SetLegacyTimelineBasedMetrics([gpu_timeline.GPUTimelineMetric()])
     tbm = tbm_module.TimelineBasedMeasurement(tbm_option)
     results = self.RunMeasurement(tbm, ps, options=self._options)
 
@@ -90,34 +96,6 @@ class TimelineBasedPageTestTest(page_test_test_case.PageTestTestCase):
     self.assertEquals(len(v), 1)
     self.assertGreater(v[0].value, 0)
 
-  # Disabled since mainthread_jank metric is not supported on windows platform.
-  # Also, flaky on the mac when run in parallel: crbug.com/426676
-  # Also, fails on android: crbug.com/437057
-  # Also, fails on chromeos: crbug.com/483212
-  @decorators.Disabled('android', 'win', 'mac', 'chromeos')
-  @decorators.Isolated  # Needed because of py_trace_event
-  def testMainthreadJankTimelineBasedMeasurement(self):
-    ps = self.CreateEmptyPageSet()
-    ps.AddStory(TestTimelinebasedMeasurementPage(
-        ps, ps.base_dir, trigger_jank=True))
-
-    tbm = tbm_module.TimelineBasedMeasurement(tbm_module.Options())
-    results = self.RunMeasurement(tbm, ps, options=self._options)
-    self.assertEquals(0, len(results.failures))
-
-    # In interaction_enabled_page.html, we create a jank loop based on
-    # window.performance.now() (basically loop for x milliseconds).
-    # Since window.performance.now() uses wall-time instead of thread time,
-    # we only assert the biggest jank > 50ms here to account for the fact
-    # that the browser may deschedule during the jank loop.
-    v = results.FindAllPageSpecificValuesFromIRNamed(
-        'JankThreadJSRun', 'responsive-biggest_jank_thread_time')
-    self.assertGreaterEqual(v[0].value, 50)
-
-    v = results.FindAllPageSpecificValuesFromIRNamed(
-        'JankThreadJSRun', 'responsive-total_big_jank_thread_time')
-    self.assertGreaterEqual(v[0].value, 50)
-
   # win: crbug.com/520781, chromeos: crbug.com/483212.
   @decorators.Disabled('win', 'chromeos')
   @decorators.Isolated  # Needed because of py_trace_event
@@ -126,7 +104,9 @@ class TimelineBasedPageTestTest(page_test_test_case.PageTestTestCase):
     ps.AddStory(TestTimelinebasedMeasurementPage(
         ps, ps.base_dir, trigger_scroll_gesture=True))
 
-    tbm = tbm_module.TimelineBasedMeasurement(tbm_module.Options())
+    options = tbm_module.Options()
+    options.SetLegacyTimelineBasedMetrics([smoothness.SmoothnessMetric()])
+    tbm = tbm_module.TimelineBasedMeasurement(options)
     results = self.RunMeasurement(tbm, ps, options=self._options)
 
     self.assertEquals(0, len(results.failures))
@@ -136,22 +116,62 @@ class TimelineBasedPageTestTest(page_test_test_case.PageTestTestCase):
 
   # Fails on chromeos: crbug.com/483212
   @decorators.Disabled('chromeos')
+  @decorators.Isolated
   def testTBM2ForSmoke(self):
     ps = self.CreateEmptyPageSet()
     ps.AddStory(TestTimelinebasedMeasurementPage(ps, ps.base_dir))
 
     options = tbm_module.Options()
-    options.SetTimelineBasedMetric('sampleMetric')
+    options.config.enable_chrome_trace = True
+    options.SetTimelineBasedMetrics(['sampleMetric'])
 
     tbm = tbm_module.TimelineBasedMeasurement(options)
     results = self.RunMeasurement(tbm, ps, self._options)
 
     self.assertEquals(0, len(results.failures))
-    v_foo = results.FindAllPageSpecificValuesNamed('foo')
-    v_bar = results.FindAllPageSpecificValuesNamed('bar')
+    self.assertEquals(2, len(results.value_set))
+    diagnostics = results.value_set[1]['diagnostics']
+    self.assertEquals(1, len(diagnostics))
+    telemetry_info = results.value_set[0]
+    self.assertEquals(telemetry_info['guid'], diagnostics['telemetry'])
+    self.assertEqual('TelemetryInfo', telemetry_info['type'])
+    self.assertEqual('', telemetry_info['benchmarkName'])
+    self.assertEqual('interaction_enabled_page.html',
+                     telemetry_info['storyDisplayName'])
+    self.assertNotIn('storyGroupingKeys', telemetry_info)
+    self.assertEqual(0, telemetry_info['storysetRepeatCounter'])
+    v_foo = results.FindAllPageSpecificValuesNamed('foo_avg')
     self.assertEquals(len(v_foo), 1)
-    self.assertEquals(len(v_bar), 1)
-    self.assertEquals(v_foo[0].value, 1)
+    self.assertEquals(v_foo[0].value, 50)
     self.assertIsNotNone(v_foo[0].page)
-    self.assertEquals(v_bar[0].value, 2)
-    self.assertIsNotNone(v_bar[0].page)
+
+  @decorators.Disabled('chromeos')
+  def testFirstPaintMetricSmoke(self):
+    ps = self.CreateEmptyPageSet()
+    ps.AddStory(TestTimelinebasedMeasurementPage(ps, ps.base_dir))
+
+    cat_filter = chrome_trace_category_filter.ChromeTraceCategoryFilter(
+        filter_string='*,blink.console,navigation,blink.user_timing,loading,' +
+        'devtools.timeline,disabled-by-default-blink.debug.layout')
+
+    options = tbm_module.Options(overhead_level=cat_filter)
+    options.SetTimelineBasedMetrics(['loadingMetric'])
+
+    tbm = tbm_module.TimelineBasedMeasurement(options)
+    results = self.RunMeasurement(tbm, ps, self._options)
+
+    self.assertEquals(0, len(results.failures), results.failures)
+    v_ttfcp_max = results.FindAllPageSpecificValuesNamed(
+        'timeToFirstContentfulPaint_max')
+    self.assertEquals(len(v_ttfcp_max), 1)
+    self.assertIsNotNone(v_ttfcp_max[0].page)
+    # TODO(kouhei): enable this once the reference build of telemetry is
+    # updated.
+    #  self.assertGreater(v_ttfcp_max[0].value, 0)
+
+    v_ttfmp_max = results.FindAllPageSpecificValuesNamed(
+       'timeToFirstMeaningfulPaint_max')
+    self.assertEquals(len(v_ttfmp_max), 1)
+    # TODO(ksakamoto): enable this once the reference build of telemetry is
+    # updated.
+    # self.assertIsNotNone(v_ttfmp_max[0].page)

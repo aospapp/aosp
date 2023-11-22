@@ -16,6 +16,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <memory>
 #include <vector>
 
 #include "Log.h"
@@ -52,9 +53,9 @@ TaskGeneric::ExecutionResult TaskProcess::run()
 // Allocate Buffers and Values to pass to builtin functions
 bool TaskProcess::prepareParams(std::vector<TaskProcess::Param>& list,
         const bool* paramTypes,
-        UniquePtr<void_ptr, DefaultDelete<void_ptr[]> > & ptrs,
-        UniquePtr<UniqueValue, DefaultDelete<UniqueValue[]> > & values,
-        UniquePtr<UniqueBuffer, DefaultDelete<UniqueBuffer[]> > & buffers,
+        std::unique_ptr<void_ptr[]>& ptrs,
+        std::unique_ptr<UniqueValue[]>& values,
+        std::unique_ptr<UniqueBuffer[]>& buffers,
         bool isInput)
 {
     size_t N = list.size();
@@ -92,7 +93,7 @@ bool TaskProcess::prepareParams(std::vector<TaskProcess::Param>& list,
         }
         switch(list[i].getType()) {
         case EId: {
-            UniquePtr<android::sp<Buffer> > buffer(new android::sp<Buffer>());
+            std::unique_ptr<android::sp<Buffer> > buffer(new android::sp<Buffer>());
             if (buffer.get() == NULL) {
                 LOGE("alloc failed");
                 return false;
@@ -166,17 +167,17 @@ TaskGeneric::ExecutionResult TaskProcess::doRun(bool builtIn)
         }
     }
     // This is for passing to builtin fns. Just void pts will be cleared in exit
-    UniquePtr<void_ptr, DefaultDelete<void_ptr[]> > inputs;
+    std::unique_ptr<void_ptr[]> inputs;
     // This is for holding Value instances. Will be destroyed in exit
-    UniquePtr<UniqueValue, DefaultDelete<UniqueValue[]> > inputValues;
+    std::unique_ptr<UniqueValue[]> inputValues;
     // This is for holding android::sp<Buffer>. Buffer itself is from the global map.
-    UniquePtr<UniqueBuffer, DefaultDelete<UniqueBuffer[]> > inputBuffers;
+    std::unique_ptr<UniqueBuffer[]> inputBuffers;
 
-    UniquePtr<void_ptr, DefaultDelete<void_ptr[]> > outputs;
+    std::unique_ptr<void_ptr[]> outputs;
     // Value is created here. Builtin function just need to set it.
-    UniquePtr<UniqueValue, DefaultDelete<UniqueValue[]> > outputValues;
+    std::unique_ptr<UniqueValue[]> outputValues;
     // Buffer itself should be allocated by the builtin function itself.
-    UniquePtr<UniqueBuffer, DefaultDelete<UniqueBuffer[]> > outputBuffers;
+    std::unique_ptr<UniqueBuffer[]> outputBuffers;
 
     if (!prepareParams(mInput, builtIn ? info->mInputTypes : NULL, inputs, inputValues,
             inputBuffers, true)) {
@@ -192,11 +193,11 @@ TaskGeneric::ExecutionResult TaskProcess::doRun(bool builtIn)
     if (builtIn) {
         result = (mBuiltin.*(info->mFunction))(inputs.get(), outputs.get());
     } else {
-        UniquePtr<bool, DefaultDelete<bool[]> > inputTypes(new bool[mInput.size()]);
+        std::unique_ptr<bool[]> inputTypes(new bool[mInput.size()]);
         for (size_t i = 0; i < mInput.size(); i++) {
             (inputTypes.get())[i] = mInput[i].isIdType();
         }
-        UniquePtr<bool, DefaultDelete<bool[]> > outputTypes(new bool[mOutput.size()]);
+        std::unique_ptr<bool[]> outputTypes(new bool[mOutput.size()]);
         for (size_t i = 0; i < mOutput.size(); i++) {
             (outputTypes.get())[i] = mOutput[i].isIdType();
         }
@@ -245,14 +246,15 @@ bool TaskProcess::parseParams(std::vector<TaskProcess::Param>& list, const char*
 {
     LOGV("TaskProcess::parseParams will parse %s", str);
     android::String8 paramStr(str);
-    UniquePtr<std::vector<android::String8> > paramTokens(StringUtil::split(paramStr, ','));
+    std::unique_ptr<std::vector<android::String8>> paramTokens(StringUtil::split(paramStr, ','));
     if (paramTokens.get() == NULL) {
         LOGE("split failed");
         return false;
     }
     std::vector<android::String8>& tokens = *(paramTokens.get());
     for (size_t i = 0; i < tokens.size(); i++) {
-        UniquePtr<std::vector<android::String8> > itemTokens(StringUtil::split(tokens[i], ':'));
+        std::unique_ptr<std::vector<android::String8>> itemTokens(StringUtil::split(tokens[i],
+                                                                                    ':'));
         if (itemTokens.get() == NULL) {
             LOGE("split failed");
             return false;
@@ -294,7 +296,7 @@ bool TaskProcess::parseParams(std::vector<TaskProcess::Param>& list, const char*
 bool TaskProcess::parseAttribute(const android::String8& name, const android::String8& value)
 {
     if (StringUtil::compare(name, "method") == 0) {
-        UniquePtr<std::vector<android::String8> > tokenPtr(StringUtil::split(value, ':'));
+        std::unique_ptr<std::vector<android::String8> > tokenPtr(StringUtil::split(value, ':'));
         std::vector<android::String8>* tokens = tokenPtr.get();
         if (tokens == NULL) {
             LOGE("split failed");

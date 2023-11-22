@@ -8,7 +8,6 @@ DOC = '''
 Does inplace preads and pwrites.
 '''
 ATTRIBUTES = "suite:bvt-perbuild"
-SUITE = "bvt-perbuild"
 TIME = 'SHORT'
 TEST_CLASS = 'kernel'
 TEST_CATEGORY = 'Performance'

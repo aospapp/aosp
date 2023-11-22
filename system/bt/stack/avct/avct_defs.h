@@ -26,37 +26,38 @@
 #define AVCT_DEFS_H
 
 /*****************************************************************************
-** constants
-*****************************************************************************/
+ * constants
+ ****************************************************************************/
 
 /* packet type */
-#define AVCT_PKT_TYPE_SINGLE        0       /* single packet */
-#define AVCT_PKT_TYPE_START         1       /* start packet */
-#define AVCT_PKT_TYPE_CONT          2       /* continue packet */
-#define AVCT_PKT_TYPE_END           3       /* end packet */
+#define AVCT_PKT_TYPE_SINGLE 0 /* single packet */
+#define AVCT_PKT_TYPE_START 1  /* start packet */
+#define AVCT_PKT_TYPE_CONT 2   /* continue packet */
+#define AVCT_PKT_TYPE_END 3    /* end packet */
 
 /* header lengths for different packet types */
-#define AVCT_HDR_LEN_SINGLE         3
-#define AVCT_HDR_LEN_START          4
-#define AVCT_HDR_LEN_CONT           1
-#define AVCT_HDR_LEN_END            1
+#define AVCT_HDR_LEN_SINGLE 3
+#define AVCT_HDR_LEN_START 4
+#define AVCT_HDR_LEN_CONT 1
+#define AVCT_HDR_LEN_END 1
 
 /* invalid cr+ipid value */
-#define AVCT_CR_IPID_INVALID        1
+#define AVCT_CR_IPID_INVALID 1
 
 /*****************************************************************************
-** message parsing and building macros
-*****************************************************************************/
+ * message parsing and building macros
+ ****************************************************************************/
 
-#define AVCT_BLD_HDR(p, label, type, cr_ipid) \
-    *(p)++ = ((label) << 4) | ((type) << 2) | (cr_ipid);
+#define AVCT_BUILD_HDR(p, label, type, cr_ipid) \
+  *(p)++ = ((label) << 4) | ((type) << 2) | (cr_ipid);
 
-#define AVCT_PRS_HDR(p, label, type, cr_ipid) \
-    label = *(p) >> 4; \
-    type = (*(p) >> 2) & 3; \
-    cr_ipid = *(p)++ & 3;
+#define AVCT_PARSE_HDR(p, label, type, cr_ipid) \
+  do {                                          \
+    (label) = *(p) >> 4;                        \
+    (type) = (*(p) >> 2) & 3;                   \
+    (cr_ipid) = *(p)++ & 3;                     \
+  } while (0)
 
-#define AVCT_PRS_PKT_TYPE(p, type) \
-    type = (*(p) >> 2) & 3;
+#define AVCT_PKT_TYPE(p) ((*(p) >> 2) & 3)
 
 #endif /* AVCT_DEFS_H */

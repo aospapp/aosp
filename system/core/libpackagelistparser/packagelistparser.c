@@ -18,17 +18,16 @@
  *
  */
 
+#define LOG_TAG "packagelistparser"
+
 #include <errno.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
 #include <sys/limits.h>
 
-#define LOG_TAG "packagelistparser"
-#include <utils/Log.h>
-
+#include <log/log.h>
 #include <packagelistparser/packagelistparser.h>
 
 #define CLOGE(fmt, ...) \

@@ -90,7 +90,7 @@ public class Support_GetPutFieldsDefaulted implements Serializable {
         charValue = 'D';
         doubleValue = 523452.4532;
         floatValue = 298.54f;
-        longValue = 1234567890l;
+        longValue = 1234567890L;
         intValue = 999999;
         objectValue = new SimpleClass(1965, "Hello Jupiter");
         shortValue = 4321;
@@ -121,7 +121,7 @@ public class Support_GetPutFieldsDefaulted implements Serializable {
         charValue = getField.get("charValue", (char) 'D');
         doubleValue = getField.get("doubleValue", 523452.4532);
         floatValue = getField.get("floatValue", 298.54f);
-        longValue = getField.get("longValue", (long) 1234567890l);
+        longValue = getField.get("longValue", (long) 1234567890L);
         intValue = getField.get("intValue", 999999);
         objectValue = (Support_GetPutFieldsDefaulted.SimpleClass)
                        getField.get("objectValue",

@@ -47,6 +47,7 @@ public class KeyStoreBuilderParametersTest extends TestCase {
     public void test_init_List_null() {
         try {
             new KeyStoreBuilderParameters((List) null);
+            fail();
         } catch (NullPointerException expected) {
         }
     }

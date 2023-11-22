@@ -16,13 +16,19 @@
 
 package com.android.cts.documentclient;
 
+import static org.junit.Assert.assertNotEquals;
+
+import android.app.Activity;
 import android.content.ContentResolver;
 import android.content.Intent;
+import android.content.IntentSender;
 import android.database.Cursor;
 import android.net.Uri;
+import android.os.Bundle;
 import android.os.SystemClock;
 import android.provider.DocumentsContract;
 import android.provider.DocumentsContract.Document;
+import android.provider.DocumentsContract.Path;
 import android.provider.DocumentsProvider;
 import android.support.test.uiautomator.UiObject;
 import android.support.test.uiautomator.UiObjectNotFoundException;
@@ -33,6 +39,8 @@ import android.util.Log;
 
 import com.android.cts.documentclient.MyActivity.Result;
 
+import java.util.List;
+
 /**
  * Tests for {@link DocumentsProvider} and interaction with platform intents
  * like {@link Intent#ACTION_OPEN_DOCUMENT}.
@@ -40,11 +48,14 @@ import com.android.cts.documentclient.MyActivity.Result;
 public class DocumentsClientTest extends DocumentsClientTestCase {
     private static final String TAG = "DocumentsClientTest";
 
-    private UiObject findRoot(String label) throws UiObjectNotFoundException {
-        final UiSelector rootsList = new UiSelector().resourceId(
+    private UiSelector findRootListSelector() throws UiObjectNotFoundException {
+        return new UiSelector().resourceId(
                 "com.android.documentsui:id/container_roots").childSelector(
                 new UiSelector().resourceId("com.android.documentsui:id/roots_list"));
 
+    }
+
+    private void revealRoot(UiSelector rootsList, String label) throws UiObjectNotFoundException {
         // We might need to expand drawer if not visible
         if (!new UiObject(rootsList).waitForExists(TIMEOUT)) {
             Log.d(TAG, "Failed to find roots list; trying to expand");
@@ -60,7 +71,25 @@ public class DocumentsClientTest extends DocumentsClientTestCase {
 
         // Now scroll around to find our item
         new UiScrollable(rootsList).scrollIntoView(new UiSelector().text(label));
+    }
+
+    private UiObject findRoot(String label) throws UiObjectNotFoundException {
+        final UiSelector rootsList = findRootListSelector();
+        revealRoot(rootsList, label);
+
         return new UiObject(rootsList.childSelector(new UiSelector().text(label)));
+    }
+
+    private UiObject findEjectIcon(String rootLabel) throws UiObjectNotFoundException {
+        final UiSelector rootsList = findRootListSelector();
+        revealRoot(rootsList, rootLabel);
+
+        final UiScrollable rootsListObject = new UiScrollable(rootsList);
+        final UiObject rootItem =
+                rootsListObject.getChildByText(new UiSelector(), rootLabel, false);
+        final UiSelector ejectIcon =
+                new UiSelector().resourceId("com.android.documentsui:id/eject_icon");
+        return new UiObject(rootItem.getSelector().childSelector(ejectIcon));
     }
 
     private UiObject findDocument(String label) throws UiObjectNotFoundException {
@@ -80,6 +109,10 @@ public class DocumentsClientTest extends DocumentsClientTestCase {
     private UiObject findSaveButton() throws UiObjectNotFoundException {
         return new UiObject(new UiSelector().resourceId("com.android.documentsui:id/container_save")
                 .childSelector(new UiSelector().resourceId("android:id/button1")));
+    }
+
+    private UiObject findPositiveButton() throws UiObjectNotFoundException {
+        return new UiObject(new UiSelector().resourceId("android:id/button1"));
     }
 
     public void testOpenSimple() throws Exception {
@@ -215,6 +248,9 @@ public class DocumentsClientTest extends DocumentsClientTestCase {
 
         mDevice.waitForIdle();
         findSaveButton().click();
+
+        mDevice.waitForIdle();
+        findPositiveButton().click();
 
         final Result result = mActivity.getResult();
         final Uri uri = result.data.getData();
@@ -426,6 +462,169 @@ public class DocumentsClientTest extends DocumentsClientTestCase {
             assertEquals(0, cursorDst.getCount());
         } finally {
             cursorDst.close();
+        }
+    }
+
+    public void testFindDocumentPathInScopedAccess() throws Exception {
+        if (!supportedHardware()) return;
+
+        final Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
+        mActivity.startActivityForResult(intent, REQUEST_CODE);
+
+        mDevice.waitForIdle();
+        findRoot("CtsCreate").click();
+
+        mDevice.waitForIdle();
+        findDocument("DIR2").click();
+        mDevice.waitForIdle();
+        findSaveButton().click();
+
+        final Result result = mActivity.getResult();
+        final Uri uri = result.data.getData();
+
+        // We should have selected DIR2
+        Uri doc = DocumentsContract.buildDocumentUriUsingTree(uri,
+                DocumentsContract.getTreeDocumentId(uri));
+
+        assertEquals("DIR2", getColumn(doc, Document.COLUMN_DISPLAY_NAME));
+
+        final ContentResolver resolver = getInstrumentation().getContext().getContentResolver();
+
+        // Create some documents
+        Uri dir = DocumentsContract.createDocument(resolver, doc, Document.MIME_TYPE_DIR, "my dir");
+        Uri dirPic = DocumentsContract.createDocument(resolver, dir, "image/png", "pic2.png");
+
+        writeFully(dirPic, "dirPic".getBytes());
+
+        // Find the path of a document
+        Path path = DocumentsContract.findDocumentPath(resolver, dirPic);
+        assertNull(path.getRootId());
+
+        final List<String> docs = path.getPath();
+        assertEquals("Unexpected path: " + path, 3, docs.size());
+        assertEquals(DocumentsContract.getTreeDocumentId(uri), docs.get(0));
+        assertEquals(DocumentsContract.getDocumentId(dir), docs.get(1));
+        assertEquals(DocumentsContract.getDocumentId(dirPic), docs.get(2));
+    }
+
+    public void testOpenDocumentAtInitialLocation() throws Exception {
+        if (!supportedHardware()) return;
+
+        // Clear DocsUI's storage to avoid it opening stored last location
+        // which may make this test pass "luckily".
+        clearDocumentsUi();
+
+        final Uri docUri = DocumentsContract.buildDocumentUri(PROVIDER_PACKAGE, "doc:file1");
+        final Intent intent = new Intent();
+        intent.setAction(Intent.ACTION_OPEN_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("*/*");
+        intent.putExtra(DocumentsContract.EXTRA_INITIAL_URI, docUri);
+        mActivity.startActivityForResult(intent, REQUEST_CODE);
+        mDevice.waitForIdle();
+
+        assertTrue(findDocument("FILE1").exists());
+    }
+
+    public void testOpenDocumentTreeAtInitialLocation() throws Exception {
+        if (!supportedHardware()) return;
+
+        // Clear DocsUI's storage to avoid it opening stored last location
+        // which may make this test pass "luckily".
+        clearDocumentsUi();
+
+        final Uri docUri = DocumentsContract.buildDocumentUri(PROVIDER_PACKAGE, "doc:dir2");
+        final Intent intent = new Intent();
+        intent.setAction(Intent.ACTION_OPEN_DOCUMENT_TREE);
+        intent.putExtra(DocumentsContract.EXTRA_INITIAL_URI, docUri);
+        mActivity.startActivityForResult(intent, REQUEST_CODE);
+        mDevice.waitForIdle();
+
+        assertTrue(findDocument("FILE4").exists());
+    }
+
+    public void testCreateDocumentAtInitialLocation() throws Exception {
+        if (!supportedHardware()) return;
+
+        // Clear DocsUI's storage to avoid it opening stored last location
+        // which may make this test pass "luckily".
+        clearDocumentsUi();
+
+        final Uri treeUri = DocumentsContract.buildTreeDocumentUri(PROVIDER_PACKAGE, "doc:local");
+        final Uri docUri = DocumentsContract.buildDocumentUriUsingTree(treeUri, "doc:file1");
+        final Intent intent = new Intent();
+        intent.setAction(Intent.ACTION_CREATE_DOCUMENT);
+        intent.setType("plain/text");
+        intent.putExtra(DocumentsContract.EXTRA_INITIAL_URI, docUri);
+        mActivity.startActivityForResult(intent, REQUEST_CODE);
+        mDevice.waitForIdle();
+
+        assertTrue(findDocument("FILE1").exists());
+    }
+
+    public void testCreateWebLink() throws Exception {
+        if (!supportedHardware()) return;
+
+        final Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        intent.setType("*/*");
+        mActivity.startActivityForResult(intent, REQUEST_CODE);
+
+        // Pick a virtual file from the local root.
+        mDevice.waitForIdle();
+        findRoot("CtsLocal").click();
+
+        mDevice.waitForIdle();
+        findDocument("WEB_LINKABLE_FILE").click();
+
+        // Confirm that the returned file is actually the selected one.
+        final Result result = mActivity.getResult();
+        final Uri uri = result.data.getData();
+        assertEquals("doc:web-linkable-file", DocumentsContract.getDocumentId(uri));
+
+        final ContentResolver resolver = getInstrumentation().getContext().getContentResolver();
+
+        Bundle bundle = new Bundle();
+        bundle.putStringArray(Intent.EXTRA_EMAIL, new String[] { "x@x.com" });
+        final IntentSender intentSender = DocumentsContract.createWebLinkIntent(resolver,
+                uri, bundle);
+
+        final int WEB_LINK_REQUEST_CODE = 1;
+        mActivity.startIntentSenderForResult(intentSender, WEB_LINK_REQUEST_CODE,
+                null, 0, 0, 0);
+        mDevice.waitForIdle();
+
+        // Confirm the permissions dialog. The dialog is provided by the stub
+        // provider.
+        UiObject okButton = new UiObject(new UiSelector().resourceId("android:id/button1"));
+        assertNotNull(okButton);
+        assertTrue(okButton.waitForExists(TIMEOUT));
+        okButton.click();
+
+        final Result webLinkResult = mActivity.getResult();
+        assertEquals(WEB_LINK_REQUEST_CODE, webLinkResult.requestCode);
+        assertEquals(Activity.RESULT_OK, webLinkResult.resultCode);
+
+        final Uri webLinkUri = webLinkResult.data.getData();
+        assertEquals("http://www.foobar.com/shared/SW33TCH3RR13S", webLinkUri.toString());
+    }
+
+    public void testEject() throws Exception {
+        if (!supportedHardware()) return;
+
+        final Intent intent = new Intent(Intent.ACTION_VIEW);
+        intent.addCategory(Intent.CATEGORY_DEFAULT);
+        intent.setDataAndType(
+                DocumentsContract.buildChildDocumentsUri(PROVIDER_PACKAGE, "doc:dir1"),
+                Document.MIME_TYPE_DIR);
+        mActivity.startActivity(intent);
+
+        findEjectIcon("eject").click();
+
+        try {
+            findRoot("eject").click();
+            fail("Root eject was not ejected");
+        } catch(UiObjectNotFoundException e) {
+            // expected
         }
     }
 }

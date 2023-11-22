@@ -126,7 +126,8 @@ public class CaptureDeprecatedElements {
       this.publicClassLocators = publicClassLocators;
     }
 
-    @Override public void process(Context context, CompilationUnit cu) {
+    @Override
+    public void process(Context context, CompilationUnit cu) {
       for (TypeLocator publicClassLocator : publicClassLocators) {
         AbstractTypeDeclaration matchedType = publicClassLocator.find(cu);
         if (matchedType != null) {
@@ -184,6 +185,13 @@ public class CaptureDeprecatedElements {
 
     public List<String> getDeprecatedElements() {
       return deprecatedElements;
+    }
+
+    @Override
+    public String toString() {
+      return "CaptureDeprecatedProcessor{" +
+          "publicClassLocators=" + publicClassLocators +
+          '}';
     }
   }
 }

@@ -5,7 +5,6 @@
 AUTHOR = 'wiley, pstew'
 NAME = 'network_DestinationVerification'
 ATTRIBUTES = "suite:bvt-cq, subsystem:network"
-SUITE = 'bvt-cq'
 TIME = 'SHORT'
 TEST_TYPE = 'client'
 JOB_RETRIES = 2

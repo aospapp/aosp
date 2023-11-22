@@ -44,19 +44,21 @@
 
 SYS_FUNC(msgget)
 {
-	if (tcp->u_arg[0])
-		tprintf("%#lx, ", tcp->u_arg[0]);
+	const int key = (int) tcp->u_arg[0];
+	if (key)
+		tprintf("%#x", key);
 	else
-		tprints("IPC_PRIVATE, ");
+		tprints("IPC_PRIVATE");
+	tprints(", ");
 	if (printflags(resource_flags, tcp->u_arg[1] & ~0777, NULL) != 0)
 		tprints("|");
-	tprintf("%#lo", tcp->u_arg[1] & 0777);
+	print_numeric_umode_t(tcp->u_arg[1] & 0777);
 	return RVAL_DECODED;
 }
 
 static void
-tprint_msgsnd(struct tcb *tcp, const long addr, const unsigned long count,
-	      const unsigned long flags)
+tprint_msgsnd(struct tcb *const tcp, const kernel_ulong_t addr,
+	      const kernel_ulong_t count, const unsigned int flags)
 {
 	tprint_msgbuf(tcp, addr, count);
 	printflags(ipc_msg_flags, flags, "MSG_???");
@@ -76,18 +78,19 @@ SYS_FUNC(msgsnd)
 }
 
 static void
-tprint_msgrcv(struct tcb *tcp, const long addr, const unsigned long count,
-	      const long msgtyp)
+tprint_msgrcv(struct tcb *const tcp, const kernel_ulong_t addr,
+	      const kernel_ulong_t count, const kernel_ulong_t msgtyp)
 {
 	tprint_msgbuf(tcp, addr, count);
-	tprintf("%ld, ", msgtyp);
+	tprintf("%" PRI_kld ", ", msgtyp);
 }
 
 static int
-fetch_msgrcv_args(struct tcb *tcp, const long addr, long *pair)
+fetch_msgrcv_args(struct tcb *const tcp, const kernel_ulong_t addr,
+		  kernel_ulong_t *const pair)
 {
-	if (current_wordsize == sizeof(long)) {
-		if (umoven_or_printaddr(tcp, addr, 2 * sizeof(long), pair))
+	if (current_wordsize == sizeof(*pair)) {
+		if (umoven_or_printaddr(tcp, addr, 2 * sizeof(*pair), pair))
 			return -1;
 	} else {
 		unsigned int tmp[2];
@@ -106,12 +109,23 @@ SYS_FUNC(msgrcv)
 		tprintf("%d, ", (int) tcp->u_arg[0]);
 	} else {
 		if (indirect_ipccall(tcp)) {
-			long pair[2];
+			const bool direct =
+#ifdef SPARC64
+				current_wordsize == 8 ||
+#endif
+				get_tcb_priv_ulong(tcp) != 0;
+			if (direct) {
+				tprint_msgrcv(tcp, tcp->u_arg[3],
+					      tcp->u_arg[1], tcp->u_arg[4]);
+			} else {
+				kernel_ulong_t pair[2];
 
-			if (fetch_msgrcv_args(tcp, tcp->u_arg[3], pair))
-				tprintf(", %lu, ", tcp->u_arg[1]);
-			else
-				tprint_msgrcv(tcp, pair[0], tcp->u_arg[1], pair[1]);
+				if (fetch_msgrcv_args(tcp, tcp->u_arg[3], pair))
+					tprintf(", %" PRI_klu ", ", tcp->u_arg[1]);
+				else
+					tprint_msgrcv(tcp, pair[0],
+						      tcp->u_arg[1], pair[1]);
+			}
 			printflags(ipc_msg_flags, tcp->u_arg[2], "MSG_???");
 		} else {
 			tprint_msgrcv(tcp, tcp->u_arg[1],

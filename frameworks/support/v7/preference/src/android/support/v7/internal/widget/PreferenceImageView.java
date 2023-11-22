@@ -16,8 +16,11 @@
 
 package android.support.v7.internal.widget;
 
+import static android.support.annotation.RestrictTo.Scope.LIBRARY_GROUP;
+
 import android.content.Context;
 import android.content.res.TypedArray;
+import android.support.annotation.RestrictTo;
 import android.support.v7.preference.R;
 import android.util.AttributeSet;
 import android.widget.ImageView;
@@ -26,6 +29,7 @@ import android.widget.ImageView;
  * Extension of ImageView that correctly applies maxWidth and maxHeight.
  * @hide
  */
+@RestrictTo(LIBRARY_GROUP)
 public class PreferenceImageView extends ImageView {
 
     private int mMaxWidth = Integer.MAX_VALUE;
@@ -65,6 +69,7 @@ public class PreferenceImageView extends ImageView {
         super.setMaxWidth(maxWidth);
     }
 
+    @Override
     public int getMaxWidth() {
         return mMaxWidth;
     }
@@ -75,6 +80,7 @@ public class PreferenceImageView extends ImageView {
         super.setMaxHeight(maxHeight);
     }
 
+    @Override
     public int getMaxHeight() {
         return mMaxHeight;
     }

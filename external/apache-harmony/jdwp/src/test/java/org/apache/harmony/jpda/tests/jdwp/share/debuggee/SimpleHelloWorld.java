@@ -32,6 +32,7 @@ import org.apache.harmony.jpda.tests.share.Debuggee;
  */
 public class SimpleHelloWorld extends Debuggee {
 
+    @Override
     public void run() {
         logWriter.println("Hello World");
     }

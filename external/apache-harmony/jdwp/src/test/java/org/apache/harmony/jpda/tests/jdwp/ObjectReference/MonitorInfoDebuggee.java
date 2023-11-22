@@ -32,6 +32,7 @@ public class MonitorInfoDebuggee extends SyncDebuggee {
     
     static Object lockObject;
 
+    @Override
     public void run() {
         logWriter.println("--> Debuggee: MonitorInfoDebuggee: START");
         lockObject = new Object();

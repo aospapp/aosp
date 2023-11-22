@@ -19,15 +19,12 @@ package android.content.pm.cts.shortcutmanager;
 import static android.content.pm.cts.shortcutmanager.common.Constants.INLINE_REPLY_REMOTE_INPUT_CAPTION;
 
 import static com.android.server.pm.shortcutmanagertest.ShortcutManagerTestUtils.resetThrottling;
-import static com.android.server.pm.shortcutmanagertest.ShortcutManagerTestUtils.retryUntil;
 import static com.android.server.pm.shortcutmanagertest.ShortcutManagerTestUtils.runCommandForNoOutput;
 
-import android.content.BroadcastReceiver;
 import android.content.ComponentName;
-import android.content.Context;
 import android.content.Intent;
-import android.content.IntentFilter;
 import android.content.pm.cts.shortcutmanager.common.Constants;
+import android.content.pm.cts.shortcutmanager.common.ReplyUtil;
 import android.support.test.uiautomator.By;
 import android.support.test.uiautomator.UiDevice;
 import android.support.test.uiautomator.UiObject2;
@@ -35,8 +32,6 @@ import android.support.test.uiautomator.Until;
 import android.test.suitebuilder.annotation.SmallTest;
 import android.test.suitebuilder.annotation.Suppress;
 import android.view.KeyEvent;
-
-import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * The actual test is implemented in the CtsShortcutManagerThrottlingTest module.
@@ -52,45 +47,14 @@ public class ShortcutManagerThrottlingTest extends ShortcutManagerCtsTestsBase {
             "android.content.pm.cts.shortcutmanager.throttling";
 
     private void callTest(String method) {
-
-        final AtomicReference<Intent> ret = new AtomicReference<>();
-
-        // Register the reply receiver
-
-        // Use a random reply action every time.
-        final String replyAction = Constants.ACTION_THROTTLING_REPLY + sRandom.nextLong();
-        final IntentFilter filter = new IntentFilter(replyAction);
-
-        final BroadcastReceiver r = new BroadcastReceiver() {
-            @Override
-            public void onReceive(Context context, Intent intent) {
-                ret.set(intent);
-            }
-        };
-
-        getTestContext().registerReceiver(r, filter);
-
-        try {
-            // Send the request broadcast.
-
+        ReplyUtil.invokeAndWaitForReply(getTestContext(), (replyAction) -> {
             final Intent i = new Intent(Constants.ACTION_THROTTLING_TEST);
             i.putExtra(Constants.EXTRA_METHOD, method);
             i.putExtra(Constants.EXTRA_REPLY_ACTION, replyAction);
             i.setComponent(ComponentName.unflattenFromString(
                     TARGET_PACKAGE + "/.ShortcutManagerThrottlingTestReceiver"));
             getTestContext().sendBroadcast(i);
-
-            // Wait for the response.
-            retryUntil(() -> ret.get() != null, "Didn't receive result broadcast",
-                    120); // Wait much longer
-
-            if (ret.get().getExtras().getBoolean("success")) {
-                return;
-            }
-            fail(ret.get().getExtras().getString("error"));
-        } finally {
-            getTestContext().unregisterReceiver(r);
-        }
+        });
     }
 
     @Override

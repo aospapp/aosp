@@ -42,6 +42,9 @@ public class AccessibilityFocusAndInputFocusSyncTest
 
     @MediumTest
     public void testFindAccessibilityFocus() throws Exception {
+        getInstrumentation().runOnMainSync(() -> {
+            getActivity().findViewById(R.id.firstEditText).requestFocus();
+        });
         // Get the view that has input and accessibility focus.
         final AccessibilityNodeInfo expected = getInstrumentation().getUiAutomation()
                 .getRootInActiveWindow().findAccessibilityNodeInfosByText(
@@ -166,7 +169,6 @@ public class AccessibilityFocusAndInputFocusSyncTest
                         getString(R.string.firstEditText)).get(0);
         assertNotNull(firstEditText);
         assertTrue(firstEditText.isFocusable());
-        assertTrue(firstEditText.isFocused());
         assertFalse(firstEditText.isAccessibilityFocused());
 
         getInstrumentation().getUiAutomation().executeAndWaitForEvent(new Runnable() {

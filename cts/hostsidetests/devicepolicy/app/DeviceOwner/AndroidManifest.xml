@@ -20,13 +20,17 @@
     <uses-sdk android:minSdkVersion="20"/>
 
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" />
     <uses-permission android:name="android.permission.WRITE_SETTINGS" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
     <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.BLUETOOTH" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
+    <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
 
-    <!-- Add a network security config that trusts user added CAs for tests -->
-    <application android:networkSecurityConfig="@xml/network_security_config"
+    <application
         android:testOnly="true">
 
         <uses-library android:name="android.test.runner" />
@@ -66,9 +70,25 @@
             android:name="com.android.cts.deviceowner.LockTaskTest$IntentReceivingActivity"
             android:taskAffinity="com.android.cts.deviceowner.LockTaskTest.IntentReceivingActivity"
             />
+
+        <activity
+            android:name=".SetPolicyActivity"
+            android:launchMode="singleTop">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.DEFAULT"/>
+            </intent-filter>
+        </activity>
+
+        <activity android:name="com.android.compatibility.common.util.devicepolicy.provisioning.StartProvisioningActivity"/>
+
     </application>
 
     <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
                      android:targetPackage="com.android.cts.deviceowner"
-                     android:label="Device Owner CTS tests"/>
+                     android:label="Device Owner CTS tests">
+        <meta-data
+            android:name="listener"
+            android:value="com.android.cts.runner.CtsTestRunListener"/>
+    </instrumentation>
 </manifest>

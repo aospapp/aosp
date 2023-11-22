@@ -336,6 +336,38 @@ class ShillXmlRpcDelegate(xmlrpc_server.XmlRpcDelegate):
         return self._wifi_proxy.dbus2primitive(service_properties)
 
 
+    @xmlrpc_server.dbus_safe(None)
+    def get_manager_properties(self):
+        manager_props = self._wifi_proxy.manager.GetProperties(utf8_strings=True)
+        return self._wifi_proxy.dbus2primitive(manager_props)
+
+
+    @xmlrpc_server.dbus_safe(None)
+    def get_manager_property(self, property_name):
+        prop_value = self._wifi_proxy.get_dbus_property(
+                self._wifi_proxy.manager,  property_name)
+        return self._wifi_proxy.dbus2primitive(prop_value)
+
+
+    @xmlrpc_server.dbus_safe(False)
+    def set_manager_property(self, property_name, property_value):
+        self._wifi_proxy.set_dbus_property(self._wifi_proxy.manager,
+                                           property_name, property_value)
+        return True
+
+    @xmlrpc_server.dbus_safe(False)
+    def set_optional_manager_property(self, property_name, property_value):
+        """Set optional manager property.
+
+        @param property_name String name of property to set
+        @param property_value String value to set property to
+        @return True on success, False otherwise.
+
+        """
+        self._wifi_proxy.set_optional_dbus_property(
+                self._wifi_proxy.manager, property_name, property_value)
+        return True
+
     @xmlrpc_server.dbus_safe(False)
     def get_active_wifi_SSIDs(self):
         """@return list of string SSIDs with at least one BSS we've scanned."""
@@ -445,6 +477,7 @@ class ShillXmlRpcDelegate(xmlrpc_server.XmlRpcDelegate):
         2) There is a BSS with an appropriate ID in our scan results.
 
         @param bssid: string BSSID of BSS to roam to.
+        @param interface: string name of interface to request roam for.
 
         """
 

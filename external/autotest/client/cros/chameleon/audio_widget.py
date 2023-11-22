@@ -7,14 +7,18 @@
 import abc
 import copy
 import logging
+import os
 import tempfile
 
 from autotest_lib.client.cros.audio import audio_data
 from autotest_lib.client.cros.audio import audio_test_data
+from autotest_lib.client.cros.audio import cras_configs
 from autotest_lib.client.cros.audio import sox_utils
 from autotest_lib.client.cros.chameleon import chameleon_audio_ids as ids
 from autotest_lib.client.cros.chameleon import chameleon_port_finder
 
+
+_CHAMELEON_FILE_PATH = os.path.join(os.path.dirname(__file__))
 
 class AudioWidget(object):
     """
@@ -420,6 +424,52 @@ class ChameleonInputWidgetHandler(ChameleonWidgetHandler):
         return chameleon_port
 
 
+class ChameleonHDMIInputWidgetHandlerError(Exception):
+    """Error in ChameleonHDMIInputWidgetHandler."""
+
+
+class ChameleonHDMIInputWidgetHandler(ChameleonInputWidgetHandler):
+    """This class abstracts a Chameleon HDMI audio input widget handler."""
+    _EDID_FILE_PATH = os.path.join(
+        _CHAMELEON_FILE_PATH, 'test_data/edids/HDMI_DELL_U2410.txt')
+
+    def __init__(self, chameleon_board, interface, display_facade):
+        """Initializes a ChameleonHDMIInputWidgetHandler.
+
+        @param chameleon_board: Pass to ChameleonInputWidgetHandler.
+        @param interface: Pass to ChameleonInputWidgetHandler.
+        @param display_facade: A DisplayFacadeRemoteAdapter to access
+                               Cros device display functionality.
+
+        """
+        super(ChameleonHDMIInputWidgetHandler, self).__init__(
+              chameleon_board, interface)
+        self._display_facade = display_facade
+        self._hdmi_video_port = None
+
+        self._find_video_port()
+
+
+    def _find_video_port(self):
+        """Finds HDMI as a video port."""
+        finder = chameleon_port_finder.ChameleonVideoInputFinder(
+                self._chameleon_board, self._display_facade)
+        self._hdmi_video_port = finder.find_port(self.interface)
+        if not self._hdmi_video_port:
+            raise ChameleonHDMIInputWidgetHandlerError(
+                    'Can not find HDMI port, perhaps HDMI is not connected?')
+
+
+    def set_edid_for_audio(self):
+        """Sets the EDID suitable for audio test."""
+        self._hdmi_video_port.set_edid_from_file(self._EDID_FILE_PATH)
+
+
+    def restore_edid(self):
+        """Restores the original EDID."""
+        self._hdmi_video_port.restore_edid()
+
+
 class ChameleonOutputWidgetHandler(ChameleonWidgetHandler):
     """
     This class abstracts a Chameleon audio output widget handler.
@@ -632,35 +682,6 @@ class JackPluggerPlugHandler(PlugHandler):
         self._jack_plugger.unplug()
 
 
-class USBPlugHandler(PlugHandler):
-    """This class abstracts plug/unplug action for USB widgets on Cros device.
-
-    Properties:
-        _usb_facade: An USBFacadeRemoteAdapter to access Cros device USB-
-                     specific functionality.
-
-    """
-
-    def __init__(self, usb_facade):
-        """Initializes a USBPlugHandler.
-
-        @param usb_facade: A USBFacadeRemoteAdapter to access Cros device USB-
-                           specific funtionality.
-
-        """
-        self._usb_facade = usb_facade
-
-
-    def plug(self):
-        """plugs in the usb audio widget to the cros device."""
-        self._usb_facade.plug()
-
-
-    def unplug(self):
-        """Unplugs the usb audio widget from the cros device."""
-        self._usb_facade.unplug()
-
-
 class CrosInputWidgetHandlerError(Exception):
     """Error in CrosInputWidgetHandler."""
 
@@ -735,6 +756,53 @@ class CrosUSBInputWidgetHandler(CrosInputWidgetHandler):
                                 rate=48000)
 
 
+class CrosIntMicInputWidgetHandler(CrosInputWidgetHandler):
+    """
+    This class abstracts a Cros device audio input widget handler on int mic.
+
+    """
+    def __init__(self, audio_facade, plug_handler, system_facade):
+        """Initializes a CrosWidgetHandler.
+
+        @param audio_facade: An AudioFacadeRemoteAdapter to access Cros device
+                             audio functionality.
+        @param plug_handler: A PlugHandler object for plug and unplug.
+        @param system_facade: A SystemFacadeRemoteAdapter to access Cros device
+                             audio functionality.
+
+        """
+        super(CrosIntMicInputWidgetHandler, self).__init__(
+                audio_facade, plug_handler)
+        self._system_facade = system_facade
+
+
+    def set_proper_gain(self):
+        """Sets a proper gain.
+
+        On some boards, the default gain is too high. It relies on automatic
+        gain control in application level to adjust the gain. Since there is no
+        automatic gain control in the test, we set a proper gain before
+        recording.
+
+        """
+        board = self._system_facade.get_current_board()
+        proper_gain = cras_configs.get_proper_internal_mic_gain(board)
+
+        if proper_gain is None:
+            logging.debug('No proper gain for %s', board)
+        return
+
+        logging.debug('Set gain to %f dB on internal mic for %s ',
+                      proper_gain / 100, board)
+        self._audio_facade.set_input_gain(proper_gain)
+
+
+    def start_recording(self):
+        """Starts recording audio with proper gain."""
+        self.set_proper_gain()
+        self._audio_facade.start_recording(self._DEFAULT_DATA_FORMAT)
+
+
 class CrosOutputWidgetHandlerError(Exception):
     """The error in CrosOutputWidgetHandler."""
     pass
@@ -778,7 +846,7 @@ class CrosOutputWidgetHandler(CrosWidgetHandler):
 
     def stop_playback(self):
         """Stops playing audio."""
-        raise NotImplementedError
+        self._audio_facade.stop_playback()
 
 
 class PeripheralWidgetHandler(object):

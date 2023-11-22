@@ -20,6 +20,7 @@
 #define OEM_IPTABLES_FILTER_OUTPUT "oem_out"
 #define OEM_IPTABLES_FILTER_FORWARD "oem_fwd"
 #define OEM_IPTABLES_NAT_PREROUTING "oem_nat_pre"
+#define OEM_IPTABLES_MANGLE_POSTROUTING "oem_mangle_post"
 
 void setupOemIptablesHook();
 

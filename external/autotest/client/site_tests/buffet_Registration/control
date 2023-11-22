@@ -7,7 +7,6 @@ NAME = 'buffet_Registration'
 TIME = 'SHORT'
 TEST_TYPE = 'client'
 ATTRIBUTES = "suite:tendo_experimental"
-SUITE = 'tendo_experimental'
 
 DOC = """
 Check that Buffet goes through the basic registration process as expected.

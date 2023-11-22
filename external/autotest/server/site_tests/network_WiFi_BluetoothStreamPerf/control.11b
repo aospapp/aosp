@@ -4,6 +4,7 @@
 
 AUTHOR = 'bfreed'
 NAME = 'network_WiFi_BluetoothStreamPerf.11b'
+ATTRIBUTES = 'suite:wifi_perf'
 TIME = 'MEDIUM'
 TEST_TYPE = 'Server'
 DEPENDENCIES = 'wificell, chameleon, audio_board'

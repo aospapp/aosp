@@ -44,7 +44,7 @@
     <string name="connectivity_wifi" msgid="489974791299647708">"Wi-Fi"</string>
     <string name="connectivity_ethernet" msgid="2182407318634700320">"Ethernet"</string>
     <string name="wifi_setting_always_scan" msgid="8883713018717323351">"Skanning er alltid tilgjengelig"</string>
-    <string name="wifi_setting_always_scan_context" msgid="5588180043357910712">"Tillat at Googles posisjonstjeneste og andre apper skanner etter nettverk, selv når Wi-Fi er slått av"</string>
+    <string name="wifi_setting_always_scan_context" msgid="398651204440349752">"Tillat at Googles posisjonstjeneste og andre apper skanner etter nettverk, selv når Wi-Fi er slått av"</string>
     <string name="wifi_setting_enable_wifi" msgid="9214100840401870408">"Wi-Fi"</string>
     <string name="device_daydream" msgid="3354366974209179614">"Skjermsparer"</string>
     <string name="device_display" msgid="101455384386372747">"Skjerm"</string>
@@ -72,6 +72,8 @@
     <string name="accessory_battery" msgid="7021788232835772126">"Batteri <xliff:g id="PERCENTAGE">%1$d</xliff:g> %%"</string>
     <string name="accessory_unpairing" msgid="7568241162181184667">"Paringen oppheves"</string>
     <string name="accessory_connected" msgid="2156489304110030393">"Tilkoblet"</string>
+    <string name="accessory_change_name" msgid="8958916008739792785">"Endre navn"</string>
+    <string name="accessory_change_name_title" msgid="4630819456923061184">"Skriv inn et nytt navn for dette tilbehøret"</string>
     <string name="accessories_add_title" msgid="6940361421891873321">"Søker etter tilbehør …"</string>
     <string name="accessories_add_bluetooth_inst" msgid="5892952745770640383">"Før du kobler sammen Bluetooth-enhetene dine, må du sjekke at de er i sammenkoblingsmodus"</string>
     <string name="accessories_autopair_msg" msgid="8618829246837821752">"En enhet ble funnet og blir automatisk koblet til om <xliff:g id="COUNTDOWN">%1$s</xliff:g> sekunder"</string>
@@ -91,6 +93,7 @@
     <string name="system_keyboard" msgid="7680159735294672514">"Tastatur"</string>
     <string name="system_home" msgid="2858989138172296012">"Startside"</string>
     <string name="system_search" msgid="2837264654143247611">"Søk"</string>
+    <string name="system_google" msgid="8560404305602209622">"Google"</string>
     <string name="system_security" msgid="8230080273993484407">"Sikkerhet og begrensninger"</string>
     <string name="system_speech" msgid="8128688499687306982">"Tale"</string>
     <string name="system_inputs" msgid="2413907183796651102">"Innganger"</string>
@@ -98,6 +101,7 @@
     <string name="system_developer_options" msgid="3237985523474863638">"Utvikleralternativer"</string>
     <string name="accessibility_none" msgid="3441648940134070004">"Ingen"</string>
     <string name="system_diagnostic" msgid="7269638365915225701">"Bruk og diagnostikk"</string>
+    <string name="tutorials" msgid="3731493987558093244">"Veiledninger"</string>
     <string name="about_system_update" msgid="7282772247661356586">"Systemoppdatering"</string>
     <string name="about_preference" msgid="4131396784531360434">"Info"</string>
     <string name="device_name" msgid="2670488158531273028">"Enhetsnavn"</string>
@@ -372,6 +376,7 @@
     <string name="display_options" msgid="5504549024985225774">"Vis grupper"</string>
     <string name="captions_configure" msgid="5537548915977371014">"Konfigurer"</string>
     <string name="captions_language" msgid="2835554055388996343">"Språk"</string>
+    <string name="captions_language_default" msgid="8113979489252033676">"Standard"</string>
     <string name="captions_textsize" msgid="4828195509546070971">"Tekststørrelse"</string>
     <string name="captions_captionstyle" msgid="7423638523487868230">"Tekststil"</string>
     <string name="captions_customoptions" msgid="2699780648112330911">"Tilpassede alternativer"</string>
@@ -448,7 +453,6 @@
     <string name="system_transition_animation_scale" msgid="2964817709721784757">"Overgangsanimasjonsskala"</string>
     <string name="system_animator_duration_scale" msgid="7413512458963984521">"Varighetsskala for animasjon"</string>
     <string name="system_strict_mode_enabled" msgid="5728680397806673270">"Slå på streng modus"</string>
-    <string name="system_show_cpu_usage" msgid="4797599582027671138">"Vis CPU-bruk"</string>
     <string name="system_profile_gpu_rendering" msgid="3438771015102629799">"GPU-gjengivelse av profil"</string>
     <string name="system_enable_traces" msgid="4038210655699986482">"Aktiver spor"</string>
     <string name="system_dont_keep_activities" msgid="7906911077198718958">"Ikke behold aktiviteter"</string>
@@ -466,7 +470,6 @@
     <string name="system_desc_show_gpu_overdraw" msgid="8204945204510618865">"Fra best til verst: blå, grønn, lyserød, rød"</string>
     <string name="system_desc_show_surface_updates" msgid="8177734845253807688">"Fremhev hele vindusoverflater når de oppdateres"</string>
     <string name="system_desc_strict_mode_enabled" msgid="4647420860235689510">"Skjermblink ved lange apphandlinger på hovedtråd"</string>
-    <string name="system_desc_show_cpu_usage" msgid="6151280238151381703">"Skjermoverlegg viser gjeldende CPU-bruk"</string>
     <string name="system_desc_profile_gpu_rendering" msgid="2836283129486718887">"Mål gjengivelsestid i adb shell dumpsys gfxinfo"</string>
     <string name="action_on_title" msgid="6852389884236870765">"På"</string>
     <string name="action_off_title" msgid="3157728958166559966">"Av"</string>
@@ -598,7 +601,6 @@
     <string name="device_apps_app_management_force_stop" msgid="9195433885986760867">"Tving avslutning"</string>
     <string name="device_apps_app_management_force_stop_desc" msgid="3616902338964109665">"Hvis du tvinger en app til å stoppe, kan den oppføre seg uventet."</string>
     <string name="device_apps_app_management_uninstall" msgid="531427430753359746">"Avinstaller"</string>
-    <string name="device_apps_app_management_uninstall_desc" msgid="1104982472633576960">"Vil du avinstallere denne appen?"</string>
     <string name="device_apps_app_management_uninstall_updates" msgid="5151008748970915803">"Avinstaller oppdateringer"</string>
     <string name="device_apps_app_management_uninstall_updates_desc" msgid="9165160845303755321">"Alle oppdateringer i denne Android-systemappen blir avinstallert."</string>
     <string name="device_apps_app_management_disable" msgid="6136528600052941589">"Slå av"</string>
@@ -615,6 +617,7 @@
     <string name="device_apps_app_management_clear_cache" msgid="5392413180421013865">"Tøm bufferen"</string>
     <string name="device_apps_app_management_notifications" msgid="7291960671957440729">"Varsler"</string>
     <string name="device_apps_app_management_permissions" msgid="1829808830974726081">"Tillatelser"</string>
+    <string name="device_apps_app_management_not_available" msgid="1249731776661207047">"Appen er utilgjengelig"</string>
     <string name="settings_ok" msgid="3321630456511355983">"OK"</string>
     <string name="settings_cancel" msgid="304280412158061225">"Avbryt"</string>
     <string name="settings_on" msgid="6892236264945435013">"På"</string>
@@ -638,17 +641,14 @@
     <string name="confirm_factory_reset_description" msgid="1049842658625287303">"Vil du slette alle personlige opplysninger og nedlastede apper? Denne handlingen kan ikke angres!"</string>
     <string name="confirm_factory_reset_device" msgid="8923287482399582268">"Slett alt"</string>
     <string name="select_device_name_title" msgid="5165800500130943604">"Velg et navn for <xliff:g id="DEVICEMODEL">%1$s</xliff:g>"</string>
-    <string name="select_device_name_description" msgid="2697127827643821315">"Med et navn er det enklere å identifisere <xliff:g id="DEVICEMODEL">%1$s</xliff:g> når du får tilgang til den via andre enheter, for eksempel telefonen, nettbrettet eller datamaskinen."</string>
+    <string name="select_device_name_description" msgid="6890879006777364213">"Gi <xliff:g id="DEVICEMODEL">%1$s</xliff:g>-enheten din et navn, sånn at du lettere kan identifisere den når du caster eller kobler til den fra andre enheter."</string>
   <string-array name="rooms">
-    <item msgid="7085399612393981553">"Stue"</item>
-    <item msgid="3722089849939477581">"TV-stue"</item>
-    <item msgid="6108590585438763574">"Felles oppholdsrom"</item>
-    <item msgid="2581035245390468625">"Spisestue"</item>
-    <item msgid="3127487827308695324">"Kjellerstue"</item>
-    <item msgid="6172018430592195063">"Soverom"</item>
-    <item msgid="8120010459866284578">"Kjøkken"</item>
+    <item msgid="9056203990862307284">"Android TV"</item>
+    <item msgid="7449352861592960712">"TV i stuen"</item>
+    <item msgid="8122798759665439456">"TV i felles oppholdsrom"</item>
+    <item msgid="1389347662738182100">"TV på soverommet"</item>
   </string-array>
-    <string name="custom_room" msgid="8991561978321502549">"Skriv inn et spesialtilpasset navn"</string>
+    <string name="custom_room" msgid="8655516733933892458">"Skriv inn et egendefinert navn"</string>
     <string name="device_rename_title" msgid="2629557295786267185">"Gi nytt navn til <xliff:g id="DEVICEMODEL">%1$s</xliff:g>"</string>
     <string name="device_rename_description" msgid="2461752788563877107">"Denne <xliff:g id="DEVICEMODEL">%1$s</xliff:g> har for øyeblikket navnet «<xliff:g id="DEVICENAME">%2$s</xliff:g>»"</string>
     <string name="change_setting" msgid="2047402388786162246">"Endre"</string>
@@ -657,10 +657,13 @@
     <string name="device_apps_permissions" msgid="2966387603529725982">"Apptillatelser"</string>
     <string name="app_permissions_group_summary" msgid="7906834786705287901">"<xliff:g id="COUNT_0">%d</xliff:g> av <xliff:g id="COUNT_1">%d</xliff:g> apper er tillatt"</string>
     <string name="bluetooth_permission_request" msgid="6649813878683015301">"Forespørsel om Bluetooth-tillatelse"</string>
-    <string name="security_patch" msgid="2131617390189164481">"Nivå for patch (feilretting) av sikkerhet på Android"</string>
+    <string name="security_patch" msgid="2131617390189164481">"Nivå av sikkerhetsoppdatering i Android"</string>
     <string name="choose_application" msgid="5662960665577780353">"Velg app"</string>
     <string name="experimental_preference" msgid="1137673985823581797">"(Eksperimentell)"</string>
     <string name="reboot_safemode_action" msgid="8129550438717110406">"Start på nytt i sikker modus"</string>
     <string name="reboot_safemode_confirm" msgid="3329475617645192086">"Vil du starte på nytt i sikker modus?"</string>
     <string name="reboot_safemode_desc" msgid="5031024337104679492">"Dette slår av alle tredjepartsappene du har installert. De gjenopprettes når du starter på nytt."</string>
+    <string name="capturing_bugreport" msgid="3291125403411239592">"Henter feilrapporten"</string>
+    <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"Tilgjengelige virtuelle tastaturer"</string>
+    <string name="manage_keyboards" msgid="1905379263117016795">"Administrer tastaturer"</string>
 </resources>

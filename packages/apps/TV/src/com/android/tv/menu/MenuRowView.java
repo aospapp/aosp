@@ -35,25 +35,6 @@ public abstract class MenuRowView extends LinearLayout {
     private static final String TAG = "MenuRowView";
     private static final boolean DEBUG = false;
 
-    /**
-     * For setting ListView visible, and TitleView visible with the selected text size and color
-     * without animation.
-     */
-    public static final int ANIM_NONE_SELECTED = 1;
-    /**
-     * For setting ListView gone, and TitleView visible with the deselected text size and color
-     * without animation.
-     */
-    public static final int ANIM_NONE_DESELECTED = 2;
-    /**
-     * An animation for the selected item list view.
-     */
-    public static final int ANIM_SELECTED = 3;
-    /**
-     * An animation for the deselected item list view.
-     */
-    public static final int ANIM_DESELECTED = 4;
-
     private TextView mTitleView;
     private View mContentsView;
 

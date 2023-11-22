@@ -23,7 +23,7 @@
 
 // arp   vi:nDsdap:A:H:[+Ap][!sd]
 #undef OPTSTR_arp
-#define OPTSTR_arp  0 
+#define OPTSTR_arp "vi:nDsdap:A:H:[+Ap][!sd]"
 #ifdef CLEANUP_arp
 #undef CLEANUP_arp
 #undef FOR_arp
@@ -41,7 +41,7 @@
 
 // arping   <1>1s:I:w#<0c#<0AUDbqf[+AU][+Df]
 #undef OPTSTR_arping
-#define OPTSTR_arping  0 
+#define OPTSTR_arping "<1>1s:I:w#<0c#<0AUDbqf[+AU][+Df]"
 #ifdef CLEANUP_arping
 #undef CLEANUP_arping
 #undef FOR_arping
@@ -57,9 +57,17 @@
 #undef FLAG_s
 #endif
 
-// base64 diw#<1[!dw] diw#<1[!dw]
+// ascii    
+#undef OPTSTR_ascii
+#define OPTSTR_ascii 0
+#ifdef CLEANUP_ascii
+#undef CLEANUP_ascii
+#undef FOR_ascii
+#endif
+
+// base64 diw#<0=76[!dw] diw#<0=76[!dw]
 #undef OPTSTR_base64
-#define OPTSTR_base64 "diw#<1[!dw]"
+#define OPTSTR_base64 "diw#<0=76[!dw]"
 #ifdef CLEANUP_base64
 #undef CLEANUP_base64
 #undef FOR_base64
@@ -78,7 +86,7 @@
 
 // blkid    
 #undef OPTSTR_blkid
-#define OPTSTR_blkid  0 
+#define OPTSTR_blkid 0
 #ifdef CLEANUP_blkid
 #undef CLEANUP_blkid
 #undef FOR_blkid
@@ -105,7 +113,7 @@
 
 // bootchartd    
 #undef OPTSTR_bootchartd
-#define OPTSTR_bootchartd  0 
+#define OPTSTR_bootchartd 0
 #ifdef CLEANUP_bootchartd
 #undef CLEANUP_bootchartd
 #undef FOR_bootchartd
@@ -113,13 +121,13 @@
 
 // brctl   <1
 #undef OPTSTR_brctl
-#define OPTSTR_brctl  0 
+#define OPTSTR_brctl "<1"
 #ifdef CLEANUP_brctl
 #undef CLEANUP_brctl
 #undef FOR_brctl
 #endif
 
-// bunzip2 cftkv cftkv
+// bunzip2   cftkv
 #undef OPTSTR_bunzip2
 #define OPTSTR_bunzip2 "cftkv"
 #ifdef CLEANUP_bunzip2
@@ -134,7 +142,7 @@
 
 // bzcat    
 #undef OPTSTR_bzcat
-#define OPTSTR_bzcat  0 
+#define OPTSTR_bzcat 0
 #ifdef CLEANUP_bzcat
 #undef CLEANUP_bzcat
 #undef FOR_bzcat
@@ -162,7 +170,7 @@
 
 // catv   vte
 #undef OPTSTR_catv
-#define OPTSTR_catv  0 
+#define OPTSTR_catv "vte"
 #ifdef CLEANUP_catv
 #undef CLEANUP_catv
 #undef FOR_catv
@@ -173,7 +181,7 @@
 
 // cd    
 #undef OPTSTR_cd
-#define OPTSTR_cd  0 
+#define OPTSTR_cd 0
 #ifdef CLEANUP_cd
 #undef CLEANUP_cd
 #undef FOR_cd
@@ -181,7 +189,7 @@
 
 // chattr    
 #undef OPTSTR_chattr
-#define OPTSTR_chattr  0 
+#define OPTSTR_chattr 0
 #ifdef CLEANUP_chattr
 #undef CLEANUP_chattr
 #undef FOR_chattr
@@ -232,9 +240,25 @@
 #undef FOR_chroot
 #endif
 
+// chrt mp#bfiorR[!bfior] mp#bfiorR[!bfior]
+#undef OPTSTR_chrt
+#define OPTSTR_chrt "mp#bfiorR[!bfior]"
+#ifdef CLEANUP_chrt
+#undef CLEANUP_chrt
+#undef FOR_chrt
+#undef FLAG_R
+#undef FLAG_r
+#undef FLAG_o
+#undef FLAG_i
+#undef FLAG_f
+#undef FLAG_b
+#undef FLAG_p
+#undef FLAG_m
+#endif
+
 // chvt   <1
 #undef OPTSTR_chvt
-#define OPTSTR_chvt  0 
+#define OPTSTR_chvt "<1"
 #ifdef CLEANUP_chvt
 #undef CLEANUP_chvt
 #undef FOR_chvt
@@ -255,15 +279,15 @@
 
 // clear    
 #undef OPTSTR_clear
-#define OPTSTR_clear  0 
+#define OPTSTR_clear 0
 #ifdef CLEANUP_clear
 #undef CLEANUP_clear
 #undef FOR_clear
 #endif
 
-// cmp <2>2ls <2>2ls
+// cmp <2>2ls[!ls] <2>2ls[!ls]
 #undef OPTSTR_cmp
-#define OPTSTR_cmp "<2>2ls"
+#define OPTSTR_cmp "<2>2ls[!ls]"
 #ifdef CLEANUP_cmp
 #undef CLEANUP_cmp
 #undef FOR_cmp
@@ -284,7 +308,7 @@
 
 // compress   zcd9lrg[-cd][!zgLr]
 #undef OPTSTR_compress
-#define OPTSTR_compress  0 
+#define OPTSTR_compress "zcd9lrg[-cd][!zgLr]"
 #ifdef CLEANUP_compress
 #undef CLEANUP_compress
 #undef FOR_compress
@@ -299,7 +323,7 @@
 
 // count    
 #undef OPTSTR_count
-#define OPTSTR_count  0 
+#define OPTSTR_count 0
 #ifdef CLEANUP_count
 #undef CLEANUP_count
 #undef FOR_count
@@ -352,7 +376,7 @@
 
 // crond   fbSl#<0=8d#<0L:c:[-bf][-LS][-ld]
 #undef OPTSTR_crond
-#define OPTSTR_crond  0 
+#define OPTSTR_crond "fbSl#<0=8d#<0L:c:[-bf][-LS][-ld]"
 #ifdef CLEANUP_crond
 #undef CLEANUP_crond
 #undef FOR_crond
@@ -367,7 +391,7 @@
 
 // crontab   c:u:elr[!elr]
 #undef OPTSTR_crontab
-#define OPTSTR_crontab  0 
+#define OPTSTR_crontab "c:u:elr[!elr]"
 #ifdef CLEANUP_crontab
 #undef CLEANUP_crontab
 #undef FOR_crontab
@@ -406,7 +430,7 @@
 
 // dd    
 #undef OPTSTR_dd
-#define OPTSTR_dd  0 
+#define OPTSTR_dd 0
 #ifdef CLEANUP_dd
 #undef CLEANUP_dd
 #undef FOR_dd
@@ -414,7 +438,7 @@
 
 // deallocvt   >1
 #undef OPTSTR_deallocvt
-#define OPTSTR_deallocvt  0 
+#define OPTSTR_deallocvt ">1"
 #ifdef CLEANUP_deallocvt
 #undef CLEANUP_deallocvt
 #undef FOR_deallocvt
@@ -436,7 +460,7 @@
 
 // dhcp   V:H:F:x*r:O*A#<0=20T#<0=3t#<0=3s:p:i:SBRCaovqnbf
 #undef OPTSTR_dhcp
-#define OPTSTR_dhcp  0 
+#define OPTSTR_dhcp "V:H:F:x*r:O*A#<0=20T#<0=3t#<0=3s:p:i:SBRCaovqnbf"
 #ifdef CLEANUP_dhcp
 #undef CLEANUP_dhcp
 #undef FOR_dhcp
@@ -467,7 +491,7 @@
 
 // dhcp6   r:A#<0T#<0t#<0s:p:i:SRvqnbf
 #undef OPTSTR_dhcp6
-#define OPTSTR_dhcp6  0 
+#define OPTSTR_dhcp6 "r:A#<0T#<0t#<0s:p:i:SRvqnbf"
 #ifdef CLEANUP_dhcp6
 #undef CLEANUP_dhcp6
 #undef FOR_dhcp6
@@ -489,7 +513,7 @@
 
 // dhcpd   >1P#<0>65535fi:S46[!46]
 #undef OPTSTR_dhcpd
-#define OPTSTR_dhcpd  0 
+#define OPTSTR_dhcpd ">1P#<0>65535fi:S46[!46]"
 #ifdef CLEANUP_dhcpd
 #undef CLEANUP_dhcpd
 #undef FOR_dhcpd
@@ -503,7 +527,7 @@
 
 // diff   <2>2B(ignore-blank-lines)d(minimal)b(ignore-space-change)ut(expand-tabs)w(ignore-all-space)i(ignore-case)T(initial-tab)s(report-identical-files)q(brief)a(text)L(label)*S(starting-file):N(new-file)r(recursive)U(unified)#<0=3
 #undef OPTSTR_diff
-#define OPTSTR_diff  0 
+#define OPTSTR_diff "<2>2B(ignore-blank-lines)d(minimal)b(ignore-space-change)ut(expand-tabs)w(ignore-all-space)i(ignore-case)T(initial-tab)s(report-identical-files)q(brief)a(text)L(label)*S(starting-file):N(new-file)r(recursive)U(unified)#<0=3"
 #ifdef CLEANUP_diff
 #undef CLEANUP_diff
 #undef FOR_diff
@@ -548,9 +572,9 @@
 #undef FOR_dirname
 #endif
 
-// dmesg trs#<1n#c[!tr] trs#<1n#c[!tr]
+// dmesg w(follow)Ctrs#<1n#c[!tr][!Cc] w(follow)Ctrs#<1n#c[!tr][!Cc]
 #undef OPTSTR_dmesg
-#define OPTSTR_dmesg "trs#<1n#c[!tr]"
+#define OPTSTR_dmesg "w(follow)Ctrs#<1n#c[!tr][!Cc]"
 #ifdef CLEANUP_dmesg
 #undef CLEANUP_dmesg
 #undef FOR_dmesg
@@ -559,11 +583,14 @@
 #undef FLAG_s
 #undef FLAG_r
 #undef FLAG_t
+#undef FLAG_C
+#undef FLAG_follow
+#undef FLAG_w
 #endif
 
 // dos2unix    
 #undef OPTSTR_dos2unix
-#define OPTSTR_dos2unix  0 
+#define OPTSTR_dos2unix 0
 #ifdef CLEANUP_dos2unix
 #undef CLEANUP_dos2unix
 #undef FOR_dos2unix
@@ -591,7 +618,7 @@
 
 // dumpleases   >0arf:[!ar]
 #undef OPTSTR_dumpleases
-#define OPTSTR_dumpleases  0 
+#define OPTSTR_dumpleases ">0arf:[!ar]"
 #ifdef CLEANUP_dumpleases
 #undef CLEANUP_dumpleases
 #undef FOR_dumpleases
@@ -612,7 +639,7 @@
 
 // eject   >1stT[!tT]
 #undef OPTSTR_eject
-#define OPTSTR_eject  0 
+#define OPTSTR_eject ">1stT[!tT]"
 #ifdef CLEANUP_eject
 #undef CLEANUP_eject
 #undef FOR_eject
@@ -633,7 +660,7 @@
 
 // exit    
 #undef OPTSTR_exit
-#define OPTSTR_exit  0 
+#define OPTSTR_exit 0
 #ifdef CLEANUP_exit
 #undef CLEANUP_exit
 #undef FOR_exit
@@ -650,7 +677,7 @@
 
 // expr    
 #undef OPTSTR_expr
-#define OPTSTR_expr  0 
+#define OPTSTR_expr 0
 #ifdef CLEANUP_expr
 #undef CLEANUP_expr
 #undef FOR_expr
@@ -658,24 +685,25 @@
 
 // factor    
 #undef OPTSTR_factor
-#define OPTSTR_factor  0 
+#define OPTSTR_factor 0
 #ifdef CLEANUP_factor
 #undef CLEANUP_factor
 #undef FOR_factor
 #endif
 
-// fallocate >1l#| >1l#|
+// fallocate >1l#|o# >1l#|o#
 #undef OPTSTR_fallocate
-#define OPTSTR_fallocate ">1l#|"
+#define OPTSTR_fallocate ">1l#|o#"
 #ifdef CLEANUP_fallocate
 #undef CLEANUP_fallocate
 #undef FOR_fallocate
+#undef FLAG_o
 #undef FLAG_l
 #endif
 
 // false    
 #undef OPTSTR_false
-#define OPTSTR_false  0 
+#define OPTSTR_false 0
 #ifdef CLEANUP_false
 #undef CLEANUP_false
 #undef FOR_false
@@ -683,7 +711,7 @@
 
 // fdisk   C#<0H#<0S#<0b#<512ul
 #undef OPTSTR_fdisk
-#define OPTSTR_fdisk  0 
+#define OPTSTR_fdisk "C#<0H#<0S#<0b#<512ul"
 #ifdef CLEANUP_fdisk
 #undef CLEANUP_fdisk
 #undef FOR_fdisk
@@ -695,12 +723,14 @@
 #undef FLAG_C
 #endif
 
-// file   <1
+// file <1hL[!hL] <1hL[!hL]
 #undef OPTSTR_file
-#define OPTSTR_file  0 
+#define OPTSTR_file "<1hL[!hL]"
 #ifdef CLEANUP_file
 #undef CLEANUP_file
 #undef FOR_file
+#undef FLAG_L
+#undef FLAG_h
 #endif
 
 // find ?^HL[-HL] ?^HL[-HL]
@@ -727,7 +757,7 @@
 
 // fold   bsuw#<1
 #undef OPTSTR_fold
-#define OPTSTR_fold  0 
+#define OPTSTR_fold "bsuw#<1"
 #ifdef CLEANUP_fold
 #undef CLEANUP_fold
 #undef FOR_fold
@@ -761,7 +791,7 @@
 
 // fsck   ?t:ANPRTVsC#
 #undef OPTSTR_fsck
-#define OPTSTR_fsck  0 
+#define OPTSTR_fsck "?t:ANPRTVsC#"
 #ifdef CLEANUP_fsck
 #undef CLEANUP_fsck
 #undef FOR_fsck
@@ -788,7 +818,7 @@
 
 // fstype   <1
 #undef OPTSTR_fstype
-#define OPTSTR_fstype  0 
+#define OPTSTR_fstype "<1"
 #ifdef CLEANUP_fstype
 #undef CLEANUP_fstype
 #undef FOR_fstype
@@ -796,24 +826,32 @@
 
 // fsync   <1d
 #undef OPTSTR_fsync
-#define OPTSTR_fsync  0 
+#define OPTSTR_fsync "<1d"
 #ifdef CLEANUP_fsync
 #undef CLEANUP_fsync
 #undef FOR_fsync
 #undef FLAG_d
 #endif
 
-// ftpget   <2cvu:p:P#<0=21>65535
+// ftpget   <2>3P:cp:u:vgslLmMdD[-gs][!gslLmMdD][!clL]
 #undef OPTSTR_ftpget
-#define OPTSTR_ftpget  0 
+#define OPTSTR_ftpget "<2>3P:cp:u:vgslLmMdD[-gs][!gslLmMdD][!clL]"
 #ifdef CLEANUP_ftpget
 #undef CLEANUP_ftpget
 #undef FOR_ftpget
-#undef FLAG_P
-#undef FLAG_p
-#undef FLAG_u
+#undef FLAG_D
+#undef FLAG_d
+#undef FLAG_M
+#undef FLAG_m
+#undef FLAG_L
+#undef FLAG_l
+#undef FLAG_s
+#undef FLAG_g
 #undef FLAG_v
+#undef FLAG_u
+#undef FLAG_p
 #undef FLAG_c
+#undef FLAG_P
 #endif
 
 // getenforce >0 >0
@@ -822,6 +860,17 @@
 #ifdef CLEANUP_getenforce
 #undef CLEANUP_getenforce
 #undef FOR_getenforce
+#endif
+
+// getfattr dhn: dhn:
+#undef OPTSTR_getfattr
+#define OPTSTR_getfattr "dhn:"
+#ifdef CLEANUP_getfattr
+#undef CLEANUP_getfattr
+#undef FOR_getfattr
+#undef FLAG_n
+#undef FLAG_h
+#undef FLAG_d
 #endif
 
 // getprop >2Z >2Z
@@ -835,7 +884,7 @@
 
 // getty   <2t#<0H:I:l:f:iwnmLh
 #undef OPTSTR_getty
-#define OPTSTR_getty  0 
+#define OPTSTR_getty "<2t#<0H:I:l:f:iwnmLh"
 #ifdef CLEANUP_getty
 #undef CLEANUP_getty
 #undef FOR_getty
@@ -887,7 +936,7 @@
 
 // groupadd   <1>2g#<0S
 #undef OPTSTR_groupadd
-#define OPTSTR_groupadd  0 
+#define OPTSTR_groupadd "<1>2g#<0S"
 #ifdef CLEANUP_groupadd
 #undef CLEANUP_groupadd
 #undef FOR_groupadd
@@ -897,7 +946,7 @@
 
 // groupdel   <1>2
 #undef OPTSTR_groupdel
-#define OPTSTR_groupdel  0 
+#define OPTSTR_groupdel "<1>2"
 #ifdef CLEANUP_groupdel
 #undef CLEANUP_groupdel
 #undef FOR_groupdel
@@ -905,7 +954,7 @@
 
 // groups    
 #undef OPTSTR_groups
-#define OPTSTR_groups  0 
+#define OPTSTR_groups 0
 #ifdef CLEANUP_groups
 #undef CLEANUP_groups
 #undef FOR_groups
@@ -913,7 +962,7 @@
 
 // gunzip   cflqStv
 #undef OPTSTR_gunzip
-#define OPTSTR_gunzip  0 
+#define OPTSTR_gunzip "cflqStv"
 #ifdef CLEANUP_gunzip
 #undef CLEANUP_gunzip
 #undef FOR_gunzip
@@ -928,7 +977,7 @@
 
 // gzip   d19dcflqStvgLRz[!gLRz]
 #undef OPTSTR_gzip
-#define OPTSTR_gzip  0 
+#define OPTSTR_gzip "d19dcflqStvgLRz[!gLRz]"
 #ifdef CLEANUP_gzip
 #undef CLEANUP_gzip
 #undef FOR_gzip
@@ -960,7 +1009,7 @@
 
 // hello    
 #undef OPTSTR_hello
-#define OPTSTR_hello  0 
+#define OPTSTR_hello 0
 #ifdef CLEANUP_hello
 #undef CLEANUP_hello
 #undef FOR_hello
@@ -978,7 +1027,7 @@
 
 // hexedit   <1>1r
 #undef OPTSTR_hexedit
-#define OPTSTR_hexedit  0 
+#define OPTSTR_hexedit "<1>1r"
 #ifdef CLEANUP_hexedit
 #undef CLEANUP_hexedit
 #undef FOR_hexedit
@@ -987,7 +1036,7 @@
 
 // host   <1>2avt:
 #undef OPTSTR_host
-#define OPTSTR_host  0 
+#define OPTSTR_host "<1>2avt:"
 #ifdef CLEANUP_host
 #undef CLEANUP_host
 #undef FOR_host
@@ -998,18 +1047,20 @@
 
 // hostid   >0
 #undef OPTSTR_hostid
-#define OPTSTR_hostid  0 
+#define OPTSTR_hostid ">0"
 #ifdef CLEANUP_hostid
 #undef CLEANUP_hostid
 #undef FOR_hostid
 #endif
 
-// hostname    
+// hostname bF: bF:
 #undef OPTSTR_hostname
-#define OPTSTR_hostname  0 
+#define OPTSTR_hostname "bF:"
 #ifdef CLEANUP_hostname
 #undef CLEANUP_hostname
 #undef FOR_hostname
+#undef FLAG_F
+#undef FLAG_b
 #endif
 
 // hwclock >0(fast)f(rtc):u(utc)l(localtime)t(systz)s(hctosys)r(show)w(systohc)[-ul][!rtsw] >0(fast)f(rtc):u(utc)l(localtime)t(systz)s(hctosys)r(show)w(systohc)[-ul][!rtsw]
@@ -1037,7 +1088,7 @@
 
 // iconv   cst:f:
 #undef OPTSTR_iconv
-#define OPTSTR_iconv  0 
+#define OPTSTR_iconv "cst:f:"
 #ifdef CLEANUP_iconv
 #undef CLEANUP_iconv
 #undef FOR_iconv
@@ -1072,7 +1123,7 @@
 
 // init    
 #undef OPTSTR_init
-#define OPTSTR_init  0 
+#define OPTSTR_init 0
 #ifdef CLEANUP_init
 #undef CLEANUP_init
 #undef FOR_init
@@ -1133,7 +1184,7 @@
 
 // iotop   >0AaKOk*o*p*u*s#<1=7d#=3<1n#<1bq
 #undef OPTSTR_iotop
-#define OPTSTR_iotop  0 
+#define OPTSTR_iotop ">0AaKOk*o*p*u*s#<1=7d#=3<1n#<1bq"
 #ifdef CLEANUP_iotop
 #undef CLEANUP_iotop
 #undef FOR_iotop
@@ -1154,7 +1205,7 @@
 
 // ip    
 #undef OPTSTR_ip
-#define OPTSTR_ip  0 
+#define OPTSTR_ip 0
 #ifdef CLEANUP_ip
 #undef CLEANUP_ip
 #undef FOR_ip
@@ -1162,7 +1213,7 @@
 
 // ipcrm   m*M*s*S*q*Q*
 #undef OPTSTR_ipcrm
-#define OPTSTR_ipcrm  0 
+#define OPTSTR_ipcrm "m*M*s*S*q*Q*"
 #ifdef CLEANUP_ipcrm
 #undef CLEANUP_ipcrm
 #undef FOR_ipcrm
@@ -1176,7 +1227,7 @@
 
 // ipcs   acptulsqmi#
 #undef OPTSTR_ipcs
-#define OPTSTR_ipcs  0 
+#define OPTSTR_ipcs "acptulsqmi#"
 #ifdef CLEANUP_ipcs
 #undef CLEANUP_ipcs
 #undef FOR_ipcs
@@ -1217,7 +1268,7 @@
 
 // killall5   ?o*ls: [!lo][!ls]
 #undef OPTSTR_killall5
-#define OPTSTR_killall5  0 
+#define OPTSTR_killall5 "?o*ls: [!lo][!ls]"
 #ifdef CLEANUP_killall5
 #undef CLEANUP_killall5
 #undef FOR_killall5
@@ -1228,7 +1279,7 @@
 
 // klogd   c#<1>8n
 #undef OPTSTR_klogd
-#define OPTSTR_klogd  0 
+#define OPTSTR_klogd "c#<1>8n"
 #ifdef CLEANUP_klogd
 #undef CLEANUP_klogd
 #undef FOR_klogd
@@ -1238,7 +1289,7 @@
 
 // last   f:W
 #undef OPTSTR_last
-#define OPTSTR_last  0 
+#define OPTSTR_last "f:W"
 #ifdef CLEANUP_last
 #undef CLEANUP_last
 #undef FOR_last
@@ -1248,7 +1299,7 @@
 
 // link   <2>2
 #undef OPTSTR_link
-#define OPTSTR_link  0 
+#define OPTSTR_link "<2>2"
 #ifdef CLEANUP_link
 #undef CLEANUP_link
 #undef FOR_link
@@ -1274,9 +1325,19 @@
 #undef FOR_load_policy
 #endif
 
+// log <1p:t: <1p:t:
+#undef OPTSTR_log
+#define OPTSTR_log "<1p:t:"
+#ifdef CLEANUP_log
+#undef CLEANUP_log
+#undef FOR_log
+#undef FLAG_t
+#undef FLAG_p
+#endif
+
 // logger   st:p:
 #undef OPTSTR_logger
-#define OPTSTR_logger  0 
+#define OPTSTR_logger "st:p:"
 #ifdef CLEANUP_logger
 #undef CLEANUP_logger
 #undef FOR_logger
@@ -1287,7 +1348,7 @@
 
 // login   >1f:ph:
 #undef OPTSTR_login
-#define OPTSTR_login  0 
+#define OPTSTR_login ">1f:ph:"
 #ifdef CLEANUP_login
 #undef CLEANUP_login
 #undef FOR_login
@@ -1323,9 +1384,9 @@
 #undef FLAG_S
 #endif
 
-// ls (color):;ZgoACFHLRSacdfhiklmnpqrstux1[-Cxm1][-Cxml][-Cxmo][-Cxmg][-cu][-ftS][-HL] (color):;ZgoACFHLRSacdfhiklmnpqrstux1[-Cxm1][-Cxml][-Cxmo][-Cxmg][-cu][-ftS][-HL]
+// ls (color):;(show-control-chars)ZgoACFHLRSabcdfhiklmnpqrstux1[-Cxm1][-Cxml][-Cxmo][-Cxmg][-cu][-ftS][-HL][!qb] (color):;(show-control-chars)ZgoACFHLRSabcdfhiklmnpqrstux1[-Cxm1][-Cxml][-Cxmo][-Cxmg][-cu][-ftS][-HL][!qb]
 #undef OPTSTR_ls
-#define OPTSTR_ls "(color):;ZgoACFHLRSacdfhiklmnpqrstux1[-Cxm1][-Cxml][-Cxmo][-Cxmg][-cu][-ftS][-HL]"
+#define OPTSTR_ls "(color):;(show-control-chars)ZgoACFHLRSabcdfhiklmnpqrstux1[-Cxm1][-Cxml][-Cxmo][-Cxmg][-cu][-ftS][-HL][!qb]"
 #ifdef CLEANUP_ls
 #undef CLEANUP_ls
 #undef FOR_ls
@@ -1346,6 +1407,7 @@
 #undef FLAG_f
 #undef FLAG_d
 #undef FLAG_c
+#undef FLAG_b
 #undef FLAG_a
 #undef FLAG_S
 #undef FLAG_R
@@ -1357,6 +1419,7 @@
 #undef FLAG_o
 #undef FLAG_g
 #undef FLAG_Z
+#undef FLAG_show_control_chars
 #undef FLAG_color
 #endif
 
@@ -1375,15 +1438,15 @@
 
 // lsmod    
 #undef OPTSTR_lsmod
-#define OPTSTR_lsmod  0 
+#define OPTSTR_lsmod 0
 #ifdef CLEANUP_lsmod
 #undef CLEANUP_lsmod
 #undef FOR_lsmod
 #endif
 
-// lsof lp:t lp:t
+// lsof lp*t lp*t
 #undef OPTSTR_lsof
-#define OPTSTR_lsof "lp:t"
+#define OPTSTR_lsof "lp*t"
 #ifdef CLEANUP_lsof
 #undef CLEANUP_lsof
 #undef FOR_lsof
@@ -1394,7 +1457,7 @@
 
 // lspci   emkn@i:
 #undef OPTSTR_lspci
-#define OPTSTR_lspci  0 
+#define OPTSTR_lspci "emkn@i:"
 #ifdef CLEANUP_lspci
 #undef CLEANUP_lspci
 #undef FOR_lspci
@@ -1407,7 +1470,7 @@
 
 // lsusb    
 #undef OPTSTR_lsusb
-#define OPTSTR_lsusb  0 
+#define OPTSTR_lsusb 0
 #ifdef CLEANUP_lsusb
 #undef CLEANUP_lsusb
 #undef FOR_lsusb
@@ -1422,27 +1485,38 @@
 #undef FLAG_d
 #endif
 
-// md5sum b b
+// md5sum bc*[!bc] bc*[!bc]
 #undef OPTSTR_md5sum
-#define OPTSTR_md5sum "b"
+#define OPTSTR_md5sum "bc*[!bc]"
 #ifdef CLEANUP_md5sum
 #undef CLEANUP_md5sum
 #undef FOR_md5sum
+#undef FLAG_c
 #undef FLAG_b
 #endif
 
 // mdev   s
 #undef OPTSTR_mdev
-#define OPTSTR_mdev  0 
+#define OPTSTR_mdev "s"
 #ifdef CLEANUP_mdev
 #undef CLEANUP_mdev
 #undef FOR_mdev
 #undef FLAG_s
 #endif
 
+// microcom <1>1s:X <1>1s:X
+#undef OPTSTR_microcom
+#define OPTSTR_microcom "<1>1s:X"
+#ifdef CLEANUP_microcom
+#undef CLEANUP_microcom
+#undef FOR_microcom
+#undef FLAG_X
+#undef FLAG_s
+#endif
+
 // mix   c:d:l#r#
 #undef OPTSTR_mix
-#define OPTSTR_mix  0 
+#define OPTSTR_mix "c:d:l#r#"
 #ifdef CLEANUP_mix
 #undef CLEANUP_mix
 #undef FOR_mix
@@ -1466,7 +1540,7 @@
 
 // mke2fs   <1>2g:Fnqm#N#i#b#
 #undef OPTSTR_mke2fs
-#define OPTSTR_mke2fs  0 
+#define OPTSTR_mke2fs "<1>2g:Fnqm#N#i#b#"
 #ifdef CLEANUP_mke2fs
 #undef CLEANUP_mke2fs
 #undef FOR_mke2fs
@@ -1503,7 +1577,7 @@
 
 // mkpasswd   >2S:m:P#=0<0
 #undef OPTSTR_mkpasswd
-#define OPTSTR_mkpasswd  0 
+#define OPTSTR_mkpasswd ">2S:m:P#=0<0"
 #ifdef CLEANUP_mkpasswd
 #undef CLEANUP_mkpasswd
 #undef FOR_mkpasswd
@@ -1547,12 +1621,13 @@
 #undef FLAG_b
 #endif
 
-// modprobe   alrqvsDb
+// modprobe alrqvsDbd* alrqvsDbd*
 #undef OPTSTR_modprobe
-#define OPTSTR_modprobe  0 
+#define OPTSTR_modprobe "alrqvsDbd*"
 #ifdef CLEANUP_modprobe
 #undef CLEANUP_modprobe
 #undef FOR_modprobe
+#undef FLAG_d
 #undef FLAG_b
 #undef FLAG_D
 #undef FLAG_s
@@ -1565,7 +1640,7 @@
 
 // more    
 #undef OPTSTR_more
-#define OPTSTR_more  0 
+#define OPTSTR_more 0
 #ifdef CLEANUP_more
 #undef CLEANUP_more
 #undef FOR_more
@@ -1599,14 +1674,15 @@
 #undef FLAG_q
 #endif
 
-// mv <2vnFfi[-ni] <2vnFfi[-ni]
+// mv <2vnF(remove-destination)fi[-ni] <2vnF(remove-destination)fi[-ni]
 #undef OPTSTR_mv
-#define OPTSTR_mv "<2vnFfi[-ni]"
+#define OPTSTR_mv "<2vnF(remove-destination)fi[-ni]"
 #ifdef CLEANUP_mv
 #undef CLEANUP_mv
 #undef FOR_mv
 #undef FLAG_i
 #undef FLAG_f
+#undef FLAG_remove_destination
 #undef FLAG_F
 #undef FLAG_n
 #undef FLAG_v
@@ -1622,9 +1698,9 @@
 #undef FLAG_n
 #endif
 
-// netcat ^tlLw#p#s:q#f: ^tlLw#p#s:q#f:
+// netcat ^tlLw#W#p#s:q#f:[!tlL][!Lw] ^tlLw#W#p#s:q#f:[!tlL][!Lw]
 #undef OPTSTR_netcat
-#define OPTSTR_netcat "^tlLw#p#s:q#f:"
+#define OPTSTR_netcat "^tlLw#W#p#s:q#f:[!tlL][!Lw]"
 #ifdef CLEANUP_netcat
 #undef CLEANUP_netcat
 #undef FOR_netcat
@@ -1632,6 +1708,7 @@
 #undef FLAG_q
 #undef FLAG_s
 #undef FLAG_p
+#undef FLAG_W
 #undef FLAG_w
 #undef FLAG_L
 #undef FLAG_l
@@ -1691,7 +1768,7 @@
 
 // nproc   (all)
 #undef OPTSTR_nproc
-#define OPTSTR_nproc  0 
+#define OPTSTR_nproc "(all)"
 #ifdef CLEANUP_nproc
 #undef CLEANUP_nproc
 #undef FOR_nproc
@@ -1700,7 +1777,7 @@
 
 // nsenter   <1F(no-fork)t#<1(target)i:(ipc);m:(mount);n:(net);p:(pid);u:(uts);U:(user);
 #undef OPTSTR_nsenter
-#define OPTSTR_nsenter  0 
+#define OPTSTR_nsenter "<1F(no-fork)t#<1(target)i:(ipc);m:(mount);n:(net);p:(pid);u:(uts);U:(user);"
 #ifdef CLEANUP_nsenter
 #undef CLEANUP_nsenter
 #undef FOR_nsenter
@@ -1722,9 +1799,9 @@
 #undef FLAG_F
 #endif
 
-// od j#vN#xsodcbA:t* j#vN#xsodcbA:t*
+// od j#vw#<1=16N#xsodcbA:t* j#vw#<1=16N#xsodcbA:t*
 #undef OPTSTR_od
-#define OPTSTR_od "j#vN#xsodcbA:t*"
+#define OPTSTR_od "j#vw#<1=16N#xsodcbA:t*"
 #ifdef CLEANUP_od
 #undef CLEANUP_od
 #undef FOR_od
@@ -1737,13 +1814,14 @@
 #undef FLAG_s
 #undef FLAG_x
 #undef FLAG_N
+#undef FLAG_w
 #undef FLAG_v
 #undef FLAG_j
 #endif
 
 // oneit   ^<1nc:p3[!pn]
 #undef OPTSTR_oneit
-#define OPTSTR_oneit  0 
+#define OPTSTR_oneit "^<1nc:p3[!pn]"
 #ifdef CLEANUP_oneit
 #undef CLEANUP_oneit
 #undef FOR_oneit
@@ -1755,7 +1833,7 @@
 
 // openvt   c#<1>63sw
 #undef OPTSTR_openvt
-#define OPTSTR_openvt  0 
+#define OPTSTR_openvt "c#<1>63sw"
 #ifdef CLEANUP_openvt
 #undef CLEANUP_openvt
 #undef FOR_openvt
@@ -1774,7 +1852,7 @@
 
 // passwd   >1a:dlu
 #undef OPTSTR_passwd
-#define OPTSTR_passwd  0 
+#define OPTSTR_passwd ">1a:dlu"
 #ifdef CLEANUP_passwd
 #undef CLEANUP_passwd
 #undef FOR_passwd
@@ -1794,9 +1872,9 @@
 #undef FLAG_d
 #endif
 
-// patch ulp#i:R xulp#i:R
+// patch (dry-run)d:ulp#i:R (dry-run)xd:ulp#i:R
 #undef OPTSTR_patch
-#define OPTSTR_patch "ulp#i:R"
+#define OPTSTR_patch "(dry-run)d:ulp#i:R"
 #ifdef CLEANUP_patch
 #undef CLEANUP_patch
 #undef FOR_patch
@@ -1805,7 +1883,9 @@
 #undef FLAG_p
 #undef FLAG_l
 #undef FLAG_u
+#undef FLAG_d
 #undef FLAG_x
+#undef FLAG_dry_run
 #endif
 
 // pgrep ?cld:u*U*t*s*P*g*G*fnovxL:[-no] ?cld:u*U*t*s*P*g*G*fnovxL:[-no]
@@ -1844,7 +1924,7 @@
 
 // ping   <1>1t#<0>255c#<0s#<0>65535I:W#<0w#<0q46[-46]
 #undef OPTSTR_ping
-#define OPTSTR_ping  0 
+#define OPTSTR_ping "<1>1t#<0>255c#<0s#<0>65535I:W#<0w#<0q46[-46]"
 #ifdef CLEANUP_ping
 #undef CLEANUP_ping
 #undef FOR_ping
@@ -1867,9 +1947,9 @@
 #undef FOR_pivot_root
 #endif
 
-// pkill Vu*U*t*s*P*g*G*fnovxl:[-no] Vu*U*t*s*P*g*G*fnovxl:[-no]
+// pkill ?Vu*U*t*s*P*g*G*fnovxl:[-no] ?Vu*U*t*s*P*g*G*fnovxl:[-no]
 #undef OPTSTR_pkill
-#define OPTSTR_pkill "Vu*U*t*s*P*g*G*fnovxl:[-no]"
+#define OPTSTR_pkill "?Vu*U*t*s*P*g*G*fnovxl:[-no]"
 #ifdef CLEANUP_pkill
 #undef CLEANUP_pkill
 #undef FOR_pkill
@@ -1917,9 +1997,9 @@
 #undef FOR_printf
 #endif
 
-// ps k(sort)*P(ppid)*aAdeflMno*O*p(pid)*s*t*u*U*g*G*wZ[!ol][+Ae] k(sort)*P(ppid)*aAdeflMno*O*p(pid)*s*t*u*U*g*G*wZ[!ol][+Ae]
+// ps k(sort)*P(ppid)*aAdeflMno*O*p(pid)*s*t*Tu*U*g*G*wZ[!ol][+Ae][!oO] k(sort)*P(ppid)*aAdeflMno*O*p(pid)*s*t*Tu*U*g*G*wZ[!ol][+Ae][!oO]
 #undef OPTSTR_ps
-#define OPTSTR_ps "k(sort)*P(ppid)*aAdeflMno*O*p(pid)*s*t*u*U*g*G*wZ[!ol][+Ae]"
+#define OPTSTR_ps "k(sort)*P(ppid)*aAdeflMno*O*p(pid)*s*t*Tu*U*g*G*wZ[!ol][+Ae][!oO]"
 #ifdef CLEANUP_ps
 #undef CLEANUP_ps
 #undef FOR_ps
@@ -1929,6 +2009,7 @@
 #undef FLAG_g
 #undef FLAG_U
 #undef FLAG_u
+#undef FLAG_T
 #undef FLAG_t
 #undef FLAG_s
 #undef FLAG_pid
@@ -1970,7 +2051,7 @@
 
 // readahead    
 #undef OPTSTR_readahead
-#define OPTSTR_readahead  0 
+#define OPTSTR_readahead 0
 #ifdef CLEANUP_readahead
 #undef CLEANUP_readahead
 #undef FOR_readahead
@@ -1998,7 +2079,7 @@
 
 // reboot   fn
 #undef OPTSTR_reboot
-#define OPTSTR_reboot  0 
+#define OPTSTR_reboot "fn"
 #ifdef CLEANUP_reboot
 #undef CLEANUP_reboot
 #undef FOR_reboot
@@ -2020,7 +2101,7 @@
 
 // reset    
 #undef OPTSTR_reset
-#define OPTSTR_reset  0 
+#define OPTSTR_reset 0
 #ifdef CLEANUP_reset
 #undef CLEANUP_reset
 #undef FOR_reset
@@ -2042,7 +2123,7 @@
 
 // rev    
 #undef OPTSTR_rev
-#define OPTSTR_rev  0 
+#define OPTSTR_rev 0
 #ifdef CLEANUP_rev
 #undef CLEANUP_rev
 #undef FOR_rev
@@ -2087,7 +2168,7 @@
 #undef FLAG_w
 #endif
 
-// route ?neA: ?neA:
+// route   ?neA:
 #undef OPTSTR_route
 #define OPTSTR_route "?neA:"
 #ifdef CLEANUP_route
@@ -2106,9 +2187,9 @@
 #undef FOR_runcon
 #endif
 
-// sed (version)e*f*inEr[+Er] (version)e*f*inEr[+Er]
+// sed (help)(version)e*f*inEr[+Er] (help)(version)e*f*inEr[+Er]
 #undef OPTSTR_sed
-#define OPTSTR_sed "(version)e*f*inEr[+Er]"
+#define OPTSTR_sed "(help)(version)e*f*inEr[+Er]"
 #ifdef CLEANUP_sed
 #undef CLEANUP_sed
 #undef FOR_sed
@@ -2119,6 +2200,15 @@
 #undef FLAG_f
 #undef FLAG_e
 #undef FLAG_version
+#undef FLAG_help
+#endif
+
+// sendevent <4>4 <4>4
+#undef OPTSTR_sendevent
+#define OPTSTR_sendevent "<4>4"
+#ifdef CLEANUP_sendevent
+#undef CLEANUP_sendevent
+#undef FOR_sendevent
 #endif
 
 // seq <1>3?f:s:w[!fw] <1>3?f:s:w[!fw]
@@ -2140,6 +2230,18 @@
 #undef FOR_setenforce
 #endif
 
+// setfattr hn:|v:x:|[!xv] hn:|v:x:|[!xv]
+#undef OPTSTR_setfattr
+#define OPTSTR_setfattr "hn:|v:x:|[!xv]"
+#ifdef CLEANUP_setfattr
+#undef CLEANUP_setfattr
+#undef FOR_setfattr
+#undef FLAG_x
+#undef FLAG_v
+#undef FLAG_n
+#undef FLAG_h
+#endif
+
 // setprop <2>2 <2>2
 #undef OPTSTR_setprop
 #define OPTSTR_setprop "<2>2"
@@ -2159,7 +2261,7 @@
 
 // sh   c:i
 #undef OPTSTR_sh
-#define OPTSTR_sh  0 
+#define OPTSTR_sh "c:i"
 #ifdef CLEANUP_sh
 #undef CLEANUP_sh
 #undef FOR_sh
@@ -2167,18 +2269,19 @@
 #undef FLAG_c
 #endif
 
-// sha1sum b b
+// sha1sum bc*[!bc] bc*[!bc]
 #undef OPTSTR_sha1sum
-#define OPTSTR_sha1sum "b"
+#define OPTSTR_sha1sum "bc*[!bc]"
 #ifdef CLEANUP_sha1sum
 #undef CLEANUP_sha1sum
 #undef FOR_sha1sum
+#undef FLAG_c
 #undef FLAG_b
 #endif
 
 // shred   <1zxus#<1n#<1o#<0f
 #undef OPTSTR_shred
-#define OPTSTR_shred  0 
+#define OPTSTR_shred "<1zxus#<1n#<1o#<0f"
 #ifdef CLEANUP_shred
 #undef CLEANUP_shred
 #undef FOR_shred
@@ -2193,7 +2296,7 @@
 
 // skeleton   (walrus)(blubber):;(also):e@d*c#b:a
 #undef OPTSTR_skeleton
-#define OPTSTR_skeleton  0 
+#define OPTSTR_skeleton "(walrus)(blubber):;(also):e@d*c#b:a"
 #ifdef CLEANUP_skeleton
 #undef CLEANUP_skeleton
 #undef FOR_skeleton
@@ -2209,7 +2312,7 @@
 
 // skeleton_alias   b#dq
 #undef OPTSTR_skeleton_alias
-#define OPTSTR_skeleton_alias  0 
+#define OPTSTR_skeleton_alias "b#dq"
 #ifdef CLEANUP_skeleton_alias
 #undef CLEANUP_skeleton_alias
 #undef FOR_skeleton_alias
@@ -2253,9 +2356,9 @@
 #undef FLAG_g
 #endif
 
-// split >2a#<1=2>9b#<1l#<1 >2a#<1=2>9b#<1l#<1
+// split >2a#<1=2>9b#<1l#<1[!bl] >2a#<1=2>9b#<1l#<1[!bl]
 #undef OPTSTR_split
-#define OPTSTR_split ">2a#<1=2>9b#<1l#<1"
+#define OPTSTR_split ">2a#<1=2>9b#<1l#<1[!bl]"
 #ifdef CLEANUP_split
 #undef CLEANUP_split
 #undef FOR_split
@@ -2264,14 +2367,32 @@
 #undef FLAG_a
 #endif
 
-// stat <1c:f <1c:f
+// start    
+#undef OPTSTR_start
+#define OPTSTR_start 0
+#ifdef CLEANUP_start
+#undef CLEANUP_start
+#undef FOR_start
+#endif
+
+// stat <1c:fLt <1c:fLt
 #undef OPTSTR_stat
-#define OPTSTR_stat "<1c:f"
+#define OPTSTR_stat "<1c:fLt"
 #ifdef CLEANUP_stat
 #undef CLEANUP_stat
 #undef FOR_stat
+#undef FLAG_t
+#undef FLAG_L
 #undef FLAG_f
 #undef FLAG_c
+#endif
+
+// stop    
+#undef OPTSTR_stop
+#define OPTSTR_stop 0
+#ifdef CLEANUP_stop
+#undef CLEANUP_stop
+#undef FOR_stop
 #endif
 
 // strings an#=4<1fo an#=4<1fo
@@ -2288,7 +2409,7 @@
 
 // su   lmpc:s:
 #undef OPTSTR_su
-#define OPTSTR_su  0 
+#define OPTSTR_su "lmpc:s:"
 #ifdef CLEANUP_su
 #undef CLEANUP_su
 #undef FOR_su
@@ -2301,7 +2422,7 @@
 
 // sulogin   t#<0=0
 #undef OPTSTR_sulogin
-#define OPTSTR_sulogin  0 
+#define OPTSTR_sulogin "t#<0=0"
 #ifdef CLEANUP_sulogin
 #undef CLEANUP_sulogin
 #undef FOR_sulogin
@@ -2326,7 +2447,7 @@
 #undef FLAG_p
 #endif
 
-// switch_root <2c:h <2c:h
+// switch_root   <2c:h
 #undef OPTSTR_switch_root
 #define OPTSTR_switch_root "<2c:h"
 #ifdef CLEANUP_switch_root
@@ -2338,7 +2459,7 @@
 
 // sync    
 #undef OPTSTR_sync
-#define OPTSTR_sync  0 
+#define OPTSTR_sync 0
 #ifdef CLEANUP_sync
 #undef CLEANUP_sync
 #undef FOR_sync
@@ -2362,7 +2483,7 @@
 
 // syslogd   >0l#<1>8=8R:b#<0>99=1s#<0=200m#<0>71582787=20O:p:f:a:nSKLD
 #undef OPTSTR_syslogd
-#define OPTSTR_syslogd  0 
+#define OPTSTR_syslogd ">0l#<1>8=8R:b#<0>99=1s#<0=200m#<0>71582787=20O:p:f:a:nSKLD"
 #ifdef CLEANUP_syslogd
 #undef CLEANUP_syslogd
 #undef FOR_syslogd
@@ -2384,7 +2505,7 @@
 
 // tac    
 #undef OPTSTR_tac
-#define OPTSTR_tac  0 
+#define OPTSTR_tac 0
 #ifdef CLEANUP_tac
 #undef CLEANUP_tac
 #undef FOR_tac
@@ -2457,7 +2578,7 @@
 
 // tcpsvd   ^<3c#=30<1C:b#=20<0u:l:hEv
 #undef OPTSTR_tcpsvd
-#define OPTSTR_tcpsvd  0 
+#define OPTSTR_tcpsvd "^<3c#=30<1C:b#=20<0u:l:hEv"
 #ifdef CLEANUP_tcpsvd
 #undef CLEANUP_tcpsvd
 #undef FOR_tcpsvd
@@ -2483,7 +2604,7 @@
 
 // telnet   <1>2
 #undef OPTSTR_telnet
-#define OPTSTR_telnet  0 
+#define OPTSTR_telnet "<1>2"
 #ifdef CLEANUP_telnet
 #undef CLEANUP_telnet
 #undef FOR_telnet
@@ -2491,7 +2612,7 @@
 
 // telnetd   w#<0b:p#<0>65535=23f:l:FSKi[!wi]
 #undef OPTSTR_telnetd
-#define OPTSTR_telnetd  0 
+#define OPTSTR_telnetd "w#<0b:p#<0>65535=23f:l:FSKi[!wi]"
 #ifdef CLEANUP_telnetd
 #undef CLEANUP_telnetd
 #undef FOR_telnetd
@@ -2508,7 +2629,7 @@
 
 // test    
 #undef OPTSTR_test
-#define OPTSTR_test  0 
+#define OPTSTR_test 0
 #ifdef CLEANUP_test
 #undef CLEANUP_test
 #undef FOR_test
@@ -2516,7 +2637,7 @@
 
 // test_human_readable   <1>1ibs
 #undef OPTSTR_test_human_readable
-#define OPTSTR_test_human_readable  0 
+#define OPTSTR_test_human_readable "<1>1ibs"
 #ifdef CLEANUP_test_human_readable
 #undef CLEANUP_test_human_readable
 #undef FOR_test_human_readable
@@ -2527,7 +2648,7 @@
 
 // test_many_options   ZYXWVUTSRQPONMLKJIHGFEDCBAzyxwvutsrqponmlkjihgfedcba
 #undef OPTSTR_test_many_options
-#define OPTSTR_test_many_options  0 
+#define OPTSTR_test_many_options "ZYXWVUTSRQPONMLKJIHGFEDCBAzyxwvutsrqponmlkjihgfedcba"
 #ifdef CLEANUP_test_many_options
 #undef CLEANUP_test_many_options
 #undef FOR_test_many_options
@@ -2587,7 +2708,7 @@
 
 // test_scankey    
 #undef OPTSTR_test_scankey
-#define OPTSTR_test_scankey  0 
+#define OPTSTR_test_scankey 0
 #ifdef CLEANUP_test_scankey
 #undef CLEANUP_test_scankey
 #undef FOR_test_scankey
@@ -2595,7 +2716,7 @@
 
 // tftp   <1b#<8>65464r:l:g|p|[!gp]
 #undef OPTSTR_tftp
-#define OPTSTR_tftp  0 
+#define OPTSTR_tftp "<1b#<8>65464r:l:g|p|[!gp]"
 #ifdef CLEANUP_tftp
 #undef CLEANUP_tftp
 #undef FOR_tftp
@@ -2608,7 +2729,7 @@
 
 // tftpd   rcu:l
 #undef OPTSTR_tftpd
-#define OPTSTR_tftpd  0 
+#define OPTSTR_tftpd "rcu:l"
 #ifdef CLEANUP_tftpd
 #undef CLEANUP_tftpd
 #undef FOR_tftpd
@@ -2638,9 +2759,9 @@
 #undef FLAG_v
 #endif
 
-// top >0mk*o*p*u*s#<1=9d#=3<1n#<1bq >0mk*o*p*u*s#<1=9d#=3<1n#<1bq
+// top >0mO*Hk*o*p*u*s#<1d#=3<1n#<1bq[!oO] >0mO*Hk*o*p*u*s#<1d#=3<1n#<1bq[!oO]
 #undef OPTSTR_top
-#define OPTSTR_top ">0mk*o*p*u*s#<1=9d#=3<1n#<1bq"
+#define OPTSTR_top ">0mO*Hk*o*p*u*s#<1d#=3<1n#<1bq[!oO]"
 #ifdef CLEANUP_top
 #undef CLEANUP_top
 #undef FOR_top
@@ -2653,12 +2774,14 @@
 #undef FLAG_p
 #undef FLAG_o
 #undef FLAG_k
+#undef FLAG_H
+#undef FLAG_O
 #undef FLAG_m
 #endif
 
-// touch acd:mr:t:h[!dtr] acd:mr:t:h[!dtr]
+// touch <1acd:mr:t:h[!dtr] <1acd:mr:t:h[!dtr]
 #undef OPTSTR_touch
-#define OPTSTR_touch "acd:mr:t:h[!dtr]"
+#define OPTSTR_touch "<1acd:mr:t:h[!dtr]"
 #ifdef CLEANUP_touch
 #undef CLEANUP_touch
 #undef FOR_touch
@@ -2673,7 +2796,7 @@
 
 // toybox    
 #undef OPTSTR_toybox
-#define OPTSTR_toybox  0 
+#define OPTSTR_toybox 0
 #ifdef CLEANUP_toybox
 #undef CLEANUP_toybox
 #undef FOR_toybox
@@ -2721,7 +2844,7 @@
 
 // true    
 #undef OPTSTR_true
-#define OPTSTR_true  0 
+#define OPTSTR_true 0
 #ifdef CLEANUP_true
 #undef CLEANUP_true
 #undef FOR_true
@@ -2744,6 +2867,18 @@
 #undef CLEANUP_tty
 #undef FOR_tty
 #undef FLAG_s
+#endif
+
+// tunctl <1>1t|d|u:T[!td] <1>1t|d|u:T[!td]
+#undef OPTSTR_tunctl
+#define OPTSTR_tunctl "<1>1t|d|u:T[!td]"
+#ifdef CLEANUP_tunctl
+#undef CLEANUP_tunctl
+#undef FOR_tunctl
+#undef FLAG_T
+#undef FLAG_u
+#undef FLAG_d
+#undef FLAG_t
 #endif
 
 // ulimit >1P#<1SHavutsrRqpnmlifedc[-SH][!apvutsrRqnmlifedc] >1P#<1SHavutsrRqpnmlifedc[-SH][!apvutsrRqnmlifedc]
@@ -2824,7 +2959,7 @@
 
 // unix2dos    
 #undef OPTSTR_unix2dos
-#define OPTSTR_unix2dos  0 
+#define OPTSTR_unix2dos 0
 #ifdef CLEANUP_unix2dos
 #undef CLEANUP_unix2dos
 #undef FOR_unix2dos
@@ -2832,7 +2967,7 @@
 
 // unlink   <1>1
 #undef OPTSTR_unlink
-#define OPTSTR_unlink  0 
+#define OPTSTR_unlink "<1>1"
 #ifdef CLEANUP_unlink
 #undef CLEANUP_unlink
 #undef FOR_unlink
@@ -2840,7 +2975,7 @@
 
 // unshare   <1^f(fork);r(map-root-user);i:(ipc);m:(mount);n:(net);p:(pid);u:(uts);U:(user);
 #undef OPTSTR_unshare
-#define OPTSTR_unshare  0 
+#define OPTSTR_unshare "<1^f(fork);r(map-root-user);i:(ipc);m:(mount);n:(net);p:(pid);u:(uts);U:(user);"
 #ifdef CLEANUP_unshare
 #undef CLEANUP_unshare
 #undef FOR_unshare
@@ -2862,17 +2997,18 @@
 #undef FLAG_f
 #endif
 
-// uptime    
+// uptime >0s >0s
 #undef OPTSTR_uptime
-#define OPTSTR_uptime  0 
+#define OPTSTR_uptime ">0s"
 #ifdef CLEANUP_uptime
 #undef CLEANUP_uptime
 #undef FOR_uptime
+#undef FLAG_s
 #endif
 
 // useradd   <1>2u#<0G:s:g:h:SDH
 #undef OPTSTR_useradd
-#define OPTSTR_useradd  0 
+#define OPTSTR_useradd "<1>2u#<0G:s:g:h:SDH"
 #ifdef CLEANUP_useradd
 #undef CLEANUP_useradd
 #undef FOR_useradd
@@ -2888,7 +3024,7 @@
 
 // userdel   <1>1r
 #undef OPTSTR_userdel
-#define OPTSTR_userdel  0 
+#define OPTSTR_userdel "<1>1r"
 #ifdef CLEANUP_userdel
 #undef CLEANUP_userdel
 #undef FOR_userdel
@@ -2903,18 +3039,18 @@
 #undef FOR_usleep
 #endif
 
-// uudecode   >1o:
+// uudecode >1o: >1o:
 #undef OPTSTR_uudecode
-#define OPTSTR_uudecode  0 
+#define OPTSTR_uudecode ">1o:"
 #ifdef CLEANUP_uudecode
 #undef CLEANUP_uudecode
 #undef FOR_uudecode
 #undef FLAG_o
 #endif
 
-// uuencode   <1>2m
+// uuencode <1>2m <1>2m
 #undef OPTSTR_uuencode
-#define OPTSTR_uuencode  0 
+#define OPTSTR_uuencode "<1>2m"
 #ifdef CLEANUP_uuencode
 #undef CLEANUP_uuencode
 #undef FOR_uuencode
@@ -2931,7 +3067,7 @@
 
 // vi   <1>1
 #undef OPTSTR_vi
-#define OPTSTR_vi  0 
+#define OPTSTR_vi "<1>1"
 #ifdef CLEANUP_vi
 #undef CLEANUP_vi
 #undef FOR_vi
@@ -2948,7 +3084,7 @@
 
 // w    
 #undef OPTSTR_w
-#define OPTSTR_w  0 
+#define OPTSTR_w 0
 #ifdef CLEANUP_w
 #undef CLEANUP_w
 #undef FOR_w
@@ -2956,7 +3092,7 @@
 
 // watch   ^<1n#<0=2te
 #undef OPTSTR_watch
-#define OPTSTR_watch  0 
+#define OPTSTR_watch "^<1n#<0=2te"
 #ifdef CLEANUP_watch
 #undef CLEANUP_watch
 #undef FOR_watch
@@ -2965,9 +3101,9 @@
 #undef FLAG_n
 #endif
 
-// wc mcwl[!cm] mcwl[!cm]
+// wc mcwl mcwl
 #undef OPTSTR_wc
-#define OPTSTR_wc "mcwl[!cm]"
+#define OPTSTR_wc "mcwl"
 #ifdef CLEANUP_wc
 #undef CLEANUP_wc
 #undef FOR_wc
@@ -2975,6 +3111,15 @@
 #undef FLAG_w
 #undef FLAG_c
 #undef FLAG_m
+#endif
+
+// wget   f:
+#undef OPTSTR_wget
+#define OPTSTR_wget "f:"
+#ifdef CLEANUP_wget
+#undef CLEANUP_wget
+#undef FOR_wget
+#undef FLAG_f
 #endif
 
 // which <1a <1a
@@ -2988,7 +3133,7 @@
 
 // who   a
 #undef OPTSTR_who
-#define OPTSTR_who  0 
+#define OPTSTR_who "a"
 #ifdef CLEANUP_who
 #undef CLEANUP_who
 #undef FOR_who
@@ -3013,12 +3158,13 @@
 #undef FLAG_I
 #endif
 
-// xxd >1c#<1>4096=16l#g#<1=2pr >1c#<1>4096=16l#g#<1=2pr
+// xxd >1c#<1>4096=16l#g#<1=2prs#[!rs] >1c#<1>4096=16l#g#<1=2prs#[!rs]
 #undef OPTSTR_xxd
-#define OPTSTR_xxd ">1c#<1>4096=16l#g#<1=2pr"
+#define OPTSTR_xxd ">1c#<1>4096=16l#g#<1=2prs#[!rs]"
 #ifdef CLEANUP_xxd
 #undef CLEANUP_xxd
 #undef FOR_xxd
+#undef FLAG_s
 #undef FLAG_r
 #undef FLAG_p
 #undef FLAG_g
@@ -3028,7 +3174,7 @@
 
 // xzcat    
 #undef OPTSTR_xzcat
-#define OPTSTR_xzcat  0 
+#define OPTSTR_xzcat 0
 #ifdef CLEANUP_xzcat
 #undef CLEANUP_xzcat
 #undef FOR_xzcat
@@ -3036,7 +3182,7 @@
 
 // yes    
 #undef OPTSTR_yes
-#define OPTSTR_yes  0 
+#define OPTSTR_yes 0
 #ifdef CLEANUP_yes
 #undef CLEANUP_yes
 #undef FOR_yes
@@ -3044,7 +3190,7 @@
 
 // zcat    
 #undef OPTSTR_zcat
-#define OPTSTR_zcat  0 
+#define OPTSTR_zcat 0
 #ifdef CLEANUP_zcat
 #undef CLEANUP_zcat
 #undef FOR_zcat
@@ -3091,6 +3237,12 @@
 #define FLAG_w (FORCED_FLAG<<7)
 #define FLAG_I (FORCED_FLAG<<8)
 #define FLAG_s (FORCED_FLAG<<9)
+#endif
+
+#ifdef FOR_ascii
+#ifndef TT
+#define TT this.ascii
+#endif
 #endif
 
 #ifdef FOR_base64
@@ -3147,11 +3299,11 @@
 #ifndef TT
 #define TT this.bunzip2
 #endif
-#define FLAG_v (1<<0)
-#define FLAG_k (1<<1)
-#define FLAG_t (1<<2)
-#define FLAG_f (1<<3)
-#define FLAG_c (1<<4)
+#define FLAG_v (FORCED_FLAG<<0)
+#define FLAG_k (FORCED_FLAG<<1)
+#define FLAG_t (FORCED_FLAG<<2)
+#define FLAG_f (FORCED_FLAG<<3)
+#define FLAG_c (FORCED_FLAG<<4)
 #endif
 
 #ifdef FOR_bzcat
@@ -3232,6 +3384,20 @@
 #ifndef TT
 #define TT this.chroot
 #endif
+#endif
+
+#ifdef FOR_chrt
+#ifndef TT
+#define TT this.chrt
+#endif
+#define FLAG_R (1<<0)
+#define FLAG_r (1<<1)
+#define FLAG_o (1<<2)
+#define FLAG_i (1<<3)
+#define FLAG_f (1<<4)
+#define FLAG_b (1<<5)
+#define FLAG_p (1<<6)
+#define FLAG_m (1<<7)
 #endif
 
 #ifdef FOR_chvt
@@ -3517,6 +3683,9 @@
 #define FLAG_s (1<<2)
 #define FLAG_r (1<<3)
 #define FLAG_t (1<<4)
+#define FLAG_C (1<<5)
+#define FLAG_follow (1<<6)
+#define FLAG_w (1<<6)
 #endif
 
 #ifdef FOR_dos2unix
@@ -3606,7 +3775,8 @@
 #ifndef TT
 #define TT this.fallocate
 #endif
-#define FLAG_l (1<<0)
+#define FLAG_o (1<<0)
+#define FLAG_l (1<<1)
 #endif
 
 #ifdef FOR_false
@@ -3631,6 +3801,8 @@
 #ifndef TT
 #define TT this.file
 #endif
+#define FLAG_L (1<<0)
+#define FLAG_h (1<<1)
 #endif
 
 #ifdef FOR_find
@@ -3719,17 +3891,34 @@
 #ifndef TT
 #define TT this.ftpget
 #endif
-#define FLAG_P (FORCED_FLAG<<0)
-#define FLAG_p (FORCED_FLAG<<1)
-#define FLAG_u (FORCED_FLAG<<2)
-#define FLAG_v (FORCED_FLAG<<3)
-#define FLAG_c (FORCED_FLAG<<4)
+#define FLAG_D (FORCED_FLAG<<0)
+#define FLAG_d (FORCED_FLAG<<1)
+#define FLAG_M (FORCED_FLAG<<2)
+#define FLAG_m (FORCED_FLAG<<3)
+#define FLAG_L (FORCED_FLAG<<4)
+#define FLAG_l (FORCED_FLAG<<5)
+#define FLAG_s (FORCED_FLAG<<6)
+#define FLAG_g (FORCED_FLAG<<7)
+#define FLAG_v (FORCED_FLAG<<8)
+#define FLAG_u (FORCED_FLAG<<9)
+#define FLAG_p (FORCED_FLAG<<10)
+#define FLAG_c (FORCED_FLAG<<11)
+#define FLAG_P (FORCED_FLAG<<12)
 #endif
 
 #ifdef FOR_getenforce
 #ifndef TT
 #define TT this.getenforce
 #endif
+#endif
+
+#ifdef FOR_getfattr
+#ifndef TT
+#define TT this.getfattr
+#endif
+#define FLAG_n (1<<0)
+#define FLAG_h (1<<1)
+#define FLAG_d (1<<2)
 #endif
 
 #ifdef FOR_getprop
@@ -3888,6 +4077,8 @@
 #ifndef TT
 #define TT this.hostname
 #endif
+#define FLAG_F (1<<0)
+#define FLAG_b (1<<1)
 #endif
 
 #ifdef FOR_hwclock
@@ -4108,6 +4299,14 @@
 #endif
 #endif
 
+#ifdef FOR_log
+#ifndef TT
+#define TT this.log
+#endif
+#define FLAG_t (1<<0)
+#define FLAG_p (1<<1)
+#endif
+
 #ifdef FOR_logger
 #ifndef TT
 #define TT this.logger
@@ -4170,18 +4369,20 @@
 #define FLAG_f (1<<14)
 #define FLAG_d (1<<15)
 #define FLAG_c (1<<16)
-#define FLAG_a (1<<17)
-#define FLAG_S (1<<18)
-#define FLAG_R (1<<19)
-#define FLAG_L (1<<20)
-#define FLAG_H (1<<21)
-#define FLAG_F (1<<22)
-#define FLAG_C (1<<23)
-#define FLAG_A (1<<24)
-#define FLAG_o (1<<25)
-#define FLAG_g (1<<26)
-#define FLAG_Z (1<<27)
-#define FLAG_color (1<<28)
+#define FLAG_b (1<<17)
+#define FLAG_a (1<<18)
+#define FLAG_S (1<<19)
+#define FLAG_R (1<<20)
+#define FLAG_L (1<<21)
+#define FLAG_H (1<<22)
+#define FLAG_F (1<<23)
+#define FLAG_C (1<<24)
+#define FLAG_A (1<<25)
+#define FLAG_o (1<<26)
+#define FLAG_g (1<<27)
+#define FLAG_Z (1<<28)
+#define FLAG_show_control_chars (1<<29)
+#define FLAG_color (1<<30)
 #endif
 
 #ifdef FOR_lsattr
@@ -4238,7 +4439,8 @@
 #ifndef TT
 #define TT this.md5sum
 #endif
-#define FLAG_b (1<<0)
+#define FLAG_c (1<<0)
+#define FLAG_b (1<<1)
 #endif
 
 #ifdef FOR_mdev
@@ -4246,6 +4448,14 @@
 #define TT this.mdev
 #endif
 #define FLAG_s (FORCED_FLAG<<0)
+#endif
+
+#ifdef FOR_microcom
+#ifndef TT
+#define TT this.microcom
+#endif
+#define FLAG_X (1<<0)
+#define FLAG_s (1<<1)
 #endif
 
 #ifdef FOR_mix
@@ -4341,14 +4551,15 @@
 #ifndef TT
 #define TT this.modprobe
 #endif
-#define FLAG_b (FORCED_FLAG<<0)
-#define FLAG_D (FORCED_FLAG<<1)
-#define FLAG_s (FORCED_FLAG<<2)
-#define FLAG_v (FORCED_FLAG<<3)
-#define FLAG_q (FORCED_FLAG<<4)
-#define FLAG_r (FORCED_FLAG<<5)
-#define FLAG_l (FORCED_FLAG<<6)
-#define FLAG_a (FORCED_FLAG<<7)
+#define FLAG_d (1<<0)
+#define FLAG_b (1<<1)
+#define FLAG_D (1<<2)
+#define FLAG_s (1<<3)
+#define FLAG_v (1<<4)
+#define FLAG_q (1<<5)
+#define FLAG_r (1<<6)
+#define FLAG_l (1<<7)
+#define FLAG_a (1<<8)
 #endif
 
 #ifdef FOR_more
@@ -4387,6 +4598,7 @@
 #endif
 #define FLAG_i (1<<0)
 #define FLAG_f (1<<1)
+#define FLAG_remove_destination (1<<2)
 #define FLAG_F (1<<2)
 #define FLAG_n (1<<3)
 #define FLAG_v (1<<4)
@@ -4408,10 +4620,11 @@
 #define FLAG_q (1<<1)
 #define FLAG_s (1<<2)
 #define FLAG_p (1<<3)
-#define FLAG_w (1<<4)
-#define FLAG_L (1<<5)
-#define FLAG_l (1<<6)
-#define FLAG_t (1<<7)
+#define FLAG_W (1<<4)
+#define FLAG_w (1<<5)
+#define FLAG_L (1<<6)
+#define FLAG_l (1<<7)
+#define FLAG_t (1<<8)
 #endif
 
 #ifdef FOR_netstat
@@ -4499,8 +4712,9 @@
 #define FLAG_s (1<<6)
 #define FLAG_x (1<<7)
 #define FLAG_N (1<<8)
-#define FLAG_v (1<<9)
-#define FLAG_j (1<<10)
+#define FLAG_w (1<<9)
+#define FLAG_v (1<<10)
+#define FLAG_j (1<<11)
 #endif
 
 #ifdef FOR_oneit
@@ -4555,7 +4769,9 @@
 #define FLAG_p (1<<2)
 #define FLAG_l (1<<3)
 #define FLAG_u (1<<4)
-#define FLAG_x (FORCED_FLAG<<5)
+#define FLAG_d (1<<5)
+#define FLAG_x (FORCED_FLAG<<6)
+#define FLAG_dry_run (1<<7)
 #endif
 
 #ifdef FOR_pgrep
@@ -4661,24 +4877,25 @@
 #define FLAG_g (1<<3)
 #define FLAG_U (1<<4)
 #define FLAG_u (1<<5)
-#define FLAG_t (1<<6)
-#define FLAG_s (1<<7)
-#define FLAG_pid (1<<8)
-#define FLAG_p (1<<8)
-#define FLAG_O (1<<9)
-#define FLAG_o (1<<10)
-#define FLAG_n (1<<11)
-#define FLAG_M (1<<12)
-#define FLAG_l (1<<13)
-#define FLAG_f (1<<14)
-#define FLAG_e (1<<15)
-#define FLAG_d (1<<16)
-#define FLAG_A (1<<17)
-#define FLAG_a (1<<18)
-#define FLAG_ppid (1<<19)
-#define FLAG_P (1<<19)
-#define FLAG_sort (1<<20)
-#define FLAG_k (1<<20)
+#define FLAG_T (1<<6)
+#define FLAG_t (1<<7)
+#define FLAG_s (1<<8)
+#define FLAG_pid (1<<9)
+#define FLAG_p (1<<9)
+#define FLAG_O (1<<10)
+#define FLAG_o (1<<11)
+#define FLAG_n (1<<12)
+#define FLAG_M (1<<13)
+#define FLAG_l (1<<14)
+#define FLAG_f (1<<15)
+#define FLAG_e (1<<16)
+#define FLAG_d (1<<17)
+#define FLAG_A (1<<18)
+#define FLAG_a (1<<19)
+#define FLAG_ppid (1<<20)
+#define FLAG_P (1<<20)
+#define FLAG_sort (1<<21)
+#define FLAG_k (1<<21)
 #endif
 
 #ifdef FOR_pwd
@@ -4795,9 +5012,9 @@
 #ifndef TT
 #define TT this.route
 #endif
-#define FLAG_A (1<<0)
-#define FLAG_e (1<<1)
-#define FLAG_n (1<<2)
+#define FLAG_A (FORCED_FLAG<<0)
+#define FLAG_e (FORCED_FLAG<<1)
+#define FLAG_n (FORCED_FLAG<<2)
 #endif
 
 #ifdef FOR_runcon
@@ -4817,6 +5034,13 @@
 #define FLAG_f (1<<4)
 #define FLAG_e (1<<5)
 #define FLAG_version (1<<6)
+#define FLAG_help (1<<7)
+#endif
+
+#ifdef FOR_sendevent
+#ifndef TT
+#define TT this.sendevent
+#endif
 #endif
 
 #ifdef FOR_seq
@@ -4832,6 +5056,16 @@
 #ifndef TT
 #define TT this.setenforce
 #endif
+#endif
+
+#ifdef FOR_setfattr
+#ifndef TT
+#define TT this.setfattr
+#endif
+#define FLAG_x (1<<0)
+#define FLAG_v (1<<1)
+#define FLAG_n (1<<2)
+#define FLAG_h (1<<3)
 #endif
 
 #ifdef FOR_setprop
@@ -4859,7 +5093,8 @@
 #ifndef TT
 #define TT this.sha1sum
 #endif
-#define FLAG_b (1<<0)
+#define FLAG_c (1<<0)
+#define FLAG_b (1<<1)
 #endif
 
 #ifdef FOR_shred
@@ -4938,12 +5173,26 @@
 #define FLAG_a (1<<2)
 #endif
 
+#ifdef FOR_start
+#ifndef TT
+#define TT this.start
+#endif
+#endif
+
 #ifdef FOR_stat
 #ifndef TT
 #define TT this.stat
 #endif
-#define FLAG_f (1<<0)
-#define FLAG_c (1<<1)
+#define FLAG_t (1<<0)
+#define FLAG_L (1<<1)
+#define FLAG_f (1<<2)
+#define FLAG_c (1<<3)
+#endif
+
+#ifdef FOR_stop
+#ifndef TT
+#define TT this.stop
+#endif
 #endif
 
 #ifdef FOR_strings
@@ -4992,8 +5241,8 @@
 #ifndef TT
 #define TT this.switch_root
 #endif
-#define FLAG_h (1<<0)
-#define FLAG_c (1<<1)
+#define FLAG_h (FORCED_FLAG<<0)
+#define FLAG_c (FORCED_FLAG<<1)
 #endif
 
 #ifdef FOR_sync
@@ -5273,7 +5522,9 @@
 #define FLAG_p (1<<6)
 #define FLAG_o (1<<7)
 #define FLAG_k (1<<8)
-#define FLAG_m (1<<9)
+#define FLAG_H (1<<9)
+#define FLAG_O (1<<10)
+#define FLAG_m (1<<11)
 #endif
 
 #ifdef FOR_touch
@@ -5350,6 +5601,16 @@
 #define TT this.tty
 #endif
 #define FLAG_s (1<<0)
+#endif
+
+#ifdef FOR_tunctl
+#ifndef TT
+#define TT this.tunctl
+#endif
+#define FLAG_T (1<<0)
+#define FLAG_u (1<<1)
+#define FLAG_d (1<<2)
+#define FLAG_t (1<<3)
 #endif
 
 #ifdef FOR_ulimit
@@ -5458,6 +5719,7 @@
 #ifndef TT
 #define TT this.uptime
 #endif
+#define FLAG_s (1<<0)
 #endif
 
 #ifdef FOR_useradd
@@ -5491,14 +5753,14 @@
 #ifndef TT
 #define TT this.uudecode
 #endif
-#define FLAG_o (FORCED_FLAG<<0)
+#define FLAG_o (1<<0)
 #endif
 
 #ifdef FOR_uuencode
 #ifndef TT
 #define TT this.uuencode
 #endif
-#define FLAG_m (FORCED_FLAG<<0)
+#define FLAG_m (1<<0)
 #endif
 
 #ifdef FOR_vconfig
@@ -5545,6 +5807,13 @@
 #define FLAG_m (1<<3)
 #endif
 
+#ifdef FOR_wget
+#ifndef TT
+#define TT this.wget
+#endif
+#define FLAG_f (FORCED_FLAG<<0)
+#endif
+
 #ifdef FOR_which
 #ifndef TT
 #define TT this.which
@@ -5579,11 +5848,12 @@
 #ifndef TT
 #define TT this.xxd
 #endif
-#define FLAG_r (1<<0)
-#define FLAG_p (1<<1)
-#define FLAG_g (1<<2)
-#define FLAG_l (1<<3)
-#define FLAG_c (1<<4)
+#define FLAG_s (1<<0)
+#define FLAG_r (1<<1)
+#define FLAG_p (1<<2)
+#define FLAG_g (1<<3)
+#define FLAG_l (1<<4)
+#define FLAG_c (1<<5)
 #endif
 
 #ifdef FOR_xzcat

@@ -19,8 +19,8 @@
 
 #include <utils/Log.h>
 
-#include <hardware/audio.h>
 #include <media/AudioParameter.h>
+#include <system/audio.h>
 
 namespace android {
 
@@ -32,6 +32,19 @@ const char * const AudioParameter::keyChannels = AUDIO_PARAMETER_STREAM_CHANNELS
 const char * const AudioParameter::keyFrameCount = AUDIO_PARAMETER_STREAM_FRAME_COUNT;
 const char * const AudioParameter::keyInputSource = AUDIO_PARAMETER_STREAM_INPUT_SOURCE;
 const char * const AudioParameter::keyScreenState = AUDIO_PARAMETER_KEY_SCREEN_STATE;
+const char * const AudioParameter::keyBtNrec = AUDIO_PARAMETER_KEY_BT_NREC;
+const char * const AudioParameter::keyHwAvSync = AUDIO_PARAMETER_HW_AV_SYNC;
+const char * const AudioParameter::keyMonoOutput = AUDIO_PARAMETER_MONO_OUTPUT;
+const char * const AudioParameter::keyStreamHwAvSync = AUDIO_PARAMETER_STREAM_HW_AV_SYNC;
+const char * const AudioParameter::keyStreamConnect = AUDIO_PARAMETER_DEVICE_CONNECT;
+const char * const AudioParameter::keyStreamDisconnect = AUDIO_PARAMETER_DEVICE_DISCONNECT;
+const char * const AudioParameter::keyStreamSupportedFormats = AUDIO_PARAMETER_STREAM_SUP_FORMATS;
+const char * const AudioParameter::keyStreamSupportedChannels = AUDIO_PARAMETER_STREAM_SUP_CHANNELS;
+const char * const AudioParameter::keyStreamSupportedSamplingRates =
+        AUDIO_PARAMETER_STREAM_SUP_SAMPLING_RATES;
+const char * const AudioParameter::valueOn = AUDIO_PARAMETER_VALUE_ON;
+const char * const AudioParameter::valueOff = AUDIO_PARAMETER_VALUE_OFF;
+const char * const AudioParameter::valueListSeparator = AUDIO_PARAMETER_VALUE_LIST_SEPARATOR;
 
 AudioParameter::AudioParameter(const String8& keyValuePairs)
 {
@@ -70,15 +83,17 @@ AudioParameter::~AudioParameter()
     mParameters.clear();
 }
 
-String8 AudioParameter::toString()
+String8 AudioParameter::toStringImpl(bool useValues) const
 {
     String8 str = String8("");
 
     size_t size = mParameters.size();
     for (size_t i = 0; i < size; i++) {
         str += mParameters.keyAt(i);
-        str += "=";
-        str += mParameters.valueAt(i);
+        if (useValues) {
+            str += "=";
+            str += mParameters.valueAt(i);
+        }
         if (i < (size - 1)) str += ";";
     }
     return str;
@@ -93,6 +108,11 @@ status_t AudioParameter::add(const String8& key, const String8& value)
         mParameters.replaceValueFor(key, value);
         return ALREADY_EXISTS;
     }
+}
+
+status_t AudioParameter::addKey(const String8& key)
+{
+    return add(key, String8());
 }
 
 status_t AudioParameter::addInt(const String8& key, const int value)
@@ -127,7 +147,7 @@ status_t AudioParameter::remove(const String8& key)
     }
 }
 
-status_t AudioParameter::get(const String8& key, String8& value)
+status_t AudioParameter::get(const String8& key, String8& value) const
 {
     if (mParameters.indexOfKey(key) >= 0) {
         value = mParameters.valueFor(key);
@@ -137,7 +157,7 @@ status_t AudioParameter::get(const String8& key, String8& value)
     }
 }
 
-status_t AudioParameter::getInt(const String8& key, int& value)
+status_t AudioParameter::getInt(const String8& key, int& value) const
 {
     String8 str8;
     status_t result = get(key, str8);
@@ -153,7 +173,7 @@ status_t AudioParameter::getInt(const String8& key, int& value)
     return result;
 }
 
-status_t AudioParameter::getFloat(const String8& key, float& value)
+status_t AudioParameter::getFloat(const String8& key, float& value) const
 {
     String8 str8;
     status_t result = get(key, str8);
@@ -169,7 +189,17 @@ status_t AudioParameter::getFloat(const String8& key, float& value)
     return result;
 }
 
-status_t AudioParameter::getAt(size_t index, String8& key, String8& value)
+status_t AudioParameter::getAt(size_t index, String8& key) const
+{
+    if (mParameters.size() > index) {
+        key = mParameters.keyAt(index);
+        return NO_ERROR;
+    } else {
+        return BAD_VALUE;
+    }
+}
+
+status_t AudioParameter::getAt(size_t index, String8& key, String8& value) const
 {
     if (mParameters.size() > index) {
         key = mParameters.keyAt(index);

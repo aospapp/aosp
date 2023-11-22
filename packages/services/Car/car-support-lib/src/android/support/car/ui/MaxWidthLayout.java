@@ -29,6 +29,7 @@ import java.util.List;
  *
  * To use MaxWidthLayout, put it as the outermost layout of all children you want to limit its max
  * width and set the maxWidth appropriately.
+ * @hide
  */
 public class MaxWidthLayout extends FrameLayout {
 

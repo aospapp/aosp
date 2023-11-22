@@ -51,6 +51,8 @@ public class CallNotificationReceiver extends BroadcastReceiver {
             "com.android.server.telecom.testapps.ACTION_TWO_WAY_VIDEO_CALL";
     static final String ACTION_AUDIO_CALL =
             "com.android.server.telecom.testapps.ACTION_AUDIO_CALL";
+    static final String ACTION_RTT_CALL =
+            "com.android.server.telecom.testapps.ACTION_RTT_CALL";
 
     /** {@inheritDoc} */
     @Override
@@ -66,6 +68,8 @@ public class CallNotificationReceiver extends BroadcastReceiver {
             sendIncomingCallIntent(context, null, VideoProfile.STATE_RX_ENABLED);
         } else if (ACTION_TWO_WAY_VIDEO_CALL.equals(action)) {
             sendIncomingCallIntent(context, null, VideoProfile.STATE_BIDIRECTIONAL);
+        } else if (ACTION_RTT_CALL.equals(action)) {
+            sendIncomingRttCallIntent(context, null, VideoProfile.STATE_AUDIO_ONLY);
         } else if (ACTION_AUDIO_CALL.equals(action)) {
             sendIncomingCallIntent(context, null, VideoProfile.STATE_AUDIO_ONLY);
         }
@@ -89,6 +93,23 @@ public class CallNotificationReceiver extends BroadcastReceiver {
         if (handle != null) {
             extras.putParcelable(TestConnectionService.EXTRA_HANDLE, handle);
         }
+
+        TelecomManager.from(context).addNewIncomingCall(phoneAccount, extras);
+    }
+
+    public static void sendIncomingRttCallIntent(Context context, Uri handle, int videoState) {
+        PhoneAccountHandle phoneAccount = new PhoneAccountHandle(
+                new ComponentName(context, TestConnectionService.class),
+                CallServiceNotifier.SIM_SUBSCRIPTION_ID);
+
+        // For the purposes of testing, indicate whether the incoming call is a video call by
+        // stashing an indicator in the EXTRA_INCOMING_CALL_EXTRAS.
+        Bundle extras = new Bundle();
+        extras.putInt(TestConnectionService.EXTRA_START_VIDEO_STATE, videoState);
+        if (handle != null) {
+            extras.putParcelable(TestConnectionService.EXTRA_HANDLE, handle);
+        }
+        extras.putBoolean(TelecomManager.EXTRA_START_CALL_WITH_RTT, true);
 
         TelecomManager.from(context).addNewIncomingCall(phoneAccount, extras);
     }
@@ -121,6 +142,11 @@ public class CallNotificationReceiver extends BroadcastReceiver {
         Log.i(TAG, "Sending upgrade request of type: " + data);
         final Intent intent = new Intent(TestCallActivity.ACTION_SEND_UPGRADE_REQUEST);
         intent.setData(data);
+        LocalBroadcastManager.getInstance(context).sendBroadcast(intent);
+    }
+
+    public static void remoteRttUpgrade(Context context) {
+        final Intent intent = new Intent(TestCallActivity.ACTION_REMOTE_RTT_UPGRADE);
         LocalBroadcastManager.getInstance(context).sendBroadcast(intent);
     }
 }

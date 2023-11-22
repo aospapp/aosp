@@ -15,28 +15,39 @@
  */
 package android.uirendering.cts.testclasses;
 
+import com.android.compatibility.common.util.SynchronousPixelCopy;
+
 import android.animation.ObjectAnimator;
+import android.graphics.Bitmap;
+import android.graphics.Bitmap.Config;
 import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.Point;
 import android.graphics.Rect;
-import android.test.suitebuilder.annotation.MediumTest;
-import android.uirendering.cts.bitmapverifiers.*;
+import android.support.test.filters.LargeTest;
+import android.support.test.filters.MediumTest;
+import android.support.test.runner.AndroidJUnit4;
+import android.uirendering.cts.R;
+import android.uirendering.cts.bitmapverifiers.ColorVerifier;
 import android.uirendering.cts.testinfrastructure.ActivityTestBase;
 import android.uirendering.cts.testinfrastructure.CanvasClient;
-import android.uirendering.cts.testinfrastructure.DrawActivity;
 import android.uirendering.cts.testinfrastructure.ViewInitializer;
 import android.view.Gravity;
+import android.view.PixelCopy;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.View;
-import android.uirendering.cts.R;
 import android.view.animation.LinearInterpolator;
 import android.widget.FrameLayout;
+
+import org.junit.Assert;
 import org.junit.Test;
+import org.junit.runner.RunWith;
 
 import java.util.concurrent.CountDownLatch;
 
-@MediumTest
+@LargeTest
+@RunWith(AndroidJUnit4.class)
 public class SurfaceViewTests extends ActivityTestBase {
 
     static final CanvasCallback sGreenCanvasCallback =
@@ -100,8 +111,80 @@ public class SurfaceViewTests extends ActivityTestBase {
                 mAnimator.cancel();
             }
         };
+        Screenshotter screenshotter = testOffset -> {
+            Bitmap source = getInstrumentation().getUiAutomation().takeScreenshot();
+            return Bitmap.createBitmap(source, testOffset.x, testOffset.y, TEST_WIDTH, TEST_HEIGHT);
+        };
         createTest()
                 .addLayout(R.layout.frame_layout, initializer, true)
+                .withScreenshotter(screenshotter)
                 .runWithAnimationVerifier(new ColorVerifier(Color.WHITE, 0 /* zero tolerance */));
+    }
+
+    private static class SurfaceViewHelper implements ViewInitializer, Screenshotter, SurfaceHolder.Callback {
+        private final CanvasClient mCanvasClient;
+        private final CountDownLatch mFence = new CountDownLatch(1);
+        private SurfaceView mSurfaceView;
+
+        public SurfaceViewHelper(CanvasClient canvasClient) {
+            mCanvasClient = canvasClient;
+        }
+
+        @Override
+        public Bitmap takeScreenshot(Point point /* ignored */) {
+            SynchronousPixelCopy copy = new SynchronousPixelCopy();
+            Bitmap dest = Bitmap.createBitmap(
+                    TEST_WIDTH, TEST_HEIGHT, Config.ARGB_8888);
+            Rect srcRect = new Rect(0, 0, TEST_WIDTH, TEST_HEIGHT);
+            int copyResult = copy.request(mSurfaceView, srcRect, dest);
+            Assert.assertEquals(PixelCopy.SUCCESS, copyResult);
+            return dest;
+        }
+
+        @Override
+        public void initializeView(View view) {
+            FrameLayout root = (FrameLayout) view.findViewById(R.id.frame_layout);
+            mSurfaceView = new SurfaceView(view.getContext());
+            mSurfaceView.getHolder().addCallback(this);
+            root.addView(mSurfaceView, new FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.MATCH_PARENT));
+        }
+
+        @Override
+        public void surfaceCreated(SurfaceHolder holder) {
+        }
+
+        @Override
+        public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
+            // TODO: Remove the post() which is a temporary workaround for b/32484713
+            mSurfaceView.post(() -> {
+                Canvas canvas = holder.lockHardwareCanvas();
+                mCanvasClient.draw(canvas, width, height);
+                holder.unlockCanvasAndPost(canvas);
+                mFence.countDown();
+            });
+        }
+
+        @Override
+        public void surfaceDestroyed(SurfaceHolder holder) {
+        }
+
+        public CountDownLatch getFence() {
+            return mFence;
+        }
+    }
+
+    @Test
+    public void testSurfaceHolderHardwareCanvas() {
+        SurfaceViewHelper helper = new SurfaceViewHelper((canvas, width, height) -> {
+            Assert.assertNotNull(canvas);
+            Assert.assertTrue(canvas.isHardwareAccelerated());
+            canvas.drawColor(Color.GREEN);
+        });
+        createTest()
+                .addLayout(R.layout.frame_layout, helper, true, helper.getFence())
+                .withScreenshotter(helper)
+                .runWithVerifier(new ColorVerifier(Color.GREEN, 0 /* zero tolerance */));
     }
 }

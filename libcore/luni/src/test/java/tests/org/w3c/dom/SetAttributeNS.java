@@ -108,7 +108,7 @@ public final class SetAttributeNS extends DOMTestCase {
         testAddr = elementList.item(0);
 
         {
-            // BEGIN android-changed
+            // BEGIN Android-changed
             //     Our exception priorities differ from the spec
             try {
                 ((Element) /* Node */testAddr).setAttributeNS(namespaceURI,
@@ -116,7 +116,7 @@ public final class SetAttributeNS extends DOMTestCase {
                 fail();
             } catch (DOMException ex) {
             }
-            // END android-changed
+            // END Android-changed
         }
     }
 
@@ -287,7 +287,7 @@ public final class SetAttributeNS extends DOMTestCase {
         testAddr = elementList.item(0);
 
         {
-            // BEGIN android-changed
+            // BEGIN Android-changed
             //     Our exception priorities differ from the spec
             try {
                 ((Element) /* Node */testAddr).setAttributeNS(namespaceURI, "",
@@ -295,7 +295,7 @@ public final class SetAttributeNS extends DOMTestCase {
                 fail();
             } catch (DOMException ex) {
             }
-            // END android-changed
+            // END Android-changed
         }
     }
 }

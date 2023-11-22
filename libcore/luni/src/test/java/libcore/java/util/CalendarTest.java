@@ -16,10 +16,15 @@
 
 package libcore.java.util;
 
+import java.time.Instant;
+import java.util.Arrays;
 import java.util.Calendar;
+import java.util.Collections;
 import java.util.Date;
 import java.util.GregorianCalendar;
+import java.util.HashSet;
 import java.util.Locale;
+import java.util.Set;
 import java.util.TimeZone;
 import libcore.util.SerializationTester;
 
@@ -155,6 +160,18 @@ public class CalendarTest extends junit.framework.TestCase {
         assertEquals(day, calendar.get(Calendar.DAY_OF_MONTH));
         assertEquals(hour, calendar.get(Calendar.HOUR_OF_DAY));
         assertEquals(minute, calendar.get(Calendar.MINUTE));
+    }
+
+    public void testToInstant() {
+        TimeZone timeZone = TimeZone.getTimeZone("Europe/Paris");
+        Calendar calendar = new GregorianCalendar(timeZone);
+        calendar.clear();
+        calendar.set(2007, Calendar.DECEMBER, 3, 10, 15, 30);
+        Instant instant = calendar.toInstant();
+        assertEquals(calendar.getTime().toInstant(), instant);
+        assertEquals(Instant.ofEpochMilli(calendar.getTimeInMillis()), instant);
+        // GMT is one hour earlier than Europe/Paris, hence hour of day is 9 rather than 10
+        assertEquals(instant, Instant.parse("2007-12-03T09:15:30Z"));
     }
 
     // http://b/5179775
@@ -312,6 +329,13 @@ public class CalendarTest extends junit.framework.TestCase {
         calendar.setTimeZone(TimeZone.getTimeZone("Europe/London"));
         calendar.set(Calendar.HOUR_OF_DAY, 1);
         assertEquals(1,calendar.get(Calendar.HOUR_OF_DAY));
+    }
+
+    public void testGetAvailableCalendarTypes() {
+        // Guards against unintentional change; for intentional changes,
+        // update this test.
+        Set<String> expected = Collections.singleton("gregory");
+        assertEquals(expected, Calendar.getAvailableCalendarTypes());
     }
 
     public void testGetWeekYear() {

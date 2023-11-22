@@ -35,7 +35,7 @@ namespace trunks {
 //   TpmSimulatorHandle handle;
 //   if (!handle.Init()) {...}
 //   std::string response = handle.SendCommandAndWait(command);
-class TpmSimulatorHandle : public CommandTransceiver  {
+class TpmSimulatorHandle : public CommandTransceiver {
  public:
   TpmSimulatorHandle();
   ~TpmSimulatorHandle() override;

@@ -21,6 +21,8 @@
 <com.android.systemui.statusbar.phone.PhoneStatusBarView
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:systemui="http://schemas.android.com/apk/res/com.android.systemui"
+    android:layout_width="match_parent"
+    android:layout_height="@dimen/status_bar_height"
     android:id="@+id/status_bar"
     android:background="@drawable/system_bar_background"
     android:orientation="vertical"
@@ -76,5 +78,12 @@
                 />
         </com.android.keyguard.AlphaOptimizedLinearLayout>
     </LinearLayout>
+
+    <ViewStub
+        android:id="@+id/emergency_cryptkeeper_text"
+        android:layout_width="wrap_content"
+        android:layout_height="match_parent"
+        android:layout="@layout/emergency_cryptkeeper_text"
+    />
 
 </com.android.systemui.statusbar.phone.PhoneStatusBarView>

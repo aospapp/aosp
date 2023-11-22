@@ -16,6 +16,11 @@
 
 package android.appsecurity.cts;
 
+import com.android.tradefed.build.IBuildInfo;
+import com.android.tradefed.device.DeviceNotAvailableException;
+import com.android.tradefed.testtype.DeviceTestCase;
+import com.android.tradefed.testtype.IBuildReceiver;
+
 import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -23,12 +28,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Locale;
-
-import com.android.tradefed.build.IBuildInfo;
-import com.android.tradefed.device.DeviceNotAvailableException;
-import com.android.tradefed.device.ITestDevice;
-import com.android.tradefed.testtype.DeviceTestCase;
-import com.android.tradefed.testtype.IBuildReceiver;
 
 /**
  * Tests for APK signature verification during installation.
@@ -44,10 +43,6 @@ public class PkgInstallSignatureVerificationTest extends DeviceTestCase implemen
     private static final String[] RSA_KEY_NAMES_2048_AND_LARGER =
             {"2048", "3072", "4096", "8192", "16384"};
 
-
-    /** Device under test. */
-    private ITestDevice mDevice;
-
     private IBuildInfo mCtsBuild;
 
     @Override
@@ -58,7 +53,8 @@ public class PkgInstallSignatureVerificationTest extends DeviceTestCase implemen
     @Override
     protected void setUp() throws Exception {
         super.setUp();
-        mDevice = getDevice();
+
+        Utils.prepareSingleUser(getDevice());
         assertNotNull(mCtsBuild);
         uninstallPackage();
     }
@@ -81,83 +77,127 @@ public class PkgInstallSignatureVerificationTest extends DeviceTestCase implemen
 
     public void testInstallV1OneSignerMD5withRSA() throws Exception {
         // APK signed with v1 scheme only, one signer.
-        assertInstallSucceedsForEach("v1-only-with-rsa-pkcs1-md5-%s.apk", RSA_KEY_NAMES);
+        assertInstallSucceedsForEach(
+                "v1-only-with-rsa-pkcs1-md5-1.2.840.113549.1.1.1-%s.apk", RSA_KEY_NAMES);
+        assertInstallSucceedsForEach(
+                "v1-only-with-rsa-pkcs1-md5-1.2.840.113549.1.1.4-%s.apk", RSA_KEY_NAMES);
     }
 
     public void testInstallV1OneSignerSHA1withRSA() throws Exception {
         // APK signed with v1 scheme only, one signer.
-        assertInstallSucceedsForEach("v1-only-with-rsa-pkcs1-sha1-%s.apk", RSA_KEY_NAMES);
+        assertInstallSucceedsForEach(
+                "v1-only-with-rsa-pkcs1-sha1-1.2.840.113549.1.1.1-%s.apk", RSA_KEY_NAMES);
+        assertInstallSucceedsForEach(
+                "v1-only-with-rsa-pkcs1-sha1-1.2.840.113549.1.1.5-%s.apk", RSA_KEY_NAMES);
     }
 
     public void testInstallV1OneSignerSHA224withRSA() throws Exception {
         // APK signed with v1 scheme only, one signer.
-        assertInstallSucceedsForEach("v1-only-with-rsa-pkcs1-sha224-%s.apk", RSA_KEY_NAMES);
+        assertInstallSucceedsForEach(
+                "v1-only-with-rsa-pkcs1-sha224-1.2.840.113549.1.1.1-%s.apk", RSA_KEY_NAMES);
+        assertInstallSucceedsForEach(
+                "v1-only-with-rsa-pkcs1-sha224-1.2.840.113549.1.1.14-%s.apk", RSA_KEY_NAMES);
     }
 
     public void testInstallV1OneSignerSHA256withRSA() throws Exception {
         // APK signed with v1 scheme only, one signer.
-        assertInstallSucceedsForEach("v1-only-with-rsa-pkcs1-sha256-%s.apk", RSA_KEY_NAMES);
+        assertInstallSucceedsForEach(
+                "v1-only-with-rsa-pkcs1-sha256-1.2.840.113549.1.1.1-%s.apk", RSA_KEY_NAMES);
+        assertInstallSucceedsForEach(
+                "v1-only-with-rsa-pkcs1-sha256-1.2.840.113549.1.1.11-%s.apk", RSA_KEY_NAMES);
     }
 
     public void testInstallV1OneSignerSHA384withRSA() throws Exception {
         // APK signed with v1 scheme only, one signer.
-        assertInstallSucceedsForEach("v1-only-with-rsa-pkcs1-sha384-%s.apk", RSA_KEY_NAMES);
+        assertInstallSucceedsForEach(
+                "v1-only-with-rsa-pkcs1-sha384-1.2.840.113549.1.1.1-%s.apk", RSA_KEY_NAMES);
+        assertInstallSucceedsForEach(
+                "v1-only-with-rsa-pkcs1-sha384-1.2.840.113549.1.1.12-%s.apk", RSA_KEY_NAMES);
     }
 
     public void testInstallV1OneSignerSHA512withRSA() throws Exception {
         // APK signed with v1 scheme only, one signer.
-        assertInstallSucceedsForEach("v1-only-with-rsa-pkcs1-sha512-%s.apk", RSA_KEY_NAMES);
+        assertInstallSucceedsForEach(
+                "v1-only-with-rsa-pkcs1-sha512-1.2.840.113549.1.1.1-%s.apk", RSA_KEY_NAMES);
+        assertInstallSucceedsForEach(
+                "v1-only-with-rsa-pkcs1-sha512-1.2.840.113549.1.1.13-%s.apk", RSA_KEY_NAMES);
     }
 
     public void testInstallV1OneSignerSHA1withECDSA() throws Exception {
         // APK signed with v1 scheme only, one signer.
-        assertInstallSucceedsForEach("v1-only-with-ecdsa-sha1-%s.apk", EC_KEY_NAMES);
+        assertInstallSucceedsForEach(
+                "v1-only-with-ecdsa-sha1-1.2.840.10045.2.1-%s.apk", EC_KEY_NAMES);
+        assertInstallSucceedsForEach(
+                "v1-only-with-ecdsa-sha1-1.2.840.10045.4.1-%s.apk", EC_KEY_NAMES);
     }
 
     public void testInstallV1OneSignerSHA224withECDSA() throws Exception {
         // APK signed with v1 scheme only, one signer.
-        assertInstallSucceedsForEach("v1-only-with-ecdsa-sha224-%s.apk", EC_KEY_NAMES);
+        assertInstallSucceedsForEach(
+                "v1-only-with-ecdsa-sha224-1.2.840.10045.2.1-%s.apk", EC_KEY_NAMES);
+        assertInstallSucceedsForEach(
+                "v1-only-with-ecdsa-sha224-1.2.840.10045.4.3.1-%s.apk", EC_KEY_NAMES);
     }
 
     public void testInstallV1OneSignerSHA256withECDSA() throws Exception {
         // APK signed with v1 scheme only, one signer.
-        assertInstallSucceedsForEach("v1-only-with-ecdsa-sha256-%s.apk", EC_KEY_NAMES);
+        assertInstallSucceedsForEach(
+                "v1-only-with-ecdsa-sha256-1.2.840.10045.2.1-%s.apk", EC_KEY_NAMES);
+        assertInstallSucceedsForEach(
+                "v1-only-with-ecdsa-sha256-1.2.840.10045.4.3.2-%s.apk", EC_KEY_NAMES);
     }
 
     public void testInstallV1OneSignerSHA384withECDSA() throws Exception {
         // APK signed with v1 scheme only, one signer.
-        assertInstallSucceedsForEach("v1-only-with-ecdsa-sha384-%s.apk", EC_KEY_NAMES);
+        assertInstallSucceedsForEach(
+                "v1-only-with-ecdsa-sha384-1.2.840.10045.2.1-%s.apk", EC_KEY_NAMES);
+        assertInstallSucceedsForEach(
+                "v1-only-with-ecdsa-sha384-1.2.840.10045.4.3.3-%s.apk", EC_KEY_NAMES);
     }
 
     public void testInstallV1OneSignerSHA512withECDSA() throws Exception {
         // APK signed with v1 scheme only, one signer.
-        assertInstallSucceedsForEach("v1-only-with-ecdsa-sha512-%s.apk", EC_KEY_NAMES);
+        assertInstallSucceedsForEach(
+                "v1-only-with-ecdsa-sha512-1.2.840.10045.2.1-%s.apk", EC_KEY_NAMES);
+        assertInstallSucceedsForEach(
+                "v1-only-with-ecdsa-sha512-1.2.840.10045.4.3.4-%s.apk", EC_KEY_NAMES);
     }
 
     public void testInstallV1OneSignerSHA1withDSA() throws Exception {
         // APK signed with v1 scheme only, one signer.
-        assertInstallSucceedsForEach("v1-only-with-dsa-sha1-%s.apk", DSA_KEY_NAMES);
+        assertInstallSucceedsForEach(
+                "v1-only-with-dsa-sha1-1.2.840.10040.4.1-%s.apk", DSA_KEY_NAMES);
+        assertInstallSucceedsForEach(
+                "v1-only-with-dsa-sha1-1.2.840.10040.4.3-%s.apk", DSA_KEY_NAMES);
     }
 
     public void testInstallV1OneSignerSHA224withDSA() throws Exception {
         // APK signed with v1 scheme only, one signer.
-        assertInstallSucceedsForEach("v1-only-with-dsa-sha224-%s.apk", DSA_KEY_NAMES);
+        assertInstallSucceedsForEach(
+                "v1-only-with-dsa-sha224-1.2.840.10040.4.1-%s.apk", DSA_KEY_NAMES);
+        assertInstallSucceedsForEach(
+                "v1-only-with-dsa-sha224-2.16.840.1.101.3.4.3.1-%s.apk", DSA_KEY_NAMES);
     }
 
     public void testInstallV1OneSignerSHA256withDSA() throws Exception {
         // APK signed with v1 scheme only, one signer.
-        assertInstallSucceedsForEach("v1-only-with-dsa-sha256-%s.apk", DSA_KEY_NAMES);
+        assertInstallSucceedsForEach(
+                "v1-only-with-dsa-sha256-1.2.840.10040.4.1-%s.apk", DSA_KEY_NAMES);
+        assertInstallSucceedsForEach(
+                "v1-only-with-dsa-sha256-2.16.840.1.101.3.4.3.2-%s.apk", DSA_KEY_NAMES);
     }
 
 //  Android platform doesn't support DSA with SHA-384 and SHA-512.
 //    public void testInstallV1OneSignerSHA384withDSA() throws Exception {
 //        // APK signed with v1 scheme only, one signer.
-//        assertInstallSucceedsForEach("v1-only-with-dsa-sha384-%s.apk", DSA_KEY_NAMES);
+//        assertInstallSucceedsForEach(
+//                "v1-only-with-dsa-sha384-2.16.840.1.101.3.4.3.3-%s.apk", DSA_KEY_NAMES);
 //    }
 //
 //    public void testInstallV1OneSignerSHA512withDSA() throws Exception {
 //        // APK signed with v1 scheme only, one signer.
-//        assertInstallSucceedsForEach("v1-only-with-dsa-sha512-%s.apk", DSA_KEY_NAMES);
+//        assertInstallSucceedsForEach(
+//                "v1-only-with-dsa-sha512-2.16.840.1.101.3.4.3.3-%s.apk", DSA_KEY_NAMES);
 //    }
 
     public void testInstallV2StrippedFails() throws Exception {
@@ -342,17 +382,18 @@ public class PkgInstallSignatureVerificationTest extends DeviceTestCase implemen
 
     public void testCorrectCertUsedFromPkcs7SignedDataCertsSet() throws Exception {
         // Obtained by prepending the rsa-1024 certificate to the PKCS#7 SignedData certificates set
-        // of v1-only-with-rsa-pkcs1-sha1-2048.apk META-INF/CERT.RSA. The certs (in the order of
-        // appearance in the file) are thus: rsa-1024, rsa-2048. The package's signing cert is
-        // rsa-2048.
+        // of v1-only-with-rsa-pkcs1-sha1-1.2.840.113549.1.1.1-2048.apk META-INF/CERT.RSA. The certs
+        // (in the order of appearance in the file) are thus: rsa-1024, rsa-2048. The package's
+        // signing cert is rsa-2048.
         assertInstallSucceeds("v1-only-pkcs7-cert-bag-first-cert-not-used.apk");
 
         // Check that rsa-1024 was not used as the previously installed package's signing cert.
         assertInstallFailsWithError(
-                "v1-only-with-rsa-pkcs1-sha1-1024.apk", "signatures do not match");
+                "v1-only-with-rsa-pkcs1-sha1-1.2.840.113549.1.1.1-1024.apk",
+                "signatures do not match");
 
         // Check that rsa-2048 was used as the previously installed package's signing cert.
-        assertInstallSucceeds("v1-only-with-rsa-pkcs1-sha1-2048.apk");
+        assertInstallSucceeds("v1-only-with-rsa-pkcs1-sha1-1.2.840.113549.1.1.1-2048.apk");
     }
 
     public void testV1SchemeSignatureCertNotReencoded() throws Exception {
@@ -419,8 +460,36 @@ public class PkgInstallSignatureVerificationTest extends DeviceTestCase implemen
                 "v2-only-with-rsa-pkcs1-sha256-1024.apk", "signatures do not match");
     }
 
+    public void testInstallMaxSizedZipEocdComment() throws Exception {
+        // Obtained by modifying apksigner to produce a max-sized (0xffff bytes long) ZIP End of
+        // Central Directory comment, and signing the original.apk using the modified apksigner.
+        assertInstallSucceeds("v1-only-max-sized-eocd-comment.apk");
+        assertInstallSucceeds("v2-only-max-sized-eocd-comment.apk");
+    }
+
+    public void testInstallEphemeralRequiresV2Signature() throws Exception {
+        String expectedNoSigError = "No APK Signature Scheme v2 signature in ephemeral package";
+        assertInstallEphemeralFailsWithError("unsigned-ephemeral.apk", expectedNoSigError);
+        assertInstallEphemeralFailsWithError("v1-only-ephemeral.apk", expectedNoSigError);
+        assertInstallEphemeralSucceeds("v2-only-ephemeral.apk");
+        assertInstallEphemeralSucceeds("v1-v2-ephemeral.apk"); // signed with both schemes
+    }
+
+    public void testInstallEmpty() throws Exception {
+        assertInstallFailsWithError("empty-unsigned.apk", "Unknown failure");
+        assertInstallFailsWithError("v1-only-empty.apk", "Unknown failure");
+        assertInstallFailsWithError("v2-only-empty.apk", "Unknown failure");
+    }
+
     private void assertInstallSucceeds(String apkFilenameInResources) throws Exception {
         String installResult = installPackageFromResource(apkFilenameInResources);
+        if (installResult != null) {
+            fail("Failed to install " + apkFilenameInResources + ": " + installResult);
+        }
+    }
+
+    private void assertInstallEphemeralSucceeds(String apkFilenameInResources) throws Exception {
+        String installResult = installEphemeralPackageFromResource(apkFilenameInResources);
         if (installResult != null) {
             fail("Failed to install " + apkFilenameInResources + ": " + installResult);
         }
@@ -457,6 +526,19 @@ public class PkgInstallSignatureVerificationTest extends DeviceTestCase implemen
                 installResult);
     }
 
+    private void assertInstallEphemeralFailsWithError(
+            String apkFilenameInResources, String errorSubstring) throws Exception {
+        String installResult = installEphemeralPackageFromResource(apkFilenameInResources);
+        if (installResult == null) {
+            fail("Install of " + apkFilenameInResources + " succeeded but was expected to fail"
+                    + " with \"" + errorSubstring + "\"");
+        }
+        assertContains(
+                "Install failure message of " + apkFilenameInResources,
+                errorSubstring,
+                installResult);
+    }
+
     private void assertInstallFails(String apkFilenameInResources) throws Exception {
         String installResult = installPackageFromResource(apkFilenameInResources);
         if (installResult == null) {
@@ -475,7 +557,7 @@ public class PkgInstallSignatureVerificationTest extends DeviceTestCase implemen
         }
     }
 
-    private String installPackageFromResource(String apkFilenameInResources)
+    private String installPackageFromResource(String apkFilenameInResources, boolean ephemeral)
             throws IOException, DeviceNotAvailableException {
         // ITestDevice.installPackage API requires the APK to be install to be a File. We thus
         // copy the requested resource into a temporary file, attempt to install it, and delete the
@@ -495,13 +577,27 @@ public class PkgInstallSignatureVerificationTest extends DeviceTestCase implemen
                     out.write(buf, 0, chunkSize);
                 }
             }
-            return mDevice.installPackage(apkFile, true);
+            if (ephemeral) {
+                return getDevice().installPackage(apkFile, true, "--ephemeral");
+            } else {
+                return getDevice().installPackage(apkFile, true);
+            }
         } finally {
             apkFile.delete();
         }
     }
 
+    private String installPackageFromResource(String apkFilenameInResources)
+            throws IOException, DeviceNotAvailableException {
+        return installPackageFromResource(apkFilenameInResources, false);
+    }
+
+    private String installEphemeralPackageFromResource(String apkFilenameInResources)
+            throws IOException, DeviceNotAvailableException {
+        return installPackageFromResource(apkFilenameInResources, true);
+    }
+
     private String uninstallPackage() throws DeviceNotAvailableException {
-        return mDevice.uninstallPackage(TEST_PKG);
+        return getDevice().uninstallPackage(TEST_PKG);
     }
 }

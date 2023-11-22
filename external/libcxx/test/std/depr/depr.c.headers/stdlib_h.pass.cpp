@@ -12,6 +12,36 @@
 #include <stdlib.h>
 #include <type_traits>
 
+// As of 1/10/2015 clang emits a -Wnonnull warnings even if the warning occurs
+// in an unevaluated context. For this reason we manually suppress the warning.
+#if defined(__clang__)
+#pragma clang diagnostic ignored "-Wnonnull"
+#endif
+
+#ifdef abs
+#error abs is defined
+#endif
+
+#ifdef labs
+#error labs is defined
+#endif
+
+#ifdef llabs
+#error llabs is defined
+#endif
+
+#ifdef div
+#error div is defined
+#endif
+
+#ifdef ldiv
+#error ldiv is defined
+#endif
+
+#ifdef lldiv
+#error lldiv is defined
+#endif
+
 #ifndef EXIT_FAILURE
 #error EXIT_FAILURE not defined
 #endif
@@ -74,11 +104,9 @@ int main()
     wchar_t* pw = 0;
     const wchar_t* pwc = 0;
     char* pc = 0;
-#ifndef _LIBCPP_HAS_NO_THREAD_UNSAFE_C_FUNCTIONS
     static_assert((std::is_same<decltype(mblen("",0)), int>::value), "");
     static_assert((std::is_same<decltype(mbtowc(pw,"",0)), int>::value), "");
     static_assert((std::is_same<decltype(wctomb(pc,L' ')), int>::value), "");
-#endif
     static_assert((std::is_same<decltype(mbstowcs(pw,"",0)), size_t>::value), "");
     static_assert((std::is_same<decltype(wcstombs(pc,pwc,0)), size_t>::value), "");
 }

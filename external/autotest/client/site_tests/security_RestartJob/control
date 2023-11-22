@@ -14,7 +14,6 @@ CRITERIA = """
 Fail if we are able to launch an arbitrary process via RestartJob.
 """
 ATTRIBUTES = "suite:bvt-inline, suite:smoke"
-SUITE = "bvt-inline, smoke"
 TEST_CLASS = "security"
 TEST_CATEGORY = "Security"
 TEST_TYPE = "client"

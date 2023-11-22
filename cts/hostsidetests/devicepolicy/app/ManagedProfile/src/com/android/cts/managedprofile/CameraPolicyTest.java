@@ -109,10 +109,30 @@ public class CameraPolicyTest extends AndroidTestCase {
         checkCanOpenCamera(true);
     }
 
-    private void checkCanOpenCamera(boolean canOpen) {
-        boolean successToOpen = CameraUtils
-                .blockUntilOpenCamera(mCameraManager, mBackgroundHandler);
-        assertEquals(canOpen, successToOpen);
+    /**
+     * Beginning with Android 7.0, the camera restriction policy isn't kept in the
+     * system property("sys.secpolicy.camera.off_<userId>") anymore, CameraService
+     * now checks if camera is disabled via AppOpsService.
+     *
+     * The propagation of camera retriction policy from DevicePolicyManagerService
+     * to UserManagerService and then finally to AppOpsService is NOT synchronous,
+     * so here #blockUntilOpenCamera is called many times until policy is enforced
+     * or timed out.
+     *
+     * @see android.app.AppOpsManager#checkOp(String, int, String)
+     * @see android.app.AppOpsManager.OnOpChangedListener
+     */
+    private void checkCanOpenCamera(boolean canOpen) throws Exception {
+        int retries = 10;
+        boolean successToOpen = !canOpen;
+        while (successToOpen != canOpen && retries > 0) {
+            retries--;
+            Thread.sleep(500);
+            successToOpen = CameraUtils
+                    .blockUntilOpenCamera(mCameraManager, mBackgroundHandler);
+        }
+        assertEquals(String.format("Timed out waiting the value to change to %b (actual=%b)",
+                    canOpen, successToOpen), canOpen, successToOpen);
     }
 
     /**

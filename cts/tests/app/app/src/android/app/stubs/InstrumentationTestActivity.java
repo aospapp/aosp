@@ -33,6 +33,8 @@ import android.widget.TextView;
 
 public class InstrumentationTestActivity extends Activity {
 
+    public static final String START_INTENT = "android.app.stubs.activity.INSTRUMENTATION_TEST";
+
     private boolean mOnCreateCalled;
     private boolean mOnDestroyCalled ;
     private boolean mOnNewIntentCalled;

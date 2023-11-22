@@ -32,7 +32,6 @@ import org.apache.harmony.jpda.tests.framework.jdwp.JDWPConstants;
 import org.apache.harmony.jpda.tests.framework.jdwp.ReplyPacket;
 import org.apache.harmony.jpda.tests.framework.jdwp.Value;
 import org.apache.harmony.jpda.tests.jdwp.share.JDWPSyncTestCase;
-import org.apache.harmony.jpda.tests.jdwp.share.JDWPUnitDebuggeeWrapper;
 import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
 
 
@@ -48,6 +47,7 @@ public class EnableCollectionTest extends JDWPSyncTestCase {
 
     static final String debuggeeSignature = "Lorg/apache/harmony/jpda/tests/jdwp/MultiSession/EnableCollectionDebuggee;";
 
+    @Override
     protected String getDebuggeeClassName() {
         return "org.apache.harmony.jpda.tests.jdwp.MultiSession.EnableCollectionDebuggee";
     }
@@ -147,6 +147,7 @@ public class EnableCollectionTest extends JDWPSyncTestCase {
         logWriter.println("==> testEnableCollection001 PASSED!");
     }
 
+    @Override
     protected void beforeConnectionSetUp() {
         settings.setAttachConnectorKind();
         if (settings.getTransportAddress() == null) {

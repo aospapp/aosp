@@ -18,7 +18,6 @@ package com.android.tv.util;
 
 import android.app.SearchManager;
 import android.content.Context;
-import android.os.Build;
 import android.os.Bundle;
 import android.os.UserHandle;
 import android.util.Log;
@@ -52,15 +51,8 @@ public final class SearchManagerHelper {
 
     public void launchAssistAction() {
         try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                SearchManager.class.getDeclaredMethod(
-                        "launchLegacyAssist", String.class, Integer.TYPE, Bundle.class).invoke(
-                                mSearchManager, null, UserHandle.myUserId(), null);
-            } else {
-                SearchManager.class.getDeclaredMethod(
-                        "launchAssistAction", Integer.TYPE, String.class, Integer.TYPE).invoke(
-                                mSearchManager, 0, null, UserHandle.myUserId());
-            }
+            SearchManager.class.getDeclaredMethod("launchLegacyAssist", String.class, Integer.TYPE,
+                    Bundle.class).invoke(mSearchManager, null, UserHandle.myUserId(), null);
         }  catch (NoSuchMethodException | IllegalArgumentException | IllegalAccessException
                 | InvocationTargetException e) {
             Log.e(TAG, "Fail to call SearchManager.launchAssistAction", e);

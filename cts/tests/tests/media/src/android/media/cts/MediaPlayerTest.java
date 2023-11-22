@@ -20,7 +20,6 @@ import android.media.cts.R;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.content.res.AssetFileDescriptor;
-import android.cts.util.MediaUtils;
 import android.graphics.Rect;
 import android.hardware.Camera;
 import android.media.AudioManager;
@@ -45,7 +44,11 @@ import android.os.IBinder;
 import android.os.PowerManager;
 import android.os.ServiceManager;
 import android.os.SystemClock;
+import android.support.test.filters.SmallTest;
+import android.platform.test.annotations.RequiresDevice;
 import android.util.Log;
+
+import com.android.compatibility.common.util.MediaUtils;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -56,7 +59,8 @@ import java.util.StringTokenizer;
 import java.util.UUID;
 import java.util.Vector;
 import java.util.concurrent.CountDownLatch;
-
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import junit.framework.AssertionFailedError;
 
 /**
@@ -66,6 +70,8 @@ import junit.framework.AssertionFailedError;
  * Blender Foundation / www.bigbuckbunny.org, and are licensed under the Creative Commons
  * Attribution 3.0 License at http://creativecommons.org/licenses/by/3.0/us/.
  */
+@SmallTest
+@RequiresDevice
 public class MediaPlayerTest extends MediaPlayerTestBase {
 
     private String RECORDED_FILE;
@@ -102,10 +108,6 @@ public class MediaPlayerTest extends MediaPlayerTestBase {
         if (mOutFile != null && mOutFile.exists()) {
             mOutFile.delete();
         }
-    }
-
-    public void testonInputBufferFilledSigsegv() throws Exception {
-        testIfMediaServerDied(R.raw.on_input_buffer_filled_sigsegv);
     }
 
     public void testFlacHeapOverflow() throws Exception {
@@ -298,6 +300,42 @@ public class MediaPlayerTest extends MediaPlayerTestBase {
             }
         } finally {
             mp.release();
+        }
+    }
+
+    public void testConcurentPlayAudio() throws Exception {
+        final int resid = R.raw.test1m1s; // MP3 longer than 1m are usualy offloaded
+        final int tolerance = 70;
+
+        List<MediaPlayer> mps = Stream.generate(() -> MediaPlayer.create(mContext, resid))
+                                      .limit(5).collect(Collectors.toList());
+
+        try {
+            for (MediaPlayer mp : mps) {
+                mp.setAudioStreamType(AudioManager.STREAM_MUSIC);
+                mp.setWakeMode(mContext, PowerManager.PARTIAL_WAKE_LOCK);
+
+                assertFalse(mp.isPlaying());
+                mp.start();
+                assertTrue(mp.isPlaying());
+
+                assertFalse(mp.isLooping());
+                mp.setLooping(true);
+                assertTrue(mp.isLooping());
+
+                int pos = mp.getCurrentPosition();
+                assertTrue(pos >= 0);
+
+                Thread.sleep(SLEEP_TIME); // Delay each track to be able to ear them
+            }
+            // Check that all mp3 are playing concurrently here
+            for (MediaPlayer mp : mps) {
+                int pos = mp.getCurrentPosition();
+                Thread.sleep(SLEEP_TIME);
+                assertEquals(pos + SLEEP_TIME, mp.getCurrentPosition(), tolerance);
+            }
+        } finally {
+            mps.forEach(MediaPlayer::release);
         }
     }
 
@@ -1115,6 +1153,80 @@ public class MediaPlayerTest extends MediaPlayerTestBase {
             assertEquals(0.f, pbp.getSpeed(), FLOAT_TOLERANCE);
         }
         mMediaPlayer.stop();
+    }
+
+    public void testSeekModes() throws Exception {
+        // This clip has 2 I frames at 66687us and 4299687us.
+        if (!checkLoadResource(
+                R.raw.bbb_s1_320x240_mp4_h264_mp2_800kbps_30fps_aac_lc_5ch_240kbps_44100hz)) {
+            return; // skip
+        }
+
+        mMediaPlayer.setOnSeekCompleteListener(new MediaPlayer.OnSeekCompleteListener() {
+            @Override
+            public void onSeekComplete(MediaPlayer mp) {
+                mOnSeekCompleteCalled.signal();
+            }
+        });
+        mMediaPlayer.setDisplay(mActivity.getSurfaceHolder());
+        mMediaPlayer.prepare();
+        mOnSeekCompleteCalled.reset();
+        mMediaPlayer.start();
+
+        final int seekPosMs = 3000;
+        final int timeToleranceMs = 100;
+        final int syncTime1Ms = 67;
+        final int syncTime2Ms = 4300;
+
+        // TODO: tighten checking range. For now, ensure mediaplayer doesn't
+        // seek to previous sync or next sync.
+        int cp = runSeekMode(MediaPlayer.SEEK_CLOSEST, seekPosMs);
+        assertTrue("MediaPlayer did not seek to closest position",
+                cp > seekPosMs && cp < syncTime2Ms);
+
+        // TODO: tighten checking range. For now, ensure mediaplayer doesn't
+        // seek to closest position or next sync.
+        cp = runSeekMode(MediaPlayer.SEEK_PREVIOUS_SYNC, seekPosMs);
+        assertTrue("MediaPlayer did not seek to preivous sync position",
+                cp < seekPosMs - timeToleranceMs);
+
+        // TODO: tighten checking range. For now, ensure mediaplayer doesn't
+        // seek to closest position or previous sync.
+        cp = runSeekMode(MediaPlayer.SEEK_NEXT_SYNC, seekPosMs);
+        assertTrue("MediaPlayer did not seek to next sync position",
+                cp > syncTime2Ms - timeToleranceMs);
+
+        // TODO: tighten checking range. For now, ensure mediaplayer doesn't
+        // seek to closest position or previous sync.
+        cp = runSeekMode(MediaPlayer.SEEK_CLOSEST_SYNC, seekPosMs);
+        assertTrue("MediaPlayer did not seek to closest sync position",
+                cp > syncTime2Ms - timeToleranceMs);
+
+        mMediaPlayer.stop();
+    }
+
+    private int runSeekMode(int seekMode, int seekPosMs) throws Exception {
+        final int sleepIntervalMs = 100;
+        int timeRemainedMs = 10000;  // total time for testing
+        final int timeToleranceMs = 100;
+
+        mMediaPlayer.seekTo(seekPosMs, seekMode);
+        mOnSeekCompleteCalled.waitForSignal();
+        mOnSeekCompleteCalled.reset();
+        int cp = -seekPosMs;
+        while (timeRemainedMs > 0) {
+            cp = mMediaPlayer.getCurrentPosition();
+            // Wait till MediaPlayer starts rendering since MediaPlayer caches
+            // seek position as current position.
+            if (cp < seekPosMs - timeToleranceMs || cp > seekPosMs + timeToleranceMs) {
+                break;
+            }
+            timeRemainedMs -= sleepIntervalMs;
+            Thread.sleep(sleepIntervalMs);
+        }
+        assertTrue("MediaPlayer did not finish seeking in time for mode " + seekMode,
+                timeRemainedMs > 0);
+        return cp;
     }
 
     public void testGetTimestamp() throws Exception {

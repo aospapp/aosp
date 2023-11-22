@@ -14,6 +14,7 @@
      limitations under the License.
 -->
 <configuration description="Config for CTS Native Media OpenMax AL test cases">
+    <option name="config-descriptor:metadata" key="component" value="media" />
     <target_preparer class="com.android.compatibility.common.tradefed.targetprep.FilePusher">
         <option name="cleanup" value="true" />
         <option name="push" value="CtsNativeMediaXaTestCases->/data/local/tmp/CtsNativeMediaXaTestCases" />
@@ -22,5 +23,6 @@
     <test class="com.android.tradefed.testtype.GTest" >
         <option name="native-test-device-path" value="/data/local/tmp" />
         <option name="module-name" value="CtsNativeMediaXaTestCases" />
+        <option name="runtime-hint" value="8m" />
     </test>
 </configuration>

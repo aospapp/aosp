@@ -79,6 +79,15 @@ def build_name(host):
     }[host]
 
 
+def manifest_name(build_number):
+    """Returns the manifest file name for a given build.
+
+    >>> manifest_name('1234')
+    'manifest_1234.xml'
+    """
+    return 'manifest_{}.xml'.format(build_number)
+
+
 def package_name(build_number, host):
     """Returns the file name for a given package configuration.
 
@@ -89,6 +98,16 @@ def package_name(build_number, host):
 
 
 def download_build(host, build_number, download_dir):
+    filename = package_name(build_number, host)
+    return download_file(host, build_number, filename, download_dir)
+
+
+def download_manifest(host, build_number, download_dir):
+    filename = manifest_name(build_number)
+    return download_file(host, build_number, filename, download_dir)
+
+
+def download_file(host, build_number, pkg_name, download_dir):
     url_base = 'https://android-build-uber.corp.google.com'
     path = 'builds/{branch}-{build_host}-{build_name}/{build_num}'.format(
         branch=BRANCH,
@@ -96,7 +115,6 @@ def download_build(host, build_number, download_dir):
         build_name=build_name(host),
         build_num=build_number)
 
-    pkg_name = package_name(build_number, host)
     url = '{}/{}/{}'.format(url_base, path, pkg_name)
 
     TIMEOUT = '60'  # In seconds.
@@ -125,9 +143,11 @@ def update_clang(host, build_number, use_current_branch, download_dir, bug):
             ['repo', 'start', 'update-clang-{}'.format(build_number), '.'])
 
     package = download_build(host, build_number, download_dir)
+    manifest = download_manifest(host, build_number, download_dir)
 
     install_subdir = 'clang-' + build_number
     extract_package(package, prebuilt_dir)
+    shutil.copy(manifest, prebuilt_dir + '/' +  install_subdir)
 
     print('Adding files to index...')
     subprocess.check_call(['git', 'add', install_subdir])

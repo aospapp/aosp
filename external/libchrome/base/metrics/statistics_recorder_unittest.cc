@@ -2,38 +2,79 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "base/metrics/statistics_recorder.h"
+
 #include <stddef.h>
 
+#include <memory>
 #include <vector>
 
 #include "base/bind.h"
 #include "base/json/json_reader.h"
-#include "base/memory/scoped_ptr.h"
+#include "base/logging.h"
 #include "base/metrics/histogram_macros.h"
+#include "base/metrics/persistent_histogram_allocator.h"
 #include "base/metrics/sparse_histogram.h"
-#include "base/metrics/statistics_recorder.h"
 #include "base/values.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
+namespace {
+
+// Class to make sure any manipulations we do to the min log level are
+// contained (i.e., do not affect other unit tests).
+class LogStateSaver {
+ public:
+  LogStateSaver() : old_min_log_level_(logging::GetMinLogLevel()) {}
+
+  ~LogStateSaver() {
+    logging::SetMinLogLevel(old_min_log_level_);
+    logging::SetLogAssertHandler(nullptr);
+  }
+
+ private:
+  int old_min_log_level_;
+
+  DISALLOW_COPY_AND_ASSIGN(LogStateSaver);
+};
+
+}  // namespace
+
 namespace base {
 
-class StatisticsRecorderTest : public testing::Test {
+class StatisticsRecorderTest : public testing::TestWithParam<bool> {
  protected:
-  void SetUp() override {
+  const int32_t kAllocatorMemorySize = 64 << 10;  // 64 KiB
+
+  StatisticsRecorderTest() : use_persistent_histogram_allocator_(GetParam()) {
+    // Get this first so it never gets created in persistent storage and will
+    // not appear in the StatisticsRecorder after it is re-initialized.
+    PersistentHistogramAllocator::GetCreateHistogramResultHistogram();
+
     // Each test will have a clean state (no Histogram / BucketRanges
     // registered).
     InitializeStatisticsRecorder();
+
+    // Use persistent memory for histograms if so indicated by test parameter.
+    if (use_persistent_histogram_allocator_) {
+      GlobalHistogramAllocator::CreateWithLocalMemory(
+          kAllocatorMemorySize, 0, "StatisticsRecorderTest");
+    }
   }
 
-  void TearDown() override { UninitializeStatisticsRecorder(); }
+  ~StatisticsRecorderTest() override {
+    GlobalHistogramAllocator::ReleaseForTesting();
+    UninitializeStatisticsRecorder();
+  }
 
   void InitializeStatisticsRecorder() {
-    statistics_recorder_ = new StatisticsRecorder();
+    DCHECK(!statistics_recorder_);
+    StatisticsRecorder::UninitializeForTesting();
+    statistics_recorder_ = StatisticsRecorder::CreateTemporaryForTesting();
   }
 
   void UninitializeStatisticsRecorder() {
-    delete statistics_recorder_;
-    statistics_recorder_ = NULL;
+    statistics_recorder_.reset();
+    StatisticsRecorder::UninitializeForTesting();
   }
 
   Histogram* CreateHistogram(const std::string& name,
@@ -51,10 +92,39 @@ class StatisticsRecorderTest : public testing::Test {
     delete histogram;
   }
 
-  StatisticsRecorder* statistics_recorder_;
+  int CountIterableHistograms(StatisticsRecorder::HistogramIterator* iter) {
+    int count = 0;
+    for (; *iter != StatisticsRecorder::end(); ++*iter) {
+      ++count;
+    }
+    return count;
+  }
+
+  void InitLogOnShutdown() {
+    DCHECK(statistics_recorder_);
+    statistics_recorder_->InitLogOnShutdownWithoutLock();
+  }
+
+  bool VLogInitialized() {
+    DCHECK(statistics_recorder_);
+    return statistics_recorder_->vlog_initialized_;
+  }
+
+  const bool use_persistent_histogram_allocator_;
+
+  std::unique_ptr<StatisticsRecorder> statistics_recorder_;
+  std::unique_ptr<GlobalHistogramAllocator> old_global_allocator_;
+
+ private:
+  LogStateSaver log_state_saver_;
+
+  DISALLOW_COPY_AND_ASSIGN(StatisticsRecorderTest);
 };
 
-TEST_F(StatisticsRecorderTest, NotInitialized) {
+// Run all HistogramTest cases with both heap and persistent memory.
+INSTANTIATE_TEST_CASE_P(Allocator, StatisticsRecorderTest, testing::Bool());
+
+TEST_P(StatisticsRecorderTest, NotInitialized) {
   UninitializeStatisticsRecorder();
 
   ASSERT_FALSE(StatisticsRecorder::IsActive());
@@ -82,7 +152,7 @@ TEST_F(StatisticsRecorderTest, NotInitialized) {
   EXPECT_EQ(0u, registered_ranges.size());
 }
 
-TEST_F(StatisticsRecorderTest, RegisterBucketRanges) {
+TEST_P(StatisticsRecorderTest, RegisterBucketRanges) {
   std::vector<const BucketRanges*> registered_ranges;
 
   BucketRanges* ranges1 = new BucketRanges(3);
@@ -120,7 +190,7 @@ TEST_F(StatisticsRecorderTest, RegisterBucketRanges) {
   ASSERT_EQ(2u, registered_ranges.size());
 }
 
-TEST_F(StatisticsRecorderTest, RegisterHistogram) {
+TEST_P(StatisticsRecorderTest, RegisterHistogram) {
   // Create a Histogram that was not registered.
   Histogram* histogram = CreateHistogram("TestHistogram", 1, 1000, 10);
 
@@ -142,7 +212,7 @@ TEST_F(StatisticsRecorderTest, RegisterHistogram) {
   EXPECT_EQ(1u, registered_histograms.size());
 }
 
-TEST_F(StatisticsRecorderTest, FindHistogram) {
+TEST_P(StatisticsRecorderTest, FindHistogram) {
   HistogramBase* histogram1 = Histogram::FactoryGet(
       "TestHistogram1", 1, 1000, 10, HistogramBase::kNoFlags);
   HistogramBase* histogram2 = Histogram::FactoryGet(
@@ -150,10 +220,33 @@ TEST_F(StatisticsRecorderTest, FindHistogram) {
 
   EXPECT_EQ(histogram1, StatisticsRecorder::FindHistogram("TestHistogram1"));
   EXPECT_EQ(histogram2, StatisticsRecorder::FindHistogram("TestHistogram2"));
-  EXPECT_TRUE(StatisticsRecorder::FindHistogram("TestHistogram") == NULL);
+  EXPECT_FALSE(StatisticsRecorder::FindHistogram("TestHistogram"));
+
+  // Create a new global allocator using the same memory as the old one. Any
+  // old one is kept around so the memory doesn't get released.
+  old_global_allocator_ = GlobalHistogramAllocator::ReleaseForTesting();
+  if (use_persistent_histogram_allocator_) {
+    GlobalHistogramAllocator::CreateWithPersistentMemory(
+        const_cast<void*>(old_global_allocator_->data()),
+        old_global_allocator_->length(), 0, old_global_allocator_->Id(),
+        old_global_allocator_->Name());
+  }
+
+  // Reset statistics-recorder to validate operation from a clean start.
+  UninitializeStatisticsRecorder();
+  InitializeStatisticsRecorder();
+
+  if (use_persistent_histogram_allocator_) {
+    EXPECT_TRUE(StatisticsRecorder::FindHistogram("TestHistogram1"));
+    EXPECT_TRUE(StatisticsRecorder::FindHistogram("TestHistogram2"));
+  } else {
+    EXPECT_FALSE(StatisticsRecorder::FindHistogram("TestHistogram1"));
+    EXPECT_FALSE(StatisticsRecorder::FindHistogram("TestHistogram2"));
+  }
+  EXPECT_FALSE(StatisticsRecorder::FindHistogram("TestHistogram"));
 }
 
-TEST_F(StatisticsRecorderTest, GetSnapshot) {
+TEST_P(StatisticsRecorderTest, GetSnapshot) {
   Histogram::FactoryGet("TestHistogram1", 1, 1000, 10, Histogram::kNoFlags);
   Histogram::FactoryGet("TestHistogram2", 1, 1000, 10, Histogram::kNoFlags);
   Histogram::FactoryGet("TestHistogram3", 1, 1000, 10, Histogram::kNoFlags);
@@ -171,7 +264,7 @@ TEST_F(StatisticsRecorderTest, GetSnapshot) {
   EXPECT_EQ(0u, snapshot.size());
 }
 
-TEST_F(StatisticsRecorderTest, RegisterHistogramWithFactoryGet) {
+TEST_P(StatisticsRecorderTest, RegisterHistogramWithFactoryGet) {
   StatisticsRecorder::Histograms registered_histograms;
 
   StatisticsRecorder::GetHistograms(&registered_histograms);
@@ -217,7 +310,14 @@ TEST_F(StatisticsRecorderTest, RegisterHistogramWithFactoryGet) {
   EXPECT_EQ(4u, registered_histograms.size());
 }
 
-TEST_F(StatisticsRecorderTest, RegisterHistogramWithMacros) {
+TEST_P(StatisticsRecorderTest, RegisterHistogramWithMacros) {
+  // Macros cache pointers and so tests that use them can only be run once.
+  // Stop immediately if this test has run previously.
+  static bool already_run = false;
+  if (already_run)
+    return;
+  already_run = true;
+
   StatisticsRecorder::Histograms registered_histograms;
 
   HistogramBase* histogram = Histogram::FactoryGet(
@@ -238,7 +338,7 @@ TEST_F(StatisticsRecorderTest, RegisterHistogramWithMacros) {
   EXPECT_EQ(3u, registered_histograms.size());
 }
 
-TEST_F(StatisticsRecorderTest, BucketRangesSharing) {
+TEST_P(StatisticsRecorderTest, BucketRangesSharing) {
   std::vector<const BucketRanges*> ranges;
   StatisticsRecorder::GetBucketRanges(&ranges);
   EXPECT_EQ(0u, ranges.size());
@@ -256,16 +356,20 @@ TEST_F(StatisticsRecorderTest, BucketRangesSharing) {
   EXPECT_EQ(2u, ranges.size());
 }
 
-TEST_F(StatisticsRecorderTest, ToJSON) {
-  LOCAL_HISTOGRAM_COUNTS("TestHistogram1", 30);
-  LOCAL_HISTOGRAM_COUNTS("TestHistogram1", 40);
-  LOCAL_HISTOGRAM_COUNTS("TestHistogram2", 30);
-  LOCAL_HISTOGRAM_COUNTS("TestHistogram2", 40);
+TEST_P(StatisticsRecorderTest, ToJSON) {
+  Histogram::FactoryGet("TestHistogram1", 1, 1000, 50, HistogramBase::kNoFlags)
+      ->Add(30);
+  Histogram::FactoryGet("TestHistogram1", 1, 1000, 50, HistogramBase::kNoFlags)
+      ->Add(40);
+  Histogram::FactoryGet("TestHistogram2", 1, 1000, 50, HistogramBase::kNoFlags)
+      ->Add(30);
+  Histogram::FactoryGet("TestHistogram2", 1, 1000, 50, HistogramBase::kNoFlags)
+      ->Add(40);
 
   std::string json(StatisticsRecorder::ToJSON(std::string()));
 
   // Check for valid JSON.
-  scoped_ptr<Value> root = JSONReader::Read(json);
+  std::unique_ptr<Value> root = JSONReader::Read(json);
   ASSERT_TRUE(root.get());
 
   DictionaryValue* root_dict = NULL;
@@ -315,6 +419,39 @@ TEST_F(StatisticsRecorderTest, ToJSON) {
   EXPECT_TRUE(json.empty());
 }
 
+TEST_P(StatisticsRecorderTest, IterationTest) {
+  Histogram::FactoryGet("IterationTest1", 1, 64, 16, HistogramBase::kNoFlags);
+  Histogram::FactoryGet("IterationTest2", 1, 64, 16, HistogramBase::kNoFlags);
+
+  StatisticsRecorder::HistogramIterator i1 = StatisticsRecorder::begin(true);
+  EXPECT_EQ(2, CountIterableHistograms(&i1));
+
+  StatisticsRecorder::HistogramIterator i2 = StatisticsRecorder::begin(false);
+  EXPECT_EQ(use_persistent_histogram_allocator_ ? 0 : 2,
+            CountIterableHistograms(&i2));
+
+  // Create a new global allocator using the same memory as the old one. Any
+  // old one is kept around so the memory doesn't get released.
+  old_global_allocator_ = GlobalHistogramAllocator::ReleaseForTesting();
+  if (use_persistent_histogram_allocator_) {
+    GlobalHistogramAllocator::CreateWithPersistentMemory(
+        const_cast<void*>(old_global_allocator_->data()),
+        old_global_allocator_->length(), 0, old_global_allocator_->Id(),
+        old_global_allocator_->Name());
+  }
+
+  // Reset statistics-recorder to validate operation from a clean start.
+  UninitializeStatisticsRecorder();
+  InitializeStatisticsRecorder();
+
+  StatisticsRecorder::HistogramIterator i3 = StatisticsRecorder::begin(true);
+  EXPECT_EQ(use_persistent_histogram_allocator_ ? 2 : 0,
+            CountIterableHistograms(&i3));
+
+  StatisticsRecorder::HistogramIterator i4 = StatisticsRecorder::begin(false);
+  EXPECT_EQ(0, CountIterableHistograms(&i4));
+}
+
 namespace {
 
 // CallbackCheckWrapper is simply a convenient way to check and store that
@@ -334,7 +471,7 @@ struct CallbackCheckWrapper {
 }  // namespace
 
 // Check that you can't overwrite the callback with another.
-TEST_F(StatisticsRecorderTest, SetCallbackFailsWithoutHistogramTest) {
+TEST_P(StatisticsRecorderTest, SetCallbackFailsWithoutHistogramTest) {
   CallbackCheckWrapper callback_wrapper;
 
   bool result = base::StatisticsRecorder::SetCallback(
@@ -349,7 +486,7 @@ TEST_F(StatisticsRecorderTest, SetCallbackFailsWithoutHistogramTest) {
 }
 
 // Check that you can't overwrite the callback with another.
-TEST_F(StatisticsRecorderTest, SetCallbackFailsWithHistogramTest) {
+TEST_P(StatisticsRecorderTest, SetCallbackFailsWithHistogramTest) {
   HistogramBase* histogram = Histogram::FactoryGet("TestHistogram", 1, 1000, 10,
                                                    HistogramBase::kNoFlags);
   EXPECT_TRUE(histogram);
@@ -376,7 +513,7 @@ TEST_F(StatisticsRecorderTest, SetCallbackFailsWithHistogramTest) {
 }
 
 // Check that you can't overwrite the callback with another.
-TEST_F(StatisticsRecorderTest, ClearCallbackSuceedsWithHistogramTest) {
+TEST_P(StatisticsRecorderTest, ClearCallbackSuceedsWithHistogramTest) {
   HistogramBase* histogram = Histogram::FactoryGet("TestHistogram", 1, 1000, 10,
                                                    HistogramBase::kNoFlags);
   EXPECT_TRUE(histogram);
@@ -399,7 +536,7 @@ TEST_F(StatisticsRecorderTest, ClearCallbackSuceedsWithHistogramTest) {
 }
 
 // Check that callback is used.
-TEST_F(StatisticsRecorderTest, CallbackUsedTest) {
+TEST_P(StatisticsRecorderTest, CallbackUsedTest) {
   {
     HistogramBase* histogram = Histogram::FactoryGet(
         "TestHistogram", 1, 1000, 10, HistogramBase::kNoFlags);
@@ -473,7 +610,7 @@ TEST_F(StatisticsRecorderTest, CallbackUsedTest) {
 }
 
 // Check that setting a callback before the histogram exists works.
-TEST_F(StatisticsRecorderTest, CallbackUsedBeforeHistogramCreatedTest) {
+TEST_P(StatisticsRecorderTest, CallbackUsedBeforeHistogramCreatedTest) {
   CallbackCheckWrapper callback_wrapper;
 
   base::StatisticsRecorder::SetCallback(
@@ -487,6 +624,36 @@ TEST_F(StatisticsRecorderTest, CallbackUsedBeforeHistogramCreatedTest) {
 
   EXPECT_TRUE(callback_wrapper.called);
   EXPECT_EQ(callback_wrapper.last_histogram_value, 1);
+}
+
+TEST_P(StatisticsRecorderTest, LogOnShutdownNotInitialized) {
+  UninitializeStatisticsRecorder();
+  logging::SetMinLogLevel(logging::LOG_WARNING);
+  InitializeStatisticsRecorder();
+  EXPECT_FALSE(VLOG_IS_ON(1));
+  EXPECT_FALSE(VLogInitialized());
+  InitLogOnShutdown();
+  EXPECT_FALSE(VLogInitialized());
+}
+
+TEST_P(StatisticsRecorderTest, LogOnShutdownInitializedExplicitly) {
+  UninitializeStatisticsRecorder();
+  logging::SetMinLogLevel(logging::LOG_WARNING);
+  InitializeStatisticsRecorder();
+  EXPECT_FALSE(VLOG_IS_ON(1));
+  EXPECT_FALSE(VLogInitialized());
+  logging::SetMinLogLevel(logging::LOG_VERBOSE);
+  EXPECT_TRUE(VLOG_IS_ON(1));
+  InitLogOnShutdown();
+  EXPECT_TRUE(VLogInitialized());
+}
+
+TEST_P(StatisticsRecorderTest, LogOnShutdownInitialized) {
+  UninitializeStatisticsRecorder();
+  logging::SetMinLogLevel(logging::LOG_VERBOSE);
+  InitializeStatisticsRecorder();
+  EXPECT_TRUE(VLOG_IS_ON(1));
+  EXPECT_TRUE(VLogInitialized());
 }
 
 }  // namespace base

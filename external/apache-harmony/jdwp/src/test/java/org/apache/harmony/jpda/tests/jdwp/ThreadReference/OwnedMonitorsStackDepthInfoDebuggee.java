@@ -38,6 +38,7 @@ public class OwnedMonitorsStackDepthInfoDebuggee extends SyncDebuggee {
     static Object waitForStart = new Object();
     static Object waitForFinish = new Object();
 
+    @Override
     public void run() {
         DebuggeeThread thrd = new DebuggeeThread(TESTED_THREAD,
                 logWriter, synchronizer);
@@ -56,7 +57,7 @@ public class OwnedMonitorsStackDepthInfoDebuggee extends SyncDebuggee {
         }
     }
 
-    class DebuggeeThread extends Thread {
+    static class DebuggeeThread extends Thread {
 
         LogWriter logWriter;
         DebuggeeSynchronizer synchronizer;
@@ -71,6 +72,7 @@ public class OwnedMonitorsStackDepthInfoDebuggee extends SyncDebuggee {
         // Deliberately make several stack frames with known monitor states.
 
         // 1. No monitors held in the outermost frame.
+        @Override
         public void run() {
             run1();
         }

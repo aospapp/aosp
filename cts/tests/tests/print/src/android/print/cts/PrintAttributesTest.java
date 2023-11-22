@@ -36,17 +36,22 @@ import android.print.cts.services.SecondPrintService;
 import android.print.cts.services.StubbablePrinterDiscoverySession;
 import android.printservice.PrintJob;
 
+import android.support.test.runner.AndroidJUnit4;
 import android.util.Log;
-import org.mockito.invocation.InvocationOnMock;
-import org.mockito.stubbing.Answer;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import static org.junit.Assert.*;
+
 /**
  * Test that the print attributes are correctly propagated through the print framework
  */
+@RunWith(AndroidJUnit4.class)
 public class PrintAttributesTest extends BasePrintTest {
     private static final String LOG_TAG = "PrintAttributesTest";
     private final String PRINTER_NAME = "Test printer";
@@ -78,6 +83,7 @@ public class PrintAttributesTest extends BasePrintTest {
      * Stores the {@link PrintAttributes} passed to the layout method
      */
     private PrintAttributes mLayoutAttributes;
+    private static boolean sHasBeenSetup;
 
     /**
      * Create a new {@link PrintAttributes} object with the given properties.
@@ -140,73 +146,62 @@ public class PrintAttributesTest extends BasePrintTest {
             final MediaSize defaultMediaSize, final int colorModes[], final int defaultColorMode,
             final int duplexModes[], final int defaultDuplexMode, final Resolution resolutions[],
             final Resolution defaultResolution) {
-        return createMockPrinterDiscoverySessionCallbacks(new Answer<Void>() {
-            @Override
-            public Void answer(InvocationOnMock invocation) {
-                StubbablePrinterDiscoverySession session =
-                        ((PrinterDiscoverySessionCallbacks) invocation.getMock()).getSession();
+        return createMockPrinterDiscoverySessionCallbacks(invocation -> {
+            StubbablePrinterDiscoverySession session =
+                    ((PrinterDiscoverySessionCallbacks) invocation.getMock()).getSession();
 
-                if (session.getPrinters().isEmpty()) {
-                    List<PrinterInfo> printers = new ArrayList<PrinterInfo>();
-                    PrinterId printerId = session.getService().generatePrinterId(PRINTER_NAME);
+            if (session.getPrinters().isEmpty()) {
+                List<PrinterInfo> printers = new ArrayList<>();
+                PrinterId printerId = session.getService().generatePrinterId(PRINTER_NAME);
 
-                    PrinterCapabilitiesInfo.Builder builder =
-                            new PrinterCapabilitiesInfo.Builder(printerId);
+                PrinterCapabilitiesInfo.Builder builder =
+                        new PrinterCapabilitiesInfo.Builder(printerId);
 
-                    builder.setMinMargins(minMargins);
+                builder.setMinMargins(minMargins);
 
-                    int mediaSizesLength = mediaSizes.length;
-                    for (int i = 0; i < mediaSizesLength; i++) {
-                        if (mediaSizes[i].equals(defaultMediaSize)) {
-                            builder.addMediaSize(mediaSizes[i], true);
-                        } else {
-                            builder.addMediaSize(mediaSizes[i], false);
-                        }
+                int mediaSizesLength = mediaSizes.length;
+                for (int i = 0; i < mediaSizesLength; i++) {
+                    if (mediaSizes[i].equals(defaultMediaSize)) {
+                        builder.addMediaSize(mediaSizes[i], true);
+                    } else {
+                        builder.addMediaSize(mediaSizes[i], false);
                     }
-
-                    int colorModesMask = 0;
-                    int colorModesLength = colorModes.length;
-                    for (int i = 0; i < colorModesLength; i++) {
-                        colorModesMask |= colorModes[i];
-                    }
-                    builder.setColorModes(colorModesMask, defaultColorMode);
-
-                    int duplexModesMask = 0;
-                    int duplexModeLength = duplexModes.length;
-                    for (int i = 0; i < duplexModeLength; i++) {
-                        duplexModesMask |= duplexModes[i];
-                    }
-                    builder.setDuplexModes(duplexModesMask, defaultDuplexMode);
-
-                    int resolutionsLength = resolutions.length;
-                    for (int i = 0; i < resolutionsLength; i++) {
-                        if (resolutions[i].equals(defaultResolution)) {
-                            builder.addResolution(resolutions[i], true);
-                        } else {
-                            builder.addResolution(resolutions[i], false);
-                        }
-                    }
-
-                    PrinterInfo printer = new PrinterInfo.Builder(printerId, PRINTER_NAME,
-                            PrinterInfo.STATUS_IDLE).setCapabilities(builder.build()).build();
-                    printers.add(printer);
-
-                    session.addPrinters(printers);
                 }
-                return null;
+
+                int colorModesMask = 0;
+                int colorModesLength = colorModes.length;
+                for (int i = 0; i < colorModesLength; i++) {
+                    colorModesMask |= colorModes[i];
+                }
+                builder.setColorModes(colorModesMask, defaultColorMode);
+
+                int duplexModesMask = 0;
+                int duplexModeLength = duplexModes.length;
+                for (int i = 0; i < duplexModeLength; i++) {
+                    duplexModesMask |= duplexModes[i];
+                }
+                builder.setDuplexModes(duplexModesMask, defaultDuplexMode);
+
+                int resolutionsLength = resolutions.length;
+                for (int i = 0; i < resolutionsLength; i++) {
+                    if (resolutions[i].equals(defaultResolution)) {
+                        builder.addResolution(resolutions[i], true);
+                    } else {
+                        builder.addResolution(resolutions[i], false);
+                    }
+                }
+
+                PrinterInfo printer = new PrinterInfo.Builder(printerId, PRINTER_NAME,
+                        PrinterInfo.STATUS_IDLE).setCapabilities(builder.build()).build();
+                printers.add(printer);
+
+                session.addPrinters(printers);
             }
-        }, null, null, new Answer<Void>() {
-            @Override
-            public Void answer(InvocationOnMock invocation) throws Throwable {
-                return null;
-            }
-        }, null, null, new Answer<Void>() {
-            @Override
-            public Void answer(InvocationOnMock invocation) throws Throwable {
-                // Take a note onDestroy was called.
-                onPrinterDiscoverySessionDestroyCalled();
-                return null;
-            }
+            return null;
+        }, null, null, invocation -> null, null, null, invocation -> {
+            // Take a note onDestroy was called.
+            onPrinterDiscoverySessionDestroyCalled();
+            return null;
         });
     }
 
@@ -229,43 +224,34 @@ public class PrintAttributesTest extends BasePrintTest {
      */
     private PrintDocumentAdapter createMockPrintDocumentAdapter() {
         return createMockPrintDocumentAdapter(
-                new Answer<Void>() {
-                    @Override
-                    public Void answer(InvocationOnMock invocation) throws Throwable {
-                        mLayoutAttributes = (PrintAttributes) invocation.getArguments()[1];
-                        LayoutResultCallback callback =
-                                (LayoutResultCallback) invocation.getArguments()[3];
-                        PrintDocumentInfo info = new PrintDocumentInfo.Builder(PRINT_JOB_NAME)
-                                .setContentType(PrintDocumentInfo.CONTENT_TYPE_DOCUMENT)
-                                .setPageCount(1)
-                                .build();
-                        callback.onLayoutFinished(info, false);
-                        // Mark layout was called.
-                        onLayoutCalled();
-                        return null;
-                    }
-                }, new Answer<Void>() {
-                    @Override
-                    public Void answer(InvocationOnMock invocation) throws Throwable {
-                        Object[] args = invocation.getArguments();
-                        PageRange[] pages = (PageRange[]) args[0];
-                        ParcelFileDescriptor fd = (ParcelFileDescriptor) args[1];
-                        WriteResultCallback callback = (WriteResultCallback) args[3];
-                        writeBlankPages(mLayoutAttributes, fd, pages[0].getStart(),
-                                pages[0].getEnd());
-                        fd.close();
-                        callback.onWriteFinished(pages);
-                        // Mark write was called.
-                        onWriteCalled();
-                        return null;
-                    }
-                }, new Answer<Void>() {
-                    @Override
-                    public Void answer(InvocationOnMock invocation) throws Throwable {
-                        // Mark finish was called.
-                        onFinishCalled();
-                        return null;
-                    }
+                invocation -> {
+                    mLayoutAttributes = (PrintAttributes) invocation.getArguments()[1];
+                    LayoutResultCallback callback =
+                            (LayoutResultCallback) invocation.getArguments()[3];
+                    PrintDocumentInfo info = new PrintDocumentInfo.Builder(PRINT_JOB_NAME)
+                            .setContentType(PrintDocumentInfo.CONTENT_TYPE_DOCUMENT)
+                            .setPageCount(1)
+                            .build();
+                    callback.onLayoutFinished(info, false);
+                    // Mark layout was called.
+                    onLayoutCalled();
+                    return null;
+                }, invocation -> {
+                    Object[] args = invocation.getArguments();
+                    PageRange[] pages = (PageRange[]) args[0];
+                    ParcelFileDescriptor fd = (ParcelFileDescriptor) args[1];
+                    WriteResultCallback callback = (WriteResultCallback) args[3];
+                    writeBlankPages(mLayoutAttributes, fd, pages[0].getStart(),
+                            pages[0].getEnd());
+                    fd.close();
+                    callback.onWriteFinished(pages);
+                    // Mark write was called.
+                    onWriteCalled();
+                    return null;
+                }, invocation -> {
+                    // Mark finish was called.
+                    onFinishCalled();
+                    return null;
                 });
     }
 
@@ -293,20 +279,12 @@ public class PrintAttributesTest extends BasePrintTest {
                         defaultDuplexMode, resolutions, defaultResolution);
 
         PrintServiceCallbacks serviceCallbacks = createMockPrintServiceCallbacks(
-                new Answer<PrinterDiscoverySessionCallbacks>() {
-                    @Override
-                    public PrinterDiscoverySessionCallbacks answer(InvocationOnMock invocation) {
-                        return sessionCallbacks;
-                    }
-                },
-                new Answer<Void>() {
-                    @Override
-                    public Void answer(InvocationOnMock invocation) {
-                        PrintJob printJob = (PrintJob) invocation.getArguments()[0];
-                        // We pretend the job is handled immediately.
-                        printJob.complete();
-                        return null;
-                    }
+                invocation -> sessionCallbacks,
+                invocation -> {
+                    PrintJob printJob = (PrintJob) invocation.getArguments()[0];
+                    // We pretend the job is handled immediately.
+                    printJob.complete();
+                    return null;
                 }, null);
 
         // Configure the print services.
@@ -341,6 +319,26 @@ public class PrintAttributesTest extends BasePrintTest {
         return false;
     }
 
+    @Before
+    public void setUpServicesAndAdapter() throws Exception {
+        if (!sHasBeenSetup) {
+            // Set up printer with supported and default attributes
+            PrintDocumentAdapter adapter =
+                    setUpPrinter(MIN_MARGINS[0], MEDIA_SIZES, MEDIA_SIZES[0], COLOR_MODES,
+                            COLOR_MODES[0], DUPLEX_MODES, DUPLEX_MODES[0], RESOLUTIONS,
+                            RESOLUTIONS[0]);
+
+            Log.d(LOG_TAG, "makeDefaultPrinter");
+            // Make printer default. This is necessary as a different default printer might pre-select
+            // its default attributes and thereby overrides the defaults of the tested printer.
+            makeDefaultPrinter(adapter, PRINTER_NAME);
+
+            sHasBeenSetup = true;
+        }
+
+        resetCounters();
+    }
+
     /**
      * Flexible base test for all print attribute tests.
      *
@@ -368,19 +366,9 @@ public class PrintAttributesTest extends BasePrintTest {
             int defaultColorMode, int suggestedColorMode, int duplexModes[],
             int defaultDuplexMode, int suggestedDuplexMode, Resolution resolutions[],
             Resolution defaultResolution, Resolution suggestedResolution) throws Exception {
-        if (!supportsPrinting()) {
-            return;
-        }
-
-        // Set up printer with supported and default attributes
         PrintDocumentAdapter adapter =
                 setUpPrinter(minMargins, mediaSizes, defaultMediaSize, colorModes, defaultColorMode,
                         duplexModes, defaultDuplexMode, resolutions, defaultResolution);
-
-        Log.d(LOG_TAG, "makeDefaultPrinter");
-        // Make printer default. This is necessary as a different default printer might pre-select
-        // its default attributes and thereby overrides the defaults of the tested printer.
-        makeDefaultPrinter(adapter, PRINTER_NAME);
 
         // Select suggested attributes
         PrintAttributes suggestedAttributes = createAttributes(suggestedMediaSize,
@@ -391,11 +379,11 @@ public class PrintAttributesTest extends BasePrintTest {
         Log.d(LOG_TAG, "print");
         print(adapter, suggestedAttributes);
         Log.d(LOG_TAG, "waitForWriteAdapterCallback");
-        waitForWriteAdapterCallback(2);
+        waitForWriteAdapterCallback(1);
         Log.d(LOG_TAG, "clickPrintButton");
         clickPrintButton();
         Log.d(LOG_TAG, "waitForPrinterDiscoverySessionDestroyCallbackCalled");
-        waitForPrinterDiscoverySessionDestroyCallbackCalled(2);
+        waitForPrinterDiscoverySessionDestroyCallbackCalled(1);
 
         // It does not make sense to suggest minMargins, hence the print framework always picks
         // the one set up for the printer.
@@ -443,7 +431,8 @@ public class PrintAttributesTest extends BasePrintTest {
      *
      * @throws Exception If anything is unexpected
      */
-    public void testDefaultMatchesSuggested0() throws Exception {
+    @Test
+    public void defaultMatchesSuggested0() throws Exception {
         //       available     default          suggestion
         baseTest(              MIN_MARGINS[0],
                  MEDIA_SIZES,  MEDIA_SIZES[0],  MEDIA_SIZES[0],
@@ -459,7 +448,8 @@ public class PrintAttributesTest extends BasePrintTest {
      *
      * @throws Exception If anything is unexpected
      */
-    public void testDefaultMatchesSuggested1() throws Exception {
+    @Test
+    public void defaultMatchesSuggested1() throws Exception {
         //       available     default          suggestion
         baseTest(              MIN_MARGINS[1],
                  MEDIA_SIZES,  MEDIA_SIZES[1],  MEDIA_SIZES[1],
@@ -475,7 +465,8 @@ public class PrintAttributesTest extends BasePrintTest {
      *
      * @throws Exception If anything is unexpected
      */
-    public void testDefaultMatchesSuggested2() throws Exception {
+    @Test
+    public void defaultMatchesSuggested2() throws Exception {
         //       available     default          suggestion
         baseTest(              MIN_MARGINS[2],
                  MEDIA_SIZES,  MEDIA_SIZES[2],  MEDIA_SIZES[2],
@@ -492,7 +483,8 @@ public class PrintAttributesTest extends BasePrintTest {
      *
      * @throws Exception If anything is unexpected
      */
-    public void testNoSuggestion0() throws Exception {
+    @Test
+    public void noSuggestion0() throws Exception {
         //       available     default          suggestion
         baseTest(              MIN_MARGINS[0],
                  MEDIA_SIZES,  MEDIA_SIZES[0],  null,
@@ -508,7 +500,8 @@ public class PrintAttributesTest extends BasePrintTest {
      *
      * @throws Exception If anything is unexpected
      */
-    public void testNoSuggestion1() throws Exception {
+    @Test
+    public void noSuggestion1() throws Exception {
         //       available     default          suggestion
         baseTest(              MIN_MARGINS[1],
                  MEDIA_SIZES,  MEDIA_SIZES[1],  null,
@@ -524,7 +517,8 @@ public class PrintAttributesTest extends BasePrintTest {
      *
      * @throws Exception If anything is unexpected
      */
-    public void testNoSuggestion2() throws Exception {
+    @Test
+    public void noSuggestion2() throws Exception {
         //       available     default          suggestion
         baseTest(              MIN_MARGINS[2],
                  MEDIA_SIZES,  MEDIA_SIZES[2],  null,
@@ -542,7 +536,8 @@ public class PrintAttributesTest extends BasePrintTest {
      *
      * @throws Exception If anything is unexpected
      */
-    public void testMediaSizeSuggestion0() throws Exception {
+    @Test
+    public void mediaSizeSuggestion0() throws Exception {
         //       available     default          suggestion
         baseTest(              MIN_MARGINS[0],
                  MEDIA_SIZES,  MEDIA_SIZES[0],  MEDIA_SIZES[1],
@@ -559,7 +554,8 @@ public class PrintAttributesTest extends BasePrintTest {
      *
      * @throws Exception If anything is unexpected
      */
-    public void testMediaSizeSuggestion1() throws Exception {
+    @Test
+    public void mediaSizeSuggestion1() throws Exception {
         //       available     default          suggestion
         baseTest(              MIN_MARGINS[1],
                  MEDIA_SIZES,  MEDIA_SIZES[1],  MEDIA_SIZES[0],
@@ -576,7 +572,8 @@ public class PrintAttributesTest extends BasePrintTest {
      *
      * @throws Exception If anything is unexpected
      */
-    public void testDuplexModeSuggestion0() throws Exception {
+    @Test
+    public void duplexModeSuggestion0() throws Exception {
         //       available     default          suggestion
         baseTest(              MIN_MARGINS[0],
                  MEDIA_SIZES,  MEDIA_SIZES[0],  null,
@@ -593,7 +590,8 @@ public class PrintAttributesTest extends BasePrintTest {
      *
      * @throws Exception If anything is unexpected
      */
-    public void testDuplexModeSuggestion1() throws Exception {
+    @Test
+    public void duplexModeSuggestion1() throws Exception {
         //       available     default          suggestion
         baseTest(              MIN_MARGINS[1],
                  MEDIA_SIZES,  MEDIA_SIZES[1],  null,
@@ -608,7 +606,8 @@ public class PrintAttributesTest extends BasePrintTest {
      *
      * @throws Exception If anything is unexpected
      */
-    public void testSuggestedDifferentFromDefault() throws Exception {
+    @Test
+    public void suggestedDifferentFromDefault() throws Exception {
         //       available     default          suggestion
         baseTest(              MIN_MARGINS[0],
                  MEDIA_SIZES,  MEDIA_SIZES[0],  MEDIA_SIZES[1],
@@ -623,7 +622,8 @@ public class PrintAttributesTest extends BasePrintTest {
      *
      * @throws Exception If anything is unexpected
      */
-    public void testUnsupportedSuggested() throws Exception {
+    @Test
+    public void unsupportedSuggested() throws Exception {
         //       available                               default          suggestion
         baseTest(                                        MIN_MARGINS[0],
                  Arrays.copyOfRange(MEDIA_SIZES, 0, 1),  MEDIA_SIZES[0],  MEDIA_SIZES[1],
@@ -638,7 +638,8 @@ public class PrintAttributesTest extends BasePrintTest {
      *
      * @throws Exception If anything is unexpected
      */
-    public void testNegativeMargins() throws Exception {
+    @Test
+    public void negativeMargins() throws Exception {
         //       available     default                          suggestion
         baseTest(              new Margins(-10, -10, -10, -10),
                  MEDIA_SIZES,  MEDIA_SIZES[1],                  null,

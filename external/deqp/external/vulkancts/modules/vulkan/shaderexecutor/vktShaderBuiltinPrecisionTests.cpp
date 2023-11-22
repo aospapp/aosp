@@ -1064,10 +1064,10 @@ const ExprP<Void>& voidP (void)
 template <typename T0 = Void, typename T1 = Void, typename T2 = Void, typename T3 = Void>
 struct Tuple4
 {
-	explicit Tuple4 (const T0& e0 = T0(),
-					 const T1& e1 = T1(),
-					 const T2& e2 = T2(),
-					 const T3& e3 = T3())
+	explicit Tuple4 (const T0 e0 = T0(),
+					 const T1 e1 = T1(),
+					 const T2 e2 = T2(),
+					 const T3 e3 = T3())
 		: a	(e0)
 		, b	(e1)
 		, c	(e2)
@@ -2133,7 +2133,7 @@ ExprP<float> log	(const ExprP<float>& x)	{ return app<Log>(x); }
 ExprP<TRET> NAME (const ExprP<T0>& arg0) { return app<CLASS>(arg0); }
 
 #define DEFINE_DERIVED1(CLASS, TRET, NAME, T0, ARG0, EXPANSION)			\
-class CLASS : public DerivedFunc<Signature<TRET, T0> >					\
+class CLASS : public DerivedFunc<Signature<TRET, T0> > /* NOLINT(CLASS) */ \
 {																		\
 public:																	\
 	string			getName		(void) const		{ return #NAME; }	\
@@ -2142,7 +2142,7 @@ protected:																\
 	ExprP<TRET>		doExpand		(ExpandContext&,					\
 									 const CLASS::ArgExprs& args_) const \
 	{																	\
-		const ExprP<float>& ARG0 = args_.a;								\
+		const ExprP<float>& (ARG0) = args_.a;							\
 		return EXPANSION;												\
 	}																	\
 };																		\
@@ -2158,7 +2158,7 @@ ExprP<TRET> NAME (const ExprP<T0>& arg0, const ExprP<T1>& arg1)		\
 }
 
 #define DEFINE_DERIVED2(CLASS, TRET, NAME, T0, Arg0, T1, Arg1, EXPANSION) \
-class CLASS : public DerivedFunc<Signature<TRET, T0, T1> >				\
+class CLASS : public DerivedFunc<Signature<TRET, T0, T1> > /* NOLINT(CLASS) */ \
 {																		\
 public:																	\
 	string			getName		(void) const		{ return #NAME; }	\
@@ -2166,8 +2166,8 @@ public:																	\
 protected:																\
 	ExprP<TRET>		doExpand	(ExpandContext&, const ArgExprs& args_) const \
 	{																	\
-		const ExprP<T0>& Arg0 = args_.a;								\
-		const ExprP<T1>& Arg1 = args_.b;								\
+		const ExprP<T0>& (Arg0) = args_.a;								\
+		const ExprP<T1>& (Arg1) = args_.b;								\
 		return EXPANSION;												\
 	}																	\
 };																		\
@@ -2183,7 +2183,7 @@ ExprP<TRET> NAME (const ExprP<T0>& arg0, const ExprP<T1>& arg1, const ExprP<T2>&
 }
 
 #define DEFINE_DERIVED3(CLASS, TRET, NAME, T0, ARG0, T1, ARG1, T2, ARG2, EXPANSION) \
-class CLASS : public DerivedFunc<Signature<TRET, T0, T1, T2> >					\
+class CLASS : public DerivedFunc<Signature<TRET, T0, T1, T2> > /* NOLINT(CLASS) */ \
 {																				\
 public:																			\
 	string			getName		(void) const	{ return #NAME; }				\
@@ -2191,9 +2191,9 @@ public:																			\
 protected:																		\
 	ExprP<TRET>		doExpand	(ExpandContext&, const ArgExprs& args_) const	\
 	{																			\
-		const ExprP<T0>& ARG0 = args_.a;										\
-		const ExprP<T1>& ARG1 = args_.b;										\
-		const ExprP<T2>& ARG2 = args_.c;										\
+		const ExprP<T0>& (ARG0) = args_.a;										\
+		const ExprP<T1>& (ARG1) = args_.b;										\
+		const ExprP<T2>& (ARG2) = args_.c;										\
 		return EXPANSION;														\
 	}																			\
 };																				\
@@ -4360,27 +4360,27 @@ class BuiltinPrecisionCaseTestInstance : public TestInstance
 {
 public:
 									BuiltinPrecisionCaseTestInstance	(Context&						context,
-																		 const  CaseContext				caseCtx,
-																		 ShaderExecutor&				executor,
-																		 const  Variables<In, Out>		variables,
-																		 const  Samplings<In>&			samplings,
-																		 const  StatementP				stmt)
+																		 const CaseContext				caseCtx,
+																		 const ShaderSpec&				shaderSpec,
+																		 const Variables<In, Out>		variables,
+																		 const Samplings<In>&			samplings,
+																		 const StatementP				stmt)
 										: TestInstance	(context)
 										, m_caseCtx		(caseCtx)
-										, m_executor	(executor)
 										, m_variables	(variables)
 										, m_samplings	(samplings)
 										, m_stmt		(stmt)
+										, m_executor	(createExecutor(context, caseCtx.shaderType, shaderSpec))
 									{
 									}
 	virtual tcu::TestStatus			iterate								(void);
 
 protected:
 	CaseContext						m_caseCtx;
-	ShaderExecutor&					m_executor;
 	Variables<In, Out>				m_variables;
 	const Samplings<In>&			m_samplings;
 	StatementP						m_stmt;
+	de::UniquePtr<ShaderExecutor>	m_executor;
 };
 
 template<class In, class Out>
@@ -4440,7 +4440,7 @@ tcu::TestStatus BuiltinPrecisionCaseTestInstance<In, Out>::iterate (void)
 		default: break;
 	}
 
-	m_executor.execute(m_context, int(numValues), inputArr, outputArr);
+	m_executor->execute(int(numValues), inputArr, outputArr);
 
 	// Initialize environment with dummy values so we don't need to bind in inner loop.
 	{
@@ -4576,13 +4576,12 @@ protected:
 							: TestCase		(context.testContext, name.c_str(), name.c_str())
 							, m_ctx			(context)
 							, m_extension	(extension)
-							, m_executor	(DE_NULL)
 							{
 							}
 
 	virtual void		initPrograms	(vk::SourceCollections& programCollection) const
 	{
-		m_executor->setShaderSources(programCollection);
+		generateSources(m_ctx.shaderType, m_spec, programCollection);
 	}
 
 	const FloatFormat&	getFormat		(void) const			{ return m_ctx.floatFormat; }
@@ -4596,10 +4595,9 @@ protected:
 		return Symbol(variable.getName(), getVarTypeOf<T>(m_ctx.precision));
 	}
 
-	CaseContext							m_ctx;
-	const string						m_extension;
-	ShaderSpec							m_spec;
-	de::MovePtr<ShaderExecutor>			m_executor;
+	CaseContext			m_ctx;
+	const string		m_extension;
+	ShaderSpec			m_spec;
 };
 
 template <typename In, typename Out>
@@ -4640,8 +4638,6 @@ void PrecisionCase::testStatement (const Variables<In, Out>& variables, const St
 	}
 
 	m_spec.source = de::toString(stmt);
-
-	m_executor = de::MovePtr<ShaderExecutor>(createExecutor(m_ctx.shaderType, m_spec));
 }
 
 template <typename T>
@@ -4836,7 +4832,7 @@ public:
 
 	virtual	TestInstance*					createInstance	(Context& context) const
 	{
-		return new BuiltinPrecisionCaseTestInstance<In, Out>(context, m_ctx, *m_executor, m_variables, getSamplings(), m_stmt);
+		return new BuiltinPrecisionCaseTestInstance<In, Out>(context, m_ctx, m_spec, m_variables, getSamplings(), m_stmt);
 	}
 
 protected:
@@ -4890,7 +4886,7 @@ public:
 											}
 	virtual TestInstance*				createInstance	(Context& context) const
 	{
-		return new BuiltinPrecisionCaseTestInstance<In, Out>(context, m_ctx, *m_executor, m_variables, getSamplings(), m_stmt);
+		return new BuiltinPrecisionCaseTestInstance<In, Out>(context, m_ctx, m_spec, m_variables, getSamplings(), m_stmt);
 	}
 
 protected:

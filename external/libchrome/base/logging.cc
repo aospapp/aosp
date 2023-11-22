@@ -13,8 +13,6 @@
 #if defined(OS_WIN)
 #include <io.h>
 #include <windows.h>
-#include "base/files/file_path.h"
-#include "base/files/file_util.h"
 typedef HANDLE FileHandle;
 typedef HANDLE MutexHandle;
 // Windows warns on using write().  It prefers _write().
@@ -30,8 +28,6 @@ typedef HANDLE MutexHandle;
 #elif defined(OS_POSIX)
 #if defined(OS_NACL)
 #include <sys/time.h>  // timespec doesn't seem to be in <time.h>
-#else
-#include <sys/syscall.h>
 #endif
 #include <time.h>
 #endif
@@ -51,7 +47,6 @@ typedef pthread_mutex_t* MutexHandle;
 #endif
 
 #include <algorithm>
-#include <cassert>
 #include <cstring>
 #include <ctime>
 #include <iomanip>
@@ -63,7 +58,6 @@ typedef pthread_mutex_t* MutexHandle;
 #include "base/debug/alias.h"
 #include "base/debug/debugger.h"
 #include "base/debug/stack_trace.h"
-#include "base/files/file_path.h"
 #include "base/posix/eintr_wrapper.h"
 #include "base/strings/string_piece.h"
 #include "base/strings/string_util.h"
@@ -75,6 +69,10 @@ typedef pthread_mutex_t* MutexHandle;
 #include "base/vlog.h"
 #if defined(OS_POSIX)
 #include "base/posix/safe_strerror.h"
+#endif
+
+#if !defined(OS_ANDROID)
+#include "base/files/file_path.h"
 #endif
 
 #if defined(OS_ANDROID) || defined(__ANDROID__)
@@ -209,8 +207,7 @@ class LoggingLock {
     UnlockLogging();
   }
 
-  static void Init(LogLockingState lock_log,
-                   const PathChar* /* new_log_file */) {
+  static void Init(LogLockingState lock_log, const PathChar* /*new_log_file*/) {
     if (initialized)
       return;
     lock_log_file = lock_log;
@@ -294,13 +291,24 @@ bool InitializeLogFileHandle() {
                             FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr,
                             OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
     if (g_log_file == INVALID_HANDLE_VALUE || g_log_file == nullptr) {
+      // We are intentionally not using FilePath or FileUtil here to reduce the
+      // dependencies of the logging implementation. For e.g. FilePath and
+      // FileUtil depend on shell32 and user32.dll. This is not acceptable for
+      // some consumers of base logging like chrome_elf, etc.
+      // Please don't change the code below to use FilePath.
       // try the current directory
-      base::FilePath file_path;
-      if (!base::GetCurrentDirectory(&file_path))
+      wchar_t system_buffer[MAX_PATH];
+      system_buffer[0] = 0;
+      DWORD len = ::GetCurrentDirectory(arraysize(system_buffer),
+                                        system_buffer);
+      if (len == 0 || len > arraysize(system_buffer))
         return false;
 
-      *g_log_file_name = file_path.Append(
-          FILE_PATH_LITERAL("debug.log")).value();
+      *g_log_file_name = system_buffer;
+      // Append a trailing backslash if needed.
+      if (g_log_file_name->back() != L'\\')
+        *g_log_file_name += L"\\";
+      *g_log_file_name += L"debug.log";
 
       g_log_file = CreateFile(g_log_file_name->c_str(), FILE_APPEND_DATA,
                               FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr,
@@ -460,6 +468,10 @@ template std::string* MakeCheckOpString<unsigned int, unsigned long>(
     const unsigned int&, const unsigned long&, const char* names);
 template std::string* MakeCheckOpString<std::string, std::string>(
     const std::string&, const std::string&, const char* name);
+
+void MakeCheckOpValueString(std::ostream* os, std::nullptr_t) {
+  (*os) << "nullptr";
+}
 
 #if !defined(NDEBUG)
 // Displays a message box to the user with the error message in it.
@@ -769,8 +781,12 @@ void LogMessage::Init(const char* file, int line) {
     stream_ << base::PlatformThread::CurrentId() << ':';
   if (g_log_timestamp) {
     time_t t = time(nullptr);
+#if defined(__ANDROID__) || defined(ANDROID)
     struct tm local_time;
     memset(&local_time, 0, sizeof(local_time));
+#else
+    struct tm local_time = {0};
+#endif
 #ifdef _MSC_VER
     localtime_s(&local_time, &t);
 #else
@@ -877,7 +893,7 @@ void CloseLogFile() {
 }
 
 void RawLog(int level, const char* message) {
-  if (level >= g_min_log_level) {
+  if (level >= g_min_log_level && message) {
     size_t bytes_written = 0;
     const size_t message_len = strlen(message);
     int rv;
@@ -930,5 +946,5 @@ BASE_EXPORT void LogErrorNotReached(const char* file, int line) {
 }  // namespace logging
 
 std::ostream& std::operator<<(std::ostream& out, const wchar_t* wstr) {
-  return out << base::WideToUTF8(wstr);
+  return out << (wstr ? base::WideToUTF8(wstr) : std::string());
 }

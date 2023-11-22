@@ -16,21 +16,25 @@
 
 package com.android.compatibility.common.tradefed.testtype;
 
-import com.android.compatibility.common.tradefed.util.NoOpTestInvocationListener;
-import com.android.compatibility.common.util.AbiUtils;
+import com.android.tradefed.config.ConfigurationDescriptor;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.targetprep.ITargetPreparer;
+import com.android.tradefed.testtype.Abi;
 import com.android.tradefed.testtype.IAbi;
 import com.android.tradefed.testtype.IAbiReceiver;
 import com.android.tradefed.testtype.IRemoteTest;
 import com.android.tradefed.testtype.IRuntimeHintProvider;
 import com.android.tradefed.testtype.ITestCollector;
 import com.android.tradefed.testtype.ITestFilterReceiver;
+import com.android.tradefed.util.AbiUtils;
+
+import org.easymock.EasyMock;
 
 import junit.framework.TestCase;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
@@ -39,17 +43,31 @@ public class ModuleDefTest extends TestCase {
     private static final String NAME = "ModuleName";
     private static final String ABI = "mips64";
     private static final String ID = AbiUtils.createId(ABI, NAME);
-    private static final String CLASS = "android.test.FoorBar";
-    private static final String METHOD_1 = "testBlah1";
-    private static final String TEST_1 = String.format("%s#%s", CLASS, METHOD_1);
 
     public void testAccessors() throws Exception {
         IAbi abi = new Abi(ABI, "");
         MockRemoteTest mockTest = new MockRemoteTest();
-        IModuleDef def = new ModuleDef(NAME, abi, mockTest, new ArrayList<ITargetPreparer>());
+        IModuleDef def = new ModuleDef(NAME, abi, mockTest, new ArrayList<ITargetPreparer>(),
+                new ConfigurationDescriptor());
         assertEquals("Incorrect ID", ID, def.getId());
         assertEquals("Incorrect ABI", ABI, def.getAbi().getName());
         assertEquals("Incorrect Name", NAME, def.getName());
+    }
+
+    public void testModuleFinisher() throws Exception {
+        IAbi abi = new Abi(ABI, "");
+        MockRemoteTest mockTest = new MockRemoteTest();
+        IModuleDef def = new ModuleDef(NAME, abi, mockTest,
+                new ArrayList<ITargetPreparer>(), new ConfigurationDescriptor());
+        ITestInvocationListener mockListener = EasyMock.createMock(ITestInvocationListener.class);
+        // listener should receive testRunStarted/testRunEnded events even for no-op run() method
+        mockListener.testRunStarted(ID, 0);
+        EasyMock.expectLastCall().once();
+        mockListener.testRunEnded(0, Collections.emptyMap());
+        EasyMock.expectLastCall().once();
+        EasyMock.replay(mockListener);
+        def.run(mockListener);
+        EasyMock.verify(mockListener);
     }
 
     private class MockRemoteTest implements IRemoteTest, ITestFilterReceiver, IAbiReceiver,
@@ -89,6 +107,11 @@ public class ModuleDefTest extends TestCase {
         }
 
         @Override
+        public IAbi getAbi() {
+            return null;
+        }
+
+        @Override
         public long getRuntimeHint() {
             return 1L;
         }
@@ -98,6 +121,4 @@ public class ModuleDefTest extends TestCase {
             // Do nothing
         }
     }
-
-    private class MockListener extends NoOpTestInvocationListener {}
 }

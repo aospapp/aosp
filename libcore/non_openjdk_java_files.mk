@@ -6,9 +6,13 @@ non_openjdk_javadoc_files := \
   luni/src/main/java/android/system/OsConstants.java \
   luni/src/main/java/android/system/PacketSocketAddress.java \
   luni/src/main/java/android/system/StructAddrinfo.java \
+  luni/src/main/java/android/system/StructCapUserData.java \
+  luni/src/main/java/android/system/StructCapUserHeader.java \
   luni/src/main/java/android/system/StructFlock.java \
   luni/src/main/java/android/system/StructGroupReq.java \
   luni/src/main/java/android/system/StructGroupSourceReq.java \
+  luni/src/main/java/android/system/StructIcmpHdr.java \
+  luni/src/main/java/android/system/StructIfaddrs.java \
   luni/src/main/java/android/system/StructLinger.java \
   luni/src/main/java/android/system/StructPasswd.java \
   luni/src/main/java/android/system/StructPollfd.java \
@@ -31,30 +35,36 @@ non_openjdk_javadoc_files := \
   dalvik/src/main/java/dalvik/annotation/InnerClass.java \
   dalvik/src/main/java/dalvik/annotation/KnownFailure.java \
   dalvik/src/main/java/dalvik/annotation/MemberClasses.java \
+  dalvik/src/main/java/dalvik/annotation/MethodParameters.java \
   dalvik/src/main/java/dalvik/annotation/Signature.java \
   dalvik/src/main/java/dalvik/annotation/TestTarget.java \
   dalvik/src/main/java/dalvik/annotation/TestTargetClass.java \
   dalvik/src/main/java/dalvik/annotation/Throws.java \
+  dalvik/src/main/java/dalvik/annotation/optimization/CriticalNative.java \
+  dalvik/src/main/java/dalvik/annotation/optimization/FastNative.java \
   dalvik/src/main/java/dalvik/bytecode/OpcodeInfo.java \
   dalvik/src/main/java/dalvik/bytecode/Opcodes.java \
   dalvik/src/main/java/dalvik/system/AllocationLimitError.java \
   dalvik/src/main/java/dalvik/system/BaseDexClassLoader.java \
   dalvik/src/main/java/dalvik/system/BlockGuard.java \
+  libart/src/main/java/dalvik/system/ClassExt.java \
   dalvik/src/main/java/dalvik/system/CloseGuard.java \
   dalvik/src/main/java/dalvik/system/DalvikLogHandler.java \
   dalvik/src/main/java/dalvik/system/DalvikLogging.java \
   dalvik/src/main/java/dalvik/system/DexClassLoader.java \
   dalvik/src/main/java/dalvik/system/DexFile.java \
   dalvik/src/main/java/dalvik/system/DexPathList.java \
+  dalvik/src/main/java/dalvik/system/EmulatedStackFrame.java \
+  dalvik/src/main/java/dalvik/system/InMemoryDexClassLoader.java \
   dalvik/src/main/java/dalvik/system/NativeStart.java \
   dalvik/src/main/java/dalvik/system/PathClassLoader.java \
   dalvik/src/main/java/dalvik/system/PotentialDeadlockError.java \
   dalvik/src/main/java/dalvik/system/SocketTagger.java \
   dalvik/src/main/java/dalvik/system/TemporaryDirectory.java \
+  libart/src/main/java/dalvik/system/TransactionAbortError.java \
   dalvik/src/main/java/dalvik/system/VMDebug.java \
   libart/src/main/java/dalvik/system/VMRuntime.java \
   libart/src/main/java/dalvik/system/VMStack.java \
-  libart/src/main/java/dalvik/system/TransactionAbortError.java \
   dalvik/src/main/java/dalvik/system/ZygoteHooks.java \
   libart/src/main/java/java/lang/AndroidHardcodedSystemProperties.java \
   libart/src/main/java/java/lang/Daemons.java \
@@ -62,7 +72,6 @@ non_openjdk_javadoc_files := \
   luni/src/main/java/java/lang/FindBugsSuppressWarnings.java \
   libart/src/main/java/java/lang/VMClassLoader.java \
   luni/src/main/java/java/lang/ref/FinalizerReference.java \
-  libart/src/main/java/java/lang/reflect/AbstractMethod.java \
   luni/src/main/java/java/math/BigDecimal.java \
   luni/src/main/java/java/math/BigInt.java \
   luni/src/main/java/java/math/BigInteger.java \
@@ -82,95 +91,6 @@ non_openjdk_javadoc_files := \
   luni/src/main/java/java/nio/charset/CharsetEncoderICU.java \
   luni/src/main/java/java/nio/charset/CharsetICU.java \
   luni/src/main/java/java/nio/charset/ModifiedUtf8.java \
-  luni/src/main/java/java/util/concurrent/AbstractExecutorService.java \
-  luni/src/main/java/java/util/concurrent/ArrayBlockingQueue.java \
-  luni/src/main/java/java/util/concurrent/BlockingDeque.java \
-  luni/src/main/java/java/util/concurrent/BlockingQueue.java \
-  luni/src/main/java/java/util/concurrent/BrokenBarrierException.java \
-  luni/src/main/java/java/util/concurrent/Callable.java \
-  luni/src/main/java/java/util/concurrent/CancellationException.java \
-  luni/src/main/java/java/util/concurrent/CompletableFuture.java \
-  luni/src/main/java/java/util/concurrent/CompletionException.java \
-  luni/src/main/java/java/util/concurrent/CompletionService.java \
-  luni/src/main/java/java/util/concurrent/CompletionStage.java \
-  luni/src/main/java/java/util/concurrent/ConcurrentHashMap.java \
-  luni/src/main/java/java/util/concurrent/ConcurrentLinkedDeque.java \
-  luni/src/main/java/java/util/concurrent/ConcurrentLinkedQueue.java \
-  luni/src/main/java/java/util/concurrent/ConcurrentMap.java \
-  luni/src/main/java/java/util/concurrent/ConcurrentNavigableMap.java \
-  luni/src/main/java/java/util/concurrent/ConcurrentSkipListMap.java \
-  luni/src/main/java/java/util/concurrent/ConcurrentSkipListSet.java \
-  luni/src/main/java/java/util/concurrent/CopyOnWriteArrayList.java \
-  luni/src/main/java/java/util/concurrent/CopyOnWriteArraySet.java \
-  luni/src/main/java/java/util/concurrent/CountDownLatch.java \
-  luni/src/main/java/java/util/concurrent/CountedCompleter.java \
-  luni/src/main/java/java/util/concurrent/CyclicBarrier.java \
-  luni/src/main/java/java/util/concurrent/DelayQueue.java \
-  luni/src/main/java/java/util/concurrent/Delayed.java \
-  luni/src/main/java/java/util/concurrent/Exchanger.java \
-  luni/src/main/java/java/util/concurrent/ExecutionException.java \
-  luni/src/main/java/java/util/concurrent/Executor.java \
-  luni/src/main/java/java/util/concurrent/ExecutorCompletionService.java \
-  luni/src/main/java/java/util/concurrent/ExecutorService.java \
-  luni/src/main/java/java/util/concurrent/Executors.java \
-  luni/src/main/java/java/util/concurrent/ForkJoinPool.java \
-  luni/src/main/java/java/util/concurrent/ForkJoinTask.java \
-  luni/src/main/java/java/util/concurrent/ForkJoinWorkerThread.java \
-  luni/src/main/java/java/util/concurrent/Future.java \
-  luni/src/main/java/java/util/concurrent/FutureTask.java \
-  luni/src/main/java/java/util/concurrent/Helpers.java \
-  luni/src/main/java/java/util/concurrent/LinkedBlockingDeque.java \
-  luni/src/main/java/java/util/concurrent/LinkedBlockingQueue.java \
-  luni/src/main/java/java/util/concurrent/LinkedTransferQueue.java \
-  luni/src/main/java/java/util/concurrent/Phaser.java \
-  luni/src/main/java/java/util/concurrent/PriorityBlockingQueue.java \
-  luni/src/main/java/java/util/concurrent/RecursiveAction.java \
-  luni/src/main/java/java/util/concurrent/RecursiveTask.java \
-  luni/src/main/java/java/util/concurrent/RejectedExecutionException.java \
-  luni/src/main/java/java/util/concurrent/RejectedExecutionHandler.java \
-  luni/src/main/java/java/util/concurrent/RunnableFuture.java \
-  luni/src/main/java/java/util/concurrent/RunnableScheduledFuture.java \
-  luni/src/main/java/java/util/concurrent/ScheduledExecutorService.java \
-  luni/src/main/java/java/util/concurrent/ScheduledFuture.java \
-  luni/src/main/java/java/util/concurrent/ScheduledThreadPoolExecutor.java \
-  luni/src/main/java/java/util/concurrent/Semaphore.java \
-  luni/src/main/java/java/util/concurrent/SynchronousQueue.java \
-  luni/src/main/java/java/util/concurrent/ThreadFactory.java \
-  luni/src/main/java/java/util/concurrent/ThreadLocalRandom.java \
-  luni/src/main/java/java/util/concurrent/ThreadPoolExecutor.java \
-  luni/src/main/java/java/util/concurrent/TimeUnit.java \
-  luni/src/main/java/java/util/concurrent/TimeoutException.java \
-  luni/src/main/java/java/util/concurrent/TransferQueue.java \
-  luni/src/main/java/java/util/concurrent/atomic/AtomicBoolean.java \
-  luni/src/main/java/java/util/concurrent/atomic/AtomicInteger.java \
-  luni/src/main/java/java/util/concurrent/atomic/AtomicIntegerArray.java \
-  luni/src/main/java/java/util/concurrent/atomic/AtomicIntegerFieldUpdater.java \
-  luni/src/main/java/java/util/concurrent/atomic/AtomicLong.java \
-  luni/src/main/java/java/util/concurrent/atomic/AtomicLongArray.java \
-  luni/src/main/java/java/util/concurrent/atomic/AtomicLongFieldUpdater.java \
-  luni/src/main/java/java/util/concurrent/atomic/AtomicMarkableReference.java \
-  luni/src/main/java/java/util/concurrent/atomic/AtomicReference.java \
-  luni/src/main/java/java/util/concurrent/atomic/AtomicReferenceArray.java \
-  luni/src/main/java/java/util/concurrent/atomic/AtomicReferenceFieldUpdater.java \
-  luni/src/main/java/java/util/concurrent/atomic/AtomicStampedReference.java \
-  luni/src/main/java/java/util/concurrent/atomic/DoubleAccumulator.java \
-  luni/src/main/java/java/util/concurrent/atomic/DoubleAdder.java \
-  luni/src/main/java/java/util/concurrent/atomic/LongAccumulator.java \
-  luni/src/main/java/java/util/concurrent/atomic/LongAdder.java \
-  luni/src/main/java/java/util/concurrent/atomic/Striped64.java \
-  luni/src/main/java/java/util/concurrent/atomic/package-info.java \
-  luni/src/main/java/java/util/concurrent/locks/AbstractOwnableSynchronizer.java \
-  luni/src/main/java/java/util/concurrent/locks/AbstractQueuedLongSynchronizer.java \
-  luni/src/main/java/java/util/concurrent/locks/AbstractQueuedSynchronizer.java \
-  luni/src/main/java/java/util/concurrent/locks/Condition.java \
-  luni/src/main/java/java/util/concurrent/locks/Lock.java \
-  luni/src/main/java/java/util/concurrent/locks/LockSupport.java \
-  luni/src/main/java/java/util/concurrent/locks/ReadWriteLock.java \
-  luni/src/main/java/java/util/concurrent/locks/ReentrantLock.java \
-  luni/src/main/java/java/util/concurrent/locks/ReentrantReadWriteLock.java \
-  luni/src/main/java/java/util/concurrent/locks/StampedLock.java \
-  luni/src/main/java/java/util/concurrent/locks/package-info.java \
-  luni/src/main/java/java/util/concurrent/package-info.java \
   luni/src/main/java/javax/xml/XMLConstants.java \
   luni/src/main/java/javax/xml/datatype/DatatypeConfigurationException.java \
   luni/src/main/java/javax/xml/datatype/DatatypeConstants.java \
@@ -317,31 +237,6 @@ non_openjdk_javadoc_files := \
   xml/src/main/java/org/xmlpull/v1/sax2/Driver.java \
 
 non_openjdk_java_files := \
-  dex/src/main/java/com/android/dex/Annotation.java \
-  dex/src/main/java/com/android/dex/ClassData.java \
-  dex/src/main/java/com/android/dex/ClassDef.java \
-  dex/src/main/java/com/android/dex/Code.java \
-  dex/src/main/java/com/android/dex/Dex.java \
-  dex/src/main/java/com/android/dex/DexException.java \
-  dex/src/main/java/com/android/dex/DexFormat.java \
-  dex/src/main/java/com/android/dex/DexIndexOverflowException.java \
-  dex/src/main/java/com/android/dex/EncodedValue.java \
-  dex/src/main/java/com/android/dex/EncodedValueCodec.java \
-  dex/src/main/java/com/android/dex/EncodedValueReader.java \
-  dex/src/main/java/com/android/dex/FieldId.java \
-  dex/src/main/java/com/android/dex/Leb128.java \
-  dex/src/main/java/com/android/dex/MethodId.java \
-  dex/src/main/java/com/android/dex/Mutf8.java \
-  dex/src/main/java/com/android/dex/ProtoId.java \
-  dex/src/main/java/com/android/dex/SizeOf.java \
-  dex/src/main/java/com/android/dex/TableOfContents.java \
-  dex/src/main/java/com/android/dex/TypeList.java \
-  dex/src/main/java/com/android/dex/util/ByteArrayByteInput.java \
-  dex/src/main/java/com/android/dex/util/ByteInput.java \
-  dex/src/main/java/com/android/dex/util/ByteOutput.java \
-  dex/src/main/java/com/android/dex/util/ExceptionWithContext.java \
-  dex/src/main/java/com/android/dex/util/FileUtils.java \
-  dex/src/main/java/com/android/dex/util/Unsigned.java \
   dalvik/src/main/java/dalvik/system/profiler/AsciiHprofWriter.java \
   dalvik/src/main/java/dalvik/system/profiler/BinaryHprof.java \
   dalvik/src/main/java/dalvik/system/profiler/BinaryHprofReader.java \
@@ -367,20 +262,20 @@ non_openjdk_java_files := \
   luni/src/main/java/libcore/internal/StringPool.java \
   luni/src/main/java/libcore/io/AsynchronousCloseMonitor.java \
   luni/src/main/java/libcore/io/ClassPathURLStreamHandler.java \
-  luni/src/main/java/libcore/io/Base64.java \
   luni/src/main/java/libcore/io/BlockGuardOs.java \
   luni/src/main/java/libcore/io/BufferIterator.java \
   luni/src/main/java/libcore/io/DropBox.java \
   luni/src/main/java/libcore/io/EventLogger.java \
   luni/src/main/java/libcore/io/ForwardingOs.java \
   luni/src/main/java/libcore/io/IoBridge.java \
+  luni/src/main/java/libcore/io/IoTracker.java \
   luni/src/main/java/libcore/io/IoUtils.java \
   luni/src/main/java/libcore/io/Libcore.java \
+  luni/src/main/java/libcore/io/Linux.java \
   luni/src/main/java/libcore/io/Memory.java \
   luni/src/main/java/libcore/io/MemoryMappedFile.java \
   luni/src/main/java/libcore/io/NioBufferIterator.java \
   luni/src/main/java/libcore/io/Os.java \
-  luni/src/main/java/libcore/io/Posix.java \
   luni/src/main/java/libcore/io/SizeOf.java \
   luni/src/main/java/libcore/io/Streams.java \
   luni/src/main/java/libcore/math/MathUtils.java \
@@ -412,6 +307,8 @@ non_openjdk_java_files := \
   luni/src/main/java/libcore/util/Objects.java \
   luni/src/main/java/libcore/util/RecoverySystem.java \
   luni/src/main/java/libcore/util/SneakyThrow.java \
+  luni/src/main/java/libcore/util/TimeZoneDataFiles.java \
+  luni/src/main/java/libcore/util/TimeZoneFinder.java \
   luni/src/main/java/libcore/util/ZoneInfo.java \
   luni/src/main/java/libcore/util/ZoneInfoDB.java \
   luni/src/main/java/libcore/util/HexEncoding.java \

@@ -50,6 +50,7 @@
 #include "QCamera3Channel.h"
 #include "QCamera3PostProc.h"
 #include "QCamera3VendorTags.h"
+#include "cam_cond.h"
 
 using namespace android;
 
@@ -364,7 +365,8 @@ QCamera3HardwareInterface::QCamera3HardwareInterface(uint32_t cameraId,
     // TODO: hardcode for now until mctl add support for min_num_pp_bufs
     //TBD - To see if this hardcoding is needed. Check by printing if this is filled by mctl to 3
     gCamCapability[cameraId]->min_num_pp_bufs = 3;
-    pthread_cond_init(&mRequestCond, NULL);
+
+    PTHREAD_COND_INIT(&mRequestCond);
     mPendingLiveRequest = 0;
     mCurrentRequestId = -1;
     pthread_mutex_init(&mMutex, NULL);
@@ -915,6 +917,55 @@ int QCamera3HardwareInterface::validateStreamDimensions(
     return rc;
 }
 
+/*===========================================================================
+ * FUNCTION   : validateUsageFlags
+ *
+ * DESCRIPTION: Check if the configuration usage flags are supported
+ *
+ * PARAMETERS :
+ *   @stream_list : streams to be configured
+ *
+ * RETURN     :
+ *   NO_ERROR if the usage flags are supported
+ *   error code if usage flags are not supported
+ *
+ *==========================================================================*/
+int QCamera3HardwareInterface::validateUsageFlags(
+        const camera3_stream_configuration_t* streamList)
+{
+    for (size_t j = 0; j < streamList->num_streams; j++) {
+        const camera3_stream_t *newStream = streamList->streams[j];
+
+        if (newStream->format != HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED ||
+            (newStream->stream_type != CAMERA3_STREAM_OUTPUT &&
+             newStream->stream_type != CAMERA3_STREAM_BIDIRECTIONAL)) {
+            continue;
+        }
+
+        bool isVideo = IS_USAGE_VIDEO(newStream->usage);
+        bool isPreview = IS_USAGE_PREVIEW(newStream->usage);
+        bool isZSL = IS_USAGE_ZSL(newStream->usage);
+
+        // Color space for this camera device is guaranteed to be ITU_R_601_FR.
+        // So color spaces will always match.
+
+        // Check whether underlying formats of shared streams match.
+        if (isVideo && isPreview) {
+            ALOGE("Combined video and preview usage flag is not supported");
+            return -EINVAL;
+        }
+        if (isPreview && isZSL) {
+            ALOGE("Combined preview and zsl usage flag is not supported");
+            return -EINVAL;
+        }
+        if (isVideo && isZSL) {
+            ALOGE("Combined video and zsl usage flag is not supported");
+            return -EINVAL;
+        }
+    }
+    return NO_ERROR;
+}
+
 /*==============================================================================
  * FUNCTION   : isSupportChannelNeeded
  *
@@ -1116,6 +1167,11 @@ int QCamera3HardwareInterface::configureStreamsPerfLocked(
         ALOGE("%s: Maximum number of streams %d exceeded: %d", __func__,
                 MAX_NUM_STREAMS, streamList->num_streams);
         return BAD_VALUE;
+    }
+
+    rc = validateUsageFlags(streamList);
+    if (rc != NO_ERROR) {
+        return rc;
     }
 
     mOpMode = streamList->operation_mode;
@@ -1829,7 +1885,8 @@ int QCamera3HardwareInterface::configureStreamsPerfLocked(
 
                 default:
                     ALOGE("%s: not a supported format 0x%x", __func__, newStream->format);
-                    break;
+                    pthread_mutex_unlock(&mMutex);
+                    return -EINVAL;
                 }
             } else if (newStream->stream_type == CAMERA3_STREAM_INPUT) {
                 newStream->max_buffers = MAX_INFLIGHT_REPROCESS_REQUESTS;
@@ -2391,7 +2448,8 @@ void QCamera3HardwareInterface::handleBatchMetadata(
         pthread_mutex_lock(&mMutex);
         handleMetadataWithLock(metadata_buf,
                 false /* free_and_bufdone_meta_buf */,
-                (i == 0) /* first metadata in the batch metadata */);
+                (i == urgentFrameNumDiff-1), /* last urgent metadata in the batch */
+                (i == frameNumDiff-1) /* last metadata in the batch metadata */);
         pthread_mutex_unlock(&mMutex);
     }
 
@@ -2411,15 +2469,17 @@ done_batch_metadata:
  * PARAMETERS : @metadata_buf: metadata buffer
  *              @free_and_bufdone_meta_buf: Buf done on the meta buf and free
  *                 the meta buf in this method
- *              @firstMetadataInBatch: Boolean to indicate whether this is the
- *                  first metadata in a batch. Valid only for batch mode
+ *              @lastUrgentMetadataInBatch: Boolean to indicate whether this is the
+ *                  last urgent metadata in a batch. Always true for non-batch mode
+ *              @lastMetadataInBatch: Boolean to indicate whether this is the
+ *                  last metadata in a batch. Always true for non-batch mode
  *
  * RETURN     :
  *
  *==========================================================================*/
 void QCamera3HardwareInterface::handleMetadataWithLock(
     mm_camera_super_buf_t *metadata_buf, bool free_and_bufdone_meta_buf,
-    bool firstMetadataInBatch)
+    bool lastUrgentMetadataInBatch, bool lastMetadataInBatch)
 {
     ATRACE_CALL();
 
@@ -2474,6 +2534,7 @@ void QCamera3HardwareInterface::handleMetadataWithLock(
                 (i->partial_result_cnt == 0)) {
                 ALOGE("%s: Error: HAL missed urgent metadata for frame number %d",
                     __func__, i->frame_number);
+                i->partial_result_cnt++;
             }
 
             if (i->frame_number == urgent_frame_number &&
@@ -2485,8 +2546,8 @@ void QCamera3HardwareInterface::handleMetadataWithLock(
                 i->partial_result_cnt++;
                 i->bUrgentReceived = 1;
                 // Extract 3A metadata
-                result.result =
-                    translateCbUrgentMetadataToResultMetadata(metadata);
+                result.result = translateCbUrgentMetadataToResultMetadata(
+                        metadata, lastUrgentMetadataInBatch);
                 // Populate metadata result
                 result.frame_number = urgent_frame_number;
                 result.num_output_buffers = 0;
@@ -2580,17 +2641,25 @@ void QCamera3HardwareInterface::handleMetadataWithLock(
                 i++;
                 continue;
             } else {
-                ALOGE("%s: Fatal: Missing metadata buffer for frame number %d", __func__, i->frame_number);
-                if (free_and_bufdone_meta_buf) {
-                    mMetadataChannel->bufDone(metadata_buf);
-                    free(metadata_buf);
-                }
+                ALOGE("%s: Missing metadata buffer for frame number %d, reporting CAMERA3_MSG_ERROR_RESULT",
+                     __func__, i->frame_number);
+
+                CameraMetadata dummyMetadata;
+                dummyMetadata.update(ANDROID_REQUEST_ID, &(i->request_id), 1);
+                result.result = dummyMetadata.release();
+
                 camera3_notify_msg_t notify_msg;
                 memset(&notify_msg, 0, sizeof(notify_msg));
                 notify_msg.type = CAMERA3_MSG_ERROR;
-                notify_msg.message.error.error_code = CAMERA3_MSG_ERROR_DEVICE;
+                notify_msg.message.error.error_code = CAMERA3_MSG_ERROR_RESULT;
+                notify_msg.message.error.error_stream = NULL;
+                notify_msg.message.error.frame_number = i->frame_number;
                 mCallbackOps->notify(mCallbackOps, &notify_msg);
-                goto done_metadata;
+
+                // partial_result should be PARTIAL_RESULT_CNT in case of
+                // ERROR_RESULT.
+                i->partial_result_cnt = PARTIAL_RESULT_COUNT;
+                result.partial_result = PARTIAL_RESULT_COUNT;
             }
         } else {
             i->partial_result_cnt++;
@@ -2640,7 +2709,7 @@ void QCamera3HardwareInterface::handleMetadataWithLock(
             result.result = translateFromHalMetadata(metadata,
                     i->timestamp, i->request_id, i->jpegMetadata, i->pipeline_depth,
                     i->capture_intent, i->hybrid_ae_enable, internalPproc, i->need_dynamic_blklvl,
-                    firstMetadataInBatch);
+                    lastMetadataInBatch);
 
             saveExifParams(metadata);
 
@@ -2808,12 +2877,15 @@ void QCamera3HardwareInterface::hdrPlusPerfLock(
  *
  * DESCRIPTION: Handles input buffer and shutter callback with mMutex lock held.
  *
- * PARAMETERS : @frame_number: frame number of the input buffer
+ * PARAMETERS :
+ *  @buffer: contains status information about the processed buffer
+ *  @frame_number: frame number of the input buffer
  *
  * RETURN     :
  *
  *==========================================================================*/
-void QCamera3HardwareInterface::handleInputBufferWithLock(uint32_t frame_number)
+void QCamera3HardwareInterface::handleInputBufferWithLock(
+        camera3_stream_buffer_t *buffer, uint32_t frame_number)
 {
     ATRACE_CALL();
     pendingRequestIterator i = mPendingRequestsList.begin();
@@ -2856,14 +2928,55 @@ void QCamera3HardwareInterface::handleInputBufferWithLock(uint32_t frame_number)
            }
         }
 
-        camera3_capture_result result;
-        memset(&result, 0, sizeof(camera3_capture_result));
-        result.frame_number = frame_number;
-        result.result = i->settings;
-        result.input_buffer = i->input_buffer;
-        result.partial_result = PARTIAL_RESULT_COUNT;
+        if ((nullptr != buffer) && (CAMERA3_BUFFER_STATUS_OK != buffer->status)) {
+            camera3_notify_msg_t notify_msg;
+            memset(&notify_msg, 0, sizeof(camera3_notify_msg_t));
+            notify_msg.type = CAMERA3_MSG_ERROR;
+            notify_msg.message.error.error_code = CAMERA3_MSG_ERROR_REQUEST;
+            notify_msg.message.error.error_stream = NULL;
+            notify_msg.message.error.frame_number = frame_number;
+            mCallbackOps->notify(mCallbackOps, &notify_msg);
 
-        mCallbackOps->process_capture_result(mCallbackOps, &result);
+            Vector<camera3_stream_buffer_t> pendingBuffers;
+            camera3_stream_buffer_t pending;
+            memset(&pending, 0, sizeof(pending));
+            pending.acquire_fence = -1;
+            pending.release_fence = -1;
+            pending.status = CAMERA3_BUFFER_STATUS_ERROR;
+            for (List<PendingBufferInfo>::iterator k =
+                    mPendingBuffersMap.mPendingBufferList.begin();
+                    k != mPendingBuffersMap.mPendingBufferList.end();) {
+                if (k->frame_number == frame_number) {
+                    pending.buffer = k->buffer;
+                    pending.stream = k->stream;
+                    pendingBuffers.add(pending);
+
+                    mPendingBuffersMap.num_buffers--;
+                    k = mPendingBuffersMap.mPendingBufferList.erase(k);
+                } else {
+                    k++;
+                }
+            }
+
+            camera3_capture_result result;
+            memset(&result, 0, sizeof(camera3_capture_result));
+            result.input_buffer = i->input_buffer;
+            result.num_output_buffers = pendingBuffers.size();
+            result.output_buffers = pendingBuffers.array();
+            result.result = NULL;
+            result.frame_number = frame_number;
+            mCallbackOps->process_capture_result(mCallbackOps, &result);
+        } else {
+            camera3_capture_result result;
+            memset(&result, 0, sizeof(camera3_capture_result));
+            result.frame_number = frame_number;
+            result.result = i->settings;
+            result.input_buffer = i->input_buffer;
+
+            result.partial_result = PARTIAL_RESULT_COUNT;
+
+            mCallbackOps->process_capture_result(mCallbackOps, &result);
+        }
         CDBG("%s: Input request metadata and input buffer frame_number = %u",
                        __func__, i->frame_number);
         i = erasePendingRequest(i);
@@ -3821,7 +3934,7 @@ no_error:
     // Added a timed condition wait
     struct timespec ts;
     uint8_t isValidTimeout = 1;
-    rc = clock_gettime(CLOCK_REALTIME, &ts);
+    rc = clock_gettime(CLOCK_MONOTONIC, &ts);
     if (rc < 0) {
       isValidTimeout = 0;
       ALOGE("%s: Error reading the real time clock!!", __func__);
@@ -4032,12 +4145,13 @@ void QCamera3HardwareInterface::captureResultCb(mm_camera_super_buf_t *metadata_
             pthread_mutex_lock(&mMutex);
             handleMetadataWithLock(metadata_buf,
                     true /* free_and_bufdone_meta_buf */,
-                    false /* first frame of batch metadata */ );
+                    true /* last urgent frame of batch metadata */,
+                    true /* last frame of batch metadata */ );
             pthread_mutex_unlock(&mMutex);
         }
     } else if (isInputBuffer) {
         pthread_mutex_lock(&mMutex);
-        handleInputBufferWithLock(frame_number);
+        handleInputBufferWithLock(buffer, frame_number);
         pthread_mutex_unlock(&mMutex);
     } else {
         pthread_mutex_lock(&mMutex);
@@ -4192,6 +4306,8 @@ template <class mapType> cam_cds_mode_type_t lookupProp(const mapType *arr,
  *   @hybrid_ae_enable: whether hybrid ae is enabled
  *   @jpegMetadata: additional jpeg metadata
  *   @pprocDone: whether internal offline postprocsesing is done
+ *   @lastMetadataInBatch: Boolean to indicate whether this is the last metadata
+ *                         in a batch. Always true for non-batch mode.
  *
  * RETURN     : camera_metadata_t*
  *              metadata in a format specified by fwk
@@ -4207,16 +4323,15 @@ QCamera3HardwareInterface::translateFromHalMetadata(
                                  uint8_t hybrid_ae_enable,
                                  bool pprocDone,
                                  bool dynamic_blklvl,
-                                 bool firstMetadataInBatch)
+                                 bool lastMetadataInBatch)
 {
     CameraMetadata camMetadata;
     camera_metadata_t *resultMetadata;
 
-    if (mBatchSize && !firstMetadataInBatch) {
-        /* In batch mode, use cached metadata from the first metadata
-            in the batch */
-        camMetadata.clear();
-        camMetadata = mCachedMetadata;
+    if (!lastMetadataInBatch) {
+        /* In batch mode, use empty metadata if this is not the last in batch*/
+        resultMetadata = allocate_camera_metadata(0, 0);
+        return resultMetadata;
     }
 
     if (jpegMetadata.entryCount())
@@ -4227,12 +4342,6 @@ QCamera3HardwareInterface::translateFromHalMetadata(
     camMetadata.update(ANDROID_REQUEST_PIPELINE_DEPTH, &pipeline_depth, 1);
     camMetadata.update(ANDROID_CONTROL_CAPTURE_INTENT, &capture_intent, 1);
     camMetadata.update(NEXUS_EXPERIMENTAL_2016_HYBRID_AE_ENABLE, &hybrid_ae_enable, 1);
-
-    if (mBatchSize && !firstMetadataInBatch) {
-        /* In batch mode, use cached metadata instead of parsing metadata buffer again */
-        resultMetadata = camMetadata.release();
-        return resultMetadata;
-    }
 
     IF_META_AVAILABLE(uint32_t, frame_number, CAM_INTF_META_FRAME_NUMBER, metadata) {
         int64_t fwk_frame_number = *frame_number;
@@ -5031,12 +5140,6 @@ QCamera3HardwareInterface::translateFromHalMetadata(
         camMetadata.update(ANDROID_CONTROL_POST_RAW_SENSITIVITY_BOOST, &postRawSensitivity, 1);
     }
 
-    /* In batch mode, cache the first metadata in the batch */
-    if (mBatchSize && firstMetadataInBatch) {
-        mCachedMetadata.clear();
-        mCachedMetadata = camMetadata;
-    }
-
     resultMetadata = camMetadata.release();
     return resultMetadata;
 }
@@ -5104,17 +5207,26 @@ mm_jpeg_exif_params_t QCamera3HardwareInterface::get3AExifParams()
  *
  * PARAMETERS :
  *   @metadata : metadata information from callback
+ *   @lastUrgentMetadataInBatch: Boolean to indicate whether this is the last
+ *                               urgent metadata in a batch. Always true for
+ *                               non-batch mode.
  *
  * RETURN     : camera_metadata_t*
  *              metadata in a format specified by fwk
  *==========================================================================*/
 camera_metadata_t*
 QCamera3HardwareInterface::translateCbUrgentMetadataToResultMetadata
-                                (metadata_buffer_t *metadata)
+                                (metadata_buffer_t *metadata, bool lastUrgentMetadataInBatch)
 {
     CameraMetadata camMetadata;
     camera_metadata_t *resultMetadata;
 
+    if (!lastUrgentMetadataInBatch) {
+        /* In batch mode, use empty metadata if this is not the last in batch
+         */
+        resultMetadata = allocate_camera_metadata(0, 0);
+        return resultMetadata;
+    }
 
     IF_META_AVAILABLE(uint32_t, whiteBalanceState, CAM_INTF_META_AWB_STATE, metadata) {
         uint8_t fwk_whiteBalanceState = (uint8_t) *whiteBalanceState;
@@ -5966,7 +6078,9 @@ int QCamera3HardwareInterface::initStaticMetadata(uint32_t cameraId)
     staticInfo.update(ANDROID_TONEMAP_MAX_CURVE_POINTS,
                       &gCamCapability[cameraId]->max_tone_map_curve_points, 1);
 
-    uint8_t timestampSource = ANDROID_SENSOR_INFO_TIMESTAMP_SOURCE_REALTIME;
+    uint8_t timestampSource = (gCamCapability[cameraId]->timestamp_calibrated ?
+            ANDROID_SENSOR_INFO_TIMESTAMP_SOURCE_REALTIME :
+            ANDROID_SENSOR_INFO_TIMESTAMP_SOURCE_UNKNOWN);
     staticInfo.update(ANDROID_SENSOR_INFO_TIMESTAMP_SOURCE,
             &timestampSource, 1);
 
@@ -9321,6 +9435,21 @@ int QCamera3HardwareInterface::validateStreamRotations(
     for (size_t j = 0; j < streamList->num_streams; j++){
         camera3_stream_t *newStream = streamList->streams[j];
 
+        switch(newStream->rotation) {
+            case CAMERA3_STREAM_ROTATION_0:
+            case CAMERA3_STREAM_ROTATION_90:
+            case CAMERA3_STREAM_ROTATION_180:
+            case CAMERA3_STREAM_ROTATION_270:
+                //Expected values
+                break;
+            default:
+                ALOGE("%s: Error: Unsupported rotation of %d requested for stream"
+                        "type:%d and stream format:%d", __func__,
+                        newStream->rotation, newStream->stream_type,
+                        newStream->format);
+                return -EINVAL;
+        }
+
         bool isRotated = (newStream->rotation != CAMERA3_STREAM_ROTATION_0);
         bool isImplDef = (newStream->format ==
                 HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED);
@@ -9479,7 +9608,9 @@ int32_t QCamera3HardwareInterface::stopAllChannels()
     for (List<stream_info_t *>::iterator it = mStreamInfo.begin();
         it != mStreamInfo.end(); it++) {
         QCamera3Channel *channel = (QCamera3Channel *)(*it)->stream->priv;
-        channel->stop();
+        if (channel != nullptr) {
+            channel->stop();
+        }
         (*it)->status = INVALID;
     }
 

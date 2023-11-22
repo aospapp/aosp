@@ -11,6 +11,7 @@ from autotest_lib.client.cros import service_stopper
 
 
 class power_Idle(test.test):
+    """class for power_Idle test."""
     version = 1
 
     def initialize(self):
@@ -36,7 +37,9 @@ class power_Idle(test.test):
             self._backlight = power_utils.Backlight()
             self._backlight.set_default()
 
-            self._start_time = time.time()
+            t0 = time.time()
+            self._start_time = t0
+            self._psr = power_utils.DisplayPanelSelfRefresh(init_time=t0)
             self.status = power_status.get_status()
             self._stats = power_status.StatoMatic()
 
@@ -58,7 +61,7 @@ class power_Idle(test.test):
             self.status.refresh()
             self._plog.checkpoint('', self._start_time)
             self._tlog.checkpoint('', self._start_time)
-
+            self._psr.refresh()
 
     def postprocess_iteration(self):
         keyvals = self._stats.publish()
@@ -87,6 +90,7 @@ class power_Idle(test.test):
             keyvals.update(self._plog.calc())
 
         keyvals.update(self._tlog.calc())
+        keyvals.update(self._psr.get_keyvals())
         logging.debug("keyvals = %s", keyvals)
 
         self.write_perf_keyval(keyvals)

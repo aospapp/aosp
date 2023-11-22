@@ -16,12 +16,19 @@
 
 package android.view.animation.cts;
 
-import java.util.List;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
 
 import android.app.Activity;
-import android.content.Context;
+import android.app.Instrumentation;
 import android.content.res.XmlResourceParser;
-import android.test.ActivityInstrumentationTestCase2;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.filters.MediumTest;
+import android.support.test.rule.ActivityTestRule;
+import android.support.test.runner.AndroidJUnit4;
 import android.util.AttributeSet;
 import android.util.Xml;
 import android.view.View;
@@ -32,13 +39,18 @@ import android.view.animation.AnimationSet;
 import android.view.animation.ScaleAnimation;
 import android.view.animation.Transformation;
 import android.view.animation.TranslateAnimation;
-
 import android.view.cts.R;
 
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
-public class AnimationSetTest
-        extends ActivityInstrumentationTestCase2<AnimationTestCtsActivity> {
+import java.util.List;
 
+@MediumTest
+@RunWith(AndroidJUnit4.class)
+public class AnimationSetTest {
     private static final float DELTA = 0.001f;
     private static final long SHORT_CHILD_DURATION = 400;
     private static final long MEDIUM_CHILD_DURATION = 800;
@@ -48,18 +60,21 @@ public class AnimationSetTest
      */
     private static final int INITIAL_SIZE = 100;
     private static final long ANIMATIONSET_DURATION = 1000;
+
+    private Instrumentation mInstrumentation;
     private Activity mActivity;
 
-    public AnimationSetTest() {
-        super("android.view.cts", AnimationTestCtsActivity.class);
+    @Rule
+    public ActivityTestRule<AnimationTestCtsActivity> mActivityRule =
+            new ActivityTestRule<>(AnimationTestCtsActivity.class);
+
+    @Before
+    public void setup() {
+        mInstrumentation = InstrumentationRegistry.getInstrumentation();
+        mActivity = mActivityRule.getActivity();
     }
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mActivity = getActivity();
-    }
-
+    @Test
     public void testConstructor() {
         new AnimationSet(true);
 
@@ -71,6 +86,7 @@ public class AnimationSetTest
         new AnimationSet(mActivity, attr);
     }
 
+    @Test
     public void testInitialize() {
         final AnimationSet animationSet = createAnimationSet();
         animationSet.setDuration(ANIMATIONSET_DURATION);
@@ -108,6 +124,7 @@ public class AnimationSetTest
         return animationSet;
     }
 
+    @Test
     public void testSetFillAfter() {
         final AnimationSet animationSet = createAnimationSet();
         assertFalse(animationSet.getFillAfter());
@@ -125,6 +142,7 @@ public class AnimationSetTest
         }
     }
 
+    @Test
     public void testSetFillBefore() {
         final AnimationSet animationSet = createAnimationSet();
         assertTrue(animationSet.getFillBefore());
@@ -142,6 +160,7 @@ public class AnimationSetTest
         }
     }
 
+    @Test
     public void testAccessDuration() {
         final AnimationSet animationSet = createAnimationSet();
         assertEquals(LONG_CHILD_DURATION, animationSet.getDuration());
@@ -156,6 +175,7 @@ public class AnimationSetTest
         }
     }
 
+    @Test
     public void testRestrictDuration() {
         final AnimationSet animationSet = new AnimationSet(false);
         Animation child = null;
@@ -188,6 +208,7 @@ public class AnimationSetTest
         assertTrue(originChildRepeatCount[2] > children.get(2).getRepeatCount());
     }
 
+    @Test
     public void testComputeDurationHint() {
         final AnimationSet animationSet = createAnimationSet();
         final List<Animation> children = animationSet.getAnimations();
@@ -198,6 +219,7 @@ public class AnimationSetTest
         assertEquals(expectedDuration, animationSet.computeDurationHint());
     }
 
+    @Test
     public void testScaleCurrentDuration() {
         final AnimationSet animationSet = createAnimationSet();
         List<Animation> children = animationSet.getAnimations();
@@ -214,6 +236,7 @@ public class AnimationSetTest
         }
     }
 
+    @Test
     public void testAccessRepeatMode() {
         final AnimationSet animationSet = createAnimationSet();
         animationSet.setRepeatMode(Animation.RESTART);
@@ -233,6 +256,7 @@ public class AnimationSetTest
         }
     }
 
+    @Test
     public void testAccessStartOffset() {
         final AnimationSet animationSet = createAnimationSet();
         assertEquals(0, animationSet.getStartOffset());
@@ -260,6 +284,7 @@ public class AnimationSetTest
         }
     }
 
+    @Test
     public void testAccessStartTime() {
         final AnimationSet animationSet = createAnimationSet();
         final long[] originChildStartTime = {1000, 2000, 3000};
@@ -281,7 +306,8 @@ public class AnimationSetTest
         }
     }
 
-    public void testGetTransformation() {
+    @Test
+    public void testGetTransformation() throws Throwable {
         final View animWindowParent = mActivity.findViewById(R.id.anim_window_parent);
         final View animWindow = mActivity.findViewById(R.id.anim_window);
         final AnimationSet animationSet = createAnimationSet();
@@ -289,7 +315,8 @@ public class AnimationSetTest
         animationSet.initialize(animWindow.getWidth(), animWindow.getHeight(),
                 animWindowParent.getWidth(), animWindowParent.getHeight());
 
-        AnimationTestUtils.assertRunAnimation(getInstrumentation(), animWindow, animationSet);
+        AnimationTestUtils.assertRunAnimation(mInstrumentation, mActivityRule, animWindow,
+                animationSet);
         final long startTime = animationSet.getStartTime();
 
         assertGetTransformation(animationSet, startTime, true);
@@ -325,6 +352,7 @@ public class AnimationSetTest
         }
     }
 
+    @Test
     public void testAccessAnimations() {
         final AnimationSet animationSet = new AnimationSet(true);
         final Animation animation1 = new AlphaAnimation(0.0f, 1.0f);
@@ -341,6 +369,7 @@ public class AnimationSetTest
         assertSame(animation3, children.get(2));
     }
 
+    @Test
     public void testWillChangeTransformationMatrix() {
         final AnimationSet animationSet = new AnimationSet(true);
         assertFalse(animationSet.willChangeTransformationMatrix());
@@ -358,6 +387,7 @@ public class AnimationSetTest
         assertTrue(animationSet.willChangeBounds());
     }
 
+    @Test
     public void testClone() throws CloneNotSupportedException {
         final MyAnimationSet animationSet = new MyAnimationSet(false);
         final Animation alpha = new AlphaAnimation(0.0f, 1.0f);

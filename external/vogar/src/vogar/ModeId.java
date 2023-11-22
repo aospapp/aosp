@@ -38,7 +38,7 @@ public enum ModeId {
             "core-oj",
             "conscrypt",
             "okhttp",
-            "core-junit",
+            "legacy-test",
             "bouncycastle",
             "ext",
             "framework",

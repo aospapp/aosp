@@ -16,11 +16,26 @@
 
 package com.android.bluetooth.btservice;
 
+import android.bluetooth.BluetoothA2dp;
+import android.bluetooth.BluetoothA2dpSink;
 import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothAvrcpController;
 import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothHeadset;
+import android.bluetooth.BluetoothHeadsetClient;
+import android.bluetooth.BluetoothInputDevice;
+import android.bluetooth.BluetoothInputHost;
+import android.bluetooth.BluetoothMap;
+import android.bluetooth.BluetoothMapClient;
+import android.bluetooth.BluetoothPan;
+import android.bluetooth.BluetoothPbap;
+import android.bluetooth.BluetoothPbapClient;
 import android.bluetooth.BluetoothProfile;
+import android.bluetooth.BluetoothSap;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.os.ParcelUuid;
 import android.os.UserHandle;
 import android.util.Log;
@@ -29,8 +44,8 @@ import android.util.Pair;
 import com.android.bluetooth.Utils;
 import com.android.bluetooth.btservice.RemoteDevices.DeviceProperties;
 
+import java.lang.System;
 import java.util.HashMap;
-import java.util.ArrayList;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 class AdapterProperties {
@@ -38,7 +53,9 @@ class AdapterProperties {
     private static final boolean VDBG = false;
     private static final String TAG = "BluetoothAdapterProperties";
 
-    private static final int BD_ADDR_LEN = 6; // 6 bytes
+    private static final long DEFAULT_DISCOVERY_TIMEOUT_MS = 12800;
+    private static final int BD_ADDR_LEN = 6; // in bytes
+
     private volatile String mName;
     private volatile byte[] mAddress;
     private volatile int mBluetoothClass;
@@ -56,6 +73,7 @@ class AdapterProperties {
 
     private AdapterService mService;
     private boolean mDiscovering;
+    private long mDiscoveryEndMs; //< Time (ms since epoch) that discovery ended or will end.
     private RemoteDevices mRemoteDevices;
     private BluetoothAdapter mAdapter;
     //TODO - all hw capabilities to be exposed as a class
@@ -69,6 +87,44 @@ class AdapterProperties {
     private boolean mIsExtendedScanSupported;
     private boolean mIsDebugLogSupported;
     private boolean mIsActivityAndEnergyReporting;
+    private boolean mIsLe2MPhySupported;
+    private boolean mIsLeCodedPhySupported;
+    private boolean mIsLeExtendedAdvertisingSupported;
+    private boolean mIsLePeriodicAdvertisingSupported;
+    private int mLeMaximumAdvertisingDataLength;
+
+    private BroadcastReceiver mReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            Log.d(TAG, "Received intent " + intent);
+            String action = intent.getAction();
+            if (BluetoothHeadset.ACTION_CONNECTION_STATE_CHANGED.equals(action)) {
+                sendConnectionStateChange(BluetoothProfile.HEADSET, intent);
+            } else if (BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED.equals(action)) {
+                sendConnectionStateChange(BluetoothProfile.A2DP, intent);
+            } else if (BluetoothHeadsetClient.ACTION_CONNECTION_STATE_CHANGED.equals(action)) {
+                sendConnectionStateChange(BluetoothProfile.HEADSET_CLIENT, intent);
+            } else if (BluetoothA2dpSink.ACTION_CONNECTION_STATE_CHANGED.equals(action)) {
+                sendConnectionStateChange(BluetoothProfile.A2DP_SINK, intent);
+            } else if (BluetoothInputHost.ACTION_CONNECTION_STATE_CHANGED.equals(action)) {
+                sendConnectionStateChange(BluetoothProfile.INPUT_HOST, intent);
+            } else if (BluetoothInputDevice.ACTION_CONNECTION_STATE_CHANGED.equals(action)) {
+                sendConnectionStateChange(BluetoothProfile.INPUT_DEVICE, intent);
+            } else if (BluetoothAvrcpController.ACTION_CONNECTION_STATE_CHANGED.equals(action)) {
+                sendConnectionStateChange(BluetoothProfile.AVRCP_CONTROLLER, intent);
+            } else if (BluetoothPan.ACTION_CONNECTION_STATE_CHANGED.equals(action)) {
+                sendConnectionStateChange(BluetoothProfile.PAN, intent);
+            } else if (BluetoothMap.ACTION_CONNECTION_STATE_CHANGED.equals(action)) {
+                sendConnectionStateChange(BluetoothProfile.MAP, intent);
+            } else if (BluetoothMapClient.ACTION_CONNECTION_STATE_CHANGED.equals(action)) {
+                sendConnectionStateChange(BluetoothProfile.MAP_CLIENT, intent);
+            } else if (BluetoothSap.ACTION_CONNECTION_STATE_CHANGED.equals(action)) {
+                sendConnectionStateChange(BluetoothProfile.SAP, intent);
+            } else if (BluetoothPbapClient.ACTION_CONNECTION_STATE_CHANGED.equals(action)) {
+                sendConnectionStateChange(BluetoothProfile.PBAP_CLIENT, intent);
+            }
+        }
+    };
 
     // Lock for all getters and setters.
     // If finer grained locking is needer, more locks
@@ -86,6 +142,22 @@ class AdapterProperties {
             mProfileConnectionState.clear();
         }
         mRemoteDevices = remoteDevices;
+
+        IntentFilter filter = new IntentFilter();
+        filter.addAction(BluetoothHeadset.ACTION_CONNECTION_STATE_CHANGED);
+        filter.addAction(BluetoothHeadsetClient.ACTION_CONNECTION_STATE_CHANGED);
+        filter.addAction(BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED);
+        filter.addAction(BluetoothA2dpSink.ACTION_CONNECTION_STATE_CHANGED);
+        filter.addAction(BluetoothInputHost.ACTION_CONNECTION_STATE_CHANGED);
+        filter.addAction(BluetoothInputDevice.ACTION_CONNECTION_STATE_CHANGED);
+        filter.addAction(BluetoothAvrcpController.ACTION_CONNECTION_STATE_CHANGED);
+        filter.addAction(BluetoothPan.ACTION_CONNECTION_STATE_CHANGED);
+        filter.addAction(BluetoothMap.ACTION_CONNECTION_STATE_CHANGED);
+        filter.addAction(BluetoothMapClient.ACTION_CONNECTION_STATE_CHANGED);
+        filter.addAction(BluetoothSap.ACTION_CONNECTION_STATE_CHANGED);
+        filter.addAction(BluetoothPbapClient.ACTION_CONNECTION_STATE_CHANGED);
+        filter.addAction(BluetoothDevice.ACTION_UUID);
+        mService.registerReceiver(mReceiver, filter);
     }
 
     public void cleanup() {
@@ -94,6 +166,7 @@ class AdapterProperties {
             mProfileConnectionState.clear();
             mProfileConnectionState = null;
         }
+        mService.unregisterReceiver(mReceiver);
         mService = null;
         mBondedDevices.clear();
     }
@@ -245,6 +318,41 @@ class AdapterProperties {
     }
 
     /**
+     * @return the mIsLe2MPhySupported
+     */
+    boolean isLe2MPhySupported() {
+        return mIsLe2MPhySupported;
+    }
+
+    /**
+     * @return the mIsLeCodedPhySupported
+     */
+    boolean isLeCodedPhySupported() {
+        return mIsLeCodedPhySupported;
+    }
+
+    /**
+     * @return the mIsLeExtendedAdvertisingSupported
+     */
+    boolean isLeExtendedAdvertisingSupported() {
+        return mIsLeExtendedAdvertisingSupported;
+    }
+
+    /**
+     * @return the mIsLePeriodicAdvertisingSupported
+     */
+    boolean isLePeriodicAdvertisingSupported() {
+        return mIsLePeriodicAdvertisingSupported;
+    }
+
+    /**
+     * @return the getLeMaximumAdvertisingDataLength
+     */
+    int getLeMaximumAdvertisingDataLength() {
+        return mLeMaximumAdvertisingDataLength;
+    }
+
+    /**
      * @return total number of trackable advertisements
      */
     int getTotalNumOfTrackableAdvertisements() {
@@ -317,10 +425,20 @@ class AdapterProperties {
         }
     }
 
+    long discoveryEndMillis() {
+        return mDiscoveryEndMs;
+    }
+
     boolean isDiscovering() {
         return mDiscovering;
     }
 
+    private void sendConnectionStateChange(int profile, Intent connIntent) {
+        BluetoothDevice device = connIntent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
+        int prevState = connIntent.getIntExtra(BluetoothProfile.EXTRA_PREVIOUS_STATE, -1);
+        int state = connIntent.getIntExtra(BluetoothProfile.EXTRA_STATE, -1);
+        sendConnectionStateChange(device, profile, state, prevState);
+    }
     void sendConnectionStateChange(BluetoothDevice device, int profile, int state, int prevState) {
         if (!validateProfileConnectionState(state) ||
                 !validateProfileConnectionState(prevState)) {
@@ -485,7 +603,13 @@ class AdapterProperties {
                         break;
                     case AbstractionLayer.BT_PROPERTY_BDADDR:
                         mAddress = val;
-                        debugLog("Address is:" + Utils.getAddressStringFromByte(mAddress));
+                        String address = Utils.getAddressStringFromByte(mAddress);
+                        debugLog("Address is:" + address);
+                        intent = new Intent(BluetoothAdapter.ACTION_BLUETOOTH_ADDRESS_CHANGED);
+                        intent.putExtra(BluetoothAdapter.EXTRA_BLUETOOTH_ADDRESS, address);
+                        intent.addFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY_BEFORE_BOOT);
+                        mService.sendBroadcastAsUser(
+                                intent, UserHandle.ALL, mService.BLUETOOTH_PERM);
                         break;
                     case AbstractionLayer.BT_PROPERTY_CLASS_OF_DEVICE:
                         mBluetoothClass = Utils.byteArrayToInt(val, 0);
@@ -547,6 +671,12 @@ class AdapterProperties {
                             + (0xFF & ((int)val[10]));
         mIsExtendedScanSupported = ((0xFF & ((int)val[12])) != 0);
         mIsDebugLogSupported = ((0xFF & ((int)val[13])) != 0);
+        mIsLe2MPhySupported = ((0xFF & ((int) val[14])) != 0);
+        mIsLeCodedPhySupported = ((0xFF & ((int) val[15])) != 0);
+        mIsLeExtendedAdvertisingSupported = ((0xFF & ((int) val[16])) != 0);
+        mIsLePeriodicAdvertisingSupported = ((0xFF & ((int) val[17])) != 0);
+        mLeMaximumAdvertisingDataLength =   (0xFF & ((int)val[18]))
+                                         + ((0xFF & ((int)val[19])) << 8);
 
         Log.d(TAG, "BT_PROPERTY_LOCAL_LE_FEATURES: update from BT controller"
                 + " mNumOfAdvertisementInstancesSupported = "
@@ -568,6 +698,16 @@ class AdapterProperties {
                 + mIsExtendedScanSupported
                 + " mIsDebugLogSupported = "
                 + mIsDebugLogSupported
+                + " mIsLe2MPhySupported = "
+                + mIsLe2MPhySupported
+                + " mIsLeCodedPhySupported = "
+                + mIsLeCodedPhySupported
+                + " mIsLeExtendedAdvertisingSupported = "
+                + mIsLeExtendedAdvertisingSupported
+                + " mIsLePeriodicAdvertisingSupported = "
+                + mIsLePeriodicAdvertisingSupported
+                + " mLeMaximumAdvertisingDataLength = "
+                + mLeMaximumAdvertisingDataLength
                 );
     }
 
@@ -627,10 +767,12 @@ class AdapterProperties {
             Intent intent;
             if (state == AbstractionLayer.BT_DISCOVERY_STOPPED) {
                 mDiscovering = false;
+                mDiscoveryEndMs = System.currentTimeMillis();
                 intent = new Intent(BluetoothAdapter.ACTION_DISCOVERY_FINISHED);
                 mService.sendBroadcast(intent, mService.BLUETOOTH_PERM);
             } else if (state == AbstractionLayer.BT_DISCOVERY_STARTED) {
                 mDiscovering = true;
+                mDiscoveryEndMs = System.currentTimeMillis() + DEFAULT_DISCOVERY_TIMEOUT_MS;
                 intent = new Intent(BluetoothAdapter.ACTION_DISCOVERY_STARTED);
                 mService.sendBroadcast(intent, mService.BLUETOOTH_PERM);
             }

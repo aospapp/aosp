@@ -85,7 +85,7 @@ bool BlobParser::SerializeCreationBlob(const TPM2B_CREATION_DATA& creation_data,
     return false;
   }
   result = Serialize_TPMT_TK_CREATION(creation_ticket, creation_blob);
-    if (result != TPM_RC_SUCCESS) {
+  if (result != TPM_RC_SUCCESS) {
     LOG(ERROR) << "Error serializing creation_ticket: "
                << GetErrorString(result);
     return false;
@@ -104,8 +104,8 @@ bool BlobParser::ParseCreationBlob(const std::string& creation_blob,
     return false;
   }
   std::string mutable_creation_blob = creation_blob;
-  TPM_RC result = Parse_TPM2B_CREATION_DATA(&mutable_creation_blob,
-                                            creation_data, nullptr);
+  TPM_RC result =
+      Parse_TPM2B_CREATION_DATA(&mutable_creation_blob, creation_data, nullptr);
   if (result != TPM_RC_SUCCESS) {
     LOG(ERROR) << "Error parsing creation_data: " << GetErrorString(result);
     return false;
@@ -115,8 +115,8 @@ bool BlobParser::ParseCreationBlob(const std::string& creation_blob,
     LOG(ERROR) << "Error parsing creation_hash: " << GetErrorString(result);
     return false;
   }
-  result = Parse_TPMT_TK_CREATION(&mutable_creation_blob,
-                                  creation_ticket, nullptr);
+  result =
+      Parse_TPMT_TK_CREATION(&mutable_creation_blob, creation_ticket, nullptr);
   if (result != TPM_RC_SUCCESS) {
     LOG(ERROR) << "Error parsing creation_ticket: " << GetErrorString(result);
     return false;

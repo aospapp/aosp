@@ -24,23 +24,24 @@
 
 typedef struct array_t array_t;
 
-// Returns a new array object that stores elements of size |element_size|. The returned
-// object must be freed with |array_free|. |element_size| must be greater than 0. Returns
-// NULL on failure.
-array_t *array_new(size_t element_size);
+// Returns a new array object that stores elements of size |element_size|. The
+// returned object must be freed with |array_free|. |element_size| must be
+// greater than 0. Returns NULL on failure.
+array_t* array_new(size_t element_size);
 
 // Frees an array that was allocated with |array_new|. |array| may be NULL.
-void array_free(array_t *array);
+void array_free(array_t* array);
 
-// Returns a pointer to the first stored element in |array|. |array| must not be NULL.
-void *array_ptr(const array_t *array);
+// Returns a pointer to the first stored element in |array|. |array| must not be
+// NULL.
+void* array_ptr(const array_t* array);
 
-// Returns a pointer to the |index|th element of |array|. |index| must be less than
-// the array's length. |array| must not be NULL.
-void *array_at(const array_t *array, size_t index);
+// Returns a pointer to the |index|th element of |array|. |index| must be less
+// than the array's length. |array| must not be NULL.
+void* array_at(const array_t* array, size_t index);
 
 // Returns the number of elements stored in |array|. |array| must not be NULL.
-size_t array_length(const array_t *array);
+size_t array_length(const array_t* array);
 
 // Inserts an element to the end of |array| by value. For example, a caller
 // may simply call array_append_value(array, 5) instead of storing 5 into a
@@ -48,10 +49,10 @@ size_t array_length(const array_t *array);
 // only the lowest |element_size| bytes will be stored. |array| must not be
 // NULL. Returns true if the element could be inserted into the array, false
 // on error.
-bool array_append_value(array_t *array, uint32_t value);
+bool array_append_value(array_t* array, uint32_t value);
 
 // Inserts an element to the end of |array|. The value pointed to by |data| must
-// be at least |element_size| bytes long and will be copied into the array. Neither
-// |array| nor |data| may be NULL. Returns true if the element could be inserted into
-// the array, false on error.
-bool array_append_ptr(array_t *array, void *data);
+// be at least |element_size| bytes long and will be copied into the array.
+// Neither |array| nor |data| may be NULL. Returns true if the element could be
+// inserted into the array, false on error.
+bool array_append_ptr(array_t* array, void* data);

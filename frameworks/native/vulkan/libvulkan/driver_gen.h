@@ -19,9 +19,9 @@
 #ifndef LIBVULKAN_DRIVER_GEN_H
 #define LIBVULKAN_DRIVER_GEN_H
 
-#include <bitset>
-#include <vulkan/vulkan.h>
 #include <vulkan/vk_android_native_buffer.h>
+#include <vulkan/vulkan.h>
+#include <bitset>
 
 namespace vulkan {
 namespace driver {
@@ -35,9 +35,16 @@ struct ProcHook {
     enum Extension {
         ANDROID_native_buffer,
         EXT_debug_report,
+        EXT_hdr_metadata,
+        EXT_swapchain_colorspace,
+        GOOGLE_display_timing,
         KHR_android_surface,
+        KHR_incremental_present,
+        KHR_shared_presentable_image,
         KHR_surface,
         KHR_swapchain,
+        KHR_get_surface_capabilities2,
+        KHR_get_physical_device_properties2,
 
         EXTENSION_CORE,  // valid bit
         EXTENSION_COUNT,
@@ -57,11 +64,13 @@ struct InstanceDriverTable {
     PFN_vkDestroyInstance DestroyInstance;
     PFN_vkEnumeratePhysicalDevices EnumeratePhysicalDevices;
     PFN_vkGetInstanceProcAddr GetInstanceProcAddr;
+    PFN_vkGetPhysicalDeviceProperties GetPhysicalDeviceProperties;
     PFN_vkCreateDevice CreateDevice;
     PFN_vkEnumerateDeviceExtensionProperties EnumerateDeviceExtensionProperties;
     PFN_vkCreateDebugReportCallbackEXT CreateDebugReportCallbackEXT;
     PFN_vkDestroyDebugReportCallbackEXT DestroyDebugReportCallbackEXT;
     PFN_vkDebugReportMessageEXT DebugReportMessageEXT;
+    PFN_vkGetPhysicalDeviceProperties2KHR GetPhysicalDeviceProperties2KHR;
     // clang-format on
 };
 
@@ -74,6 +83,7 @@ struct DeviceDriverTable {
     PFN_vkDestroyImage DestroyImage;
     PFN_vkAllocateCommandBuffers AllocateCommandBuffers;
     PFN_vkGetSwapchainGrallocUsageANDROID GetSwapchainGrallocUsageANDROID;
+    PFN_vkGetSwapchainGrallocUsage2ANDROID GetSwapchainGrallocUsage2ANDROID;
     PFN_vkAcquireImageANDROID AcquireImageANDROID;
     PFN_vkQueueSignalReleaseImageANDROID QueueSignalReleaseImageANDROID;
     // clang-format on

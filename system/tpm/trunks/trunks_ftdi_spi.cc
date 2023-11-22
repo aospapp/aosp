@@ -25,11 +25,11 @@
 #include "trunks/trunks_ftdi_spi.h"
 
 // Assorted TPM2 registers for interface type FIFO.
-#define TPM_ACCESS_REG       0
-#define TPM_STS_REG       0x18
+#define TPM_ACCESS_REG 0
+#define TPM_STS_REG 0x18
 #define TPM_DATA_FIFO_REG 0x24
-#define TPM_DID_VID_REG  0xf00
-#define TPM_RID_REG      0xf04
+#define TPM_DID_VID_REG 0xf00
+#define TPM_RID_REG 0xf04
 
 namespace trunks {
 
@@ -48,7 +48,7 @@ enum TpmStsBits {
   resetEstablishmentBit = (1 << 25),
   commandCancel = (1 << 24),
   burstCountShift = 8,
-  burstCountMask = ((1 << 16) -1),  // 16 bits wide
+  burstCountMask = ((1 << 16) - 1),  // 16 bits wide
   stsValid = (1 << 7),
   commandReady = (1 << 6),
   tpmGo = (1 << 5),
@@ -58,9 +58,9 @@ enum TpmStsBits {
   responseRetry = (1 << 1),
 };
 
-  // SPI frame header for TPM transactions is 4 bytes in size, it is described
-  // in section "6.4.6 Spi Bit Protocol" of the TCG issued "TPM Profile (PTP)
-  // Specification Revision 00.43.
+// SPI frame header for TPM transactions is 4 bytes in size, it is described
+// in section "6.4.6 Spi Bit Protocol" of the TCG issued "TPM Profile (PTP)
+// Specification Revision 00.43.
 struct SpiFrameHeader {
   unsigned char body[4];
 };
@@ -72,7 +72,7 @@ TrunksFtdiSpi::~TrunksFtdiSpi() {
   mpsse_ = NULL;
 }
 
-bool TrunksFtdiSpi::ReadTpmSts(uint32_t *status) {
+bool TrunksFtdiSpi::ReadTpmSts(uint32_t* status) {
   return FtdiReadReg(TPM_STS_REG, sizeof(*status), status);
 }
 
@@ -81,8 +81,9 @@ bool TrunksFtdiSpi::WriteTpmSts(uint32_t status) {
 }
 
 void TrunksFtdiSpi::StartTransaction(bool read_write,
-                                     size_t bytes, unsigned addr) {
-  unsigned char *response;
+                                     size_t bytes,
+                                     unsigned addr) {
+  unsigned char* response;
   SpiFrameHeader header;
 
   usleep(10000);  // give it 10 ms. TODO(vbendeb): remove this once
@@ -111,7 +112,7 @@ void TrunksFtdiSpi::StartTransaction(bool read_write,
   // until the last bit in the received byte (transferred during the last
   // clock of the byte) is set to 1.
   while (!(response[3] & 1)) {
-    unsigned char *poll_state;
+    unsigned char* poll_state;
 
     poll_state = Read(mpsse_, 1);
     response[3] = *poll_state;
@@ -120,8 +121,9 @@ void TrunksFtdiSpi::StartTransaction(bool read_write,
   free(response);
 }
 
-bool TrunksFtdiSpi::FtdiWriteReg(unsigned reg_number, size_t bytes,
-                                 const void *buffer) {
+bool TrunksFtdiSpi::FtdiWriteReg(unsigned reg_number,
+                                 size_t bytes,
+                                 const void* buffer) {
   if (!mpsse_)
     return false;
 
@@ -131,9 +133,10 @@ bool TrunksFtdiSpi::FtdiWriteReg(unsigned reg_number, size_t bytes,
   return true;
 }
 
-bool TrunksFtdiSpi::FtdiReadReg(unsigned reg_number, size_t bytes,
-                                void *buffer) {
-  unsigned char *value;
+bool TrunksFtdiSpi::FtdiReadReg(unsigned reg_number,
+                                size_t bytes,
+                                void* buffer) {
+  unsigned char* value;
 
   if (!mpsse_)
     return false;
@@ -188,7 +191,7 @@ bool TrunksFtdiSpi::Init() {
   cmd = requestUse;
   FtdiWriteReg(TPM_ACCESS_REG, sizeof(cmd), &cmd);
   FtdiReadReg(TPM_ACCESS_REG, sizeof(cmd), &cmd);
-  if ((cmd &  ~tpmEstablishment) != (tpmRegValidSts | activeLocality)) {
+  if ((cmd & ~tpmEstablishment) != (tpmRegValidSts | activeLocality)) {
     LOG(ERROR) << "failed to claim locality, status: 0x" << std::hex
                << (unsigned)cmd;
     return false;
@@ -213,7 +216,8 @@ void TrunksFtdiSpi::SendCommand(const std::string& command,
 }
 
 bool TrunksFtdiSpi::WaitForStatus(uint32_t statusMask,
-                                  uint32_t statusExpected, int timeout_ms) {
+                                  uint32_t statusExpected,
+                                  int timeout_ms) {
   uint32_t status;
   time_t target_time;
 
@@ -249,9 +253,8 @@ std::string TrunksFtdiSpi::SendCommandAndWait(const std::string& command) {
   // the minimum of the two values - burst_count and 64 (which is the protocol
   // limitation)
   do {
-    transaction_size = std::min(std::min(command.size() - handled_so_far,
-                                         GetBurstCount()),
-                                (size_t)64);
+    transaction_size = std::min(
+        std::min(command.size() - handled_so_far, GetBurstCount()), (size_t)64);
 
     if (transaction_size) {
       LOG(INFO) << "will transfer " << transaction_size << " bytes";
@@ -266,7 +269,7 @@ std::string TrunksFtdiSpi::SendCommandAndWait(const std::string& command) {
 
   expected_status_bits = stsValid | dataAvail;
   if (!WaitForStatus(expected_status_bits, expected_status_bits))
-      return rv;
+    return rv;
 
   // The response is ready, let's read it.
   // First we read the FIFO payload header, to see how much data to expect.
@@ -292,18 +295,16 @@ std::string TrunksFtdiSpi::SendCommandAndWait(const std::string& command) {
 
   LOG(INFO) << "Total payload size " << payload_size;
 
-
   // Let's read all but the last byte in the FIFO to make sure the status
   // register is showing correct flow control bits: 'more data' until the last
   // byte and then 'no more data' once the last byte is read.
   handled_so_far = 0;
   payload_size = payload_size - sizeof(data_header) - 1;
   // Allow room for the last byte too.
-  uint8_t *payload = new uint8_t[payload_size + 1];
+  uint8_t* payload = new uint8_t[payload_size + 1];
   do {
-    transaction_size = std::min(std::min(payload_size - handled_so_far,
-                                         GetBurstCount()),
-                                (size_t)64);
+    transaction_size = std::min(
+        std::min(payload_size - handled_so_far, GetBurstCount()), (size_t)64);
 
     if (transaction_size) {
       FtdiReadReg(TPM_DATA_FIFO_REG, transaction_size,
@@ -332,7 +333,7 @@ std::string TrunksFtdiSpi::SendCommandAndWait(const std::string& command) {
   }
 
   rv = std::string(data_header, sizeof(data_header)) +
-    std::string(reinterpret_cast<char *>(payload), payload_size + 1);
+       std::string(reinterpret_cast<char*>(payload), payload_size + 1);
 
   /* Move the TPM back to idle state. */
   WriteTpmSts(commandReady);

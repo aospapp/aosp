@@ -36,7 +36,7 @@ static void PrintEventTypesOfType(uint32_t type, const std::string& type_name,
       // Exclude kernel to list supported events even when
       // /proc/sys/kernel/perf_event_paranoid is 2.
       attr.exclude_kernel = 1;
-      if (IsEventAttrSupportedByKernel(attr)) {
+      if (IsEventAttrSupported(attr)) {
         printf("  %s\n", event_type.name.c_str());
       }
     }
@@ -65,6 +65,7 @@ bool ListCommand::Run(const std::vector<std::string>& args) {
       {"sw", {PERF_TYPE_SOFTWARE, "software events"}},
       {"cache", {PERF_TYPE_HW_CACHE, "hw-cache events"}},
       {"tracepoint", {PERF_TYPE_TRACEPOINT, "tracepoint events"}},
+      {"user-space-sampler", {SIMPLEPERF_TYPE_USER_SPACE_SAMPLERS, "user-space samplers"}},
   };
 
   std::vector<std::string> names;

@@ -58,20 +58,23 @@ public class AccessibilityGlobalActionsTest extends InstrumentationTestCase {
 
     @MediumTest
     public void testPerformGlobalActionRecents() throws Exception {
-        // Check whether the action succeeded.
-        assertTrue(getInstrumentation().getUiAutomation().performGlobalAction(
-                AccessibilityService.GLOBAL_ACTION_RECENTS));
+        // Perform the action.
+        boolean actionWasPerformed =
+                getInstrumentation().getUiAutomation().performGlobalAction(
+                        AccessibilityService.GLOBAL_ACTION_RECENTS);
 
         // Sleep a bit so the UI is settled.
         waitForIdle();
 
-        // This is a necessary since the back action does not
-        // dismiss recents until they stop animating. Sigh...
-        SystemClock.sleep(5000);
+        if (actionWasPerformed) {
+            // This is a necessary since the back action does not
+            // dismiss recents until they stop animating. Sigh...
+            SystemClock.sleep(5000);
 
-        // Clean up.
-        getInstrumentation().getUiAutomation().performGlobalAction(
-                AccessibilityService.GLOBAL_ACTION_BACK);
+            // Clean up.
+            getInstrumentation().getUiAutomation().performGlobalAction(
+                    AccessibilityService.GLOBAL_ACTION_BACK);
+        }
 
         // Sleep a bit so the UI is settled.
         waitForIdle();
@@ -104,8 +107,11 @@ public class AccessibilityGlobalActionsTest extends InstrumentationTestCase {
         waitForIdle();
 
         // Clean up.
+        // The GLOBAL_ACTION_HOME is needed in the case where additional
+        // notifications showing up, we need to clear them as well for the upcoming
+        // new tests to work properly.
         getInstrumentation().getUiAutomation().performGlobalAction(
-                AccessibilityService.GLOBAL_ACTION_BACK);
+                AccessibilityService.GLOBAL_ACTION_HOME);
 
         // Sleep a bit so the UI is settled.
         waitForIdle();

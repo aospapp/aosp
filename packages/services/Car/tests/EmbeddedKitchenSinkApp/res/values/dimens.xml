@@ -14,8 +14,14 @@
      limitations under the License.
 -->
 <resources>
+    <dimen name="hvacBtnHeight">60dp</dimen>
+    <dimen name="hvacBtnMargin">10dp</dimen>
+    <dimen name="hvacTextSize">24sp</dimen>
     <dimen name="rvcBtnHeight">40dp</dimen>
     <dimen name="rvcBtnWidth">150dp</dimen>
     <dimen name="rvcTextSize">10dp</dimen>
     <dimen name="rvcTvHeight">80dp</dimen>
+    <dimen name="radioInfoMargin">5dp</dimen>
+    <dimen name="sensorInfoMargin">5dp</dimen>
+    <dimen name="overview_icon_size">72dp</dimen>
 </resources>

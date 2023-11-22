@@ -17,8 +17,6 @@ urlpatterns = defaults.patterns(
         (RE_PREFIX + r'admin/', defaults.include(admin.site.urls)),
         (RE_PREFIX, defaults.include('frontend.afe.urls')),
         (TKO_RE_PREFIX, defaults.include('frontend.tko.urls')),
-        (RE_PREFIX + r'static/(?P<path>.*)', 'django.views.static.serve',
-         {'document_root': os.path.join(os.path.dirname(__file__), 'static')}),
     )
 
 if os.path.exists(os.path.join(os.path.dirname(__file__),

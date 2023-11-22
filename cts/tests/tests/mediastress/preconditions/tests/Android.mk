@@ -20,7 +20,7 @@ LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
 LOCAL_STATIC_JAVA_LIBRARIES := easymock
 
-LOCAL_JAVA_LIBRARIES := compatibility-host-util cts-tradefed tradefed-prebuilt compatibility-host-media-preconditions
+LOCAL_JAVA_LIBRARIES := compatibility-host-util cts-tradefed tradefed compatibility-host-media-preconditions
 
 LOCAL_MODULE_TAGS := optional
 

@@ -25,7 +25,7 @@ import android.support.v4.os.BuildCompat;
  */
 public class Sdk {
 
-    public static Feature N_PRE_2_OR_HIGHER =
+    public static final Feature N_PRE_2_OR_HIGHER =
             new SdkPreviewVersionFeature(Build.VERSION_CODES.M, 2, true);
 
     private static class SdkPreviewVersionFeature implements Feature {
@@ -56,7 +56,7 @@ public class Sdk {
         }
     }
 
-    public static Feature AT_LEAST_N = new Feature() {
+    public static final Feature AT_LEAST_N = new Feature() {
         @Override
         public boolean isEnabled(Context context) {
             return BuildCompat.isAtLeastN();

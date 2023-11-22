@@ -44,7 +44,7 @@
     <string name="connectivity_wifi" msgid="489974791299647708">"Wi-Fi"</string>
     <string name="connectivity_ethernet" msgid="2182407318634700320">"Ethernet"</string>
     <string name="wifi_setting_always_scan" msgid="8883713018717323351">"Uchanganuzi unapatika wakati wote"</string>
-    <string name="wifi_setting_always_scan_context" msgid="5588180043357910712">"Ruhusu huduma ya Google ya kutambua mahali na programu zingine zichanganue mitandao, hata wakati Wi-Fi imezimwa"</string>
+    <string name="wifi_setting_always_scan_context" msgid="398651204440349752">"Ruhusu huduma ya eneo la Google na programu nyingine kutafuta mitandao, hata wakati Wi-Fi imezimwa"</string>
     <string name="wifi_setting_enable_wifi" msgid="9214100840401870408">"Wi-Fi"</string>
     <string name="device_daydream" msgid="3354366974209179614">"Taswira ya skrini"</string>
     <string name="device_display" msgid="101455384386372747">"Onyesha"</string>
@@ -72,6 +72,8 @@
     <string name="accessory_battery" msgid="7021788232835772126">"Betri <xliff:g id="PERCENTAGE">%1$d</xliff:g>%%"</string>
     <string name="accessory_unpairing" msgid="7568241162181184667">"Inatenganisha kifaa..."</string>
     <string name="accessory_connected" msgid="2156489304110030393">"Umeunganishwa"</string>
+    <string name="accessory_change_name" msgid="8958916008739792785">"Badilisha jina"</string>
+    <string name="accessory_change_name_title" msgid="4630819456923061184">"Andika jina jipya la kifaa hiki cha kuongezwa"</string>
     <string name="accessories_add_title" msgid="6940361421891873321">"Inatafuta vifaa…"</string>
     <string name="accessories_add_bluetooth_inst" msgid="5892952745770640383">"Kabla hujaoanisha vifaa vyako vya Bluetooth, hakikisha vipo katika hali ya kuoanisha"</string>
     <string name="accessories_autopair_msg" msgid="8618829246837821752">"Kifaa kimepatikana na kitaoanisha otomatiki baada ya sekunde <xliff:g id="COUNTDOWN">%1$s</xliff:g>"</string>
@@ -91,6 +93,7 @@
     <string name="system_keyboard" msgid="7680159735294672514">"Kibodi"</string>
     <string name="system_home" msgid="2858989138172296012">"Skrini ya kwanza"</string>
     <string name="system_search" msgid="2837264654143247611">"Utafutaji"</string>
+    <string name="system_google" msgid="8560404305602209622">"Google"</string>
     <string name="system_security" msgid="8230080273993484407">"Usalama na vizuizi"</string>
     <string name="system_speech" msgid="8128688499687306982">"Usemi"</string>
     <string name="system_inputs" msgid="2413907183796651102">"Vifaa vya kuingiza sauti"</string>
@@ -98,6 +101,7 @@
     <string name="system_developer_options" msgid="3237985523474863638">"Chaguo za wasanidi programu"</string>
     <string name="accessibility_none" msgid="3441648940134070004">"Hakuna"</string>
     <string name="system_diagnostic" msgid="7269638365915225701">"Matumizi &amp; Uchunguzi"</string>
+    <string name="tutorials" msgid="3731493987558093244">"Mafunzo"</string>
     <string name="about_system_update" msgid="7282772247661356586">"Sasisho la mfumo"</string>
     <string name="about_preference" msgid="4131396784531360434">"Kuhusu"</string>
     <string name="device_name" msgid="2670488158531273028">"Jina la kifaa"</string>
@@ -372,6 +376,7 @@
     <string name="display_options" msgid="5504549024985225774">"Onyesha chaguo"</string>
     <string name="captions_configure" msgid="5537548915977371014">"Mipangilio"</string>
     <string name="captions_language" msgid="2835554055388996343">"Lugha"</string>
+    <string name="captions_language_default" msgid="8113979489252033676">"Chaguo-msingi"</string>
     <string name="captions_textsize" msgid="4828195509546070971">"Ukubwa wa maandishi"</string>
     <string name="captions_captionstyle" msgid="7423638523487868230">"Mtindo wa manukuu"</string>
     <string name="captions_customoptions" msgid="2699780648112330911">"Chaguo maalum"</string>
@@ -406,7 +411,7 @@
     <string name="system_accessibility_service_on_confirm_desc" msgid="1102358356500113060">"<xliff:g id="SERVICE">%1$s</xliff:g> inaweza kukusanya ujumbe wote unazochapa, isipokuwa manenosiri. Hii ni pamoja na data ya kibinafsi kama nambari za kadi ya mkopo."</string>
     <string name="system_accessibility_service_off_confirm_title" msgid="963297812889694832">"Je, ungependa kusimamisha <xliff:g id="SERVICE">%1$s</xliff:g>?"</string>
     <string name="system_accessibility_service_off_confirm_desc" msgid="6714782635926048678">"Kuchagua sawa kutasimamisha <xliff:g id="SERVICE">%1$s</xliff:g>."</string>
-    <string name="system_accessibility_tts_output" msgid="8905477795536714590">"Kubadilisha maandishi kwenda usemi"</string>
+    <string name="system_accessibility_tts_output" msgid="8905477795536714590">"Kusoma maandishi kwa sauti"</string>
     <string name="system_accessibility_tts_engine_config" msgid="5331139536083054552">"Kuweka mipangilio ya injini"</string>
     <string name="system_speak_passwords" msgid="5264650214879185873">"Tamka manenosiri"</string>
     <string name="system_preferred_engine" msgid="8258210139854655567">"Mtambo unaopendelewa"</string>
@@ -448,7 +453,6 @@
     <string name="system_transition_animation_scale" msgid="2964817709721784757">"Mizani ya ubadilikaji wa uhuishaji"</string>
     <string name="system_animator_duration_scale" msgid="7413512458963984521">"Mizani ya muda wa uhuishaji"</string>
     <string name="system_strict_mode_enabled" msgid="5728680397806673270">"Modi makinifu imewezeshwa"</string>
-    <string name="system_show_cpu_usage" msgid="4797599582027671138">"Onyesha matumizi ya CPU"</string>
     <string name="system_profile_gpu_rendering" msgid="3438771015102629799">"Utungilizaji wa wasifu wa GPU"</string>
     <string name="system_enable_traces" msgid="4038210655699986482">"Washa ufuatiliaji"</string>
     <string name="system_dont_keep_activities" msgid="7906911077198718958">"Usihifadhi shughuli"</string>
@@ -466,7 +470,6 @@
     <string name="system_desc_show_gpu_overdraw" msgid="8204945204510618865">"Kutoka kwa bora hadi mbovu: samawati, kijani, nyekundu hafifu, nyekundu"</string>
     <string name="system_desc_show_surface_updates" msgid="8177734845253807688">"Angaza eneo lote la dirisha linaposasisha"</string>
     <string name="system_desc_strict_mode_enabled" msgid="4647420860235689510">"Mulika skrini wakati programu zinafanya uendeshaji mrefu kwenye mtungo mkuu"</string>
-    <string name="system_desc_show_cpu_usage" msgid="6151280238151381703">"Wekelea skrini ikionyesha matumizi ya sasa ya CPU"</string>
     <string name="system_desc_profile_gpu_rendering" msgid="2836283129486718887">"Pima muda wa kutungiliza katika adp shell dumpys gfxinfo"</string>
     <string name="action_on_title" msgid="6852389884236870765">"Washa"</string>
     <string name="action_off_title" msgid="3157728958166559966">"Zima"</string>
@@ -598,7 +601,6 @@
     <string name="device_apps_app_management_force_stop" msgid="9195433885986760867">"Lazimisha kuzima"</string>
     <string name="device_apps_app_management_force_stop_desc" msgid="3616902338964109665">"Ukilazimisha programu kuzima, inaweza kutofanya vizuri."</string>
     <string name="device_apps_app_management_uninstall" msgid="531427430753359746">"Ondoa"</string>
-    <string name="device_apps_app_management_uninstall_desc" msgid="1104982472633576960">"Unataka kuondoa programu hii?"</string>
     <string name="device_apps_app_management_uninstall_updates" msgid="5151008748970915803">"Sanidua masasisho"</string>
     <string name="device_apps_app_management_uninstall_updates_desc" msgid="9165160845303755321">"Masasisho yote ya programu hii ya mfumo wa Android yataondolewa."</string>
     <string name="device_apps_app_management_disable" msgid="6136528600052941589">"Zima"</string>
@@ -615,6 +617,7 @@
     <string name="device_apps_app_management_clear_cache" msgid="5392413180421013865">"Futa akiba"</string>
     <string name="device_apps_app_management_notifications" msgid="7291960671957440729">"Arifa"</string>
     <string name="device_apps_app_management_permissions" msgid="1829808830974726081">"Ruhusa"</string>
+    <string name="device_apps_app_management_not_available" msgid="1249731776661207047">"Programu haipatikani"</string>
     <string name="settings_ok" msgid="3321630456511355983">"SAWA"</string>
     <string name="settings_cancel" msgid="304280412158061225">"Ghairi"</string>
     <string name="settings_on" msgid="6892236264945435013">"Washa"</string>
@@ -638,17 +641,14 @@
     <string name="confirm_factory_reset_description" msgid="1049842658625287303">"Unataka kufuta maelezo yako yote ya kibinafsi na programu zilizopakuliwa? Huwezi kutendua hatua hii!"</string>
     <string name="confirm_factory_reset_device" msgid="8923287482399582268">"Futa kila kitu"</string>
     <string name="select_device_name_title" msgid="5165800500130943604">"Chagua jina la <xliff:g id="DEVICEMODEL">%1$s</xliff:g> yako"</string>
-    <string name="select_device_name_description" msgid="2697127827643821315">"Jina litasaidia kutambua <xliff:g id="DEVICEMODEL">%1$s</xliff:g> yako unapoifikia ukitumia vifaa vingine kama vile simu, kompyuta kibao au kompyuta yako."</string>
+    <string name="select_device_name_description" msgid="6890879006777364213">"Ipe jina <xliff:g id="DEVICEMODEL">%1$s</xliff:g> yako ili uweze kuitambua unapoitumia kutuma maudhui au kuunganisha kwenye vifaa vingine."</string>
   <string-array name="rooms">
-    <item msgid="7085399612393981553">"Sebuleni"</item>
-    <item msgid="3722089849939477581">"Chumba cha Burudani"</item>
-    <item msgid="6108590585438763574">"Chumba cha Familia"</item>
-    <item msgid="2581035245390468625">"Chumba cha Maakuli"</item>
-    <item msgid="3127487827308695324">"Chumba cha Faragha"</item>
-    <item msgid="6172018430592195063">"Chumba cha kulala"</item>
-    <item msgid="8120010459866284578">"Jikoni"</item>
+    <item msgid="9056203990862307284">"Android TV"</item>
+    <item msgid="7449352861592960712">"TV ya Sebuleni"</item>
+    <item msgid="8122798759665439456">"TV ya Chumba cha Burudani"</item>
+    <item msgid="1389347662738182100">"TV ya Chumba cha Kulala"</item>
   </string-array>
-    <string name="custom_room" msgid="8991561978321502549">"Weka Jina Maalum..."</string>
+    <string name="custom_room" msgid="8655516733933892458">"Weka jina maalum..."</string>
     <string name="device_rename_title" msgid="2629557295786267185">"Badilisha jina la <xliff:g id="DEVICEMODEL">%1$s</xliff:g> hii"</string>
     <string name="device_rename_description" msgid="2461752788563877107">"<xliff:g id="DEVICEMODEL">%1$s</xliff:g> hii kwa sasa inaitwa \"<xliff:g id="DEVICENAME">%2$s</xliff:g>\""</string>
     <string name="change_setting" msgid="2047402388786162246">"Badilisha"</string>
@@ -663,4 +663,7 @@
     <string name="reboot_safemode_action" msgid="8129550438717110406">"Washa tena katika hali salama"</string>
     <string name="reboot_safemode_confirm" msgid="3329475617645192086">"Ungependa kuwasha tena katika hali salama?"</string>
     <string name="reboot_safemode_desc" msgid="5031024337104679492">"Hali hii itazima programu zote za waundaji wengine ambazo umesakinisha. Zitarejeshwa utakapowasha tena."</string>
+    <string name="capturing_bugreport" msgid="3291125403411239592">"Inarekodi ripoti ya hitilafu"</string>
+    <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"Kibodi pepe zinazopatikana"</string>
+    <string name="manage_keyboards" msgid="1905379263117016795">"Dhibiti kibodi"</string>
 </resources>

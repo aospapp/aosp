@@ -245,45 +245,61 @@ class AsyncDBusMethodInvokerTest : public testing::Test {
     LOG(FATAL) << "Unexpected method call: " << method_call->ToString();
   }
 
-  struct SuccessCallback {
-    SuccessCallback(const std::string& in_result, int* in_counter)
-        : result(in_result), counter(in_counter) {}
+  base::Callback<void(const std::string&)> SuccessCallback(
+      const std::string& in_result, int* in_counter) {
+    return base::Bind(
+        [](const std::string& result,
+           int* counter,
+           const std::string& actual_result) {
+          (*counter)++;
+          EXPECT_EQ(result, actual_result);
+        },
+        in_result,
+        base::Unretained(in_counter));
+  }
 
-    explicit SuccessCallback(int* in_counter) : counter(in_counter) {}
+  base::Callback<void(const std::string&)> SuccessCallback(int* in_counter) {
+    return base::Bind(
+        [](int* counter, const std::string& actual_result) {
+          (*counter)++;
+          EXPECT_EQ("", actual_result);
+        },
+        base::Unretained(in_counter));
+  }
 
-    void operator()(const std::string& actual_result) {
-      (*counter)++;
-      EXPECT_EQ(result, actual_result);
-    }
-    std::string result;
-    int* counter;
-  };
+  AsyncErrorCallback ErrorCallback(int* in_counter) {
+    return base::Bind(
+        [](int* counter, brillo::Error* error) {
+          (*counter)++;
+          EXPECT_NE(nullptr, error);
+          EXPECT_EQ("", error->GetDomain());
+          EXPECT_EQ("", error->GetCode());
+          EXPECT_EQ("", error->GetMessage());
+        },
+        base::Unretained(in_counter));
+  }
 
-  struct ErrorCallback {
-    ErrorCallback(const std::string& in_domain,
-                  const std::string& in_code,
-                  const std::string& in_message,
-                  int* in_counter)
-        : domain(in_domain),
-          code(in_code),
-          message(in_message),
-          counter(in_counter) {}
-
-    explicit ErrorCallback(int* in_counter) : counter(in_counter) {}
-
-    void operator()(brillo::Error* error) {
-      (*counter)++;
-      EXPECT_NE(nullptr, error);
-      EXPECT_EQ(domain, error->GetDomain());
-      EXPECT_EQ(code, error->GetCode());
-      EXPECT_EQ(message, error->GetMessage());
-    }
-
-    std::string domain;
-    std::string code;
-    std::string message;
-    int* counter;
-  };
+  AsyncErrorCallback ErrorCallback(const std::string& domain,
+                                   const std::string& code,
+                                   const std::string& message,
+                                   int* in_counter) {
+    return base::Bind(
+        [](const std::string& domain,
+           const std::string& code,
+           const std::string& message,
+           int* counter,
+           brillo::Error* error) {
+          (*counter)++;
+          EXPECT_NE(nullptr, error);
+          EXPECT_EQ(domain, error->GetDomain());
+          EXPECT_EQ(code, error->GetCode());
+          EXPECT_EQ(message, error->GetMessage());
+        },
+        domain,
+        code,
+        message,
+        base::Unretained(in_counter));
+  }
 
   scoped_refptr<dbus::MockBus> bus_;
   scoped_refptr<dbus::MockObjectProxy> mock_object_proxy_;
@@ -296,22 +312,22 @@ TEST_F(AsyncDBusMethodInvokerTest, TestSuccess) {
       mock_object_proxy_.get(),
       kTestInterface,
       kTestMethod1,
-      base::Bind(SuccessCallback{"4", &success_count}),
-      base::Bind(ErrorCallback{&error_count}),
+      base::Bind(SuccessCallback("4", &success_count)),
+      base::Bind(ErrorCallback(&error_count)),
       2, 2);
   brillo::dbus_utils::CallMethod(
       mock_object_proxy_.get(),
       kTestInterface,
       kTestMethod1,
-      base::Bind(SuccessCallback{"10", &success_count}),
-      base::Bind(ErrorCallback{&error_count}),
+      base::Bind(SuccessCallback("10", &success_count)),
+      base::Bind(ErrorCallback(&error_count)),
       3, 7);
   brillo::dbus_utils::CallMethod(
       mock_object_proxy_.get(),
       kTestInterface,
       kTestMethod1,
-      base::Bind(SuccessCallback{"-4", &success_count}),
-      base::Bind(ErrorCallback{&error_count}),
+      base::Bind(SuccessCallback("-4", &success_count)),
+      base::Bind(ErrorCallback(&error_count)),
       13, -17);
   EXPECT_EQ(0, error_count);
   EXPECT_EQ(3, success_count);
@@ -324,11 +340,11 @@ TEST_F(AsyncDBusMethodInvokerTest, TestFailure) {
       mock_object_proxy_.get(),
       kTestInterface,
       kTestMethod2,
-      base::Bind(SuccessCallback{&success_count}),
-      base::Bind(ErrorCallback{brillo::errors::dbus::kDomain,
+      base::Bind(SuccessCallback(&success_count)),
+      base::Bind(ErrorCallback(brillo::errors::dbus::kDomain,
                                "org.MyError",
                                "My error message",
-                               &error_count}),
+                               &error_count)),
       2, 2);
   EXPECT_EQ(1, error_count);
   EXPECT_EQ(0, success_count);

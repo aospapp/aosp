@@ -16,8 +16,8 @@
  */
 #include <jni.h>
 
-#include <utils/Log.h>
 #define LOG_TAG "CtsViewJniOnLoad"
+#include <utils/Log.h>
 
 extern int register_android_view_cts_ChoreographerNativeTest(JNIEnv* env);
 

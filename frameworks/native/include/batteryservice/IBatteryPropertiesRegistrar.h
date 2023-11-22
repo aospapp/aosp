@@ -27,15 +27,17 @@ enum {
     REGISTER_LISTENER = IBinder::FIRST_CALL_TRANSACTION,
     UNREGISTER_LISTENER,
     GET_PROPERTY,
+    SCHEDULE_UPDATE,
 };
 
 class IBatteryPropertiesRegistrar : public IInterface {
 public:
-    DECLARE_META_INTERFACE(BatteryPropertiesRegistrar);
+    DECLARE_META_INTERFACE(BatteryPropertiesRegistrar)
 
     virtual void registerListener(const sp<IBatteryPropertiesListener>& listener) = 0;
     virtual void unregisterListener(const sp<IBatteryPropertiesListener>& listener) = 0;
     virtual status_t getProperty(int id, struct BatteryProperty *val) = 0;
+    virtual void scheduleUpdate() = 0;
 };
 
 class BnBatteryPropertiesRegistrar : public BnInterface<IBatteryPropertiesRegistrar> {

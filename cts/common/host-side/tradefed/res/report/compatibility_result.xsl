@@ -82,9 +82,15 @@
                             </td>
                         </tr>
                         <tr>
-                            <td class="rowtitle">Tests Not Executed</td>
+                            <td class="rowtitle">Modules Done</td>
                             <td>
-                                <xsl:value-of select="Result/Summary/@not_executed"/>
+                                <xsl:value-of select="Result/Summary/@modules_done"/>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="rowtitle">Modules Total</td>
+                            <td>
+                                <xsl:value-of select="Result/Summary/@modules_total"/>
                             </td>
                         </tr>
                         <tr>
@@ -122,14 +128,14 @@
                             <th>Module</th>
                             <th>Passed</th>
                             <th>Failed</th>
-                            <th>Not Executed</th>
                             <th>Total Tests</th>
+                            <th>Done</th>
                         </tr>
                         <xsl:for-each select="Result/Module">
                             <tr>
                                 <td>
-                                    <xsl:variable name="href"><xsl:value-of select="@name"/> - <xsl:value-of select="@abi"/></xsl:variable>
-                                    <a href="#{$href}"><xsl:value-of select="@name"/> - <xsl:value-of select="@abi"/></a>
+                                    <xsl:variable name="href"><xsl:value-of select="@abi"/>&#xA0;<xsl:value-of select="@name"/></xsl:variable>
+                                    <a href="#{$href}"><xsl:value-of select="@abi"/>&#xA0;<xsl:value-of select="@name"/></a>
                                 </td>
                                 <td>
                                     <xsl:value-of select="count(TestCase/Test[@result = 'pass'])"/>
@@ -138,10 +144,10 @@
                                     <xsl:value-of select="count(TestCase/Test[@result = 'fail'])"/>
                                 </td>
                                 <td>
-                                    <xsl:value-of select="count(TestCase/Test[@result = 'not_executed'])"/>
+                                    <xsl:value-of select="count(TestCase/Test)"/>
                                 </td>
                                 <td>
-                                    <xsl:value-of select="count(TestCase/Test)"/>
+                                    <xsl:value-of select="@done"/>
                                 </td>
                             </tr>
                         </xsl:for-each> <!-- end Module -->
@@ -149,7 +155,7 @@
                 </div>
 
                 <xsl:call-template name="filteredResultTestReport">
-                    <xsl:with-param name="header" select="'Failured Tests'" />
+                    <xsl:with-param name="header" select="'Failed Tests'" />
                     <xsl:with-param name="resultFilter" select="'fail'" />
                 </xsl:call-template>
 
@@ -168,27 +174,29 @@
     <xsl:template name="filteredResultTestReport">
         <xsl:param name="header" />
         <xsl:param name="resultFilter" />
-        <xsl:variable name="numMatching" select="count(Result/Module/Test[@result=$resultFilter])" />
+        <xsl:variable name="numMatching" select="count(Result/Module/TestCase/Test[@result=$resultFilter])" />
         <xsl:if test="$numMatching &gt; 0">
             <h2 align="center"><xsl:value-of select="$header" /> (<xsl:value-of select="$numMatching"/>)</h2>
             <xsl:call-template name="detailedTestReport">
                 <xsl:with-param name="resultFilter" select="$resultFilter"/>
+                <xsl:with-param name="fullStackTrace" select="true()"/>
             </xsl:call-template>
         </xsl:if>
     </xsl:template>
 
     <xsl:template name="detailedTestReport">
         <xsl:param name="resultFilter" />
+        <xsl:param name="fullStackTrace" />
         <div>
             <xsl:for-each select="Result/Module">
                 <xsl:if test="$resultFilter=''
-                        or count(Test[@result=$resultFilter]) &gt; 0">
+                        or count(TestCase/Test[@result=$resultFilter]) &gt; 0">
 
                     <table class="testdetails">
                         <tr>
                             <td class="module" colspan="3">
-                                <xsl:variable name="href"><xsl:value-of select="@name"/> - <xsl:value-of select="@abi"/></xsl:variable>
-                                <a name="{$href}"><xsl:value-of select="@name"/> - <xsl:value-of select="@abi"/></a>
+                                <xsl:variable name="href"><xsl:value-of select="@abi"/>&#xA0;<xsl:value-of select="@name"/></xsl:variable>
+                                <a name="{$href}"><xsl:value-of select="@abi"/>&#xA0;<xsl:value-of select="@name"/></a>
                             </td>
                         </tr>
 
@@ -202,7 +210,7 @@
                             <xsl:variable name="TestCase" select="."/>
                             <!-- test -->
                             <xsl:for-each select="Test">
-                                <xsl:if test="$resultFilter='' or $resultFilter=@result">
+                                <xsl:if test="$resultFilter='' or @result=$resultFilter">
                                     <tr>
                                         <td class="testname"> <xsl:value-of select="$TestCase/@name"/>#<xsl:value-of select="@name"/></td>
 
@@ -224,7 +232,14 @@
                                             </td>
                                             <td class="failuredetails">
                                                 <div class="details">
-                                                    <xsl:value-of select="Failure/@message"/>
+                                                    <xsl:choose>
+                                                        <xsl:when test="$fullStackTrace=true()">
+                                                            <xsl:value-of select="Failure/StackTrace" />
+                                                        </xsl:when>
+                                                        <xsl:otherwise>
+                                                            <xsl:value-of select="Failure/@message"/>
+                                                        </xsl:otherwise>
+                                                    </xsl:choose>
                                                 </div>
                                             </td>
                                         </xsl:if>

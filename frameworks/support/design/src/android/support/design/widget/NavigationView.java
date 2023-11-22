@@ -16,6 +16,8 @@
 
 package android.support.design.widget;
 
+import static android.support.annotation.RestrictTo.Scope.LIBRARY_GROUP;
+
 import android.content.Context;
 import android.content.res.ColorStateList;
 import android.graphics.drawable.Drawable;
@@ -27,14 +29,13 @@ import android.support.annotation.IdRes;
 import android.support.annotation.LayoutRes;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.support.annotation.RestrictTo;
 import android.support.annotation.StyleRes;
 import android.support.design.R;
 import android.support.design.internal.NavigationMenu;
 import android.support.design.internal.NavigationMenuPresenter;
 import android.support.design.internal.ScrimInsetsFrameLayout;
 import android.support.v4.content.ContextCompat;
-import android.support.v4.os.ParcelableCompat;
-import android.support.v4.os.ParcelableCompatCreatorCallbacks;
 import android.support.v4.view.AbsSavedState;
 import android.support.v4.view.ViewCompat;
 import android.support.v4.view.WindowInsetsCompat;
@@ -84,7 +85,7 @@ public class NavigationView extends ScrimInsetsFrameLayout {
     private final NavigationMenu mMenu;
     private final NavigationMenuPresenter mPresenter = new NavigationMenuPresenter();
 
-    private OnNavigationItemSelectedListener mListener;
+    OnNavigationItemSelectedListener mListener;
     private int mMaxWidth;
 
     private MenuInflater mMenuInflater;
@@ -110,8 +111,8 @@ public class NavigationView extends ScrimInsetsFrameLayout {
                 R.styleable.NavigationView, defStyleAttr,
                 R.style.Widget_Design_NavigationView);
 
-        //noinspection deprecation
-        setBackgroundDrawable(a.getDrawable(R.styleable.NavigationView_android_background));
+        ViewCompat.setBackground(
+                this, a.getDrawable(R.styleable.NavigationView_android_background));
         if (a.hasValue(R.styleable.NavigationView_elevation)) {
             ViewCompat.setElevation(this, a.getDimensionPixelSize(
                     R.styleable.NavigationView_elevation, 0));
@@ -229,6 +230,7 @@ public class NavigationView extends ScrimInsetsFrameLayout {
     /**
      * @hide
      */
+    @RestrictTo(LIBRARY_GROUP)
     @Override
     protected void onInsetsChanged(WindowInsetsCompat insets) {
         mPresenter.dispatchApplyWindowInsets(insets);
@@ -471,18 +473,22 @@ public class NavigationView extends ScrimInsetsFrameLayout {
             dest.writeBundle(menuState);
         }
 
-        public static final Parcelable.Creator<SavedState> CREATOR
-                = ParcelableCompat.newCreator(new ParcelableCompatCreatorCallbacks<SavedState>() {
+        public static final Creator<SavedState> CREATOR = new ClassLoaderCreator<SavedState>() {
             @Override
-            public SavedState createFromParcel(Parcel parcel, ClassLoader loader) {
-                return new SavedState(parcel, loader);
+            public SavedState createFromParcel(Parcel in, ClassLoader loader) {
+                return new SavedState(in, loader);
+            }
+
+            @Override
+            public SavedState createFromParcel(Parcel in) {
+                return new SavedState(in, null);
             }
 
             @Override
             public SavedState[] newArray(int size) {
                 return new SavedState[size];
             }
-        });
+        };
     }
 
 }

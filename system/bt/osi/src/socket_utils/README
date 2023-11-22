@@ -14,23 +14,28 @@
  * limitations under the License.
  */
 
-The sources in this folder re-implement some of the sources in libcutils/sockets
-to provide a short-term solution eliminating libcutils dependency from
-system/bt. Once a long-term platform-independent abstraction is presented, these
-sources and the corresponding headers should be removed.
+The sources in this folder re -
+    implement some of the sources in libcutils / sockets to provide a short -
+    term solution eliminating libcutils dependency from system /
+        bt.Once a long -
+    term platform - independent abstraction is presented,
+    these sources and the corresponding headers should be removed.
 
-Note that only a part of the source files are pulled from libcutils/sockets, and
-"osi_" prefix is added to all functions. The developers who want to pull sockets
-sources other than the existing ones must put the sources in this folder and
-refactor the functions as well.
+        Note that only a part of the source files are pulled from libcutils /
+        sockets,
+    and"osi_" prefix is added to all functions
+            .The developers who want to pull sockets sources other than the
+                existing ones must put the sources in this folder and refactor
+                    the functions as well.
 
-The current sources include:
+        The current sources include :
 
-[Headers]
- - osi/include/socket_utils/sockets.h
- - osi/include/socket_utils/socket_local.h
-[Source files]
- - osi/src/socket_utils/socket_local_client.c
- - osi/src/socket_utils/socket_local_server.c
+        [Headers] -
+        osi / include / socket_utils / sockets.h -
+        osi / include / socket_utils / socket_local.h[Source files] -
+        osi / src / socket_utils / socket_local_client.cc -
+        osi / src / socket_utils /
+            socket_local_server
+                .cc
 
-Please update the above list if adding more sources.
+                    Please update the above list if adding more sources.

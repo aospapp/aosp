@@ -20,19 +20,25 @@
  * netfilter/xt_qtaguid kernel module somewhat behaves as expected
  * with respect to tagging sockets.
  */
+
+#define LOG_TAG "socketTagTest"
+
 #include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <gtest/gtest.h>
+#include <string>
 #include <sys/socket.h>
 #include <sys/types.h>
-#include <string>
 
-#define LOG_TAG "socketTagTest"
+#include <fstream>
+
+#include <android-base/stringprintf.h>
+#include <gtest/gtest.h>
 #include <utils/Log.h>
+
 #include <testUtil.h>
 
 namespace android {
@@ -131,60 +137,47 @@ int SockInfo::setup(uint64_t tag) {
  * Returns: true if tag found.
  */
 bool SockInfo::checkTag(uint64_t acct_tag, uid_t uid) {
-    int ctrl_fd;
-    ctrl_fd = openCtrl();
-    char ctrl_data[1024];
-    ssize_t read_size;
-    char *buff;
-    char *pos;
     int res;
-    char *match_template;
     uint64_t k_tag;
     uint32_t k_uid;
-    uint64_t full_tag;
     long dummy_count;
     pid_t dummy_pid;
 
-    read_size = read(ctrl_fd, ctrl_data, sizeof(ctrl_data));
-    if (read_size < 0) {
-       testPrintE("Unable to read active tags from ctrl %d/%s",
-                  errno, strerror(errno));
+    std::ifstream fctrl("/proc/net/xt_qtaguid/ctrl", std::fstream::in);
+    if(!fctrl.is_open()) {
+        testPrintI("qtaguid ctrl open failed!");
     }
-    ctrl_data[read_size] = '\0';
-    testPrintI("<ctrl_raw_data>\n%s</ctrl_raw_data>", ctrl_data);
 
+    uint64_t full_tag = acct_tag | uid;
+    std::string buff = android::base::StringPrintf(" tag=0x%" PRIx64 " (uid=%u)", full_tag, uid);
     if (addr) {
-        assert(sizeof(void*) == sizeof(long int));  // Why does %p use 0x? grrr. %lx.
-        asprintf(&match_template, "sock=%" PRIxPTR " %s", (uintptr_t)addr, "tag=0x%" PRIx64" (uid=%u)");
-    }
-    else {
-        /* Allocate for symmetry */
-        asprintf(&match_template, "%s", " tag=0x%" PRIx64 " (uid=%u)");
+          buff = android::base::StringPrintf("sock=%" PRIxPTR, (uintptr_t)addr) + buff;
     }
 
-    full_tag = acct_tag | uid;
-
-    asprintf(&buff, match_template, full_tag | uid, uid);
-    testPrintI("looking for '%s'", buff);
-    pos = strstr(ctrl_data, buff);
-
-    if (pos && !addr) {
-        assert(sizeof(void*) == sizeof(long int));  // Why does %p use 0x? grrr. %lx.
-        res = sscanf(pos - strlen("sock=1234abcd"),
-                     "sock=%" SCNxPTR " tag=0x%" SCNx64 " (uid=%" SCNu32 ") pid=%u f_count=%lu",
-                     (uintptr_t *)&addr, &k_tag, &k_uid, &dummy_pid, &dummy_count );
-        if (!(res == 5 && k_tag == full_tag && k_uid == uid)) {
-            testPrintE("Unable to read sock addr res=%d", res);
-           addr = 0;
+    testPrintI("looking for '%s'", buff.c_str());
+    std::string ctrl_data;
+    std::size_t pos = std::string::npos;
+    while(std::getline(fctrl, ctrl_data)) {
+        testPrintI("<ctrl_raw_data> : %s", ctrl_data.c_str());
+        pos = ctrl_data.find(buff);
+        if (pos != std::string::npos) {
+            if(!addr) {
+                testPrintI("matched data : %s", ctrl_data.c_str());
+                assert(sizeof(void*) == sizeof(long int));
+                res = sscanf(ctrl_data.c_str(),
+                            "sock=%" SCNxPTR " tag=0x%" SCNx64 " (uid=%" SCNu32 ") pid=%u f_count=%lu",
+                            (uintptr_t *)&addr, &k_tag, &k_uid, &dummy_pid, &dummy_count );
+                if (!(res == 5 && k_tag == full_tag && k_uid == uid)) {
+                    testPrintE("Unable to read sock addr res=%d", res);
+                    addr = 0;
+                } else {
+                    testPrintI("Got sock_addr %lx", addr);
+                }
+            }
+            break;
         }
-        else {
-            testPrintI("Got sock_addr %lx", addr);
-        }
     }
-    free(buff);
-    free(match_template);
-    close(ctrl_fd);
-    return pos != NULL;
+    return pos != std::string::npos;
 }
 
 

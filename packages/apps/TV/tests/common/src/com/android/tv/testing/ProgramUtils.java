@@ -20,6 +20,7 @@ import android.content.ContentUris;
 import android.content.ContentValues;
 import android.content.Context;
 import android.database.Cursor;
+import android.database.sqlite.SQLiteException;
 import android.media.tv.TvContract;
 import android.media.tv.TvContract.Programs;
 import android.net.Uri;
@@ -66,8 +67,12 @@ public class ProgramUtils {
             ProgramInfo programAt = program.build(context, index++);
             values.put(Programs.COLUMN_TITLE, programAt.title);
             values.put(Programs.COLUMN_EPISODE_TITLE, programAt.episode);
-            values.put(Programs.COLUMN_SEASON_NUMBER, programAt.seasonNumber);
-            values.put(Programs.COLUMN_EPISODE_NUMBER, programAt.episodeNumber);
+            if (programAt.seasonNumber != 0) {
+                values.put(Programs.COLUMN_SEASON_NUMBER, programAt.seasonNumber);
+            }
+            if (programAt.episodeNumber != 0) {
+                values.put(Programs.COLUMN_EPISODE_NUMBER, programAt.episodeNumber);
+            }
             values.put(Programs.COLUMN_POSTER_ART_URI, programAt.posterArtUri);
             values.put(Programs.COLUMN_START_TIME_UTC_MILLIS, timeMs);
             values.put(Programs.COLUMN_END_TIME_UTC_MILLIS, timeMs + programAt.durationMs);
@@ -78,8 +83,13 @@ public class ProgramUtils {
 
             if (list.size() >= MAX_DB_INSERT_COUNT_AT_ONCE
                     || timeMs >= targetEndTimeMs) {
-                context.getContentResolver().bulkInsert(Programs.CONTENT_URI,
-                        list.toArray(new ContentValues[list.size()]));
+                try {
+                    context.getContentResolver().bulkInsert(Programs.CONTENT_URI,
+                            list.toArray(new ContentValues[list.size()]));
+                } catch (SQLiteException e) {
+                    Log.e(TAG, "Can't insert EPG.", e);
+                    return;
+                }
                 if (DEBUG) Log.d(TAG, "Inserted " + list.size() + " programs for " + channelUri);
                 list.clear();
             }

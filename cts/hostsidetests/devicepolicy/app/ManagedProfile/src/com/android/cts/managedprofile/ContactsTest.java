@@ -27,6 +27,7 @@ import android.content.OperationApplicationException;
 import android.content.res.Resources;
 import android.content.res.Resources.NotFoundException;
 import android.database.Cursor;
+import android.database.DatabaseUtils;
 import android.graphics.Rect;
 import android.net.Uri;
 import android.os.Build;
@@ -81,6 +82,10 @@ public class ContactsTest extends AndroidTestCase {
     private static final String MANAGED_DIRECTORY_NAME = "ManagedDirectory";
     private static final String PRIMARY_DIRECTORY_CONTACT_NAME = "PrimaryDirectoryContact";
     private static final String MANAGED_DIRECTORY_CONTACT_NAME = "ManagedDirectoryContact";
+
+    // Directory Authority
+    private static final String DIRECTORY_PROVIDER_AUTHORITY = "com.android.cts.contact.directory.provider";
+
 
     // Retry directory query so we can make sure directory info in cp2 is updated
     private static final int MAX_RETRY_DIRECTORY_QUERY = 10;
@@ -525,37 +530,40 @@ public class ContactsTest extends AndroidTestCase {
             boolean hasPrimaryDirectory = false;
             boolean hasManagedDirectory = false;
 
-            while(cursor.moveToNext()) {
-                final long directoryId = cursor.getLong(0);
-                if (directoryId == Directory.DEFAULT) {
-                    hasPrimaryDefault = true;
-                } else if (directoryId == Directory.LOCAL_INVISIBLE) {
-                    hasPrimaryInvisible = true;
-                } else if (directoryId == Directory.ENTERPRISE_DEFAULT) {
-                    hasManagedDefault = true;
-                } else if (directoryId == Directory.ENTERPRISE_LOCAL_INVISIBLE) {
-                    hasManagedInvisible = true;
-                } else {
-                    final String displayName = cursor.getString(1);
-                    if (Directory.isEnterpriseDirectoryId(directoryId)
-                            && displayName.equals(MANAGED_DIRECTORY_NAME)) {
-                        hasManagedDirectory = true;
-                    }
-                    if (!Directory.isEnterpriseDirectoryId(directoryId)
-                            && displayName.equals(PRIMARY_DIRECTORY_NAME)) {
-                        hasPrimaryDirectory = true;
+            try {
+                while(cursor.moveToNext()) {
+                    final long directoryId = cursor.getLong(0);
+                    if (directoryId == Directory.DEFAULT) {
+                        hasPrimaryDefault = true;
+                    } else if (directoryId == Directory.LOCAL_INVISIBLE) {
+                        hasPrimaryInvisible = true;
+                    } else if (directoryId == Directory.ENTERPRISE_DEFAULT) {
+                        hasManagedDefault = true;
+                    } else if (directoryId == Directory.ENTERPRISE_LOCAL_INVISIBLE) {
+                        hasManagedInvisible = true;
+                    } else {
+                        final String displayName = cursor.getString(1);
+                        if (Directory.isEnterpriseDirectoryId(directoryId)
+                                && displayName.equals(MANAGED_DIRECTORY_NAME)) {
+                            hasManagedDirectory = true;
+                        }
+                        if (!Directory.isEnterpriseDirectoryId(directoryId)
+                                && displayName.equals(PRIMARY_DIRECTORY_NAME)) {
+                            hasPrimaryDirectory = true;
+                        }
                     }
                 }
-            }
-            cursor.close();
-
-            if (i + 1 == MAX_RETRY_DIRECTORY_QUERY) {
-                assertTrue(hasPrimaryDefault);
-                assertTrue(hasPrimaryInvisible);
-                assertTrue(hasManagedDefault);
-                assertTrue(hasManagedInvisible);
-                assertTrue(hasPrimaryDirectory);
-                assertTrue(hasManagedDirectory);
+                if (i + 1 == MAX_RETRY_DIRECTORY_QUERY) {
+                    DatabaseUtils.dumpCursor(cursor);
+                    assertTrue(hasPrimaryDefault);
+                    assertTrue(hasPrimaryInvisible);
+                    assertTrue(hasManagedDefault);
+                    assertTrue(hasManagedInvisible);
+                    assertTrue(hasPrimaryDirectory);
+                    assertTrue(hasManagedDirectory);
+                }
+            } finally {
+                cursor.close();
             }
             if (hasPrimaryDefault && hasPrimaryInvisible && hasManagedDefault
                     && hasManagedInvisible && hasPrimaryDirectory && hasManagedDirectory) {
@@ -975,13 +983,15 @@ public class ContactsTest extends AndroidTestCase {
     private long getRemoteDirectoryIdInternal() {
         final Cursor cursor = mResolver.query(Directory.ENTERPRISE_CONTENT_URI,
                 new String[]{
-                        Directory._ID
+                        Directory._ID, Directory.DIRECTORY_AUTHORITY
                 }, null, null, null);
         try {
             while (cursor.moveToNext()) {
                 final long directoryId = cursor.getLong(0);
+                final String directoryAuthority = cursor.getString(1);
                 if (!Directory.isEnterpriseDirectoryId(directoryId)
-                        && Directory.isRemoteDirectoryId(directoryId)) {
+                        && Directory.isRemoteDirectoryId(directoryId)
+                        && DIRECTORY_PROVIDER_AUTHORITY.equals(directoryAuthority)) {
                     return directoryId;
                 }
             }
@@ -1002,13 +1012,15 @@ public class ContactsTest extends AndroidTestCase {
         assertFalse(isManagedProfile());
         final Cursor cursor = mResolver.query(Directory.ENTERPRISE_CONTENT_URI,
                 new String[] {
-                    Directory._ID
+                    Directory._ID, Directory.DIRECTORY_AUTHORITY
                 }, null, null, null);
         try {
             while (cursor.moveToNext()) {
                 final long directoryId = cursor.getLong(0);
+                final String directoryAuthority = cursor.getString(1);
                 if (Directory.isEnterpriseDirectoryId(directoryId)
-                        && Directory.isRemoteDirectoryId(directoryId)) {
+                        && Directory.isRemoteDirectoryId(directoryId)
+                        && DIRECTORY_PROVIDER_AUTHORITY.equals(directoryAuthority)) {
                     return directoryId;
                 }
             }

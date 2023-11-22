@@ -30,8 +30,8 @@ abstract class AbstractBatterySaverModeTestCase extends AbstractRestrictBackgrou
         if (!isSupported()) return;
 
         // Set initial state.
-        setUpMeteredNetwork();
         removePowerSaveModeWhitelist(TEST_APP2_PKG);
+        removePowerSaveModeExceptIdleWhitelist(TEST_APP2_PKG);
         setBatterySaverMode(false);
 
         registerBroadcastReceiver();
@@ -85,19 +85,25 @@ abstract class AbstractBatterySaverModeTestCase extends AbstractRestrictBackgrou
         assertsForegroundAlwaysHasNetworkAccess();
         assertBackgroundNetworkAccess(false);
 
-        // Make sure foreground app doesn't lose access upon enabling it.
+        // Make sure foreground app doesn't lose access upon Battery Saver.
         setBatterySaverMode(false);
-        launchActivity();
-        assertForegroundNetworkAccess();
+        launchComponentAndAssertNetworkAccess(TYPE_COMPONENT_ACTIVTIY);
         setBatterySaverMode(true);
         assertForegroundNetworkAccess();
+
+        // Although it should not have access while the screen is off.
+        turnScreenOff();
+        assertBackgroundNetworkAccess(false);
+        turnScreenOn();
+        assertForegroundNetworkAccess();
+
+        // Goes back to background state.
         finishActivity();
         assertBackgroundNetworkAccess(false);
 
-        // Same for foreground service.
+        // Make sure foreground service doesn't lose access upon enabling Battery Saver.
         setBatterySaverMode(false);
-        startForegroundService();
-        assertForegroundNetworkAccess();
+        launchComponentAndAssertNetworkAccess(TYPE_COMPONENT_FOREGROUND_SERVICE);
         setBatterySaverMode(true);
         assertForegroundNetworkAccess();
         stopForegroundService();
@@ -114,6 +120,12 @@ abstract class AbstractBatterySaverModeTestCase extends AbstractRestrictBackgrou
         assertBackgroundNetworkAccess(true);
 
         removePowerSaveModeWhitelist(TEST_APP2_PKG);
+        assertBackgroundNetworkAccess(false);
+
+        addPowerSaveModeExceptIdleWhitelist(TEST_APP2_PKG);
+        assertBackgroundNetworkAccess(true);
+
+        removePowerSaveModeExceptIdleWhitelist(TEST_APP2_PKG);
         assertBackgroundNetworkAccess(false);
 
         assertsForegroundAlwaysHasNetworkAccess();

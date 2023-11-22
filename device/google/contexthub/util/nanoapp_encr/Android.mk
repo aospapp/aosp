@@ -20,9 +20,6 @@ include $(CLEAR_VARS)
 
 
 LOCAL_SRC_FILES := \
-    ../../lib/nanohub/aes.c \
-    ../../lib/nanohub/sha2.c \
-    ../../lib/nanohub/nanoapp.c \
     nanoapp_encr.c \
 
 
@@ -34,9 +31,7 @@ LOCAL_CFLAGS := \
         -DBOOTLOADER= \
         -DBOOTLOADER_RO= \
 
-
-LOCAL_C_INCLUDES := \
-        device/google/contexthub/lib/include \
+LOCAL_STATIC_LIBRARIES := libnanohub_common
 
 LOCAL_MODULE := nanoapp_encr
 

@@ -16,12 +16,23 @@
 
 package android.text.format.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
 import android.content.res.Configuration;
 import android.content.res.Resources;
-import android.test.AndroidTestCase;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.text.format.Time;
 import android.util.Log;
 import android.util.TimeFormatException;
+
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -31,36 +42,37 @@ import java.util.Locale;
 import java.util.Objects;
 import java.util.TimeZone;
 
-public class TimeTest extends AndroidTestCase {
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class TimeTest {
     private static final String TAG = "TimeTest";
+    private static List<Locale> sSystemLocales;
 
     private Locale originalLocale;
 
-    private static List<Locale> sSystemLocales;
-
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
+    @Before
+    public void setup() {
         originalLocale = Locale.getDefault();
 
         maybeInitializeSystemLocales();
     }
 
-    @Override
-    public void tearDown() throws Exception {
+    @After
+    public void teardown() {
         // The Locale may be changed by tests. Revert to the original.
         changeJavaAndAndroidLocale(originalLocale, true /* force */);
-        super.tearDown();
     }
 
+    @Test
     public void testConstructor() {
         Time time = new Time();
         new Time(Time.getCurrentTimezone());
         time.set(System.currentTimeMillis());
         Time anotherTime = new Time(time);
-        assertTime(time, anotherTime);
+        verifyTime(time, anotherTime);
     }
 
+    @Test
     public void testNormalize() {
         final int expectedMonth = 3;
         final int expectedDate = 1;
@@ -86,6 +98,7 @@ public class TimeTest extends AndroidTestCase {
         assertEquals(expectedDate, time.monthDay);
     }
 
+    @Test
     public void testSwitchTimezone() {
         String timeZone = "US/Pacific";
         String anotherTimeZone = "Asia/Chongqing";
@@ -95,6 +108,7 @@ public class TimeTest extends AndroidTestCase {
         assertEquals(anotherTimeZone, time.timezone);
     }
 
+    @Test
     public void testSet() {
         final int year = 2008;
         final int month = 5;
@@ -107,10 +121,10 @@ public class TimeTest extends AndroidTestCase {
 
         Time anotherTime = new Time();
         anotherTime.set(time);
-        assertTime(time, anotherTime);
+        verifyTime(time, anotherTime);
     }
 
-    private void assertTime(Time time, Time anotherTime) {
+    private void verifyTime(Time time, Time anotherTime) {
         assertEquals(time.timezone, anotherTime.timezone);
         assertEquals(time.allDay, anotherTime.allDay);
         assertEquals(time.second, anotherTime.second);
@@ -125,6 +139,7 @@ public class TimeTest extends AndroidTestCase {
         assertEquals(time.gmtoff, anotherTime.gmtoff);
     }
 
+    @Test
     public void testGetWeekNumber() {
         Time time = new Time();
         time.normalize(false);
@@ -151,24 +166,22 @@ public class TimeTest extends AndroidTestCase {
         }
     }
 
+    @Test(expected=NullPointerException.class)
     public void testParseNull() {
         Time t = new Time();
-        try {
-            t.parse(null);
-            fail();
-        } catch (NullPointerException expected) {
-        }
+        t.parse(null);
+    }
 
-        try {
-            t.parse3339(null);
-            fail();
-        } catch (NullPointerException expected) {
-        }
+    @Test(expected=NullPointerException.class)
+    public void testParse3339Null() {
+        Time t = new Time();
+        t.parse3339(null);
     }
 
     // http://code.google.com/p/android/issues/detail?id=16002
     // We'd leak one JNI global reference each time parsing failed.
     // This would cause a crash when we filled the global reference table.
+    @Test
     public void testBug16002() {
         Time t = new Time();
         for (int i = 0; i < 8192; ++i) {
@@ -183,6 +196,7 @@ public class TimeTest extends AndroidTestCase {
     // http://code.google.com/p/android/issues/detail?id=22225
     // We'd leak one JNI global reference each time parsing failed.
     // This would cause a crash when we filled the global reference table.
+    @Test
     public void testBug22225() {
         Time t = new Time();
         for (int i = 0; i < 8192; ++i) {
@@ -194,6 +208,7 @@ public class TimeTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testIsEpoch() {
         Time time = new Time();
         assertTrue(Time.isEpoch(time));
@@ -202,6 +217,7 @@ public class TimeTest extends AndroidTestCase {
         assertFalse(Time.isEpoch(time));
     }
 
+    @Test
     public void testAfterBefore() {
         Time a = new Time(Time.TIMEZONE_UTC);
         Time b = new Time("America/Los_Angeles");
@@ -347,7 +363,8 @@ public class TimeTest extends AndroidTestCase {
             new DateTest(2007, 10, 5, 2, 0, 60, 2007, 10, 5, 3, 0),
     };
 
-    public void testNormalize1() throws Exception {
+    @Test
+    public void testNormalize1() {
         String tz = "America/Los_Angeles";
         Time local = new Time(tz);
 
@@ -363,7 +380,7 @@ public class TimeTest extends AndroidTestCase {
             Time expected = new Time(tz);
             Fields.setDateTime(expected, test.year2, test.month2, test.day2, test.hour2,
                     test.minute2, 0);
-            Fields.assertTimeEquals("day test index " + index + ", normalize():",
+            Fields.verifyTimeEquals("day test index " + index + ", normalize():",
                     Fields.MAIN_DATE_TIME, expected, local);
 
             local.set(0, test.minute1, test.hour1, test.day1, test.month1, test.year1);
@@ -376,7 +393,7 @@ public class TimeTest extends AndroidTestCase {
             expected = new Time(tz);
             Fields.setDateTime(expected, test.year2, test.month2, test.day2, test.hour2,
                     test.minute2, 0);
-            Fields.assertTimeEquals("day test index " + index + ", toMillis():",
+            Fields.verifyTimeEquals("day test index " + index + ", toMillis():",
                     Fields.MAIN_DATE_TIME, expected, local);
         }
 
@@ -395,7 +412,7 @@ public class TimeTest extends AndroidTestCase {
             Fields.setDateTime(expected, test.year2, test.month2, test.day2, test.hour2,
                     test.minute2, 0);
             Fields.setDst(expected, test.dst2 /* isDst */, PstPdt.getUtcOffsetSeconds(test.dst2));
-            Fields.assertTimeEquals("minute test index " + index + ", normalize():",
+            Fields.verifyTimeEquals("minute test index " + index + ", normalize():",
                     Fields.MAIN_DATE_TIME | Fields.DST_FIELDS, expected, local);
 
             local.set(0, test.minute1, test.hour1, test.day1, test.month1, test.year1);
@@ -411,12 +428,13 @@ public class TimeTest extends AndroidTestCase {
             Fields.setDateTime(expected, test.year2, test.month2, test.day2, test.hour2,
                     test.minute2, 0);
             Fields.setDst(expected, test.dst2 /* isDst */, PstPdt.getUtcOffsetSeconds(test.dst2));
-            Fields.assertTimeEquals("minute test index " + index + ", toMillis():",
+            Fields.verifyTimeEquals("minute test index " + index + ", toMillis():",
                     Fields.MAIN_DATE_TIME | Fields.DST_FIELDS, expected, local);
         }
     }
 
-    public void testSwitchTimezone_simpleUtc() throws Exception {
+    @Test
+    public void testSwitchTimezone_simpleUtc() {
         String originalTz = Time.TIMEZONE_UTC;
         Time t = new Time(originalTz);
         Fields.set(t, 2006, 9, 5, 12, 0, 0, -1 /* isDst */, 0, 0, 0);
@@ -426,16 +444,17 @@ public class TimeTest extends AndroidTestCase {
 
         Time expected1 = new Time(newTz);
         Fields.set(expected1, 2006, 9, 5, 5, 0, 0, 1 /* isDst */, -25200, 277, 4);
-        Fields.assertTimeEquals(expected1, t);
+        Fields.verifyTimeEquals(expected1, t);
 
         t.switchTimezone(originalTz);
 
         Time expected2 = new Time(originalTz);
         Fields.set(expected2, 2006, 9, 5, 12, 0, 0, 0 /* isDst */, 0, 277, 4);
-        Fields.assertTimeEquals(expected2, t);
+        Fields.verifyTimeEquals(expected2, t);
     }
 
-    public void testSwitchTimezone_standardToStandardTime() throws Exception {
+    @Test
+    public void testSwitchTimezone_standardToStandardTime() {
         String zone1 = "Europe/London";
         String zone2 = "America/Los_Angeles";
 
@@ -447,16 +466,17 @@ public class TimeTest extends AndroidTestCase {
 
         Time expected1 = new Time(zone2);
         Fields.set(expected1, 2007, 2, 10, 4, 0, 0, 0 /* isDst */, -28800, 68, 6);
-        Fields.assertTimeEquals(expected1, t);
+        Fields.verifyTimeEquals(expected1, t);
 
         t.switchTimezone(zone1);
 
         Time expected2 = new Time(zone1);
         Fields.set(expected2, 2007, 2, 10, 12, 0, 0, 0 /* isDst */, 0, 68, 6);
-        Fields.assertTimeEquals(expected2, t);
+        Fields.verifyTimeEquals(expected2, t);
     }
 
-    public void testSwitchTimezone_dstToDstTime() throws Exception {
+    @Test
+    public void testSwitchTimezone_dstToDstTime() {
         String zone1 = "Europe/London";
         String zone2 = "America/Los_Angeles";
 
@@ -468,16 +488,17 @@ public class TimeTest extends AndroidTestCase {
 
         Time expected1 = new Time(zone2);
         Fields.set(expected1, 2007, 2, 26, 4, 0, 0, 1 /* isDst */, -25200, 84, 1);
-        Fields.assertTimeEquals(expected1, t);
+        Fields.verifyTimeEquals(expected1, t);
 
         t.switchTimezone(zone1);
 
         Time expected2 = new Time(zone1);
         Fields.set(expected2, 2007, 2, 26, 12, 0, 0, 1 /* isDst */, 3600, 84, 1);
-        Fields.assertTimeEquals(expected2, t);
+        Fields.verifyTimeEquals(expected2, t);
     }
 
-    public void testSwitchTimezone_standardToDstTime() throws Exception {
+    @Test
+    public void testSwitchTimezone_standardToDstTime() {
         String zone1 = "Europe/London";
         String zone2 = "America/Los_Angeles";
 
@@ -489,16 +510,17 @@ public class TimeTest extends AndroidTestCase {
 
         Time expected1 = new Time(zone2);
         Fields.set(expected1, 2007, 2, 24, 5, 0, 0, 1 /* isDst */, -25200, 82, 6);
-        Fields.assertTimeEquals(expected1, t);
+        Fields.verifyTimeEquals(expected1, t);
 
         t.switchTimezone(zone1);
 
         Time expected2 = new Time(zone1);
         Fields.set(expected2, 2007, 2, 24, 12, 0, 0, 0 /* isDst */, 0, 82, 6);
-        Fields.assertTimeEquals(expected2, t);
+        Fields.verifyTimeEquals(expected2, t);
     }
 
-    public void testSwitchTimezone_sourceDateInvalid() throws Exception {
+    @Test
+    public void testSwitchTimezone_sourceDateInvalid() {
         String zone1 = "Europe/London";
         String zone2 = "America/Los_Angeles";
 
@@ -513,10 +535,11 @@ public class TimeTest extends AndroidTestCase {
         // This illustrates why using -1 to indicate a problem, when -1 is in range, is a poor idea.
         Time expected1 = new Time(zone2);
         Fields.set(expected1, 1969, 11, 31, 15, 59, 59, 0 /* isDst */, -28800, 364, 3);
-        Fields.assertTimeEquals(expected1, t);
+        Fields.verifyTimeEquals(expected1, t);
     }
 
-    public void testSwitchTimezone_dstToStandardTime() throws Exception {
+    @Test
+    public void testSwitchTimezone_dstToStandardTime() {
         String zone1 = "America/Los_Angeles";
         String zone2 = "Europe/London";
 
@@ -528,26 +551,28 @@ public class TimeTest extends AndroidTestCase {
 
         Time expected1 = new Time(zone2);
         Fields.set(expected1, 2007, 2, 12, 19, 0, 0, 0 /* isDst */, 0, 70, 1);
-        Fields.assertTimeEquals(expected1, t);
+        Fields.verifyTimeEquals(expected1, t);
 
         t.switchTimezone(zone1);
 
         Time expected2 = new Time(zone1);
         Fields.set(expected2, 2007, 2, 12, 12, 0, 0, 1 /* isDst */, -25200, 70, 1);
-        Fields.assertTimeEquals(expected2, t);
+        Fields.verifyTimeEquals(expected2, t);
     }
 
-    public void testCtor() throws Exception {
+    @Test
+    public void testCtor() {
         String tz = Time.TIMEZONE_UTC;
         Time t = new Time(tz);
         assertEquals(tz, t.timezone);
 
         Time expected = new Time(tz);
         Fields.set(expected, 1970, 0, 1, 0, 0, 0, -1 /* isDst */, 0, 0, 0);
-        Fields.assertTimeEquals(expected, t);
+        Fields.verifyTimeEquals(expected, t);
     }
 
-    public void testGetActualMaximum() throws Exception {
+    @Test
+    public void testGetActualMaximum() {
         Time t = new Time(Time.TIMEZONE_UTC);
         assertEquals(59, t.getActualMaximum(Time.SECOND));
         assertEquals(59, t.getActualMaximum(Time.MINUTE));
@@ -576,21 +601,22 @@ public class TimeTest extends AndroidTestCase {
         final int[] DAYS_PER_MONTH = {
                 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31
         };
-        assertMonth(t, DAYS_PER_MONTH);
+        verifyMonth(t, DAYS_PER_MONTH);
 
         t.year = 2000;
         DAYS_PER_MONTH[1] = 29;
-        assertMonth(t, DAYS_PER_MONTH);
+        verifyMonth(t, DAYS_PER_MONTH);
     }
 
-    private void assertMonth(Time t, final int[] DAYS_PER_MONTH) {
+    private void verifyMonth(Time t, final int[] DAYS_PER_MONTH) {
         for (int i = 0; i < t.getActualMaximum(Time.MONTH); i++) {
             t.month = i;
             assertEquals(DAYS_PER_MONTH[i], t.getActualMaximum(Time.MONTH_DAY));
         }
     }
 
-    public void testClear0() throws Exception {
+    @Test
+    public void testClear0() {
         Time t = new Time(Time.getCurrentTimezone());
         t.clear(Time.TIMEZONE_UTC);
         assertEquals(Time.TIMEZONE_UTC, t.timezone);
@@ -607,7 +633,8 @@ public class TimeTest extends AndroidTestCase {
         assertEquals(-1, t.isDst);
     }
 
-    public void testClear() throws Exception {
+    @Test
+    public void testClear() {
         Time t = new Time("America/Los_Angeles");
         Fields.set(t, 1, 2, 3, 4, 5, 6, 7 /* isDst */, 8, 9, 10);
 
@@ -615,10 +642,11 @@ public class TimeTest extends AndroidTestCase {
 
         Time expected = new Time(Time.TIMEZONE_UTC);
         Fields.set(expected, 0, 0, 0, 0, 0, 0, -1 /* isDst */, 0, 0, 0);
-        Fields.assertTimeEquals(expected, t);
+        Fields.verifyTimeEquals(expected, t);
     }
 
-    public void testCompare() throws Exception {
+    @Test
+    public void testCompare() {
         String timezone = "America/New_York";
         int[] aDateTimeFields = new int[] { 2005, 2, 3, 4, 5, 6 };
 
@@ -684,32 +712,25 @@ public class TimeTest extends AndroidTestCase {
         assertEquals(0, Time.compare(b, a));
     }
 
-    public void testCompareNullFailure() throws Exception {
+    @Test(expected=NullPointerException.class)
+    public void testCompareNullSecond() {
         Time a = new Time(Time.TIMEZONE_UTC);
-
-        try {
-            Time.compare(a, null);
-            fail("Should throw NullPointerException on second argument");
-        } catch (NullPointerException e) {
-            // pass
-        }
-
-        try {
-            Time.compare(null, a);
-            fail("Should throw NullPointerException on first argument");
-        } catch (NullPointerException e) {
-            // pass
-        }
-
-        try {
-            Time.compare(null, null);
-            fail("Should throw NullPointerException because both args are null");
-        } catch (NullPointerException e) {
-            // pass
-        }
+        Time.compare(a, null);
     }
 
-    public void testCompare_invalidDatesAreEqualIfTimezoneDiffers() throws Exception {
+    @Test(expected=NullPointerException.class)
+    public void testCompareNullFirst() {
+        Time a = new Time(Time.TIMEZONE_UTC);
+        Time.compare(null, a);
+    }
+
+    @Test(expected=NullPointerException.class)
+    public void testCompareNullBoth() {
+        Time.compare(null, null);
+    }
+
+    @Test
+    public void testCompare_invalidDatesAreEqualIfTimezoneDiffers() {
         String timezone = "America/New_York";
         // This date is outside of the valid set of dates that can be calculated so toMillis()
         // returns -1.
@@ -741,40 +762,45 @@ public class TimeTest extends AndroidTestCase {
         assertEquals(0, Time.compare(a, b));
     }
 
-    public void testFormat() throws Exception {
+    @Test
+    public void testFormat() {
         Time t = new Time(Time.TIMEZONE_UTC);
         String r = t.format("%Y%m%dT%H%M%S");
         assertEquals("19700101T000000", r);
     }
 
+    @Test
     public void testFormat_null() {
         Time t = new Time(Time.TIMEZONE_UTC);
         assertEquals(t.format("%c"), t.format(null));
     }
 
-    public void testFormat_badPatterns() throws Exception {
+    @Test
+    public void testFormat_badPatterns() {
         Time t = new Time(Time.TIMEZONE_UTC);
-        assertFormatEquals(t, "%~Y", "~Y");
-        assertFormatEquals(t, "%", "%");
+        verifyFormatEquals(t, "%~Y", "~Y");
+        verifyFormatEquals(t, "%", "%");
     }
 
-    public void testFormat_doesNotNormalize() throws Exception {
+    @Test
+    public void testFormat_doesNotNormalize() {
         Time t = new Time(Time.TIMEZONE_UTC);
         Fields.set(t, 2005, 13, 32, -1, -1, -1, -2, -2, -2, -2);
 
         Time tCopy = new Time(t);
-        Fields.assertTimeEquals(t, tCopy);
+        Fields.verifyTimeEquals(t, tCopy);
 
-        assertFormatEquals(t, "%Y%m%dT%H%M%S", "20051432T-1-1-1");
+        verifyFormatEquals(t, "%Y%m%dT%H%M%S", "20051432T-1-1-1");
 
-        Fields.assertTimeEquals(t, tCopy);
+        Fields.verifyTimeEquals(t, tCopy);
     }
 
-    private static void assertFormatEquals(Time t, String formatArg, String expected) {
+    private static void verifyFormatEquals(Time t, String formatArg, String expected) {
         assertEquals(expected, t.format(formatArg));
     }
 
-    public void testFormat_tokensUkLocale() throws Exception {
+    @Test
+    public void testFormat_tokensUkLocale() {
         if (!changeJavaAndAndroidLocale(Locale.UK, false /* force */)) {
             Log.w(TAG, "Skipping testFormat_tokensUkLocale: no assets found");
             return;
@@ -784,92 +810,93 @@ public class TimeTest extends AndroidTestCase {
         Fields.setDateTime(t, 2005, 5, 1, 12, 30, 15);
 
         // Prove the un-normalized fields are used.
-        assertFormatEquals(t, "%A", "Sunday");
+        verifyFormatEquals(t, "%A", "Sunday");
 
         // Set fields like weekday.
         t.normalize(true);
 
-        assertFormatEquals(t, "%A", "Wednesday");
-        assertFormatEquals(t, "%a", "Wed");
-        assertFormatEquals(t, "%B", "June");
-        assertFormatEquals(t, "%b", "Jun");
-        assertFormatEquals(t, "%C", "20");
-        assertFormatEquals(t, "%c", "1 Jun 2005, 12:30:15");
-        assertFormatEquals(t, "%D", "06/01/05");
-        assertFormatEquals(t, "%d", "01");
-        assertFormatEquals(t, "%E", "E");
-        assertFormatEquals(t, "%e", " 1");
-        assertFormatEquals(t, "%F", "2005-06-01");
-        assertFormatEquals(t, "%G", "2005");
-        assertFormatEquals(t, "%g", "05");
-        assertFormatEquals(t, "%H", "12");
-        assertFormatEquals(t, "%h", "Jun");
-        assertFormatEquals(t, "%I", "12");
-        assertFormatEquals(t, "%j", "152");
-        assertFormatEquals(t, "%K", "K");
-        assertFormatEquals(t, "%k", "12");
-        assertFormatEquals(t, "%l", "12");
-        assertFormatEquals(t, "%M", "30");
-        assertFormatEquals(t, "%m", "06");
-        assertFormatEquals(t, "%n", "\n");
-        assertFormatEquals(t, "%O", "O");
-        assertFormatEquals(t, "%p", "pm");
-        assertFormatEquals(t, "%P", "pm");
-        assertFormatEquals(t, "%R", "12:30");
-        assertFormatEquals(t, "%r", "12:30:15 pm");
-        assertFormatEquals(t, "%S", "15");
+        verifyFormatEquals(t, "%A", "Wednesday");
+        verifyFormatEquals(t, "%a", "Wed");
+        verifyFormatEquals(t, "%B", "June");
+        verifyFormatEquals(t, "%b", "Jun");
+        verifyFormatEquals(t, "%C", "20");
+        verifyFormatEquals(t, "%c", "1 Jun 2005, 12:30:15");
+        verifyFormatEquals(t, "%D", "06/01/05");
+        verifyFormatEquals(t, "%d", "01");
+        verifyFormatEquals(t, "%E", "E");
+        verifyFormatEquals(t, "%e", " 1");
+        verifyFormatEquals(t, "%F", "2005-06-01");
+        verifyFormatEquals(t, "%G", "2005");
+        verifyFormatEquals(t, "%g", "05");
+        verifyFormatEquals(t, "%H", "12");
+        verifyFormatEquals(t, "%h", "Jun");
+        verifyFormatEquals(t, "%I", "12");
+        verifyFormatEquals(t, "%j", "152");
+        verifyFormatEquals(t, "%K", "K");
+        verifyFormatEquals(t, "%k", "12");
+        verifyFormatEquals(t, "%l", "12");
+        verifyFormatEquals(t, "%M", "30");
+        verifyFormatEquals(t, "%m", "06");
+        verifyFormatEquals(t, "%n", "\n");
+        verifyFormatEquals(t, "%O", "O");
+        verifyFormatEquals(t, "%p", "pm");
+        verifyFormatEquals(t, "%P", "pm");
+        verifyFormatEquals(t, "%R", "12:30");
+        verifyFormatEquals(t, "%r", "12:30:15 pm");
+        verifyFormatEquals(t, "%S", "15");
         // The original C implementation uses the (native) system default TZ, not the timezone of
         // the Time to calculate this and was therefore not stable. This changed to use the Time's
         // timezone when the Time class was re-written in Java.
-        assertFormatEquals(t, "%s", "1117625415");
-        assertFormatEquals(t, "%T", "12:30:15");
-        assertFormatEquals(t, "%t", "\t");
-        assertFormatEquals(t, "%U", "22");
-        assertFormatEquals(t, "%u", "3");
-        assertFormatEquals(t, "%V", "22");
-        assertFormatEquals(t, "%v", " 1-Jun-2005");
-        assertFormatEquals(t, "%W", "22");
-        assertFormatEquals(t, "%w", "3");
-        assertFormatEquals(t, "%X", "12:30:15");
-        assertFormatEquals(t, "%x", "1 June 2005");
-        assertFormatEquals(t, "%y", "05");
-        assertFormatEquals(t, "%Y", "2005");
-        assertFormatEquals(t, "%Z", "BST");
-        assertFormatEquals(t, "%z", "+0100");
-        assertFormatEquals(t, "%+", "Wed Jun  1 12:30:15 BST 2005");
-        assertFormatEquals(t, "%%", "%");
+        verifyFormatEquals(t, "%s", "1117625415");
+        verifyFormatEquals(t, "%T", "12:30:15");
+        verifyFormatEquals(t, "%t", "\t");
+        verifyFormatEquals(t, "%U", "22");
+        verifyFormatEquals(t, "%u", "3");
+        verifyFormatEquals(t, "%V", "22");
+        verifyFormatEquals(t, "%v", " 1-Jun-2005");
+        verifyFormatEquals(t, "%W", "22");
+        verifyFormatEquals(t, "%w", "3");
+        verifyFormatEquals(t, "%X", "12:30:15");
+        verifyFormatEquals(t, "%x", "1 June 2005");
+        verifyFormatEquals(t, "%y", "05");
+        verifyFormatEquals(t, "%Y", "2005");
+        verifyFormatEquals(t, "%Z", "BST");
+        verifyFormatEquals(t, "%z", "+0100");
+        verifyFormatEquals(t, "%+", "Wed Jun  1 12:30:15 BST 2005");
+        verifyFormatEquals(t, "%%", "%");
 
         // Modifiers
 
-        assertFormatEquals(t, "%EC", "20");
-        assertFormatEquals(t, "%OC", "20");
+        verifyFormatEquals(t, "%EC", "20");
+        verifyFormatEquals(t, "%OC", "20");
 
-        assertFormatEquals(t, "%_+", "Wed Jun  1 12:30:15 BST 2005");
-        assertFormatEquals(t, "%-+", "Wed Jun  1 12:30:15 BST 2005");
-        assertFormatEquals(t, "%0+", "Wed Jun  1 12:30:15 BST 2005");
-        assertFormatEquals(t, "%^+", "Wed Jun  1 12:30:15 BST 2005");
-        assertFormatEquals(t, "%#+", "Wed Jun  1 12:30:15 BST 2005");
+        verifyFormatEquals(t, "%_+", "Wed Jun  1 12:30:15 BST 2005");
+        verifyFormatEquals(t, "%-+", "Wed Jun  1 12:30:15 BST 2005");
+        verifyFormatEquals(t, "%0+", "Wed Jun  1 12:30:15 BST 2005");
+        verifyFormatEquals(t, "%^+", "Wed Jun  1 12:30:15 BST 2005");
+        verifyFormatEquals(t, "%#+", "Wed Jun  1 12:30:15 BST 2005");
 
-        assertFormatEquals(t, "%_A", "Wednesday");
-        assertFormatEquals(t, "%-A", "Wednesday");
-        assertFormatEquals(t, "%0A", "Wednesday");
-        assertFormatEquals(t, "%^A", "WEDNESDAY");
-        assertFormatEquals(t, "%#A", "wEDNESDAY");
+        verifyFormatEquals(t, "%_A", "Wednesday");
+        verifyFormatEquals(t, "%-A", "Wednesday");
+        verifyFormatEquals(t, "%0A", "Wednesday");
+        verifyFormatEquals(t, "%^A", "WEDNESDAY");
+        verifyFormatEquals(t, "%#A", "wEDNESDAY");
 
-        assertFormatEquals(t, "%_Y", "20 5");
-        assertFormatEquals(t, "%-Y", "205");
-        assertFormatEquals(t, "%0Y", "2005");
-        assertFormatEquals(t, "%^Y", "2005");
-        assertFormatEquals(t, "%#Y", "2005");
+        verifyFormatEquals(t, "%_Y", "20 5");
+        verifyFormatEquals(t, "%-Y", "205");
+        verifyFormatEquals(t, "%0Y", "2005");
+        verifyFormatEquals(t, "%^Y", "2005");
+        verifyFormatEquals(t, "%#Y", "2005");
 
-        assertFormatEquals(t, "%_d", " 1");
-        assertFormatEquals(t, "%-d", "1");
-        assertFormatEquals(t, "%0d", "01");
-        assertFormatEquals(t, "%^d", "01");
-        assertFormatEquals(t, "%#d", "01");
+        verifyFormatEquals(t, "%_d", " 1");
+        verifyFormatEquals(t, "%-d", "1");
+        verifyFormatEquals(t, "%0d", "01");
+        verifyFormatEquals(t, "%^d", "01");
+        verifyFormatEquals(t, "%#d", "01");
     }
 
-    public void testFormat_tokensUsLocale() throws Exception {
+    @Test
+    public void testFormat_tokensUsLocale() {
         if (!changeJavaAndAndroidLocale(Locale.US, false /* force */)) {
             Log.w(TAG, "Skipping testFormat_tokensUSLocale: no assets found");
             return;
@@ -879,92 +906,93 @@ public class TimeTest extends AndroidTestCase {
         Fields.setDateTime(t, 2005, 5, 1, 12, 30, 15);
 
         // Prove the un-normalized fields are used.
-        assertFormatEquals(t, "%A", "Sunday");
+        verifyFormatEquals(t, "%A", "Sunday");
 
         // Set fields like weekday.
         t.normalize(true);
 
-        assertFormatEquals(t, "%A", "Wednesday");
-        assertFormatEquals(t, "%a", "Wed");
-        assertFormatEquals(t, "%B", "June");
-        assertFormatEquals(t, "%b", "Jun");
-        assertFormatEquals(t, "%C", "20");
-        assertFormatEquals(t, "%c", "Jun 1, 2005, 12:30:15 PM");
-        assertFormatEquals(t, "%D", "06/01/05");
-        assertFormatEquals(t, "%d", "01");
-        assertFormatEquals(t, "%E", "E");
-        assertFormatEquals(t, "%e", " 1");
-        assertFormatEquals(t, "%F", "2005-06-01");
-        assertFormatEquals(t, "%G", "2005");
-        assertFormatEquals(t, "%g", "05");
-        assertFormatEquals(t, "%H", "12");
-        assertFormatEquals(t, "%h", "Jun");
-        assertFormatEquals(t, "%I", "12");
-        assertFormatEquals(t, "%j", "152");
-        assertFormatEquals(t, "%K", "K");
-        assertFormatEquals(t, "%k", "12");
-        assertFormatEquals(t, "%l", "12");
-        assertFormatEquals(t, "%M", "30");
-        assertFormatEquals(t, "%m", "06");
-        assertFormatEquals(t, "%n", "\n");
-        assertFormatEquals(t, "%O", "O");
-        assertFormatEquals(t, "%p", "PM");
-        assertFormatEquals(t, "%P", "pm");
-        assertFormatEquals(t, "%R", "12:30");
-        assertFormatEquals(t, "%r", "12:30:15 PM");
-        assertFormatEquals(t, "%S", "15");
+        verifyFormatEquals(t, "%A", "Wednesday");
+        verifyFormatEquals(t, "%a", "Wed");
+        verifyFormatEquals(t, "%B", "June");
+        verifyFormatEquals(t, "%b", "Jun");
+        verifyFormatEquals(t, "%C", "20");
+        verifyFormatEquals(t, "%c", "Jun 1, 2005, 12:30:15 PM");
+        verifyFormatEquals(t, "%D", "06/01/05");
+        verifyFormatEquals(t, "%d", "01");
+        verifyFormatEquals(t, "%E", "E");
+        verifyFormatEquals(t, "%e", " 1");
+        verifyFormatEquals(t, "%F", "2005-06-01");
+        verifyFormatEquals(t, "%G", "2005");
+        verifyFormatEquals(t, "%g", "05");
+        verifyFormatEquals(t, "%H", "12");
+        verifyFormatEquals(t, "%h", "Jun");
+        verifyFormatEquals(t, "%I", "12");
+        verifyFormatEquals(t, "%j", "152");
+        verifyFormatEquals(t, "%K", "K");
+        verifyFormatEquals(t, "%k", "12");
+        verifyFormatEquals(t, "%l", "12");
+        verifyFormatEquals(t, "%M", "30");
+        verifyFormatEquals(t, "%m", "06");
+        verifyFormatEquals(t, "%n", "\n");
+        verifyFormatEquals(t, "%O", "O");
+        verifyFormatEquals(t, "%p", "PM");
+        verifyFormatEquals(t, "%P", "pm");
+        verifyFormatEquals(t, "%R", "12:30");
+        verifyFormatEquals(t, "%r", "12:30:15 PM");
+        verifyFormatEquals(t, "%S", "15");
         // The original C implementation uses the (native) system default TZ, not the timezone of
         // the Time to calculate this and was therefore not stable. This changed to use the Time's
         // timezone when the Time class was re-written in Java.
-        assertFormatEquals(t, "%s", "1117643415");
-        assertFormatEquals(t, "%T", "12:30:15");
-        assertFormatEquals(t, "%t", "\t");
-        assertFormatEquals(t, "%U", "22");
-        assertFormatEquals(t, "%u", "3");
-        assertFormatEquals(t, "%V", "22");
-        assertFormatEquals(t, "%v", " 1-Jun-2005");
-        assertFormatEquals(t, "%W", "22");
-        assertFormatEquals(t, "%w", "3");
-        assertFormatEquals(t, "%X", "12:30:15 PM");
-        assertFormatEquals(t, "%x", "June 1, 2005");
-        assertFormatEquals(t, "%y", "05");
-        assertFormatEquals(t, "%Y", "2005");
-        assertFormatEquals(t, "%Z", "EDT");
-        assertFormatEquals(t, "%z", "-0400");
-        assertFormatEquals(t, "%+", "Wed Jun  1 12:30:15 EDT 2005");
-        assertFormatEquals(t, "%%", "%");
+        verifyFormatEquals(t, "%s", "1117643415");
+        verifyFormatEquals(t, "%T", "12:30:15");
+        verifyFormatEquals(t, "%t", "\t");
+        verifyFormatEquals(t, "%U", "22");
+        verifyFormatEquals(t, "%u", "3");
+        verifyFormatEquals(t, "%V", "22");
+        verifyFormatEquals(t, "%v", " 1-Jun-2005");
+        verifyFormatEquals(t, "%W", "22");
+        verifyFormatEquals(t, "%w", "3");
+        verifyFormatEquals(t, "%X", "12:30:15 PM");
+        verifyFormatEquals(t, "%x", "June 1, 2005");
+        verifyFormatEquals(t, "%y", "05");
+        verifyFormatEquals(t, "%Y", "2005");
+        verifyFormatEquals(t, "%Z", "EDT");
+        verifyFormatEquals(t, "%z", "-0400");
+        verifyFormatEquals(t, "%+", "Wed Jun  1 12:30:15 EDT 2005");
+        verifyFormatEquals(t, "%%", "%");
 
         // Modifiers
 
-        assertFormatEquals(t, "%EC", "20");
-        assertFormatEquals(t, "%OC", "20");
+        verifyFormatEquals(t, "%EC", "20");
+        verifyFormatEquals(t, "%OC", "20");
 
-        assertFormatEquals(t, "%_+", "Wed Jun  1 12:30:15 EDT 2005");
-        assertFormatEquals(t, "%-+", "Wed Jun  1 12:30:15 EDT 2005");
-        assertFormatEquals(t, "%0+", "Wed Jun  1 12:30:15 EDT 2005");
-        assertFormatEquals(t, "%^+", "Wed Jun  1 12:30:15 EDT 2005");
-        assertFormatEquals(t, "%#+", "Wed Jun  1 12:30:15 EDT 2005");
+        verifyFormatEquals(t, "%_+", "Wed Jun  1 12:30:15 EDT 2005");
+        verifyFormatEquals(t, "%-+", "Wed Jun  1 12:30:15 EDT 2005");
+        verifyFormatEquals(t, "%0+", "Wed Jun  1 12:30:15 EDT 2005");
+        verifyFormatEquals(t, "%^+", "Wed Jun  1 12:30:15 EDT 2005");
+        verifyFormatEquals(t, "%#+", "Wed Jun  1 12:30:15 EDT 2005");
 
-        assertFormatEquals(t, "%_A", "Wednesday");
-        assertFormatEquals(t, "%-A", "Wednesday");
-        assertFormatEquals(t, "%0A", "Wednesday");
-        assertFormatEquals(t, "%^A", "WEDNESDAY");
-        assertFormatEquals(t, "%#A", "wEDNESDAY");
+        verifyFormatEquals(t, "%_A", "Wednesday");
+        verifyFormatEquals(t, "%-A", "Wednesday");
+        verifyFormatEquals(t, "%0A", "Wednesday");
+        verifyFormatEquals(t, "%^A", "WEDNESDAY");
+        verifyFormatEquals(t, "%#A", "wEDNESDAY");
 
-        assertFormatEquals(t, "%_Y", "20 5");
-        assertFormatEquals(t, "%-Y", "205");
-        assertFormatEquals(t, "%0Y", "2005");
-        assertFormatEquals(t, "%^Y", "2005");
-        assertFormatEquals(t, "%#Y", "2005");
+        verifyFormatEquals(t, "%_Y", "20 5");
+        verifyFormatEquals(t, "%-Y", "205");
+        verifyFormatEquals(t, "%0Y", "2005");
+        verifyFormatEquals(t, "%^Y", "2005");
+        verifyFormatEquals(t, "%#Y", "2005");
 
-        assertFormatEquals(t, "%_d", " 1");
-        assertFormatEquals(t, "%-d", "1");
-        assertFormatEquals(t, "%0d", "01");
-        assertFormatEquals(t, "%^d", "01");
-        assertFormatEquals(t, "%#d", "01");
+        verifyFormatEquals(t, "%_d", " 1");
+        verifyFormatEquals(t, "%-d", "1");
+        verifyFormatEquals(t, "%0d", "01");
+        verifyFormatEquals(t, "%^d", "01");
+        verifyFormatEquals(t, "%#d", "01");
     }
 
-    public void testFormat_tokensFranceLocale() throws Exception {
+    @Test
+    public void testFormat_tokensFranceLocale() {
         if (!changeJavaAndAndroidLocale(Locale.FRANCE, false /* force */)) {
             Log.w(TAG, "Skipping testFormat_tokensFranceLocale: no assets found");
             return;
@@ -974,92 +1002,93 @@ public class TimeTest extends AndroidTestCase {
         Fields.setDateTime(t, 2005, 5, 1, 12, 30, 15);
 
         // Prove the un-normalized fields are used.
-        assertFormatEquals(t, "%A", "dimanche");
+        verifyFormatEquals(t, "%A", "dimanche");
 
         // Set fields like weekday.
         t.normalize(true);
 
-        assertFormatEquals(t, "%A", "mercredi");
-        assertFormatEquals(t, "%a", "mer.");
-        assertFormatEquals(t, "%B", "juin");
-        assertFormatEquals(t, "%b", "juin");
-        assertFormatEquals(t, "%C", "20");
-        assertFormatEquals(t, "%c", "1 juin 2005 à 12:30:15");
-        assertFormatEquals(t, "%D", "06/01/05");
-        assertFormatEquals(t, "%d", "01");
-        assertFormatEquals(t, "%E", "E");
-        assertFormatEquals(t, "%e", " 1");
-        assertFormatEquals(t, "%F", "2005-06-01");
-        assertFormatEquals(t, "%G", "2005");
-        assertFormatEquals(t, "%g", "05");
-        assertFormatEquals(t, "%H", "12");
-        assertFormatEquals(t, "%h", "juin");
-        assertFormatEquals(t, "%I", "12");
-        assertFormatEquals(t, "%j", "152");
-        assertFormatEquals(t, "%K", "K");
-        assertFormatEquals(t, "%k", "12");
-        assertFormatEquals(t, "%l", "12");
-        assertFormatEquals(t, "%M", "30");
-        assertFormatEquals(t, "%m", "06");
-        assertFormatEquals(t, "%n", "\n");
-        assertFormatEquals(t, "%O", "O");
-        assertFormatEquals(t, "%p", "PM");
-        assertFormatEquals(t, "%P", "pm");
-        assertFormatEquals(t, "%R", "12:30");
-        assertFormatEquals(t, "%r", "12:30:15 PM");
-        assertFormatEquals(t, "%S", "15");
+        verifyFormatEquals(t, "%A", "mercredi");
+        verifyFormatEquals(t, "%a", "mer.");
+        verifyFormatEquals(t, "%B", "juin");
+        verifyFormatEquals(t, "%b", "juin");
+        verifyFormatEquals(t, "%C", "20");
+        verifyFormatEquals(t, "%c", "1 juin 2005 à 12:30:15");
+        verifyFormatEquals(t, "%D", "06/01/05");
+        verifyFormatEquals(t, "%d", "01");
+        verifyFormatEquals(t, "%E", "E");
+        verifyFormatEquals(t, "%e", " 1");
+        verifyFormatEquals(t, "%F", "2005-06-01");
+        verifyFormatEquals(t, "%G", "2005");
+        verifyFormatEquals(t, "%g", "05");
+        verifyFormatEquals(t, "%H", "12");
+        verifyFormatEquals(t, "%h", "juin");
+        verifyFormatEquals(t, "%I", "12");
+        verifyFormatEquals(t, "%j", "152");
+        verifyFormatEquals(t, "%K", "K");
+        verifyFormatEquals(t, "%k", "12");
+        verifyFormatEquals(t, "%l", "12");
+        verifyFormatEquals(t, "%M", "30");
+        verifyFormatEquals(t, "%m", "06");
+        verifyFormatEquals(t, "%n", "\n");
+        verifyFormatEquals(t, "%O", "O");
+        verifyFormatEquals(t, "%p", "PM");
+        verifyFormatEquals(t, "%P", "pm");
+        verifyFormatEquals(t, "%R", "12:30");
+        verifyFormatEquals(t, "%r", "12:30:15 PM");
+        verifyFormatEquals(t, "%S", "15");
         // The original C implementation uses the (native) system default TZ, not the timezone of
         // the Time to calculate this and was therefore not stable. This changed to use the Time's
         // timezone when the Time class was re-written in Java.
-        assertFormatEquals(t, "%s", "1117621815");
-        assertFormatEquals(t, "%T", "12:30:15");
-        assertFormatEquals(t, "%t", "\t");
-        assertFormatEquals(t, "%U", "22");
-        assertFormatEquals(t, "%u", "3");
-        assertFormatEquals(t, "%V", "22");
-        assertFormatEquals(t, "%v", " 1-juin-2005");
-        assertFormatEquals(t, "%W", "22");
-        assertFormatEquals(t, "%w", "3");
-        assertFormatEquals(t, "%X", "12:30:15");
-        assertFormatEquals(t, "%x", "1 juin 2005");
-        assertFormatEquals(t, "%y", "05");
-        assertFormatEquals(t, "%Y", "2005");
-        assertFormatEquals(t, "%Z", "GMT+02:00");
-        assertFormatEquals(t, "%z", "+0200");
-        assertFormatEquals(t, "%+", "mer. juin  1 12:30:15 GMT+02:00 2005");
-        assertFormatEquals(t, "%%", "%");
+        verifyFormatEquals(t, "%s", "1117621815");
+        verifyFormatEquals(t, "%T", "12:30:15");
+        verifyFormatEquals(t, "%t", "\t");
+        verifyFormatEquals(t, "%U", "22");
+        verifyFormatEquals(t, "%u", "3");
+        verifyFormatEquals(t, "%V", "22");
+        verifyFormatEquals(t, "%v", " 1-juin-2005");
+        verifyFormatEquals(t, "%W", "22");
+        verifyFormatEquals(t, "%w", "3");
+        verifyFormatEquals(t, "%X", "12:30:15");
+        verifyFormatEquals(t, "%x", "1 juin 2005");
+        verifyFormatEquals(t, "%y", "05");
+        verifyFormatEquals(t, "%Y", "2005");
+        verifyFormatEquals(t, "%Z", "GMT+02:00");
+        verifyFormatEquals(t, "%z", "+0200");
+        verifyFormatEquals(t, "%+", "mer. juin  1 12:30:15 GMT+02:00 2005");
+        verifyFormatEquals(t, "%%", "%");
 
         // Modifiers
 
-        assertFormatEquals(t, "%EC", "20");
-        assertFormatEquals(t, "%OC", "20");
+        verifyFormatEquals(t, "%EC", "20");
+        verifyFormatEquals(t, "%OC", "20");
 
-        assertFormatEquals(t, "%_+", "mer. juin  1 12:30:15 GMT+02:00 2005");
-        assertFormatEquals(t, "%-+", "mer. juin  1 12:30:15 GMT+02:00 2005");
-        assertFormatEquals(t, "%0+", "mer. juin  1 12:30:15 GMT+02:00 2005");
-        assertFormatEquals(t, "%^+", "mer. juin  1 12:30:15 GMT+02:00 2005");
-        assertFormatEquals(t, "%#+", "mer. juin  1 12:30:15 GMT+02:00 2005");
+        verifyFormatEquals(t, "%_+", "mer. juin  1 12:30:15 GMT+02:00 2005");
+        verifyFormatEquals(t, "%-+", "mer. juin  1 12:30:15 GMT+02:00 2005");
+        verifyFormatEquals(t, "%0+", "mer. juin  1 12:30:15 GMT+02:00 2005");
+        verifyFormatEquals(t, "%^+", "mer. juin  1 12:30:15 GMT+02:00 2005");
+        verifyFormatEquals(t, "%#+", "mer. juin  1 12:30:15 GMT+02:00 2005");
 
-        assertFormatEquals(t, "%_A", "mercredi");
-        assertFormatEquals(t, "%-A", "mercredi");
-        assertFormatEquals(t, "%0A", "mercredi");
-        assertFormatEquals(t, "%^A", "MERCREDI");
-        assertFormatEquals(t, "%#A", "MERCREDI");
+        verifyFormatEquals(t, "%_A", "mercredi");
+        verifyFormatEquals(t, "%-A", "mercredi");
+        verifyFormatEquals(t, "%0A", "mercredi");
+        verifyFormatEquals(t, "%^A", "MERCREDI");
+        verifyFormatEquals(t, "%#A", "MERCREDI");
 
-        assertFormatEquals(t, "%_Y", "20 5");
-        assertFormatEquals(t, "%-Y", "205");
-        assertFormatEquals(t, "%0Y", "2005");
-        assertFormatEquals(t, "%^Y", "2005");
-        assertFormatEquals(t, "%#Y", "2005");
+        verifyFormatEquals(t, "%_Y", "20 5");
+        verifyFormatEquals(t, "%-Y", "205");
+        verifyFormatEquals(t, "%0Y", "2005");
+        verifyFormatEquals(t, "%^Y", "2005");
+        verifyFormatEquals(t, "%#Y", "2005");
 
-        assertFormatEquals(t, "%_d", " 1");
-        assertFormatEquals(t, "%-d", "1");
-        assertFormatEquals(t, "%0d", "01");
-        assertFormatEquals(t, "%^d", "01");
-        assertFormatEquals(t, "%#d", "01");
+        verifyFormatEquals(t, "%_d", " 1");
+        verifyFormatEquals(t, "%-d", "1");
+        verifyFormatEquals(t, "%0d", "01");
+        verifyFormatEquals(t, "%^d", "01");
+        verifyFormatEquals(t, "%#d", "01");
     }
 
-    public void testFormat_tokensJapanLocale() throws Exception {
+    @Test
+    public void testFormat_tokensJapanLocale() {
         if (!changeJavaAndAndroidLocale(Locale.JAPAN, false /* force */)) {
             Log.w(TAG, "Skipping testFormat_tokensJapanLocale: no assets found");
             return;
@@ -1069,91 +1098,92 @@ public class TimeTest extends AndroidTestCase {
         Fields.setDateTime(t, 2005, 5, 1, 12, 30, 15);
 
         // Prove the un-normalized fields are used.
-        assertFormatEquals(t, "%A", "日曜日");
+        verifyFormatEquals(t, "%A", "日曜日");
 
         // Set fields like weekday.
         t.normalize(true);
 
-        assertFormatEquals(t, "%A", "水曜日");
-        assertFormatEquals(t, "%a", "水");
-        assertFormatEquals(t, "%B", "6月");
-        assertFormatEquals(t, "%b", "6月");
-        assertFormatEquals(t, "%C", "20");
-        assertFormatEquals(t, "%c", "2005/06/01 12:30:15");
-        assertFormatEquals(t, "%D", "06/01/05");
-        assertFormatEquals(t, "%d", "01");
-        assertFormatEquals(t, "%E", "E");
-        assertFormatEquals(t, "%e", " 1");
-        assertFormatEquals(t, "%F", "2005-06-01");
-        assertFormatEquals(t, "%G", "2005");
-        assertFormatEquals(t, "%g", "05");
-        assertFormatEquals(t, "%H", "12");
-        assertFormatEquals(t, "%h", "6月");
-        assertFormatEquals(t, "%I", "12");
-        assertFormatEquals(t, "%j", "152");
-        assertFormatEquals(t, "%k", "12");
-        assertFormatEquals(t, "%l", "12");
-        assertFormatEquals(t, "%M", "30");
-        assertFormatEquals(t, "%m", "06");
-        assertFormatEquals(t, "%n", "\n");
-        assertFormatEquals(t, "%O", "O");
-        assertFormatEquals(t, "%p", "午後");
-        assertFormatEquals(t, "%P", "午後");
-        assertFormatEquals(t, "%R", "12:30");
-        assertFormatEquals(t, "%r", "12:30:15 午後");
-        assertFormatEquals(t, "%S", "15");
+        verifyFormatEquals(t, "%A", "水曜日");
+        verifyFormatEquals(t, "%a", "水");
+        verifyFormatEquals(t, "%B", "6月");
+        verifyFormatEquals(t, "%b", "6月");
+        verifyFormatEquals(t, "%C", "20");
+        verifyFormatEquals(t, "%c", "2005/06/01 12:30:15");
+        verifyFormatEquals(t, "%D", "06/01/05");
+        verifyFormatEquals(t, "%d", "01");
+        verifyFormatEquals(t, "%E", "E");
+        verifyFormatEquals(t, "%e", " 1");
+        verifyFormatEquals(t, "%F", "2005-06-01");
+        verifyFormatEquals(t, "%G", "2005");
+        verifyFormatEquals(t, "%g", "05");
+        verifyFormatEquals(t, "%H", "12");
+        verifyFormatEquals(t, "%h", "6月");
+        verifyFormatEquals(t, "%I", "12");
+        verifyFormatEquals(t, "%j", "152");
+        verifyFormatEquals(t, "%k", "12");
+        verifyFormatEquals(t, "%l", "12");
+        verifyFormatEquals(t, "%M", "30");
+        verifyFormatEquals(t, "%m", "06");
+        verifyFormatEquals(t, "%n", "\n");
+        verifyFormatEquals(t, "%O", "O");
+        verifyFormatEquals(t, "%p", "午後");
+        verifyFormatEquals(t, "%P", "午後");
+        verifyFormatEquals(t, "%R", "12:30");
+        verifyFormatEquals(t, "%r", "12:30:15 午後");
+        verifyFormatEquals(t, "%S", "15");
         // The original C implementation uses the (native) system default TZ, not the timezone of
         // the Time to calculate this and was therefore not stable. This changed to use the Time's
         // timezone when the Time class was re-written in Java.
-        assertFormatEquals(t, "%s", "1117596615");
-        assertFormatEquals(t, "%T", "12:30:15");
-        assertFormatEquals(t, "%t", "\t");
-        assertFormatEquals(t, "%U", "22");
-        assertFormatEquals(t, "%u", "3");
-        assertFormatEquals(t, "%V", "22");
-        assertFormatEquals(t, "%v", " 1-6月-2005");
-        assertFormatEquals(t, "%W", "22");
-        assertFormatEquals(t, "%w", "3");
-        assertFormatEquals(t, "%X", "12:30:15");
-        assertFormatEquals(t, "%x", "2005年6月1日");
-        assertFormatEquals(t, "%y", "05");
-        assertFormatEquals(t, "%Y", "2005");
-        assertFormatEquals(t, "%Z", "JST");
-        assertFormatEquals(t, "%z", "+0900");
-        assertFormatEquals(t, "%+", "水 6月  1 12:30:15 JST 2005");
-        assertFormatEquals(t, "%%", "%");
+        verifyFormatEquals(t, "%s", "1117596615");
+        verifyFormatEquals(t, "%T", "12:30:15");
+        verifyFormatEquals(t, "%t", "\t");
+        verifyFormatEquals(t, "%U", "22");
+        verifyFormatEquals(t, "%u", "3");
+        verifyFormatEquals(t, "%V", "22");
+        verifyFormatEquals(t, "%v", " 1-6月-2005");
+        verifyFormatEquals(t, "%W", "22");
+        verifyFormatEquals(t, "%w", "3");
+        verifyFormatEquals(t, "%X", "12:30:15");
+        verifyFormatEquals(t, "%x", "2005年6月1日");
+        verifyFormatEquals(t, "%y", "05");
+        verifyFormatEquals(t, "%Y", "2005");
+        verifyFormatEquals(t, "%Z", "JST");
+        verifyFormatEquals(t, "%z", "+0900");
+        verifyFormatEquals(t, "%+", "水 6月  1 12:30:15 JST 2005");
+        verifyFormatEquals(t, "%%", "%");
 
         // Modifiers
 
-        assertFormatEquals(t, "%EC", "20");
-        assertFormatEquals(t, "%OC", "20");
+        verifyFormatEquals(t, "%EC", "20");
+        verifyFormatEquals(t, "%OC", "20");
 
-        assertFormatEquals(t, "%_+", "水 6月  1 12:30:15 JST 2005");
-        assertFormatEquals(t, "%-+", "水 6月  1 12:30:15 JST 2005");
-        assertFormatEquals(t, "%0+", "水 6月  1 12:30:15 JST 2005");
-        assertFormatEquals(t, "%^+", "水 6月  1 12:30:15 JST 2005");
-        assertFormatEquals(t, "%#+", "水 6月  1 12:30:15 JST 2005");
+        verifyFormatEquals(t, "%_+", "水 6月  1 12:30:15 JST 2005");
+        verifyFormatEquals(t, "%-+", "水 6月  1 12:30:15 JST 2005");
+        verifyFormatEquals(t, "%0+", "水 6月  1 12:30:15 JST 2005");
+        verifyFormatEquals(t, "%^+", "水 6月  1 12:30:15 JST 2005");
+        verifyFormatEquals(t, "%#+", "水 6月  1 12:30:15 JST 2005");
 
-        assertFormatEquals(t, "%_A", "水曜日");
-        assertFormatEquals(t, "%-A", "水曜日");
-        assertFormatEquals(t, "%0A", "水曜日");
-        assertFormatEquals(t, "%^A", "水曜日");
-        assertFormatEquals(t, "%#A", "水曜日");
+        verifyFormatEquals(t, "%_A", "水曜日");
+        verifyFormatEquals(t, "%-A", "水曜日");
+        verifyFormatEquals(t, "%0A", "水曜日");
+        verifyFormatEquals(t, "%^A", "水曜日");
+        verifyFormatEquals(t, "%#A", "水曜日");
 
-        assertFormatEquals(t, "%_Y", "20 5");
-        assertFormatEquals(t, "%-Y", "205");
-        assertFormatEquals(t, "%0Y", "2005");
-        assertFormatEquals(t, "%^Y", "2005");
-        assertFormatEquals(t, "%#Y", "2005");
+        verifyFormatEquals(t, "%_Y", "20 5");
+        verifyFormatEquals(t, "%-Y", "205");
+        verifyFormatEquals(t, "%0Y", "2005");
+        verifyFormatEquals(t, "%^Y", "2005");
+        verifyFormatEquals(t, "%#Y", "2005");
 
-        assertFormatEquals(t, "%_d", " 1");
-        assertFormatEquals(t, "%-d", "1");
-        assertFormatEquals(t, "%0d", "01");
-        assertFormatEquals(t, "%^d", "01");
-        assertFormatEquals(t, "%#d", "01");
+        verifyFormatEquals(t, "%_d", " 1");
+        verifyFormatEquals(t, "%-d", "1");
+        verifyFormatEquals(t, "%0d", "01");
+        verifyFormatEquals(t, "%^d", "01");
+        verifyFormatEquals(t, "%#d", "01");
     }
 
-    public void testFormat2445() throws Exception {
+    @Test
+    public void testFormat2445() {
         Time t = new Time(Time.TIMEZONE_UTC);
         Fields.setDateTime(t, 2005, 5, 1, 12, 30, 15);
 
@@ -1171,22 +1201,24 @@ public class TimeTest extends AndroidTestCase {
         assertEquals("2005000 T0 0 0 ", t.format2445());
     }
 
-    public void testFormat2445_doesNotNormalize() throws Exception {
+    @Test
+    public void testFormat2445_doesNotNormalize() {
         Time t = new Time(Time.TIMEZONE_UTC);
         Fields.set(t, 2005, 13, 32, 25, 61, 61, -2, -2, -2, -2);
 
         Time tCopy = new Time(t);
-        Fields.assertTimeEquals(t, tCopy);
+        Fields.verifyTimeEquals(t, tCopy);
 
         assertEquals("20051432T256161Z", t.format2445());
-        Fields.assertTimeEquals(t, tCopy);
+        Fields.verifyTimeEquals(t, tCopy);
 
         t.timezone = tCopy.timezone = "America/Los_Angeles";
         assertEquals("20051432T256161", t.format2445());
-        Fields.assertTimeEquals(t, tCopy);
+        Fields.verifyTimeEquals(t, tCopy);
     }
 
-    public void testToString() throws Exception {
+    @Test
+    public void testToString() {
         Time t = new Time(Time.TIMEZONE_UTC);
         assertEquals("19700101T000000UTC(0,0,0,-1,0)", t.toString());
 
@@ -1194,25 +1226,28 @@ public class TimeTest extends AndroidTestCase {
         assertEquals("19700101T000000America/Los_Angeles(0,0,0,-1,28800)", t.toString());
     }
 
-    public void testToString_doesNotNormalize() throws Exception {
+    @Test
+    public void testToString_doesNotNormalize() {
         Time t = new Time(Time.TIMEZONE_UTC);
         Fields.set(t, 2005, 13, 32, -1, -1, -1, -2, -2, -2, -2);
 
         Time tCopy = new Time(t);
-        Fields.assertTimeEquals(t, tCopy);
+        Fields.verifyTimeEquals(t, tCopy);
 
         String r = t.toString();
         assertEquals("20051432T-1-1-1UTC(-2,-2,-2,-2,1141426739)", r);
 
-        Fields.assertTimeEquals(t, tCopy);
+        Fields.verifyTimeEquals(t, tCopy);
     }
 
-    public void testGetCurrentTimezone() throws Exception {
+    @Test
+    public void testGetCurrentTimezone() {
         String r = Time.getCurrentTimezone();
         assertEquals(TimeZone.getDefault().getID(), r);
     }
 
-    public void testSetToNow() throws Exception {
+    @Test
+    public void testSetToNow() {
         Time t = new Time(Time.TIMEZONE_UTC);
 
         // Time works in seconds so all millis values have to be divided by 1000, otherwise
@@ -1228,7 +1263,8 @@ public class TimeTest extends AndroidTestCase {
         assertTrue(lowerBound <= actual && actual <= upperBound);
     }
 
-    public void testToMillis_utc() throws Exception {
+    @Test
+    public void testToMillis_utc() {
         Time t = new Time(Time.TIMEZONE_UTC);
 
         long winterTimeUtcMillis = 1167613323000L;
@@ -1284,7 +1320,8 @@ public class TimeTest extends AndroidTestCase {
         assertEquals(summerTimeUtcMillis, r);
     }
 
-    public void testToMillis_dstTz() throws Exception {
+    @Test
+    public void testToMillis_dstTz() {
         Time t = new Time(PstPdt.ID);
 
         // A STD time
@@ -1296,68 +1333,71 @@ public class TimeTest extends AndroidTestCase {
         assertEquals(stdTimeMillis, r);
 
         Fields.set(t, 2007, 0, 1, 1, 2, 3, 1 /* isDst */, 9, 9, 9);
-        assertToMillisResult(true, t, stdTimeMillis);
+        verifyToMillisResult(true, t, stdTimeMillis);
 
         Fields.set(t, 2007, 0, 1, 1, 2, 3, -1 /* isDst */, 9, 9, 9);
-        assertToMillisResult(true, t, stdTimeMillis);
+        verifyToMillisResult(true, t, stdTimeMillis);
 
         long dstToStdCorrectionMillis =
                 PstPdt.getUtcOffsetMillis(false) - PstPdt.getUtcOffsetMillis(true);
 
         Fields.set(t, 2007, 0, 1, 1, 2, 3, 0 /* isDst */, 9, 9, 9);
-        assertToMillisResult(false, t, stdTimeMillis);
+        verifyToMillisResult(false, t, stdTimeMillis);
 
         Fields.set(t, 2007, 0, 1, 1, 2, 3, 1 /* isDst */, 9, 9, 9);
-        assertToMillisResult(false, t, stdTimeMillis + dstToStdCorrectionMillis);
+        verifyToMillisResult(false, t, stdTimeMillis + dstToStdCorrectionMillis);
 
         Fields.set(t, 2007, 0, 1, 1, 2, 3, -1 /* isDst */, 9, 9, 9);
-        assertToMillisResult(false, t, stdTimeMillis);
+        verifyToMillisResult(false, t, stdTimeMillis);
 
         // A DST time
         long dstTimeUtcMillis = 1180659723000L;
         long dstTimeMillis = dstTimeUtcMillis - PstPdt.getUtcOffsetMillis(true);
 
         Fields.set(t, 2007, 5, 1, 1, 2, 3, 0 /* isDst */, 9, 9, 9);
-        assertToMillisResult(true, t, dstTimeMillis);
+        verifyToMillisResult(true, t, dstTimeMillis);
 
         Fields.set(t, 2007, 5, 1, 1, 2, 3, 1 /* isDst */, 9, 9, 9);
-        assertToMillisResult(true, t, dstTimeMillis);
+        verifyToMillisResult(true, t, dstTimeMillis);
 
         Fields.set(t, 2007, 5, 1, 1, 2, 3, -1 /* isDst */, 9, 9, 9);
-        assertToMillisResult(true, t, dstTimeMillis);
+        verifyToMillisResult(true, t, dstTimeMillis);
 
         long stdToDstCorrectionMillis = -dstToStdCorrectionMillis;
 
         Fields.set(t, 2007, 5, 1, 1, 2, 3, 0 /* isDst */, 9, 9, 9);
-        assertToMillisResult(false, t, dstTimeMillis + stdToDstCorrectionMillis);
+        verifyToMillisResult(false, t, dstTimeMillis + stdToDstCorrectionMillis);
 
         Fields.set(t, 2007, 5, 1, 1, 2, 3, 1 /* isDst */, 9, 9, 9);
-        assertToMillisResult(false, t, dstTimeMillis);
+        verifyToMillisResult(false, t, dstTimeMillis);
 
         Fields.set(t, 2007, 5, 1, 1, 2, 3, -1 /* isDst */, 9, 9, 9);
-        assertToMillisResult(false, t, dstTimeMillis);
+        verifyToMillisResult(false, t, dstTimeMillis);
     }
 
-    private static void assertToMillisResult(boolean toMillisArgument, Time t, long expectedResult) {
+    private static void verifyToMillisResult(boolean toMillisArgument, Time t,
+            long expectedResult) {
         long r = t.toMillis(toMillisArgument /* ignore isDst */);
         assertEquals(expectedResult, r);
     }
 
+    @Test
     public void testToMillis_doesNotNormalize() {
         Time t = new Time(Time.TIMEZONE_UTC);
 
         Fields.set(t, 2007, 13, 32, 25, 60, 60, -2 /* isDst */, Integer.MAX_VALUE, 367, 7);
 
         Time originalTime = new Time(t);
-        Fields.assertTimeEquals(t, originalTime);
+        Fields.verifyTimeEquals(t, originalTime);
 
         t.toMillis(true);
-        Fields.assertTimeEquals(originalTime, t);
+        Fields.verifyTimeEquals(originalTime, t);
 
         t.toMillis(false);
-        Fields.assertTimeEquals(originalTime, t);
+        Fields.verifyTimeEquals(originalTime, t);
     }
 
+    @Test
     public void testToMillis_skippedTime() {
         // Tests behavior around a transition from STD to DST that introduces an hour of "skipped"
         // time from 01:00 to 01:59.
@@ -1383,13 +1423,13 @@ public class TimeTest extends AndroidTestCase {
             } else {
                 expectedTimeMillis = -1;
             }
-            assertToMillisResult(true, time, expectedTimeMillis);
+            verifyToMillisResult(true, time, expectedTimeMillis);
 
             // isDst = 0, toMillis(false)
             Fields.set(time, timeFields);
             time.isDst = 0;
             expectedTimeMillis = stdBaseTimeMillis + minutesInMillis;
-            assertToMillisResult(false, time, expectedTimeMillis);
+            verifyToMillisResult(false, time, expectedTimeMillis);
 
             // isDst = 1, toMillis(true)
             Fields.set(time, timeFields);
@@ -1401,13 +1441,13 @@ public class TimeTest extends AndroidTestCase {
             } else {
                 expectedTimeMillis = -1;
             }
-            assertToMillisResult(true, time, expectedTimeMillis);
+            verifyToMillisResult(true, time, expectedTimeMillis);
 
             // isDst = 1, toMillis(false)
             Fields.set(time, timeFields);
             time.isDst = 1;
             expectedTimeMillis = dstBaseTimeMillis + minutesInMillis;
-            assertToMillisResult(false, time, expectedTimeMillis);
+            verifyToMillisResult(false, time, expectedTimeMillis);
 
             // isDst = -1, toMillis(true)
             Fields.set(time, timeFields);
@@ -1420,15 +1460,16 @@ public class TimeTest extends AndroidTestCase {
             } else {
                 expectedTimeMillis = -1;
             }
-            assertToMillisResult(false, time, expectedTimeMillis);
+            verifyToMillisResult(false, time, expectedTimeMillis);
 
             // isDst = -1, toMillis(false)
             Fields.set(time, timeFields);
             time.isDst = -1;
-            assertToMillisResult(false, time, expectedTimeMillis);
+            verifyToMillisResult(false, time, expectedTimeMillis);
         }
     }
 
+    @Test
     public void testToMillis_duplicateWallTime() {
         // 1:00 in standard / 2:00 in DST
         long timeBaseMillis = 1194163200000L;
@@ -1460,7 +1501,7 @@ public class TimeTest extends AndroidTestCase {
             // isDst = 0, toMillis(false)
             Fields.set(time, timeFields);
             time.isDst = 0;
-            assertToMillisResult(false, time,
+            verifyToMillisResult(false, time,
                     timeBaseMillis + minutesInMillis + dstCorrectionMillis);
 
             // isDst = 1, toMillis(true)
@@ -1481,7 +1522,7 @@ public class TimeTest extends AndroidTestCase {
             // isDst = 1, toMillis(false)
             Fields.set(time, timeFields);
             time.isDst = 1;
-            assertToMillisResult(false, time, timeBaseMillis + minutesInMillis);
+            verifyToMillisResult(false, time, timeBaseMillis + minutesInMillis);
 
             // isDst = -1, toMillis(true)
             Fields.set(time, timeFields);
@@ -1517,59 +1558,63 @@ public class TimeTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testToMillis_beforeTzRecords() {
         int[] timeFields = new int[] { 1900, 0, 1, 2, 3, 4, -999 /* not used */, 9, 9, 9 };
-        assertToMillisInvalid(timeFields, PstPdt.ID);
-        assertToMillisInvalid(timeFields, Time.TIMEZONE_UTC);
+        verifyToMillisInvalid(timeFields, PstPdt.ID);
+        verifyToMillisInvalid(timeFields, Time.TIMEZONE_UTC);
     }
 
-    private static void assertToMillisInvalid(int[] timeFields, String timezone) {
+    private static void verifyToMillisInvalid(int[] timeFields, String timezone) {
         Time time = new Time(timezone);
 
         // isDst = 0, toMillis(true)
         Fields.set(time, timeFields);
         time.isDst = 0;
-        assertToMillisResult(true, time, -1);
+        verifyToMillisResult(true, time, -1);
 
         // isDst = 0, toMillis(false)
         Fields.set(time, timeFields);
         time.isDst = 0;
-        assertToMillisResult(false, time, -1);
+        verifyToMillisResult(false, time, -1);
 
         // isDst = 1, toMillis(true)
         Fields.set(time, timeFields);
         time.isDst = 1;
-        assertToMillisResult(true, time, -1);
+        verifyToMillisResult(true, time, -1);
 
         // isDst = 1, toMillis(false)
         Fields.set(time, timeFields);
         time.isDst = 1;
-        assertToMillisResult(false, time, -1);
+        verifyToMillisResult(false, time, -1);
 
         // isDst = -1, toMillis(true)
         Fields.set(time, timeFields);
         time.isDst = -1;
-        assertToMillisResult(true, time, -1);
+        verifyToMillisResult(true, time, -1);
 
         // isDst = -1, toMillis(false)
         Fields.set(time, timeFields);
         time.isDst = -1;
-        assertToMillisResult(false, time, -1);
+        verifyToMillisResult(false, time, -1);
     }
 
+    @Test
     public void testToMillis_afterTzRecords() {
         int[] timeFields = new int[] { 2039, 0, 1, 2, 3, 4, -999 /* not used */, 9, 9, 9 };
-        assertToMillisInvalid(timeFields, PstPdt.ID);
-        assertToMillisInvalid(timeFields, Time.TIMEZONE_UTC);
+        verifyToMillisInvalid(timeFields, PstPdt.ID);
+        verifyToMillisInvalid(timeFields, Time.TIMEZONE_UTC);
     }
 
+    @Test
     public void testToMillis_invalid() {
         int[] timeFields = new int[] { 0, 0, 0, 0, 0, 0, -999 /* not used */, 9, 9, 9 };
-        assertToMillisInvalid(timeFields, PstPdt.ID);
-        assertToMillisInvalid(timeFields, Time.TIMEZONE_UTC);
+        verifyToMillisInvalid(timeFields, PstPdt.ID);
+        verifyToMillisInvalid(timeFields, Time.TIMEZONE_UTC);
     }
 
-    public void testParse_date() throws Exception {
+    @Test
+    public void testParse_date() {
         String nonUtcTz = PstPdt.ID;
         Time t = new Time(nonUtcTz);
         assertFalse(t.parse("12345678"));
@@ -1577,80 +1622,78 @@ public class TimeTest extends AndroidTestCase {
         Fields.setAllDayDate(expected, 1234, 55, 78);
         Fields.setDst(expected, -1 /* isDst */, 0);
         Fields.setDerivedDateTime(expected, 0, 0);
-        Fields.assertTimeEquals(expected, t);
+        Fields.verifyTimeEquals(expected, t);
     }
 
-    public void testParse_null() throws Exception {
+    @Test(expected=NullPointerException.class)
+    public void testParse_null() {
         Time t = new Time(Time.TIMEZONE_UTC);
-        try {
-            t.parse(null);
-            fail();
-        } catch (NullPointerException e) {
-        }
+        t.parse(null);
     }
 
-    public void testParse() throws Exception {
+    @Test
+    public void testParse() {
         Time t = new Time(Time.TIMEZONE_UTC);
         t.parse("20061005T120000");
 
         Time expected = new Time(Time.TIMEZONE_UTC);
         Fields.set(expected, 2006, 9, 5, 12, 0, 0, -1 /* isDst */, 0, 0, 0);
-        Fields.assertTimeEquals(expected, t);
+        Fields.verifyTimeEquals(expected, t);
     }
 
-    public void testParse_dateTime() throws Exception {
+    @Test
+    public void testParse_dateTime() {
         String nonUtcTz = PstPdt.ID;
         Time t = new Time(nonUtcTz);
         assertFalse(t.parse("12345678T901234"));
         Time expected = new Time(nonUtcTz);
         Fields.set(expected, 1234, 55, 78, 90, 12, 34, -1 /* isDst */, 0, 0, 0);
-        Fields.assertTimeEquals(expected, t);
+        Fields.verifyTimeEquals(expected, t);
 
         Time t2 = new Time(nonUtcTz);
         assertTrue(t2.parse("12345678T901234Z"));
         Time utcExpected = new Time(Time.TIMEZONE_UTC);
         Fields.set(utcExpected, 1234, 55, 78, 90, 12, 34, -1 /* isDst */, 0, 0, 0);
-        Fields.assertTimeEquals(utcExpected, t2);
+        Fields.verifyTimeEquals(utcExpected, t2);
     }
 
-    public void testParse_errors() throws Exception {
-        String nonUtcTz = PstPdt.ID;
-        try {
-            Time t = new Time(nonUtcTz);
-            t.parse(null);
-            fail();
-        } catch (NullPointerException e) {
-        }
+    @Test(expected=NullPointerException.class)
+    public void testParse_pstPdtNull() {
+        Time t = new Time(PstPdt.ID);
+        t.parse(null);
+    }
 
+    @Test
+    public void testParse_errors() {
         // Too short
-        assertParseError("");
-        assertParseError("1");
-        assertParseError("12");
-        assertParseError("123");
-        assertParseError("1234");
-        assertParseError("12345");
-        assertParseError("123456");
-        assertParseError("1234567");
+        verifyParseError("");
+        verifyParseError("1");
+        verifyParseError("12");
+        verifyParseError("123");
+        verifyParseError("1234");
+        verifyParseError("12345");
+        verifyParseError("123456");
+        verifyParseError("1234567");
 
         // No "T" in the expected place
-        assertParseError("12345678S");
+        verifyParseError("12345678S");
 
         // Invalid character in the first 8 characters.
-        assertParseError("12X45678");
+        verifyParseError("12X45678");
 
         // Too short for a date/time (15 or 16 characters allowed)
-        assertParseError("12345678T");
-        assertParseError("12345678T0");
-        assertParseError("12345678T01");
-        assertParseError("12345678T012");
-        assertParseError("12345678T0123");
-        assertParseError("12345678T01234");
+        verifyParseError("12345678T");
+        verifyParseError("12345678T0");
+        verifyParseError("12345678T01");
+        verifyParseError("12345678T012");
+        verifyParseError("12345678T0123");
+        verifyParseError("12345678T01234");
 
         // Invalid character
-        assertParseError("12345678T0X2345");
+        verifyParseError("12345678T0X2345");
     }
 
-    private static void assertParseError(String s) {
+    private static void verifyParseError(String s) {
         Time t = new Time(Time.TIMEZONE_UTC);
         try {
             t.parse(s);
@@ -1659,77 +1702,76 @@ public class TimeTest extends AndroidTestCase {
         }
     }
 
-    public void testParse3339() throws Exception {
+    @Test
+    public void testParse3339() {
         String tz = Time.TIMEZONE_UTC;
         Time expected = new Time(tz);
         Fields.setAllDayDate(expected, 1980, 4, 23);
         Fields.setDst(expected, -1 /* isDst */, 0);
         Fields.setDerivedDateTime(expected, 0, 0);
-        assertParse3339Succeeds(tz, "1980-05-23", expected);
+        verifyParse3339Succeeds(tz, "1980-05-23", expected);
 
         Fields.setDateTime(expected, 1980, 4, 23, 9, 50, 50);
         Fields.setDst(expected, -1 /* isDst */, 0);
         Fields.setDerivedDateTime(expected, 0, 0);
-        assertParse3339Succeeds(tz, "1980-05-23T09:50:50", expected);
+        verifyParse3339Succeeds(tz, "1980-05-23T09:50:50", expected);
 
         Fields.setDateTime(expected, 1980, 4, 23, 9, 50, 50);
         Fields.setDst(expected, -1 /* isDst */, 0);
         Fields.setDerivedDateTime(expected, 0, 0);
-        assertParse3339Succeeds(tz, "1980-05-23T09:50:50Z", expected);
+        verifyParse3339Succeeds(tz, "1980-05-23T09:50:50Z", expected);
 
         Fields.setDateTime(expected, 1980, 4, 23, 9, 50, 50);
         Fields.setDst(expected, -1 /* isDst */, 0);
         Fields.setDerivedDateTime(expected, 0, 0);
-        assertParse3339Succeeds(tz, "1980-05-23T09:50:50.0Z", expected);
+        verifyParse3339Succeeds(tz, "1980-05-23T09:50:50.0Z", expected);
 
         Fields.setDateTime(expected, 1980, 4, 23, 9, 50, 50);
         Fields.setDst(expected, -1 /* isDst */, 0);
         Fields.setDerivedDateTime(expected, 0, 0);
-        assertParse3339Succeeds(tz, "1980-05-23T09:50:50.12Z", expected);
+        verifyParse3339Succeeds(tz, "1980-05-23T09:50:50.12Z", expected);
 
         Fields.setDateTime(expected, 1980, 4, 23, 9, 50, 50);
         Fields.setDst(expected, -1 /* isDst */, 0);
         Fields.setDerivedDateTime(expected, 0, 0);
-        assertParse3339Succeeds(tz, "1980-05-23T09:50:50.123Z", expected);
+        verifyParse3339Succeeds(tz, "1980-05-23T09:50:50.123Z", expected);
 
         // The time should be normalized to UTC
         Fields.setDateTime(expected, 1980, 4, 23, 10, 55, 50);
         Fields.setDst(expected, -1 /* isDst */, 0);
         Fields.setDerivedDateTime(expected, 0, 0);
-        assertParse3339Succeeds(tz, "1980-05-23T09:50:50-01:05", expected);
+        verifyParse3339Succeeds(tz, "1980-05-23T09:50:50-01:05", expected);
 
         // The time should be normalized to UTC
         Fields.setDateTime(expected, 1980, 4, 23, 10, 55, 50);
         Fields.setDst(expected, -1 /* isDst */, 0);
         Fields.setDerivedDateTime(expected, 0, 0);
-        assertParse3339Succeeds(tz, "1980-05-23T09:50:50.123-01:05", expected);
+        verifyParse3339Succeeds(tz, "1980-05-23T09:50:50.123-01:05", expected);
     }
 
-    private static void assertParse3339Succeeds(String timeZone, String toParse, Time expected) {
+    private static void verifyParse3339Succeeds(String timeZone, String toParse, Time expected) {
         Time t = new Time(timeZone);
         t.parse3339(toParse);
-        Fields.assertTimeEquals(expected, t);
+        Fields.verifyTimeEquals(expected, t);
     }
 
+    @Test
     public void testParse3339_parseErrors() {
         // Too short
-        assertParse3339Error("1980");
+        verifyParse3339Error("1980");
 
         // Timezone too short
-        assertParse3339Error("1980-05-23T09:50:50.123+");
-        assertParse3339Error("1980-05-23T09:50:50.123+05:0");
+        verifyParse3339Error("1980-05-23T09:50:50.123+");
+        verifyParse3339Error("1980-05-23T09:50:50.123+05:0");
     }
 
+    @Test(expected=NullPointerException.class)
     public void testParse3339_null() {
         Time t = new Time(Time.TIMEZONE_UTC);
-        try {
-            t.parse3339(null);
-            fail();
-        } catch (NullPointerException e) {
-        }
+        t.parse3339(null);
     }
 
-    private void assertParse3339Error(String s) {
+    private void verifyParse3339Error(String s) {
         String tz = Time.TIMEZONE_UTC;
         Time t = new Time(tz);
         try {
@@ -1739,29 +1781,31 @@ public class TimeTest extends AndroidTestCase {
         }
     }
 
-    public void testSetMillis_utc() throws Exception {
+    @Test
+    public void testSetMillis_utc() {
         String tz = Time.TIMEZONE_UTC;
         Time t = new Time(tz);
         t.set(1000L);
 
         Time expected = new Time(tz);
         Fields.set(expected, 1970, 0, 1, 0, 0, 1, 0 /* isDst */, 0, 0, 4);
-        Fields.assertTimeEquals(expected, t);
+        Fields.verifyTimeEquals(expected, t);
 
         t.set(2000L);
         Fields.set(expected, 1970, 0, 1, 0, 0, 2, 0 /* isDst */, 0, 0, 4);
-        Fields.assertTimeEquals(expected, t);
+        Fields.verifyTimeEquals(expected, t);
 
         t.set(1000L * 60);
         Fields.set(expected, 1970, 0, 1, 0, 1, 0, 0 /* isDst */, 0, 0, 4);
-        Fields.assertTimeEquals(expected, t);
+        Fields.verifyTimeEquals(expected, t);
 
         t.set((1000L * 60 * 60 * 24) + 1000L);
         Fields.set(expected, 1970, 0, 2, 0, 0, 1, 0 /* isDst */, 0, 1, 5);
-        Fields.assertTimeEquals(expected, t);
+        Fields.verifyTimeEquals(expected, t);
     }
 
-    public void testSetMillis_utc_edgeCases() throws Exception {
+    @Test
+    public void testSetMillis_utc_edgeCases() {
         String tz = Time.TIMEZONE_UTC;
         Time t = new Time(tz);
         t.set(Integer.MAX_VALUE + 1L);
@@ -1769,16 +1813,17 @@ public class TimeTest extends AndroidTestCase {
         Time expected = new Time(tz);
         // This a 32-bit int overflow bug.
         Fields.set(expected, 1970, 0, 25, 20, 31, 23, 0 /* isDst */, 0, 24, 0);
-        Fields.assertTimeEquals(expected, t);
+        Fields.verifyTimeEquals(expected, t);
 
         t = new Time(tz);
         t.set(Integer.MIN_VALUE - 1L);
         // This a 32-bit int underflow bug.
         Fields.set(expected, 1969, 11, 7, 3, 28, 37, 0 /* isDst */, 0, 340, 0);
-        Fields.assertTimeEquals(expected, t);
+        Fields.verifyTimeEquals(expected, t);
     }
 
-    public void testSetFields() throws Exception {
+    @Test
+    public void testSetFields() {
         String tz = Time.TIMEZONE_UTC;
         Time t = new Time(tz);
         Fields.set(t, 9, 9, 9, 9, 9, 9, 9 /* isDst */, 9, 9, 9);
@@ -1787,7 +1832,7 @@ public class TimeTest extends AndroidTestCase {
 
         Time expected = new Time(tz);
         Fields.set(expected, 6, 5, 4, 3, 2, 1, -1 /* isDst */, 0, 0, 0);
-        Fields.assertTimeEquals(expected, t);
+        Fields.verifyTimeEquals(expected, t);
     }
 
     // Timezones that cover the world.  Some GMT offsets occur more than
@@ -1854,7 +1899,8 @@ public class TimeTest extends AndroidTestCase {
         "Pacific/Midway",
     };
 
-    public void testGetJulianDay() throws Exception {
+    @Test
+    public void testGetJulianDay() {
         Time time = new Time();
 
         // For every 15th day of 2008, and for each of the timezones listed above,
@@ -1901,7 +1947,8 @@ public class TimeTest extends AndroidTestCase {
         }
     }
 
-    public void testSetJulianDay() throws Exception {
+    @Test
+    public void testSetJulianDay() {
         Time time = new Time();
 
         // For each day of the year in 2008, and for each timezone,
@@ -1947,7 +1994,56 @@ public class TimeTest extends AndroidTestCase {
         }
     }
 
-    public void testNormalize_utc() throws Exception {
+    @Test
+    public void testGetJulianMondayFromWeeksSinceEpoch() {
+        final int mondayBeforeEpoch = Time.MONDAY_BEFORE_JULIAN_EPOCH;
+        assertEquals(mondayBeforeEpoch, Time.getJulianMondayFromWeeksSinceEpoch(0));
+        assertEquals(mondayBeforeEpoch + 7, Time.getJulianMondayFromWeeksSinceEpoch(1));
+        assertEquals(mondayBeforeEpoch + 14, Time.getJulianMondayFromWeeksSinceEpoch(2));
+        assertEquals(mondayBeforeEpoch - 7, Time.getJulianMondayFromWeeksSinceEpoch(-1));
+    }
+
+    @Test
+    public void testGetWeeksSinceEpochFromJulianDay() {
+        final int epoch = Time.EPOCH_JULIAN_DAY;  // a Thursday
+        assertEquals(0, Time.getWeeksSinceEpochFromJulianDay(epoch, Time.SUNDAY));
+        assertEquals(0, Time.getWeeksSinceEpochFromJulianDay(epoch, Time.MONDAY));
+        assertEquals(0, Time.getWeeksSinceEpochFromJulianDay(epoch, Time.TUESDAY));
+        assertEquals(0, Time.getWeeksSinceEpochFromJulianDay(epoch, Time.WEDNESDAY));
+        assertEquals(0, Time.getWeeksSinceEpochFromJulianDay(epoch, Time.THURSDAY));
+        assertEquals(0, Time.getWeeksSinceEpochFromJulianDay(epoch, Time.FRIDAY));
+        assertEquals(0, Time.getWeeksSinceEpochFromJulianDay(epoch, Time.SATURDAY));
+
+        final int epochFriday = epoch + 1;
+        assertEquals(0, Time.getWeeksSinceEpochFromJulianDay(epochFriday, Time.SUNDAY));
+        assertEquals(0, Time.getWeeksSinceEpochFromJulianDay(epochFriday, Time.MONDAY));
+        assertEquals(0, Time.getWeeksSinceEpochFromJulianDay(epochFriday, Time.TUESDAY));
+        assertEquals(0, Time.getWeeksSinceEpochFromJulianDay(epochFriday, Time.WEDNESDAY));
+        assertEquals(0, Time.getWeeksSinceEpochFromJulianDay(epochFriday, Time.THURSDAY));
+        assertEquals(1, Time.getWeeksSinceEpochFromJulianDay(epochFriday, Time.FRIDAY));
+        assertEquals(0, Time.getWeeksSinceEpochFromJulianDay(epochFriday, Time.SATURDAY));
+
+        final int epochSaturday = epoch + 2;
+        assertEquals(0, Time.getWeeksSinceEpochFromJulianDay(epochSaturday, Time.SUNDAY));
+        assertEquals(0, Time.getWeeksSinceEpochFromJulianDay(epochSaturday, Time.MONDAY));
+        assertEquals(0, Time.getWeeksSinceEpochFromJulianDay(epochSaturday, Time.TUESDAY));
+        assertEquals(0, Time.getWeeksSinceEpochFromJulianDay(epochSaturday, Time.WEDNESDAY));
+        assertEquals(0, Time.getWeeksSinceEpochFromJulianDay(epochSaturday, Time.THURSDAY));
+        assertEquals(1, Time.getWeeksSinceEpochFromJulianDay(epochSaturday, Time.FRIDAY));
+        assertEquals(1, Time.getWeeksSinceEpochFromJulianDay(epochSaturday, Time.SATURDAY));
+
+        final int tenWeeksLater = epochSaturday + 10 * 7;
+        assertEquals(10, Time.getWeeksSinceEpochFromJulianDay(tenWeeksLater, Time.SUNDAY));
+        assertEquals(10, Time.getWeeksSinceEpochFromJulianDay(tenWeeksLater, Time.MONDAY));
+        assertEquals(10, Time.getWeeksSinceEpochFromJulianDay(tenWeeksLater, Time.TUESDAY));
+        assertEquals(10, Time.getWeeksSinceEpochFromJulianDay(tenWeeksLater, Time.WEDNESDAY));
+        assertEquals(10, Time.getWeeksSinceEpochFromJulianDay(tenWeeksLater, Time.THURSDAY));
+        assertEquals(11, Time.getWeeksSinceEpochFromJulianDay(tenWeeksLater, Time.FRIDAY));
+        assertEquals(11, Time.getWeeksSinceEpochFromJulianDay(tenWeeksLater, Time.SATURDAY));
+    }
+
+    @Test
+    public void testNormalize_utc() {
         Time t = new Time(Time.TIMEZONE_UTC);
         Time expected = new Time(Time.TIMEZONE_UTC);
 
@@ -1955,56 +2051,57 @@ public class TimeTest extends AndroidTestCase {
 
         Fields.set(t, 2007, 0, 1, 1, 2, 3, 0 /* isDst */, 9, 9, 9);
         Fields.set(expected, 2007, 0, 1, 1, 2, 3, 0 /* isDst */, 0, 0, 1);
-        assertNormalizeResult(true, t, expected, winterTimeUtcMillis);
+        verifyNormalizeResult(true, t, expected, winterTimeUtcMillis);
 
         Fields.set(t, 2007, 0, 1, 1, 2, 3, 1 /* isDst */, 9, 9, 9);
         Fields.set(expected, 2007, 0, 1, 1, 2, 3, 0 /* isDst */, 0, 0, 1);
-        assertNormalizeResult(true, t, expected, winterTimeUtcMillis);
+        verifyNormalizeResult(true, t, expected, winterTimeUtcMillis);
 
         Fields.set(t, 2007, 0, 1, 1, 2, 3, -1 /* isDst */, 9, 9, 9);
         Fields.set(expected, 2007, 0, 1, 1, 2, 3, 0 /* isDst */, 0, 0, 1);
-        assertNormalizeResult(true, t, expected, winterTimeUtcMillis);
+        verifyNormalizeResult(true, t, expected, winterTimeUtcMillis);
 
         Fields.set(t, 2007, 0, 1, 1, 2, 3, 0 /* isDst */, 9, 9, 9);
         Fields.set(expected, 2007, 0, 1, 1, 2, 3, 0 /* isDst */, 0, 0, 1);
-        assertNormalizeResult(false, t, expected, winterTimeUtcMillis);
+        verifyNormalizeResult(false, t, expected, winterTimeUtcMillis);
 
         Fields.set(t, 2007, 0, 1, 1, 2, 3, 1 /* isDst */, 9, 9, 9);
         Fields.set(expected, 2007, 0, 1, 1, 2, 3, 1 /* isDst */, 9, 9, 9);
-        assertNormalizeResult(false, t, expected, -1);
+        verifyNormalizeResult(false, t, expected, -1);
 
         Fields.set(t, 2007, 0, 1, 1, 2, 3, -1 /* isDst */, 9, 9, 9);
         Fields.set(expected, 2007, 0, 1, 1, 2, 3, 0 /* isDst */, 0, 0, 1);
-        assertNormalizeResult(false, t, expected, winterTimeUtcMillis);
+        verifyNormalizeResult(false, t, expected, winterTimeUtcMillis);
 
         long summerTimeUtcMillis = 1180659723000L;
 
         Fields.set(t, 2007, 5, 1, 1, 2, 3, 0 /* isDst */, 9, 9, 9);
         Fields.set(expected, 2007, 5, 1, 1, 2, 3, 0 /* isDst */, 0, 151, 5);
-        assertNormalizeResult(true, t, expected, summerTimeUtcMillis);
+        verifyNormalizeResult(true, t, expected, summerTimeUtcMillis);
 
         Fields.set(t, 2007, 5, 1, 1, 2, 3, 1 /* isDst */, 9, 9, 9);
         Fields.set(expected, 2007, 5, 1, 1, 2, 3, 0 /* isDst */, 0, 151, 5);
-        assertNormalizeResult(true, t, expected, summerTimeUtcMillis);
+        verifyNormalizeResult(true, t, expected, summerTimeUtcMillis);
 
         Fields.set(t, 2007, 5, 1, 1, 2, 3, -1 /* isDst */, 9, 9, 9);
         Fields.set(expected, 2007, 5, 1, 1, 2, 3, 0 /* isDst */, 0, 151, 5);
-        assertNormalizeResult(true, t, expected, summerTimeUtcMillis);
+        verifyNormalizeResult(true, t, expected, summerTimeUtcMillis);
 
         Fields.set(t, 2007, 5, 1, 1, 2, 3, 0 /* isDst */, 9, 9, 9);
         Fields.set(expected, 2007, 5, 1, 1, 2, 3, 0 /* isDst */, 0, 151, 5);
-        assertNormalizeResult(false, t, expected, summerTimeUtcMillis);
+        verifyNormalizeResult(false, t, expected, summerTimeUtcMillis);
 
         Fields.set(t, 2007, 5, 1, 1, 2, 3, 1 /* isDst */, 9, 9, 9);
         Fields.set(expected, 2007, 5, 1, 1, 2, 3, 1 /* isDst */, 9, 9, 9);
-        assertNormalizeResult(false, t, expected, -1);
+        verifyNormalizeResult(false, t, expected, -1);
 
         Fields.set(t, 2007, 5, 1, 1, 2, 3, -1 /* isDst */, 1, 9, 9);
         Fields.set(expected, 2007, 5, 1, 1, 2, 3, 0 /* isDst */, 0, 151, 5);
-        assertNormalizeResult(false, t, expected, summerTimeUtcMillis);
+        verifyNormalizeResult(false, t, expected, summerTimeUtcMillis);
     }
 
-    public void testNormalize_dstTz() throws Exception {
+    @Test
+    public void testNormalize_dstTz() {
         Time t = new Time(PstPdt.ID);
         Time expected = new Time(PstPdt.ID);
 
@@ -2014,30 +2111,30 @@ public class TimeTest extends AndroidTestCase {
 
         Fields.set(t, 2007, 0, 1, 1, 2, 3, 0 /* isDst */, 9, 9, 9);
         Fields.set(expected, 2007, 0, 1, 1, 2, 3, 0 /* isDst */, -28800, 0, 1);
-        assertNormalizeResult(true, t, expected, stdTimeMillis);
+        verifyNormalizeResult(true, t, expected, stdTimeMillis);
 
         Fields.set(t, 2007, 0, 1, 1, 2, 3, 1 /* isDst */, 9, 9, 9);
         Fields.set(expected, 2007, 0, 1, 1, 2, 3, 0 /* isDst */, -28800, 0, 1);
-        assertNormalizeResult(true, t, expected, stdTimeMillis);
+        verifyNormalizeResult(true, t, expected, stdTimeMillis);
 
         Fields.set(t, 2007, 0, 1, 1, 2, 3, -1 /* isDst */, 9, 9, 9);
         Fields.set(expected, 2007, 0, 1, 1, 2, 3, 0 /* isDst */, -28800, 0, 1);
-        assertNormalizeResult(true, t, expected, stdTimeMillis);
+        verifyNormalizeResult(true, t, expected, stdTimeMillis);
 
         long dstToStdCorrectionMillis =
                 PstPdt.getUtcOffsetMillis(false) - PstPdt.getUtcOffsetMillis(true);
 
         Fields.set(t, 2007, 0, 1, 1, 2, 3, 0 /* isDst */, 9, 9, 9);
         Fields.set(expected, 2007, 0, 1, 1, 2, 3, 0 /* isDst */, -28800, 0, 1);
-        assertNormalizeResult(false, t, expected, stdTimeMillis);
+        verifyNormalizeResult(false, t, expected, stdTimeMillis);
 
         Fields.set(t, 2007, 0, 1, 1, 2, 3, 1 /* isDst */, 9, 9, 9);
         Fields.set(expected, 2007, 0, 1, 0, 2, 3, 0 /* isDst */, -28800, 0, 1);
-        assertNormalizeResult(false, t, expected, stdTimeMillis + dstToStdCorrectionMillis);
+        verifyNormalizeResult(false, t, expected, stdTimeMillis + dstToStdCorrectionMillis);
 
         Fields.set(t, 2007, 0, 1, 1, 2, 3, -1 /* isDst */, 9, 9, 9);
         Fields.set(expected, 2007, 0, 1, 1, 2, 3, 0 /* isDst */, -28800, 0, 1);
-        assertNormalizeResult(false, t, expected, stdTimeMillis);
+        verifyNormalizeResult(false, t, expected, stdTimeMillis);
 
         // A DST time
         long dstTimeUtcMillis = 1180659723000L;
@@ -2045,31 +2142,32 @@ public class TimeTest extends AndroidTestCase {
 
         Fields.set(t, 2007, 5, 1, 1, 2, 3, 0 /* isDst */, 9, 9, 9);
         Fields.set(expected, 2007, 5, 1, 1, 2, 3, 1 /* isDst */, -25200, 151, 5);
-        assertNormalizeResult(true, t, expected, dstTimeMillis);
+        verifyNormalizeResult(true, t, expected, dstTimeMillis);
 
         Fields.set(t, 2007, 5, 1, 1, 2, 3, 1 /* isDst */, 9, 9, 9);
         Fields.set(expected, 2007, 5, 1, 1, 2, 3, 1 /* isDst */, -25200, 151, 5);
-        assertNormalizeResult(true, t, expected, dstTimeMillis);
+        verifyNormalizeResult(true, t, expected, dstTimeMillis);
 
         Fields.set(t, 2007, 5, 1, 1, 2, 3, -1 /* isDst */, 9, 9, 9);
         Fields.set(expected, 2007, 5, 1, 1, 2, 3, 1 /* isDst */, -25200, 151, 5);
-        assertNormalizeResult(true, t, expected, dstTimeMillis);
+        verifyNormalizeResult(true, t, expected, dstTimeMillis);
 
         long stdToDstCorrectionMillis = -dstToStdCorrectionMillis;
 
         Fields.set(t, 2007, 5, 1, 1, 2, 3, 0 /* isDst */, 9, 9, 9);
         Fields.set(expected, 2007, 5, 1, 2, 2, 3, 1 /* isDst */, -25200, 151, 5);
-        assertNormalizeResult(false, t, expected, dstTimeMillis + stdToDstCorrectionMillis);
+        verifyNormalizeResult(false, t, expected, dstTimeMillis + stdToDstCorrectionMillis);
 
         Fields.set(t, 2007, 5, 1, 1, 2, 3, 1 /* isDst */, -25200, 151, 5);
         Fields.set(expected, 2007, 5, 1, 1, 2, 3, 1 /* isDst */, -25200, 151, 5);
-        assertNormalizeResult(false, t, expected, dstTimeMillis);
+        verifyNormalizeResult(false, t, expected, dstTimeMillis);
 
         Fields.set(t, 2007, 5, 1, 1, 2, 3, -1 /* isDst */, -25200, 151, 5);
         Fields.set(expected, 2007, 5, 1, 1, 2, 3, 1 /* isDst */, -25200, 151, 5);
-        assertNormalizeResult(false, t, expected, dstTimeMillis);
+        verifyNormalizeResult(false, t, expected, dstTimeMillis);
     }
 
+    @Test
     public void testNormalize_skippedTime() {
         // Tests behavior around a transition from STD to DST that introduces an hour of "skipped"
         // time from 01:00 to 01:59.
@@ -2126,7 +2224,7 @@ public class TimeTest extends AndroidTestCase {
                 Fields.setDerivedDateTime(expected, 9, 9);
             }
             assertEquals("i = " + i, expectedTimeMillis, timeMillis);
-            Fields.assertTimeEquals("i = " + i, expected, time);
+            Fields.verifyTimeEquals("i = " + i, expected, time);
 
             // isDst = 0, normalize(false)
             Fields.setDateTime(time, dateTimeArgs);
@@ -2144,7 +2242,7 @@ public class TimeTest extends AndroidTestCase {
                 Fields.setDst(expected, 1, PstPdt.getUtcOffsetSeconds(1));
             }
             Fields.setDerivedDateTime(expected, 69, 0);
-            Fields.assertTimeEquals("i = " + i, expected, time);
+            Fields.verifyTimeEquals("i = " + i, expected, time);
 
             // isDst = 1, normalize(true)
             Fields.setDateTime(time, dateTimeArgs);
@@ -2169,7 +2267,7 @@ public class TimeTest extends AndroidTestCase {
                 Fields.setDerivedDateTime(expected, 9, 9);
             }
             assertEquals("i = " + i, expectedTimeMillis, timeMillis);
-            Fields.assertTimeEquals("i = " + i, expected, time);
+            Fields.verifyTimeEquals("i = " + i, expected, time);
 
             // isDst = 1, normalize(false)
             Fields.setDateTime(time, dateTimeArgs);
@@ -2187,7 +2285,7 @@ public class TimeTest extends AndroidTestCase {
                 Fields.setDst(expected, 0, PstPdt.getUtcOffsetSeconds(0));
             }
             Fields.setDerivedDateTime(expected, 69, 0);
-            Fields.assertTimeEquals("i = " + i, expected, time);
+            Fields.verifyTimeEquals("i = " + i, expected, time);
 
             // isDst = -1, normalize(true)
             Fields.setDateTime(time, dateTimeArgs);
@@ -2212,7 +2310,7 @@ public class TimeTest extends AndroidTestCase {
                 Fields.setDerivedDateTime(expected, 9, 9);
             }
             assertEquals("i = " + i, expectedTimeMillis, timeMillis);
-            Fields.assertTimeEquals("i = " + i, expected, time);
+            Fields.verifyTimeEquals("i = " + i, expected, time);
 
             // isDst = -1, normalize(false)
             Fields.setDateTime(time, dateTimeArgs);
@@ -2237,10 +2335,11 @@ public class TimeTest extends AndroidTestCase {
                 Fields.setDerivedDateTime(expected, 9, 9);
             }
             assertEquals("i = " + i, expectedTimeMillis, timeMillis);
-            Fields.assertTimeEquals("i = " + i, expected, time);
+            Fields.verifyTimeEquals("i = " + i, expected, time);
         }
     }
 
+    @Test
     public void testNormalize_duplicateWallTime() {
         // 1:00 in standard / 2:00 in DST
         long timeBaseMillis = 1194163200000L;
@@ -2293,7 +2392,7 @@ public class TimeTest extends AndroidTestCase {
                 fail("i =" + i);
             }
             Fields.setDerivedDateTime(expected, 307, 0);
-            Fields.assertTimeEquals("i = " + i, expected, time);
+            Fields.verifyTimeEquals("i = " + i, expected, time);
 
             // isDst = 0, normalize(false)
             Fields.setDateTime(time, dateTimeArgs);
@@ -2311,7 +2410,7 @@ public class TimeTest extends AndroidTestCase {
                 Fields.setDst(expected, 0 /* isDst */, PstPdt.getUtcOffsetSeconds(0));
             }
             Fields.setDerivedDateTime(expected, 307, 0);
-            Fields.assertTimeEquals("i = " + i, expected, time);
+            Fields.verifyTimeEquals("i = " + i, expected, time);
 
             // isDst = 1, normalize(true)
             Fields.setDateTime(time, dateTimeArgs);
@@ -2334,7 +2433,7 @@ public class TimeTest extends AndroidTestCase {
                 fail("i =" + i);
             }
             Fields.setDerivedDateTime(expected, 307, 0);
-            Fields.assertTimeEquals("i = " + i, expected, time);
+            Fields.verifyTimeEquals("i = " + i, expected, time);
 
             // isDst = 1, normalize(false)
             Fields.setDateTime(time, dateTimeArgs);
@@ -2352,7 +2451,7 @@ public class TimeTest extends AndroidTestCase {
             }
             Fields.setDerivedDateTime(expected, 307, 0);
             assertEquals("i = " + i, expectedTimeMillis, timeMillis);
-            Fields.assertTimeEquals("i = " + i, expected, time);
+            Fields.verifyTimeEquals("i = " + i, expected, time);
 
             // isDst = -1, normalize(true)
             Fields.setDateTime(time, dateTimeArgs);
@@ -2375,7 +2474,7 @@ public class TimeTest extends AndroidTestCase {
                 fail("i =" + i);
             }
             Fields.setDerivedDateTime(expected, 307, 0);
-            Fields.assertTimeEquals("i = " + i, expected, time);
+            Fields.verifyTimeEquals("i = " + i, expected, time);
 
             // isDst = -1, normalize(false)
             Fields.setDateTime(time, dateTimeArgs);
@@ -2397,17 +2496,18 @@ public class TimeTest extends AndroidTestCase {
                 fail("i =" + i);
             }
             Fields.setDerivedDateTime(expected, 307, 0);
-            Fields.assertTimeEquals("i = " + i, expected, time);
+            Fields.verifyTimeEquals("i = " + i, expected, time);
         }
     }
 
+    @Test
     public void testNormalize_beforeTzRecords() {
         int[] timeFields = new int[] { 1900, 0, 1, 2, 3, 4, -999 /* not used */, 9, 9, 9 };
-        assertNormalizeInvalid(timeFields, PstPdt.ID);
-        assertNormalizeInvalid(timeFields, Time.TIMEZONE_UTC);
+        verifyNormalizeInvalid(timeFields, PstPdt.ID);
+        verifyNormalizeInvalid(timeFields, Time.TIMEZONE_UTC);
     }
 
-    private static void assertNormalizeInvalid(int[] timeFields, String timezone) {
+    private static void verifyNormalizeInvalid(int[] timeFields, String timezone) {
         Time time = new Time(timezone);
         Time expected = new Time(timezone);
 
@@ -2416,56 +2516,59 @@ public class TimeTest extends AndroidTestCase {
         time.isDst = 0;
         Fields.set(expected, timeFields);
         expected.isDst = -1;
-        assertNormalizeResult(true, time, expected, -1);
+        verifyNormalizeResult(true, time, expected, -1);
 
         // isDst = 0, normalize(false)
         Fields.set(time, timeFields);
         time.isDst = 0;
         Fields.set(expected, timeFields);
         expected.isDst = 0;
-        assertNormalizeResult(false, time, expected, -1);
+        verifyNormalizeResult(false, time, expected, -1);
 
         // isDst = 1, normalize(true)
         Fields.set(time, timeFields);
         time.isDst = 1;
         Fields.set(expected, timeFields);
         expected.isDst = -1;
-        assertNormalizeResult(true, time, expected, -1);
+        verifyNormalizeResult(true, time, expected, -1);
 
         // isDst = 1, normalize(false)
         Fields.set(time, timeFields);
         time.isDst = 1;
         Fields.set(expected, timeFields);
         expected.isDst = 1;
-        assertNormalizeResult(false, time, expected, -1);
+        verifyNormalizeResult(false, time, expected, -1);
 
         // isDst = -1, normalize(true)
         Fields.set(time, timeFields);
         time.isDst = -1;
         Fields.set(expected, timeFields);
         expected.isDst = -1;
-        assertNormalizeResult(true, time, expected, -1);
+        verifyNormalizeResult(true, time, expected, -1);
 
         // isDst = -1, normalize(false)
         Fields.set(time, timeFields);
         time.isDst = -1;
         Fields.set(expected, timeFields);
         expected.isDst = -1;
-        assertNormalizeResult(false, time, expected, -1);
+        verifyNormalizeResult(false, time, expected, -1);
     }
 
+    @Test
     public void testNormalize_afterTzRecords() {
         int[] timeFields = new int[] { 2039, 0, 1, 2, 3, 4, -999 /* not used */, 9, 9, 9 };
-        assertNormalizeInvalid(timeFields, PstPdt.ID);
-        assertNormalizeInvalid(timeFields, Time.TIMEZONE_UTC);
+        verifyNormalizeInvalid(timeFields, PstPdt.ID);
+        verifyNormalizeInvalid(timeFields, Time.TIMEZONE_UTC);
     }
 
+    @Test
     public void testNormalize_invalid() {
         int[] timeFields = new int[] { 0, 0, 0, 0, 0, 0, -999 /* not used */, 9, 9, 9 };
-        assertNormalizeInvalid(timeFields, PstPdt.ID);
-        assertNormalizeInvalid(timeFields, Time.TIMEZONE_UTC);
+        verifyNormalizeInvalid(timeFields, PstPdt.ID);
+        verifyNormalizeInvalid(timeFields, Time.TIMEZONE_UTC);
     }
 
+    @Test
     public void testNormalize_dstToDstSkip() {
         // In London, 4th May 1941 02:00 - 03:00 was a skip from DST -> DST (+1 hour -> +2 hours)
         String timezone = "Europe/London";
@@ -2475,22 +2578,22 @@ public class TimeTest extends AndroidTestCase {
         // Demonstrate the data we expect either side of the skipped interval: 01:59
         Fields.set(t, 1941, 4, 4, 1, 59, 0, -1 /* isDst */, 9, 9, 9);
         Fields.set(expected, 1941, 4, 4, 1, 59, 0, 1 /* isDst */, 3600, 123, 0);
-        assertNormalizeResult(true, t, expected, -904518060000L);
+        verifyNormalizeResult(true, t, expected, -904518060000L);
 
         // Demonstrate the data we expect either side of the skipped interval: 03:00
         Fields.set(t, 1941, 4, 4, 3, 0, 0, -1 /* isDst */, 9, 9, 9);
         Fields.set(expected, 1941, 4, 4, 3, 0, 0, 1 /* isDst */, 7200, 123, 0);
-        assertNormalizeResult(true, t, expected, -904518000000L);
+        verifyNormalizeResult(true, t, expected, -904518000000L);
 
         // isDst = 1, normalize(false)
         Fields.set(t, 1941, 4, 4, 2, 30, 0, 1 /* isDst */, 9, 9, 9);
         Fields.set(expected, 1941, 4, 4, 2, 30, 0, 1 /* isDst */, 9, 9, 9);
-        assertNormalizeResult(false, t, expected, -1);
+        verifyNormalizeResult(false, t, expected, -1);
 
         // isDst = -1, normalize(false)
         Fields.set(t, 1941, 4, 4, 2, 30, 0, -1 /* isDst */, 9, 9, 9);
         Fields.set(expected, 1941, 4, 4, 2, 30, 0, -1 /* isDst */, 9, 9, 9);
-        assertNormalizeResult(false, t, expected, -1);
+        verifyNormalizeResult(false, t, expected, -1);
 
         // The results below are potentially arbitrary: 01:30 and 02:30 are not a valid standard
         // times so normalize() must apply one of the possible STD -> DST adjustments to arrive at a
@@ -2499,7 +2602,7 @@ public class TimeTest extends AndroidTestCase {
         // isDst = 0, normalize(false) @ 01:30
         Fields.set(t, 1941, 4, 4, 1, 30, 0, 0 /* isDst */, 9, 9, 9);
         Fields.set(expected, 1941, 4, 4, 3, 30, 0, 1 /* isDst */, 7200, 123, 0);
-        assertNormalizeResult(false, t, expected, -904516200000L);
+        verifyNormalizeResult(false, t, expected, -904516200000L);
 
         // isDst = 0, normalize(false) @ 02:30
         Fields.set(t, 1941, 4, 4, 2, 30, 0, 0 /* isDst */, 9, 9, 9);
@@ -2513,9 +2616,10 @@ public class TimeTest extends AndroidTestCase {
         } else {
             fail();
         }
-        Fields.assertTimeEquals(expected, t);
+        Fields.verifyTimeEquals(expected, t);
     }
 
+    @Test
     public void testNormalize_dstToDstRepeat() {
         // In London, 10th August 1941 02:00 - 03:00 was a repeat from DST -> DST
         // (+2 hour -> +1 hour)
@@ -2526,24 +2630,24 @@ public class TimeTest extends AndroidTestCase {
         // Demonstrate the data we expect during the repeated interval: 02:30 (first)
         t.set(-896052600000L);
         Fields.set(expected, 1941, 7, 10, 2, 30, 0, 1 /* isDst */, 7200, 221, 0);
-        Fields.assertTimeEquals(expected, t);
+        Fields.verifyTimeEquals(expected, t);
 
         // Demonstrate the data we expect during the repeated interval: 02:30 (second)
         t.set(-896049000000L);
         Fields.set(expected, 1941, 7, 10, 2, 30, 0, 1 /* isDst */, 3600, 221, 0);
-        Fields.assertTimeEquals(expected, t);
+        Fields.verifyTimeEquals(expected, t);
 
         // Now check times in the repeated hour with different isDst assertions...
 
         // isDst = 1, normalize(false) @ 02:30
         Fields.set(t, 1941, 7, 10, 2, 30, 0, 1 /* isDst */, 9, 9, 9);
         Fields.set(expected, 1941, 7, 10, 2, 30, 0, 1 /* isDst */, 3600, 221, 0);
-        assertNormalizeResult(false, t, expected, -896049000000L);
+        verifyNormalizeResult(false, t, expected, -896049000000L);
 
         // isDst = -1, normalize(false) @ 02:30
         Fields.set(t, 1941, 7, 10, 2, 30, 0, -1 /* isDst */, 9, 9, 9);
         Fields.set(expected, 1941, 7, 10, 2, 30, 0, 1 /* isDst */, 3600, 221, 0);
-        assertNormalizeResult(false, t, expected, -896049000000L);
+        verifyNormalizeResult(false, t, expected, -896049000000L);
 
         // The results below are potentially arbitrary: 01:30 and 02:30 are not a valid standard
         // times so normalize() must apply one of the possible STD -> DST adjustments to arrive at a
@@ -2560,14 +2664,15 @@ public class TimeTest extends AndroidTestCase {
         } else {
             fail();
         }
-        Fields.assertTimeEquals(expected, t);
+        Fields.verifyTimeEquals(expected, t);
 
         // isDst = 0, normalize(false) @ 02:30
         Fields.set(t, 1941, 7, 10, 2, 30, 0, 0 /* isDst */, 9, 9, 9);
         Fields.set(expected, 1941, 7, 10, 3, 30, 0, 1 /* isDst */, 3600, 221, 0);
-        assertNormalizeResult(false, t, expected, -896045400000L);
+        verifyNormalizeResult(false, t, expected, -896045400000L);
     }
 
+    @Test
     public void testNormalize_stdToStdRepeat() {
         // In London, 31st October 1971 02:00 - 03:00 was a repeat from STD -> STD
         String timezone = "Europe/London";
@@ -2577,12 +2682,12 @@ public class TimeTest extends AndroidTestCase {
         // Demonstrate the data we expect during the repeated interval: 02:30 (first)
         t.set(57720600000L);
         Fields.set(expected, 1971, 9, 31, 2, 30, 0, 0 /* isDst */, 3600, 303, 0);
-        Fields.assertTimeEquals(expected, t);
+        Fields.verifyTimeEquals(expected, t);
 
         // Demonstrate the data we expect during the repeated interval: 02:30 (second)
         t.set(57724200000L);
         Fields.set(expected, 1971, 9, 31, 2, 30, 0, 0 /* isDst */, 0, 303, 0);
-        Fields.assertTimeEquals(expected, t);
+        Fields.verifyTimeEquals(expected, t);
 
         // isDst = 0, normalize(false) @ 02:30
         Fields.set(t, 1971, 9, 31, 2, 30, 0, 0 /* isDst */, 9, 9, 9);
@@ -2598,7 +2703,7 @@ public class TimeTest extends AndroidTestCase {
         } else {
             fail();
         }
-        Fields.assertTimeEquals(expected, t);
+        Fields.verifyTimeEquals(expected, t);
 
         // isDst = -1, normalize(false) @ 02:30
         Fields.set(t, 1971, 9, 31, 2, 30, 0, -1 /* isDst */, 9, 9, 9);
@@ -2615,7 +2720,7 @@ public class TimeTest extends AndroidTestCase {
         } else {
             fail();
         }
-        Fields.assertTimeEquals(expected, t);
+        Fields.verifyTimeEquals(expected, t);
 
         // The results below are potentially arbitrary: 01:30 and 02:30 are not a valid DST
         // so normalize() must apply one of the possible STD -> DST adjustments to arrive at a
@@ -2634,7 +2739,7 @@ public class TimeTest extends AndroidTestCase {
         } else {
             fail();
         }
-        Fields.assertTimeEquals(expected, t);
+        Fields.verifyTimeEquals(expected, t);
 
         // isDst = 1, normalize(false) @ 02:30
         Fields.set(t, 1971, 9, 31, 2, 30, 0, 1 /* isDst */, 9, 9, 9);
@@ -2647,14 +2752,15 @@ public class TimeTest extends AndroidTestCase {
         } else {
             fail();
         }
-        Fields.assertTimeEquals(expected, t);
+        Fields.verifyTimeEquals(expected, t);
 
         // isDst = 1, normalize(false) @ 03:30
         Fields.set(t, 1971, 9, 31, 3, 30, 0, 1 /* isDst */, 9, 9, 9);
         Fields.set(expected, 1971, 9, 31, 2, 30, 0, 0 /* isDst */, 0, 303, 0);
-        assertNormalizeResult(false, t, expected, 57724200000L);
+        verifyNormalizeResult(false, t, expected, 57724200000L);
     }
 
+    @Test
     public void testNormalize_stdToStdSkip() {
         // In Kiritimati, 1st Jan 1995 10:00 - 10:40 was a skip from STD -> STD (plus they do not
         // observe DST).
@@ -2665,19 +2771,20 @@ public class TimeTest extends AndroidTestCase {
         // isDst = 0, normalize(false)
         Fields.set(t, 1995, 0, 1, 10, 20, 0, 0 /* isDst */, 9, 9, 9);
         Fields.set(expected, 1995, 0, 1, 10, 20, 0, 0 /* isDst */, 9, 9, 9);
-        assertNormalizeResult(false, t, expected, -1);
+        verifyNormalizeResult(false, t, expected, -1);
 
         // isDst = 1, normalize(false)
         Fields.set(t, 1995, 0, 1, 10, 20, 0, 1 /* isDst */, 9, 9, 9);
         Fields.set(expected, 1995, 0, 1, 10, 20, 0, 1 /* isDst */, 9, 9, 9);
-        assertNormalizeResult(false, t, expected, -1);
+        verifyNormalizeResult(false, t, expected, -1);
 
         // isDst = -1, normalize(false)
         Fields.set(t, 1995, 0, 1, 10, 20, 0, -1 /* isDst */, 9, 9, 9);
         Fields.set(expected, 1995, 0, 1, 10, 20, 0, -1 /* isDst */, 9, 9, 9);
-        assertNormalizeResult(false, t, expected, -1);
+        verifyNormalizeResult(false, t, expected, -1);
     }
 
+    @Test
     public void testNormalize_utcWithDst() {
         // In UTC (or other zone without DST), what happens when a DST time is specified and there
         // is no DST offset available in the timezone data.
@@ -2687,14 +2794,15 @@ public class TimeTest extends AndroidTestCase {
         // isDst = 1, normalize(false)
         Fields.set(t, 2005, 6, 22, 1, 30, 0, 1 /* isDst */, 9, 9, 9);
         Fields.set(expected, 2005, 6, 22, 1, 30, 0, 1 /* isDst */, 9, 9, 9);
-        assertNormalizeResult(false, t, expected, -1);
+        verifyNormalizeResult(false, t, expected, -1);
 
         // isDst = -1, normalize(false)
         Fields.set(t, 2005, 6, 22, 1, 30, 0, -1 /* isDst */, 9, 9, 9);
         Fields.set(expected, 2005, 6, 22, 1, 30, 0, 0 /* isDst */, 0, 202, 5);
-        assertNormalizeResult(false, t, expected, 1121995800000L);
+        verifyNormalizeResult(false, t, expected, 1121995800000L);
     }
 
+    @Test
     public void testUnknownTz() {
         // Historically the code used UTC if the timezone is unrecognized.
 
@@ -2712,14 +2820,14 @@ public class TimeTest extends AndroidTestCase {
 
         Time expected = new Time(unknownTimezoneId);
         Fields.set(expected, 2007, 5, 1, 1, 2, 3, 0 /* isDst */, 0, 151, 5);
-        Fields.assertTimeEquals(expected, t);
+        Fields.verifyTimeEquals(expected, t);
     }
 
-    private static void assertNormalizeResult(boolean normalizeArgument, Time toNormalize,
+    private static void verifyNormalizeResult(boolean normalizeArgument, Time toNormalize,
             Time expectedTime, long expectedTimeMillis) {
         long actualTimeMillis = toNormalize.normalize(normalizeArgument /* ignore isDst */);
         assertEquals(expectedTimeMillis, actualTimeMillis);
-        Fields.assertTimeEquals(expectedTime, toNormalize);
+        Fields.verifyTimeEquals(expectedTime, toNormalize);
     }
 
     /** A helper class for manipulating / testing fields on Time objects. */
@@ -2730,19 +2838,15 @@ public class TimeTest extends AndroidTestCase {
 
         final static int ALL = MAIN_DATE_TIME | DST_FIELDS | DERIVED_DATE_TIME;
 
-        public static void assertTimeEquals(Time expected, Time actual) {
-            assertTimeEquals("", ALL, expected, actual);
+        public static void verifyTimeEquals(Time expected, Time actual) {
+            verifyTimeEquals("", ALL, expected, actual);
         }
 
-        public static void assertTimeEquals(int fields, Time expected, Time actual) {
-            assertTimeEquals("", fields, expected, actual);
+        public static void verifyTimeEquals(String message, Time expected, Time actual) {
+            verifyTimeEquals(message, Fields.ALL, expected, actual);
         }
 
-        public static void assertTimeEquals(String message, Time expected, Time actual) {
-            assertTimeEquals(message, Fields.ALL, expected, actual);
-        }
-
-        public static void assertTimeEquals(String message, int fields, Time expected,
+        public static void verifyTimeEquals(String message, int fields, Time expected,
                 Time actual) {
             boolean mainDateTimeOk = (fields & Fields.MAIN_DATE_TIME) == 0
                     || (Objects.equals(expected.timezone, actual.timezone)
@@ -2769,7 +2873,7 @@ public class TimeTest extends AndroidTestCase {
         }
 
         private static String timeToString(int fields, Time time) {
-            List<Object> values = new ArrayList<Object>();
+            List<Object> values = new ArrayList<>();
             StringBuilder format = new StringBuilder();
             if ((fields & Fields.MAIN_DATE_TIME) > 0) {
                 format.append("%d-%02d-%02d %02d:%02d:%02d allDay=%b timezone=%s ");

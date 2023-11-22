@@ -18,11 +18,25 @@ package com.google.doclava;
 
 import com.google.clearsilver.jsilver.data.Data;
 
+import java.util.Arrays;
+
 public class TagInfo {
   public static final TagInfo[] EMPTY_ARRAY = new TagInfo[0];
 
   public static TagInfo[] getArray(int size) {
       return size == 0 ? EMPTY_ARRAY : new TagInfo[size];
+  }
+
+  public static TagInfo[] append(TagInfo[] list, TagInfo item) {
+    if (item == null) {
+        return list;
+    } if (list == null) {
+      return new TagInfo[] { item };
+    } else {
+      list = Arrays.copyOf(list, list.length + 1);
+      list[list.length - 1] = item;
+      return list;
+    }
   }
 
   private String mName;

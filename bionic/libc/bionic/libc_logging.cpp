@@ -50,10 +50,6 @@
 #define _REALLY_INCLUDE_SYS__SYSTEM_PROPERTIES_H_
 #include <sys/_system_properties.h>
 
-static pthread_mutex_t g_abort_msg_lock = PTHREAD_MUTEX_INITIALIZER;
-
-__LIBC_HIDDEN__ abort_msg_t** __abort_message_ptr; // Accessible to __libc_init_common.
-
 // Must be kept in sync with frameworks/base/core/java/android/util/EventLog.java.
 enum AndroidEventLogType {
   EVENT_TYPE_INT      = 0,
@@ -107,7 +103,7 @@ struct BufferOutputStream {
 
 struct FdOutputStream {
  public:
-  FdOutputStream(int fd) : total(0), fd_(fd) {
+  explicit FdOutputStream(int fd) : total(0), fd_(fd) {
   }
 
   void Send(const char* data, int len) {
@@ -422,6 +418,13 @@ int __libc_format_buffer(char* buffer, size_t buffer_size, const char* format, .
   return os.total;
 }
 
+int __libc_format_buffer_va_list(char* buffer, size_t buffer_size, const char* format,
+                                 va_list args) {
+  BufferOutputStream os(buffer, buffer_size);
+  out_vformat(os, format, args);
+  return os.total;
+}
+
 int __libc_format_fd(int fd, const char* format, ...) {
   FdOutputStream os(fd);
   va_list args;
@@ -432,11 +435,6 @@ int __libc_format_fd(int fd, const char* format, ...) {
 }
 
 static int __libc_write_stderr(const char* tag, const char* msg) {
-  int fd = TEMP_FAILURE_RETRY(open("/dev/stderr", O_CLOEXEC | O_WRONLY | O_APPEND));
-  if (fd == -1) {
-    return -1;
-  }
-
   iovec vec[4];
   vec[0].iov_base = const_cast<char*>(tag);
   vec[0].iov_len = strlen(tag);
@@ -447,8 +445,7 @@ static int __libc_write_stderr(const char* tag, const char* msg) {
   vec[3].iov_base = const_cast<char*>("\n");
   vec[3].iov_len = 1;
 
-  int result = TEMP_FAILURE_RETRY(writev(fd, vec, 4));
-  close(fd);
+  int result = TEMP_FAILURE_RETRY(writev(STDERR_FILENO, vec, 4));
   return result;
 }
 
@@ -459,13 +456,8 @@ static int __libc_open_log_socket() {
   // found that all logd crashes thus far have had no problem stuffing
   // the UNIX domain socket and moving on so not critical *today*.
 
-  int log_fd = TEMP_FAILURE_RETRY(socket(PF_UNIX, SOCK_DGRAM | SOCK_CLOEXEC, 0));
-  if (log_fd < 0) {
-    return -1;
-  }
-
-  if (fcntl(log_fd, F_SETFL, O_NONBLOCK) == -1) {
-    close(log_fd);
+  int log_fd = TEMP_FAILURE_RETRY(socket(PF_UNIX, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0));
+  if (log_fd == -1) {
     return -1;
   }
 
@@ -597,60 +589,18 @@ int __libc_format_log(int priority, const char* tag, const char* format, ...) {
   return result;
 }
 
-static int __libc_android_log_event(int32_t tag, char type, const void* payload, size_t len) {
-  iovec vec[6];
-  char log_id = LOG_ID_EVENTS;
-  vec[0].iov_base = &log_id;
-  vec[0].iov_len = sizeof(log_id);
-  uint16_t tid = gettid();
-  vec[1].iov_base = &tid;
-  vec[1].iov_len = sizeof(tid);
-  timespec ts;
-  clock_gettime(__android_log_clockid(), &ts);
-  log_time realtime_ts;
-  realtime_ts.tv_sec = ts.tv_sec;
-  realtime_ts.tv_nsec = ts.tv_nsec;
-  vec[2].iov_base = &realtime_ts;
-  vec[2].iov_len = sizeof(realtime_ts);
-
-  vec[3].iov_base = &tag;
-  vec[3].iov_len = sizeof(tag);
-  vec[4].iov_base = &type;
-  vec[4].iov_len = sizeof(type);
-  vec[5].iov_base = const_cast<void*>(payload);
-  vec[5].iov_len = len;
-
-  int event_log_fd = __libc_open_log_socket();
-
-  if (event_log_fd == -1) {
-    return -1;
-  }
-  int result = TEMP_FAILURE_RETRY(writev(event_log_fd, vec, sizeof(vec) / sizeof(vec[0])));
-  close(event_log_fd);
-  return result;
-}
-
-void __libc_android_log_event_int(int32_t tag, int value) {
-  __libc_android_log_event(tag, EVENT_TYPE_INT, &value, sizeof(value));
-}
-
-void __libc_android_log_event_uid(int32_t tag) {
-  __libc_android_log_event_int(tag, getuid());
-}
-
-void __fortify_chk_fail(const char* msg, uint32_t tag) {
-  if (tag != 0) {
-    __libc_android_log_event_uid(tag);
-  }
-  __libc_fatal("FORTIFY: %s", msg);
-}
-
-static void __libc_fatal(const char* format, va_list args) {
+static void __libc_fatal_va_list(const char* prefix, const char* format, va_list args) {
   char msg[1024];
   BufferOutputStream os(msg, sizeof(msg));
+
+  if (prefix) {
+    os.Send(prefix, strlen(prefix));
+    os.Send(": ", 2);
+  }
+
   out_vformat(os, format, args);
 
-  // Log to stderr for the benefit of "adb shell" users.
+  // Log to stderr for the benefit of "adb shell" users and gtests.
   struct iovec iov[2] = {
     { msg, os.total },
     { const_cast<char*>("\n"), 1 },
@@ -663,48 +613,18 @@ static void __libc_fatal(const char* format, va_list args) {
   android_set_abort_message(msg);
 }
 
-void __libc_fatal_no_abort(const char* format, ...) {
+void __libc_fatal(const char* fmt, ...) {
   va_list args;
-  va_start(args, format);
-  __libc_fatal(format, args);
-  va_end(args);
-}
-
-void __libc_fatal(const char* format, ...) {
-  va_list args;
-  va_start(args, format);
-  __libc_fatal(format, args);
+  va_start(args, fmt);
+  __libc_fatal_va_list(nullptr, fmt, args);
   va_end(args);
   abort();
 }
 
-void android_set_abort_message(const char* msg) {
-  ScopedPthreadMutexLocker locker(&g_abort_msg_lock);
-
-  if (__abort_message_ptr == NULL) {
-    // We must have crashed _very_ early.
-    return;
-  }
-
-  if (*__abort_message_ptr != NULL) {
-    // We already have an abort message.
-    // Assume that the first crash is the one most worth reporting.
-    return;
-  }
-
-  size_t size = sizeof(abort_msg_t) + strlen(msg) + 1;
-  void* map = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0);
-  if (map == MAP_FAILED) {
-    return;
-  }
-
-  // TODO: if we stick to the current "one-shot" scheme, we can remove this code and
-  // stop storing the size.
-  if (*__abort_message_ptr != NULL) {
-    munmap(*__abort_message_ptr, (*__abort_message_ptr)->size);
-  }
-  abort_msg_t* new_abort_message = reinterpret_cast<abort_msg_t*>(map);
-  new_abort_message->size = size;
-  strcpy(new_abort_message->msg, msg);
-  *__abort_message_ptr = new_abort_message;
+void __fortify_fatal(const char* fmt, ...) {
+  va_list args;
+  va_start(args, fmt);
+  __libc_fatal_va_list("FORTIFY", fmt, args);
+  va_end(args);
+  abort();
 }

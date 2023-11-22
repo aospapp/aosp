@@ -24,9 +24,11 @@ import org.testng.xml.XmlInclude;
 import org.testng.xml.XmlSuite;
 import org.testng.xml.XmlTest;
 
-import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Test executor to run a single TestNG test method.
@@ -35,7 +37,7 @@ public class SingleTestNgTestExecutor {
     // Execute any method which is in the class klass.
     // The klass is passed in separately to handle inherited methods only.
     // Returns true if all tests pass, false otherwise.
-    public static boolean execute(Class<?> klass, String methodName) {
+    public static Result execute(Class<?> klass, String methodName) {
         if (klass == null) {
           throw new NullPointerException("klass must not be null");
         }
@@ -64,7 +66,7 @@ public class SingleTestNgTestExecutor {
               " had 0 tests executed. Not a test method?");
         }
 
-        return !testng.hasFailure();
+        return new Result(testng.hasFailure(), listener.getFailures());
     }
 
     private static org.testng.TestNG createTestNG(String klass, String method,
@@ -107,5 +109,24 @@ public class SingleTestNgTestExecutor {
         testng.setXmlSuites(suites);
 
         return testng;
+    }
+
+    public static class Result {
+        private final boolean hasFailure;
+        private final Map<String,Throwable> failures;
+
+
+        Result(boolean hasFailure, Map<String, Throwable> failures) {
+            this.hasFailure = hasFailure;
+            this.failures = Collections.unmodifiableMap(new LinkedHashMap<>(failures));
+        }
+
+        public boolean hasFailure() {
+            return hasFailure;
+        }
+
+        public Map<String, Throwable> getFailures() {
+            return failures;
+        }
     }
 }

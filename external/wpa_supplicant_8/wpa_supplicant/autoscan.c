@@ -16,13 +16,6 @@
 #include "scan.h"
 #include "autoscan.h"
 
-#ifdef CONFIG_AUTOSCAN_EXPONENTIAL
-extern const struct autoscan_ops autoscan_exponential_ops;
-#endif /* CONFIG_AUTOSCAN_EXPONENTIAL */
-
-#ifdef CONFIG_AUTOSCAN_PERIODIC
-extern const struct autoscan_ops autoscan_periodic_ops;
-#endif /* CONFIG_AUTOSCAN_PERIODIC */
 
 static const struct autoscan_ops * autoscan_modules[] = {
 #ifdef CONFIG_AUTOSCAN_EXPONENTIAL
@@ -54,11 +47,16 @@ int autoscan_init(struct wpa_supplicant *wpa_s, int req_scan)
 	struct sched_scan_plan *scan_plans;
 
 	/* Give preference to scheduled scan plans if supported/configured */
-	if (wpa_s->sched_scan_plans)
+	if (wpa_s->sched_scan_plans) {
+		wpa_printf(MSG_DEBUG,
+			   "autoscan: sched_scan_plans set - use it instead");
 		return 0;
+	}
 
-	if (wpa_s->autoscan && wpa_s->autoscan_priv)
+	if (wpa_s->autoscan && wpa_s->autoscan_priv) {
+		wpa_printf(MSG_DEBUG, "autoscan: Already initialized");
 		return 0;
+	}
 
 	if (name == NULL)
 		return 0;

@@ -31,7 +31,7 @@
 
 using namespace android::RSC;
 
-static void createTypedHelper (sp<RS> rs, sp<const Element> e) {
+static void createTypedHelper (const sp<RS> &rs, sp<const Element> e) {
     Type::Builder typeBuilder(rs, e);
     for (int mips = 0; mips <= 1; mips ++) {
         bool useMips = (mips == 1);
@@ -122,7 +122,7 @@ extern "C" JNIEXPORT jboolean JNICALL Java_android_cts_rscpp_RSAllocationTest_ty
     return true;
 }
 
-static sp<const Element> makeElement(sp<RS> rs, RsDataType dt, int vecSize) {
+static sp<const Element> makeElement(const sp<RS> &rs, RsDataType dt, int vecSize) {
     if (vecSize > 1) {
         return Element::createVector(rs, dt, vecSize);
     } else {
@@ -142,7 +142,7 @@ static sp<const Element> makeElement(sp<RS> rs, RsDataType dt, int vecSize) {
  * @param autoPadding Enable autoPadding or not. 
 */
 template <class T>
-static bool helperCopy1D(sp<RS> rs, int cellCount, int offset, int count, bool copyRange,
+static bool helperCopy1D(const sp<RS> &rs, int cellCount, int offset, int count, bool copyRange,
                          RsDataType dt, bool autoPadding = false) {
     bool passed = true;
     int arrLen = cellCount;
@@ -188,7 +188,7 @@ static bool helperCopy1D(sp<RS> rs, int cellCount, int offset, int count, bool c
 }
 
 //Corresponding 1D allocation to allocation copy.
-static bool helperFloatAllocationCopy1D(sp<RS> rs, int cellCount, int offset, int count) {
+static bool helperFloatAllocationCopy1D(const sp<RS> &rs, int cellCount, int offset, int count) {
 
     bool passed = true;
     sp<Allocation> srcA = Allocation::createSized(rs, Element::F32(rs), cellCount);
@@ -234,7 +234,7 @@ static bool helperFloatAllocationCopy1D(sp<RS> rs, int cellCount, int offset, in
  * @param autoPadding Enable autoPadding or not. 
 */
 template <class T>
-static bool helperCopy2D(sp<RS> rs, int xElems, int yElems,
+static bool helperCopy2D(const sp<RS> &rs, int xElems, int yElems,
                          int xOffset, int yOffset, int xCount, int yCount,
                          RsDataType dt, bool autoPadding = false) {
     bool passed = true;
@@ -275,7 +275,7 @@ static bool helperCopy2D(sp<RS> rs, int xElems, int yElems,
 }
 
 //Corresponding 2D allocation to allocation copy.
-static bool helperFloatAllocationCopy2D(sp<RS> rs, int xElems, int yElems,
+static bool helperFloatAllocationCopy2D(const sp<RS> &rs, int xElems, int yElems,
                                         int xOffset, int yOffset, int xCount, int yCount) {
 
     bool passed = true;
@@ -325,7 +325,7 @@ static bool helperFloatAllocationCopy2D(sp<RS> rs, int xElems, int yElems,
  * @param autoPadding Enable autoPadding or not. 
 */
 template <class T>
-static bool helperCopy3D(sp<RS> rs, int xElems, int yElems, int zElems,
+static bool helperCopy3D(const sp<RS> &rs, int xElems, int yElems, int zElems,
                          int xOffset, int yOffset, int zOffset,
                          int xCount, int yCount, int zCount,
                          RsDataType dt, bool autoPadding = false) {
@@ -378,7 +378,7 @@ static bool helperCopy3D(sp<RS> rs, int xElems, int yElems, int zElems,
 }
 
 //Corresponding 3D allocation to allocation copy.
-static bool helperFloatAllocationCopy3D(sp<RS> rs, int xElems, int yElems, int zElems,
+static bool helperFloatAllocationCopy3D(const sp<RS> &rs, int xElems, int yElems, int zElems,
                                         int xOffset, int yOffset, int zOffset,
                                         int xCount, int yCount, int zCount) {
 

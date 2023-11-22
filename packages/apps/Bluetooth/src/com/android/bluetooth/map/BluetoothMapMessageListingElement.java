@@ -15,16 +15,11 @@
 package com.android.bluetooth.map;
 
 import java.io.IOException;
-import java.io.StringWriter;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
 import org.xmlpull.v1.XmlSerializer;
-
-import android.telephony.PhoneNumberUtils;
-import android.util.Log;
-import android.util.Xml;
 
 import com.android.bluetooth.map.BluetoothMapUtils.TYPE;
 import com.android.bluetooth.util.Interop;

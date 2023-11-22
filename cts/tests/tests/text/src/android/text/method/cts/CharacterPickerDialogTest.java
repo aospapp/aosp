@@ -16,50 +16,59 @@
 
 package android.text.method.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 import android.app.Activity;
-import android.test.ActivityInstrumentationTestCase2;
-import android.test.UiThreadTest;
+import android.support.test.annotation.UiThreadTest;
+import android.support.test.filters.MediumTest;
+import android.support.test.rule.ActivityTestRule;
+import android.support.test.runner.AndroidJUnit4;
 import android.text.Editable;
 import android.text.Selection;
 import android.text.method.CharacterPickerDialog;
 import android.view.View;
 import android.widget.Gallery;
 
-public class CharacterPickerDialogTest extends
-        ActivityInstrumentationTestCase2<CtsActivity> {
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+@MediumTest
+@RunWith(AndroidJUnit4.class)
+public class CharacterPickerDialogTest {
     private Activity mActivity;
 
-    public CharacterPickerDialogTest() {
-        super("android.text.cts", CtsActivity.class);
-    }
+    @Rule
+    public ActivityTestRule<CtsActivity> mActivityRule = new ActivityTestRule<>(CtsActivity.class);
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mActivity = getActivity();
+    @Before
+    public void setup() {
+        mActivity = mActivityRule.getActivity();
     }
 
     @UiThreadTest
+    @Test
     public void testConstructor() {
         final CharSequence str = "123456";
         final Editable content = Editable.Factory.getInstance().newEditable(str);
         final View view = new TextViewNoIme(mActivity);
         new CharacterPickerDialog(view.getContext(), view, content, "\u00A1", false);
-
-        try {
-            new CharacterPickerDialog(null, view, content, "\u00A1", false);
-            fail("should throw NullPointerException.");
-        } catch (NullPointerException e) {
-            // expected.
-        }
-    }
-
-    public void testOnCreate() {
-        // Do not test. Implementation details.
     }
 
     @UiThreadTest
+    @Test(expected=NullPointerException.class)
+    public void testConstructorNullContext() {
+        final CharSequence str = "123456";
+        final Editable content = Editable.Factory.getInstance().newEditable(str);
+        final View view = new TextViewNoIme(mActivity);
+        new CharacterPickerDialog(null, view, content, "\u00A1", false);
+    }
+
+    @UiThreadTest
+    @Test
     public void testOnItemClick() {
         final Gallery parent = new Gallery(mActivity);
         final CharSequence str = "123456";
@@ -102,6 +111,7 @@ public class CharacterPickerDialogTest extends
     }
 
     @UiThreadTest
+    @Test
     public void testOnClick() {
         final CharSequence str = "123456";
         final Editable content = Editable.Factory.getInstance().newEditable(str);
@@ -114,6 +124,5 @@ public class CharacterPickerDialogTest extends
 
         // nothing to test here, just make sure onClick does not throw exception
         characterPickerDialog.onClick(view);
-
     }
 }

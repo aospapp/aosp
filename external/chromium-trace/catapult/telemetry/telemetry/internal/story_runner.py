@@ -5,22 +5,26 @@
 import logging
 import optparse
 import os
+import subprocess
 import sys
 import time
 
-from catapult_base import cloud_storage  # pylint: disable=import-error
+import py_utils
+from py_utils import cloud_storage  # pylint: disable=import-error
 
 from telemetry.core import exceptions
+from telemetry import decorators
 from telemetry.internal.actions import page_action
 from telemetry.internal.browser import browser_finder
 from telemetry.internal.results import results_options
 from telemetry.internal.util import exception_formatter
 from telemetry import page
-from telemetry.page import page_test
+from telemetry.page import legacy_page_test
 from telemetry import story as story_module
 from telemetry.util import wpr_modes
 from telemetry.value import failure
 from telemetry.value import skip
+from telemetry.value import scalar
 from telemetry.web_perf import story_test
 
 
@@ -34,9 +38,6 @@ def AddCommandLineArgs(parser):
 
   # Page set options
   group = optparse.OptionGroup(parser, 'Page set repeat options')
-  group.add_option('--page-repeat', default=1, type='int',
-                   help='Number of times to repeat each individual page '
-                   'before proceeding with the next page in the pageset.')
   group.add_option('--pageset-repeat', default=1, type='int',
                    help='Number of times to repeat the entire pageset.')
   group.add_option('--max-failures', default=None, type='int',
@@ -57,21 +58,25 @@ def AddCommandLineArgs(parser):
                     action='store_true', default=False,
                     help='Ignore @Disabled and @Enabled restrictions.')
 
+
 def ProcessCommandLineArgs(parser, args):
   story_module.StoryFilter.ProcessCommandLineArgs(parser, args)
   results_options.ProcessCommandLineArgs(parser, args)
 
-  # Page set options
-  if args.page_repeat < 1:
-    parser.error('--page-repeat must be a positive integer.')
   if args.pageset_repeat < 1:
     parser.error('--pageset-repeat must be a positive integer.')
 
 
 def _RunStoryAndProcessErrorIfNeeded(story, results, state, test):
-  def ProcessError():
-    results.AddValue(failure.FailureValue(story, sys.exc_info()))
+  def ProcessError(description=None):
+    state.DumpStateUponFailure(story, results)
+    results.AddValue(failure.FailureValue(story, sys.exc_info(), description))
   try:
+    # TODO(mikecase): Remove this logging once Android perf bots are swarmed.
+    # crbug.com/678282
+    if state.platform.GetOSName() == 'android':
+      state.platform._platform_backend.Log(
+          'START %s' % (story.name if story.name else str(story)))
     if isinstance(test, story_test.StoryTest):
       test.WillRunStory(state.platform)
     state.WillRunStory(story)
@@ -84,8 +89,9 @@ def _RunStoryAndProcessErrorIfNeeded(story, results, state, test):
     state.RunStory(results)
     if isinstance(test, story_test.StoryTest):
       test.Measure(state.platform, results)
-  except (page_test.Failure, exceptions.TimeoutException,
-          exceptions.LoginException, exceptions.ProfilingException):
+  except (legacy_page_test.Failure, exceptions.TimeoutException,
+          exceptions.LoginException, exceptions.ProfilingException,
+          py_utils.TimeoutException):
     ProcessError()
   except exceptions.Error:
     ProcessError()
@@ -94,9 +100,7 @@ def _RunStoryAndProcessErrorIfNeeded(story, results, state, test):
     results.AddValue(
         skip.SkipValue(story, 'Unsupported page action: %s' % e))
   except Exception:
-    results.AddValue(
-        failure.FailureValue(
-            story, sys.exc_info(), 'Unhandlable exception raised.'))
+    ProcessError(description='Unhandlable exception raised.')
     raise
   finally:
     has_existing_exception = (sys.exc_info() != (None, None, None))
@@ -108,8 +112,14 @@ def _RunStoryAndProcessErrorIfNeeded(story, results, state, test):
         test.DidRunStory(state.platform)
       else:
         test.DidRunPage(state.platform)
+      # TODO(mikecase): Remove this logging once Android perf bots are swarmed.
+      # crbug.com/678282
+      if state.platform.GetOSName() == 'android':
+        state.platform._platform_backend.Log(
+            'END %s' % (story.name if story.name else str(story)))
     except Exception:
       if not has_existing_exception:
+        state.DumpStateUponFailure(story, results)
         raise
       # Print current exception and propagate existing exception.
       exception_formatter.PrintFormattedException(
@@ -172,25 +182,28 @@ def StoriesGroupedByStateClass(story_set, allow_multiple_groups):
 
 
 def Run(test, story_set, finder_options, results, max_failures=None,
-        should_tear_down_state_after_each_story_run=False):
+        tear_down_after_story=False, tear_down_after_story_set=False):
   """Runs a given test against a given page_set with the given options.
 
   Stop execution for unexpected exceptions such as KeyboardInterrupt.
   We "white list" certain exceptions for which the story runner
   can continue running the remaining stories.
   """
+  for s in story_set:
+    ValidateStory(s)
+
   # Filter page set based on options.
   stories = filter(story_module.StoryFilter.IsSelected, story_set)
 
-  if (not finder_options.use_live_sites and story_set.bucket and
+  if (not finder_options.use_live_sites and
       finder_options.browser_options.wpr_mode != wpr_modes.WPR_RECORD):
     serving_dirs = story_set.serving_dirs
-    for directory in serving_dirs:
-      cloud_storage.GetFilesInDirectoryIfChanged(directory,
-                                                 story_set.bucket)
-    if not _UpdateAndCheckArchives(
-        story_set.archive_data_file, story_set.wpr_archive_info,
-        stories):
+    if story_set.bucket:
+      for directory in serving_dirs:
+        cloud_storage.GetFilesInDirectoryIfChanged(directory,
+                                                   story_set.bucket)
+    if story_set.archive_data_file and not _UpdateAndCheckArchives(
+        story_set.archive_data_file, story_set.wpr_archive_info, stories):
       return
 
   if not stories:
@@ -208,50 +221,60 @@ def Run(test, story_set, finder_options, results, max_failures=None,
   for group in story_groups:
     state = None
     try:
-      for _ in xrange(finder_options.pageset_repeat):
+      for storyset_repeat_counter in xrange(finder_options.pageset_repeat):
         for story in group.stories:
-          for _ in xrange(finder_options.page_repeat):
-            if not state:
-              # Construct shared state by using a copy of finder_options. Shared
-              # state may update the finder_options. If we tear down the shared
-              # state after this story run, we want to construct the shared
-              # state for the next story from the original finder_options.
-              state = group.shared_state_class(
-                  test, finder_options.Copy(), story_set)
-            results.WillRunPage(story)
+          if not state:
+            # Construct shared state by using a copy of finder_options. Shared
+            # state may update the finder_options. If we tear down the shared
+            # state after this story run, we want to construct the shared
+            # state for the next story from the original finder_options.
+            state = group.shared_state_class(
+                test, finder_options.Copy(), story_set)
+
+          results.WillRunPage(story, storyset_repeat_counter)
+          try:
+            # Log ps on n7s to determine if adb changed processes.
+            # crbug.com/667470
+            if 'Nexus 7' in state.platform.GetDeviceTypeName():
+              ps_output = subprocess.check_output(['ps', '-ef'])
+              logging.info('Ongoing processes:\n%s', ps_output)
+
+            state.platform.WaitForTemperature(35)
+            _WaitForThermalThrottlingIfNeeded(state.platform)
+            _RunStoryAndProcessErrorIfNeeded(story, results, state, test)
+          except exceptions.Error:
+            # Catch all Telemetry errors to give the story a chance to retry.
+            # The retry is enabled by tearing down the state and creating
+            # a new state instance in the next iteration.
             try:
-              _WaitForThermalThrottlingIfNeeded(state.platform)
-              _RunStoryAndProcessErrorIfNeeded(story, results, state, test)
-            except exceptions.Error:
-              # Catch all Telemetry errors to give the story a chance to retry.
-              # The retry is enabled by tearing down the state and creating
-              # a new state instance in the next iteration.
-              try:
-                # If TearDownState raises, do not catch the exception.
-                # (The Error was saved as a failure value.)
-                state.TearDownState()
-              finally:
-                # Later finally-blocks use state, so ensure it is cleared.
-                state = None
+              # If TearDownState raises, do not catch the exception.
+              # (The Error was saved as a failure value.)
+              state.TearDownState()
             finally:
-              has_existing_exception = sys.exc_info() != (None, None, None)
-              try:
-                if state:
-                  _CheckThermalThrottling(state.platform)
-                results.DidRunPage(story)
-              except Exception:
-                if not has_existing_exception:
-                  raise
-                # Print current exception and propagate existing exception.
-                exception_formatter.PrintFormattedException(
-                    msg='Exception from result processing:')
-              if state and should_tear_down_state_after_each_story_run:
-                state.TearDownState()
-                state = None
+              # Later finally-blocks use state, so ensure it is cleared.
+              state = None
+          finally:
+            has_existing_exception = sys.exc_info() != (None, None, None)
+            try:
+              if state:
+                _CheckThermalThrottling(state.platform)
+              results.DidRunPage(story)
+            except Exception:
+              if not has_existing_exception:
+                raise
+              # Print current exception and propagate existing exception.
+              exception_formatter.PrintFormattedException(
+                  msg='Exception from result processing:')
+            if state and tear_down_after_story:
+              state.TearDownState()
+              state = None
           if (effective_max_failures is not None and
               len(results.failures) > effective_max_failures):
             logging.error('Too many failures. Aborting.')
             return
+        if state and tear_down_after_story_set:
+          state.TearDownState()
+          state = None
     finally:
       if state:
         has_existing_exception = sys.exc_info() != (None, None, None)
@@ -265,6 +288,13 @@ def Run(test, story_set, finder_options, results, max_failures=None,
               msg='Exception from TearDownState:')
 
 
+def ValidateStory(story):
+  if len(story.display_name) > 180:
+    raise ValueError(
+        'User story has display name exceeding 180 characters: %s' %
+        story.display_name)
+
+
 def RunBenchmark(benchmark, finder_options):
   """Run this test with the given options.
 
@@ -272,54 +302,84 @@ def RunBenchmark(benchmark, finder_options):
     The number of failure values (up to 254) or 255 if there is an uncaught
     exception.
   """
+  start = time.time()
   benchmark.CustomizeBrowserOptions(finder_options.browser_options)
 
+  benchmark_metadata = benchmark.GetMetadata()
   possible_browser = browser_finder.FindBrowser(finder_options)
-  if possible_browser and benchmark.ShouldDisable(possible_browser):
-    logging.warning('%s is disabled on the selected browser', benchmark.Name())
+  if not possible_browser:
+    print ('Cannot find browser of type %s. To list out all '
+           'available browsers, rerun your command with '
+           '--browser=list' %  finder_options.browser_options.browser_type)
+    return 1
+  if (possible_browser and
+    not decorators.IsBenchmarkEnabled(benchmark, possible_browser)):
+    print '%s is disabled on the selected browser' % benchmark.Name()
     if finder_options.run_disabled_tests:
-      logging.warning(
-          'Running benchmark anyway due to: --also-run-disabled-tests')
+      print 'Running benchmark anyway due to: --also-run-disabled-tests'
     else:
-      logging.warning(
-          'Try --also-run-disabled-tests to force the benchmark to run.')
-      return 1
+      print 'Try --also-run-disabled-tests to force the benchmark to run.'
+      # If chartjson is specified, this will print a dict indicating the
+      # benchmark name and disabled state.
+      with results_options.CreateResults(
+          benchmark_metadata, finder_options,
+          benchmark.ValueCanBeAddedPredicate, benchmark_enabled=False
+          ) as results:
+        results.PrintSummary()
+      # When a disabled benchmark is run we now want to return success since
+      # we are no longer filtering these out in the buildbot recipes.
+      return 0
 
   pt = benchmark.CreatePageTest(finder_options)
   pt.__name__ = benchmark.__class__.__name__
 
-  if hasattr(benchmark, '_disabled_strings'):
-    # pylint: disable=protected-access
-    pt._disabled_strings = benchmark._disabled_strings
+  disabled_attr_name = decorators.DisabledAttributeName(benchmark)
+  # pylint: disable=protected-access
+  pt._disabled_strings = getattr(benchmark, disabled_attr_name, set())
   if hasattr(benchmark, '_enabled_strings'):
     # pylint: disable=protected-access
     pt._enabled_strings = benchmark._enabled_strings
 
   stories = benchmark.CreateStorySet(finder_options)
-  if isinstance(pt, page_test.PageTest):
+
+  if isinstance(pt, legacy_page_test.LegacyPageTest):
     if any(not isinstance(p, page.Page) for p in stories.stories):
       raise Exception(
           'PageTest must be used with StorySet containing only '
           'telemetry.page.Page stories.')
 
-  benchmark_metadata = benchmark.GetMetadata()
+  should_tear_down_state_after_each_story_run = (
+      benchmark.ShouldTearDownStateAfterEachStoryRun())
+  # HACK: restarting shared state has huge overhead on cros (crbug.com/645329),
+  # hence we default this to False when test is run against CrOS.
+  # TODO(cros-team): figure out ways to remove this hack.
+  if (possible_browser.platform.GetOSName() == 'chromeos' and
+      not benchmark.IsShouldTearDownStateAfterEachStoryRunOverriden()):
+    should_tear_down_state_after_each_story_run = False
+
   with results_options.CreateResults(
       benchmark_metadata, finder_options,
-      benchmark.ValueCanBeAddedPredicate) as results:
+      benchmark.ValueCanBeAddedPredicate, benchmark_enabled=True) as results:
     try:
       Run(pt, stories, finder_options, results, benchmark.max_failures,
-          benchmark.ShouldTearDownStateAfterEachStoryRun())
+          should_tear_down_state_after_each_story_run,
+          benchmark.ShouldTearDownStateAfterEachStorySetRun())
       return_code = min(254, len(results.failures))
     except Exception:
       exception_formatter.PrintFormattedException()
       return_code = 255
 
     try:
-      bucket = cloud_storage.BUCKET_ALIASES[finder_options.upload_bucket]
       if finder_options.upload_results:
+        bucket = finder_options.upload_bucket
+        if bucket in cloud_storage.BUCKET_ALIASES:
+          bucket = cloud_storage.BUCKET_ALIASES[bucket]
         results.UploadTraceFilesToCloud(bucket)
         results.UploadProfilingFilesToCloud(bucket)
     finally:
+      duration = time.time() - start
+      results.AddSummaryValue(scalar.ScalarValue(
+          None, 'BenchmarkDuration', 'minutes', duration / 60.0))
       results.PrintSummary()
   return return_code
 

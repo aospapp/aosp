@@ -16,36 +16,32 @@
 
 package com.android.settings.accessibility;
 
+import static com.android.settings.Utils.setOverlayAllowed;
+
 import android.accessibilityservice.AccessibilityServiceInfo;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.Dialog;
 import android.app.admin.DevicePolicyManager;
 import android.content.ComponentName;
-import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.ResolveInfo;
 import android.net.Uri;
+import android.os.Binder;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.IBinder;
 import android.os.UserHandle;
 import android.os.storage.StorageManager;
 import android.provider.Settings;
 import android.text.TextUtils;
-import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
-import android.view.MotionEvent;
-import android.view.View;
 import android.view.accessibility.AccessibilityManager;
-import android.widget.ImageView;
-import android.widget.LinearLayout;
-import android.widget.TextView;
-import android.widget.Toast;
 
-import com.android.internal.logging.MetricsProto.MetricsEvent;
+import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
 import com.android.internal.widget.LockPatternUtils;
 import com.android.settings.ConfirmDeviceCredentialActivity;
 import com.android.settings.R;
@@ -77,8 +73,10 @@ public class ToggleAccessibilityServicePreferenceFragment
 
     private int mShownDialogId;
 
+    private final IBinder mToken = new Binder();
+
     @Override
-    protected int getMetricsCategory() {
+    public int getMetricsCategory() {
         return MetricsEvent.ACCESSIBILITY_SERVICE;
     }
 
@@ -107,12 +105,18 @@ public class ToggleAccessibilityServicePreferenceFragment
     public void onResume() {
         mSettingsContentObserver.register(getContentResolver());
         updateSwitchBarToggleSwitch();
+        if (mToken != null) {
+            setOverlayAllowed(getActivity(), mToken, false);
+        }
         super.onResume();
     }
 
     @Override
     public void onPause() {
         mSettingsContentObserver.unregister(getContentResolver());
+        if (mToken != null) {
+            setOverlayAllowed(getActivity(), mToken, true);
+        }
         super.onPause();
     }
 
@@ -146,39 +150,13 @@ public class ToggleAccessibilityServicePreferenceFragment
         switch (dialogId) {
             case DIALOG_ID_ENABLE_WARNING: {
                 mShownDialogId = DIALOG_ID_ENABLE_WARNING;
-
                 final AccessibilityServiceInfo info = getAccessibilityServiceInfo();
                 if (info == null) {
                     return null;
                 }
 
-                final AlertDialog ad = new AlertDialog.Builder(getActivity())
-                        .setTitle(getString(R.string.enable_service_title,
-                                info.getResolveInfo().loadLabel(getPackageManager())))
-                        .setView(createEnableDialogContentView(info))
-                        .setCancelable(true)
-                        .setPositiveButton(android.R.string.ok, this)
-                        .setNegativeButton(android.R.string.cancel, this)
-                        .create();
-
-                final View.OnTouchListener filterTouchListener = new View.OnTouchListener() {
-                    @Override
-                    public boolean onTouch(View v, MotionEvent event) {
-                        // Filter obscured touches by consuming them.
-                        if ((event.getFlags() & MotionEvent.FLAG_WINDOW_IS_OBSCURED) != 0) {
-                            if (event.getAction() == MotionEvent.ACTION_UP) {
-                                Toast.makeText(v.getContext(), R.string.touch_filtered_warning,
-                                        Toast.LENGTH_SHORT).show();
-                            }
-                            return true;
-                        }
-                        return false;
-                    }
-                };
-
-                ad.create();
-                ad.getButton(AlertDialog.BUTTON_POSITIVE).setOnTouchListener(filterTouchListener);
-                return ad;
+                return AccessibilityServiceWarning
+                        .createCapabilitiesDialog(getActivity(), info, this);
             }
             case DIALOG_ID_DISABLE_WARNING: {
                 mShownDialogId = DIALOG_ID_DISABLE_WARNING;
@@ -202,11 +180,18 @@ public class ToggleAccessibilityServicePreferenceFragment
         }
     }
 
+    @Override
+    public int getDialogMetricsCategory(int dialogId) {
+        if (dialogId == DIALOG_ID_ENABLE_WARNING) {
+            return MetricsEvent.DIALOG_ACCESSIBILITY_SERVICE_ENABLE;
+        } else {
+            return MetricsEvent.DIALOG_ACCESSIBILITY_SERVICE_DISABLE;
+        }
+    }
+
     private void updateSwitchBarToggleSwitch() {
-        final String settingValue = Settings.Secure.getString(getContentResolver(),
-                Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES);
-        final boolean checked = settingValue != null
-                && settingValue.contains(mComponentName.flattenToString());
+        final boolean checked = AccessibilityUtils.getEnabledServicesFromSettings(getActivity())
+                .contains(mComponentName);
         mSwitchBar.setCheckedInternal(checked);
     }
 
@@ -218,80 +203,6 @@ public class ToggleAccessibilityServicePreferenceFragment
      */
     private boolean isFullDiskEncrypted() {
         return StorageManager.isNonDefaultBlockEncrypted();
-    }
-
-    private View createEnableDialogContentView(AccessibilityServiceInfo info) {
-        LayoutInflater inflater = (LayoutInflater) getSystemService(
-                Context.LAYOUT_INFLATER_SERVICE);
-
-        View content = inflater.inflate(R.layout.enable_accessibility_service_dialog_content,
-                null);
-
-        TextView encryptionWarningView = (TextView) content.findViewById(
-                R.id.encryption_warning);
-        if (isFullDiskEncrypted()) {
-            String text = getString(R.string.enable_service_encryption_warning,
-                    info.getResolveInfo().loadLabel(getPackageManager()));
-            encryptionWarningView.setText(text);
-            encryptionWarningView.setVisibility(View.VISIBLE);
-        } else {
-            encryptionWarningView.setVisibility(View.GONE);
-        }
-
-        TextView capabilitiesHeaderView = (TextView) content.findViewById(
-                R.id.capabilities_header);
-        capabilitiesHeaderView.setText(getString(R.string.capabilities_list_title,
-                info.getResolveInfo().loadLabel(getPackageManager())));
-
-        LinearLayout capabilitiesView = (LinearLayout) content.findViewById(R.id.capabilities);
-
-        // This capability is implicit for all services.
-        View capabilityView = inflater.inflate(
-                com.android.internal.R.layout.app_permission_item_old, null);
-
-        ImageView imageView = (ImageView) capabilityView.findViewById(
-                com.android.internal.R.id.perm_icon);
-        imageView.setImageDrawable(getActivity().getDrawable(
-                com.android.internal.R.drawable.ic_text_dot));
-
-        TextView labelView = (TextView) capabilityView.findViewById(
-                com.android.internal.R.id.permission_group);
-        labelView.setText(getString(R.string.capability_title_receiveAccessibilityEvents));
-
-        TextView descriptionView = (TextView) capabilityView.findViewById(
-                com.android.internal.R.id.permission_list);
-        descriptionView.setText(getString(R.string.capability_desc_receiveAccessibilityEvents));
-
-        List<AccessibilityServiceInfo.CapabilityInfo> capabilities =
-                info.getCapabilityInfos();
-
-        capabilitiesView.addView(capabilityView);
-
-        // Service specific capabilities.
-        final int capabilityCount = capabilities.size();
-        for (int i = 0; i < capabilityCount; i++) {
-            AccessibilityServiceInfo.CapabilityInfo capability = capabilities.get(i);
-
-            capabilityView = inflater.inflate(
-                    com.android.internal.R.layout.app_permission_item_old, null);
-
-            imageView = (ImageView) capabilityView.findViewById(
-                    com.android.internal.R.id.perm_icon);
-            imageView.setImageDrawable(getActivity().getDrawable(
-                    com.android.internal.R.drawable.ic_text_dot));
-
-            labelView = (TextView) capabilityView.findViewById(
-                    com.android.internal.R.id.permission_group);
-            labelView.setText(getString(capability.titleResId));
-
-            descriptionView = (TextView) capabilityView.findViewById(
-                    com.android.internal.R.id.permission_list);
-            descriptionView.setText(getString(capability.descResId));
-
-            capabilitiesView.addView(capabilityView);
-        }
-
-        return content;
     }
 
     @Override

@@ -37,7 +37,7 @@
  * @{
  */
 
-#include <netlink-local.h>
+#include <netlink-private/netlink.h>
 #include <netlink/netlink.h>
 #include <netlink/utils.h>
 #include <netlink/route/rtnl.h>
@@ -58,6 +58,7 @@ static int add_routing_table_name(long id, const char *name)
 static void __init init_routing_table_names(void)
 {
 	add_routing_table_name(RT_TABLE_UNSPEC, "unspec");
+	add_routing_table_name(RT_TABLE_COMPAT, "compat");
 	add_routing_table_name(RT_TABLE_DEFAULT, "default");
 	add_routing_table_name(RT_TABLE_MAIN, "main");
 	add_routing_table_name(RT_TABLE_LOCAL, "local");
@@ -138,7 +139,7 @@ int rtnl_route_str2proto(const char *name)
  * @{
  */
 
-static struct trans_tbl route_metrices[] = {
+static const struct trans_tbl route_metrices[] = {
 	__ADD(RTAX_UNSPEC, unspec)
 	__ADD(RTAX_LOCK, lock)
 	__ADD(RTAX_MTU, mtu)

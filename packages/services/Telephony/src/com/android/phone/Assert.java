@@ -49,7 +49,11 @@ public class Assert {
     }
 
     public static void fail() {
-        throw new AssertionError("Fail");
+        fail("Fail");
+    }
+
+    public static void fail(String reason) {
+        throw new AssertionError(reason);
     }
 
     /**

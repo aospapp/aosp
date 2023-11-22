@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1997, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1997, 2012, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -32,7 +32,7 @@ import java.math.BigInteger;
 import java.security.Principal;
 import java.security.PublicKey;
 import java.security.PrivateKey;
-import java.security.Security;
+import java.security.Provider;
 import java.security.Signature;
 import java.security.NoSuchAlgorithmException;
 import java.security.InvalidKeyException;
@@ -398,6 +398,67 @@ public class X509CRLImpl extends X509CRL implements DerEncoder {
         verifiedPublicKey = key;
         verifiedProvider = sigProvider;
     }
+
+    /**
+     * Verifies that this CRL was signed using the
+     * private key that corresponds to the given public key,
+     * and that the signature verification was computed by
+     * the given provider. Note that the specified Provider object
+     * does not have to be registered in the provider list.
+     *
+     * @param key the PublicKey used to carry out the verification.
+     * @param sigProvider the signature provider.
+     *
+     * @exception NoSuchAlgorithmException on unsupported signature
+     * algorithms.
+     * @exception InvalidKeyException on incorrect key.
+     * @exception SignatureException on signature errors.
+     * @exception CRLException on encoding errors.
+     */
+    public synchronized void verify(PublicKey key, Provider sigProvider)
+            throws CRLException, NoSuchAlgorithmException, InvalidKeyException,
+            SignatureException {
+
+        if (signedCRL == null) {
+            throw new CRLException("Uninitialized CRL");
+        }
+        Signature sigVerf = null;
+        if (sigProvider == null) {
+            sigVerf = Signature.getInstance(sigAlgId.getName());
+        } else {
+            sigVerf = Signature.getInstance(sigAlgId.getName(), sigProvider);
+        }
+        sigVerf.initVerify(key);
+
+        if (tbsCertList == null) {
+            throw new CRLException("Uninitialized CRL");
+        }
+
+        sigVerf.update(tbsCertList, 0, tbsCertList.length);
+
+        if (!sigVerf.verify(signature)) {
+            throw new SignatureException("Signature does not match.");
+        }
+        verifiedPublicKey = key;
+    }
+
+    /**
+     * This static method is the default implementation of the
+     * verify(PublicKey key, Provider sigProvider) method in X509CRL.
+     * Called from java.security.cert.X509CRL.verify(PublicKey key,
+     * Provider sigProvider)
+     */
+    // BEGIN Android-removed
+    // TODO(31294527): in its only usage (the one mentioned in the javadoc) it causes an infinite
+    // loop. Then, the caller has been modified to throw UnsupportedOperationException.
+    /*
+    public static void verify(X509CRL crl, PublicKey key,
+            Provider sigProvider) throws CRLException,
+            NoSuchAlgorithmException, InvalidKeyException, SignatureException {
+        crl.verify(key, sigProvider);
+    }
+    */
+    // END Android-removed
 
     /**
      * Encodes an X.509 CRL, and signs it using the given key.
@@ -784,7 +845,8 @@ public class X509CRLImpl extends X509CRL implements DerEncoder {
     public KeyIdentifier getAuthKeyId() throws IOException {
         AuthorityKeyIdentifierExtension aki = getAuthKeyIdExtension();
         if (aki != null) {
-            KeyIdentifier keyId = (KeyIdentifier)aki.get(aki.KEY_ID);
+            KeyIdentifier keyId = (KeyIdentifier)aki.get(
+                    AuthorityKeyIdentifierExtension.KEY_ID);
             return keyId;
         } else {
             return null;
@@ -823,7 +885,7 @@ public class X509CRLImpl extends X509CRL implements DerEncoder {
     public BigInteger getCRLNumber() throws IOException {
         CRLNumberExtension numExt = getCRLNumberExtension();
         if (numExt != null) {
-            BigInteger num = (BigInteger)numExt.get(numExt.NUMBER);
+            BigInteger num = numExt.get(CRLNumberExtension.NUMBER);
             return num;
         } else {
             return null;
@@ -852,7 +914,7 @@ public class X509CRLImpl extends X509CRL implements DerEncoder {
     public BigInteger getBaseCRLNumber() throws IOException {
         DeltaCRLIndicatorExtension dciExt = getDeltaCRLIndicatorExtension();
         if (dciExt != null) {
-            BigInteger num = (BigInteger)dciExt.get(dciExt.NUMBER);
+            BigInteger num = dciExt.get(DeltaCRLIndicatorExtension.NUMBER);
             return num;
         } else {
             return null;
@@ -963,7 +1025,7 @@ public class X509CRLImpl extends X509CRL implements DerEncoder {
                                                  e.hasMoreElements();) {
                     ex = e.nextElement();
                     inCertOID = ex.getExtensionId();
-                    if (inCertOID.equals(findOID)) {
+                    if (inCertOID.equals((Object)findOID)) {
                         crlExt = ex;
                         break;
                     }
@@ -1192,8 +1254,7 @@ public class X509CRLImpl extends X509CRL implements DerEncoder {
         CertificateIssuerExtension ciExt =
             entry.getCertificateIssuerExtension();
         if (ciExt != null) {
-            GeneralNames names = (GeneralNames)
-                ciExt.get(CertificateIssuerExtension.ISSUER);
+            GeneralNames names = ciExt.get(CertificateIssuerExtension.ISSUER);
             X500Name issuerDN = (X500Name) names.get(0).getName();
             return issuerDN.asX500Principal();
         } else {

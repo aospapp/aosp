@@ -37,6 +37,7 @@ public class IsCollectedDebuggee extends SyncDebuggee {
     static IsCollectedObject001_03 checkedObject_03;
     static volatile boolean checkedObject_03_Finalized = false;
 
+    @Override
     public void run() {
         logWriter.println("--> Debuggee: IsCollectedDebuggee: START");
         
@@ -116,6 +117,7 @@ public class IsCollectedDebuggee extends SyncDebuggee {
 }
 
 class IsCollectedObject001_01 {
+    @Override
     protected void finalize() throws Throwable {
         IsCollectedDebuggee.checkedObject_01_Finalized = true;
         super.finalize();
@@ -123,6 +125,7 @@ class IsCollectedObject001_01 {
 }   
 
 class IsCollectedObject001_02 {
+    @Override
     protected void finalize() throws Throwable {
         IsCollectedDebuggee.checkedObject_02_Finalized = true;
         super.finalize();
@@ -130,6 +133,7 @@ class IsCollectedObject001_02 {
 }   
 
 class IsCollectedObject001_03 {
+    @Override
     protected void finalize() throws Throwable {
         IsCollectedDebuggee.checkedObject_03_Finalized = true;
         super.finalize();

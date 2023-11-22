@@ -83,6 +83,16 @@ public class Resources_ThemeTest extends AndroidTestCase {
     }
 
     @SmallTest
+    public void testObtainStyledAttributesWithInlineStringInTheme() {
+        mResTheme.applyStyle(R.style.Theme_InlineString, false);
+        final TypedArray ta = mResTheme.obtainStyledAttributes(new int[] { R.attr.testString });
+        assertNotNull(ta);
+        assertEquals(1, ta.length());
+        assertEquals(TypedValue.TYPE_STRING, ta.getType(0));
+        assertEquals("This is a string", ta.getString(0));
+    }
+
+    @SmallTest
     public void testResolveAttribute() {
         final TypedValue value = new TypedValue();
         getContext().getResources().getValue(R.raw.testmp3, value, true);
@@ -156,5 +166,29 @@ public class Resources_ThemeTest extends AndroidTestCase {
         final Resources res = getContext().getResources();
         final Theme theme = res.newTheme();
         assertSame(res, theme.getResources());
+    }
+
+    @SmallTest
+    public void testEmptyDoesNotGetOverriden() {
+        final Resources res = getContext().getResources();
+        final Theme theme = res.newTheme();
+
+        theme.applyStyle(R.style.Theme_Empty, false /*force*/);
+
+        final TypedValue tv = new TypedValue();
+        assertTrue(theme.resolveAttribute(R.attr.type1, tv, false));
+        assertEquals(TypedValue.TYPE_NULL, tv.type);
+        assertEquals(TypedValue.DATA_NULL_EMPTY, tv.data);
+
+        // @empty is treated just like a regular value. No override unless forced.
+        theme.applyStyle(R.style.Whatever, false /*force*/);
+        assertTrue(theme.resolveAttribute(R.attr.type1, tv, false));
+        assertEquals(TypedValue.TYPE_NULL, tv.type);
+        assertEquals(TypedValue.DATA_NULL_EMPTY, tv.data);
+
+        // Force the override now.
+        theme.applyStyle(R.style.Whatever, true /*force*/);
+        assertTrue(theme.resolveAttribute(R.attr.type1, tv, false));
+        assertNotSame(TypedValue.TYPE_NULL, tv.type);
     }
 }

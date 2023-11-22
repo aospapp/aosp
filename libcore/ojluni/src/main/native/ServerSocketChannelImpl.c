@@ -58,23 +58,31 @@ static jmethodID isa_ctorID;    /*   .InetSocketAddress(InetAddress, int) */
 
 
 JNIEXPORT void JNICALL
-ServerSocketChannelImpl_initIDs(JNIEnv *env, jclass c)
+Java_sun_nio_ch_ServerSocketChannelImpl_initIDs(JNIEnv *env, jclass c)
 {
     jclass cls;
 
     cls = (*env)->FindClass(env, "java/io/FileDescriptor");
+    CHECK_NULL(cls);
     fd_fdID = (*env)->GetFieldID(env, cls, "descriptor", "I");
+    CHECK_NULL(fd_fdID);
 
     cls = (*env)->FindClass(env, "java/net/InetSocketAddress");
+    CHECK_NULL(cls);
     isa_class = (*env)->NewGlobalRef(env, cls);
+    if (isa_class == NULL) {
+        JNU_ThrowOutOfMemoryError(env, NULL);
+        return;
+    }
     isa_ctorID = (*env)->GetMethodID(env, cls, "<init>",
                                      "(Ljava/net/InetAddress;I)V");
+    CHECK_NULL(isa_ctorID);
 }
 
 JNIEXPORT jint JNICALL
-ServerSocketChannelImpl_accept0(JNIEnv *env, jobject this,
-                                jobject ssfdo, jobject newfdo,
-                                jobjectArray isaa)
+Java_sun_nio_ch_ServerSocketChannelImpl_accept0(JNIEnv *env, jobject this,
+                                                jobject ssfdo, jobject newfdo,
+                                                jobjectArray isaa)
 {
     jint ssfd = (*env)->GetIntField(env, ssfdo, fd_fdID);
     jint newfd;
@@ -85,6 +93,10 @@ ServerSocketChannelImpl_accept0(JNIEnv *env, jobject this,
     jint remote_port;
 
     NET_AllocSockaddr(&sa, &alloc_len);
+    if (sa == NULL) {
+        JNU_ThrowOutOfMemoryError(env, NULL);
+        return IOS_THROWN;
+    }
 
     /*
      * accept connection but ignore ECONNABORTED indicating that
@@ -116,8 +128,9 @@ ServerSocketChannelImpl_accept0(JNIEnv *env, jobject this,
     (*env)->SetIntField(env, newfdo, fd_fdID, newfd);
     remote_ia = NET_SockaddrToInetAddress(env, sa, (int *)&remote_port);
     free((void *)sa);
-    isa = (*env)->NewObject(env, isa_class, isa_ctorID,
-                            remote_ia, remote_port);
+    CHECK_NULL_RETURN(remote_ia, IOS_THROWN);
+    isa = (*env)->NewObject(env, isa_class, isa_ctorID, remote_ia, remote_port);
+    CHECK_NULL_RETURN(isa, IOS_THROWN);
     (*env)->SetObjectArrayElement(env, isaa, 0, isa);
     return 1;
 }
@@ -125,8 +138,8 @@ ServerSocketChannelImpl_accept0(JNIEnv *env, jobject this,
 
 
 static JNINativeMethod gMethods[] = {
-  NATIVE_METHOD(ServerSocketChannelImpl, initIDs, "()V"),
-  NATIVE_METHOD(ServerSocketChannelImpl, accept0,
+  NATIVE_METHOD(Java_sun_nio_ch_ServerSocketChannelImpl, initIDs, "()V"),
+  NATIVE_METHOD(Java_sun_nio_ch_ServerSocketChannelImpl, accept0,
                 "(Ljava/io/FileDescriptor;Ljava/io/FileDescriptor;[Ljava/net/InetSocketAddress;)I"),
 };
 

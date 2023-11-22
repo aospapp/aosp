@@ -34,7 +34,7 @@ import com.android.internal.telephony.gsm.SmsCbConstants;
 
 import java.util.ArrayList;
 
-import static com.android.cellbroadcastreceiver.CellBroadcastReceiver.DBG;
+import static com.android.cellbroadcastreceiver.CellBroadcastReceiver.VDBG;
 
 /**
  * This service manages enabling and disabling ranges of message identifiers
@@ -183,7 +183,7 @@ public class CellBroadcastConfigService extends IntentService {
         boolean supportTaiwanPwsAlerts = (COUNTRY_TAIWAN.equals(tm.getSimCountryIso(subId))
                 || COUNTRY_TAIWAN.equals(tm.getNetworkCountryIso(subId)));
 
-        if (DBG) {
+        if (VDBG) {
             log("enableEmergencyAlerts = " + enableEmergencyAlerts);
             log("enableEtwsAlerts = " + enableEtwsAlerts);
             log("enablePresidential = " + enablePresidential);

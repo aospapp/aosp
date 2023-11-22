@@ -24,7 +24,7 @@ import com.android.tv.common.BuildConfig;
  * A feature that is only available on {@link BuildConfig#ENG} builds.
  */
 public final class EngOnlyFeature implements Feature {
-    public static Feature ENG_ONLY_FEATURE = new EngOnlyFeature();
+    public static final Feature ENG_ONLY_FEATURE = new EngOnlyFeature();
 
     private EngOnlyFeature() { }
 

@@ -83,9 +83,9 @@ VarType::VarType (const VarType& elementType, int arraySize)
 	m_data.array.elementType	= new VarType(elementType);
 }
 
-VarType::VarType (const StructType* structPtr)
+VarType::VarType (const StructType* structPtr, deUint32 flags)
 	: m_type	(TYPE_STRUCT)
-	, m_flags	(0)
+	, m_flags	(flags)
 {
 	m_data.structPtr = structPtr;
 }
@@ -263,7 +263,8 @@ std::ostream& operator<< (std::ostream& str, const PrecisionFlagsFmt& fmt)
 struct LayoutFlagsFmt
 {
 	deUint32 flags;
-	LayoutFlagsFmt (deUint32 flags_) : flags(flags_) {}
+	deUint32 offset;
+	LayoutFlagsFmt (deUint32 flags_, deUint32 offset_ = 0u) : flags(flags_), offset(offset_) {}
 };
 
 std::ostream& operator<< (std::ostream& str, const LayoutFlagsFmt& fmt)
@@ -276,7 +277,8 @@ std::ostream& operator<< (std::ostream& str, const LayoutFlagsFmt& fmt)
 	{
 		{ LAYOUT_STD140,		"std140"		},
 		{ LAYOUT_ROW_MAJOR,		"row_major"		},
-		{ LAYOUT_COLUMN_MAJOR,	"column_major"	}
+		{ LAYOUT_COLUMN_MAJOR,	"column_major"	},
+		{ LAYOUT_OFFSET,		"offset"		},
 	};
 
 	deUint32 remBits = fmt.flags;
@@ -287,6 +289,8 @@ std::ostream& operator<< (std::ostream& str, const LayoutFlagsFmt& fmt)
 			if (remBits != fmt.flags)
 				str << ", ";
 			str << bitDesc[descNdx].token;
+			if (bitDesc[descNdx].bit == LAYOUT_OFFSET)
+				str << " = " << fmt.offset;
 			remBits &= ~bitDesc[descNdx].bit;
 		}
 	}
@@ -756,8 +760,8 @@ std::ostream& operator<< (std::ostream& str, const Indent& indent)
 	return str;
 }
 
-void		generateDeclaration			(std::ostringstream& src, const VarType& type, const std::string& name, int indentLevel, deUint32 unusedHints);
-void		generateDeclaration			(std::ostringstream& src, const Uniform& uniform, int indentLevel);
+void		generateDeclaration			(std::ostringstream& src, const VarType& type, const std::string& name, int indentLevel, deUint32 unusedHints, deUint32 flagsMask, deUint32 offset);
+void		generateDeclaration			(std::ostringstream& src, const Uniform& uniform, int indentLevel, deUint32 offset);
 void		generateDeclaration			(std::ostringstream& src, const StructType& structType, int indentLevel);
 
 void		generateLocalDeclaration	(std::ostringstream& src, const StructType& structType, int indentLevel);
@@ -780,7 +784,7 @@ void generateFullDeclaration (std::ostringstream& src, const StructType& structT
 	for (StructType::ConstIterator memberIter = structType.begin(); memberIter != structType.end(); memberIter++)
 	{
 		src << Indent(indentLevel + 1);
-		generateDeclaration(src, memberIter->getType(), memberIter->getName(), indentLevel + 1, memberIter->getFlags() & UNUSED_BOTH);
+		generateDeclaration(src, memberIter->getType(), memberIter->getName(), indentLevel + 1, memberIter->getFlags() & UNUSED_BOTH, ~LAYOUT_OFFSET, 0u);
 	}
 
 	src << Indent(indentLevel) << "}";
@@ -791,15 +795,18 @@ void generateLocalDeclaration (std::ostringstream& src, const StructType& struct
 	src << structType.getTypeName();
 }
 
-void generateDeclaration (std::ostringstream& src, const VarType& type, const std::string& name, int indentLevel, deUint32 unusedHints)
+void generateLayoutAndPrecisionDeclaration (std::ostringstream& src, deUint32 flags, deUint32 offset)
 {
-	deUint32 flags = type.getFlags();
-
 	if ((flags & LAYOUT_MASK) != 0)
-		src << "layout(" << LayoutFlagsFmt(flags & LAYOUT_MASK) << ") ";
+		src << "layout(" << LayoutFlagsFmt(flags & LAYOUT_MASK, offset) << ") ";
 
 	if ((flags & PRECISION_MASK) != 0)
 		src << PrecisionFlagsFmt(flags & PRECISION_MASK) << " ";
+}
+
+void generateDeclaration (std::ostringstream& src, const VarType& type, const std::string& name, int indentLevel, deUint32 unusedHints, deUint32 flagsMask, deUint32 offset)
+{
+	generateLayoutAndPrecisionDeclaration(src, type.getFlags() & flagsMask, offset);
 
 	if (type.isBasicType())
 		src << glu::getDataTypeName(type.getBasicType()) << " " << name;
@@ -813,12 +820,10 @@ void generateDeclaration (std::ostringstream& src, const VarType& type, const st
 			curType = &curType->getElementType();
 		}
 
+		generateLayoutAndPrecisionDeclaration(src, curType->getFlags() & flagsMask, offset);
+
 		if (curType->isBasicType())
-		{
-			if ((curType->getFlags() & PRECISION_MASK) != 0)
-				src << PrecisionFlagsFmt(curType->getFlags() & PRECISION_MASK) << " ";
 			src << glu::getDataTypeName(curType->getBasicType());
-		}
 		else
 		{
 			DE_ASSERT(curType->isStructType());
@@ -847,15 +852,94 @@ void generateDeclaration (std::ostringstream& src, const VarType& type, const st
 	src << "\n";
 }
 
-void generateDeclaration (std::ostringstream& src, const Uniform& uniform, int indentLevel)
+void generateDeclaration (std::ostringstream& src, const Uniform& uniform, int indentLevel, deUint32 offset)
 {
 	if ((uniform.getFlags() & LAYOUT_MASK) != 0)
 		src << "layout(" << LayoutFlagsFmt(uniform.getFlags() & LAYOUT_MASK) << ") ";
 
-	generateDeclaration(src, uniform.getType(), uniform.getName(), indentLevel, uniform.getFlags() & UNUSED_BOTH);
+	generateDeclaration(src, uniform.getType(), uniform.getName(), indentLevel, uniform.getFlags() & UNUSED_BOTH, ~0u, offset);
 }
 
-void generateDeclaration (std::ostringstream& src, int blockNdx, const UniformBlock& block)
+deUint32 getBlockMemberOffset (int blockNdx, const UniformBlock& block, const Uniform& uniform, const UniformLayout& layout)
+{
+	std::ostringstream	name;
+	const VarType*		curType = &uniform.getType();
+
+	if (block.getInstanceName().length() != 0)
+		name << block.getBlockName() << ".";	// \note UniformLayoutEntry uses block name rather than instance name
+
+	name << uniform.getName();
+
+	while (!curType->isBasicType())
+	{
+		if (curType->isArrayType())
+		{
+			name << "[0]";
+			curType = &curType->getElementType();
+		}
+
+		if (curType->isStructType())
+		{
+			const StructType::ConstIterator firstMember = curType->getStruct().begin();
+			name << "." << firstMember->getName();
+			curType = &firstMember->getType();
+		}
+	}
+
+	const int uniformNdx = layout.getUniformLayoutIndex(blockNdx, name.str());
+	DE_ASSERT(uniformNdx >= 0);
+
+	return layout.uniforms[uniformNdx].offset;
+}
+
+template<typename T>
+void semiShuffle (std::vector<T>& v)
+{
+	const std::vector<T>	src	= v;
+	int						i	= -1;
+	int						n	= static_cast<int>(src.size());
+
+	v.clear();
+
+	while (n)
+	{
+		i += n;
+		v.push_back(src[i]);
+		n = (n > 0 ? 1 - n : -1 - n);
+	}
+}
+
+template<typename T>
+//! \note Stores pointers to original elements
+class Traverser
+{
+public:
+	template<typename Iter>
+	Traverser (const Iter beg, const Iter end, const bool shuffled)
+	{
+		for (Iter it = beg; it != end; ++it)
+			m_elements.push_back(&(*it));
+
+		if (shuffled)
+			semiShuffle(m_elements);
+
+		m_next = m_elements.begin();
+	}
+
+	T* next (void)
+	{
+		if (m_next != m_elements.end())
+			return *m_next++;
+		else
+			return DE_NULL;
+	}
+
+private:
+	typename std::vector<T*>					m_elements;
+	typename std::vector<T*>::const_iterator	m_next;
+};
+
+void generateDeclaration (std::ostringstream& src, int blockNdx, const UniformBlock& block, const UniformLayout& layout, bool shuffleUniformMembers)
 {
 	src << "layout(set = 0, binding = " << blockNdx;
 	if ((block.getFlags() & LAYOUT_MASK) != 0)
@@ -865,10 +949,12 @@ void generateDeclaration (std::ostringstream& src, int blockNdx, const UniformBl
 	src << "uniform " << block.getBlockName();
 	src << "\n{\n";
 
-	for (UniformBlock::ConstIterator uniformIter = block.begin(); uniformIter != block.end(); uniformIter++)
+	Traverser<const Uniform> uniforms(block.begin(), block.end(), shuffleUniformMembers);
+
+	while (const Uniform* pUniform = uniforms.next())
 	{
 		src << Indent(1);
-		generateDeclaration(src, *uniformIter, 1 /* indent level */);
+		generateDeclaration(src, *pUniform, 1 /* indent level */, getBlockMemberOffset(blockNdx, block, *pUniform, layout));
 	}
 
 	src << "}";
@@ -943,6 +1029,191 @@ void generateValueSrc (std::ostringstream& src, const UniformLayoutEntry& entry,
 		src << ")";
 }
 
+bool isMatrix (glu::DataType elementType)
+{
+	return (elementType >= glu::TYPE_FLOAT_MAT2) && (elementType <= glu::TYPE_FLOAT_MAT4);
+}
+
+void writeMatrixTypeSrc (int						columnCount,
+						 int						rowCount,
+						 std::string				compare,
+						 std::string				compareType,
+						 std::ostringstream&		src,
+						 const std::string&			srcName,
+						 const void*				basePtr,
+						 const UniformLayoutEntry&	entry,
+						 bool						vector)
+{
+	if (vector)	// generateTestSrcMatrixPerVec
+	{
+		for (int colNdex = 0; colNdex < columnCount; colNdex++)
+		{
+			src << "\tresult *= " << compare + compareType << "(" << srcName << "[" << colNdex << "], ";
+
+			if (glu::isDataTypeMatrix(entry.type))
+			{
+				int	scalarSize = glu::getDataTypeScalarSize(entry.type);
+				const deUint8*	elemPtr			= (const deUint8*)basePtr + entry.offset;
+				const int		compSize		= sizeof(deUint32);
+
+				if (scalarSize > 1)
+					src << compareType << "(";
+				for (int rowNdex = 0; rowNdex < rowCount; rowNdex++)
+				{
+					const deUint8*	compPtr	= elemPtr + (entry.isRowMajor ? (rowNdex * entry.matrixStride + colNdex * compSize)
+																		  : (colNdex * entry.matrixStride + rowNdex * compSize));
+					src << de::floatToString(*((const float*)compPtr), 1);
+
+					if (rowNdex < rowCount-1)
+						src << ", ";
+				}
+				src << "));\n";
+			}
+			else
+			{
+				generateValueSrc(src, entry, basePtr, 0);
+				src << "[" << colNdex << "]);\n";
+			}
+		}
+	}
+	else		// generateTestSrcMatrixPerElement
+	{
+		for (int colNdex = 0; colNdex < columnCount; colNdex++)
+		{
+			for (int rowNdex = 0; rowNdex < rowCount; rowNdex++)
+			{
+				src << "\tresult *= " << compare + compareType << "(" << srcName << "[" << colNdex << "][" << rowNdex << "], ";
+				if (glu::isDataTypeMatrix(entry.type))
+				{
+					const deUint8*	elemPtr			= (const deUint8*)basePtr + entry.offset;
+					const int		compSize		= sizeof(deUint32);
+					const deUint8*	compPtr	= elemPtr + (entry.isRowMajor ? (rowNdex * entry.matrixStride + colNdex * compSize)
+																		  : (colNdex * entry.matrixStride + rowNdex * compSize));
+
+					src << de::floatToString(*((const float*)compPtr), 1) << ");\n";
+				}
+				else
+				{
+					generateValueSrc(src, entry, basePtr, 0);
+					src << "[" << colNdex << "][" << rowNdex << "]);\n";
+				}
+			}
+		}
+	}
+}
+
+void generateTestSrcMatrixPerVec (glu::DataType				elementType,
+								  std::ostringstream&		src,
+								  const std::string&		srcName,
+								  const void*				basePtr,
+								  const UniformLayoutEntry&	entry,
+								  bool						vector)
+{
+	std::string compare = "compare_";
+	switch (elementType)
+	{
+		case glu::TYPE_FLOAT_MAT2:
+			writeMatrixTypeSrc(2, 2, compare, "vec2", src, srcName, basePtr, entry, vector);
+			break;
+
+		case glu::TYPE_FLOAT_MAT2X3:
+			writeMatrixTypeSrc(2, 3, compare, "vec3", src, srcName, basePtr, entry, vector);
+			break;
+
+		case glu::TYPE_FLOAT_MAT2X4:
+			writeMatrixTypeSrc(2, 4, compare, "vec4", src, srcName, basePtr, entry, vector);
+			break;
+
+		case glu::TYPE_FLOAT_MAT3X4:
+			writeMatrixTypeSrc(3, 4, compare, "vec4", src, srcName, basePtr, entry, vector);
+			break;
+
+		case glu::TYPE_FLOAT_MAT4:
+			writeMatrixTypeSrc(4, 4, compare, "vec4", src, srcName, basePtr, entry, vector);
+			break;
+
+		case glu::TYPE_FLOAT_MAT4X2:
+			writeMatrixTypeSrc(4, 2, compare, "vec2", src, srcName, basePtr, entry, vector);
+			break;
+
+		case glu::TYPE_FLOAT_MAT4X3:
+			writeMatrixTypeSrc(4, 3, compare, "vec3", src, srcName, basePtr, entry, vector);
+			break;
+
+		default:
+			break;
+	}
+}
+
+void generateTestSrcMatrixPerElement (glu::DataType				elementType,
+									  std::ostringstream&		src,
+									  const std::string&		srcName,
+									  const void*				basePtr,
+									  const UniformLayoutEntry&	entry,
+									  bool						vector)
+{
+	std::string compare = "compare_";
+	std::string compareType = "float";
+	switch (elementType)
+	{
+		case glu::TYPE_FLOAT_MAT2:
+			writeMatrixTypeSrc(2, 2, compare, compareType, src, srcName, basePtr, entry, vector);
+			break;
+
+		case glu::TYPE_FLOAT_MAT2X3:
+			writeMatrixTypeSrc(2, 3, compare, compareType, src, srcName, basePtr, entry, vector);
+			break;
+
+		case glu::TYPE_FLOAT_MAT2X4:
+			writeMatrixTypeSrc(2, 4, compare, compareType, src, srcName, basePtr, entry, vector);
+			break;
+
+		case glu::TYPE_FLOAT_MAT3X4:
+			writeMatrixTypeSrc(3, 4, compare, compareType, src, srcName, basePtr, entry, vector);
+			break;
+
+		case glu::TYPE_FLOAT_MAT4:
+			writeMatrixTypeSrc(4, 4, compare, compareType, src, srcName, basePtr, entry, vector);
+			break;
+
+		case glu::TYPE_FLOAT_MAT4X2:
+			writeMatrixTypeSrc(4, 2, compare, compareType, src, srcName, basePtr, entry, vector);
+			break;
+
+		case glu::TYPE_FLOAT_MAT4X3:
+			writeMatrixTypeSrc(4, 3, compare, compareType, src, srcName, basePtr, entry, vector);
+			break;
+
+		default:
+			break;
+	}
+}
+
+void generateSingleCompare (std::ostringstream&			src,
+							glu::DataType				elementType,
+							const std::string&			srcName,
+							const void*					basePtr,
+							const UniformLayoutEntry&	entry,
+							MatrixLoadFlags				matrixLoadFlag)
+{
+	if (matrixLoadFlag == LOAD_FULL_MATRIX)
+	{
+		const char* typeName = glu::getDataTypeName(elementType);
+
+		src << "\tresult *= compare_" << typeName << "(" << srcName << ", ";
+		generateValueSrc(src, entry, basePtr, 0);
+		src << ");\n";
+	}
+	else
+	{
+		if (isMatrix(elementType))
+		{
+			generateTestSrcMatrixPerVec		(elementType, src, srcName, basePtr, entry, true);
+			generateTestSrcMatrixPerElement	(elementType, src, srcName, basePtr, entry, false);
+		}
+	}
+}
+
 void generateCompareSrc (std::ostringstream&	src,
 						 const char*			resultVar,
 						 const VarType&			type,
@@ -951,7 +1222,8 @@ void generateCompareSrc (std::ostringstream&	src,
 						 const UniformLayout&	layout,
 						 int					blockNdx,
 						 const void*			basePtr,
-						 deUint32				unusedMask)
+						 deUint32				unusedMask,
+						 MatrixLoadFlags		matrixLoadFlag)
 {
 	if (type.isBasicType() || (type.isArrayType() && type.getElementType().isBasicType()))
 	{
@@ -974,9 +1246,7 @@ void generateCompareSrc (std::ostringstream&	src,
 		}
 		else
 		{
-			src << "\tresult *= compare_" << typeName << "(" << srcName << ", ";
-			generateValueSrc(src, entry, basePtr, 0);
-			src << ");\n";
+			generateSingleCompare(src, elementType, srcName, basePtr, entry, matrixLoadFlag);
 		}
 	}
 	else if (type.isArrayType())
@@ -988,7 +1258,7 @@ void generateCompareSrc (std::ostringstream&	src,
 			std::string op = std::string("[") + de::toString(elementNdx) + "]";
 			std::string elementSrcName = std::string(srcName) + op;
 			std::string elementApiName = std::string(apiName) + op;
-			generateCompareSrc(src, resultVar, elementType, elementSrcName, elementApiName, layout, blockNdx, basePtr, unusedMask);
+			generateCompareSrc(src, resultVar, elementType, elementSrcName, elementApiName, layout, blockNdx, basePtr, unusedMask, LOAD_FULL_MATRIX);
 		}
 	}
 	else
@@ -1003,12 +1273,19 @@ void generateCompareSrc (std::ostringstream&	src,
 			std::string op = std::string(".") + memberIter->getName();
 			std::string memberSrcName = std::string(srcName) + op;
 			std::string memberApiName = std::string(apiName) + op;
-			generateCompareSrc(src, resultVar, memberIter->getType(), memberSrcName, memberApiName, layout, blockNdx, basePtr, unusedMask);
+			generateCompareSrc(src, resultVar, memberIter->getType(), memberSrcName, memberApiName, layout, blockNdx, basePtr, unusedMask, LOAD_FULL_MATRIX);
 		}
 	}
 }
 
-void generateCompareSrc (std::ostringstream& src, const char* resultVar, const ShaderInterface& interface, const UniformLayout& layout, const std::map<int, void*>& blockPointers, bool isVertex)
+void generateCompareSrc (std::ostringstream& src,
+						 const char* resultVar,
+						 const ShaderInterface& interface,
+						 const UniformLayout& layout,
+						 const std::map<int,
+						 void*>& blockPointers,
+						 bool isVertex,
+						 MatrixLoadFlags matrixLoadFlag)
 {
 	deUint32 unusedMask = isVertex ? UNUSED_VERTEX : UNUSED_FRAGMENT;
 
@@ -1043,16 +1320,16 @@ void generateCompareSrc (std::ostringstream& src, const char* resultVar, const S
 
 				std::string srcName = srcPrefix + uniform.getName();
 				std::string apiName = apiPrefix + uniform.getName();
-				generateCompareSrc(src, resultVar, uniform.getType(), srcName, apiName, layout, blockNdx, basePtr, unusedMask);
+				generateCompareSrc(src, resultVar, uniform.getType(), srcName, apiName, layout, blockNdx, basePtr, unusedMask, matrixLoadFlag);
 			}
 		}
 	}
 }
 
-std::string generateVertexShader (const ShaderInterface& interface, const UniformLayout& layout, const std::map<int, void*>& blockPointers)
+std::string generateVertexShader (const ShaderInterface& interface, const UniformLayout& layout, const std::map<int, void*>& blockPointers, MatrixLoadFlags matrixLoadFlag, bool shuffleUniformMembers)
 {
 	std::ostringstream src;
-	src << "#version 450\n";
+	src << glu::getGLSLVersionDeclaration(glu::GLSL_VERSION_450) << "\n";
 
 	src << "layout(location = 0) in highp vec4 a_position;\n";
 	src << "layout(location = 0) out mediump float v_vtxResult;\n";
@@ -1067,7 +1344,7 @@ std::string generateVertexShader (const ShaderInterface& interface, const Unifor
 	{
 		const UniformBlock& block = interface.getUniformBlock(blockNdx);
 		if (block.getFlags() & DECLARE_VERTEX)
-			generateDeclaration(src, blockNdx, block);
+			generateDeclaration(src, blockNdx, block, layout, shuffleUniformMembers);
 	}
 
 	// Comparison utilities.
@@ -1081,7 +1358,7 @@ std::string generateVertexShader (const ShaderInterface& interface, const Unifor
 		   "	mediump float result = 1.0;\n";
 
 	// Value compare.
-	generateCompareSrc(src, "result", interface, layout, blockPointers, true);
+	generateCompareSrc(src, "result", interface, layout, blockPointers, true, matrixLoadFlag);
 
 	src << "	v_vtxResult = result;\n"
 		   "}\n";
@@ -1089,10 +1366,10 @@ std::string generateVertexShader (const ShaderInterface& interface, const Unifor
 	return src.str();
 }
 
-std::string generateFragmentShader (const ShaderInterface& interface, const UniformLayout& layout, const std::map<int, void*>& blockPointers)
+std::string generateFragmentShader (const ShaderInterface& interface, const UniformLayout& layout, const std::map<int, void*>& blockPointers, MatrixLoadFlags matrixLoadFlag, bool shuffleUniformMembers)
 {
 	std::ostringstream src;
-	src << "#version 450\n";
+	src << glu::getGLSLVersionDeclaration(glu::GLSL_VERSION_450) << "\n";
 
 	src << "layout(location = 0) in mediump float v_vtxResult;\n";
 	src << "layout(location = 0) out mediump vec4 dEQP_FragColor;\n";
@@ -1107,7 +1384,7 @@ std::string generateFragmentShader (const ShaderInterface& interface, const Unif
 	{
 		const UniformBlock& block = interface.getUniformBlock(blockNdx);
 		if (block.getFlags() & DECLARE_FRAGMENT)
-			generateDeclaration(src, blockNdx, block);
+			generateDeclaration(src, blockNdx, block, layout, shuffleUniformMembers);
 	}
 
 	// Comparison utilities.
@@ -1120,7 +1397,7 @@ std::string generateFragmentShader (const ShaderInterface& interface, const Unif
 		   "	mediump float result = 1.0;\n";
 
 	// Value compare.
-	generateCompareSrc(src, "result", interface, layout, blockPointers, false);
+	generateCompareSrc(src, "result", interface, layout, blockPointers, false, matrixLoadFlag);
 
 	src << "	dEQP_FragColor = vec4(1.0, v_vtxResult, result, 1.0);\n"
 		   "}\n";
@@ -1466,7 +1743,7 @@ tcu::TestStatus UniformBlockCaseInstance::iterate (void)
 		&clearValue,									// const VkClearValue*	pClearValues;
 	};
 
-	// Add barrier for initializing image state 
+	// Add barrier for initializing image state
 	{
 		const vk::VkImageMemoryBarrier  initializeBarrier =
 		{
@@ -1979,9 +2256,11 @@ vk::Move<VkPipeline> UniformBlockCaseInstance::createPipeline (vk::VkShaderModul
 
 // UniformBlockCase.
 
-UniformBlockCase::UniformBlockCase (tcu::TestContext& testCtx, const std::string& name, const std::string& description, BufferMode bufferMode)
-	: TestCase		(testCtx, name, description)
-	, m_bufferMode	(bufferMode)
+UniformBlockCase::UniformBlockCase (tcu::TestContext& testCtx, const std::string& name, const std::string& description, BufferMode bufferMode, MatrixLoadFlags matrixLoadFlag, bool shuffleUniformMembers)
+	: TestCase					(testCtx, name, description)
+	, m_bufferMode				(bufferMode)
+	, m_matrixLoadFlag			(matrixLoadFlag)
+	, m_shuffleUniformMembers	(shuffleUniformMembers)
 {
 }
 
@@ -2028,8 +2307,8 @@ void UniformBlockCase::init (void)
 	generateValues(m_uniformLayout, m_blockPointers, 1 /* seed */);
 
 	// Generate shaders.
-	m_vertShaderSource = generateVertexShader(m_interface, m_uniformLayout, m_blockPointers);
-	m_fragShaderSource = generateFragmentShader(m_interface, m_uniformLayout, m_blockPointers);
+	m_vertShaderSource = generateVertexShader(m_interface, m_uniformLayout, m_blockPointers, m_matrixLoadFlag, m_shuffleUniformMembers);
+	m_fragShaderSource = generateFragmentShader(m_interface, m_uniformLayout, m_blockPointers, m_matrixLoadFlag, m_shuffleUniformMembers);
 }
 
 } // ubo

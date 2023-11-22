@@ -32,38 +32,34 @@ namespace tpm_manager {
 
 class Tpm2StatusTest : public testing::Test {
  public:
-  Tpm2StatusTest() : factory_(new trunks::TrunksFactoryForTest()) {}
+  Tpm2StatusTest() = default;
   virtual ~Tpm2StatusTest() = default;
 
   void SetUp() {
-    factory_->set_tpm_state(&mock_tpm_state_);
-    tpm_status_.reset(new Tpm2StatusImpl(factory_.get()));
+    factory_.set_tpm_state(&mock_tpm_state_);
+    tpm_status_.reset(new Tpm2StatusImpl(factory_));
   }
 
  protected:
   NiceMock<trunks::MockTpmState> mock_tpm_state_;
-  std::unique_ptr<trunks::TrunksFactoryForTest> factory_;
+  trunks::TrunksFactoryForTest factory_;
   std::unique_ptr<TpmStatus> tpm_status_;
 };
-
 
 TEST_F(Tpm2StatusTest, IsEnabledSuccess) {
   EXPECT_CALL(mock_tpm_state_, Initialize())
       .WillRepeatedly(Return(TPM_RC_SUCCESS));
-  EXPECT_CALL(mock_tpm_state_, IsEnabled())
-      .WillRepeatedly(Return(true));
+  EXPECT_CALL(mock_tpm_state_, IsEnabled()).WillRepeatedly(Return(true));
   EXPECT_TRUE(tpm_status_->IsTpmEnabled());
 }
 
 TEST_F(Tpm2StatusTest, IsEnabledFailure) {
-  EXPECT_CALL(mock_tpm_state_, IsEnabled())
-      .WillRepeatedly(Return(false));
+  EXPECT_CALL(mock_tpm_state_, IsEnabled()).WillRepeatedly(Return(false));
   EXPECT_FALSE(tpm_status_->IsTpmEnabled());
 }
 
 TEST_F(Tpm2StatusTest, IsEnabledNoRepeatedInitialization) {
-  EXPECT_CALL(mock_tpm_state_, Initialize())
-      .WillOnce(Return(TPM_RC_SUCCESS));
+  EXPECT_CALL(mock_tpm_state_, Initialize()).WillOnce(Return(TPM_RC_SUCCESS));
   EXPECT_TRUE(tpm_status_->IsTpmEnabled());
   EXPECT_TRUE(tpm_status_->IsTpmEnabled());
 }
@@ -71,14 +67,12 @@ TEST_F(Tpm2StatusTest, IsEnabledNoRepeatedInitialization) {
 TEST_F(Tpm2StatusTest, IsOwnedSuccess) {
   EXPECT_CALL(mock_tpm_state_, Initialize())
       .WillRepeatedly(Return(TPM_RC_SUCCESS));
-  EXPECT_CALL(mock_tpm_state_, IsOwned())
-      .WillRepeatedly(Return(true));
+  EXPECT_CALL(mock_tpm_state_, IsOwned()).WillRepeatedly(Return(true));
   EXPECT_TRUE(tpm_status_->IsTpmOwned());
 }
 
 TEST_F(Tpm2StatusTest, IsOwnedFailure) {
-  EXPECT_CALL(mock_tpm_state_, IsOwned())
-      .WillRepeatedly(Return(false));
+  EXPECT_CALL(mock_tpm_state_, IsOwned()).WillRepeatedly(Return(false));
   EXPECT_FALSE(tpm_status_->IsTpmOwned());
 }
 
@@ -86,19 +80,15 @@ TEST_F(Tpm2StatusTest, IsOwnedRepeatedInitializationOnFalse) {
   EXPECT_CALL(mock_tpm_state_, Initialize())
       .Times(2)
       .WillRepeatedly(Return(TPM_RC_SUCCESS));
-  EXPECT_CALL(mock_tpm_state_, IsOwned())
-      .WillOnce(Return(false));
+  EXPECT_CALL(mock_tpm_state_, IsOwned()).WillOnce(Return(false));
   EXPECT_FALSE(tpm_status_->IsTpmOwned());
-  EXPECT_CALL(mock_tpm_state_, IsOwned())
-      .WillRepeatedly(Return(true));
+  EXPECT_CALL(mock_tpm_state_, IsOwned()).WillRepeatedly(Return(true));
   EXPECT_TRUE(tpm_status_->IsTpmOwned());
 }
 
 TEST_F(Tpm2StatusTest, IsOwnedNoRepeatedInitializationOnTrue) {
-  EXPECT_CALL(mock_tpm_state_, Initialize())
-      .WillOnce(Return(TPM_RC_SUCCESS));
-  EXPECT_CALL(mock_tpm_state_, IsOwned())
-      .WillRepeatedly(Return(true));
+  EXPECT_CALL(mock_tpm_state_, Initialize()).WillOnce(Return(TPM_RC_SUCCESS));
+  EXPECT_CALL(mock_tpm_state_, IsOwned()).WillRepeatedly(Return(true));
   EXPECT_TRUE(tpm_status_->IsTpmOwned());
   EXPECT_TRUE(tpm_status_->IsTpmOwned());
 }
@@ -110,10 +100,8 @@ TEST_F(Tpm2StatusTest, GetDictionaryAttackInfoInitializeFailure) {
   int threshold;
   bool lockout;
   int seconds_remaining;
-  EXPECT_FALSE(tpm_status_->GetDictionaryAttackInfo(&count,
-                                                    &threshold,
-                                                    &lockout,
-                                                    &seconds_remaining));
+  EXPECT_FALSE(tpm_status_->GetDictionaryAttackInfo(
+      &count, &threshold, &lockout, &seconds_remaining));
 }
 
 TEST_F(Tpm2StatusTest, GetDictionaryAttackInfoForwarding) {
@@ -125,17 +113,14 @@ TEST_F(Tpm2StatusTest, GetDictionaryAttackInfoForwarding) {
       .WillRepeatedly(Return(lockout_count));
   EXPECT_CALL(mock_tpm_state_, GetLockoutThreshold())
       .WillRepeatedly(Return(lockout_threshold));
-  EXPECT_CALL(mock_tpm_state_, IsInLockout())
-      .WillRepeatedly(Return(is_locked));
+  EXPECT_CALL(mock_tpm_state_, IsInLockout()).WillRepeatedly(Return(is_locked));
   EXPECT_CALL(mock_tpm_state_, GetLockoutInterval())
       .WillRepeatedly(Return(lockout_interval));
   int count;
   int threshold;
   bool lockout;
   int seconds_remaining;
-  EXPECT_TRUE(tpm_status_->GetDictionaryAttackInfo(&count,
-                                                   &threshold,
-                                                   &lockout,
+  EXPECT_TRUE(tpm_status_->GetDictionaryAttackInfo(&count, &threshold, &lockout,
                                                    &seconds_remaining));
   EXPECT_EQ(count, lockout_count);
   EXPECT_EQ(threshold, lockout_threshold);
@@ -150,9 +135,7 @@ TEST_F(Tpm2StatusTest, GetDictionaryAttackInfoAlwaysRefresh) {
   int threshold;
   bool lockout;
   int seconds_remaining;
-  EXPECT_TRUE(tpm_status_->GetDictionaryAttackInfo(&count,
-                                                   &threshold,
-                                                   &lockout,
+  EXPECT_TRUE(tpm_status_->GetDictionaryAttackInfo(&count, &threshold, &lockout,
                                                    &seconds_remaining));
 }
 

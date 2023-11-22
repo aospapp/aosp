@@ -11,13 +11,14 @@
 #include "base/base_switches.h"
 #include "base/command_line.h"
 #include "base/compiler_specific.h"
+#include "base/debug/leak_annotations.h"
 #include "base/logging.h"
 #include "base/process/process_handle.h"
-#include "base/profiler/alternate_timer.h"
 #include "base/strings/stringprintf.h"
+#include "base/third_party/valgrind/memcheck.h"
+#include "base/threading/worker_pool.h"
 #include "base/tracking_info.h"
 #include "build/build_config.h"
-#include "third_party/valgrind/memcheck.h"
 
 using base::TimeDelta;
 
@@ -35,15 +36,6 @@ namespace {
 // period of time up until that flag is parsed.  If there is no flag seen, then
 // this state may prevail for much or all of the process lifetime.
 const ThreadData::Status kInitialStartupState = ThreadData::PROFILING_ACTIVE;
-
-// Control whether an alternate time source (Now() function) is supported by
-// the ThreadData class.  This compile time flag should be set to true if we
-// want other modules (such as a memory allocator, or a thread-specific CPU time
-// clock) to be able to provide a thread-specific Now() function.  Without this
-// compile-time flag, the code will only support the wall-clock time.  This flag
-// can be flipped to efficiently disable this path (if there is a performance
-// problem with its presence).
-static const bool kAllowAlternateTimeSourceHandling = true;
 
 // Possible states of the profiler timing enabledness.
 enum {
@@ -284,10 +276,7 @@ void Births::RecordBirth() { ++birth_count_; }
 // to them.
 
 // static
-NowFunction* ThreadData::now_function_ = NULL;
-
-// static
-bool ThreadData::now_function_is_time_ = false;
+ThreadData::NowFunction* ThreadData::now_function_for_testing_ = NULL;
 
 // A TLS slot which points to the ThreadData instance for the current thread.
 // We do a fake initialization here (zeroing out data), and then the real
@@ -367,7 +356,9 @@ ThreadData* ThreadData::next() const { return next_; }
 
 // static
 void ThreadData::InitializeThreadContext(const std::string& suggested_name) {
-  Initialize();
+  if (base::WorkerPool::RunsTasksOnCurrentThread())
+    return;
+  EnsureTlsInitialization();
   ThreadData* current_thread_data =
       reinterpret_cast<ThreadData*>(tls_index_.Get());
   if (current_thread_data)
@@ -514,16 +505,6 @@ void ThreadData::TallyADeath(const Births& births,
   // An address is going to have some randomness to it as well ;-).
   random_number_ ^=
       static_cast<uint32_t>(&births - reinterpret_cast<Births*>(0));
-
-  // We don't have queue durations without OS timer.  OS timer is automatically
-  // used for task-post-timing, so the use of an alternate timer implies all
-  // queue times are invalid, unless it was explicitly said that we can trust
-  // the alternate timer.
-  if (kAllowAlternateTimeSourceHandling &&
-      now_function_ &&
-      !now_function_is_time_) {
-    queue_duration = 0;
-  }
 
   DeathMap::iterator it = death_map_.find(&births);
   DeathData* death_data;
@@ -691,13 +672,7 @@ void ThreadData::OnProfilingPhaseCompletedOnThread(int profiling_phase) {
   }
 }
 
-static void OptionallyInitializeAlternateTimer() {
-  NowFunction* alternate_time_source = GetAlternateTimeSource();
-  if (alternate_time_source)
-    ThreadData::SetAlternateTimeSource(alternate_time_source);
-}
-
-void ThreadData::Initialize() {
+void ThreadData::EnsureTlsInitialization() {
   if (base::subtle::Acquire_Load(&status_) >= DEACTIVATED)
     return;  // Someone else did the initialization.
   // Due to racy lazy initialization in tests, we'll need to recheck status_
@@ -709,13 +684,6 @@ void ThreadData::Initialize() {
   base::AutoLock lock(*list_lock_.Pointer());
   if (base::subtle::Acquire_Load(&status_) >= DEACTIVATED)
     return;  // Someone raced in here and beat us.
-
-  // Put an alternate timer in place if the environment calls for it, such as
-  // for tracking TCMalloc allocations.  This insertion is idempotent, so we
-  // don't mind if there is a race, and we'd prefer not to be in a lock while
-  // doing this work.
-  if (kAllowAlternateTimeSourceHandling)
-    OptionallyInitializeAlternateTimer();
 
   // Perform the "real" TLS initialization now, and leave it intact through
   // process termination.
@@ -744,7 +712,7 @@ void ThreadData::InitializeAndSetTrackingStatus(Status status) {
   DCHECK_GE(status, DEACTIVATED);
   DCHECK_LE(status, PROFILING_ACTIVE);
 
-  Initialize();  // No-op if already initialized.
+  EnsureTlsInitialization();  // No-op if already initialized.
 
   if (status > DEACTIVATED)
     status = PROFILING_ACTIVE;
@@ -762,29 +730,21 @@ bool ThreadData::TrackingStatus() {
 }
 
 // static
-void ThreadData::SetAlternateTimeSource(NowFunction* now_function) {
-  DCHECK(now_function);
-  if (kAllowAlternateTimeSourceHandling)
-    now_function_ = now_function;
-}
-
-// static
 void ThreadData::EnableProfilerTiming() {
   base::subtle::NoBarrier_Store(&g_profiler_timing_enabled, ENABLED_TIMING);
 }
 
 // static
 TrackedTime ThreadData::Now() {
-  if (kAllowAlternateTimeSourceHandling && now_function_)
-    return TrackedTime::FromMilliseconds((*now_function_)());
+  if (now_function_for_testing_)
+    return TrackedTime::FromMilliseconds((*now_function_for_testing_)());
   if (IsProfilerTimingEnabled() && TrackingStatus())
     return TrackedTime::Now();
   return TrackedTime();  // Super fast when disabled, or not compiled.
 }
 
 // static
-void ThreadData::EnsureCleanupWasCalled(
-    int /* major_threads_shutdown_count */) {
+void ThreadData::EnsureCleanupWasCalled(int /*major_threads_shutdown_count*/) {
   base::AutoLock lock(*list_lock_.Pointer());
   if (worker_thread_data_creation_count_ == 0)
     return;  // We haven't really run much, and couldn't have leaked.
@@ -833,6 +793,7 @@ void ThreadData::ShutdownSingleThreadedCleanup(bool leak) {
   if (leak) {
     ThreadData* thread_data = thread_data_list;
     while (thread_data) {
+      ANNOTATE_LEAKING_OBJECT_PTR(thread_data);
       thread_data = thread_data->next();
     }
     return;
@@ -993,6 +954,9 @@ TaskSnapshot::~TaskSnapshot() {
 ProcessDataPhaseSnapshot::ProcessDataPhaseSnapshot() {
 }
 
+ProcessDataPhaseSnapshot::ProcessDataPhaseSnapshot(
+    const ProcessDataPhaseSnapshot& other) = default;
+
 ProcessDataPhaseSnapshot::~ProcessDataPhaseSnapshot() {
 }
 
@@ -1006,6 +970,9 @@ ProcessDataSnapshot::ProcessDataSnapshot()
     : process_id(base::kNullProcessId) {
 #endif
 }
+
+ProcessDataSnapshot::ProcessDataSnapshot(const ProcessDataSnapshot& other) =
+    default;
 
 ProcessDataSnapshot::~ProcessDataSnapshot() {
 }

@@ -16,14 +16,7 @@
 
 package com.example.android.supportv7.widget;
 
-import com.example.android.supportv7.Cheeses;
-import com.example.android.supportv7.R;
-import com.example.android.supportv7.widget.adapter.SimpleStringAdapter;
-import com.example.android.supportv7.widget.util.ConfigToggle;
-import com.example.android.supportv7.widget.util.ConfigViewHolder;
-
 import android.app.Activity;
-import android.content.Context;
 import android.os.Bundle;
 import android.support.v7.widget.DefaultItemAnimator;
 import android.support.v7.widget.LinearLayoutManager;
@@ -33,10 +26,15 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.BaseAdapter;
 import android.widget.CheckBox;
-import android.widget.CompoundButton;
 import android.widget.EditText;
 import android.widget.Spinner;
 import android.widget.TextView;
+
+import com.example.android.supportv7.Cheeses;
+import com.example.android.supportv7.R;
+import com.example.android.supportv7.widget.adapter.SimpleStringAdapter;
+import com.example.android.supportv7.widget.util.ConfigToggle;
+import com.example.android.supportv7.widget.util.ConfigViewHolder;
 
 /**
  * A simple activity that can be extended to demonstrate LayoutManagers.
@@ -65,7 +63,7 @@ abstract public class BaseLayoutManagerActivity<T extends RecyclerView.LayoutMan
     abstract protected T createLayoutManager();
 
     private void initRecyclerView() {
-        mRecyclerView = (RecyclerView) findViewById(R.id.recycler_view);
+        mRecyclerView = findViewById(R.id.recycler_view);
         mRecyclerView.setHasFixedSize(true);
         mLayoutManager = createLayoutManager();
         mRecyclerView.setLayoutManager(mLayoutManager);
@@ -101,7 +99,7 @@ abstract public class BaseLayoutManagerActivity<T extends RecyclerView.LayoutMan
 
     private void initToggles() {
         mConfigToggles = createConfigToggles();
-        RecyclerView configView = (RecyclerView) findViewById(R.id.config_recycler_view);
+        RecyclerView configView = findViewById(R.id.config_recycler_view);
         configView.setAdapter(mConfigAdapter);
         configView.setLayoutManager(new LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL,
                 false));
@@ -109,9 +107,9 @@ abstract public class BaseLayoutManagerActivity<T extends RecyclerView.LayoutMan
     }
 
     public void onScrollClicked(View view) {
-        final EditText scrollOffset = (EditText) findViewById(R.id.scroll_offset);
-        final CheckBox checkBox = (CheckBox) findViewById(R.id.enable_smooth_scroll);
-        final Spinner spinner = (Spinner) findViewById(R.id.spinner);
+        final EditText scrollOffset = findViewById(R.id.scroll_offset);
+        final CheckBox checkBox = findViewById(R.id.enable_smooth_scroll);
+        final Spinner spinner = findViewById(R.id.spinner);
 
         Integer offset = null;
         String offsetString = scrollOffset.getText().toString();
@@ -129,7 +127,7 @@ abstract public class BaseLayoutManagerActivity<T extends RecyclerView.LayoutMan
     }
 
     private void initSpinner() {
-        final Spinner spinner = (Spinner) findViewById(R.id.spinner);
+        final Spinner spinner = findViewById(R.id.spinner);
         spinner.setAdapter(new BaseAdapter() {
             @Override
             public int getCount() {
@@ -169,7 +167,9 @@ abstract public class BaseLayoutManagerActivity<T extends RecyclerView.LayoutMan
         scrollToPosition(smooth, position);
     }
 
-    abstract ConfigToggle[] createConfigToggles();
+    protected ConfigToggle[] createConfigToggles() {
+        return new ConfigToggle[] {};
+    }
 
     private RecyclerView.Adapter mConfigAdapter = new RecyclerView.Adapter<ConfigViewHolder>() {
         @Override

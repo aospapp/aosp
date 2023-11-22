@@ -16,58 +16,34 @@
 
 package android.security.cts;
 
+import com.android.compatibility.common.util.PropertyUtil;
+
+import android.platform.test.annotations.SecurityTest;
 import android.test.AndroidTestCase;
 import junit.framework.TestCase;
 
 import android.app.ActivityManager;
 import android.content.Context;
-import android.os.SystemProperties;
 import android.util.Log;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+@SecurityTest
 public class EncryptionTest extends AndroidTestCase {
 
     static {
         System.loadLibrary("ctssecurity_jni");
     }
 
-    private static final int min_api_level = 23;
+    private static final int MIN_API_LEVEL = 23;
 
     private static final String TAG = "EncryptionTest";
 
-    private static final String crypto = "/proc/crypto";
-
     private static native boolean deviceIsEncrypted();
 
-    private static native boolean cpuHasAes();
-
-    private static native boolean cpuHasNeon();
-
-    private static native boolean neonIsEnabled();
-
     private static native boolean aesIsFast();
-
-    private boolean hasKernelCrypto(String driver) throws Exception {
-        BufferedReader br = new BufferedReader(new FileReader(crypto));
-        Pattern p = Pattern.compile("driver\\s*:\\s*" + driver);
-
-        try {
-            String line;
-            while ((line = br.readLine()) != null) {
-                if (p.matcher(line).matches()) {
-                    Log.i(TAG, crypto + " has " + driver + " (" + line + ")");
-                    return true;
-                }
-            }
-       } finally {
-           br.close();
-       }
-
-       return false;
-    }
 
     private boolean hasLowRAM() {
         ActivityManager activityManager =
@@ -77,38 +53,8 @@ public class EncryptionTest extends AndroidTestCase {
     }
 
     private boolean isRequired() {
-        int first_api_level =
-            SystemProperties.getInt("ro.product.first_api_level", 0);
-
-        // Optional before min_api_level or if the device has low RAM
-        if (first_api_level > 0 && first_api_level < min_api_level) {
-            return false;
-        } else {
-            return !hasLowRAM();
-        }
-    }
-
-    public void testConfig() throws Exception {
-        if (!isRequired()) {
-            return;
-        }
-
-        if (cpuHasAes()) {
-            // If CPU has AES CE, it must be enabled in kernel
-            assertTrue(crypto + " is missing xts-aes-ce or xts-aes-aesni",
-                hasKernelCrypto("xts-aes-ce") ||
-                hasKernelCrypto("xts-aes-aesni"));
-        } else if (cpuHasNeon()) {
-            // Otherwise, if CPU has NEON, it must be enabled
-            assertTrue(crypto + " is missing xts-aes-neon (or xts-aes-neonbs)",
-                hasKernelCrypto("xts-aes-neon") ||
-                hasKernelCrypto("xts-aes-neonbs") ||
-                hasKernelCrypto("aes-asm")); // Not recommended alone
-        }
-
-        if (cpuHasNeon()) {
-            assertTrue("libcrypto must have NEON", neonIsEnabled());
-        }
+        // Optional before MIN_API_LEVEL or if the device has low RAM
+        return PropertyUtil.getFirstApiLevel() >= MIN_API_LEVEL && !hasLowRAM();
     }
 
     public void testEncryption() throws Exception {

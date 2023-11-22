@@ -14,50 +14,20 @@
  * limitations under the License.
  */
 
+/*
+ * USAGE NOTE: Only include this header when _implementing_ a particular
+ * effect. When access to UUID and properties is enough, include the
+ * corresponding header from system/audio_effects/, which doesn't include
+ * hardware/audio_effect.h.
+ *
+ * Only code that immediately calls into HAL or implements an effect
+ * can import hardware/audio_effect.h.
+ */
+
 #ifndef ANDROID_EFFECT_NS_H_
 #define ANDROID_EFFECT_NS_H_
 
 #include <hardware/audio_effect.h>
-
-#if __cplusplus
-extern "C" {
-#endif
-
-// The NS type UUID is not defined by OpenSL ES and has been generated from
-// http://www.itu.int/ITU-T/asn1/uuid.html
-static const effect_uuid_t FX_IID_NS_ =
-    { 0x58b4b260, 0x8e06, 0x11e0, 0xaa8e, { 0x00, 0x02, 0xa5, 0xd5, 0xc5, 0x1b } };
-const effect_uuid_t * const FX_IID_NS = &FX_IID_NS_;
-
-typedef enum
-{
-    NS_PARAM_LEVEL,             // noise suppression level (t_ns_level)
-    NS_PARAM_PROPERTIES,
-    NS_PARAM_TYPE               // noise suppression type (t_ns_type)
-} t_ns_params;
-
-// noise suppression level
-typedef enum {
-    NS_LEVEL_LOW,
-    NS_LEVEL_MEDIUM,
-    NS_LEVEL_HIGH
-} t_ns_level;
-
-// noise suppression type
-typedef enum {
-    NS_TYPE_SINGLE_CHANNEL,
-    NS_TYPE_MULTI_CHANNEL
-} t_ns_type;
-
-// s_ns_settings groups all current ns settings for backup and restore.
-typedef struct s_ns_settings {
-    uint32_t  level;
-    uint32_t  type;
-} t_ns_settings;
-
-#if __cplusplus
-}  // extern "C"
-#endif
-
+#include <system/audio_effects/effect_ns.h>
 
 #endif /*ANDROID_EFFECT_NS_H_*/

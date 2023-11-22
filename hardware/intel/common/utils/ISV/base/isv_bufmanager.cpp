@@ -22,6 +22,7 @@
 #include "isv_bufmanager.h"
 #ifndef TARGET_VPP_USE_GEN
 #include "hal_public.h"
+#include <sync/sync.h>
 #endif
 
 //#define LOG_NDEBUG 0
@@ -69,12 +70,12 @@ status_t ISVBuffer::initBufferInfo(uint32_t hackFormat)
     }
 
     int32_t err = 0;
+#ifdef TARGET_VPP_USE_GEN
     if (!mpGralloc) {
         err = hw_get_module(GRALLOC_HARDWARE_MODULE_ID, (hw_module_t const**)&mpGralloc);
         if (0 != err)
             return UNKNOWN_ERROR;
     }
-#ifdef TARGET_VPP_USE_GEN
     ufo_buffer_details_t info;
 
     memset(&info, 0, sizeof(ufo_buffer_details_t));
@@ -88,6 +89,11 @@ status_t ISVBuffer::initBufferInfo(uint32_t hackFormat)
     mStride = info.pitch;
     mColorFormat = info.format;
 #else
+    if (!mpGralloc) {
+        err = gralloc_open_img(&mpGralloc);
+        if (0 != err)
+            return UNKNOWN_ERROR;
+    }
     IMG_native_handle_t* grallocHandle = (IMG_native_handle_t*)mGrallocHandle;
     mStride = grallocHandle->aiStride[0];
     mSurfaceHeight = grallocHandle->iHeight;
@@ -126,9 +132,13 @@ status_t ISVBuffer::clearIfNeed()
     if ((mFlags & ISV_BUFFER_NEED_CLEAR) && mpGralloc) {
         int32_t usage = GRALLOC_USAGE_HW_TEXTURE | GRALLOC_USAGE_SW_READ_OFTEN | GRALLOC_USAGE_SW_WRITE_OFTEN;
         void *vaddr[GRALLOC_SUB_BUFFER_MAX];
+        const gralloc1_rect_t r = {
+            .width  = (int32_t)mStride,
+            .height = (int32_t)mSurfaceHeight
+        };
+        int err, releaseFence = -1;
 
-        int32_t err = mpGralloc->lock(mpGralloc, (buffer_handle_t)mGrallocHandle, usage, 0, 0, mStride, mSurfaceHeight, &vaddr[0]);
-
+        err = gralloc_lock_async_img(mpGralloc, (buffer_handle_t)mGrallocHandle, usage, &r, &vaddr[0], -1);
         if (0 != err) {
             ALOGE("%s: get graphic buffer ptr failed", __func__);
             return UNKNOWN_ERROR;
@@ -140,7 +150,11 @@ status_t ISVBuffer::clearIfNeed()
             memcpy(ptr, random_buf, sizeof(random_buf));
             ptr += sizeof(random_buf);
         }
-        mpGralloc->unlock(mpGralloc, (buffer_handle_t)mGrallocHandle);
+        gralloc_unlock_async_img(mpGralloc, (buffer_handle_t)mGrallocHandle, &releaseFence);
+        if (releaseFence >= 0) {
+            sync_wait(releaseFence, -1);
+            close(releaseFence);
+        }
         ALOGD_IF(ISV_BUFFER_MANAGER_DEBUG, "%s: clear isv buffer %p finished, buffer size %d", __func__, this, buffer_size);
         mFlags &= ~ISV_BUFFER_NEED_CLEAR;
     }

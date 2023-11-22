@@ -17,9 +17,7 @@
 #ifndef ANDROID_GUI_BUFFERITEM_H
 #define ANDROID_GUI_BUFFERITEM_H
 
-#include <EGL/egl.h>
-#include <EGL/eglext.h>
-
+#include <ui/FenceTime.h>
 #include <ui/Rect.h>
 #include <ui/Region.h>
 
@@ -46,6 +44,8 @@ class BufferItem : public Flattenable<BufferItem> {
     enum { INVALID_BUFFER_SLOT = -1 };
     BufferItem();
     ~BufferItem();
+    BufferItem(const BufferItem&) = default;
+    BufferItem& operator=(const BufferItem&) = default;
 
     static const char* scalingModeName(uint32_t scalingMode);
 
@@ -56,6 +56,9 @@ class BufferItem : public Flattenable<BufferItem> {
 
     // mFence is a fence that will signal when the buffer is idle.
     sp<Fence> mFence;
+
+    // The std::shared_ptr<FenceTime> wrapper around mFence.
+    std::shared_ptr<FenceTime> mFenceTime{FenceTime::NO_FENCE};
 
     // mCrop is the current crop rectangle for this buffer slot.
     Rect mCrop;
@@ -72,13 +75,7 @@ class BufferItem : public Flattenable<BufferItem> {
     // to set by queueBuffer each time this slot is queued. This value
     // is guaranteed to be monotonically increasing for each newly
     // acquired buffer.
-    union {
-        int64_t mTimestamp;
-        struct {
-            uint32_t mTimestampLo;
-            uint32_t mTimestampHi;
-        };
-    };
+    int64_t mTimestamp;
 
     // mIsAutoTimestamp indicates whether mTimestamp was generated
     // automatically when the buffer was queued.
@@ -90,13 +87,7 @@ class BufferItem : public Flattenable<BufferItem> {
     android_dataspace mDataSpace;
 
     // mFrameNumber is the number of the queued frame for this slot.
-    union {
-        uint64_t mFrameNumber;
-        struct {
-            uint32_t mFrameNumberLo;
-            uint32_t mFrameNumberHi;
-        };
-    };
+    uint64_t mFrameNumber;
 
     // mSlot is the slot index of this buffer (default INVALID_BUFFER_SLOT).
     int mSlot;

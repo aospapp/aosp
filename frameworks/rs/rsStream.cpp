@@ -18,8 +18,8 @@
 #include "rsContext.h"
 #include "rsStream.h"
 
-using namespace android;
-using namespace android::renderscript;
+namespace android {
+namespace renderscript {
 
 IStream::IStream(const uint8_t *buf, bool use64) {
     mData = buf;
@@ -112,4 +112,5 @@ void OStream::growSize() {
     mData = newData;
 }
 
-
+} // namespace renderscript
+} // namespace android

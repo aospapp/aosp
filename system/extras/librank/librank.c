@@ -135,7 +135,7 @@ struct mapping_info *get_mapping(struct library_info *library, struct process_in
 
     if (library->mappings_count >= library->mappings_size) {
         library->mappings = realloc(library->mappings,
-            2 * library->mappings_size * sizeof(struct mapping*));
+            2 * library->mappings_size * sizeof(struct mapping_info*));
         if (!library->mappings) {
             fprintf(stderr, "Couldn't resize mappings array: %s\n", strerror(errno));
             exit(EXIT_FAILURE);
@@ -264,15 +264,15 @@ int main(int argc, char *argv[]) {
             break;
         case 'c':
             required_flags = 0;
-            flags_mask = PM_PAGE_SWAPBACKED;
+            flags_mask = KPF_SWAPBACKED;
             break;
         case 'C':
-            required_flags = PM_PAGE_SWAPBACKED;
-            flags_mask = PM_PAGE_SWAPBACKED;
+            required_flags = KPF_SWAPBACKED;
+            flags_mask = KPF_SWAPBACKED;
             break;
         case 'k':
-            required_flags = PM_PAGE_KSM;
-            flags_mask = PM_PAGE_KSM;
+            required_flags = KPF_KSM;
+            flags_mask = KPF_KSM;
             break;
         case 'h':
             usage(argv[0]);

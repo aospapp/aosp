@@ -27,7 +27,7 @@
 #include <sys/file.h>
 #endif
 
-__RCSID("$MirOS: src/bin/mksh/histrap.c,v 1.152 2016/01/14 23:18:08 tg Exp $");
+__RCSID("$MirOS: src/bin/mksh/histrap.c,v 1.159 2016/11/11 18:44:32 tg Exp $");
 
 Trap sigtraps[ksh_NSIG + 1];
 static struct sigaction Sigact_ign;
@@ -68,12 +68,6 @@ static char *hname;
 static int histfd = -1;
 static off_t histfsize;
 #endif
-
-static const char Tnot_in_history[] = "not in history";
-#define Thistory (Tnot_in_history + 7)
-
-static const char TFCEDIT_dollaru[] = "${FCEDIT:-/bin/ed} $_";
-#define Tspdollaru (TFCEDIT_dollaru + 18)
 
 /* HISTSIZE default: size of saved history, persistent or standard */
 #ifdef MKSH_SMALL
@@ -153,7 +147,7 @@ c_fc(const char **wp)
 			else if (!last)
 				last = p;
 			else {
-				bi_errorf("too many arguments");
+				bi_errorf(Ttoo_many_args);
 				return (1);
 			}
 			break;
@@ -183,7 +177,7 @@ c_fc(const char **wp)
 		if (!first && (first = *wp))
 			wp++;
 		if (last || *wp) {
-			bi_errorf("too many arguments");
+			bi_errorf(Ttoo_many_args);
 			return (1);
 		}
 
@@ -217,7 +211,7 @@ c_fc(const char **wp)
 				xp += rep_len;
 			}
 			if (!any_subst) {
-				bi_errorf("bad substitution");
+				bi_errorf(Tbadsubst);
 				return (1);
 			}
 			len = strlen(s) + 1;
@@ -239,7 +233,7 @@ c_fc(const char **wp)
 	if (!last && (last = *wp))
 		wp++;
 	if (*wp) {
-		bi_errorf("too many arguments");
+		bi_errorf(Ttoo_many_args);
 		return (1);
 	}
 	if (!first) {
@@ -278,7 +272,7 @@ c_fc(const char **wp)
 		for (hp = rflag ? hlast : hfirst;
 		    hp >= hfirst && hp <= hlast; hp += rflag ? -1 : 1) {
 			if (!nflag)
-				shf_fprintf(shl_stdout, "%lu",
+				shf_fprintf(shl_stdout, Tf_lu,
 				    (unsigned long)hist_source->line -
 				    (unsigned long)(histptr - hp));
 			shf_putc('\t', shl_stdout);
@@ -290,7 +284,7 @@ c_fc(const char **wp)
 				*t++ = '\n';
 				s = t;
 			}
-			shf_fprintf(shl_stdout, "%s\n", s);
+			shf_fprintf(shl_stdout, Tf_sN, s);
 		}
 		shf_flush(shl_stdout);
 		return (0);
@@ -300,32 +294,22 @@ c_fc(const char **wp)
 
 	tf = maketemp(ATEMP, TT_HIST_EDIT, &e->temps);
 	if (!(shf = tf->shf)) {
-		bi_errorf("can't %s temporary file %s: %s",
-		    "create", tf->tffn, cstrerror(errno));
+		bi_errorf(Tf_temp, Tcreate, tf->tffn, cstrerror(errno));
 		return (1);
 	}
 	for (hp = rflag ? hlast : hfirst;
 	    hp >= hfirst && hp <= hlast; hp += rflag ? -1 : 1)
-		shf_fprintf(shf, "%s\n", *hp);
+		shf_fprintf(shf, Tf_sN, *hp);
 	if (shf_close(shf) == -1) {
-		bi_errorf("can't %s temporary file %s: %s",
-		    "write", tf->tffn, cstrerror(errno));
+		bi_errorf(Tf_temp, Twrite, tf->tffn, cstrerror(errno));
 		return (1);
 	}
 
 	/* Ignore setstr errors here (arbitrary) */
 	setstr(local("_", false), tf->tffn, KSH_RETURN_ERROR);
 
-	/* XXX: source should not get trashed by this.. */
-	{
-		Source *sold = source;
-		int ret;
-
-		ret = command(editor ? editor : TFCEDIT_dollaru, 0);
-		source = sold;
-		if (ret)
-			return (ret);
-	}
+	if ((optc = command(editor ? editor : TFCEDIT_dollaru, 0)))
+		return (optc);
 
 	{
 		struct stat statb;
@@ -334,16 +318,15 @@ c_fc(const char **wp)
 		ssize_t n;
 
 		if (!(shf = shf_open(tf->tffn, O_RDONLY, 0, 0))) {
-			bi_errorf("can't %s temporary file %s: %s",
-			    "open", tf->tffn, cstrerror(errno));
+			bi_errorf(Tf_temp, Topen, tf->tffn, cstrerror(errno));
 			return (1);
 		}
 
 		if (stat(tf->tffn, &statb) < 0)
 			n = 128;
 		else if ((off_t)statb.st_size > MKSH_MAXHISTFSIZE) {
-			bi_errorf("%s %s too large: %lu", Thistory,
-			    "file", (unsigned long)statb.st_size);
+			bi_errorf(Tf_toolarge, Thistory,
+			    Tfile, (unsigned long)statb.st_size);
 			goto errout;
 		} else
 			n = (size_t)statb.st_size + 1;
@@ -354,8 +337,8 @@ c_fc(const char **wp)
 				XcheckN(xs, xp, Xlength(xs, xp));
 		}
 		if (n < 0) {
-			bi_errorf("can't %s temporary file %s: %s",
-			    "read", tf->tffn, cstrerror(shf_errno(shf)));
+			bi_errorf(Tf_temp, Tread, tf->tffn,
+			    cstrerror(shf_errno(shf)));
  errout:
 			shf_close(shf);
 			return (1);
@@ -372,8 +355,6 @@ static int
 hist_execute(char *cmd, Area *areap)
 {
 	static int last_line = -1;
-	Source *sold;
-	int ret;
 
 	/* Back up over last histsave */
 	if (histptr >= history && last_line != hist_source->line) {
@@ -388,7 +369,7 @@ hist_execute(char *cmd, Area *areap)
 	afree(cmd, areap);
 	cmd = *histptr;
 	/* pdksh says POSIX doesn’t say this is done, testsuite needs it */
-	shellf("%s\n", cmd);
+	shellf(Tf_sN, cmd);
 
 	/*-
 	 * Commands are executed here instead of pushing them onto the
@@ -397,11 +378,7 @@ hist_execute(char *cmd, Area *areap)
 	 *	X=y fc -e - 42 2> /dev/null
 	 * are to effect the repeated commands environment.
 	 */
-	/* XXX: source should not get trashed by this.. */
-	sold = source;
-	ret = command(cmd, 0);
-	source = sold;
-	return (ret);
+	return (command(cmd, 0));
 }
 
 /*
@@ -420,18 +397,18 @@ hist_get(const char *str, bool approx, bool allow_cur)
 			if (approx)
 				hp = hist_get_oldest();
 			else {
-				bi_errorf("%s: %s", str, Tnot_in_history);
+				bi_errorf(Tf_sD_s, str, Tnot_in_history);
 				hp = NULL;
 			}
 		} else if ((size_t)hp > (size_t)histptr) {
 			if (approx)
 				hp = hist_get_newest(allow_cur);
 			else {
-				bi_errorf("%s: %s", str, Tnot_in_history);
+				bi_errorf(Tf_sD_s, str, Tnot_in_history);
 				hp = NULL;
 			}
 		} else if (!allow_cur && hp == histptr) {
-			bi_errorf("%s: %s", str, "invalid range");
+			bi_errorf(Tf_sD_s, str, "invalid range");
 			hp = NULL;
 		}
 	} else {
@@ -439,7 +416,7 @@ hist_get(const char *str, bool approx, bool allow_cur)
 
 		/* the -1 is to avoid the current fc command */
 		if ((n = findhist(histptr - history - 1, 0, str, anchored)) < 0)
-			bi_errorf("%s: %s", str, Tnot_in_history);
+			bi_errorf(Tf_sD_s, str, Tnot_in_history);
 		else
 			hp = &history[n];
 	}
@@ -658,7 +635,9 @@ histsave(int *lnp, const char *cmd, int svmode, bool ignoredups)
 	strndupx(c, cmd, ccp - cmd, APERM);
 
 	if (svmode != HIST_APPEND) {
-		if (ignoredups && !strcmp(c, *histptr)
+		if (ignoredups &&
+		    histptr >= history &&
+		    !strcmp(c, *histptr)
 #if !defined(MKSH_SMALL) && HAVE_PERSISTENT_HISTORY
 		    && !histsync()
 #endif
@@ -850,7 +829,7 @@ hist_init(Source *s)
 			goto retry;
 		}
 		if (hs != hist_init_retry)
-			bi_errorf("can't %s %s: %s",
+			bi_errorf(Tf_cant,
 			    "unlink HISTFILE", hname, cstrerror(errno));
 		histfsize = 0;
 		return;
@@ -1015,23 +994,26 @@ inittraps(void)
 {
 	int i;
 	const char *cs;
+#if !HAVE_SYS_SIGNAME
+	const struct mksh_sigpair *pair;
+#endif
 
 	trap_exstat = -1;
 
-	/* Populate sigtraps based on sys_signame and sys_siglist. */
+	/* populate sigtraps based on sys_signame and sys_siglist */
 	for (i = 1; i < ksh_NSIG; i++) {
 		sigtraps[i].signal = i;
 #if HAVE_SYS_SIGNAME
 		cs = sys_signame[i];
 #else
-		const struct mksh_sigpair *pair = mksh_sigpairs;
+		pair = mksh_sigpairs;
 		while ((pair->nr != i) && (pair->name != NULL))
 			++pair;
 		cs = pair->name;
 #endif
 		if ((cs == NULL) ||
 		    (cs[0] == '\0'))
-			sigtraps[i].name = shf_smprintf("%d", i);
+			sigtraps[i].name = null;
 		else {
 			char *s;
 
@@ -1047,7 +1029,18 @@ inittraps(void)
 			sigtraps[i].name = s;
 			while ((*s = ksh_toupper(*s)))
 				++s;
+			/* check for reserved names */
+			if (!strcmp(sigtraps[i].name, "EXIT") ||
+			    !strcmp(sigtraps[i].name, "ERR")) {
+#ifndef MKSH_SMALL
+				internal_warningf("ignoring invalid signal name %s",
+				    sigtraps[i].name);
+#endif
+				sigtraps[i].name = null;
+			}
 		}
+		if (sigtraps[i].name == null)
+			sigtraps[i].name = shf_smprintf(Tf_d, i);
 #if HAVE_SYS_SIGLIST
 		sigtraps[i].mess = sys_siglist[i];
 #elif HAVE_STRSIGNAL
@@ -1057,7 +1050,7 @@ inittraps(void)
 #endif
 		if ((sigtraps[i].mess == NULL) ||
 		    (sigtraps[i].mess[0] == '\0'))
-			sigtraps[i].mess = shf_smprintf("%s %d",
+			sigtraps[i].mess = shf_smprintf(Tf_sd,
 			    "Signal", i);
 	}
 	sigtraps[ksh_SIGEXIT].signal = ksh_SIGEXIT;
@@ -1406,33 +1399,32 @@ settrap(Trap *p, const char *s)
 }
 
 /*
- * Called by c_print() when writing to a co-process to ensure SIGPIPE won't
- * kill shell (unless user catches it and exits)
+ * called by c_print() when writing to a co-process to ensure
+ * SIGPIPE won't kill shell (unless user catches it and exits)
  */
-int
+bool
 block_pipe(void)
 {
-	int restore_dfl = 0;
+	bool restore_dfl = false;
 	Trap *p = &sigtraps[SIGPIPE];
 
 	if (!(p->flags & (TF_ORIG_IGN|TF_ORIG_DFL))) {
 		setsig(p, SIG_IGN, SS_RESTORE_CURR);
 		if (p->flags & TF_ORIG_DFL)
-			restore_dfl = 1;
+			restore_dfl = true;
 	} else if (p->cursig == SIG_DFL) {
 		setsig(p, SIG_IGN, SS_RESTORE_CURR);
 		/* restore to SIG_DFL */
-		restore_dfl = 1;
+		restore_dfl = true;
 	}
 	return (restore_dfl);
 }
 
-/* Called by c_print() to undo whatever block_pipe() did */
+/* called by c_print() to undo whatever block_pipe() did */
 void
-restore_pipe(int restore_dfl)
+restore_pipe(void)
 {
-	if (restore_dfl)
-		setsig(&sigtraps[SIGPIPE], SIG_DFL, SS_RESTORE_CURR);
+	setsig(&sigtraps[SIGPIPE], SIG_DFL, SS_RESTORE_CURR);
 }
 
 /*

@@ -18,7 +18,7 @@
 #define LOG_TAG "AudioHwDevice"
 //#define LOG_NDEBUG 0
 
-#include <hardware/audio.h>
+#include <system/audio.h>
 #include <utils/Log.h>
 
 #include <audio_utils/spdif/SPDIFEncoder.h>
@@ -91,6 +91,11 @@ status_t AudioHwDevice::openOutputStream(
 
     *ppStreamOut = outputStream;
     return status;
+}
+
+bool AudioHwDevice::supportsAudioPatches() const {
+    bool result;
+    return mHwDevice->supportsAudioPatches(&result) == OK ? result : false;
 }
 
 

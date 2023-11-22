@@ -46,6 +46,7 @@ using std::string;
 using tcu::Sampler;
 using namespace glu;
 using namespace gls::TextureTestUtil;
+using namespace glu::TextureTestUtil;
 
 enum
 {
@@ -196,7 +197,7 @@ TextureWrapCase::IterateResult TextureWrapCase::iterate (void)
 		m_renderer.renderQuad(0, &texCoord[0], refParams);
 		glu::readPixels(m_renderCtx, viewport.x, viewport.y, renderedFrame.getAccess());
 
-		sampleTexture(SurfaceAccess(referenceFrame, m_renderCtx.getRenderTarget().getPixelFormat(), 0, 0, leftWidth, viewport.height),
+		sampleTexture(tcu::SurfaceAccess(referenceFrame, m_renderCtx.getRenderTarget().getPixelFormat(), 0, 0, leftWidth, viewport.height),
 					  m_texture->getRefTexture(), &texCoord[0], refParams);
 	}
 
@@ -209,7 +210,7 @@ TextureWrapCase::IterateResult TextureWrapCase::iterate (void)
 		m_renderer.renderQuad(0, &texCoord[0], refParams);
 		glu::readPixels(m_renderCtx, viewport.x, viewport.y, renderedFrame.getAccess());
 
-		sampleTexture(SurfaceAccess(referenceFrame, m_renderCtx.getRenderTarget().getPixelFormat(), leftWidth, 0, rightWidth, viewport.height),
+		sampleTexture(tcu::SurfaceAccess(referenceFrame, m_renderCtx.getRenderTarget().getPixelFormat(), leftWidth, 0, rightWidth, viewport.height),
 					  m_texture->getRefTexture(), &texCoord[0], refParams);
 	}
 
@@ -279,7 +280,7 @@ void TextureWrapTests::init (void)
 	};
 
 #define FOR_EACH(ITERATOR, ARRAY, BODY)	\
-	for (int ITERATOR = 0; ITERATOR < DE_LENGTH_OF_ARRAY(ARRAY); ITERATOR++)	\
+	for (int (ITERATOR) = 0; (ITERATOR) < DE_LENGTH_OF_ARRAY(ARRAY); (ITERATOR)++)	\
 		BODY
 
 	FOR_EACH(wrapS,		wrapModes,

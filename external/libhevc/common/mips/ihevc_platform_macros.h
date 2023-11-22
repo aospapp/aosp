@@ -85,7 +85,7 @@ static inline UWORD32 CTZ(UWORD32 u4_word)
 
 #define POPCNT_U32(x)       __builtin_popcount(x)
 
-#define NOP(nop_cnt)    {UWORD32 nop_i; for (nop_i = 0; nop_i < nop_cnt; nop_i++);}
+#define NOP(nop_cnt)    {UWORD32 nop_i; for (nop_i = (nop_cnt) ; nop_i > 0 ; nop_i--) asm("nop");}
 
 #define INLINE
 

@@ -14,92 +14,112 @@
      limitations under the License.
 -->
 
-<android.widget.cts.MyScrollView xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/scroll_view"
-    android:layout_width="100dip"
-    android:layout_height="100dip">
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
 
-    <LinearLayout
-        android:orientation="vertical"
-        android:layout_width="250dip"
-        android:layout_height="wrap_content">
+    <view
+        class="android.widget.cts.ScrollViewTest$MyScrollView"
+        android:id="@+id/scroll_view_custom"
+        android:layout_width="100dip"
+        android:layout_height="100dip">
 
-        <Button
-            android:id="@+id/first_child"
+        <LinearLayout
+            android:orientation="vertical"
             android:layout_width="250dip"
-            android:layout_height="100dip"
-            android:text="@string/vertical_text_1"/>
+            android:layout_height="wrap_content">
 
-        <Button
-            android:layout_width="250dip"
-            android:layout_height="100dip"
-            android:text="@string/vertical_text_2"/>
+            <Button
+                android:id="@+id/first_child"
+                android:layout_width="250dip"
+                android:layout_height="100dip"
+                android:text="@string/vertical_text_1"/>
 
-        <Button
-            android:layout_width="250dip"
-            android:layout_height="100dip"
-            android:text="@string/vertical_text_3"/>
+            <Button
+                android:layout_width="250dip"
+                android:layout_height="100dip"
+                android:text="@string/vertical_text_2"/>
 
-        <Button
-            android:layout_width="250dip"
-            android:layout_height="100dip"
-            android:text="@string/vertical_text_1"/>
+            <Button
+                android:layout_width="250dip"
+                android:layout_height="100dip"
+                android:text="@string/vertical_text_3"/>
 
-        <Button
-            android:layout_width="250dip"
-            android:layout_height="100dip"
-            android:text="@string/vertical_text_2"/>
+            <Button
+                android:layout_width="250dip"
+                android:layout_height="100dip"
+                android:text="@string/vertical_text_1"/>
 
-        <Button
-            android:layout_width="250dip"
-            android:layout_height="100dip"
-            android:text="@string/vertical_text_3"/>
+            <Button
+                android:layout_width="250dip"
+                android:layout_height="100dip"
+                android:text="@string/vertical_text_2"/>
 
-        <Button
-            android:layout_width="250dip"
-            android:layout_height="100dip"
-            android:text="@string/vertical_text_1"/>
+            <Button
+                android:layout_width="250dip"
+                android:layout_height="100dip"
+                android:text="@string/vertical_text_3"/>
 
-        <Button
-            android:layout_width="250dip"
-            android:layout_height="100dip"
-            android:text="@string/vertical_text_2"/>
+            <Button
+                android:layout_width="250dip"
+                android:layout_height="100dip"
+                android:text="@string/vertical_text_1"/>
 
-        <Button
-            android:layout_width="250dip"
-            android:layout_height="100dip"
-            android:text="@string/vertical_text_3"/>
+            <Button
+                android:layout_width="250dip"
+                android:layout_height="100dip"
+                android:text="@string/vertical_text_2"/>
 
-        <Button
-            android:layout_width="250dip"
-            android:layout_height="100dip"
-            android:text="@string/vertical_text_1"/>
+            <Button
+                android:layout_width="250dip"
+                android:layout_height="100dip"
+                android:text="@string/vertical_text_3"/>
 
-        <Button
-            android:layout_width="250dip"
-            android:layout_height="100dip"
-            android:text="@string/vertical_text_2"/>
+            <Button
+                android:layout_width="250dip"
+                android:layout_height="100dip"
+                android:text="@string/vertical_text_1"/>
 
-        <Button
-            android:layout_width="250dip"
-            android:layout_height="100dip"
-            android:text="@string/vertical_text_3"/>
+            <Button
+                android:layout_width="250dip"
+                android:layout_height="100dip"
+                android:text="@string/vertical_text_2"/>
 
-        <Button
-            android:layout_width="250dip"
-            android:layout_height="100dip"
-            android:text="@string/vertical_text_1"/>
+            <Button
+                android:layout_width="250dip"
+                android:layout_height="100dip"
+                android:text="@string/vertical_text_3"/>
 
-        <Button
-            android:layout_width="250dip"
-            android:layout_height="100dip"
-            android:text="@string/vertical_text_2"/>
+            <Button
+                android:layout_width="250dip"
+                android:layout_height="100dip"
+                android:text="@string/vertical_text_1"/>
 
-        <Button
-            android:id="@+id/last_child"
-            android:layout_width="250dip"
-            android:layout_height="100dip"
-            android:text="@string/vertical_text_3"/>
-    </LinearLayout>
+            <Button
+                android:layout_width="250dip"
+                android:layout_height="100dip"
+                android:text="@string/vertical_text_2"/>
 
-</android.widget.cts.MyScrollView>
+            <Button
+                android:id="@+id/last_child"
+                android:layout_width="250dip"
+                android:layout_height="100dip"
+                android:text="@string/vertical_text_3"/>
+        </LinearLayout>
+
+    </view>
+
+    <ScrollView
+        android:id="@+id/scroll_view_regular"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content" />
+
+    <view
+        class="android.widget.cts.ScrollViewTest$MyScrollView"
+        android:id="@+id/scroll_view_custom_empty"
+        android:layout_width="100dip"
+        android:layout_height="100dip" />
+</LinearLayout>
+

@@ -43,6 +43,8 @@ class MockAdapter : public Adapter {
   MOCK_METHOD0(IsOffloadedFilteringSupported, bool());
   MOCK_METHOD0(IsOffloadedScanBatchingSupported, bool());
   MOCK_CONST_METHOD0(GetLowEnergyClientFactory, LowEnergyClientFactory*());
+  MOCK_CONST_METHOD0(GetLeAdvertiserFactory, LowEnergyAdvertiserFactory*());
+  MOCK_CONST_METHOD0(GetLeScannerFactory, LowEnergyScannerFactory*());
   MOCK_CONST_METHOD0(GetGattClientFactory, GattClientFactory*());
   MOCK_CONST_METHOD0(GetGattServerFactory, GattServerFactory*());
 

@@ -1,10 +1,26 @@
-This code has moved from 
+Path history for this code:
 
-frameworks/base/services/java/com/android/server/wifi: gitk <SHA1 to be filled in later>
+commit date: 2013-12-18 to 2014-01-07
+commit hash: a07c419913bfae2a896fbc29e8f269ee08c4d910 (add)
+commit hash: 4a3f9cf099bbbe52dc0edb2a7e1d1c976bc335a3 (delete)
+dst:         frameworks/opt/net/wifi/service
+src:         frameworks/base/services/core/java/com/android/server/wifi
 
-Prior to that it was at
+commit date: 2013-12-19
+commit hash: 9158825f9c41869689d6b1786d7c7aa8bdd524ce (many more files)
+commit hash: 19c662b3df3b35756a92282bb6cc767e6407cb8a (a few files)
+dst:         frameworks/base/services/core/java/com/android/server/wifi
+src:         frameworks/base/services/java/com/android/server/wifi
 
-frameworks/base/wifi/java/android/net/wifi: gitk ffadfb9ffdced62db215319d3edc7717802088fb
+commit date: 2013-12-11
+commit hash: ffadfb9ffdced62db215319d3edc7717802088fb
+dst:         frameworks/base/services/java/com/android/server/wifi
+src:         frameworks/base/wifi/java/android/net/wifi
+
+commit date: 2008-10-21
+commit hash: 54b6cfa9a9e5b861a9930af873580d6dc20f773c
+dst:         frameworks/base/wifi/java/android/net/wifi
+src:         initial aosp import?
 
 ////////////////////////////////////////////////////////////////
 

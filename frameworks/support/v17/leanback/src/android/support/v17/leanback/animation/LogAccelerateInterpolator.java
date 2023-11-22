@@ -13,11 +13,15 @@
  */
 package android.support.v17.leanback.animation;
 
+import static android.support.annotation.RestrictTo.Scope.LIBRARY_GROUP;
+
 import android.animation.TimeInterpolator;
+import android.support.annotation.RestrictTo;
 
 /**
  * @hide
  */
+@RestrictTo(LIBRARY_GROUP)
 public class LogAccelerateInterpolator implements TimeInterpolator {
 
     int mBase;

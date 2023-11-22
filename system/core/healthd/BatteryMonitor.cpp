@@ -26,7 +26,11 @@
 #include <stdlib.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <memory>
 
+#include <android-base/file.h>
+#include <android-base/parseint.h>
+#include <android-base/strings.h>
 #include <batteryservice/BatteryService.h>
 #include <cutils/klog.h>
 #include <cutils/properties.h>
@@ -124,34 +128,15 @@ int BatteryMonitor::getBatteryHealth(const char* status) {
     return ret;
 }
 
-int BatteryMonitor::readFromFile(const String8& path, char* buf, size_t size) {
-    char *cp = NULL;
-
-    if (path.isEmpty())
-        return -1;
-    int fd = open(path.string(), O_RDONLY, 0);
-    if (fd == -1) {
-        KLOG_ERROR(LOG_TAG, "Could not open '%s'\n", path.string());
-        return -1;
+int BatteryMonitor::readFromFile(const String8& path, std::string* buf) {
+    if (android::base::ReadFileToString(path.c_str(), buf)) {
+        *buf = android::base::Trim(*buf);
     }
-
-    ssize_t count = TEMP_FAILURE_RETRY(read(fd, buf, size));
-    if (count > 0)
-            cp = (char *)memrchr(buf, '\n', count);
-
-    if (cp)
-        *cp = '\0';
-    else
-        buf[0] = '\0';
-
-    close(fd);
-    return count;
+    return buf->length();
 }
 
 BatteryMonitor::PowerSupplyType BatteryMonitor::readPowerSupplyType(const String8& path) {
-    const int SIZE = 128;
-    char buf[SIZE];
-    int length = readFromFile(path, buf, SIZE);
+    std::string buf;
     BatteryMonitor::PowerSupplyType ret;
     struct sysfsStringEnumMap supplyTypeMap[] = {
             { "Unknown", ANDROID_POWER_SUPPLY_TYPE_UNKNOWN },
@@ -170,12 +155,12 @@ BatteryMonitor::PowerSupplyType BatteryMonitor::readPowerSupplyType(const String
             { NULL, 0 },
     };
 
-    if (length <= 0)
+    if (readFromFile(path, &buf) <= 0)
         return ANDROID_POWER_SUPPLY_TYPE_UNKNOWN;
 
-    ret = (BatteryMonitor::PowerSupplyType)mapSysfsString(buf, supplyTypeMap);
+    ret = (BatteryMonitor::PowerSupplyType)mapSysfsString(buf.c_str(), supplyTypeMap);
     if (ret < 0) {
-        KLOG_WARNING(LOG_TAG, "Unknown power supply type '%s'\n", buf);
+        KLOG_WARNING(LOG_TAG, "Unknown power supply type '%s'\n", buf.c_str());
         ret = ANDROID_POWER_SUPPLY_TYPE_UNKNOWN;
     }
 
@@ -183,27 +168,23 @@ BatteryMonitor::PowerSupplyType BatteryMonitor::readPowerSupplyType(const String
 }
 
 bool BatteryMonitor::getBooleanField(const String8& path) {
-    const int SIZE = 16;
-    char buf[SIZE];
-
+    std::string buf;
     bool value = false;
-    if (readFromFile(path, buf, SIZE) > 0) {
-        if (buf[0] != '0') {
+
+    if (readFromFile(path, &buf) > 0)
+        if (buf[0] != '0')
             value = true;
-        }
-    }
 
     return value;
 }
 
 int BatteryMonitor::getIntField(const String8& path) {
-    const int SIZE = 128;
-    char buf[SIZE];
-
+    std::string buf;
     int value = 0;
-    if (readFromFile(path, buf, SIZE) > 0) {
-        value = strtol(buf, NULL, 0);
-    }
+
+    if (readFromFile(path, &buf) > 0)
+        android::base::ParseInt(buf, &value);
+
     return value;
 }
 
@@ -247,18 +228,16 @@ bool BatteryMonitor::update(void) {
         props.batteryHealth = BATTERY_HEALTH_GOOD;
     }
 
-    const int SIZE = 128;
-    char buf[SIZE];
-    String8 btech;
+    std::string buf;
 
-    if (readFromFile(mHealthdConfig->batteryStatusPath, buf, SIZE) > 0)
-        props.batteryStatus = getBatteryStatus(buf);
+    if (readFromFile(mHealthdConfig->batteryStatusPath, &buf) > 0)
+        props.batteryStatus = getBatteryStatus(buf.c_str());
 
-    if (readFromFile(mHealthdConfig->batteryHealthPath, buf, SIZE) > 0)
-        props.batteryHealth = getBatteryHealth(buf);
+    if (readFromFile(mHealthdConfig->batteryHealthPath, &buf) > 0)
+        props.batteryHealth = getBatteryHealth(buf.c_str());
 
-    if (readFromFile(mHealthdConfig->batteryTechnologyPath, buf, SIZE) > 0)
-        props.batteryTechnology = String8(buf);
+    if (readFromFile(mHealthdConfig->batteryTechnologyPath, &buf) > 0)
+        props.batteryTechnology = String8(buf.c_str());
 
     unsigned int i;
     double MaxPower = 0;
@@ -267,47 +246,44 @@ bool BatteryMonitor::update(void) {
         String8 path;
         path.appendFormat("%s/%s/online", POWER_SUPPLY_SYSFS_PATH,
                           mChargerNames[i].string());
-
-        if (readFromFile(path, buf, SIZE) > 0) {
-            if (buf[0] != '0') {
-                path.clear();
-                path.appendFormat("%s/%s/type", POWER_SUPPLY_SYSFS_PATH,
-                                  mChargerNames[i].string());
-                switch(readPowerSupplyType(path)) {
-                case ANDROID_POWER_SUPPLY_TYPE_AC:
-                    props.chargerAcOnline = true;
-                    break;
-                case ANDROID_POWER_SUPPLY_TYPE_USB:
-                    props.chargerUsbOnline = true;
-                    break;
-                case ANDROID_POWER_SUPPLY_TYPE_WIRELESS:
-                    props.chargerWirelessOnline = true;
-                    break;
-                default:
-                    KLOG_WARNING(LOG_TAG, "%s: Unknown power supply type\n",
-                                 mChargerNames[i].string());
-                }
-                path.clear();
-                path.appendFormat("%s/%s/current_max", POWER_SUPPLY_SYSFS_PATH,
-                                  mChargerNames[i].string());
-                int ChargingCurrent =
+        if (getIntField(path)) {
+            path.clear();
+            path.appendFormat("%s/%s/type", POWER_SUPPLY_SYSFS_PATH,
+                              mChargerNames[i].string());
+            switch(readPowerSupplyType(path)) {
+            case ANDROID_POWER_SUPPLY_TYPE_AC:
+                props.chargerAcOnline = true;
+                break;
+            case ANDROID_POWER_SUPPLY_TYPE_USB:
+                props.chargerUsbOnline = true;
+                break;
+            case ANDROID_POWER_SUPPLY_TYPE_WIRELESS:
+                props.chargerWirelessOnline = true;
+                break;
+            default:
+                KLOG_WARNING(LOG_TAG, "%s: Unknown power supply type\n",
+                             mChargerNames[i].string());
+            }
+            path.clear();
+            path.appendFormat("%s/%s/current_max", POWER_SUPPLY_SYSFS_PATH,
+                              mChargerNames[i].string());
+            int ChargingCurrent =
                     (access(path.string(), R_OK) == 0) ? getIntField(path) : 0;
 
-                path.clear();
-                path.appendFormat("%s/%s/voltage_max", POWER_SUPPLY_SYSFS_PATH,
-                                  mChargerNames[i].string());
+            path.clear();
+            path.appendFormat("%s/%s/voltage_max", POWER_SUPPLY_SYSFS_PATH,
+                              mChargerNames[i].string());
 
-                int ChargingVoltage =
-                    (access(path.string(), R_OK) == 0) ? getIntField(path) :
-                    DEFAULT_VBUS_VOLTAGE;
+            int ChargingVoltage =
+                (access(path.string(), R_OK) == 0) ? getIntField(path) :
+                DEFAULT_VBUS_VOLTAGE;
 
-                double power = ((double)ChargingCurrent / MILLION) *
-                        ((double)ChargingVoltage / MILLION);
-                if (MaxPower < power) {
-                    props.maxChargingCurrent = ChargingCurrent;
-                    props.maxChargingVoltage = ChargingVoltage;
-                    MaxPower = power;
-                }
+            double power = ((double)ChargingCurrent / MILLION) *
+                           ((double)ChargingVoltage / MILLION);
+            if (MaxPower < power) {
+                props.maxChargingCurrent = ChargingCurrent;
+                props.maxChargingVoltage = ChargingVoltage;
+                MaxPower = power;
             }
         }
     }
@@ -342,11 +318,10 @@ bool BatteryMonitor::update(void) {
                                 " cc=%d", props.batteryCycleCount);
             }
         } else {
-            snprintf(dmesgline, sizeof(dmesgline),
+            len = snprintf(dmesgline, sizeof(dmesgline),
                  "battery none");
         }
 
-        len = strlen(dmesgline);
         snprintf(dmesgline + len, sizeof(dmesgline) - len, " chg=%s%s%s",
                  props.chargerAcOnline ? "a" : "",
                  props.chargerUsbOnline ? "u" : "",
@@ -363,16 +338,16 @@ bool BatteryMonitor::update(void) {
 int BatteryMonitor::getChargeStatus() {
     int result = BATTERY_STATUS_UNKNOWN;
     if (!mHealthdConfig->batteryStatusPath.isEmpty()) {
-        char buf[128];
-        if (readFromFile(mHealthdConfig->batteryStatusPath, buf, sizeof(buf)) > 0) {
-            result = getBatteryStatus(buf);
-        }
+        std::string buf;
+        if (readFromFile(mHealthdConfig->batteryStatusPath, &buf) > 0)
+            result = getBatteryStatus(buf.c_str());
     }
     return result;
 }
 
 status_t BatteryMonitor::getProperty(int id, struct BatteryProperty *val) {
     status_t ret = BAD_VALUE;
+    std::string buf;
 
     val->valueInt64 = LONG_MIN;
 
@@ -423,6 +398,15 @@ status_t BatteryMonitor::getProperty(int id, struct BatteryProperty *val) {
         } else {
             ret = NAME_NOT_FOUND;
         }
+        break;
+
+    case BATTERY_PROP_BATTERY_STATUS:
+        if (mAlwaysPluggedDevice) {
+            val->valueInt64 = BATTERY_STATUS_CHARGING;
+        } else {
+            val->valueInt64 = getChargeStatus();
+        }
+        ret = NO_ERROR;
         break;
 
     default:
@@ -488,13 +472,13 @@ void BatteryMonitor::init(struct healthd_config *hc) {
     char pval[PROPERTY_VALUE_MAX];
 
     mHealthdConfig = hc;
-    DIR* dir = opendir(POWER_SUPPLY_SYSFS_PATH);
+    std::unique_ptr<DIR, decltype(&closedir)> dir(opendir(POWER_SUPPLY_SYSFS_PATH), closedir);
     if (dir == NULL) {
         KLOG_ERROR(LOG_TAG, "Could not open %s\n", POWER_SUPPLY_SYSFS_PATH);
     } else {
         struct dirent* entry;
 
-        while ((entry = readdir(dir))) {
+        while ((entry = readdir(dir.get()))) {
             const char* name = entry->d_name;
 
             if (!strcmp(name, ".") || !strcmp(name, ".."))
@@ -632,7 +616,6 @@ void BatteryMonitor::init(struct healthd_config *hc) {
                 break;
             }
         }
-        closedir(dir);
     }
 
     // Typically the case for devices which do not have a battery and

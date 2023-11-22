@@ -44,7 +44,7 @@
     <string name="connectivity_wifi" msgid="489974791299647708">"WiFi"</string>
     <string name="connectivity_ethernet" msgid="2182407318634700320">"อีเทอร์เน็ต"</string>
     <string name="wifi_setting_always_scan" msgid="8883713018717323351">"สแกนอยู่เสมอ"</string>
-    <string name="wifi_setting_always_scan_context" msgid="5588180043357910712">"ให้บริการตำแหน่งของ Google และแอปอื่นๆ สามารถสแกนหาเครือข่ายได้ แม้ว่า Wi-Fi จะปิดอยู่"</string>
+    <string name="wifi_setting_always_scan_context" msgid="398651204440349752">"ให้บริการตำแหน่งของ Google และแอปอื่นๆ สแกนหาเครือข่ายได้ แม้ในขณะที่ Wi-Fi ปิดอยู่"</string>
     <string name="wifi_setting_enable_wifi" msgid="9214100840401870408">"Wi-Fi"</string>
     <string name="device_daydream" msgid="3354366974209179614">"โปรแกรมรักษาหน้าจอ"</string>
     <string name="device_display" msgid="101455384386372747">"จอแสดงผล"</string>
@@ -72,6 +72,8 @@
     <string name="accessory_battery" msgid="7021788232835772126">"แบตเตอรี่ <xliff:g id="PERCENTAGE">%1$d</xliff:g>%%"</string>
     <string name="accessory_unpairing" msgid="7568241162181184667">"กำลังเลิกจับคู่…"</string>
     <string name="accessory_connected" msgid="2156489304110030393">"เชื่อมต่อแล้ว"</string>
+    <string name="accessory_change_name" msgid="8958916008739792785">"เปลี่ยนชื่อ"</string>
+    <string name="accessory_change_name_title" msgid="4630819456923061184">"ป้อนชื่อใหม่ให้อุปกรณ์เสริมนี้"</string>
     <string name="accessories_add_title" msgid="6940361421891873321">"กำลังค้นหาอุปกรณ์เสริม…"</string>
     <string name="accessories_add_bluetooth_inst" msgid="5892952745770640383">"ก่อนจับคู่อุปกรณ์บลูทูธ โปรดตรวจสอบว่าอุปกรณ์อยู่ในโหมดจับคู่"</string>
     <string name="accessories_autopair_msg" msgid="8618829246837821752">"พบอุปกรณ์แล้วและจะจับคู่อัตโนมัติในอีก <xliff:g id="COUNTDOWN">%1$s</xliff:g> วินาที"</string>
@@ -91,6 +93,7 @@
     <string name="system_keyboard" msgid="7680159735294672514">"แป้นพิมพ์"</string>
     <string name="system_home" msgid="2858989138172296012">"หน้าจอหลัก"</string>
     <string name="system_search" msgid="2837264654143247611">"ค้นหา"</string>
+    <string name="system_google" msgid="8560404305602209622">"Google"</string>
     <string name="system_security" msgid="8230080273993484407">"ความปลอดภัยและข้อจำกัด"</string>
     <string name="system_speech" msgid="8128688499687306982">"คำพูด"</string>
     <string name="system_inputs" msgid="2413907183796651102">"อินพุต"</string>
@@ -98,6 +101,7 @@
     <string name="system_developer_options" msgid="3237985523474863638">"ตัวเลือกสำหรับนักพัฒนา"</string>
     <string name="accessibility_none" msgid="3441648940134070004">"ไม่มี"</string>
     <string name="system_diagnostic" msgid="7269638365915225701">"การใช้และการวินิจฉัย"</string>
+    <string name="tutorials" msgid="3731493987558093244">"บทแนะนำ"</string>
     <string name="about_system_update" msgid="7282772247661356586">"การอัปเดตระบบ"</string>
     <string name="about_preference" msgid="4131396784531360434">"เกี่ยวกับ"</string>
     <string name="device_name" msgid="2670488158531273028">"ชื่ออุปกรณ์"</string>
@@ -357,7 +361,7 @@
     <string name="third_party_location_services_title" msgid="4089136801976399147">"บริการตำแหน่งของบุคคลที่สาม"</string>
     <string name="location_reporting" msgid="3054236612250063073">"การรายงานตำแหน่ง"</string>
     <string name="location_history" msgid="2946680949724247804">"ประวัติตำแหน่ง"</string>
-    <string name="location_reporting_desc" msgid="6256424995139430823">"Google ใช้คุณลักษณะนี้ในผลิตภัณฑ์ต่างๆ เช่น Google Now และ Google Maps การเปิดการรายงานตำแหน่งช่วยให้ผลิตภัณฑ์ Google ที่ใช้คุณลักษณะนี้สามารถจัดเก็บและใช้ข้อมูลตำแหน่งล่าสุดของอุปกรณ์ซึ่งเกี่ยวข้องกับบัญชี Google ของคุณ"</string>
+    <string name="location_reporting_desc" msgid="6256424995139430823">"Google ใช้ฟีเจอร์นี้ในผลิตภัณฑ์ต่างๆ เช่น Google Now และ Google Maps การเปิดการรายงานตำแหน่งช่วยให้ผลิตภัณฑ์ Google ที่ใช้ฟีเจอร์นี้สามารถจัดเก็บและใช้ข้อมูลตำแหน่งล่าสุดของอุปกรณ์ซึ่งเกี่ยวข้องกับบัญชี Google ของคุณ"</string>
     <string name="location_history_desc" msgid="3861249867748294369">"เมื่อประวัติตำแหน่งสำหรับบัญชีนี้เปิดอยู่ Google สามารถจัดเก็บข้อมูลตำแหน่งของอุปกรณ์เพื่อให้แอปใช้งาน\n\nตัวอย่างเช่น Google Maps สามารถแสดงเส้นทาง และ Google Now สามารถแจ้งให้คุณทราบเกี่ยวกับสภาพการจราจรในการเดินทาง\n\nคุณสามารถปิดประวัติตำแหน่งได้ทุกเมื่อ แต่การปิดจะไม่ใช่การลบประวัติตำแหน่ง หากต้องการดูและจัดการประวัติตำแหน่ง โปรดไปที่ maps.google.com/locationhistory"</string>
     <string name="delete_location_history_title" msgid="5804802702252280549">"ลบประวัติตำแหน่ง"</string>
     <string name="delete_location_history_desc" msgid="4142806827237093397">"การลบนี้จะลบประวัติตำแหน่งทั้งหมดที่จัดเก็บไว้จากอุปกรณ์นี้สำหรับบัญชี Google นี้ คุณเลิกทำการลบนี้ไม่ได้ แอปบางแอป เช่น Google Now จะหยุดทำงาน"</string>
@@ -372,6 +376,7 @@
     <string name="display_options" msgid="5504549024985225774">"ตัวเลือกการแสดงผล"</string>
     <string name="captions_configure" msgid="5537548915977371014">"กำหนดค่า"</string>
     <string name="captions_language" msgid="2835554055388996343">"ภาษา"</string>
+    <string name="captions_language_default" msgid="8113979489252033676">"ค่าเริ่มต้น"</string>
     <string name="captions_textsize" msgid="4828195509546070971">"ขนาดข้อความ"</string>
     <string name="captions_captionstyle" msgid="7423638523487868230">"รูปแบบคำบรรยาย"</string>
     <string name="captions_customoptions" msgid="2699780648112330911">"ตัวเลือกที่กำหนดเอง"</string>
@@ -448,7 +453,6 @@
     <string name="system_transition_animation_scale" msgid="2964817709721784757">"อัตราการสลับภาพเคลื่อนไหว"</string>
     <string name="system_animator_duration_scale" msgid="7413512458963984521">"ความเร็วตามผู้สร้างกำหนด"</string>
     <string name="system_strict_mode_enabled" msgid="5728680397806673270">"เปิดใช้งานโหมดเข้มงวด"</string>
-    <string name="system_show_cpu_usage" msgid="4797599582027671138">"แสดงการใช้ CPU"</string>
     <string name="system_profile_gpu_rendering" msgid="3438771015102629799">"การแสดงผล GPU ตามโปรไฟล์"</string>
     <string name="system_enable_traces" msgid="4038210655699986482">"เปิดใช้งานร่องรอย"</string>
     <string name="system_dont_keep_activities" msgid="7906911077198718958">"ไม่เก็บกิจกรรม"</string>
@@ -466,7 +470,6 @@
     <string name="system_desc_show_gpu_overdraw" msgid="8204945204510618865">"จากดีที่สุดไปหาแย่ที่สุด: ฟ้า เขียว แดงอ่อน แดง"</string>
     <string name="system_desc_show_surface_updates" msgid="8177734845253807688">"แสดงพื้นผิวหน้าต่างทั้งหมดเมื่อมีการอัปเดต"</string>
     <string name="system_desc_strict_mode_enabled" msgid="4647420860235689510">"แสดงหน้าจอเมื่อแอปทำงานในชุดข้อความหลักนาน"</string>
-    <string name="system_desc_show_cpu_usage" msgid="6151280238151381703">"การวางซ้อนหน้าจอที่แสดงการใช้ CPU ในปัจจุบัน"</string>
     <string name="system_desc_profile_gpu_rendering" msgid="2836283129486718887">"วัดเวลาที่ใช้แสดงผลใน adb shell dumpsys gfxinfo"</string>
     <string name="action_on_title" msgid="6852389884236870765">"เปิด"</string>
     <string name="action_off_title" msgid="3157728958166559966">"ปิด"</string>
@@ -475,7 +478,7 @@
     <string name="agree" msgid="1235622082275451350">"ยอมรับ"</string>
     <string name="disagree" msgid="9170636026862400981">"ไม่ยอมรับ"</string>
     <string name="security_unknown_sources_title" msgid="769762478057744545">"ไม่รู้จักที่มา"</string>
-    <string name="security_unknown_sources_desc" msgid="7197053279914817124">"อนุญาตให้ติดตั้งแอปจากแหล่งอื่นๆ ที่นอกเหนือไปจาก Play สโตร์"</string>
+    <string name="security_unknown_sources_desc" msgid="7197053279914817124">"อนุญาตให้ติดตั้งแอปจากแหล่งอื่นๆ ที่นอกเหนือไปจาก Play Store"</string>
     <string name="security_unknown_sources_confirm_title" msgid="1249752174105198821">"อนุญาตแหล่งที่มาที่ไม่รู้จัก"</string>
     <string name="security_unknown_sources_confirm_desc" msgid="7167350583097191925">"อุปกรณ์และข้อมูลส่วนบุคคลของคุณมีความเสี่ยงยิ่งขึ้นที่จะถูกโจมตีจากแอปที่ไม่รู้จักแหล่งที่มา คุณยอมรับว่าคุณจะเป็นผู้รับผิดชอบแต่เพียงผู้เดียวต่อความเสียหายใดๆ ที่เกิดกับอุปกรณ์หรือหรือการสูญเสียข้อมูลที่เป็นผลจากการใช้แอปเหล่านี้"</string>
     <string name="security_verify_apps_title" msgid="5787946958632254988">"ยืนยันแอป"</string>
@@ -598,7 +601,6 @@
     <string name="device_apps_app_management_force_stop" msgid="9195433885986760867">"บังคับให้หยุด"</string>
     <string name="device_apps_app_management_force_stop_desc" msgid="3616902338964109665">"หากคุณบังคับให้หยุดแอป การทำงานอาจผิดพลาดได้"</string>
     <string name="device_apps_app_management_uninstall" msgid="531427430753359746">"ถอนการติดตั้ง"</string>
-    <string name="device_apps_app_management_uninstall_desc" msgid="1104982472633576960">"คุณต้องการถอนการติดตั้งแอปนี้ไหม"</string>
     <string name="device_apps_app_management_uninstall_updates" msgid="5151008748970915803">"ถอนการติดตั้งการอัปเดต"</string>
     <string name="device_apps_app_management_uninstall_updates_desc" msgid="9165160845303755321">"การอัปเดตทั้งหมดของแอประบบ Android นี้จะถูกถอนการติดตั้ง"</string>
     <string name="device_apps_app_management_disable" msgid="6136528600052941589">"ปิดใช้"</string>
@@ -615,6 +617,7 @@
     <string name="device_apps_app_management_clear_cache" msgid="5392413180421013865">"ล้างแคช"</string>
     <string name="device_apps_app_management_notifications" msgid="7291960671957440729">"การแจ้งเตือน"</string>
     <string name="device_apps_app_management_permissions" msgid="1829808830974726081">"สิทธิ์"</string>
+    <string name="device_apps_app_management_not_available" msgid="1249731776661207047">"แอปพลิเคชันไม่สามารถใช้งานได้"</string>
     <string name="settings_ok" msgid="3321630456511355983">"ตกลง"</string>
     <string name="settings_cancel" msgid="304280412158061225">"ยกเลิก"</string>
     <string name="settings_on" msgid="6892236264945435013">"เปิด"</string>
@@ -638,17 +641,14 @@
     <string name="confirm_factory_reset_description" msgid="1049842658625287303">"ลบข้อมูลส่วนบุคคลและแอปที่ดาวน์โหลดทั้งหมดไหม คุณไม่สามารถย้อนกลับการทำงานนี้ได้!"</string>
     <string name="confirm_factory_reset_device" msgid="8923287482399582268">"ลบทุกอย่าง"</string>
     <string name="select_device_name_title" msgid="5165800500130943604">"ตั้งชื่อให้ <xliff:g id="DEVICEMODEL">%1$s</xliff:g>"</string>
-    <string name="select_device_name_description" msgid="2697127827643821315">"ชื่อจะช่วยระบุตัวตน <xliff:g id="DEVICEMODEL">%1$s</xliff:g> ของคุณเมื่อเข้าถึงจากอุปกรณ์อื่นๆ เช่น โทรศัพท์ แท็บเล็ต หรือคอมพิวเตอร์"</string>
+    <string name="select_device_name_description" msgid="6890879006777364213">"ตั้งชื่อให้กับ <xliff:g id="DEVICEMODEL">%1$s</xliff:g> เพื่อช่วยระบุอุปกรณ์เมื่อมีการแคสต์หรือเชื่อมต่อจากอุปกรณ์อื่น"</string>
   <string-array name="rooms">
-    <item msgid="7085399612393981553">"ห้องนั่งเล่น"</item>
-    <item msgid="3722089849939477581">"ห้องเล่นสื่อ"</item>
-    <item msgid="6108590585438763574">"ห้องสำหรับทั้งครอบครัว"</item>
-    <item msgid="2581035245390468625">"ห้องรับประทานอาหาร"</item>
-    <item msgid="3127487827308695324">"ห้องส่วนตัว"</item>
-    <item msgid="6172018430592195063">"ห้องนอน"</item>
-    <item msgid="8120010459866284578">"ห้องครัว"</item>
+    <item msgid="9056203990862307284">"Android TV"</item>
+    <item msgid="7449352861592960712">"TV ในห้องนั่งเล่น"</item>
+    <item msgid="8122798759665439456">"TV ในห้องครอบครัว"</item>
+    <item msgid="1389347662738182100">"TV ในห้องนอน"</item>
   </string-array>
-    <string name="custom_room" msgid="8991561978321502549">"ป้อนชื่อที่กำหนดเอง…"</string>
+    <string name="custom_room" msgid="8655516733933892458">"ป้อนชื่อที่กำหนดเอง…"</string>
     <string name="device_rename_title" msgid="2629557295786267185">"เปลี่ยนชื่อ <xliff:g id="DEVICEMODEL">%1$s</xliff:g> เครื่องนี้"</string>
     <string name="device_rename_description" msgid="2461752788563877107">"ปัจจุบัน <xliff:g id="DEVICEMODEL">%1$s</xliff:g> เครื่องนี้มีชื่อว่า \"<xliff:g id="DEVICENAME">%2$s</xliff:g>\""</string>
     <string name="change_setting" msgid="2047402388786162246">"เปลี่ยน"</string>
@@ -663,4 +663,7 @@
     <string name="reboot_safemode_action" msgid="8129550438717110406">"รีบูตเข้าสู่โหมดปลอดภัย"</string>
     <string name="reboot_safemode_confirm" msgid="3329475617645192086">"คุณต้องการรีบูตเข้าสู่โหมดปลอดภัยไหม"</string>
     <string name="reboot_safemode_desc" msgid="5031024337104679492">"วิธีนี้จะปิดใช้แอปพลิเคชันของบุคคลที่สามทั้งหมดที่คุณติดตั้งไว้ ระบบจะคืนค่าแอปดังกล่าวเมื่อคุณรีบูตอีกครั้ง"</string>
+    <string name="capturing_bugreport" msgid="3291125403411239592">"กำลังบันทึกรายงานข้อบกพร่อง"</string>
+    <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"แป้นพิมพ์เสมือนที่พร้อมใช้งาน"</string>
+    <string name="manage_keyboards" msgid="1905379263117016795">"จัดการแป้นพิมพ์"</string>
 </resources>

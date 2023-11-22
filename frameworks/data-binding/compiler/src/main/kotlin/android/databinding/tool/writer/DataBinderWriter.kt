@@ -20,15 +20,14 @@ class DataBinderWriter(val pkg: String, val projectPackage: String, val classNam
     fun write(brWriter : BRWriter) = kcode("") {
         nl("package $pkg;")
         nl("import $projectPackage.BR;")
-        nl("class $className {") {
-            tab("final static int TARGET_MIN_SDK = $minSdk;")
+        block("class $className") {
+            nl("final static int TARGET_MIN_SDK = $minSdk;")
             nl("")
-            tab("public $className() {") {
+            block("public $className()") {
             }
-            tab("}")
             nl("")
-            tab("public android.databinding.ViewDataBinding getDataBinder(android.databinding.DataBindingComponent bindingComponent, android.view.View view, int layoutId) {") {
-                tab("switch(layoutId) {") {
+            block("public android.databinding.ViewDataBinding getDataBinder(android.databinding.DataBindingComponent bindingComponent, android.view.View view, int layoutId)") {
+                block("switch(layoutId)") {
                     layoutBinders.groupBy{it.layoutname }.forEach {
                         val firstVal = it.value[0]
                         tab("case ${firstVal.modulePackage}.R.layout.${firstVal.layoutname}:") {
@@ -40,98 +39,87 @@ class DataBinderWriter(val pkg: String, val projectPackage: String, val classNam
                                 }
                             } else {
                                 // we should check the tag to decide which layout we need to inflate
-                                tab("{") {
+                                block("") {
                                     tab("final Object tag = view.getTag();")
                                     tab("if(tag == null) throw new java.lang.RuntimeException(\"view must have a tag\");")
                                     it.value.forEach {
-                                        tab("if (\"${it.tag}_0\".equals(tag)) {") {
+                                        block("if (\"${it.tag}_0\".equals(tag))") {
                                             if (it.isMerge) {
                                                 tab("return new ${it.`package`}.${it.implementationName}(bindingComponent, new android.view.View[]{view});")
                                             } else {
                                                 tab("return new ${it.`package`}.${it.implementationName}(bindingComponent, view);")
                                             }
-                                        } tab("}")
+                                        }
                                     }
                                     tab("throw new java.lang.IllegalArgumentException(\"The tag for ${firstVal.layoutname} is invalid. Received: \" + tag);");
-                                }tab("}")
+                                }
                             }
 
                         }
                     }
                 }
-                tab("}")
-                tab("return null;")
+                nl("return null;")
             }
-            tab("}")
-
-            tab("android.databinding.ViewDataBinding getDataBinder(android.databinding.DataBindingComponent bindingComponent, android.view.View[] views, int layoutId) {") {
-                tab("switch(layoutId) {") {
+            block("android.databinding.ViewDataBinding getDataBinder(android.databinding.DataBindingComponent bindingComponent, android.view.View[] views, int layoutId)") {
+                block("switch(layoutId)") {
                     layoutBinders.filter{it.isMerge }.groupBy{it.layoutname }.forEach {
                         val firstVal = it.value[0]
-                        tab("case ${firstVal.modulePackage}.R.layout.${firstVal.layoutname}:") {
+                        block("case ${firstVal.modulePackage}.R.layout.${firstVal.layoutname}:") {
                             if (it.value.size == 1) {
                                 tab("return new ${firstVal.`package`}.${firstVal.implementationName}(bindingComponent, views);")
                             } else {
                                 // we should check the tag to decide which layout we need to inflate
-                                tab("{") {
-                                    tab("final Object tag = views[0].getTag();")
-                                    tab("if(tag == null) throw new java.lang.RuntimeException(\"view must have a tag\");")
-                                    it.value.forEach {
-                                        tab("if (\"${it.tag}_0\".equals(tag)) {") {
-                                            tab("return new ${it.`package`}.${it.implementationName}(bindingComponent, views);")
-                                        } tab("}")
+                                nl("final Object tag = views[0].getTag();")
+                                nl("if(tag == null) throw new java.lang.RuntimeException(\"view must have a tag\");")
+                                it.value.forEach {
+                                    block("if (\"${it.tag}_0\".equals(tag))") {
+                                        nl("return new ${it.`package`}.${it.implementationName}(bindingComponent, views);")
                                     }
-                                }tab("}")
-                            }
-                        }
-                    }
-                }
-                tab("}")
-                tab("return null;")
-            }
-            tab("}")
-
-            tab("int getLayoutId(String tag) {") {
-                tab("if (tag == null) {") {
-                    tab("return 0;");
-                }
-                tab("}")
-                // String.hashCode is well defined in the API so we can rely on it being the same on the device and the host machine
-                tab("final int code = tag.hashCode();");
-                tab("switch(code) {") {
-                    layoutBinders.groupBy {"${it.tag}_0".hashCode()}.forEach {
-                        tab("case ${it.key}:") {
-                            it.value.forEach {
-                                tab("if(tag.equals(\"${it.tag}_0\"))") {
-                                    tab("return ${it.modulePackage}.R.layout.${it.layoutname};")
                                 }
                             }
-                            tab("break;")
+                        }
+                    }
+                }
+                nl("return null;")
+            }
+
+            block("int getLayoutId(String tag)") {
+                block("if (tag == null)") {
+                    nl("return 0;");
+                }
+                // String.hashCode is well defined in the API so we can rely on it being the same on the device and the host machine
+                nl("final int code = tag.hashCode();");
+                block("switch(code)") {
+                    layoutBinders.groupBy {"${it.tag}_0".hashCode()}.forEach {
+                        block("case ${it.key}:") {
+                            it.value.forEach {
+                                block("if(tag.equals(\"${it.tag}_0\"))") {
+                                    nl("return ${it.modulePackage}.R.layout.${it.layoutname};")
+                                }
+                            }
+                            nl("break;")
                         }
 
                     }
                 }
-                tab("}")
-                tab("return 0;")
+                nl("return 0;")
             }
-            tab("}")
 
-            tab("String convertBrIdToString(int id) {") {
-                tab("if (id < 0 || id >= InnerBrLookup.sKeys.length) {") {
-                    tab("return null;")
-                } tab("}")
-                tab("return InnerBrLookup.sKeys[id];")
-            } tab("}")
+            block("String convertBrIdToString(int id)") {
+                block("if (id < 0 || id >= InnerBrLookup.sKeys.length)") {
+                    nl("return null;")
+                }
+                nl("return InnerBrLookup.sKeys[id];")
+            }
 
-            tab("private static class InnerBrLookup {") {
-                tab("static String[] sKeys = new String[]{") {
+            block("private static class InnerBrLookup") {
+                nl("static String[] sKeys = new String[]{") {
                     tab("\"_all\"")
                     brWriter.indexedProps.forEach {
                         tab(",\"${it.value}\"")
                     }
                 }.app("};")
-            } tab("}")
+            }
         }
-        nl("}")
     }.generate()
 }

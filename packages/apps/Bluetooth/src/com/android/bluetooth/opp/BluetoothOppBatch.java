@@ -130,25 +130,6 @@ public class BluetoothOppBatch {
     }
 
     /**
-     * Delete one share from the batch. Not used now.
-     */
-    /*It should only be called under requirement that cancel one single share, but not to
-     * cancel the whole batch. Currently we assume "cancel" is to cancel whole batch.
-     */
-    public void deleteShare(BluetoothOppShareInfo info) {
-        if (info.mStatus == BluetoothShare.STATUS_RUNNING) {
-            info.mStatus = BluetoothShare.STATUS_CANCELED;
-            if (info.mDirection == BluetoothShare.DIRECTION_INBOUND && info.mFilename != null) {
-                new File(info.mFilename).delete();
-            }
-        }
-
-        if (mListener != null) {
-            mListener.onShareDeleted(info.mId);
-        }
-    }
-
-    /**
      * Cancel the whole batch.
      */
     /* 1) If the batch is running, stop the transfer

@@ -163,6 +163,9 @@ def parse_local_arguments(argv):
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument('-w', '--web', dest='web', default=None,
                         help='Address of a webserver to receive test requests.')
+    parser.add_argument('-x', '--max_runtime_mins', type=int,
+                        dest='max_runtime_mins', default=20,
+                        help='Default time allowed for the tests to complete.')
     _, remaining_argv = parser.parse_known_args(argv)
     return parser, remaining_argv
 
@@ -249,7 +252,7 @@ def _main_for_local_run(argv, arguments):
     # sysroot.
     if arguments.board is None:
         arguments.board = _get_board_from_host(arguments.remote)
-        argv = ['--board', arguments.board] + argv
+        argv = ['--board=%s' % (arguments.board,)] + argv
 
     if arguments.autotest_dir:
         autotest_path = arguments.autotest_dir
@@ -270,7 +273,7 @@ def _main_for_local_run(argv, arguments):
     if not os.path.exists(autotest_path):
         print >> sys.stderr, ('%s does not exist. Have you run '
                               'build_packages? Or if you are using '
-                              '--autotest-dir, make sure it points to '
+                              '--autotest_dir, make sure it points to '
                               'a valid autotest directory.' % autotest_path)
         return 1
 
@@ -293,7 +296,8 @@ def _main_for_local_run(argv, arguments):
                 ssh_options=arguments.ssh_options,
                 iterations=arguments.iterations,
                 fast_mode=arguments.fast_mode, debug=arguments.debug,
-                whitelist_chrome_crashes=arguments.whitelist_chrome_crashes)
+                whitelist_chrome_crashes=arguments.whitelist_chrome_crashes,
+                pretend=arguments.pretend)
 
 
 def _main_for_lab_run(argv, arguments):
@@ -308,13 +312,14 @@ def _main_for_lab_run(argv, arguments):
     flattened_argv = ' '.join([pipes.quote(item) for item in argv])
     command = [os.path.join(autotest_path, 'site_utils',
                             'run_suite.py'),
-               '--board', arguments.board,
-               '--build', arguments.build,
-               '--suite_name', 'test_that_wrapper',
-               '--pool', arguments.pool,
-               '--suite_args', flattened_argv]
+               '--board=%s' % (arguments.board,),
+               '--build=%s' % (arguments.build,),
+               '--suite_name=%s' % 'test_that_wrapper',
+               '--pool=%s' % (arguments.pool,),
+               '--max_runtime_mins=%s' % str(arguments.max_runtime_mins),
+               '--suite_args=%s' % (flattened_argv,)]
     if arguments.web:
-        command.extend(['--web', arguments.web])
+        command.extend(['--web=%s' % (arguments.web,)])
     logging.info('About to start lab suite with command %s.', command)
     return subprocess.call(command)
 

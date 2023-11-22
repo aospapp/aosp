@@ -44,7 +44,7 @@
     <string name="connectivity_wifi" msgid="489974791299647708">"Wi-Fi"</string>
     <string name="connectivity_ethernet" msgid="2182407318634700320">"Ethernet"</string>
     <string name="wifi_setting_always_scan" msgid="8883713018717323351">"Всегда искать сети"</string>
-    <string name="wifi_setting_always_scan_context" msgid="5588180043357910712">"Разрешить службе геопозиционирования Google и другим приложениям искать сети, даже когда модуль Wi‑Fi отключен"</string>
+    <string name="wifi_setting_always_scan_context" msgid="398651204440349752">"Разрешить службе геопозиционирования и другим приложениям Google искать сети, даже если модуль Wi-Fi выключен"</string>
     <string name="wifi_setting_enable_wifi" msgid="9214100840401870408">"Wi-Fi"</string>
     <string name="device_daydream" msgid="3354366974209179614">"Заставка"</string>
     <string name="device_display" msgid="101455384386372747">"Экран"</string>
@@ -72,6 +72,8 @@
     <string name="accessory_battery" msgid="7021788232835772126">"Батарея: <xliff:g id="PERCENTAGE">%1$d</xliff:g>%%"</string>
     <string name="accessory_unpairing" msgid="7568241162181184667">"Отключение…"</string>
     <string name="accessory_connected" msgid="2156489304110030393">"Подключено"</string>
+    <string name="accessory_change_name" msgid="8958916008739792785">"Переименовать"</string>
+    <string name="accessory_change_name_title" msgid="4630819456923061184">"Введите новое название"</string>
     <string name="accessories_add_title" msgid="6940361421891873321">"Поиск устройств…"</string>
     <string name="accessories_add_bluetooth_inst" msgid="5892952745770640383">"Прежде чем подключить устройства Bluetooth, убедитесь, что они находятся в режиме подключения"</string>
     <string name="accessories_autopair_msg" msgid="8618829246837821752">"Устройство найдено. Оно подключится автоматически через <xliff:g id="COUNTDOWN">%1$s</xliff:g> сек."</string>
@@ -91,6 +93,7 @@
     <string name="system_keyboard" msgid="7680159735294672514">"Клавиатура"</string>
     <string name="system_home" msgid="2858989138172296012">"Главный экран"</string>
     <string name="system_search" msgid="2837264654143247611">"Поиск"</string>
+    <string name="system_google" msgid="8560404305602209622">"Google"</string>
     <string name="system_security" msgid="8230080273993484407">"Безопасность и ограничения"</string>
     <string name="system_speech" msgid="8128688499687306982">"Речь"</string>
     <string name="system_inputs" msgid="2413907183796651102">"Входы"</string>
@@ -98,6 +101,7 @@
     <string name="system_developer_options" msgid="3237985523474863638">"Для разработчиков"</string>
     <string name="accessibility_none" msgid="3441648940134070004">"Нет"</string>
     <string name="system_diagnostic" msgid="7269638365915225701">"Статистика и диагностика"</string>
+    <string name="tutorials" msgid="3731493987558093244">"Руководства"</string>
     <string name="about_system_update" msgid="7282772247661356586">"Обновление системы"</string>
     <string name="about_preference" msgid="4131396784531360434">"Об устройстве"</string>
     <string name="device_name" msgid="2670488158531273028">"Название устройства"</string>
@@ -261,7 +265,7 @@
     <string name="storage_forget_wall_of_text" msgid="8953451024930539678">"Подключите диск заново, чтобы получить доступ к приложениям и другим данным на нем. Если это невозможно и диск недоступен, выберите \"Удалить данные\".\n\nПосле этого все данные, хранившиеся на диске, будут утеряны.\n\nВы сможете скачать приложения снова, однако их данные восстановить не удастся."</string>
     <string name="storage_device_storage_section" msgid="7797805634316822741">"Память устройства"</string>
     <string name="storage_removable_storage_section" msgid="3264955106565590076">"Съемный накопитель"</string>
-    <string name="storage_reset_section" msgid="7324235036547192861">"Сброс настроек"</string>
+    <string name="storage_reset_section" msgid="7324235036547192861">"Сброс"</string>
     <string name="storage_mount_success" msgid="4624254886950093443">"Подключено: <xliff:g id="NAME">%1$s</xliff:g>"</string>
     <string name="storage_mount_failure" msgid="2469026716895846633">"Ошибка подключения: <xliff:g id="NAME">%1$s</xliff:g>"</string>
     <string name="storage_mount_adopted" msgid="3360994581083675640">"USB-накопитель снова подключен"</string>
@@ -374,6 +378,7 @@
     <string name="display_options" msgid="5504549024985225774">"Параметры показа"</string>
     <string name="captions_configure" msgid="5537548915977371014">"Настроить"</string>
     <string name="captions_language" msgid="2835554055388996343">"Язык"</string>
+    <string name="captions_language_default" msgid="8113979489252033676">"По умолчанию"</string>
     <string name="captions_textsize" msgid="4828195509546070971">"Размер текста"</string>
     <string name="captions_captionstyle" msgid="7423638523487868230">"Стиль титров"</string>
     <string name="captions_customoptions" msgid="2699780648112330911">"Персонализированные параметры"</string>
@@ -450,10 +455,9 @@
     <string name="system_transition_animation_scale" msgid="2964817709721784757">"Переход: масштаб"</string>
     <string name="system_animator_duration_scale" msgid="7413512458963984521">"Длительность анимации"</string>
     <string name="system_strict_mode_enabled" msgid="5728680397806673270">"Включен строгий режим"</string>
-    <string name="system_show_cpu_usage" msgid="4797599582027671138">"Показывать загрузку ЦП"</string>
     <string name="system_profile_gpu_rendering" msgid="3438771015102629799">"Запись времени работы графического процессора"</string>
     <string name="system_enable_traces" msgid="4038210655699986482">"Включить трассировки"</string>
-    <string name="system_dont_keep_activities" msgid="7906911077198718958">"Не сохранять действия"</string>
+    <string name="system_dont_keep_activities" msgid="7906911077198718958">"Не сохранять активности"</string>
     <string name="system_background_process_limit" msgid="7921766877363771436">"Лимит фоновых процессов"</string>
     <string name="system_show_all_anrs" msgid="3601183436857424712">"Все ANR"</string>
     <string name="system_desc_stay_awake" msgid="229588006508356238">"Отключить спящий режим"</string>
@@ -468,7 +472,6 @@
     <string name="system_desc_show_gpu_overdraw" msgid="8204945204510618865">"Порядок: синий, зеленый, светло-красный, красный"</string>
     <string name="system_desc_show_surface_updates" msgid="8177734845253807688">"Подсвечивать окна полностью при их обновлении"</string>
     <string name="system_desc_strict_mode_enabled" msgid="4647420860235689510">"Подсвечивать экран во время длительных операций"</string>
-    <string name="system_desc_show_cpu_usage" msgid="6151280238151381703">"Экран, показывающий текущую загрузку ЦП"</string>
     <string name="system_desc_profile_gpu_rendering" msgid="2836283129486718887">"Измерение времени для adb shell dumpsys gfxinfo"</string>
     <string name="action_on_title" msgid="6852389884236870765">"ВКЛ"</string>
     <string name="action_off_title" msgid="3157728958166559966">"ВЫКЛ"</string>
@@ -479,7 +482,7 @@
     <string name="security_unknown_sources_title" msgid="769762478057744545">"Неизвестные источники"</string>
     <string name="security_unknown_sources_desc" msgid="7197053279914817124">"Разрешить установку приложений не из Play Маркета"</string>
     <string name="security_unknown_sources_confirm_title" msgid="1249752174105198821">"Разрешите неизвестные источники"</string>
-    <string name="security_unknown_sources_confirm_desc" msgid="7167350583097191925">"Приложения, скачанные из неизвестных источников, могут нанести вред вашим личным данным и данным устройства. Вы несете полную ответственность за любые возможные повреждения и потерю данных."</string>
+    <string name="security_unknown_sources_confirm_desc" msgid="7167350583097191925">"Личные данные и данные устройства более уязвимы для атак приложений, скачанных из неизвестных источников. Вы соглашаетесь с тем, что несете полную ответственность за любые последствия (например, поломку устройства или потерю данных), возникшие в результате работы этих приложений."</string>
     <string name="security_verify_apps_title" msgid="5787946958632254988">"Проверка приложений"</string>
     <string name="security_verify_apps_desc" msgid="1456317893117818733">"Запрещать установку приложений, которые могут нанести вред устройству, или предупреждать о них"</string>
     <string name="system_hdcp_checking_never" msgid="1758043078676276985">"Никогда"</string>
@@ -608,7 +611,6 @@
     <string name="device_apps_app_management_force_stop" msgid="9195433885986760867">"Остановить"</string>
     <string name="device_apps_app_management_force_stop_desc" msgid="3616902338964109665">"Принудительная остановка приложения может привести к ошибкам."</string>
     <string name="device_apps_app_management_uninstall" msgid="531427430753359746">"Удалить"</string>
-    <string name="device_apps_app_management_uninstall_desc" msgid="1104982472633576960">"Удалить приложение?"</string>
     <string name="device_apps_app_management_uninstall_updates" msgid="5151008748970915803">"Удалить обновления"</string>
     <string name="device_apps_app_management_uninstall_updates_desc" msgid="9165160845303755321">"Все обновления для этого приложения будут удалены."</string>
     <string name="device_apps_app_management_disable" msgid="6136528600052941589">"Отключить"</string>
@@ -625,6 +627,7 @@
     <string name="device_apps_app_management_clear_cache" msgid="5392413180421013865">"Очистить кеш"</string>
     <string name="device_apps_app_management_notifications" msgid="7291960671957440729">"Уведомления"</string>
     <string name="device_apps_app_management_permissions" msgid="1829808830974726081">"Разрешения"</string>
+    <string name="device_apps_app_management_not_available" msgid="1249731776661207047">"Приложение недоступно"</string>
     <string name="settings_ok" msgid="3321630456511355983">"ОК"</string>
     <string name="settings_cancel" msgid="304280412158061225">"Отмена"</string>
     <string name="settings_on" msgid="6892236264945435013">"Вкл."</string>
@@ -648,17 +651,14 @@
     <string name="confirm_factory_reset_description" msgid="1049842658625287303">"Удалить всю личную информацию и загруженные приложения без возможности восстановления?"</string>
     <string name="confirm_factory_reset_device" msgid="8923287482399582268">"Удалить всё"</string>
     <string name="select_device_name_title" msgid="5165800500130943604">"Укажите название для устройства <xliff:g id="DEVICEMODEL">%1$s</xliff:g>"</string>
-    <string name="select_device_name_description" msgid="2697127827643821315">"Укажите название для устройства <xliff:g id="DEVICEMODEL">%1$s</xliff:g>, чтобы вам было удобнее подключаться к нему с телефона, планшета или компьютера."</string>
+    <string name="select_device_name_description" msgid="6890879006777364213">"Дайте название устройству <xliff:g id="DEVICEMODEL">%1$s</xliff:g>, чтобы быстрее найти его, когда вам нужно будет к нему подключиться."</string>
   <string-array name="rooms">
-    <item msgid="7085399612393981553">"Гостиная"</item>
-    <item msgid="3722089849939477581">"Комната отдыха"</item>
-    <item msgid="6108590585438763574">"Семейная комната"</item>
-    <item msgid="2581035245390468625">"Столовая"</item>
-    <item msgid="3127487827308695324">"Кабинет"</item>
-    <item msgid="6172018430592195063">"Спальня"</item>
-    <item msgid="8120010459866284578">"Кухня"</item>
+    <item msgid="9056203990862307284">"Android TV"</item>
+    <item msgid="7449352861592960712">"Телевизор в гостиной"</item>
+    <item msgid="8122798759665439456">"Телевизор в большой комнате"</item>
+    <item msgid="1389347662738182100">"Телевизор в спальне"</item>
   </string-array>
-    <string name="custom_room" msgid="8991561978321502549">"Другое помещение…"</string>
+    <string name="custom_room" msgid="8655516733933892458">"Укажите другое помещение…"</string>
     <string name="device_rename_title" msgid="2629557295786267185">"Переименовать устройство <xliff:g id="DEVICEMODEL">%1$s</xliff:g>"</string>
     <string name="device_rename_description" msgid="2461752788563877107">"Название устройства <xliff:g id="DEVICEMODEL">%1$s</xliff:g> – \"<xliff:g id="DEVICENAME">%2$s</xliff:g>\""</string>
     <string name="change_setting" msgid="2047402388786162246">"Изменить"</string>
@@ -673,4 +673,7 @@
     <string name="reboot_safemode_action" msgid="8129550438717110406">"Перейти"</string>
     <string name="reboot_safemode_confirm" msgid="3329475617645192086">"Перейти в безопасный режим?"</string>
     <string name="reboot_safemode_desc" msgid="5031024337104679492">"Все сторонние приложения будут отключены. Они будут запущены по возвращении в обычный режим."</string>
+    <string name="capturing_bugreport" msgid="3291125403411239592">"Создание отчета об ошибке…"</string>
+    <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"Доступные виртуальные клавиатуры"</string>
+    <string name="manage_keyboards" msgid="1905379263117016795">"Управление клавиатурами"</string>
 </resources>

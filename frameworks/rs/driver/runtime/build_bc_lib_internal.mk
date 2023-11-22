@@ -30,15 +30,6 @@ ifdef RS_DRIVER_CLANG_EXE
 bc_clang := $(RS_DRIVER_CLANG_EXE)
 endif
 
-bc_clang_cc1_cflags := -fnative-half-type -fallow-half-arguments-and-returns
-ifeq ($(BCC_RS_TRIPLE),armv7-linux-androideabi)
-# We need to pass the +long64 flag to the underlying version of Clang, since
-# we are generating a library for use with Renderscript (64-bit long type,
-# not 32-bit).
-bc_clang_cc1_cflags += -target-feature +long64
-endif
-bc_translated_clang_cc1_cflags := $(addprefix -Xclang , $(bc_clang_cc1_cflags))
-
 # Disable deprecated warnings, because we have to support even legacy APIs.
 bc_warning_flags := -Wno-deprecated -Werror
 
@@ -54,8 +45,8 @@ bc_cflags := -MD \
              $($(LOCAL_2ND_ARCH_VAR_PREFIX)RS_TRIPLE_CFLAGS) \
              $(bc_warning_flags) \
              $(LOCAL_CFLAGS) \
-             $(bc_translated_clang_cc1_cflags) \
-             $(LOCAL_CFLAGS_$(my_32_64_bit_suffix))
+             $(LOCAL_CFLAGS_$(my_32_64_bit_suffix)) \
+             -x renderscript
 
 ifeq ($(rs_debug_runtime),1)
     bc_cflags += -DRS_DEBUG_RUNTIME
@@ -78,7 +69,7 @@ ll_bc_files := $(patsubst %.ll,%.bc, \
     $(addprefix $(intermediates)/, $(ll_sources)))
 
 $(c_bc_files): PRIVATE_INCLUDES := \
-    frameworks/rs/scriptc \
+    frameworks/rs/script_api/include \
     external/clang/lib/Headers
 $(c_bc_files): PRIVATE_CFLAGS := $(bc_cflags)
 
@@ -86,13 +77,12 @@ $(c_bc_files): $(intermediates)/%.bc: $(LOCAL_PATH)/%.c $(bc_clang)
 	@echo "bc: $(PRIVATE_MODULE) <= $<"
 	@mkdir -p $(dir $@)
 	$(hide) $(RELATIVE_PWD) $(bc_clang) $(addprefix -I, $(PRIVATE_INCLUDES)) $(PRIVATE_CFLAGS) $< -o $@
-	$(call transform-d-to-p-args,$(@:%.bc=%.d),$(@:%.bc=%.P))
 
 $(ll_bc_files): $(intermediates)/%.bc: $(LOCAL_PATH)/%.ll $(RS_LLVM_AS)
 	@mkdir -p $(dir $@)
 	$(hide) $(RELATIVE_PWD) $(RS_LLVM_AS) $< -o $@
 
-$(foreach f,$(c_bc_files),$(call include-depfile,$(f:%.bc=%.P),$(f)))
+$(foreach f,$(c_bc_files),$(call include-depfile,$(f:%.bc=%.d),$(f)))
 
 $(LOCAL_BUILT_MODULE): PRIVATE_BC_FILES := $(c_bc_files) $(ll_bc_files)
 $(LOCAL_BUILT_MODULE): $(c_bc_files) $(ll_bc_files)

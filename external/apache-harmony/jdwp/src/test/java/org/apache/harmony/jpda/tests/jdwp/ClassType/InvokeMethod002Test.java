@@ -38,6 +38,7 @@ import org.apache.harmony.jpda.tests.share.JPDADebuggeeSynchronizer;
  * JDWP unit test for ClassType.InvokeMethod command.
  */
 public class InvokeMethod002Test extends JDWPSyncTestCase {
+    @Override
     protected String getDebuggeeClassName() {
         return "org.apache.harmony.jpda.tests.jdwp.share.debuggee.InvokeMethodDebuggee";
     }

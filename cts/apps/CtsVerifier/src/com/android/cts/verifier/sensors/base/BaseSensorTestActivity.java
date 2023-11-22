@@ -510,10 +510,6 @@ public abstract class BaseSensorTestActivity
         if (resultCode == SensorTestDetails.ResultCode.FAIL) {
             mTestLogger.logInstructions(R.string.snsr_test_complete_with_errors);
             enableTestResultButton(
-                    mPassButton,
-                    R.string.snsr_pass_on_error,
-                    testDetails.cloneAndChangeResultCode(SensorTestDetails.ResultCode.PASS));
-            enableTestResultButton(
                     mFailButton,
                     R.string.fail_button_text,
                     testDetails.cloneAndChangeResultCode(SensorTestDetails.ResultCode.FAIL));

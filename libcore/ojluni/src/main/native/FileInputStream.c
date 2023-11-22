@@ -63,7 +63,7 @@ static void FileInputStream_initIDs(JNIEnv *env) {
 }
 
 JNIEXPORT void JNICALL
-FileInputStream_open(JNIEnv *env, jobject this, jstring path) {
+FileInputStream_open0(JNIEnv *env, jobject this, jstring path) {
     fileOpen(env, this, path, fis_fd, O_RDONLY);
 }
 
@@ -133,7 +133,7 @@ FileInputStream_available0(JNIEnv *env, jobject this) {
 }
 
 static JNINativeMethod gMethods[] = {
-  NATIVE_METHOD(FileInputStream, open, "(Ljava/lang/String;)V"),
+  NATIVE_METHOD(FileInputStream, open0, "(Ljava/lang/String;)V"),
   NATIVE_METHOD(FileInputStream, skip0, "(J)J"),
   NATIVE_METHOD(FileInputStream, available0, "()I"),
 };

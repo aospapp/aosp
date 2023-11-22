@@ -16,6 +16,6 @@
 <configuration description="Common config for Compatibility suites to run all modules">
 
     <include name="common-compatibility-config" />
-    <option name="compatibility:plan" value="everything" />
+    <option name="plan" value="everything" />
 
 </configuration>

@@ -8,7 +8,6 @@ TIME = 'SHORT'
 TEST_TYPE = 'Server'
 DEPENDENCIES = 'wificell'
 ATTRIBUTES = 'suite:wifi_update_router'
-SUITE = 'wifi_update_router'
 
 DOC = """
 This test updates the router in a WiFi cell to the latest stable version.

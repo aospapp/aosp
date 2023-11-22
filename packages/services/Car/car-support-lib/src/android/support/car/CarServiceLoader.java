@@ -17,7 +17,7 @@
 package android.support.car;
 
 import android.content.Context;
-import android.os.Looper;
+import android.os.Handler;
 
 /**
  * CarServiceLoader is the abstraction for loading different types of car service.
@@ -26,35 +26,58 @@ import android.os.Looper;
 public abstract class CarServiceLoader {
 
     private final Context mContext;
-    private final ServiceConnectionListener mListener;
-    private final Looper mLooper;
+    private final CarConnectionCallbackProxy mCallback;
+    private final Handler mEventHandler;
 
-    public CarServiceLoader(Context context, ServiceConnectionListener listener, Looper looper) {
+    public CarServiceLoader(Context context, CarConnectionCallbackProxy callback, Handler handler) {
         mContext = context;
-        mListener = listener;
-        mLooper = looper;
+        mCallback = callback;
+        mEventHandler = handler;
     }
 
     public abstract void connect() throws IllegalStateException;
     public abstract void disconnect();
-    public abstract boolean isConnectedToCar();
+    public abstract boolean isConnected();
+
     @Car.ConnectionType
     public abstract int getCarConnectionType() throws CarNotConnectedException;
-    public abstract void registerCarConnectionListener(CarConnectionListener listener)
-            throws CarNotConnectedException;
-    public abstract void unregisterCarConnectionListener(CarConnectionListener listener);
-    public abstract Object getCarManager(String serviceName)
-            throws CarNotSupportedException, CarNotConnectedException;
+
+    /**
+     * Retrieves a manager object for a specified Car*Manager.
+     * @param serviceName One of the android.car.Car#*_SERVICE constants.
+     * @return An instance of the request manager.  Null if the manager is not supported on the
+     * current vehicle.
+     * @throws CarNotConnectedException if the connection to the car service has been lost.
+     */
+    public abstract Object getCarManager(String serviceName) throws CarNotConnectedException;
 
     protected Context getContext() {
         return mContext;
     }
 
-    protected ServiceConnectionListener getConnectionListener() {
-        return mListener;
+    protected CarConnectionCallbackProxy getConnectionCallback() {
+        return mCallback;
     }
 
-    protected Looper getLooper() {
-        return mLooper;
+    protected Handler getEventHandler() {
+        return mEventHandler;
+    }
+
+    /**
+     * Wrapper for CarConnectionCallback which does not return a {@link android.support.car.Car}
+     * object.
+     */
+    public abstract static class CarConnectionCallbackProxy {
+
+        /**
+         * Called when the Car has been connected. Does not guarantee the car is still connected
+         * while this callback is running, so {@link CarNotConnectedException}s may still be
+         * thrown from {@link Car} method calls.
+         */
+        public abstract void onConnected();
+        /**
+         * Called when the Car has been disconnected.
+         */
+        public abstract void onDisconnected();
     }
 }

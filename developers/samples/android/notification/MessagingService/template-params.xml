@@ -16,7 +16,7 @@
 -->
 <sample>
     <name>MessagingService</name>
-    <group>Android N Preview</group>
+    <group>Notification</group>
     <package>com.example.android.messagingservice</package>
 
     <minSdk>21</minSdk>
@@ -42,7 +42,7 @@ notification.
     <template src="base-application" />
     <metadata>
         <status>PUBLISHED</status>
-        <categories>Android N Preview</categories>
+        <categories>Notification</categories>
         <!-- Old Categories: UI, Notification -->
         <technologies>Android</technologies>
         <languages>Java</languages>

@@ -59,6 +59,7 @@ terms listed above has been obtained from the copyright holder.
 /*----------------------------------------------------------------------------
 ; INCLUDES
 ----------------------------------------------------------------------------*/
+#define LOG_TAG "a_refl"
 #include <log/log.h>
 
 #include "a_refl.h"

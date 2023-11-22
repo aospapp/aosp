@@ -83,6 +83,7 @@ public class ReplyPacket extends Packet {
      * @return the representation of the ReplyPacket as array of bytes in the
      *         JDWP format.
      */
+    @Override
     public byte[] toBytesArray() {
         byte res[] = super.toBytesArray();
         super.writeAtByteArray(error_code, res, ERROR_CODE_INDEX,

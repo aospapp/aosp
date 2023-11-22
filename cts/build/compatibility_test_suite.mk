@@ -46,7 +46,7 @@ LOCAL_SUITE_VERSION :=
 LOCAL_GENERATED_SOURCES := $(suite_info_java)
 
 # Add the base libraries
-LOCAL_JAVA_LIBRARIES += tradefed-prebuilt hosttestlib compatibility-host-util
+LOCAL_JAVA_LIBRARIES += tradefed hosttestlib compatibility-host-util
 
 LOCAL_MODULE_TAGS := optional
 

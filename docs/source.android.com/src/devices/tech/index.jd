@@ -77,9 +77,10 @@ department.</p>
 administration information</a></p>
 
 <h2 id="display">Display Settings</h2>
-<p>This section covers AOSP implementation of various Android display settings
-such as do not disturb (DND) configurations and multi-window (split-screen,
-free-form, and picture-in-picture) options.</p>
+<p>This section covers AOSP implementation of various Android display
+settings, including app shortcuts, circular launcher icons, do not disturb
+(DND), multi-window (split-screen, free-form, and picture-in-picture), high
+dynamic range (HDR) video, night light, and retail demo mode.</p>
 <p><a href="{@docRoot}devices/tech/display/index.html">&raquo; Display settings
 information</a></p>
 

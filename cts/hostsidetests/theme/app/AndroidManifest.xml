@@ -25,13 +25,16 @@
 
     <application>
         <uses-library android:name="android.test.runner" />
-        <activity android:name=".ThemeDeviceActivity" android:screenOrientation="portrait">
+        <activity android:name=".ThemeDeviceActivity"
+                  android:screenOrientation="portrait">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
         <activity android:name=".GenerateImagesActivity"
+                  android:screenOrientation="portrait"
+                  android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
                   android:exported="true" />
     </application>
 

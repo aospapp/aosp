@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#define LOG_TAG "MemTracker"
 
 #include "memtrack.h"
 
@@ -27,15 +28,10 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include <cutils/log.h>
-
 #include <algorithm>
 #include <vector>
 
-#ifdef LOG_TAG
-#undef LOG_TAG
-#endif
-#define LOG_TAG "MemTracker"
+#include <log/log.h>
 
 FileData::FileData(char *filename, char *buffer, size_t buffer_len)
     : data_(buffer), max_(buffer_len), cur_idx_(0), len_(0),

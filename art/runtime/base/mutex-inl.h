@@ -21,9 +21,7 @@
 
 #include "mutex.h"
 
-#include "base/stringprintf.h"
 #include "base/value_object.h"
-#include "runtime.h"
 #include "thread.h"
 #include "utils.h"
 
@@ -59,8 +57,7 @@ static inline void CheckUnattachedThread(LockLevel level) NO_THREAD_SAFETY_ANALY
   // on a thread. Lock checking is disabled to avoid deadlock when checking shutdown lock.
   // TODO: tighten this check.
   if (kDebugLocking) {
-    Runtime* runtime = Runtime::Current();
-    CHECK(runtime == nullptr || !runtime->IsStarted() || runtime->IsShuttingDownLocked() ||
+    CHECK(!Locks::IsSafeToCallAbortRacy() ||
           // Used during thread creation to avoid races with runtime shutdown. Thread::Current not
           // yet established.
           level == kRuntimeShutdownLock ||
@@ -73,6 +70,11 @@ static inline void CheckUnattachedThread(LockLevel level) NO_THREAD_SAFETY_ANALY
           level == kThreadListLock ||
           // Ignore logging which may or may not have set up thread data structures.
           level == kLoggingLock ||
+          // When transitioning from suspended to runnable, a daemon thread might be in
+          // a situation where the runtime is shutting down. To not crash our debug locking
+          // mechanism we just pass null Thread* to the MutexLock during that transition
+          // (see Thread::TransitionFromSuspendedToRunnable).
+          level == kThreadSuspendCountLock ||
           // Avoid recursive death.
           level == kAbortLock) << level;
   }
@@ -87,13 +89,14 @@ inline void BaseMutex::RegisterAsLocked(Thread* self) {
     // Check if a bad Mutex of this level or lower is held.
     bool bad_mutexes_held = false;
     for (int i = level_; i >= 0; --i) {
-      BaseMutex* held_mutex = self->GetHeldMutex(static_cast<LockLevel>(i));
-      if (UNLIKELY(held_mutex != nullptr)) {
+      LockLevel lock_level_i = static_cast<LockLevel>(i);
+      BaseMutex* held_mutex = self->GetHeldMutex(lock_level_i);
+      if (UNLIKELY(held_mutex != nullptr) && lock_level_i != kAbortLock) {
         LOG(ERROR) << "Lock level violation: holding \"" << held_mutex->name_ << "\" "
-                   << "(level " << LockLevel(i) << " - " << i
+                   << "(level " << lock_level_i << " - " << i
                    << ") while locking \"" << name_ << "\" "
                    << "(level " << level_ << " - " << static_cast<int>(level_) << ")";
-        if (i > kAbortLock) {
+        if (lock_level_i > kAbortLock) {
           // Only abort in the check below if this is more than abort level lock.
           bad_mutexes_held = true;
         }

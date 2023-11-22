@@ -44,6 +44,7 @@ import android.telephony.SubscriptionManager.OnSubscriptionsChangedListener;
 import android.telephony.TelephonyManager;
 import android.text.TextUtils;
 
+import com.android.ims.ImsManager;
 import com.android.internal.telephony.Phone;
 import com.android.internal.telephony.PhoneFactory;
 import com.android.phone.PhoneGlobals;
@@ -151,7 +152,7 @@ final class TelecomAccountRegistry {
                 }
 
                 String slotIdString;
-                if (SubscriptionManager.isValidSlotId(slotId)) {
+                if (SubscriptionManager.isValidSlotIndex(slotId)) {
                     slotIdString = Integer.toString(slotId);
                 } else {
                     slotIdString = mContext.getResources().getString(R.string.unknown);
@@ -181,14 +182,21 @@ final class TelecomAccountRegistry {
             }
 
             mIsVideoCapable = mPhone.isVideoEnabled();
+            boolean isVideoEnabledByPlatform =
+                    ImsManager.isVtEnabledByPlatform(mPhone.getContext());
 
             if (!mIsPrimaryUser) {
                 Log.i(this, "Disabling video calling for secondary user.");
                 mIsVideoCapable = false;
+                isVideoEnabledByPlatform = false;
             }
 
             if (mIsVideoCapable) {
                 capabilities |= PhoneAccount.CAPABILITY_VIDEO_CALLING;
+            }
+
+            if (isVideoEnabledByPlatform) {
+                capabilities |= PhoneAccount.CAPABILITY_SUPPORTS_VIDEO_CALLING;
             }
 
             mIsVideoPresenceSupported = isCarrierVideoPresenceSupported();

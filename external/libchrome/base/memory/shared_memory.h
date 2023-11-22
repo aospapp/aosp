@@ -24,6 +24,10 @@
 #include "base/files/scoped_file.h"
 #endif
 
+#if defined(OS_WIN)
+#include "base/win/scoped_handle.h"
+#endif
+
 namespace base {
 
 class FilePath;
@@ -32,10 +36,7 @@ class FilePath;
 struct BASE_EXPORT SharedMemoryCreateOptions {
   SharedMemoryCreateOptions();
 
-#if defined(OS_MACOSX) && !defined(OS_IOS)
-  // The type of OS primitive that should back the SharedMemory object.
-  SharedMemoryHandle::Type type;
-#else
+#if !(defined(OS_MACOSX) && !defined(OS_IOS))
   // DEPRECATED (crbug.com/345734):
   // If NULL, the object is anonymous.  This pointer is owned by the caller
   // and must live through the call to Create().
@@ -47,7 +48,7 @@ struct BASE_EXPORT SharedMemoryCreateOptions {
   // shared memory must not exist.  This flag is meaningless unless
   // name_deprecated is non-NULL.
   bool open_existing_deprecated;
-#endif  // defined(OS_MACOSX) && !defined(OS_IOS)
+#endif  // !(defined(OS_MACOSX) && !defined(OS_IOS))
 
   // Size of the shared memory object to be created.
   // When opening an existing object, this has no effect.
@@ -82,15 +83,6 @@ class BASE_EXPORT SharedMemory {
   // that |read_only| matches the permissions of the handle.
   SharedMemory(const SharedMemoryHandle& handle, bool read_only);
 
-#if defined(OS_WIN)
-  // Create a new SharedMemory object from an existing, open
-  // shared memory file that was created by a remote process and not shared
-  // to the current process.
-  SharedMemory(const SharedMemoryHandle& handle,
-               bool read_only,
-               ProcessHandle process);
-#endif
-
   // Closes any open files.
   ~SharedMemory();
 
@@ -111,7 +103,7 @@ class BASE_EXPORT SharedMemory {
   // The caller is responsible for destroying the duplicated OS primitive.
   static SharedMemoryHandle DuplicateHandle(const SharedMemoryHandle& handle);
 
-#if defined(OS_POSIX)
+#if defined(OS_POSIX) && !(defined(OS_MACOSX) && !defined(OS_IOS))
   // This method requires that the SharedMemoryHandle is backed by a POSIX fd.
   static int GetFdFromSharedMemoryHandle(const SharedMemoryHandle& handle);
 #endif
@@ -131,16 +123,6 @@ class BASE_EXPORT SharedMemory {
   // Creates and maps an anonymous shared memory segment of size size.
   // Returns true on success and false on failure.
   bool CreateAndMapAnonymous(size_t size);
-
-#if defined(OS_MACOSX) && !defined(OS_IOS)
-  // These two methods are analogs of CreateAndMapAnonymous and CreateAnonymous
-  // that force the underlying OS primitive to be a POSIX fd. Do not add new
-  // uses of these methods unless absolutely necessary, since constructing a
-  // fd-backed SharedMemory object frequently takes 100ms+.
-  // http://crbug.com/466437.
-  bool CreateAndMapAnonymousPosix(size_t size);
-  bool CreateAnonymousPosix(size_t size);
-#endif  // defined(OS_MACOSX) && !defined(OS_IOS)
 
   // Creates an anonymous shared memory segment of size size.
   // Returns true on success and false on failure.
@@ -266,12 +248,11 @@ class BASE_EXPORT SharedMemory {
   }
 
  private:
-#if defined(OS_POSIX) && !defined(OS_NACL) && !defined(OS_ANDROID)
+#if defined(OS_POSIX) && !defined(OS_NACL) && !defined(OS_ANDROID) && \
+    !(defined(OS_MACOSX) && !defined(OS_IOS))
   bool PrepareMapFile(ScopedFILE fp, ScopedFD readonly);
-#if !(defined(OS_MACOSX) && !defined(OS_IOS))
   bool FilePathForMemoryName(const std::string& mem_name, FilePath* path);
 #endif
-#endif  // defined(OS_POSIX) && !defined(OS_NACL) && !defined(OS_ANDROID)
   enum ShareMode {
     SHARE_READONLY,
     SHARE_CURRENT_MODE,
@@ -286,16 +267,10 @@ class BASE_EXPORT SharedMemory {
   // before being mapped.
   bool external_section_;
   std::wstring       name_;
-  HANDLE             mapped_file_;
+  win::ScopedHandle  mapped_file_;
 #elif defined(OS_MACOSX) && !defined(OS_IOS)
   // The OS primitive that backs the shared memory region.
   SharedMemoryHandle shm_;
-
-  // The mechanism by which the memory is mapped. Only valid if |memory_| is not
-  // |nullptr|.
-  SharedMemoryHandle::Type mapped_memory_mechanism_;
-
-  int readonly_mapped_file_;
 #elif defined(OS_POSIX)
   int                mapped_file_;
   int                readonly_mapped_file_;

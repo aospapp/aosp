@@ -39,7 +39,7 @@ public class DynamicSentinelStrategy extends SentinelStrategy {
   /**
    * Interface for determining whether sentinel is updated.
    */
-  public static interface IsUpdatedStrategy {
+  public interface IsUpdatedStrategy {
     /**
      * Returns whether {@code newSentinel} is updated from {@code oldSentinel}.
      */

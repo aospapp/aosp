@@ -40,7 +40,7 @@ to authenticate the user before they are trying to complete some actions.
 
     <metadata>
         <!-- Values: {DRAFT | PUBLISHED | INTERNAL | DEPRECATED | SUPERCEDED} -->
-        <status>DRAFT</status>
+        <status>PUBLISHED</status>
         <categories>Security</categories>
         <technologies>Android</technologies>
         <languages>Java</languages>

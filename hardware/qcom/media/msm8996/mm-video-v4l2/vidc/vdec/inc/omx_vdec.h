@@ -107,6 +107,7 @@ extern "C" {
 #include "ts_parser.h"
 #include "vidc_color_converter.h"
 #include "vidc_debug.h"
+#include "vidc_vendor_extensions.h"
 #ifdef _ANDROID_
 #include <cutils/properties.h>
 #else
@@ -142,6 +143,10 @@ class VideoHeap : public MemoryHeapBase
 //                       Module specific globals
 //////////////////////////////////////////////////////////////////////////////
 #define OMX_SPEC_VERSION  0x00000101
+#define OMX_INIT_STRUCT(_s_, _name_)         \
+    memset((_s_), 0x0, sizeof(_name_));      \
+(_s_)->nSize = sizeof(_name_);               \
+(_s_)->nVersion.nVersion = OMX_SPEC_VERSION  \
 
 
 //////////////////////////////////////////////////////////////////////////////
@@ -990,6 +995,7 @@ class omx_vdec: public qc_omx_component
         OMX_U32 m_reconfig_width;
         OMX_U32 m_reconfig_height;
         bool m_smoothstreaming_mode;
+        bool m_decode_order_mode;
 
         bool m_input_pass_buffer_fd;
         DescribeColorAspectsParams m_client_color_space;
@@ -1173,6 +1179,15 @@ class omx_vdec: public qc_omx_component
         static OMX_ERRORTYPE describeColorFormat(OMX_PTR params);
         void prefetchNewBuffers();
 
+        OMX_ERRORTYPE get_vendor_extension_config(
+                OMX_CONFIG_ANDROID_VENDOR_EXTENSIONTYPE *ext);
+        OMX_ERRORTYPE set_vendor_extension_config(
+                OMX_CONFIG_ANDROID_VENDOR_EXTENSIONTYPE *ext);
+
+        void init_vendor_extensions (VendorExtensionStore&);
+
+        // list of extensions is not mutable after initialization
+        const VendorExtensionStore mVendorExtensionStore;
 };
 
 #ifdef _MSM8974_

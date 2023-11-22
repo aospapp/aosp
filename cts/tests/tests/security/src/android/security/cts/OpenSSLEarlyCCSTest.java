@@ -16,6 +16,7 @@
 
 package android.security.cts;
 
+import android.platform.test.annotations.SecurityTest;
 import android.security.cts.OpenSSLHeartbleedTest.AlertMessage;
 import android.security.cts.OpenSSLHeartbleedTest.HandshakeMessage;
 import android.security.cts.OpenSSLHeartbleedTest.HardcodedCertX509KeyManager;
@@ -56,6 +57,7 @@ import javax.net.ssl.TrustManager;
 /**
  * Tests for the OpenSSL early ChangeCipherSpec (CCS) vulnerability (CVE-2014-0224).
  */
+@SecurityTest
 public class OpenSSLEarlyCCSTest extends InstrumentationTestCase {
 
     // IMPLEMENTATION NOTE: This test spawns an SSLSocket client, SSLServerSocket server, and a

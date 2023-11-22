@@ -19,7 +19,7 @@ class ScreenComparer(object):
     """
 
     def __init__(self, capturer1, capturer2, output_dir, pixel_diff_margin,
-                 wrong_pixels_margin):
+                 wrong_pixels_margin, skip_if_diff_sizes=False):
         """Initializes the ScreenComparer objects.
 
         @param capture1: The screen capturer object.
@@ -32,6 +32,9 @@ class ScreenComparer(object):
         @param wrong_pixels_margin: The percentage of margin for wrong pixels.
                 The value is in a closed interval [0.0, 1.0]. If the total
                 number of wrong pixels exceeds this margin, the check fails.
+        @param skip_if_diff_sizes: Skip the comparison if the image sizes are
+                different. Used in mirrored test as the internal and external
+                screens have different resolutions.
         """
         # TODO(waihong): Support multiple capturers.
         self._capturer1 = capturer1
@@ -40,6 +43,7 @@ class ScreenComparer(object):
         self._pixel_diff_margin = pixel_diff_margin
         assert 0.0 <= wrong_pixels_margin <= 1.0
         self._wrong_pixels_margin = wrong_pixels_margin
+        self._skip_if_diff_sizes = skip_if_diff_sizes
 
 
     def compare(self):
@@ -71,8 +75,12 @@ class ScreenComparer(object):
                 message = ('Sizes of images %s and %s do not match: '
                            '%dx%d != %dx%d' %
                            (tuple(tags) + images[0].size + images[1].size))
-                logging.error(message)
-                return message
+                if self._skip_if_diff_sizes:
+                    logging.info(message)
+                    return None
+                else:
+                    logging.error(message)
+                    return message
 
             size = images[0].size[0] * images[0].size[1]
             max_acceptable_wrong_pixels = int(self._wrong_pixels_margin * size)

@@ -19,14 +19,13 @@
 #include "RenderScript.h"
 #include "rsCppInternal.h"
 
-using namespace android;
-using namespace RSC;
+using android::RSC::Script;
 
 void Script::invoke(uint32_t slot, const void *v, size_t len) const {
     tryDispatch(mRS, RS::dispatch->ScriptInvokeV(mRS->getContext(), getID(), slot, v, len));
 }
 
-void Script::forEach(uint32_t slot, sp<const Allocation> ain, sp<const Allocation> aout,
+void Script::forEach(uint32_t slot, const sp<const Allocation>& ain, const sp<const Allocation>& aout,
                        const void *usr, size_t usrLen) const {
     if ((ain == nullptr) && (aout == nullptr)) {
         mRS->throwError(RS_ERROR_INVALID_PARAMETER, "At least one of ain or aout is required to be non-null.");
@@ -40,12 +39,12 @@ Script::Script(void *id, sp<RS> rs) : BaseObj(id, rs) {
 }
 
 
-void Script::bindAllocation(sp<Allocation> va, uint32_t slot) const {
+void Script::bindAllocation(const sp<Allocation>& va, uint32_t slot) const {
     tryDispatch(mRS, RS::dispatch->ScriptBindAllocation(mRS->getContext(), getID(), BaseObj::getObjID(va), slot));
 }
 
 
-void Script::setVar(uint32_t index, sp<const BaseObj> o) const {
+void Script::setVar(uint32_t index, const sp<const BaseObj>& o) const {
     tryDispatch(mRS, RS::dispatch->ScriptSetVarObj(mRS->getContext(), getID(), index, (o == nullptr) ? 0 : o->getID()));
 }
 
@@ -53,6 +52,6 @@ void Script::setVar(uint32_t index, const void *v, size_t len) const {
     tryDispatch(mRS, RS::dispatch->ScriptSetVarV(mRS->getContext(), getID(), index, v, len));
 }
 
-void Script::FieldBase::init(sp<RS> rs, uint32_t dimx, uint32_t usages) {
+void Script::FieldBase::init(const sp<RS>& rs, uint32_t dimx, uint32_t usages) {
     mAllocation = Allocation::createSized(rs, mElement, dimx, RS_ALLOCATION_USAGE_SCRIPT | usages);
 }

@@ -25,6 +25,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ShortcutManager;
 import android.content.pm.cts.shortcutmanager.common.Constants;
+import android.content.pm.cts.shortcutmanager.common.ReplyUtil;
 import android.util.Log;
 
 

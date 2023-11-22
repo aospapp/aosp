@@ -69,22 +69,19 @@ class InterfaceWithInstancesBase
   // Returns the instance instance that is assigned to the given instance ID
   // |instance_id|. The returned pointer will contain NULL if an entry for the
   // given ID cannot be found.
-  std::shared_ptr<bluetooth::BluetoothInstance> GetInstance(
-      int instance_id);
+  std::shared_ptr<bluetooth::BluetoothInstance> GetInstance(int instance_id);
 
  private:
   // Base implementation of the register callback.
   void OnRegisterInstance(
-      bluetooth::BLEStatus status,
-      const bluetooth::UUID& uuid,
+      bluetooth::BLEStatus status, const bluetooth::UUID& uuid,
       std::unique_ptr<bluetooth::BluetoothInstance> instance);
 
   // Called when the callback registration has completed. |instance| is owned by
   // the base class and should not be deleted by the implementation. If the
   // operation failed, nullptr will be passed for |instance|.
   virtual void OnRegisterInstanceImpl(
-      bluetooth::BLEStatus status,
-      android::sp<IInterface> callback,
+      bluetooth::BLEStatus status, android::sp<IInterface> callback,
       bluetooth::BluetoothInstance* instance) = 0;
 
   // RemoteCallbackMap<int, IBluetoothLowEnergyCallback>::Delegate override:

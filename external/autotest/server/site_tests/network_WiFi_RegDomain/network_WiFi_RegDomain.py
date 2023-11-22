@@ -105,7 +105,8 @@ class network_WiFi_RegDomain(test.test):
             else:
                 pcap_name = '%d_connect_visible.pcap' % frequency
                 test_description = 'visible'
-            wifi_context.router.start_capture(frequency, filename=pcap_name)
+            wifi_context.capture_host.start_capture(frequency,
+                                                    filename=pcap_name)
             wifi_context.router.hostap_configure(
                 hostap_config.HostapConfig(
                     frequency=frequency,
@@ -121,7 +122,7 @@ class network_WiFi_RegDomain(test.test):
         finally:
             if router_ssid:
                 wifi_context.client.shill.delete_entries_for_ssid(router_ssid)
-            wifi_context.router.stop_capture()
+            wifi_context.capture_host.stop_capture()
 
 
     @classmethod
@@ -160,23 +161,23 @@ class network_WiFi_RegDomain(test.test):
 
 
     @classmethod
-    def assert_scanning_is_passive(cls, client, router, scan_freq):
+    def assert_scanning_is_passive(cls, client, capturer, scan_freq):
         """Initiates single-channel scans, and verifies no probes are sent.
 
         @param client The WiFiClient object for the DUT.
-        @param router The LinuxCrosRouter object for the router.
+        @param capturer The LinuxSystem object for the router or pcap_host.
         @param scan_freq The frequency (in MHz) on which to scan.
         """
         try:
             client.claim_wifi_if()  # Stop shill/supplicant scans.
-            router.start_capture(
-                scan_freq, filename='%d_scan.pcap' % scan_freq)
+            capturer.start_capture(
+                    scan_freq, filename='%d_scan.pcap' % scan_freq)
             for i in range(0, cls.PASSIVE_SCAN_REPEAT_COUNT):
                 # We pass in an SSID here, to check that even hidden
                 # SSIDs do not cause probe requests to be sent.
                 client.scan(
                     [scan_freq], [cls.MISSING_SSID], require_match=False)
-            pcap_path = router.stop_capture()[0].local_pcap_path
+            pcap_path = capturer.stop_capture()[0].local_pcap_path
             dut_frames = subprocess.check_output(
                 [cls.TSHARK_COMMAND,
                  cls.TSHARK_DISABLE_NAME_RESOLUTION,
@@ -186,7 +187,7 @@ class network_WiFi_RegDomain(test.test):
                 raise error.TestFail('Saw unexpected frames from DUT.')
         finally:
             client.release_wifi_if()
-            router.stop_capture()
+            capturer.stop_capture()
 
 
     @classmethod
@@ -259,7 +260,8 @@ class network_WiFi_RegDomain(test.test):
         # done with no AP running.
         if channel_config['expect'] == 'passive-scan':
             self.assert_scanning_is_passive(
-                wifi_context.client, wifi_context.router, router_freq)
+                wifi_context.client, wifi_context.capture_host,
+                router_freq)
         elif channel_config['expect'] == 'no-connect':
             self.assert_scanning_fails(wifi_context.client, router_freq)
 

@@ -19,16 +19,18 @@ from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib import utils
 from autotest_lib.client.bin import base_utils
 
-_UI_USE_FLAGS_FILE_PATH = '/etc/ui_use_flags.txt'
+_AMD_PCI_IDS_FILE_PATH = '/usr/local/autotest/bin/amd_pci_ids.json'
 _INTEL_PCI_IDS_FILE_PATH = '/usr/local/autotest/bin/intel_pci_ids.json'
+_UI_USE_FLAGS_FILE_PATH = '/etc/ui_use_flags.txt'
 
+# Command to check if a package is installed. If the package is not installed
+# the command shall fail.
+_CHECK_PACKAGE_INSTALLED_COMMAND =(
+        "dpkg-query -W -f='${Status}\n' %s | head -n1 | awk '{print $3;}' | "
+        "grep -q '^installed$'")
+
+pciid_to_amd_architecture = {}
 pciid_to_intel_architecture = {}
-
-
-class TimeoutError(error.TestError):
-    """Error raised when we time out when waiting on a condition."""
-    pass
-
 
 class Crossystem(object):
     """A wrapper for the crossystem utility."""
@@ -89,9 +91,8 @@ def get_oldest_pid_by_name(name):
     Raises:
       ValueError if pgrep returns something odd.
     """
-    str_pid = utils.system_output(
-        'pgrep -o ^%s$' % name,
-        ignore_status=True).rstrip()
+    str_pid = utils.system_output('pgrep -o ^%s$' % name,
+                                  ignore_status=True).rstrip()
     if str_pid:
         return int(str_pid)
 
@@ -153,9 +154,8 @@ def get_process_list(name, command_line=None):
     # TODO(rohitbm) crbug.com/268861
     flag = '-x' if not command_line else '-f'
     name = '\'%s.*%s\'' % (name, command_line) if command_line else name
-    str_pid = utils.system_output(
-        'pgrep %s %s' % (flag, name),
-        ignore_status=True).rstrip()
+    str_pid = utils.system_output('pgrep %s %s' % (flag, name),
+                                  ignore_status=True).rstrip()
     return str_pid.split()
 
 
@@ -175,8 +175,8 @@ def nuke_process_by_name(name, with_prejudice=False):
         logging.error(e)
         return
     if pid is None:
-        raise error.AutoservPidAlreadyDeadError(
-            'No process matching %s.' % name)
+        raise error.AutoservPidAlreadyDeadError('No process matching %s.' %
+                                                name)
     if with_prejudice:
         utils.nuke_pid(pid, [signal.SIGKILL])
     else:
@@ -194,6 +194,7 @@ def ensure_processes_are_dead_by_name(name, timeout_sec=10):
       error.AutoservPidAlreadyDeadError: no existing process matches name.
       site_utils.TimeoutError: if processes still exist after timeout_sec.
     """
+
     def list_and_kill_processes(name):
         process_list = get_process_list(name)
         try:
@@ -203,45 +204,12 @@ def ensure_processes_are_dead_by_name(name, timeout_sec=10):
             pass
         return process_list
 
-    poll_for_condition(lambda: list_and_kill_processes(name) == [],
-                       timeout=timeout_sec)
+    utils.poll_for_condition(lambda: list_and_kill_processes(name) == [],
+                             timeout=timeout_sec)
 
 
-def poll_for_condition(condition, exception=None, timeout=10,
-                       sleep_interval=0.1, desc=None):
-    """Poll until a condition becomes true.
-
-    Arguments:
-      condition: function taking no args and returning bool
-      exception: exception to throw if condition doesn't become true
-      timeout: maximum number of seconds to wait
-      sleep_interval: time to sleep between polls
-      desc: description of default TimeoutError used if 'exception' is None
-
-    Returns:
-      The true value that caused the poll loop to terminate.
-
-    Raises:
-      'exception' arg if supplied; site_utils.TimeoutError otherwise
-    """
-    start_time = time.time()
-    while True:
-        value = condition()
-        if value:
-            return value
-        if time.time() + sleep_interval - start_time > timeout:
-            if exception:
-                logging.error(exception)
-                raise exception
-
-            if desc:
-                desc = 'Timed out waiting for condition: %s' % desc
-            else:
-                desc = 'Timed out waiting for unnamed condition'
-            logging.error(desc)
-            raise TimeoutError, desc
-
-        time.sleep(sleep_interval)
+def is_virtual_machine():
+    return 'QEMU' in platform.processor()
 
 
 def save_vm_state(checkpoint):
@@ -259,11 +227,10 @@ def save_vm_state(checkpoint):
     # The QEMU monitor has been redirected to the guest serial port located at
     # /dev/ttyUSB0. To save the state of the VM, we just send the 'savevm'
     # command to the serial port.
-    proc = platform.processor()
-    if 'QEMU' in proc and os.path.exists('/dev/ttyUSB0'):
+    if is_virtual_machine() and os.path.exists('/dev/ttyUSB0'):
         logging.info('Saving VM state "%s"', checkpoint)
         serial = open('/dev/ttyUSB0', 'w')
-        serial.write("savevm %s\r\n" % checkpoint)
+        serial.write('savevm %s\r\n' % checkpoint)
         logging.info('Done saving VM state "%s"', checkpoint)
 
 
@@ -290,6 +257,7 @@ def check_raw_dmesg(dmesg, message_level, whitelist):
                 continue
             unexpected.append(stripped_line)
     return unexpected
+
 
 def verify_mesg_set(mesg, regex, whitelist):
     """Verifies that the exact set of messages are present in a text.
@@ -565,9 +533,11 @@ def log_process_activity():
 
     Useful to debug performance tests and to find runaway processes.
     """
-    logging.info('Logging current process activity using top.')
+    logging.info('Logging current process activity using top and ps.')
     cmd = 'top -b -n1 -c'
     output = utils.run(cmd)
+    logging.info(output)
+    output = utils.run('ps axl')
     logging.info(output)
 
 
@@ -730,10 +700,6 @@ def get_ec_temperatures():
     Uses ectool to return a list of all sensor temperatures in Celsius.
     """
     temperatures = []
-    # TODO(ihf): On all ARM boards I tested 'ectool temps all' returns 200K
-    # for all sensors. Remove this check once crbug.com/358342 is fixed.
-    if 'arm' in utils.get_arch():
-        return temperatures
     try:
         full_cmd = 'ectool temps all'
         lines = utils.run(full_cmd, verbose=False).stdout.splitlines()
@@ -831,15 +797,27 @@ def get_cpu_family():
     return cpu_family
 
 
+def get_board_property(key):
+    """
+    Get a specific property from /etc/lsb-release.
+
+    @param key: board property to return value for
+
+    @return the value or '' if not present
+    """
+    with open('/etc/lsb-release') as f:
+        pattern = '%s=(.*)' % key
+        pat = re.search(pattern, f.read())
+        if pat:
+            return pat.group(1)
+    return ''
+
+
 def get_board():
     """
     Get the ChromeOS release board name from /etc/lsb-release.
     """
-    f = open('/etc/lsb-release')
-    try:
-        return re.search('BOARD=(.*)', f.read()).group(1)
-    finally:
-        f.close()
+    return get_board_property('BOARD')
 
 
 def get_board_type():
@@ -848,11 +826,7 @@ def get_board_type():
 
     @return device type.
     """
-    with open('/etc/lsb-release') as f:
-        pat = re.search('DEVICETYPE=(.*)', f.read())
-        if pat:
-            return pat.group(1)
-    return ''
+    return get_board_property('DEVICETYPE')
 
 
 def get_board_with_frequency_and_memory():
@@ -862,11 +836,14 @@ def get_board_with_frequency_and_memory():
     link -> link_1.8GHz_4GB.
     """
     board_name = get_board()
-    # Rounded to nearest GB and GHz.
-    memory = int(round(get_mem_total() / 1024.0))
-    # Convert frequency to GHz with 1 digit accuracy after the decimal point.
-    frequency = int(round(get_cpu_max_frequency() * 1e-8)) * 0.1
-    board = "%s_%1.1fGHz_%dGB" % (board_name, frequency, memory)
+    if is_virtual_machine():
+        board = '%s_VM' % board_name
+    else:
+        # Rounded to nearest GB and GHz.
+        memory = int(round(get_mem_total() / 1024.0))
+        # Convert frequency to GHz with 1 digit accuracy after the decimal point.
+        frequency = int(round(get_cpu_max_frequency() * 1e-8)) * 0.1
+        board = '%s_%1.1fGHz_%dGB' % (board_name, frequency, memory)
     return board
 
 
@@ -876,7 +853,7 @@ def get_mem_total():
     """
     mem_total = _get_float_from_file(_MEMINFO, 'MemTotal:', 'MemTotal:', ' kB')
     # Sanity check, all Chromebooks have at least 1GB of memory.
-    assert mem_total > 1024 * 1024, 'Unreasonable amount of memory.'
+    assert mem_total > 256 * 1024, 'Unreasonable amount of memory.'
     return mem_total / 1024
 
 
@@ -976,43 +953,76 @@ def set_dirty_writeback_centisecs(time=60000):
         utils.system(cmd)
 
 
+def wflinfo_cmd():
+    """
+    Returns a wflinfo command appropriate to the current graphics platform/api.
+    """
+    return 'wflinfo -p %s -a %s' % (graphics_platform(), graphics_api())
+
+
+def has_mali():
+    """ @return: True if system has a Mali GPU enabled."""
+    return os.path.exists('/dev/mali0')
+
 def get_gpu_family():
-    """Return the GPU family name"""
+    """Returns the GPU family name."""
+    global pciid_to_amd_architecture
     global pciid_to_intel_architecture
 
-    cpuarch = base_utils.get_cpu_soc_family()
-    if cpuarch == 'exynos5' or cpuarch == 'rockchip':
-        return 'mali'
-    if cpuarch == 'tegra':
+    socfamily = base_utils.get_cpu_soc_family()
+    if socfamily == 'exynos5' or socfamily == 'rockchip' or has_mali():
+        cmd = wflinfo_cmd()
+        wflinfo = utils.system_output(cmd,
+                                      retain_output=True,
+                                      ignore_status=False)
+        version = re.findall(r'OpenGL renderer string: '
+                             r'Mali-T([0-9]+)', wflinfo)
+        if version:
+            return 'mali-t%s' % version[0]
+        return 'mali-unrecognized'
+    if socfamily == 'tegra':
         return 'tegra'
-    if os.path.exists('/sys/bus/platform/drivers/pvrsrvkm'):
+    if os.path.exists('/sys/kernel/debug/pvr'):
         return 'rogue'
 
-    pci_path = '/sys/bus/pci/devices/0000:00:02.0/device'
+    pci_vga_device = utils.run("lspci | grep VGA").stdout.rstrip('\n')
+    bus_device_function = pci_vga_device.partition(' ')[0]
+    pci_path = '/sys/bus/pci/devices/0000:' + bus_device_function + '/device'
 
     if not os.path.exists(pci_path):
-        raise error.TestError('PCI device 0000:00:02.0 not found')
+        raise error.TestError('PCI device 0000:' + bus_device_function + ' not found')
 
     device_id = utils.read_one_line(pci_path).lower()
 
-    # Only load Intel PCI ID file once and only if necessary.
-    if not pciid_to_intel_architecture:
-        with open(_INTEL_PCI_IDS_FILE_PATH, 'r') as in_f:
-            pciid_to_intel_architecture = json.load(in_f)
+    if "Advanced Micro Devices" in pci_vga_device:
+        if not pciid_to_amd_architecture:
+            with open(_AMD_PCI_IDS_FILE_PATH, 'r') as in_f:
+                pciid_to_amd_architecture = json.load(in_f)
 
-    return pciid_to_intel_architecture[device_id]
+        return pciid_to_amd_architecture[device_id]
 
+    if "Intel Corporation" in pci_vga_device:
+        # Only load Intel PCI ID file once and only if necessary.
+        if not pciid_to_intel_architecture:
+            with open(_INTEL_PCI_IDS_FILE_PATH, 'r') as in_f:
+                pciid_to_intel_architecture = json.load(in_f)
 
+        return pciid_to_intel_architecture[device_id]
+
+# TODO(ihf): Consider using /etc/lsb-release DEVICETYPE != CHROMEBOOK/CHROMEBASE
+# for sanity check, but usage seems a bit inconsistent. See
+# src/third_party/chromiumos-overlay/eclass/appid.eclass
 _BOARDS_WITHOUT_MONITOR = [
     'anglar', 'mccloud', 'monroe', 'ninja', 'rikku', 'guado', 'jecht', 'tidus',
-    'veyron_brian', 'beltino', 'panther', 'stumpy', 'panther', 'tricky', 'zako'
+    'veyron_brian', 'beltino', 'panther', 'stumpy', 'panther', 'tricky', 'zako',
+    'veyron_rialto'
 ]
 
 
 def has_no_monitor():
-    """Return whether a machine doesn't have a built-in monitor"""
+    """Returns whether a machine doesn't have a built-in monitor."""
     board_name = get_board()
-    if (board_name in _BOARDS_WITHOUT_MONITOR):
+    if board_name in _BOARDS_WITHOUT_MONITOR:
         return True
 
     return False
@@ -1058,6 +1068,31 @@ def get_free_root_partition(root_part=None):
     if not root_part:
         root_part = get_root_partition()
     return root_part[:-1] + spare_root_map[root_part[-1]]
+
+
+def get_kernel_partition(root_part=None):
+    """
+    Return current kernel partition
+    Example: return /dev/sda2 for falco booted from usb
+
+    @param root_part: current root partition
+    """
+    if not root_part:
+         root_part = get_root_partition()
+    current_kernel_map = {'3': '2', '5': '4'}
+    return root_part[:-1] + current_kernel_map[root_part[-1]]
+
+
+def get_free_kernel_partition(root_part=None):
+    """
+    return currently unused kernel partition
+    Example: return /dev/sda4 for falco booted from usb
+
+    @param root_part: current root partition
+    """
+    kernel_part = get_kernel_partition(root_part)
+    spare_kernel_map = {'2': '4', '4': '2'}
+    return kernel_part[:-1] + spare_kernel_map[kernel_part[-1]]
 
 
 def is_booted_from_internal_disk():
@@ -1129,3 +1164,47 @@ def is_vm():
                      'it is not a virtual machine.')
         return False
 
+
+def is_package_installed(package):
+    """Check if a package is installed already.
+
+    @return: True if the package is already installed, otherwise return False.
+    """
+    try:
+        utils.run(_CHECK_PACKAGE_INSTALLED_COMMAND % package)
+        return True
+    except error.CmdError:
+        logging.warn('Package %s is not installed.', package)
+        return False
+
+
+def is_python_package_installed(package):
+    """Check if a Python package is installed already.
+
+    @return: True if the package is already installed, otherwise return False.
+    """
+    try:
+        __import__(package)
+        return True
+    except ImportError:
+        logging.warn('Python package %s is not installed.', package)
+        return False
+
+
+def run_sql_cmd(server, user, password, command, database=''):
+    """Run the given sql command against the specified database.
+
+    @param server: Hostname or IP address of the MySQL server.
+    @param user: User name to log in the MySQL server.
+    @param password: Password to log in the MySQL server.
+    @param command: SQL command to run.
+    @param database: Name of the database to run the command. Default to empty
+                     for command that does not require specifying database.
+
+    @return: The stdout of the command line.
+    """
+    cmd = ('mysql -u%s -p%s --host %s %s -e "%s"' %
+           (user, password, server, database, command))
+    # Set verbose to False so the command line won't be logged, as it includes
+    # database credential.
+    return utils.run(cmd, verbose=False).stdout

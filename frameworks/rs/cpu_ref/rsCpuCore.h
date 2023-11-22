@@ -25,6 +25,8 @@
 #include "rsScriptC.h"
 #include "rsCpuCoreRuntime.h"
 
+#include <string>
+
 namespace android {
 namespace renderscript {
 
@@ -145,7 +147,7 @@ struct MTLaunchStructReduce : public MTLaunchStructCommon {
 class RsdCpuReferenceImpl : public RsdCpuReference {
 public:
     ~RsdCpuReferenceImpl() override;
-    RsdCpuReferenceImpl(Context *);
+    explicit RsdCpuReferenceImpl(Context *);
 
     void lockMutex();
     void unlockMutex();
@@ -188,10 +190,10 @@ public:
     }
 
     virtual void setBccPluginName(const char *name) {
-        mBccPluginName.setTo(name);
+        mBccPluginName.assign(name);
     }
     virtual const char *getBccPluginName() const {
-        return mBccPluginName.string();
+        return mBccPluginName.c_str();
     }
     bool getInKernel() override { return mInKernel; }
 
@@ -243,7 +245,7 @@ protected:
     ScriptTLSStruct mTlsStruct;
 
     RSSelectRTCallback mSelectRTCallback;
-    String8 mBccPluginName;
+    std::string mBccPluginName;
 
     // Specifies whether we should embed global variable information in the
     // code via special RS variables that can be examined later by the driver.
@@ -265,7 +267,7 @@ protected:
 };
 
 
-}
-}
+} // namespace renderscript
+} // namespace android
 
 #endif

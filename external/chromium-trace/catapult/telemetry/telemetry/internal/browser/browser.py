@@ -5,7 +5,7 @@
 import logging
 import sys
 
-from catapult_base import cloud_storage  # pylint: disable=import-error
+from py_utils import cloud_storage  # pylint: disable=import-error
 
 from telemetry.core import exceptions
 from telemetry.core import profiling_controller
@@ -48,11 +48,15 @@ class Browser(app.App):
               self._browser_backend.profile_directory)
           self.platform.FlushSystemCacheForDirectory(
               self._browser_backend.browser_directory)
-        else:
+        elif self.platform.SupportFlushEntireSystemCache():
           self.platform.FlushEntireSystemCache()
+        else:
+          logging.warning('Flush system cache is not supported. ' +
+              'Did not flush system cache.')
 
       self._browser_backend.SetBrowser(self)
       self._browser_backend.Start()
+      self._LogBrowserInfo()
       self._platform_backend.DidStartBrowser(self, self._browser_backend)
       self._profiling_controller = profiling_controller.ProfilingController(
           self._browser_backend.profiling_controller_backend)
@@ -105,6 +109,34 @@ class Browser(app.App):
       raise browser_backend.ExtensionsNotSupportedException(
           'Extensions not supported')
     return extension_dict.ExtensionDict(self._browser_backend.extension_backend)
+
+  def _LogBrowserInfo(self):
+    logging.info('OS: %s %s',
+                 self._platform_backend.platform.GetOSName(),
+                 self._platform_backend.platform.GetOSVersionName())
+    if self.supports_system_info:
+      system_info = self.GetSystemInfo()
+      if system_info.model_name:
+        logging.info('Model: %s', system_info.model_name)
+      if system_info.gpu:
+        for i, device in enumerate(system_info.gpu.devices):
+          logging.info('GPU device %d: %s', i, device)
+        if system_info.gpu.aux_attributes:
+          logging.info('GPU Attributes:')
+          for k, v in sorted(system_info.gpu.aux_attributes.iteritems()):
+            logging.info('  %-20s: %s', k, v)
+        if system_info.gpu.feature_status:
+          logging.info('Feature Status:')
+          for k, v in sorted(system_info.gpu.feature_status.iteritems()):
+            logging.info('  %-20s: %s', k, v)
+        if system_info.gpu.driver_bug_workarounds:
+          logging.info('Driver Bug Workarounds:')
+          for workaround in system_info.gpu.driver_bug_workarounds:
+            logging.info('  %s', workaround)
+      else:
+        logging.info('No GPU devices')
+    else:
+      logging.warning('System info not supported')
 
   def _GetStatsCommon(self, pid_stats_function):
     browser_pid = self._browser_backend.pid
@@ -236,12 +268,42 @@ class Browser(app.App):
       self._browser_backend.Close()
       self.credentials = None
 
+  def Foreground(self):
+    """Ensure the browser application is moved to the foreground."""
+    return self._browser_backend.Foreground()
+
+  def Background(self):
+    """Ensure the browser application is moved to the background."""
+    return self._browser_backend.Background()
 
   def GetStandardOutput(self):
     return self._browser_backend.GetStandardOutput()
 
+  def GetLogFileContents(self):
+    return self._browser_backend.GetLogFileContents()
+
   def GetStackTrace(self):
     return self._browser_backend.GetStackTrace()
+
+  def GetMostRecentMinidumpPath(self):
+    """Returns the path to the most recent minidump."""
+    return self._browser_backend.GetMostRecentMinidumpPath()
+
+  def GetAllMinidumpPaths(self):
+    """Returns all minidump paths available in the backend."""
+    return self._browser_backend.GetAllMinidumpPaths()
+
+  def GetAllUnsymbolizedMinidumpPaths(self):
+    """Returns paths to all minidumps that have not already been
+    symbolized."""
+    return self._browser_backend.GetAllUnsymbolizedMinidumpPaths()
+
+  def SymbolizeMinidump(self, minidump_path):
+    """Given a minidump path, this method returns a tuple with the
+    first value being whether or not the minidump was able to be
+    symbolized and the second being that symbolized dump when true
+    and error message when false."""
+    return self._browser_backend.SymbolizeMinidump(minidump_path)
 
   @property
   def supports_system_info(self):
@@ -286,3 +348,18 @@ class Browser(app.App):
   @property
   def supports_power_metrics(self):
     return self._browser_backend.supports_power_metrics
+
+  def DumpStateUponFailure(self):
+    logging.info('*************** BROWSER STANDARD OUTPUT ***************')
+    try:  # pylint: disable=broad-except
+      logging.info(self.GetStandardOutput())
+    except Exception:
+      logging.exception('Failed to get browser standard output:')
+    logging.info('*********** END OF BROWSER STANDARD OUTPUT ************')
+
+    logging.info('********************* BROWSER LOG *********************')
+    try:  # pylint: disable=broad-except
+      logging.info(self.GetLogFileContents())
+    except Exception:
+      logging.exception('Failed to get browser log:')
+    logging.info('***************** END OF BROWSER LOG ******************')

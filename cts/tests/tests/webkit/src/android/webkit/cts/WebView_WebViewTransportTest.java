@@ -16,12 +16,12 @@
 
 package android.webkit.cts;
 
-import android.cts.util.NullWebViewUtils;
 import android.test.ActivityInstrumentationTestCase2;
 import android.test.UiThreadTest;
 import android.webkit.WebView;
 import android.webkit.WebView.WebViewTransport;
 
+import com.android.compatibility.common.util.NullWebViewUtils;
 
 public class WebView_WebViewTransportTest
         extends ActivityInstrumentationTestCase2<WebViewCtsActivity> {

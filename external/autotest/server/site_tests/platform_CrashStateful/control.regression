@@ -5,7 +5,6 @@
 NAME = "platform_CrashStateful"
 AUTHOR = "chromeos-kernel,taysom"
 ATTRIBUTES = "suite:kernel_daily_regression"
-SUITE = "kernel_daily_regression"
 DEPENDENCIES = "servo"
 TIME = "MEDIUM"
 TEST_CATEGORY = "Functional"

@@ -17,7 +17,7 @@
 
 <sample>
     <name>MultiWindowPlayground</name>
-    <group>Android N Preview</group>
+    <group>UI</group>
     <package>com.example.android.multiwindowplayground</package>
 
     <minSdk>24</minSdk>
@@ -40,7 +40,7 @@ the lifecycle and behavior of the app.
 
     <metadata>
         <status>PUBLISHED</status>
-        <categories>Android N Preview</categories>
+        <categories>UI</categories>
         <technologies>Android</technologies>
         <languages>Java</languages>
         <solutions>Mobile</solutions>

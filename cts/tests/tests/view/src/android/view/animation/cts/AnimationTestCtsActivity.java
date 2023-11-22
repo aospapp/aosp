@@ -16,11 +16,9 @@
 
 package android.view.animation.cts;
 
-import android.view.cts.R;
-
 import android.app.Activity;
 import android.os.Bundle;
-import android.util.Log;
+import android.view.cts.R;
 
 import java.util.concurrent.TimeUnit;
 

@@ -17,8 +17,7 @@
 #include "rsContext.h"
 #include "rsMesh.h"
 
-using namespace android;
-using namespace android::renderscript;
+using android::renderscript::Mesh;
 
 void rsaMeshGetVertexBufferCount(RsContext con, RsMesh mv, int32_t *numVtx) {
     Mesh *sm = static_cast<Mesh *>(mv);

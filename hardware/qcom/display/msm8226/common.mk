@@ -37,6 +37,12 @@ ifeq ($(TARGET_HAS_VSYNC_FAILURE_FALLBACK), true)
     common_flags += -DVSYNC_FAILURE_FALLBACK
 endif
 
+ifeq ($(DISPLAY_DEBUG_SWAPINTERVAL),true)
+    common_flags += -DDEBUG_SWAPINTERVAL
+endif
+
+common_flags += -D__STDC_FORMAT_MACROS
+
 common_deps  :=
 kernel_includes :=
 
@@ -56,6 +62,6 @@ ifeq ($(call is-vendor-board-platform,QCOM),true)
 # available in the build tree.
 # If the macro is not present, the headers are picked from hardware/qcom/msmXXXX
 # failing which, they are picked from bionic.
-    common_deps += $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr
-    kernel_includes += $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr/include
+    common_deps += $(BOARD_KERNEL_HEADER_DEPENDENCIES)
+    kernel_includes += $(BOARD_KERNEL_HEADER_DIR)
 endif

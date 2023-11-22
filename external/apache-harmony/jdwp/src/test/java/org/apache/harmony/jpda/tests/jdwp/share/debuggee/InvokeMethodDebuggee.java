@@ -65,6 +65,7 @@ public class InvokeMethodDebuggee extends SyncDebuggee {
     static testClass[] checkClassArray = {new testClass()};
     static testClass[][] checkClassArray2 = {{new testClass()}, {new testClass()}};
 
+    @SuppressWarnings("unused")
     public static String testMethod3(int i, int[] ai, int[][] aai,
             String s, String[] as, String[][] aas,
             testClass tc, testClass[] atc, testClass[][] aatc) {
@@ -75,8 +76,9 @@ public class InvokeMethodDebuggee extends SyncDebuggee {
         logWriter.println("InvokeMethodDebuggee.execMethod()");
     }
 
+    @Override
     public void run() {
-        Class c = null;
+        Class<?> c = null;
         try {
             c = Class.forName("org.apache.harmony.jpda.tests.jdwp.share.debuggee.InvokeMethodDebuggee$testClass1");
             c = Class.forName("org.apache.harmony.jpda.tests.jdwp.share.debuggee.testClass2");
@@ -122,6 +124,7 @@ class testClass3 extends testClass2 {
         super(false);
     }
 
+    @Override
     public int testMethod3(boolean needThrow) throws Throwable {
         if (needThrow) {
             throw new Throwable("test exception");

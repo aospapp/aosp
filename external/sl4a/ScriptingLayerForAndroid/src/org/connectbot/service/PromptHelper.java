@@ -26,7 +26,6 @@ import android.os.Message;
  * Helps provide a relay for prompts and responses between a possible user
  * interface and some underlying service.
  *
- * @author jsharkey
  */
 public class PromptHelper {
 	private final Object tag;

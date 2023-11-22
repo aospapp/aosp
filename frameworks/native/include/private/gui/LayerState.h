@@ -24,6 +24,7 @@
 
 #include <ui/Region.h>
 #include <ui/Rect.h>
+#include <gui/IGraphicBufferProducer.h>
 
 namespace android {
 
@@ -56,6 +57,9 @@ struct layer_state_t {
         eFinalCropChanged           = 0x00000400,
         eOverrideScalingModeChanged = 0x00000800,
         eGeometryAppliesWithResize  = 0x00001000,
+        eReparentChildren           = 0x00002000,
+        eDetachChildren             = 0x00004000,
+        eRelativeLayerChanged       = 0x00008000
     };
 
     layer_state_t()
@@ -74,16 +78,16 @@ struct layer_state_t {
     status_t    read(const Parcel& input);
 
             struct matrix22_t {
-                float   dsdx;
-                float   dtdx;
-                float   dsdy;
-                float   dtdy;
+                float   dsdx{0};
+                float   dtdx{0};
+                float   dtdy{0};
+                float   dsdy{0};
             };
             sp<IBinder>     surface;
             uint32_t        what;
             float           x;
             float           y;
-            uint32_t        z;
+            int32_t         z;
             uint32_t        w;
             uint32_t        h;
             uint32_t        layerStack;
@@ -94,9 +98,15 @@ struct layer_state_t {
             matrix22_t      matrix;
             Rect            crop;
             Rect            finalCrop;
-            sp<IBinder>     handle;
+            sp<IBinder>     barrierHandle;
+            sp<IBinder>     reparentHandle;
             uint64_t        frameNumber;
             int32_t         overrideScalingMode;
+
+            sp<IGraphicBufferProducer> barrierGbp;
+
+            sp<IBinder>     relativeLayerHandle;
+
             // non POD must be last. see write/read
             Region          transparentRegion;
 };

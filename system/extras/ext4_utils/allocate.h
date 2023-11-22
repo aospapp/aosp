@@ -19,7 +19,7 @@
 
 #define EXT4_ALLOCATE_FAILED (u32)(~0)
 
-#include "ext4_utils.h"
+#include "ext4_utils/ext4_utils.h"
 
 struct region {
 	u32 block;

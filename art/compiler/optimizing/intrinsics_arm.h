@@ -33,14 +33,11 @@ class CodeGeneratorARM;
 
 class IntrinsicLocationsBuilderARM FINAL : public IntrinsicVisitor {
  public:
-  IntrinsicLocationsBuilderARM(ArenaAllocator* arena,
-                               ArmAssembler* assembler,
-                               const ArmInstructionSetFeatures& features)
-      : arena_(arena), assembler_(assembler), features_(features) {}
+  explicit IntrinsicLocationsBuilderARM(CodeGeneratorARM* codegen);
 
   // Define visitor methods.
 
-#define OPTIMIZING_INTRINSICS(Name, IsStatic, NeedsEnvironmentOrCache, SideEffects, Exceptions) \
+#define OPTIMIZING_INTRINSICS(Name, IsStatic, NeedsEnvironmentOrCache, SideEffects, Exceptions, ...) \
   void Visit ## Name(HInvoke* invoke) OVERRIDE;
 #include "intrinsics_list.h"
 INTRINSICS_LIST(OPTIMIZING_INTRINSICS)
@@ -54,6 +51,7 @@ INTRINSICS_LIST(OPTIMIZING_INTRINSICS)
 
  private:
   ArenaAllocator* arena_;
+  CodeGenerator* codegen_;
   ArmAssembler* assembler_;
 
   const ArmInstructionSetFeatures& features_;
@@ -67,7 +65,7 @@ class IntrinsicCodeGeneratorARM FINAL : public IntrinsicVisitor {
 
   // Define visitor methods.
 
-#define OPTIMIZING_INTRINSICS(Name, IsStatic, NeedsEnvironmentOrCache, SideEffects, Exceptions) \
+#define OPTIMIZING_INTRINSICS(Name, IsStatic, NeedsEnvironmentOrCache, SideEffects, Exceptions, ...) \
   void Visit ## Name(HInvoke* invoke) OVERRIDE;
 #include "intrinsics_list.h"
 INTRINSICS_LIST(OPTIMIZING_INTRINSICS)

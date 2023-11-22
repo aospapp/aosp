@@ -44,7 +44,7 @@
     <string name="connectivity_wifi" msgid="489974791299647708">"Wi-Fi"</string>
     <string name="connectivity_ethernet" msgid="2182407318634700320">"ኤተርኔት"</string>
     <string name="wifi_setting_always_scan" msgid="8883713018717323351">"ቅኝት ሁልጊዜ ሊገኝ ይችላል"</string>
-    <string name="wifi_setting_always_scan_context" msgid="5588180043357910712">"Wi-Fi ጠፍቶም ቢሆን እንኳን የGoogle የአካባቢ አገልግሎትን እና ሌሎች መተግበሪያዎች አውታረ መረቦችን ለማግኘት እንዲቃኙ ያድርጓቸው"</string>
+    <string name="wifi_setting_always_scan_context" msgid="398651204440349752">"የGoogle የአካባቢ አገልግሎትን እና ሌሎች መተግበሪያዎች አውታረ መረቦችን ለማግኘት እንዲቃኙ ያድርጓቸው፣ Wi-Fi ጠፍቶም ቢሆን እንኳን"</string>
     <string name="wifi_setting_enable_wifi" msgid="9214100840401870408">"Wi-Fi"</string>
     <string name="device_daydream" msgid="3354366974209179614">"የማያ ገጽ ማቆያ"</string>
     <string name="device_display" msgid="101455384386372747">"ማሳያ"</string>
@@ -72,6 +72,8 @@
     <string name="accessory_battery" msgid="7021788232835772126">"ባትሪ <xliff:g id="PERCENTAGE">%1$d</xliff:g>%%"</string>
     <string name="accessory_unpairing" msgid="7568241162181184667">"የተጣመረ መሳሪያን በማለያየት ላይ…"</string>
     <string name="accessory_connected" msgid="2156489304110030393">"ተገናኝቷል"</string>
+    <string name="accessory_change_name" msgid="8958916008739792785">"ስም ቀይር"</string>
+    <string name="accessory_change_name_title" msgid="4630819456923061184">"ለዚህ መለዋወጫ አዲስ ስም ያስገቡ"</string>
     <string name="accessories_add_title" msgid="6940361421891873321">"መለዋወጫዎችን በመፈለግ ላይ…"</string>
     <string name="accessories_add_bluetooth_inst" msgid="5892952745770640383">"የብሉቱዝ መሣሪያዎችዎን ከማጣመርዎ በፊት በማጣመር ሁነታ ላይ መሆናቸውን ያረጋግጡ"</string>
     <string name="accessories_autopair_msg" msgid="8618829246837821752">"አንድ መሣሪያ ተገኝቶ በ<xliff:g id="COUNTDOWN">%1$s</xliff:g> ሰከንዶች ውስጥ በራስ-ሰር ይጣመራል"</string>
@@ -91,6 +93,7 @@
     <string name="system_keyboard" msgid="7680159735294672514">"የቁልፍ ሰሌዳ"</string>
     <string name="system_home" msgid="2858989138172296012">"መነሻ ማያ ገጽ"</string>
     <string name="system_search" msgid="2837264654143247611">"ፍለጋ"</string>
+    <string name="system_google" msgid="8560404305602209622">"Google"</string>
     <string name="system_security" msgid="8230080273993484407">"ደህንነት እና ገደቦች"</string>
     <string name="system_speech" msgid="8128688499687306982">"ንግግር"</string>
     <string name="system_inputs" msgid="2413907183796651102">"ግብዓቶች"</string>
@@ -98,6 +101,7 @@
     <string name="system_developer_options" msgid="3237985523474863638">"የገንቢ አማራጮች"</string>
     <string name="accessibility_none" msgid="3441648940134070004">"ምንም"</string>
     <string name="system_diagnostic" msgid="7269638365915225701">"አጠቃቀም እና ምርመራ"</string>
+    <string name="tutorials" msgid="3731493987558093244">"አጋዥ ሥልጠናዎች"</string>
     <string name="about_system_update" msgid="7282772247661356586">"የስርዓት ዝማኔ"</string>
     <string name="about_preference" msgid="4131396784531360434">"ስለ"</string>
     <string name="device_name" msgid="2670488158531273028">"የመሣሪያ ስም"</string>
@@ -372,6 +376,7 @@
     <string name="display_options" msgid="5504549024985225774">"የማሳያ አማራጮች"</string>
     <string name="captions_configure" msgid="5537548915977371014">"ያዋቅሩ"</string>
     <string name="captions_language" msgid="2835554055388996343">"ቋንቋ"</string>
+    <string name="captions_language_default" msgid="8113979489252033676">"ነባሪ"</string>
     <string name="captions_textsize" msgid="4828195509546070971">"የፅሁፍ መጠን"</string>
     <string name="captions_captionstyle" msgid="7423638523487868230">"የመግለጫ ጽሑፍ ቅጥ"</string>
     <string name="captions_customoptions" msgid="2699780648112330911">"ብጁ አማራጮች"</string>
@@ -448,7 +453,6 @@
     <string name="system_transition_animation_scale" msgid="2964817709721784757">"የእነማ ልኬት ሽግግር"</string>
     <string name="system_animator_duration_scale" msgid="7413512458963984521">"የአናሚ ቆይታ መለኪያ"</string>
     <string name="system_strict_mode_enabled" msgid="5728680397806673270">"ጥብቅ ሁነታ ነቅቷል"</string>
-    <string name="system_show_cpu_usage" msgid="4797599582027671138">"የሲፒዩ አጠቃቀም አሳይ"</string>
     <string name="system_profile_gpu_rendering" msgid="3438771015102629799">"የጂፒዩ ምላሽ አሰጣጥ መዝግብ"</string>
     <string name="system_enable_traces" msgid="4038210655699986482">"ፍንጮችን አንቃ"</string>
     <string name="system_dont_keep_activities" msgid="7906911077198718958">"እንቅስቃሴዎችን አታስቀምጥ"</string>
@@ -466,7 +470,6 @@
     <string name="system_desc_show_gpu_overdraw" msgid="8204945204510618865">"ከምርጡ ወደ መጥፎው፦ ሰማያዊ፣ አረንጓዴ፣ ፈዘዝ ያለ ቀይ፣ ቀይ"</string>
     <string name="system_desc_show_surface_updates" msgid="8177734845253807688">"የመስኮት ወለሎች ሲዘምኑ መላ መስኮቱን አብለጭልጭ"</string>
     <string name="system_desc_strict_mode_enabled" msgid="4647420860235689510">"መተግበሪያዎች ረጅም ክንውኖች በዋናው ክር ላይ ሲያካሂዱ ማያ ገጽ ላይ አሳይ"</string>
-    <string name="system_desc_show_cpu_usage" msgid="6151280238151381703">"የማያ ገጽ ተደራቢ የአሁኑን የሲፒዩ አጠቃቀም  እያሳየ ነው።"</string>
     <string name="system_desc_profile_gpu_rendering" msgid="2836283129486718887">"ለማዘጋጀት የወሰደው ጊዜ በadb shell dumpsys gfxinfo ለካ"</string>
     <string name="action_on_title" msgid="6852389884236870765">"በርቷል"</string>
     <string name="action_off_title" msgid="3157728958166559966">"ጠፍቷል"</string>
@@ -598,7 +601,6 @@
     <string name="device_apps_app_management_force_stop" msgid="9195433885986760867">"በኃይል አቁም"</string>
     <string name="device_apps_app_management_force_stop_desc" msgid="3616902338964109665">"አንድ መተግበሪያ አስገድደው ካቆሙት ተገቢ ያልሆነ ጸባይ ሊያሳይ ይችላል።"</string>
     <string name="device_apps_app_management_uninstall" msgid="531427430753359746">"አራግፍ"</string>
-    <string name="device_apps_app_management_uninstall_desc" msgid="1104982472633576960">"ይሄን መተግበሪያ ማራገፍ ይፈልጋሉ?"</string>
     <string name="device_apps_app_management_uninstall_updates" msgid="5151008748970915803">"ዝማኔዎች አራግፍ"</string>
     <string name="device_apps_app_management_uninstall_updates_desc" msgid="9165160845303755321">"ወደዚህ Android ስርዓት መተግበሪያ ላይ ያሉ ሁሉም ዝማኔዎች እንዲራገፉ ይደረጋል።"</string>
     <string name="device_apps_app_management_disable" msgid="6136528600052941589">"ያሰናክሉ"</string>
@@ -615,6 +617,7 @@
     <string name="device_apps_app_management_clear_cache" msgid="5392413180421013865">"መሸጎጫን አጽዳ"</string>
     <string name="device_apps_app_management_notifications" msgid="7291960671957440729">"ማሳወቂያዎች"</string>
     <string name="device_apps_app_management_permissions" msgid="1829808830974726081">"ፍቃዶች"</string>
+    <string name="device_apps_app_management_not_available" msgid="1249731776661207047">"መተግበሪያ ሊገኝ አይችልም"</string>
     <string name="settings_ok" msgid="3321630456511355983">"እሺ"</string>
     <string name="settings_cancel" msgid="304280412158061225">"ይቅር"</string>
     <string name="settings_on" msgid="6892236264945435013">"በርቷል"</string>
@@ -638,17 +641,14 @@
     <string name="confirm_factory_reset_description" msgid="1049842658625287303">"ሁሉም የግል መረጃዎ እና የወረዱ መተግበሪያዎችዎ ይሰረዙ? ይህን እርምጃ መቀልበስ አይችሉም!"</string>
     <string name="confirm_factory_reset_device" msgid="8923287482399582268">"ሁሉንም አጥፋ"</string>
     <string name="select_device_name_title" msgid="5165800500130943604">"ለእርስዎ <xliff:g id="DEVICEMODEL">%1$s</xliff:g> ስም ይምረጡ"</string>
-    <string name="select_device_name_description" msgid="2697127827643821315">"የእርስዎን <xliff:g id="DEVICEMODEL">%1$s</xliff:g> እንደ የእርስዎ ስልክ፣ ጡባዊ ወይም ኮምፒውተር ካሉ ሌሎች መሣሪያዎች ሲደርሱበት ስም እንዲለየው ያግዛል።"</string>
+    <string name="select_device_name_description" msgid="6890879006777364213">"cast በሚያደርጉበት ጊዜ ወይም ከሌሎች መሣሪያዎች ከእሱ ጋር በሚያገናኙበት ጊዜ ለይተው ለማወቅ እንዲያግዝዎት የእርስዎን <xliff:g id="DEVICEMODEL">%1$s</xliff:g> ስም ይስጡት።"</string>
   <string-array name="rooms">
-    <item msgid="7085399612393981553">"ሳሎን"</item>
-    <item msgid="3722089849939477581">"የሚዲያ ክፍል"</item>
-    <item msgid="6108590585438763574">"የቤተሰብ ክፍል"</item>
-    <item msgid="2581035245390468625">"የመመገቢያ ክፍል"</item>
-    <item msgid="3127487827308695324">"የግል ክፍል"</item>
-    <item msgid="6172018430592195063">"መኝታ ቤት"</item>
-    <item msgid="8120010459866284578">"ወጥ ቤት"</item>
+    <item msgid="9056203990862307284">"Android TV"</item>
+    <item msgid="7449352861592960712">"የሳሎን ክፍል ቴሌቪዥን"</item>
+    <item msgid="8122798759665439456">"የቤተሰብ ክፍል ቴሌቪዥን"</item>
+    <item msgid="1389347662738182100">"የመኝታ ክፍል ቴሌቪዥን"</item>
   </string-array>
-    <string name="custom_room" msgid="8991561978321502549">"ብጁ ስም ያስገቡ…"</string>
+    <string name="custom_room" msgid="8655516733933892458">"ብጁ ስም ያስገቡ…"</string>
     <string name="device_rename_title" msgid="2629557295786267185">"ይህን <xliff:g id="DEVICEMODEL">%1$s</xliff:g> ዳግም ይሰይሙት"</string>
     <string name="device_rename_description" msgid="2461752788563877107">"ይህ <xliff:g id="DEVICEMODEL">%1$s</xliff:g> በአሁኑ ጊዜ «<xliff:g id="DEVICENAME">%2$s</xliff:g>» ተብሏል"</string>
     <string name="change_setting" msgid="2047402388786162246">"ቀይር"</string>
@@ -663,4 +663,7 @@
     <string name="reboot_safemode_action" msgid="8129550438717110406">"በአስተማማኝ ኹነታ ውስጥ ዳግም አስጀምር"</string>
     <string name="reboot_safemode_confirm" msgid="3329475617645192086">"በአስተማማኝ ኹነታ ውስጥ ዳግም ማስጀመር ይፈልጋሉ?"</string>
     <string name="reboot_safemode_desc" msgid="5031024337104679492">"ይሄ ሁሉንም የጫኑዋቸው የሦስተኛ ወገን መተግበሪያዎችን ያሰናክላል። እንደገና ዳግም ሲያስጀምሩ ይመለስልዎታል።"</string>
+    <string name="capturing_bugreport" msgid="3291125403411239592">"የሳንካ ሪፖርቱን በማግኘት ላይ"</string>
+    <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"የሚገኙ ምናባዊ ቁልፍ ሰሌዳዎች"</string>
+    <string name="manage_keyboards" msgid="1905379263117016795">"የቁልፍ ሰሌዳዎችን ያቀናብሩ"</string>
 </resources>

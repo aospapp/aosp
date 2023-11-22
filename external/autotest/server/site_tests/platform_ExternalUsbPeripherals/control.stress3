@@ -5,7 +5,7 @@
 from autotest_lib.server import utils
 
 AUTHOR = "Chrome OS Team"
-NAME = "platform_ExternalUsbPeripherals.stress3"
+NAME = "platform_ExternalUsbPeripherals"
 PURPOSE = "Servo based USB boot stress test"
 CRITERIA = "This test will fail if any of the actions or checks fail."
 TIME = "LONG"
@@ -13,7 +13,6 @@ TEST_CATEGORY = "Functional"
 TEST_CLASS = "platform"
 TEST_TYPE = "server"
 ATTRIBUTES = "suite:stress3"
-SUITE = "stress3"
 DEPENDENCIES = "servo"
 
 DOC = """
@@ -46,6 +45,7 @@ def run(machine):
 
     job.run_test("platform_ExternalUsbPeripherals", host=host,
                  disable_sysinfo=True, client_autotest="desktopui_SimpleLogin",
-                 action_sequence=action_sequence, repeat=repeat, tag="stress3")
+                 action_sequence=action_sequence, repeat=repeat,
+                 stress_rack=True, tag="stress3")
 
 parallel_simple(run, machines)

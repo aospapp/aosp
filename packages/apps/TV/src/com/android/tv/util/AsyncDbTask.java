@@ -19,6 +19,7 @@ package com.android.tv.util;
 import android.content.ContentResolver;
 import android.database.Cursor;
 import android.media.tv.TvContract;
+import android.media.tv.TvContract.Programs;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.support.annotation.MainThread;
@@ -30,6 +31,7 @@ import android.util.Range;
 import com.android.tv.common.SoftPreconditions;
 import com.android.tv.data.Channel;
 import com.android.tv.data.Program;
+import com.android.tv.dvr.RecordedProgram;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -52,7 +54,7 @@ public abstract class AsyncDbTask<Params, Progress, Result>
     private static final String TAG = "AsyncDbTask";
     private static final boolean DEBUG = false;
 
-    public static final NamedThreadFactory THREAD_FACTORY = new NamedThreadFactory(
+    private static final NamedThreadFactory THREAD_FACTORY = new NamedThreadFactory(
             AsyncDbTask.class.getSimpleName());
     private static final ExecutorService DB_EXECUTOR = Executors
             .newSingleThreadExecutor(THREAD_FACTORY);
@@ -160,7 +162,7 @@ public abstract class AsyncDbTask<Params, Progress, Result>
 
         @Override
         public String toString() {
-            return this.getClass().getSimpleName() + "(" + mUri + ")";
+            return this.getClass().getName() + "(" + mUri + ")";
         }
     }
 
@@ -172,10 +174,17 @@ public abstract class AsyncDbTask<Params, Progress, Result>
      * @param <T> the type of result returned in a list by {@link #onQuery(Cursor)}
      */
     public abstract static class AsyncQueryListTask<T> extends AsyncQueryTask<List<T>> {
+        private final CursorFilter mFilter;
 
         public AsyncQueryListTask(ContentResolver contentResolver, Uri uri, String[] projection,
                 String selection, String[] selectionArgs, String orderBy) {
+            this(contentResolver, uri, projection, selection, selectionArgs, orderBy, null);
+        }
+
+        public AsyncQueryListTask(ContentResolver contentResolver, Uri uri, String[] projection,
+                String selection, String[] selectionArgs, String orderBy, CursorFilter filter) {
             super(contentResolver, uri, projection, selection, selectionArgs, orderBy);
+            mFilter = filter;
         }
 
         @Override
@@ -185,6 +194,9 @@ public abstract class AsyncDbTask<Params, Progress, Result>
                 if (isCancelled()) {
                     // This is guaranteed to never call onPostExecute because the task is canceled.
                     return null;
+                }
+                if (mFilter != null && !mFilter.filter(c)) {
+                    continue;
                 }
                 T t = fromCursor(c);
                 result.add(t);
@@ -273,6 +285,41 @@ public abstract class AsyncDbTask<Params, Progress, Result>
     }
 
     /**
+     * Gets an {@link List} of {@link Program}s from {@link TvContract.Programs#CONTENT_URI}.
+     */
+    public abstract static class AsyncProgramQueryTask extends AsyncQueryListTask<Program> {
+        public AsyncProgramQueryTask(ContentResolver contentResolver) {
+            super(contentResolver, Programs.CONTENT_URI, Program.PROJECTION, null, null, null);
+        }
+
+        public AsyncProgramQueryTask(ContentResolver contentResolver, Uri uri, String selection,
+                String[] selectionArgs, String sortOrder, CursorFilter filter) {
+            super(contentResolver, uri, Program.PROJECTION, selection, selectionArgs, sortOrder,
+                    filter);
+        }
+
+        @Override
+        protected final Program fromCursor(Cursor c) {
+            return Program.fromCursor(c);
+        }
+    }
+
+    /**
+     * Gets an {@link List} of {@link TvContract.RecordedPrograms}s.
+     */
+    public abstract static class AsyncRecordedProgramQueryTask
+            extends AsyncQueryListTask<RecordedProgram> {
+        public AsyncRecordedProgramQueryTask(ContentResolver contentResolver, Uri uri) {
+            super(contentResolver, uri, RecordedProgram.PROJECTION, null, null, null);
+        }
+
+        @Override
+        protected final RecordedProgram fromCursor(Cursor c) {
+            return RecordedProgram.fromCursor(c);
+        }
+    }
+
+    /**
      * Execute the task on the {@link #DB_EXECUTOR} thread.
      */
     @SafeVarargs
@@ -286,7 +333,7 @@ public abstract class AsyncDbTask<Params, Progress, Result>
      * TvContract#buildProgramsUriForChannel(long, long, long)}. If the {@code period} is
      * {@code null}, then all the programs is queried.
      */
-    public static class LoadProgramsForChannelTask extends AsyncQueryListTask<Program> {
+    public static class LoadProgramsForChannelTask extends AsyncProgramQueryTask {
         protected final Range<Long> mPeriod;
         protected final long mChannelId;
 
@@ -296,14 +343,9 @@ public abstract class AsyncDbTask<Params, Progress, Result>
                     ? TvContract.buildProgramsUriForChannel(channelId)
                     : TvContract.buildProgramsUriForChannel(channelId, period.getLower(),
                             period.getUpper()),
-                    Program.PROJECTION, null, null, null);
+                    null, null, null, null);
             mPeriod = period;
             mChannelId = channelId;
-        }
-
-        @Override
-        protected final Program fromCursor(Cursor c) {
-            return Program.fromCursor(c);
         }
 
         public long getChannelId() {
@@ -314,4 +356,25 @@ public abstract class AsyncDbTask<Params, Progress, Result>
             return mPeriod;
         }
     }
+
+    /**
+     * Gets a single {@link Program} from {@link TvContract.Programs#CONTENT_URI}.
+     */
+    public static class AsyncQueryProgramTask extends AsyncQueryItemTask<Program> {
+
+        public AsyncQueryProgramTask(ContentResolver contentResolver, long programId) {
+            super(contentResolver, TvContract.buildProgramUri(programId), Program.PROJECTION, null,
+                    null, null);
+        }
+
+        @Override
+        protected Program fromCursor(Cursor c) {
+            return Program.fromCursor(c);
+        }
+    }
+
+    /**
+     * An interface which filters the row.
+     */
+    public interface CursorFilter extends Filter<Cursor> { }
 }

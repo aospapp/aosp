@@ -18,24 +18,21 @@ Test script to execute Bluetooth basic functionality test cases.
 This test was designed to be run in a shield box.
 """
 
-import threading
 import time
-from contextlib import suppress
 from random import randint
 
 from queue import Empty
+from acts.test_decorators import test_tracker_info
 from acts.test_utils.bt.BluetoothBaseTest import BluetoothBaseTest
-from acts.test_utils.bt.bt_test_utils import reset_bluetooth
 from acts.test_utils.bt.BluetoothBaseTest import BluetoothBaseTest
-from acts.test_utils.bt.bt_test_utils import rfcomm_accept
-from acts.test_utils.bt.bt_test_utils import rfcomm_connect
-from acts.test_utils.bt.bt_test_utils import take_btsnoop_logs
+from acts.test_utils.bt.bt_test_utils import orchestrate_rfcomm_connection
 from acts.test_utils.bt.bt_test_utils import write_read_verify_data
+
 
 class RfcommLongevityTest(BluetoothBaseTest):
     default_timeout = 10
     longev_iterations = 200
-    thread_list = []
+    write_iterations = 5000
     generic_message = (
         "Space: the final frontier. These are the voyages of "
         "the starship Enterprise. Its continuing mission: to explore "
@@ -47,36 +44,7 @@ class RfcommLongevityTest(BluetoothBaseTest):
         self.client_ad = self.android_devices[0]
         self.server_ad = self.android_devices[1]
 
-    def on_fail(self, test_name, begin_time):
-        take_btsnoop_logs(self.android_devices, self, test_name)
-        for _ in range(5):
-            if reset_bluetooth(self.android_devices):
-                break
-            else:
-                self.log.info("Failed to reset bluetooth state, retrying...")
-
-    def teardown_test(self):
-        with suppress(Exception):
-            for thread in self.thread_list:
-                thread.join()
-        for _ in range(5):
-            if reset_bluetooth(self.android_devices):
-                break
-            else:
-                self.log.info("Failed to reset bluetooth state, retrying...")
-        time.sleep(20) #safeguard in case of connId errors
-
-    def orchestrate_rfcomm_connect(self, server_mac):
-        accept_thread = threading.Thread(target=rfcomm_accept,
-                                         args=(self.server_ad, ))
-        self.thread_list.append(accept_thread)
-        accept_thread.start()
-        connect_thread = threading.Thread(
-            target=rfcomm_connect,
-            args=(self.client_ad, server_mac))
-        self.thread_list.append(connect_thread)
-        connect_thread.start()
-
+    @test_tracker_info(uuid='2790acad-1f6e-4216-aadf-83561dddcfa3')
     def test_rfcomm_longev_read_write_message(self):
         """Longevity test an RFCOMM connection's I/O with a generic message
 
@@ -103,25 +71,24 @@ class RfcommLongevityTest(BluetoothBaseTest):
         TAGS: Classic, Longevity, RFCOMM
         Priority: 2
         """
-        server_mac = self.server_ad.droid.bluetoothGetLocalAddress()
-        write_iterations = 5000
+
         for i in range(self.longev_iterations):
-            self.log.info("iteration {} connection".format(i))
-            self.orchestrate_rfcomm_connect(server_mac)
-            for n in range(write_iterations):
+            self.log.info("iteration {} connection".format(i + 1))
+            if not orchestrate_rfcomm_connection(self.client_ad,
+                                                 self.server_ad):
+                return False
+            for n in range(self.write_iterations):
                 self.log.info("iteration {} data".format(((n + 1) + (
-                    i * write_iterations))))
+                    i * self.write_iterations))))
                 if not write_read_verify_data(self.client_ad, self.server_ad,
-                    self.generic_message, False):
+                                              self.generic_message, False):
                     return False
                 self.log.info("Iteration {} completed".format(n))
             self.client_ad.droid.bluetoothRfcommStop()
             self.server_ad.droid.bluetoothRfcommStop()
-        for t in self.thread_list:
-            t.join()
-        self.thread_list.clear()
         return True
 
+    @test_tracker_info(uuid='01c420b8-845a-4539-90bf-8d7747f471ca')
     def test_rfcomm_longev_read_write_small_message(self):
         """Longevity test an RFCOMM connection's I/O with a small message
 
@@ -149,26 +116,24 @@ class RfcommLongevityTest(BluetoothBaseTest):
         TAGS: Classic, Longevity, RFCOMM
         Priority: 2
         """
-        server_mac = self.server_ad.droid.bluetoothGetLocalAddress()
         message = "x"
-        write_iterations = 5000
         for i in range(self.longev_iterations):
-            self.log.info("iteration {} connection".format(i))
-            self.orchestrate_rfcomm_connect(server_mac)
-            for n in range(write_iterations):
+            self.log.info("iteration {} connection".format(i + 1))
+            if not orchestrate_rfcomm_connection(self.client_ad,
+                                                 self.server_ad):
+                return False
+            for n in range(self.write_iterations):
                 self.log.info("iteration {} data".format(((n + 1) + (
-                    i * write_iterations))))
+                    i * self.write_iterations))))
                 if not write_read_verify_data(self.client_ad, self.server_ad,
-                    message, False):
+                                              message, False):
                     return False
                 self.log.info("Iteration {} completed".format(n))
             self.client_ad.droid.bluetoothRfcommStop()
             self.server_ad.droid.bluetoothRfcommStop()
-        for t in self.thread_list:
-            t.join()
-        self.thread_list.clear()
         return True
 
+    @test_tracker_info(uuid='8a92772a-511e-4f15-8e8b-194e499a46eb')
     def test_rfcomm_longev_read_write_binary_message(self):
         """Longevity test an RFCOMM connection's I/O with a binary message
 
@@ -196,26 +161,24 @@ class RfcommLongevityTest(BluetoothBaseTest):
         TAGS: Classic, Longevity, RFCOMM
         Priority: 2
         """
-        server_mac = self.server_ad.droid.bluetoothGetLocalAddress()
         binary_message = "11010101"
-        write_iterations = 5000
         for i in range(self.longev_iterations):
-            self.log.info("iteration {} connection".format(i))
-            self.orchestrate_rfcomm_connect(server_mac)
-            for n in range(write_iterations):
+            self.log.info("iteration {} connection".format(i + 1))
+            if not orchestrate_rfcomm_connection(self.client_ad,
+                                                 self.server_ad):
+                return False
+            for n in range(self.write_iterations):
                 self.log.info("iteration {} data".format(((n + 1) + (
-                    i * write_iterations))))
+                    i * self.write_iterations))))
                 if not write_read_verify_data(self.client_ad, self.server_ad,
-                    binary_message, True):
+                                              binary_message, True):
                     return False
                 self.log.info("Iteration {} completed".format(n))
             self.client_ad.droid.bluetoothRfcommStop()
             self.server_ad.droid.bluetoothRfcommStop()
-        for t in self.thread_list:
-            t.join()
-        self.thread_list.clear()
         return True
 
+    @test_tracker_info(uuid='ff0ab2e4-2a7d-45b9-b034-4cd32c0fa139')
     def test_rfcomm_longev_read_write_large_message(self):
         """Longevity test an RFCOMM connection's I/O with a large message
 
@@ -243,26 +206,24 @@ class RfcommLongevityTest(BluetoothBaseTest):
         TAGS: Classic, Longevity, RFCOMM
         Priority: 2
         """
-        server_mac = self.server_ad.droid.bluetoothGetLocalAddress()
-        message = "x" * 990  #largest message size till sl4a fixed
-        write_iterations = 5000
+        message = "x" * 990  # largest message size till sl4a fixed
         for i in range(self.longev_iterations):
-            self.log.info("iteration {} connection".format(i))
-            self.orchestrate_rfcomm_connect(server_mac)
-            for n in range(write_iterations):
+            self.log.info("iteration {} connection".format(i + 1))
+            if not orchestrate_rfcomm_connection(self.client_ad,
+                                                 self.server_ad):
+                return False
+            for n in range(self.write_iterations):
                 self.log.info("iteration {} data".format(((n + 1) + (
-                    i * write_iterations))))
+                    i * self.write_iterations))))
                 if not write_read_verify_data(self.client_ad, self.server_ad,
-                    message, False):
+                                              message, False):
                     return False
                 self.log.info("Iteration {} completed".format(n))
             self.client_ad.droid.bluetoothRfcommStop()
             self.server_ad.droid.bluetoothRfcommStop()
-        for t in self.thread_list:
-            t.join()
-        self.thread_list.clear()
         return True
 
+    @test_tracker_info(uuid='950924b7-d893-4a33-ba09-d80d53dc7d13')
     def test_rfcomm_longev_connection_interuption(self):
         """Longevity test an RFCOMM connection's with socket interuptions
 
@@ -293,18 +254,19 @@ class RfcommLongevityTest(BluetoothBaseTest):
         TAGS: Classic, Longevity, RFCOMM
         Priority: 2
         """
-        server_mac = self.server_ad.droid.bluetoothGetLocalAddress()
-        write_iterations = 5000
         for i in range(self.longev_iterations):
             try:
-                self.log.info("iteration {} connection".format(i))
-                self.orchestrate_rfcomm_connect(server_mac)
-                random_interup_iteration = randint(0, write_iterations)
-                for n in range(write_iterations):
+                self.log.info("iteration {} connection".format(i + 1))
+                if not orchestrate_rfcomm_connection(self.client_ad,
+                                                     self.server_ad):
+                    return False
+                random_interup_iteration = randint(0, self.write_iterations)
+                for n in range(self.write_iterations):
                     self.log.info("iteration {} data".format(((n + 1) + (
-                        i * write_iterations))))
-                    if not write_read_verify_data(self.client_ad, self.server_ad,
-                        self.generic_message, False):
+                        i * self.write_iterations))))
+                    if not write_read_verify_data(self.client_ad,
+                                                  self.server_ad,
+                                                  self.generic_message, False):
                         return False
                     self.log.info("Iteration {} completed".format(n))
                     if n > random_interup_iteration:
@@ -325,14 +287,9 @@ class RfcommLongevityTest(BluetoothBaseTest):
                     self.log.error(
                         "Error closing server connection: {}".format(err))
                     return False
-                for t in self.thread_list:
-                    t.join()
-                self.thread_list.clear()
-        for t in self.thread_list:
-            t.join()
-        self.thread_list.clear()
         return True
 
+    @test_tracker_info(uuid='155a25be-3e6c-4462-a78f-f6a161b90953')
     def test_rfcomm_longev_data_elasticity(self):
         """Longevity test an RFCOMM connection's I/O with changing data size
 
@@ -364,19 +321,19 @@ class RfcommLongevityTest(BluetoothBaseTest):
         TAGS: Classic, Longevity, RFCOMM
         Priority: 2
         """
-        server_mac = self.server_ad.droid.bluetoothGetLocalAddress()
         message = "x"
         resize_toggle = 1
-        write_iterations = 5000
         for i in range(self.longev_iterations):
             try:
-                self.log.info("iteration {} connection".format(i))
-                self.orchestrate_rfcomm_connect(server_mac)
-                for n in range(write_iterations):
+                self.log.info("iteration {} connection".format(i + 1))
+                if not orchestrate_rfcomm_connection(self.client_ad,
+                                                     self.server_ad):
+                    return False
+                for n in range(self.write_iterations):
                     self.log.info("iteration {} data".format(((n + 1) + (
-                        i * write_iterations))))
-                    if not write_read_verify_data(self.client_ad, self.server_ad,
-                        message, False):
+                        i * self.write_iterations))))
+                    if not write_read_verify_data(
+                            self.client_ad, self.server_ad, message, False):
                         return False
                     self.log.info("Iteration {} completed".format(n))
                     size_of_message = len(message)
@@ -393,12 +350,5 @@ class RfcommLongevityTest(BluetoothBaseTest):
                 self.server_ad.droid.bluetoothRfcommStop()
             except Exception as err:
                 self.log.info("Error in longevity test: {}".format(err))
-                for t in self.thread_list:
-                    t.join()
-                self.thread_list.clear()
                 return False
-
-        for t in self.thread_list:
-            t.join()
-        self.thread_list.clear()
         return True

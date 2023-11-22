@@ -17,145 +17,68 @@ package com.android.car;
 
 import android.car.CarInfoManager;
 import android.car.ICarInfo;
-import android.car.annotation.ValueTypeDef;
 import android.content.Context;
 import android.os.Bundle;
 import android.provider.Settings;
 
 import com.android.car.hal.InfoHalService;
-import com.android.car.hal.VehicleHal;
+import com.android.car.internal.FeatureConfiguration;
+import com.android.car.internal.FeatureUtil;
 
 import java.io.PrintWriter;
-import java.lang.reflect.Field;
-import java.util.HashMap;
-import java.util.Map;
 
 public class CarInfoService extends ICarInfo.Stub implements CarServiceBase {
 
-    private static final HashMap<String, Class> sKeyValueTypeMap;
-    static {
-        sKeyValueTypeMap = new HashMap<String, Class>();
-        for (Field f : CarInfoManager.class.getDeclaredFields()) {
-            try {
-                if (f.isAnnotationPresent(ValueTypeDef.class) && f.getType() == String.class) {
-                    ValueTypeDef typeDef = f.getAnnotation(ValueTypeDef.class);
-                    Class type = typeDef.type();
-                    sKeyValueTypeMap.put((String)f.get(null), type);
-                }
-            } catch (IllegalAccessException e) {
-                //ignore
-            }
-        }
-    }
-
     private final InfoHalService mInfoHal;
-    private final HashMap<String, Object> mInfoCache = new HashMap<String, Object>();
     private final Context mContext;
 
-    public CarInfoService(Context context) {
-        mInfoHal = VehicleHal.getInstance().getInfoHal();
+    public CarInfoService(Context context, InfoHalService infoHal) {
+        mInfoHal = infoHal;
         mContext = context;
     }
 
     @Override
-    public int[] getInt(String key) {
-        assertType(key, Integer.class);
-        Object o = findFromCache(key);
-        if (o != null) {
-            return (int[])o;
-        }
-        int[] v = mInfoHal.getInt(key);
-        if (v != null) {
-            storeToCache(key, v);
-        }
-        return v;
+    public Bundle getBasicInfo() {
+        return mInfoHal.getBasicInfo();
     }
 
     @Override
-    public float[] getFloat(String key) {
-        assertType(key, Float.class);
-        Object o = findFromCache(key);
-        if (o != null) {
-            return (float[])o;
+    public String getStringInfo(String key) {
+        switch (key) {
+            case CarInfoManager.INFO_KEY_PRODUCT_CONFIGURATION:
+                FeatureUtil.assertFeature(
+                        FeatureConfiguration.ENABLE_PRODUCT_CONFIGURATION_INFO);
+                // still protect with if-feature code. code under if can be dropped by
+                // proguard if necessary.
+                if (FeatureConfiguration.ENABLE_PRODUCT_CONFIGURATION_INFO) {
+                    //TODO get it from HAL layer
+                    return null;
+                }
+                break;
+            default: // just throw exception
+                break;
         }
-        float[] v = mInfoHal.getFloat(key);
-        if (v != null) {
-            storeToCache(key, v);
-        }
-        return v;
-    }
-
-    @Override
-    public long[] getLong(String key) {
-        assertType(key, Long.class);
-        Object o = findFromCache(key);
-        if (o != null) {
-            return (long[])o;
-        }
-        long[] v = mInfoHal.getLong(key);
-        if (v != null) {
-            storeToCache(key, v);
-        }
-        return v;
-    }
-
-    @Override
-    public String getString(String key) {
-        assertType(key, String.class);
-        if (CarInfoManager.KEY_VEHICLE_ID.equals(key)) { // do not show real ID.
-            // never put this into cache as ANDROID_ID can be changed.
-            return Settings.Secure.getString(mContext.getContentResolver(),
-                    Settings.Secure.ANDROID_ID);
-        }
-        Object o = findFromCache(key);
-        if (o != null) {
-            return (String)o;
-        }
-        String v = mInfoHal.getString(key);
-        if (v != null) {
-            storeToCache(key, v);
-        }
-        return v;
-    }
-
-    @Override
-    public Bundle getBundle(String key) {
-        // OEM may extend this.
-        return null;
+        throw new IllegalArgumentException("Unsupported key:" + key);
     }
 
     @Override
     public void init() {
-        //nothing to do
+        Bundle info = mInfoHal.getBasicInfo();
+        // do not update ID immediately even if user clears it.
+        info.putString(CarInfoManager.BASIC_INFO_KEY_VEHICLE_ID,
+                Settings.Secure.getString(mContext.getContentResolver(),
+                        Settings.Secure.ANDROID_ID));
     }
 
     @Override
     public synchronized void release() {
-        mInfoCache.clear();
+        //nothing to do
     }
 
     @Override
     public void dump(PrintWriter writer) {
         writer.println("*CarInfoService*");
-        writer.println("***Dump info cache***");
-        for (Map.Entry<String, Object> entry : mInfoCache.entrySet()) {
-            writer.println(entry.getKey() + ":" + entry.getValue());
-        }
-    }
-
-    private synchronized Object findFromCache(String key) {
-        return mInfoCache.get(key);
-    }
-
-    private synchronized void storeToCache(String key, Object value) {
-        mInfoCache.put(key, value);
-    }
-
-    private void assertType(String key, Class type) throws IllegalArgumentException {
-        Class expectedType = sKeyValueTypeMap.get(key);
-        if (expectedType == null || !expectedType.equals(type)) {
-            throw new IllegalArgumentException("Given key " + key + " expects type " +
-                    expectedType + " while used in method for " + type);
-        }
+        writer.println("**Check HAL dump");
     }
 }
+

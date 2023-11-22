@@ -1,6 +1,9 @@
 Updating RenderScript
 =====================
 
+For the latest version of this doc, please make sure to visit:
+[Android RenderScript Prebuilts Doc](https://android.googlesource.com/platform/external/clang/+/dev/RenderScriptPrebuilts.md)
+
 Updating LLVM Libraries
 -----------------------
 
@@ -43,22 +46,25 @@ maintaining easy reverts/commits through *aosp/master*.
 Generating New Prebuilts
 ------------------------
 
-1. Iteratively attempt to build the platform and fix any API differences in
+1. Set RS_LLVM_PREBUILTS_VERSION in build/core/clang/config.mk to the latest
+   prebuilts generated for this rebase, or to the latest platform version if no
+   new prebuilts were generated.
+2. Iteratively attempt to build the platform and fix any API differences in
    frameworks/compile/slang, and/or frameworks/compile/libbcc. This may entail
    updating the various snapshots of Bitcode Readers/Writers.
-2. Update RenderScript prebuilts.
+3. Update RenderScript prebuilts.
 
         cd $ANDROID_BUILD_TOP/frameworks/rs
         ./update_rs_prebuilts.sh
 
-3. The prebuilts get copied to **prebuilts/sdk**, so we must upload the
+4. The prebuilts get copied to **prebuilts/sdk**, so we must upload the
 relevant bits from there.
 
         cd $ANDROID_BUILD_TOP/prebuilts/sdk
         git commit -a
         repo upload .
 
-4. Submit CLs.
+5. Submit CLs.
 
 
 Testing Checklist

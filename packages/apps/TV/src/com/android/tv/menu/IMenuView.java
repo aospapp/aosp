@@ -54,6 +54,13 @@ public interface IMenuView {
     boolean update(boolean menuActive);
 
     /**
+     * Updates the menu row.
+     *
+     * <p>Returns <@code true> if the contents have been changed, otherwise {@code false}.
+     */
+    boolean update(String rowId, boolean menuActive);
+
+    /**
      * Checks if the menu view is visible or not.
      */
     boolean isVisible();

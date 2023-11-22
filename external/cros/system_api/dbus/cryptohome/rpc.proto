@@ -54,10 +54,18 @@ enum CryptohomeErrorCode {
   CRYPTOHOME_ERROR_CA_REFUSED_ENROLLMENT = 23;
   CRYPTOHOME_ERROR_CA_REFUSED_CERTIFICATE = 24;
   CRYPTOHOME_ERROR_INTERNAL_ATTESTATION_ERROR = 25;
+  CRYPTOHOME_ERROR_FIRMWARE_MANAGEMENT_PARAMETERS_INVALID = 26;
+  CRYPTOHOME_ERROR_FIRMWARE_MANAGEMENT_PARAMETERS_CANNOT_STORE = 27;
+  CRYPTOHOME_ERROR_FIRMWARE_MANAGEMENT_PARAMETERS_CANNOT_REMOVE = 28;
+  CRYPTOHOME_ERROR_MOUNT_OLD_ENCRYPTION = 29;
+  CRYPTOHOME_ERROR_MOUNT_PREVIOUS_MIGRATION_INCOMPLETE = 30;
 }
 
 message AccountIdentifier {
+  // |email| is deprecated. Don't use it.
   optional string email = 1;
+
+  optional string account_id = 2;
 }
 
 message AuthorizationRequest {
@@ -80,6 +88,10 @@ message MountRequest {
   // Additionally, a failed AuthorizationRequest will be expected as
   // there will be no existing keys.
   optional CreateRequest create = 2;
+  // If set to true, and cryptohomed supports the new "dircrypto" encryption,
+  // forces to use the new encryption. That is, makes it an error to mount
+  // an existing home directory encrypted in the old way (ecryptfs).
+  optional bool force_dircrypto_if_available = 3;
 }
 
 // A BaseReply type is used for all cryptohomed responses. A shared base class
@@ -119,6 +131,8 @@ message CreateRequest {
   // Setting this value means that the KeyData is filled as it
   // would be with a Key above or in an AddKeyRequest.
   optional bool copy_authorization_key = 2 [default=false];
+  // If set to true, always use eCryptfs as the encryption method.
+  optional bool force_ecryptfs = 3 [default=false];
   // In the future, this will contain account-wide data like
   // the deletion priority or the IdP's origin.
 }
@@ -274,4 +288,47 @@ message GetEndorsementInfoReply {
 }
 
 message InitializeCastKeyRequest {
+}
+
+// Flags for GetFirmwareManagementParametersReply and
+// SetFirmwareManagementParametersRequest
+enum FirmwareManagementParametersFlags {
+  NONE = 0;
+  DEVELOPER_DISABLE_BOOT = 1;
+  DEVELOPER_DISABLE_RECOVERY_INSTALL = 2;
+  DEVELOPER_DISABLE_RECOVERY_ROOTFS = 4;
+  DEVELOPER_ENABLE_USB = 8;
+  DEVELOPER_ENABLE_LEGACY = 16;
+  DEVELOPER_USE_KEY_HASH = 32;
+  DEVELOPER_DISABLE_CASE_CLOSED_DEBUGGING_UNLOCK = 64;
+}
+
+message GetFirmwareManagementParametersRequest {
+}
+
+message GetFirmwareManagementParametersReply {
+  extend BaseReply {
+    optional GetFirmwareManagementParametersReply reply = 1008;
+  }
+
+  // Flags (zero or more from FirmwareManagementParametersFlags)
+  optional int32 flags = 1;
+  optional bytes developer_key_hash = 2;
+}
+
+message SetFirmwareManagementParametersRequest {
+  // Flags (zero or more from FirmwareManagementParametersFlags)
+  optional int32 flags = 1;
+  optional bytes developer_key_hash = 2;
+}
+
+message RemoveFirmwareManagementParametersRequest {
+}
+
+message GetAccountDiskUsageReply {
+  extend BaseReply {
+    optional GetAccountDiskUsageReply reply = 1009;
+  }
+  // The size of cryptohome in bytes.
+  optional int64 size = 1;
 }

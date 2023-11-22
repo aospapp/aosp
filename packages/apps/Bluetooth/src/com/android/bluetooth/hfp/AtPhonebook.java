@@ -31,6 +31,7 @@ import android.provider.ContactsContract.PhoneLookup;
 import android.telephony.PhoneNumberUtils;
 import android.util.Log;
 
+import com.android.bluetooth.R;
 import com.android.bluetooth.Utils;
 import com.android.bluetooth.util.DevicePolicyUtils;
 
@@ -66,7 +67,6 @@ public class AtPhonebook {
     private static final String OUTGOING_CALL_WHERE = Calls.TYPE + "=" + Calls.OUTGOING_TYPE;
     private static final String INCOMING_CALL_WHERE = Calls.TYPE + "=" + Calls.INCOMING_TYPE;
     private static final String MISSED_CALL_WHERE = Calls.TYPE + "=" + Calls.MISSED_TYPE;
-    private static final String VISIBLE_PHONEBOOK_WHERE = Phone.IN_VISIBLE_GROUP + "=1";
 
     private class PhonebookResult {
         public Cursor  cursor; // result set of last query
@@ -86,9 +86,7 @@ public class AtPhonebook {
     private boolean mCheckingAccessPermission;
 
     // package and class name to which we send intent to check phone book access permission
-    private static final String ACCESS_AUTHORITY_PACKAGE = "com.android.settings";
-    private static final String ACCESS_AUTHORITY_CLASS =
-        "com.android.settings.bluetooth.BluetoothPermissionRequest";
+    private final String mPairingPackage;
     private static final String BLUETOOTH_ADMIN_PERM = android.Manifest.permission.BLUETOOTH_ADMIN;
 
     private final HashMap<String, PhonebookResult> mPhonebooks =
@@ -101,6 +99,7 @@ public class AtPhonebook {
 
     public AtPhonebook(Context context, HeadsetStateMachine headsetState) {
         mContext = context;
+        mPairingPackage = context.getString(R.string.pairing_ui_package);
         mContentResolver = context.getContentResolver();
         mStateMachine = headsetState;
         mPhonebooks.put("DC", new PhonebookResult());  // dialled calls
@@ -402,7 +401,7 @@ public class AtPhonebook {
 
         if (pb.equals("ME")) {
             ancillaryPhonebook = false;
-            where = VISIBLE_PHONEBOOK_WHERE;
+            where = null;
         } else if (pb.equals("DC")) {
             where = OUTGOING_CALL_WHERE;
         } else if (pb.equals("RC")) {
@@ -604,7 +603,7 @@ public class AtPhonebook {
         if (permission == BluetoothDevice.ACCESS_UNKNOWN) {
             log("checkAccessPermission - ACTION_CONNECTION_ACCESS_REQUEST");
             Intent intent = new Intent(BluetoothDevice.ACTION_CONNECTION_ACCESS_REQUEST);
-            intent.setClassName(ACCESS_AUTHORITY_PACKAGE, ACCESS_AUTHORITY_CLASS);
+            intent.setPackage(mPairingPackage);
             intent.putExtra(BluetoothDevice.EXTRA_ACCESS_REQUEST_TYPE,
             BluetoothDevice.REQUEST_TYPE_PHONEBOOK_ACCESS);
             intent.putExtra(BluetoothDevice.EXTRA_DEVICE, remoteDevice);

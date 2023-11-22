@@ -24,33 +24,17 @@
 
 namespace android {
 
-// must be kept in sync with definitions in BatteryManager.java
-enum {
-    BATTERY_STATUS_UNKNOWN = 1, // equals BatteryManager.BATTERY_STATUS_UNKNOWN constant
-    BATTERY_STATUS_CHARGING = 2, // equals BatteryManager.BATTERY_STATUS_CHARGING constant
-    BATTERY_STATUS_DISCHARGING = 3, // equals BatteryManager.BATTERY_STATUS_DISCHARGING constant
-    BATTERY_STATUS_NOT_CHARGING = 4, // equals BatteryManager.BATTERY_STATUS_NOT_CHARGING constant
-    BATTERY_STATUS_FULL = 5, // equals BatteryManager.BATTERY_STATUS_FULL constant
-};
+#include "BatteryServiceConstants.h"
 
-// must be kept in sync with definitions in BatteryManager.java
+// must be kept in sync with definitions in
+// frameworks/base/core/java/android/os/BatteryManager.java
 enum {
-    BATTERY_HEALTH_UNKNOWN = 1, // equals BatteryManager.BATTERY_HEALTH_UNKNOWN constant
-    BATTERY_HEALTH_GOOD = 2, // equals BatteryManager.BATTERY_HEALTH_GOOD constant
-    BATTERY_HEALTH_OVERHEAT = 3, // equals BatteryManager.BATTERY_HEALTH_OVERHEAT constant
-    BATTERY_HEALTH_DEAD = 4, // equals BatteryManager.BATTERY_HEALTH_DEAD constant
-    BATTERY_HEALTH_OVER_VOLTAGE = 5, // equals BatteryManager.BATTERY_HEALTH_OVER_VOLTAGE constant
-    BATTERY_HEALTH_UNSPECIFIED_FAILURE = 6, // equals BatteryManager.BATTERY_HEALTH_UNSPECIFIED_FAILURE constant
-    BATTERY_HEALTH_COLD = 7, // equals BatteryManager.BATTERY_HEALTH_COLD constant
-};
-
-// must be kept in sync with definitions in BatteryProperty.java
-enum {
-    BATTERY_PROP_CHARGE_COUNTER = 1, // equals BatteryProperty.CHARGE_COUNTER constant
-    BATTERY_PROP_CURRENT_NOW = 2, // equals BatteryProperty.CURRENT_NOW constant
-    BATTERY_PROP_CURRENT_AVG = 3, // equals BatteryProperty.CURRENT_AVG constant
-    BATTERY_PROP_CAPACITY = 4, // equals BatteryProperty.CAPACITY constant
-    BATTERY_PROP_ENERGY_COUNTER = 5, // equals BatteryProperty.ENERGY_COUNTER constant
+    BATTERY_PROP_CHARGE_COUNTER = 1, // equals BATTERY_PROPERTY_CHARGE_COUNTER
+    BATTERY_PROP_CURRENT_NOW = 2, // equals BATTERY_PROPERTY_CURRENT_NOW
+    BATTERY_PROP_CURRENT_AVG = 3, // equals BATTERY_PROPERTY_CURRENT_AVERAGE
+    BATTERY_PROP_CAPACITY = 4, // equals BATTERY_PROPERTY_CAPACITY
+    BATTERY_PROP_ENERGY_COUNTER = 5, // equals BATTERY_PROPERTY_ENERGY_COUNTER
+    BATTERY_PROP_BATTERY_STATUS = 6, // equals BATTERY_PROPERTY_BATTERY_STATUS
 };
 
 struct BatteryProperties {

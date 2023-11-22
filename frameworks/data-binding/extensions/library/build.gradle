@@ -46,8 +46,8 @@ android {
         versionName "1.0"
     }
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_6
-        targetCompatibility JavaVersion.VERSION_1_6
+        sourceCompatibility dataBindingConfig.javaTargetCompatibility
+        targetCompatibility dataBindingConfig.javaSourceCompatibility
     }
     buildTypes {
         release {
@@ -83,6 +83,8 @@ android.libraryVariants.all { variant ->
 
     def javadocTask = project.tasks.create(name: "javadoc${suffix}", type: Javadoc) {
         source variant.javaCompile.source
+        options.showFromPublic()
+        options.tags = ['hide']
         classpath = files(variant.javaCompile.classpath.files) + files(
                 "${android.sdkDirectory}/platforms/${android.compileSdkVersion}/android.jar")
     }

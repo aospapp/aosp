@@ -16,7 +16,6 @@
 
 package com.intel.thermal;
 
-import android.app.ActivityManagerNative;
 import android.app.IntentService;
 import android.app.Service;
 import android.content.BroadcastReceiver;

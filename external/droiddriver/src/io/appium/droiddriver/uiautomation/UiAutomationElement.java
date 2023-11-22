@@ -16,6 +16,8 @@
 
 package io.appium.droiddriver.uiautomation;
 
+import static io.appium.droiddriver.util.Strings.charSequenceToString;
+
 import android.annotation.TargetApi;
 import android.app.UiAutomation;
 import android.app.UiAutomation.AccessibilityEventFilter;
@@ -36,8 +38,6 @@ import io.appium.droiddriver.base.BaseUiElement;
 import io.appium.droiddriver.finders.Attribute;
 import io.appium.droiddriver.uiautomation.UiAutomationContext.UiAutomationCallable;
 import io.appium.droiddriver.util.Preconditions;
-
-import static io.appium.droiddriver.util.Strings.charSequenceToString;
 
 /**
  * A UiElement that gets attributes via the Accessibility API.
@@ -96,9 +96,9 @@ public class UiAutomationElement extends BaseUiElement<AccessibilityNodeInfo, Ui
     put(attribs, Attribute.BOUNDS, getBounds(node));
     attributes = Collections.unmodifiableMap(attribs);
 
-    // Order matters as getVisibleBounds depends on visible
+    // Order matters as findVisibleBounds depends on visible
     visible = node.isVisibleToUser();
-    visibleBounds = getVisibleBounds(node);
+    visibleBounds = findVisibleBounds();
     List<UiAutomationElement> mutableChildren = buildChildren(node);
     this.children = mutableChildren == null ? null : Collections.unmodifiableList(mutableChildren);
   }
@@ -132,19 +132,19 @@ public class UiAutomationElement extends BaseUiElement<AccessibilityNodeInfo, Ui
     return rect;
   }
 
-  private Rect getVisibleBounds(AccessibilityNodeInfo node) {
+  private Rect findVisibleBounds() {
     if (!visible) {
       return new Rect();
     }
-    Rect visibleBounds = getBounds();
+    Rect foundBounds = getBounds();
     UiAutomationElement parent = getParent();
-    Rect parentBounds;
     while (parent != null) {
-      parentBounds = parent.getBounds();
-      visibleBounds.intersect(parentBounds);
+      if (!foundBounds.intersect(parent.getBounds())) {
+        return new Rect();
+      }
       parent = parent.getParent();
     }
-    return visibleBounds;
+    return foundBounds;
   }
 
   @Override

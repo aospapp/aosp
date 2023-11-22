@@ -49,26 +49,6 @@ public class SdpManager {
     public static final byte PBAP_REPO_SPEED_DAIL   = 0x01<<2;
     public static final byte PBAP_REPO_FAVORITES    = 0x01<<3;
 
-    // TODO: When changing OPP to use this new API.
-    //       Move the defines to the profile
-    /* Object Push formats */
-    public static final byte OPP_FORMAT_VCARD21     = 0x01;
-    public static final byte OPP_FORMAT_VCARD30     = 0x02;
-    public static final byte OPP_FORMAT_VCAL10      = 0x03;
-    public static final byte OPP_FORMAT_ICAL20      = 0x04;
-    public static final byte OPP_FORMAT_VNOTE       = 0x05;
-    public static final byte OPP_FORMAT_VMESSAGE    = 0x06;
-    public static final byte OPP_FORMAT_ANY_TYPE_OF_OBJ = (byte)0xFF;
-
-    public static final byte[] OPP_FORMAT_ALL= {
-        OPP_FORMAT_VCARD21,
-        OPP_FORMAT_VCARD30,
-        OPP_FORMAT_VCAL10,
-        OPP_FORMAT_ICAL20,
-        OPP_FORMAT_VNOTE,
-        OPP_FORMAT_VMESSAGE,
-        OPP_FORMAT_ANY_TYPE_OF_OBJ};
-
     /* Variables to keep track of ongoing and queued search requests.
      * mTrackerLock must be held, when using/changing sSdpSearchTracker
      * and mSearchInProgress. */
@@ -77,7 +57,7 @@ public class SdpManager {
     static Object mTrackerLock = new Object();
 
     /* The timeout to wait for reply from native. Should never fire. */
-    private static final int SDP_INTENT_DELAY = 6000;
+    private static final int SDP_INTENT_DELAY = 11000;
     private static final int MESSAGE_SDP_INTENT = 2;
 
     // We need a reference to the adapter service, to be able to send intents

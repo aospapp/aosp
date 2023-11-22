@@ -16,13 +16,10 @@
 
 package android.provider.cts;
 
-import android.provider.cts.R;
-
 import android.content.ContentResolver;
 import android.content.ContentUris;
 import android.content.ContentValues;
 import android.content.Context;
-import android.cts.util.FileCopyHelper;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Environment;
@@ -30,8 +27,10 @@ import android.os.ParcelFileDescriptor;
 import android.os.SystemClock;
 import android.provider.MediaStore;
 import android.provider.MediaStore.MediaColumns;
+import android.provider.MediaStore.Files.FileColumns;
 import android.test.AndroidTestCase;
-import android.util.Log;
+
+import com.android.compatibility.common.util.FileCopyHelper;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -39,7 +38,6 @@ import java.io.FileOutputStream;
 import java.io.FilenameFilter;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -64,6 +62,10 @@ public class MediaStore_FilesTest extends AndroidTestCase {
         final String testName = getClass().getCanonicalName();
         mResolver.delete(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
                 "_data LIKE ?1", new String[] {"%" + testName + "%"});
+
+        mResolver.delete(MediaStore.Files.getContentUri("external"),
+                "_data LIKE ?1", new String[] {"%" + testName + "%"});
+
         File ext = Environment.getExternalStorageDirectory();
         File[] junk = ext.listFiles(new FilenameFilter() {
 
@@ -479,6 +481,36 @@ public class MediaStore_FilesTest extends AndroidTestCase {
                 paths, dropFirst(context.getExternalFilesDirs(Environment.DIRECTORY_PICTURES)));
         Collections.addAll(paths, dropFirst(context.getObbDirs()));
         return paths;
+    }
+
+    public void testUpdateMediaType() throws Exception {
+        String fileDir = Environment.getExternalStorageDirectory() +
+                "/" + getClass().getCanonicalName();
+        String fileName = fileDir + "/test.mp3";
+        writeFile(R.raw.testmp3, fileName);
+
+        String volumeName = MediaStoreAudioTestHelper.EXTERNAL_VOLUME_NAME;
+        Uri allFilesUri = MediaStore.Files.getContentUri(volumeName);
+        ContentValues values = new ContentValues();
+        values.put(MediaColumns.DATA, fileName);
+        values.put(FileColumns.MEDIA_TYPE, FileColumns.MEDIA_TYPE_AUDIO);
+        Uri fileUri = mResolver.insert(allFilesUri, values);
+
+
+        // There is special logic in MediaProvider#update() to update paths when a folder was moved
+        // or renamed. It only checks whether newValues only has one column but assumes the provided
+        // column is _data. We need to guard the case where there is only one column in newValues
+        // and it's not _data.
+        ContentValues newValues = new ContentValues(1);
+        newValues.put(FileColumns.MEDIA_TYPE, FileColumns.MEDIA_TYPE_NONE);
+        mResolver.update(fileUri, newValues, null, null);
+
+        try (Cursor c = mResolver.query(
+                fileUri, new String[] { FileColumns.MEDIA_TYPE }, null, null, null)) {
+            c.moveToNext();
+            assertEquals(FileColumns.MEDIA_TYPE_NONE,
+                    c.getInt(c.getColumnIndex(FileColumns.MEDIA_TYPE)));
+        }
     }
 
     private static File[] dropFirst(File[] before) {

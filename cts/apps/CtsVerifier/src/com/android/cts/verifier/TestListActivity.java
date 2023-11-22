@@ -17,7 +17,9 @@
 package com.android.cts.verifier;
 
 import android.Manifest;
+import android.app.AlertDialog;
 import android.app.ListActivity;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
@@ -31,8 +33,6 @@ import android.view.MenuItem;
 import android.view.View;
 import android.view.Window;
 import android.widget.Toast;
-
-import java.io.IOException;
 
 /** Top-level {@link ListActivity} for launching tests and managing results. */
 public class TestListActivity extends AbstractTestListActivity implements View.OnClickListener {
@@ -126,20 +126,28 @@ public class TestListActivity extends AbstractTestListActivity implements View.O
     }
 
     private void handleClearItemSelected() {
-        mAdapter.clearTestResults();
-        Toast.makeText(this, R.string.test_results_cleared, Toast.LENGTH_SHORT).show();
+        new AlertDialog.Builder(this)
+            .setMessage(R.string.test_results_clear_title)
+            .setPositiveButton(R.string.test_results_clear_yes,
+                    new DialogInterface.OnClickListener() {
+                       public void onClick(DialogInterface dialog, int id) {
+                            mAdapter.clearTestResults();
+                            Toast.makeText(
+                                TestListActivity.this,
+                                R.string.test_results_cleared,
+                                Toast.LENGTH_SHORT)
+                                    .show();
+                       }
+                   })
+            .setNegativeButton(R.string.test_results_clear_cancel, null)
+            .show();
     }
 
     private void handleViewItemSelected() {
-        try {
-            TestResultsReport report = new TestResultsReport(this, mAdapter);
-            Intent intent = new Intent(this, ReportViewerActivity.class);
-            intent.putExtra(ReportViewerActivity.EXTRA_REPORT_CONTENTS, report.getContents());
-            startActivity(intent);
-        } catch (IOException e) {
-            Toast.makeText(this, R.string.test_results_error, Toast.LENGTH_SHORT).show();
-            Log.e(TAG, "Couldn't copy test results report", e);
-        }
+        TestResultsReport report = new TestResultsReport(this, mAdapter);
+        Intent intent = new Intent(this, ReportViewerActivity.class);
+        intent.putExtra(ReportViewerActivity.EXTRA_REPORT_CONTENTS, report.getContents());
+        startActivity(intent);
     }
 
     private void handleExportItemSelected() {

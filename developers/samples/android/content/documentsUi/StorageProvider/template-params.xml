@@ -27,8 +27,8 @@
     <strings>
         <intro>
             <![CDATA[
-            \nA simple implementation of a documents provider using the storage access framework in
-            Android 4.4.
+A simple implementation of a documents provider using the storage access framework in
+Android 4.4.
             ]]>
         </intro>
         <sample_action>Log in</sample_action>

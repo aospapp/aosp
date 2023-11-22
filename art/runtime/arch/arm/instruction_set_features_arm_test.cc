@@ -31,8 +31,20 @@ TEST(ArmInstructionSetFeaturesTest, ArmFeaturesFromVariant) {
   EXPECT_TRUE(krait_features->Equals(krait_features.get()));
   EXPECT_TRUE(krait_features->AsArmInstructionSetFeatures()->HasDivideInstruction());
   EXPECT_TRUE(krait_features->AsArmInstructionSetFeatures()->HasAtomicLdrdAndStrd());
-  EXPECT_STREQ("smp,div,atomic_ldrd_strd", krait_features->GetFeatureString().c_str());
-  EXPECT_EQ(krait_features->AsBitmap(), 7U);
+  EXPECT_STREQ("div,atomic_ldrd_strd,-armv8a", krait_features->GetFeatureString().c_str());
+  EXPECT_EQ(krait_features->AsBitmap(), 3U);
+
+  // Build features for a 32-bit ARM kryo processor.
+  std::unique_ptr<const InstructionSetFeatures> kryo_features(
+      InstructionSetFeatures::FromVariant(kArm, "kryo", &error_msg));
+  ASSERT_TRUE(kryo_features.get() != nullptr) << error_msg;
+
+  ASSERT_EQ(kryo_features->GetInstructionSet(), kArm);
+  EXPECT_TRUE(kryo_features->Equals(kryo_features.get()));
+  EXPECT_TRUE(kryo_features->AsArmInstructionSetFeatures()->HasDivideInstruction());
+  EXPECT_TRUE(kryo_features->AsArmInstructionSetFeatures()->HasAtomicLdrdAndStrd());
+  EXPECT_STREQ("div,atomic_ldrd_strd,armv8a", kryo_features->GetFeatureString().c_str());
+  EXPECT_EQ(kryo_features->AsBitmap(), 7U);
 
   // Build features for a 32-bit ARM denver processor.
   std::unique_ptr<const InstructionSetFeatures> denver_features(
@@ -40,25 +52,26 @@ TEST(ArmInstructionSetFeaturesTest, ArmFeaturesFromVariant) {
   ASSERT_TRUE(denver_features.get() != nullptr) << error_msg;
 
   EXPECT_TRUE(denver_features->Equals(denver_features.get()));
-  EXPECT_TRUE(denver_features->Equals(krait_features.get()));
-  EXPECT_TRUE(krait_features->Equals(denver_features.get()));
+  EXPECT_TRUE(denver_features->HasAtLeast(krait_features.get()));
+  EXPECT_FALSE(krait_features->Equals(denver_features.get()));
+  EXPECT_FALSE(krait_features->HasAtLeast(denver_features.get()));
   EXPECT_TRUE(denver_features->AsArmInstructionSetFeatures()->HasDivideInstruction());
   EXPECT_TRUE(denver_features->AsArmInstructionSetFeatures()->HasAtomicLdrdAndStrd());
-  EXPECT_STREQ("smp,div,atomic_ldrd_strd", denver_features->GetFeatureString().c_str());
+  EXPECT_STREQ("div,atomic_ldrd_strd,armv8a", denver_features->GetFeatureString().c_str());
   EXPECT_EQ(denver_features->AsBitmap(), 7U);
 
   // Build features for a 32-bit ARMv7 processor.
-  std::unique_ptr<const InstructionSetFeatures> arm7_features(
-      InstructionSetFeatures::FromVariant(kArm, "arm7", &error_msg));
-  ASSERT_TRUE(arm7_features.get() != nullptr) << error_msg;
+  std::unique_ptr<const InstructionSetFeatures> generic_features(
+      InstructionSetFeatures::FromVariant(kArm, "generic", &error_msg));
+  ASSERT_TRUE(generic_features.get() != nullptr) << error_msg;
 
-  EXPECT_TRUE(arm7_features->Equals(arm7_features.get()));
-  EXPECT_FALSE(arm7_features->Equals(krait_features.get()));
-  EXPECT_FALSE(krait_features->Equals(arm7_features.get()));
-  EXPECT_FALSE(arm7_features->AsArmInstructionSetFeatures()->HasDivideInstruction());
-  EXPECT_FALSE(arm7_features->AsArmInstructionSetFeatures()->HasAtomicLdrdAndStrd());
-  EXPECT_STREQ("smp,-div,-atomic_ldrd_strd", arm7_features->GetFeatureString().c_str());
-  EXPECT_EQ(arm7_features->AsBitmap(), 1U);
+  EXPECT_TRUE(generic_features->Equals(generic_features.get()));
+  EXPECT_FALSE(generic_features->Equals(krait_features.get()));
+  EXPECT_FALSE(krait_features->Equals(generic_features.get()));
+  EXPECT_FALSE(generic_features->AsArmInstructionSetFeatures()->HasDivideInstruction());
+  EXPECT_FALSE(generic_features->AsArmInstructionSetFeatures()->HasAtomicLdrdAndStrd());
+  EXPECT_STREQ("-div,-atomic_ldrd_strd,-armv8a", generic_features->GetFeatureString().c_str());
+  EXPECT_EQ(generic_features->AsBitmap(), 0U);
 
   // ARM6 is not a supported architecture variant.
   std::unique_ptr<const InstructionSetFeatures> arm6_features(
@@ -70,7 +83,7 @@ TEST(ArmInstructionSetFeaturesTest, ArmFeaturesFromVariant) {
 TEST(ArmInstructionSetFeaturesTest, ArmAddFeaturesFromString) {
   std::string error_msg;
   std::unique_ptr<const InstructionSetFeatures> base_features(
-      InstructionSetFeatures::FromVariant(kArm, "arm7", &error_msg));
+      InstructionSetFeatures::FromVariant(kArm, "generic", &error_msg));
   ASSERT_TRUE(base_features.get() != nullptr) << error_msg;
 
   // Build features for a 32-bit ARM with LPAE and div processor.
@@ -82,34 +95,47 @@ TEST(ArmInstructionSetFeaturesTest, ArmAddFeaturesFromString) {
   EXPECT_TRUE(krait_features->Equals(krait_features.get()));
   EXPECT_TRUE(krait_features->AsArmInstructionSetFeatures()->HasDivideInstruction());
   EXPECT_TRUE(krait_features->AsArmInstructionSetFeatures()->HasAtomicLdrdAndStrd());
-  EXPECT_STREQ("smp,div,atomic_ldrd_strd", krait_features->GetFeatureString().c_str());
-  EXPECT_EQ(krait_features->AsBitmap(), 7U);
+  EXPECT_STREQ("div,atomic_ldrd_strd,-armv8a", krait_features->GetFeatureString().c_str());
+  EXPECT_EQ(krait_features->AsBitmap(), 3U);
+
+  // Build features for a 32-bit ARM with LPAE and div processor.
+  std::unique_ptr<const InstructionSetFeatures> kryo_features(
+      base_features->AddFeaturesFromString("atomic_ldrd_strd,div", &error_msg));
+  ASSERT_TRUE(kryo_features.get() != nullptr) << error_msg;
+
+  ASSERT_EQ(kryo_features->GetInstructionSet(), kArm);
+  EXPECT_TRUE(kryo_features->Equals(krait_features.get()));
+  EXPECT_TRUE(kryo_features->AsArmInstructionSetFeatures()->HasDivideInstruction());
+  EXPECT_TRUE(kryo_features->AsArmInstructionSetFeatures()->HasAtomicLdrdAndStrd());
+  EXPECT_STREQ("div,atomic_ldrd_strd,-armv8a", kryo_features->GetFeatureString().c_str());
+  EXPECT_EQ(kryo_features->AsBitmap(), 3U);
 
   // Build features for a 32-bit ARM processor with LPAE and div flipped.
   std::unique_ptr<const InstructionSetFeatures> denver_features(
-      base_features->AddFeaturesFromString("div,atomic_ldrd_strd", &error_msg));
+      base_features->AddFeaturesFromString("div,atomic_ldrd_strd,armv8a", &error_msg));
   ASSERT_TRUE(denver_features.get() != nullptr) << error_msg;
 
   EXPECT_TRUE(denver_features->Equals(denver_features.get()));
-  EXPECT_TRUE(denver_features->Equals(krait_features.get()));
-  EXPECT_TRUE(krait_features->Equals(denver_features.get()));
+  EXPECT_FALSE(denver_features->Equals(krait_features.get()));
+  EXPECT_TRUE(denver_features->HasAtLeast(krait_features.get()));
+  EXPECT_FALSE(krait_features->Equals(denver_features.get()));
   EXPECT_TRUE(denver_features->AsArmInstructionSetFeatures()->HasDivideInstruction());
   EXPECT_TRUE(denver_features->AsArmInstructionSetFeatures()->HasAtomicLdrdAndStrd());
-  EXPECT_STREQ("smp,div,atomic_ldrd_strd", denver_features->GetFeatureString().c_str());
+  EXPECT_STREQ("div,atomic_ldrd_strd,armv8a", denver_features->GetFeatureString().c_str());
   EXPECT_EQ(denver_features->AsBitmap(), 7U);
 
   // Build features for a 32-bit default ARM processor.
-  std::unique_ptr<const InstructionSetFeatures> arm7_features(
+  std::unique_ptr<const InstructionSetFeatures> generic_features(
       base_features->AddFeaturesFromString("default", &error_msg));
-  ASSERT_TRUE(arm7_features.get() != nullptr) << error_msg;
+  ASSERT_TRUE(generic_features.get() != nullptr) << error_msg;
 
-  EXPECT_TRUE(arm7_features->Equals(arm7_features.get()));
-  EXPECT_FALSE(arm7_features->Equals(krait_features.get()));
-  EXPECT_FALSE(krait_features->Equals(arm7_features.get()));
-  EXPECT_FALSE(arm7_features->AsArmInstructionSetFeatures()->HasDivideInstruction());
-  EXPECT_FALSE(arm7_features->AsArmInstructionSetFeatures()->HasAtomicLdrdAndStrd());
-  EXPECT_STREQ("smp,-div,-atomic_ldrd_strd", arm7_features->GetFeatureString().c_str());
-  EXPECT_EQ(arm7_features->AsBitmap(), 1U);
+  EXPECT_TRUE(generic_features->Equals(generic_features.get()));
+  EXPECT_FALSE(generic_features->Equals(krait_features.get()));
+  EXPECT_FALSE(krait_features->Equals(generic_features.get()));
+  EXPECT_FALSE(generic_features->AsArmInstructionSetFeatures()->HasDivideInstruction());
+  EXPECT_FALSE(generic_features->AsArmInstructionSetFeatures()->HasAtomicLdrdAndStrd());
+  EXPECT_STREQ("-div,-atomic_ldrd_strd,-armv8a", generic_features->GetFeatureString().c_str());
+  EXPECT_EQ(generic_features->AsBitmap(), 0U);
 }
 
 }  // namespace art

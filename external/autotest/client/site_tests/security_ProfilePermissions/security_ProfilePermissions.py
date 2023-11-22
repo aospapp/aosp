@@ -10,7 +10,7 @@ import stat
 from autotest_lib.client.bin import test, utils
 from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib.cros import chrome
-from autotest_lib.client.cros import constants, cryptohome
+from autotest_lib.client.cros import cryptohome
 
 
 class security_ProfilePermissions(test.test):
@@ -112,19 +112,23 @@ class security_ProfilePermissions(test.test):
 
             # This next section only applies if we have a real vault mounted
             # (ie, not a BWSI tmpfs).
-            if cryptohome.is_vault_mounted(
-                    username,
-                    device_regex=constants.CRYPTOHOME_DEV_REGEX_REGULAR_USER):
+            if cryptohome.is_permanent_vault_mounted(username):
                 # Also check the permissions of the underlying vault and
                 # supporting directory structure.
-                vaultpath = cryptohome.get_mounted_vault_devices(username)[0]
+                mountpath = cryptohome.get_mounted_vault_path(username)
 
-                passes.append(self.check_owner_mode(vaultpath, "root", 0700))
-                passes.append(self.check_owner_mode(vaultpath + "/../master.0",
+                # On ecryptfs backend, there's a 'vault' directory storing the
+                # encrypted data. If it exists, check its ownership as well.
+                vaultpath = os.path.join(mountpath, '../vault')
+                if os.path.exists(vaultpath):
+                    passes.append(self.check_owner_mode(vaultpath,
+                                                        "root", 0700))
+                passes.append(self.check_owner_mode(mountpath, "root", 0700))
+                passes.append(self.check_owner_mode(mountpath + "/../master.0",
                                                     "root", 0600))
-                passes.append(self.check_owner_mode(vaultpath + "/../",
+                passes.append(self.check_owner_mode(mountpath + "/../",
                                                     "root", 0700))
-                passes.append(self.check_owner_mode(vaultpath + "/../../",
+                passes.append(self.check_owner_mode(mountpath + "/../../",
                                                     "root", 0700))
 
             if False in passes:

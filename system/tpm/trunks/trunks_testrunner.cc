@@ -20,7 +20,7 @@
 #include <brillo/syslog_logging.h>
 #include <gtest/gtest.h>
 
-int main(int argc, char **argv) {
+int main(int argc, char** argv) {
   base::CommandLine::Init(argc, argv);
   brillo::InitLog(brillo::kLogToStderr);
   // Enable verbose logging while running unit tests.

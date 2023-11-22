@@ -17,15 +17,12 @@ package com.squareup.okhttp;
 
 import com.squareup.okhttp.internal.Internal;
 import com.squareup.okhttp.internal.InternalCache;
-import com.squareup.okhttp.internal.Network;
 import com.squareup.okhttp.internal.RouteDatabase;
 import com.squareup.okhttp.internal.Util;
 import com.squareup.okhttp.internal.http.AuthenticatorAdapter;
-import com.squareup.okhttp.internal.http.HttpEngine;
-import com.squareup.okhttp.internal.http.RouteException;
-import com.squareup.okhttp.internal.http.Transport;
+import com.squareup.okhttp.internal.http.StreamAllocation;
+import com.squareup.okhttp.internal.io.RealConnection;
 import com.squareup.okhttp.internal.tls.OkHostnameVerifier;
-import java.io.IOException;
 import java.net.CookieHandler;
 import java.net.MalformedURLException;
 import java.net.Proxy;
@@ -41,8 +38,6 @@ import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLSocket;
 import javax.net.ssl.SSLSocketFactory;
-import okio.BufferedSink;
-import okio.BufferedSource;
 
 /**
  * Configures and creates HTTP connections. Most applications can use a single
@@ -64,35 +59,6 @@ public class OkHttpClient implements Cloneable {
 
   static {
     Internal.instance = new Internal() {
-      @Override public Transport newTransport(
-          Connection connection, HttpEngine httpEngine) throws IOException {
-        return connection.newTransport(httpEngine);
-      }
-
-      @Override public boolean clearOwner(Connection connection) {
-        return connection.clearOwner();
-      }
-
-      @Override public void closeIfOwnedBy(Connection connection, Object owner) throws IOException {
-        connection.closeIfOwnedBy(owner);
-      }
-
-      @Override public int recycleCount(Connection connection) {
-        return connection.recycleCount();
-      }
-
-      @Override public void setProtocol(Connection connection, Protocol protocol) {
-        connection.setProtocol(protocol);
-      }
-
-      @Override public void setOwner(Connection connection, HttpEngine httpEngine) {
-        connection.setOwner(httpEngine);
-      }
-
-      @Override public boolean isReadable(Connection pooled) {
-        return pooled.isReadable();
-      }
-
       @Override public void addLenient(Headers.Builder builder, String line) {
         builder.addLenient(line);
       }
@@ -109,25 +75,22 @@ public class OkHttpClient implements Cloneable {
         return client.internalCache();
       }
 
-      @Override public void recycle(ConnectionPool pool, Connection connection) {
-        pool.recycle(connection);
+      @Override public boolean connectionBecameIdle(
+          ConnectionPool pool, RealConnection connection) {
+        return pool.connectionBecameIdle(connection);
       }
 
-      @Override public RouteDatabase routeDatabase(OkHttpClient client) {
-        return client.routeDatabase();
+      @Override public RealConnection get(
+          ConnectionPool pool, Address address, StreamAllocation streamAllocation) {
+        return pool.get(address, streamAllocation);
       }
 
-      @Override public Network network(OkHttpClient client) {
-        return client.network;
+      @Override public void put(ConnectionPool pool, RealConnection connection) {
+        pool.put(connection);
       }
 
-      @Override public void setNetwork(OkHttpClient client, Network network) {
-        client.network = network;
-      }
-
-      @Override public void connectAndSetOwner(OkHttpClient client, Connection connection,
-          HttpEngine owner, Request request) throws RouteException {
-        connection.connectAndSetOwner(client, owner, request);
+      @Override public RouteDatabase routeDatabase(ConnectionPool connectionPool) {
+        return connectionPool.routeDatabase;
       }
 
       @Override
@@ -135,24 +98,8 @@ public class OkHttpClient implements Cloneable {
         call.enqueue(responseCallback, forWebSocket);
       }
 
-      @Override public void callEngineReleaseConnection(Call call) throws IOException {
-        call.engine.releaseConnection();
-      }
-
-      @Override public Connection callEngineGetConnection(Call call) {
-        return call.engine.getConnection();
-      }
-
-      @Override public BufferedSource connectionRawSource(Connection connection) {
-        return connection.rawSource();
-      }
-
-      @Override public BufferedSink connectionRawSink(Connection connection) {
-        return connection.rawSink();
-      }
-
-      @Override public void connectionSetOwner(Connection connection, Object owner) {
-        connection.setOwner(owner);
+      @Override public StreamAllocation callEngineGetStreamAllocation(Call call) {
+        return call.engine.streamAllocation;
       }
 
       @Override
@@ -190,7 +137,7 @@ public class OkHttpClient implements Cloneable {
   private CertificatePinner certificatePinner;
   private Authenticator authenticator;
   private ConnectionPool connectionPool;
-  private Network network;
+  private Dns dns;
   private boolean followSslRedirects = true;
   private boolean followRedirects = true;
   private boolean retryOnConnectionFailure = true;
@@ -221,7 +168,7 @@ public class OkHttpClient implements Cloneable {
     this.certificatePinner = okHttpClient.certificatePinner;
     this.authenticator = okHttpClient.authenticator;
     this.connectionPool = okHttpClient.connectionPool;
-    this.network = okHttpClient.network;
+    this.dns = okHttpClient.dns;
     this.followSslRedirects = okHttpClient.followSslRedirects;
     this.followRedirects = okHttpClient.followRedirects;
     this.retryOnConnectionFailure = okHttpClient.retryOnConnectionFailure;
@@ -355,6 +302,20 @@ public class OkHttpClient implements Cloneable {
 
   public Cache getCache() {
     return cache;
+  }
+
+  /**
+   * Sets the DNS service used to lookup IP addresses for hostnames.
+   *
+   * <p>If unset, the {@link Dns#SYSTEM system-wide default} DNS will be used.
+   */
+  public OkHttpClient setDns(Dns dns) {
+    this.dns = dns;
+    return this;
+  }
+
+  public Dns getDns() {
+    return dns;
   }
 
   /**
@@ -647,8 +608,8 @@ public class OkHttpClient implements Cloneable {
     if (result.connectionSpecs == null) {
       result.connectionSpecs = DEFAULT_CONNECTION_SPECS;
     }
-    if (result.network == null) {
-      result.network = Network.DEFAULT;
+    if (result.dns == null) {
+      result.dns = Dns.SYSTEM;
     }
     return result;
   }

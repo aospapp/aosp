@@ -24,8 +24,8 @@
 #include "rsdMeshObj.h"
 #include "rsdShaderCache.h"
 
-using namespace android;
-using namespace android::renderscript;
+using android::renderscript::Context;
+using android::renderscript::Mesh;
 
 bool rsdMeshInit(const Context *rsc, const Mesh *m) {
     RsdMeshObj *drv = nullptr;

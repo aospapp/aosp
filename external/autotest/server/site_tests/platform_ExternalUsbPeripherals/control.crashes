@@ -12,9 +12,8 @@ TIME = "LONG"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "platform"
 TEST_TYPE = "server"
-ATTRIBUTES = "suite:kernel_usb"
-SUITE = "kernel_usb"
-DEPENDENCIES = "servo"
+ATTRIBUTES = "suite:usb_detect_stress"
+DEPENDENCIES = "servo, usb_detect"
 
 DOC = """
 This test uses servo to connect/disconnect servo USB hub before and

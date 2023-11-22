@@ -36,9 +36,9 @@ import android.media.tv.TvInputManager;
 import android.os.Bundle;
 import android.os.UserHandle;
 import android.support.v17.preference.LeanbackPreferenceFragment;
-import android.support.v4.content.LocalBroadcastManager;
 import android.support.v7.preference.Preference;
 import android.support.v7.preference.PreferenceGroup;
+import android.telephony.SignalStrength;
 import android.text.TextUtils;
 import android.util.ArraySet;
 import android.util.Log;
@@ -46,7 +46,6 @@ import android.util.Log;
 import com.android.settingslib.accounts.AuthenticatorHelper;
 import com.android.tv.settings.accessories.AccessoryUtils;
 import com.android.tv.settings.accessories.BluetoothAccessoryFragment;
-import com.android.tv.settings.accessories.BluetoothConnectionsManager;
 import com.android.tv.settings.accounts.AccountSyncFragment;
 import com.android.tv.settings.accounts.AddAccountWithTypeActivity;
 import com.android.tv.settings.connectivity.ConnectivityListener;
@@ -70,7 +69,7 @@ public class MainFragment extends LeanbackPreferenceFragment {
     private static final String KEY_NETWORK = "network";
     private static final String KEY_INPUTS = "inputs";
     private static final String KEY_SOUNDS = "sound_effects";
-    private static final String KEY_GOOGLE_SETTINGS = "googleSettings";
+    private static final String KEY_GOOGLE_SETTINGS = "google_settings";
     private static final String KEY_HOME_SETTINGS = "home";
     private static final String KEY_CAST_SETTINGS = "cast";
     private static final String KEY_SPEECH_SETTINGS = "speech";
@@ -104,21 +103,9 @@ public class MainFragment extends LeanbackPreferenceFragment {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         mAuthenticatorHelper = new AuthenticatorHelper(getContext(),
-                new UserHandle(UserHandle.myUserId()),
-                new AuthenticatorHelper.OnAccountsUpdateListener() {
-                    @Override
-                    public void onAccountsUpdate(UserHandle userHandle) {
-                        updateAccounts();
-                    }
-                });
+                new UserHandle(UserHandle.myUserId()), userHandle -> updateAccounts());
         mBtAdapter = BluetoothAdapter.getDefaultAdapter();
-        mConnectivityListener = new ConnectivityListener(getContext(),
-                new ConnectivityListener.Listener() {
-                    @Override
-                    public void onConnectivityChange() {
-                        updateWifi();
-                    }
-                });
+        mConnectivityListener = new ConnectivityListener(getContext(), this::updateWifi);
 
         final TvInputManager manager = (TvInputManager) getContext().getSystemService(
                 Context.TV_INPUT_SERVICE);
@@ -156,9 +143,13 @@ public class MainFragment extends LeanbackPreferenceFragment {
     public void onStart() {
         super.onStart();
         mAuthenticatorHelper.listenToAccountUpdates();
-        final IntentFilter filter =
-                new IntentFilter(BluetoothConnectionsManager.ACTION_BLUETOOTH_UPDATE);
-        LocalBroadcastManager.getInstance(getContext()).registerReceiver(mBCMReceiver, filter);
+
+        IntentFilter btChangeFilter = new IntentFilter();
+        btChangeFilter.addAction(BluetoothDevice.ACTION_ACL_CONNECTED);
+        btChangeFilter.addAction(BluetoothDevice.ACTION_ACL_DISCONNECTED);
+        btChangeFilter.addAction(BluetoothAdapter.ACTION_STATE_CHANGED);
+        getContext().registerReceiver(mBCMReceiver, btChangeFilter);
+        mConnectivityListener.start();
     }
 
     @Override
@@ -182,14 +173,23 @@ public class MainFragment extends LeanbackPreferenceFragment {
     public void onStop() {
         super.onStop();
         mAuthenticatorHelper.stopListeningToAccountUpdates();
-        LocalBroadcastManager.getInstance(getContext()).unregisterReceiver(mBCMReceiver);
+        getContext().unregisterReceiver(mBCMReceiver);
+        mConnectivityListener.stop();
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        if (mConnectivityListener != null) {
+            mConnectivityListener.destroy();
+        }
     }
 
     private void hideIfIntentUnhandled(Preference preference) {
         if (preference == null) {
             return;
         }
-        preference.setVisible(systemIntentIsHandled(preference.getIntent()) != null);
+        preference.setVisible(systemIntentIsHandled(getContext(), preference.getIntent()) != null);
     }
 
     private boolean isRestricted() {
@@ -312,8 +312,12 @@ public class MainFragment extends LeanbackPreferenceFragment {
         }
 
         final Set<BluetoothDevice> bondedDevices = mBtAdapter.getBondedDevices();
-        final Set<String> connectedBluetoothAddresses =
-                BluetoothConnectionsManager.getConnectedSet(getContext());
+        if (bondedDevices == null) {
+            mAccessoriesGroup.setVisible(false);
+            mAccessoriesGroup.removeAll();
+            return;
+        }
+
         final Context themedContext = getPreferenceManager().getContext();
 
         final Set<String> touchedKeys = new ArraySet<>(bondedDevices.size() + 1);
@@ -322,26 +326,31 @@ public class MainFragment extends LeanbackPreferenceFragment {
         }
 
         for (final BluetoothDevice device : bondedDevices) {
-            final String desc = connectedBluetoothAddresses.contains(device.getAddress())
-                    ? getString(R.string.accessory_connected)
-                    : null;
+            final String deviceAddress = device.getAddress();
+            if (TextUtils.isEmpty(deviceAddress)) {
+                Log.w(TAG, "Skipping mysteriously empty bluetooth device");
+                continue;
+            }
 
-            final String key = "BluetoothDevice:" + device.getAddress();
+            final String desc = device.isConnected() ? getString(R.string.accessory_connected) :
+                    null;
+            final String key = "BluetoothDevice:" + deviceAddress;
             touchedKeys.add(key);
             Preference preference = mAccessoriesGroup.findPreference(key);
             if (preference == null) {
                 preference = new Preference(themedContext);
                 preference.setKey(key);
             }
-            preference.setTitle(device.getName());
+            final String deviceName = device.getAliasName();
+            preference.setTitle(deviceName);
             preference.setSummary(desc);
             final int deviceImgId = AccessoryUtils.getImageIdForDevice(device);
             preference.setIcon(deviceImgId);
             preference.setFragment(BluetoothAccessoryFragment.class.getName());
             BluetoothAccessoryFragment.prepareArgs(
                     preference.getExtras(),
-                    device.getAddress(),
-                    device.getName(),
+                    deviceAddress,
+                    deviceName,
                     deviceImgId);
             mAccessoriesGroup.addPreference(preference);
         }
@@ -382,13 +391,59 @@ public class MainFragment extends LeanbackPreferenceFragment {
         mNetworkPref.setTitle(mConnectivityListener.isEthernetAvailable()
                 ? R.string.connectivity_network : R.string.connectivity_wifi);
 
-        // TODO: signal strength
+        if (mConnectivityListener.isCellConnected()) {
+            final int signal = mConnectivityListener.getCellSignalStrength();
+            switch (signal) {
+                case SignalStrength.SIGNAL_STRENGTH_GREAT:
+                    mNetworkPref.setIcon(R.drawable.ic_cell_signal_4_white);
+                    break;
+                case SignalStrength.SIGNAL_STRENGTH_GOOD:
+                    mNetworkPref.setIcon(R.drawable.ic_cell_signal_3_white);
+                    break;
+                case SignalStrength.SIGNAL_STRENGTH_MODERATE:
+                    mNetworkPref.setIcon(R.drawable.ic_cell_signal_2_white);
+                    break;
+                case SignalStrength.SIGNAL_STRENGTH_POOR:
+                    mNetworkPref.setIcon(R.drawable.ic_cell_signal_1_white);
+                    break;
+                case SignalStrength.SIGNAL_STRENGTH_NONE_OR_UNKNOWN:
+                default:
+                    mNetworkPref.setIcon(R.drawable.ic_cell_signal_0_white);
+                    break;
+            }
+        } else if (mConnectivityListener.isEthernetConnected()) {
+            mNetworkPref.setIcon(R.drawable.ic_ethernet_white);
+        } else if (mConnectivityListener.isWifiConnected()) {
+            final int signal = mConnectivityListener.getWifiSignalStrength(5);
+            switch (signal) {
+                case 4:
+                    mNetworkPref.setIcon(R.drawable.ic_wifi_signal_4_white);
+                    break;
+                case 3:
+                    mNetworkPref.setIcon(R.drawable.ic_wifi_signal_3_white);
+                    break;
+                case 2:
+                    mNetworkPref.setIcon(R.drawable.ic_wifi_signal_2_white);
+                    break;
+                case 1:
+                    mNetworkPref.setIcon(R.drawable.ic_wifi_signal_1_white);
+                    break;
+                case 0:
+                default:
+                    mNetworkPref.setIcon(R.drawable.ic_wifi_signal_0_white);
+                    break;
+            }
+        } else {
+            // TODO: get a not connected icon
+            mNetworkPref.setIcon(R.drawable.ic_wifi_signal_4_white);
+        }
     }
 
-    public void updateGoogleSettings() {
+    private void updateGoogleSettings() {
         final Preference googleSettingsPref = findPreference(KEY_GOOGLE_SETTINGS);
         if (googleSettingsPref != null) {
-            final ResolveInfo info = systemIntentIsHandled(googleSettingsPref.getIntent());
+            final ResolveInfo info = systemIntentIsHandled(getContext(),
+                    googleSettingsPref.getIntent());
             googleSettingsPref.setVisible(info != null);
             if (info != null) {
                 try {
@@ -401,20 +456,36 @@ public class MainFragment extends LeanbackPreferenceFragment {
                     Log.e(TAG, "Google settings icon not found", e);
                 }
             }
+
+            final Preference speechPref = findPreference(KEY_SPEECH_SETTINGS);
+            if (speechPref != null) {
+                speechPref.setVisible(info == null);
+            }
+            final Preference searchPref = findPreference(KEY_SEARCH_SETTINGS);
+            if (searchPref != null) {
+                searchPref.setVisible(info == null);
+            }
         }
     }
 
-    private ResolveInfo systemIntentIsHandled(Intent intent) {
+    /**
+     * Returns the ResolveInfo for the system activity that matches given intent filter or null if
+     * no such activity exists.
+     * @param context Context of the caller
+     * @param intent The intent matching the desired system app
+     * @return ResolveInfo of the matching activity or null if no match exists
+     */
+    public static ResolveInfo systemIntentIsHandled(Context context, Intent intent) {
         if (intent == null) {
             return null;
         }
 
-        final PackageManager pm = getContext().getPackageManager();
+        final PackageManager pm = context.getPackageManager();
 
         for (ResolveInfo info : pm.queryIntentActivities(intent, 0)) {
-            if (info.activityInfo != null && info.activityInfo.enabled &&
-                    (info.activityInfo.applicationInfo.flags & ApplicationInfo.FLAG_SYSTEM) ==
-                            ApplicationInfo.FLAG_SYSTEM) {
+            if (info.activityInfo != null
+                    && (info.activityInfo.applicationInfo.flags & ApplicationInfo.FLAG_SYSTEM)
+                    == ApplicationInfo.FLAG_SYSTEM) {
                 return info;
             }
         }

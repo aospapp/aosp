@@ -33,7 +33,7 @@ public class TileServiceTest extends BaseTileServiceTest {
     }
 
     public void testAddTile() throws Exception {
-        if (!supportedHardware()) return;
+        if (!supported()) return;
         addTile();
         // Verify that the service starts up and gets a onTileAdded callback.
         assertTrue(waitFor("onCreate"));
@@ -42,7 +42,7 @@ public class TileServiceTest extends BaseTileServiceTest {
     }
 
     public void testRemoveTile() throws Exception {
-        if (!supportedHardware()) return;
+        if (!supported()) return;
         addTile();
         // Verify that the service starts up and gets a onTileAdded callback.
         assertTrue(waitFor("onCreate"));
@@ -54,7 +54,7 @@ public class TileServiceTest extends BaseTileServiceTest {
     }
 
     public void testListeningNotifications() throws Exception {
-        if (!supportedHardware()) return;
+        if (!supported()) return;
         addTile();
         assertTrue(waitFor("onDestroy"));
 
@@ -67,7 +67,7 @@ public class TileServiceTest extends BaseTileServiceTest {
     }
 
     public void testListeningSettings() throws Exception {
-        if (!supportedHardware()) return;
+        if (!supported()) return;
         addTile();
         assertTrue(waitFor("onDestroy"));
 
@@ -80,7 +80,7 @@ public class TileServiceTest extends BaseTileServiceTest {
     }
 
     public void testCantAddDialog() throws Exception {
-        if (!supportedHardware()) return;
+        if (!supported()) return;
         addTile();
         assertTrue(waitFor("onDestroy"));
 
@@ -98,7 +98,7 @@ public class TileServiceTest extends BaseTileServiceTest {
     }
 
     public void testClick() throws Exception {
-        if (!supportedHardware()) return;
+        if (!supported()) return;
         addTile();
         // Wait for the tile to be added.
         assertTrue(waitFor("onTileAdded"));
@@ -120,7 +120,7 @@ public class TileServiceTest extends BaseTileServiceTest {
     }
 
     public void testClickAndShowDialog() throws Exception {
-        if (!supportedHardware()) return;
+        if (!supported()) return;
         addTile();
         assertTrue(waitFor("onDestroy"));
 
@@ -139,7 +139,7 @@ public class TileServiceTest extends BaseTileServiceTest {
     }
 
     public void testStartActivity() throws Exception {
-        if (!supportedHardware()) return;
+        if (!supported()) return;
         addTile();
         // Wait for the tile to be added.
         assertTrue(waitFor("onTileAdded"));

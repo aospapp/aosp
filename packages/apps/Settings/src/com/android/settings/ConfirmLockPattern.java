@@ -31,7 +31,7 @@ import android.view.animation.AnimationUtils;
 import android.view.animation.Interpolator;
 import android.widget.TextView;
 
-import com.android.internal.logging.MetricsProto.MetricsEvent;
+import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
 import com.android.internal.widget.LinearLayoutWithDefaultTouchRecepient;
 import com.android.internal.widget.LockPatternChecker;
 import com.android.internal.widget.LockPatternUtils;
@@ -114,7 +114,13 @@ public class ConfirmLockPattern extends ConfirmDeviceCredentialBaseActivity {
         @Override
         public View onCreateView(LayoutInflater inflater, ViewGroup container,
                 Bundle savedInstanceState) {
-            View view = inflater.inflate(R.layout.confirm_lock_pattern, null);
+            ConfirmLockPattern activity = (ConfirmLockPattern) getActivity();
+            View view = inflater.inflate(
+                    activity.getConfirmCredentialTheme() == ConfirmCredentialTheme.INTERNAL
+                            ? R.layout.confirm_lock_pattern_internal
+                            : R.layout.confirm_lock_pattern,
+                    container,
+                    false);
             mHeaderTextView = (TextView) view.findViewById(R.id.headerText);
             mLockPatternView = (LockPatternView) view.findViewById(R.id.lockPattern);
             mDetailsTextView = (TextView) view.findViewById(R.id.detailsText);
@@ -194,7 +200,7 @@ public class ConfirmLockPattern extends ConfirmDeviceCredentialBaseActivity {
         }
 
         @Override
-        protected int getMetricsCategory() {
+        public int getMetricsCategory() {
             return MetricsEvent.CONFIRM_LOCK_PATTERN;
         }
 
@@ -230,14 +236,13 @@ public class ConfirmLockPattern extends ConfirmDeviceCredentialBaseActivity {
         }
 
         private int getDefaultDetails() {
-            boolean isProfile = Utils.isManagedProfile(
-                    UserManager.get(getActivity()), mEffectiveUserId);
-            if (isProfile) {
-                return mIsStrongAuthRequired
+            boolean isStrongAuthRequired = isFingerprintDisallowedByStrongAuth();
+            if (UserManager.get(getActivity()).isManagedProfile(mEffectiveUserId)) {
+                return isStrongAuthRequired
                         ? R.string.lockpassword_strong_auth_required_reason_restart_work_pattern
                         : R.string.lockpassword_confirm_your_pattern_generic_profile;
             } else {
-                return mIsStrongAuthRequired
+                return isStrongAuthRequired
                         ? R.string.lockpassword_strong_auth_required_reason_restart_device_pattern
                         : R.string.lockpassword_confirm_your_pattern_generic;
             }
@@ -345,27 +350,24 @@ public class ConfirmLockPattern extends ConfirmDeviceCredentialBaseActivity {
             }
             mDisappearing = true;
 
-            if (getActivity().getThemeResId() == R.style.Theme_ConfirmDeviceCredentialsDark) {
+            final ConfirmLockPattern activity = (ConfirmLockPattern) getActivity();
+            // Bail if there is no active activity.
+            if (activity == null || activity.isFinishing()) {
+                return;
+            }
+            if (activity.getConfirmCredentialTheme() == ConfirmCredentialTheme.DARK) {
                 mLockPatternView.clearPattern();
                 mDisappearAnimationUtils.startAnimation2d(getActiveViews(),
-                        new Runnable() {
-                            @Override
-                            public void run() {
-                                // Bail if there is no active activity.
-                                if (getActivity() == null || getActivity().isFinishing()) {
-                                    return;
-                                }
-
-                                getActivity().setResult(RESULT_OK, intent);
-                                getActivity().finish();
-                                getActivity().overridePendingTransition(
-                                        R.anim.confirm_credential_close_enter,
-                                        R.anim.confirm_credential_close_exit);
-                            }
+                        () -> {
+                            activity.setResult(RESULT_OK, intent);
+                            activity.finish();
+                            activity.overridePendingTransition(
+                                    R.anim.confirm_credential_close_enter,
+                                    R.anim.confirm_credential_close_exit);
                         }, this);
             } else {
-                getActivity().setResult(RESULT_OK, intent);
-                getActivity().finish();
+                activity.setResult(RESULT_OK, intent);
+                activity.finish();
             }
         }
 

@@ -20,14 +20,14 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include "osi/include/time.h"
 
 typedef struct alarm_t alarm_t;
 typedef struct fixed_queue_t fixed_queue_t;
 typedef struct thread_t thread_t;
-typedef uint64_t period_ms_t;
 
 // Prototype for the alarm callback function.
-typedef void (*alarm_callback_t)(void *data);
+typedef void (*alarm_callback_t)(void* data);
 
 // Creates a new one-time off alarm object with user-assigned
 // |name|. |name| may not be NULL, and a copy of the string will
@@ -36,7 +36,7 @@ typedef void (*alarm_callback_t)(void *data);
 // better debuggability), but that is not enforced. The returned
 // object must be freed by calling |alarm_free|. Returns NULL on
 // failure.
-alarm_t *alarm_new(const char *name);
+alarm_t* alarm_new(const char* name);
 
 // Creates a new periodic alarm object with user-assigned |name|.
 // |name| may not be NULL, and a copy of the string will be
@@ -45,13 +45,13 @@ alarm_t *alarm_new(const char *name);
 // debuggability), but that is not enforced. The returned object
 // must be freed by calling |alarm_free|. Returns NULL on
 // failure.
-alarm_t *alarm_new_periodic(const char *name);
+alarm_t* alarm_new_periodic(const char* name);
 
 // Frees an |alarm| object created by |alarm_new| or
 // |alarm_new_periodic|. |alarm| may be NULL. If the alarm is
 // pending, it will be cancelled first. It is not safe to call
 // |alarm_free| from inside the callback of |alarm|.
-void alarm_free(alarm_t *alarm);
+void alarm_free(alarm_t* alarm);
 
 // Sets an |alarm| to execute a callback in the future. The |cb|
 // callback is called after the given |interval_ms|, where
@@ -71,8 +71,8 @@ void alarm_free(alarm_t *alarm);
 // thread is not same as the caller’s thread. If two (or more)
 // alarms are set back-to-back with the same |interval_ms|, the
 // callbacks will be called in the order the alarms are set.
-void alarm_set(alarm_t *alarm, period_ms_t interval_ms,
-               alarm_callback_t cb, void *data);
+void alarm_set(alarm_t* alarm, period_ms_t interval_ms, alarm_callback_t cb,
+               void* data);
 
 // Sets an |alarm| to execute a callback in the future on a
 // specific |queue|. This function is same as |alarm_set| except
@@ -81,34 +81,33 @@ void alarm_set(alarm_t *alarm, period_ms_t interval_ms,
 // Also, the callback execution ordering guarantee exists only
 // among alarms that are scheduled on the same queue. |queue|
 // may not be NULL.
-void alarm_set_on_queue(alarm_t *alarm, period_ms_t interval_ms,
-                        alarm_callback_t cb, void *data,
-                        fixed_queue_t *queue);
+void alarm_set_on_queue(alarm_t* alarm, period_ms_t interval_ms,
+                        alarm_callback_t cb, void* data, fixed_queue_t* queue);
 
 // This function cancels the |alarm| if it was previously set.
 // When this call returns, the caller has a guarantee that the
 // callback is not in progress and will not be called if it
 // hasn't already been called. This function is idempotent.
 // |alarm| may not be NULL.
-void alarm_cancel(alarm_t *alarm);
+void alarm_cancel(alarm_t* alarm);
 
 // Tests whether the |alarm| is scheduled.
 // Return true if the |alarm| is scheduled or NULL, otherwise false.
-bool alarm_is_scheduled(const alarm_t *alarm);
+bool alarm_is_scheduled(const alarm_t* alarm);
 
 // Registers |queue| for processing alarm callbacks on |thread|.
 // |queue| may not be NULL. |thread| may not be NULL.
-void alarm_register_processing_queue(fixed_queue_t *queue, thread_t *thread);
+void alarm_register_processing_queue(fixed_queue_t* queue, thread_t* thread);
 
 // Unregisters |queue| for processing alarm callbacks on whichever thread
 // it is registered with. All alarms currently set for execution on |queue|
 // will be canceled. |queue| may not be NULL. This function is idempotent.
-void alarm_unregister_processing_queue(fixed_queue_t *queue);
+void alarm_unregister_processing_queue(fixed_queue_t* queue);
 
 // Figure out how much time until next expiration.
 // Returns 0 if not armed. |alarm| may not be NULL.
 // TODO: Remove this function once PM timers can be re-factored
-period_ms_t alarm_get_remaining_ms(const alarm_t *alarm);
+period_ms_t alarm_get_remaining_ms(const alarm_t* alarm);
 
 // Cleanup the alarm internal state.
 // This function should be called by the OSI module cleanup during

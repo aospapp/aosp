@@ -29,6 +29,8 @@
 #include "sha1.h"
 #include "sha256.h"
 #include "sha384.h"
+#include "md5.h"
+#include "aes_wrap.h"
 #include "crypto.h"
 
 #if OPENSSL_VERSION_NUMBER < 0x10100000L || defined(LIBRESSL_VERSION_NUMBER)
@@ -47,6 +49,8 @@ static HMAC_CTX * HMAC_CTX_new(void)
 
 static void HMAC_CTX_free(HMAC_CTX *ctx)
 {
+	if (!ctx)
+		return;
 	HMAC_CTX_cleanup(ctx);
 	bin_clear_free(ctx, sizeof(*ctx));
 }
@@ -65,6 +69,9 @@ static EVP_MD_CTX * EVP_MD_CTX_new(void)
 
 static void EVP_MD_CTX_free(EVP_MD_CTX *ctx)
 {
+	if (!ctx)
+		return;
+	EVP_MD_CTX_cleanup(ctx);
 	bin_clear_free(ctx, sizeof(*ctx));
 }
 
@@ -72,7 +79,11 @@ static void EVP_MD_CTX_free(EVP_MD_CTX *ctx)
 
 static BIGNUM * get_group5_prime(void)
 {
-#ifdef OPENSSL_IS_BORINGSSL
+#if OPENSSL_VERSION_NUMBER >= 0x10100000L && !defined(LIBRESSL_VERSION_NUMBER)
+	return BN_get_rfc3526_prime_1536(NULL);
+#elif !defined(OPENSSL_IS_BORINGSSL)
+	return get_rfc3526_prime_1536(NULL);
+#else
 	static const unsigned char RFC3526_PRIME_1536[] = {
 		0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xC9,0x0F,0xDA,0xA2,
 		0x21,0x68,0xC2,0x34,0xC4,0xC6,0x62,0x8B,0x80,0xDC,0x1C,0xD1,
@@ -92,13 +103,14 @@ static BIGNUM * get_group5_prime(void)
 		0xCA,0x23,0x73,0x27,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,
 	};
         return BN_bin2bn(RFC3526_PRIME_1536, sizeof(RFC3526_PRIME_1536), NULL);
-#else /* OPENSSL_IS_BORINGSSL */
-	return get_rfc3526_prime_1536(NULL);
-#endif /* OPENSSL_IS_BORINGSSL */
+#endif
 }
 
 #ifdef OPENSSL_NO_SHA256
 #define NO_SHA256_WRAPPER
+#endif
+#ifdef OPENSSL_NO_SHA512
+#define NO_SHA384_WRAPPER
 #endif
 
 static int openssl_digest_vector(const EVP_MD *type, size_t num_elem,
@@ -233,6 +245,14 @@ int sha256_vector(size_t num_elem, const u8 *addr[], const size_t *len,
 }
 #endif /* NO_SHA256_WRAPPER */
 
+#ifndef NO_SHA384_WRAPPER
+int sha384_vector(size_t num_elem, const u8 *addr[], const size_t *len,
+		  u8 *mac)
+{
+	return openssl_digest_vector(EVP_sha384(), num_elem, addr, len, mac);
+}
+#endif /* NO_SHA384_WRAPPER */
+
 
 static const EVP_CIPHER * aes_get_evp_cipher(size_t keylen)
 {
@@ -363,6 +383,8 @@ int aes_wrap(const u8 *kek, size_t kek_len, int n, const u8 *plain, u8 *cipher)
 	AES_KEY actx;
 	int res;
 
+	if (TEST_FAIL())
+		return -1;
 	if (AES_set_encrypt_key(kek, kek_len << 3, &actx))
 		return -1;
 	res = AES_wrap_key(&actx, NULL, cipher, plain, n * 8);
@@ -377,6 +399,8 @@ int aes_unwrap(const u8 *kek, size_t kek_len, int n, const u8 *cipher,
 	AES_KEY actx;
 	int res;
 
+	if (TEST_FAIL())
+		return -1;
 	if (AES_set_decrypt_key(kek, kek_len << 3, &actx))
 		return -1;
 	res = AES_unwrap_key(&actx, NULL, plain, cipher, (n + 1) * 8);
@@ -602,11 +626,13 @@ void crypto_cipher_deinit(struct crypto_cipher *ctx)
 
 void * dh5_init(struct wpabuf **priv, struct wpabuf **publ)
 {
+#if OPENSSL_VERSION_NUMBER < 0x10100000L || defined(LIBRESSL_VERSION_NUMBER)
 	DH *dh;
 	struct wpabuf *pubkey = NULL, *privkey = NULL;
 	size_t publen, privlen;
 
 	*priv = NULL;
+	wpabuf_free(*publ);
 	*publ = NULL;
 
 	dh = DH_new();
@@ -645,11 +671,63 @@ err:
 	wpabuf_clear_free(privkey);
 	DH_free(dh);
 	return NULL;
+#else
+	DH *dh;
+	struct wpabuf *pubkey = NULL, *privkey = NULL;
+	size_t publen, privlen;
+	BIGNUM *p = NULL, *g;
+	const BIGNUM *priv_key = NULL, *pub_key = NULL;
+
+	*priv = NULL;
+	wpabuf_free(*publ);
+	*publ = NULL;
+
+	dh = DH_new();
+	if (dh == NULL)
+		return NULL;
+
+	g = BN_new();
+	p = get_group5_prime();
+	if (!g || BN_set_word(g, 2) != 1 || !p ||
+	    DH_set0_pqg(dh, p, NULL, g) != 1)
+		goto err;
+	p = NULL;
+	g = NULL;
+
+	if (DH_generate_key(dh) != 1)
+		goto err;
+
+	DH_get0_key(dh, &pub_key, &priv_key);
+	publen = BN_num_bytes(pub_key);
+	pubkey = wpabuf_alloc(publen);
+	if (!pubkey)
+		goto err;
+	privlen = BN_num_bytes(priv_key);
+	privkey = wpabuf_alloc(privlen);
+	if (!privkey)
+		goto err;
+
+	BN_bn2bin(pub_key, wpabuf_put(pubkey, publen));
+	BN_bn2bin(priv_key, wpabuf_put(privkey, privlen));
+
+	*priv = privkey;
+	*publ = pubkey;
+	return dh;
+
+err:
+	BN_free(p);
+	BN_free(g);
+	wpabuf_clear_free(pubkey);
+	wpabuf_clear_free(privkey);
+	DH_free(dh);
+	return NULL;
+#endif
 }
 
 
 void * dh5_init_fixed(const struct wpabuf *priv, const struct wpabuf *publ)
 {
+#if OPENSSL_VERSION_NUMBER < 0x10100000L || defined(LIBRESSL_VERSION_NUMBER)
 	DH *dh;
 
 	dh = DH_new();
@@ -680,6 +758,42 @@ void * dh5_init_fixed(const struct wpabuf *priv, const struct wpabuf *publ)
 err:
 	DH_free(dh);
 	return NULL;
+#else
+	DH *dh;
+	BIGNUM *p = NULL, *g, *priv_key = NULL, *pub_key = NULL;
+
+	dh = DH_new();
+	if (dh == NULL)
+		return NULL;
+
+	g = BN_new();
+	p = get_group5_prime();
+	if (!g || BN_set_word(g, 2) != 1 || !p ||
+	    DH_set0_pqg(dh, p, NULL, g) != 1)
+		goto err;
+	p = NULL;
+	g = NULL;
+
+	priv_key = BN_bin2bn(wpabuf_head(priv), wpabuf_len(priv), NULL);
+	pub_key = BN_bin2bn(wpabuf_head(publ), wpabuf_len(publ), NULL);
+	if (!priv_key || !pub_key || DH_set0_key(dh, pub_key, priv_key) != 1)
+		goto err;
+	pub_key = NULL;
+	priv_key = NULL;
+
+	if (DH_generate_key(dh) != 1)
+		goto err;
+
+	return dh;
+
+err:
+	BN_free(p);
+	BN_free(g);
+	BN_free(pub_key);
+	BN_clear_free(priv_key);
+	DH_free(dh);
+	return NULL;
+#endif
 }
 
 
@@ -917,7 +1031,7 @@ int hmac_sha384_vector(const u8 *key, size_t key_len, size_t num_elem,
 		       const u8 *addr[], const size_t *len, u8 *mac)
 {
 	return openssl_hmac_vector(EVP_sha384(), key, key_len, num_elem, addr,
-				   len, mac, 32);
+				   len, mac, 48);
 }
 
 

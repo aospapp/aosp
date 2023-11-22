@@ -16,31 +16,32 @@
 
 package android.view.cts;
 
+import static junit.framework.TestCase.assertFalse;
+import static junit.framework.TestCase.assertTrue;
+
 import android.app.UiAutomation;
 import android.content.pm.PackageManager;
+import android.os.SystemClock;
 import android.support.test.InstrumentationRegistry;
+import android.support.test.filters.LargeTest;
 import android.support.test.rule.ActivityTestRule;
 import android.support.test.runner.AndroidJUnit4;
-import android.view.ViewConfiguration;
-
 import android.view.KeyEvent;
+import android.view.ViewConfiguration;
 
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import static junit.framework.TestCase.*;
-
+@LargeTest
 @RunWith(AndroidJUnit4.class)
 public class LongPressBackTest {
-    static final String TAG = "LongPressBackTest";
+    private LongPressBackActivity mActivity;
 
     @Rule
     public ActivityTestRule<LongPressBackActivity> mActivityRule =
             new ActivityTestRule<>(LongPressBackActivity.class);
-
-    private LongPressBackActivity mActivity;
 
     @Before
     public void setUp() {
@@ -52,7 +53,7 @@ public class LongPressBackTest {
      * non-watch devices
      */
     @Test
-    public void testAppIsNotDismissed() throws Exception {
+    public void testAppIsNotDismissed() {
         // Only run for non-watch devices
         if (mActivity.getPackageManager().hasSystemFeature(PackageManager.FEATURE_WATCH)) {
             return;
@@ -68,7 +69,7 @@ public class LongPressBackTest {
 
         // Wait long press time plus a few ms to ensure events get triggered
         long timeout = ViewConfiguration.get(mActivity).getDeviceGlobalActionKeyTimeout();
-        try { Thread.sleep(timeout + 500); } catch (InterruptedException ignored) {}
+        SystemClock.sleep(timeout + 500);
 
         // Activity should not have been stopped and back key down should have been registered
         assertFalse(mActivity.wasPaused());

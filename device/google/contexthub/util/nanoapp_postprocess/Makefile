@@ -15,7 +15,7 @@
 #
 
 APP = nanoapp_postprocess
-SRC = postprocess.c ../../lib/nanohub/nanoapp.c
+SRC = postprocess_elf.c ../../lib/nanohub/nanoapp.c
 CC ?= gcc
 CC_FLAGS = -Wall -Wextra -Werror -I../../lib/include --std=c99
 

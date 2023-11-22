@@ -171,6 +171,10 @@ public class DialpadKeyButton extends FrameLayout {
                 case MotionEvent.ACTION_HOVER_EXIT:
                     if (mHoverBounds.contains(event.getX(), event.getY())) {
                         if (mLongHovered) {
+                            // In accessibility mode the long press will not automatically cause
+                            // the short press to fire for the button, so we will fire it now to
+                            // emulate the same behavior (this is important for the 0 button).
+                            simulateClickForAccessibility();
                             performLongClick();
                         } else {
                             simulateClickForAccessibility();

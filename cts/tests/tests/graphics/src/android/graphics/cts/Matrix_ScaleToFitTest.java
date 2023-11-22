@@ -16,35 +16,40 @@
 
 package android.graphics.cts;
 
+import static org.junit.Assert.assertEquals;
+
 import android.graphics.Matrix.ScaleToFit;
-import android.test.AndroidTestCase;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 
-public class Matrix_ScaleToFitTest extends AndroidTestCase {
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
-
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class Matrix_ScaleToFitTest {
+    @Test
     public void testValues() {
         ScaleToFit[] scaleToFits = ScaleToFit.values();
         assertEquals(ScaleToFit.FILL,scaleToFits[0]);
-        assertEquals( ScaleToFit.START,scaleToFits[1]);
-        assertEquals( ScaleToFit.CENTER,scaleToFits[2]);
-        assertEquals( ScaleToFit.END,scaleToFits[3]);
+        assertEquals(ScaleToFit.START,scaleToFits[1]);
+        assertEquals(ScaleToFit.CENTER,scaleToFits[2]);
+        assertEquals(ScaleToFit.END,scaleToFits[3]);
     }
 
+    @Test
     public void testValueOf() {
         assertEquals(ScaleToFit.FILL,ScaleToFit.valueOf("FILL"));
-        assertEquals( ScaleToFit.START,ScaleToFit.valueOf("START"));
-        assertEquals( ScaleToFit.CENTER,ScaleToFit.valueOf("CENTER"));
+        assertEquals(ScaleToFit.START,ScaleToFit.valueOf("START"));
+        assertEquals(ScaleToFit.CENTER,ScaleToFit.valueOf("CENTER"));
         assertEquals(ScaleToFit.END,ScaleToFit.valueOf("END") );
     }
 
+    @Test
     public void testValueOf2() {
-        assertEquals(ScaleToFit.FILL, ScaleToFit.valueOf(ScaleToFit.class,
-                "FILL"));
-        assertEquals(ScaleToFit.START, ScaleToFit.valueOf(ScaleToFit.class,
-                "START"));
-        assertEquals(ScaleToFit.CENTER, ScaleToFit.valueOf(ScaleToFit.class,
-                "CENTER"));
-        assertEquals(ScaleToFit.END, ScaleToFit
-                .valueOf(ScaleToFit.class, "END"));
+        assertEquals(ScaleToFit.FILL, ScaleToFit.valueOf(ScaleToFit.class, "FILL"));
+        assertEquals(ScaleToFit.START, ScaleToFit.valueOf(ScaleToFit.class, "START"));
+        assertEquals(ScaleToFit.CENTER, ScaleToFit.valueOf(ScaleToFit.class, "CENTER"));
+        assertEquals(ScaleToFit.END, ScaleToFit.valueOf(ScaleToFit.class, "END"));
     }
 }

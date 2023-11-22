@@ -48,6 +48,57 @@
                 android:protectionLevel="normal"
                 android:permissionGroup="android.permission-group.COST_MONEY" />
 
+    <permission android:name="android.content.cts.REQUIRED_FEATURE_DEFINED"
+        android:protectionLevel="normal" />
+
+    <permission android:name="android.content.cts.REQUIRED_FEATURE_UNDEFINED"
+        android:protectionLevel="normal" />
+
+    <permission android:name="android.content.cts.REQUIRED_NOT_FEATURE_DEFINED"
+        android:protectionLevel="normal" />
+
+    <permission android:name="android.content.cts.REQUIRED_NOT_FEATURE_UNDEFINED"
+        android:protectionLevel="normal" />
+
+    <permission android:name="android.content.cts.REQUIRED_MULTI_DENY"
+        android:protectionLevel="normal" />
+
+    <permission android:name="android.content.cts.REQUIRED_MULTI_GRANT"
+        android:protectionLevel="normal" />
+
+    <uses-permission android:name="android.content.cts.REQUIRED_FEATURE_DEFINED"
+        android:requiredFeature="android.software.cts" />
+
+    <uses-permission android:name="android.content.cts.REQUIRED_FEATURE_UNDEFINED"
+        android:requiredFeature="android.software.cts.undefined" />
+
+    <uses-permission android:name="android.content.cts.REQUIRED_NOT_FEATURE_DEFINED"
+        android:requiredNotFeature="android.software.cts" />
+
+    <uses-permission android:name="android.content.cts.REQUIRED_NOT_FEATURE_UNDEFINED"
+        android:requiredNotFeature="android.software.cts.undefined" />
+
+    <uses-permission android:name="android.content.cts.REQUIRED_MULTI_DENY"
+        android:requiredFeature="android.software.cts.undefined"
+        android:requiredNotFeature="android.software.cts" />
+
+    <uses-permission android:name="android.content.cts.REQUIRED_MULTI_DENY"
+        android:requiredFeature="android.software.cts"
+        android:requiredNotFeature="android.software.cts" />
+
+    <uses-permission android:name="android.content.cts.REQUIRED_MULTI_DENY"
+        android:requiredFeature="android.software.cts.undefined"
+        android:requiredNotFeature="android.software.cts.undefined" />
+
+    <uses-permission android:name="android.content.cts.REQUIRED_MULTI_GRANT"
+        android:requiredFeature="android.software.cts"
+        android:requiredNotFeature="android.software.cts.undefined" />
+
+    <permission android:name="android.content.cts.SIGNATURE_PERMISSION"
+        android:protectionLevel="signature" />
+
+    <uses-permission android:name="android.content.cts.SIGNATURE_PERMISSION" />
+
     <!-- Used for PackageManager test, don't delete! -->
     <uses-configuration/>
     <uses-feature android:name="android.hardware.camera" />
@@ -108,7 +159,8 @@
                 <action android:name="android.content.cts.BroadcastReceiverTest.BROADCAST_TESTABORT" />
             </intent-filter>
         </receiver>
-        <receiver android:name="android.content.cts.MockReceiver">
+        <receiver android:name="android.content.cts.MockReceiver"
+                android:permission="android.content.cts.SIGNATURE_PERMISSION">
             <intent-filter android:priority="1">
                 <action android:name="android.content.cts.BroadcastReceiverTest.BROADCAST_MOCKTEST" />
                 <action android:name="android.content.cts.BroadcastReceiverTest.BROADCAST_TESTABORT" />
@@ -163,6 +215,10 @@
         <!-- Used for PackageManager test, don't delete this MockContentProvider provider -->
         <provider android:name="android.content.cts.MockContentProvider" android:authorities="ctstest"
             android:multiprocess="false" />
+        <provider android:name="android.content.cts.MockSRSProvider"
+                  android:authorities="android.content.cts.MockSRSProvider"
+                  android:exported="false"
+                  android:multiprocess="false" />
         <provider android:name="android.content.cts.DummyProvider"
             android:authorities="android.content.cts.dummyprovider"
             android:multiprocess="true" />
@@ -176,6 +232,11 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
         </provider>
+
+        <provider android:name="android.content.cts.TestPagingContentProvider"
+            android:authorities="android.content.cts.testpagingprovider"
+            android:process=":testpagingprovider"
+            android:multiprocess="false" />
 
         <service android:name="android.content.cts.MockService" />
 
@@ -218,6 +279,13 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
+
+        <provider
+                android:name="android.content.cts.CursorWindowContentProvider"
+                android:authorities="cursorwindow.provider"
+                android:exported="true"
+                android:process=":providerProcess">
+        </provider>
 
     </application>
 

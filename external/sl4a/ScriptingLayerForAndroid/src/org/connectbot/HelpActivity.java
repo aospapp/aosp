@@ -35,7 +35,6 @@ import com.googlecode.android_scripting.Version;
 import java.io.IOException;
 
 /**
- * @author Kenny Root
  *
  */
 public class HelpActivity extends Activity {

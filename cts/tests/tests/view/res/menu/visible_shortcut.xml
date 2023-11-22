@@ -34,4 +34,19 @@
 
     </group>
 
+    <item android:id="@+id/no_modifiers"
+          android:alphabeticShortcut="d" />
+
+    <item android:id="@+id/default_modifiers"
+          android:alphabeticShortcut="e"
+          android:alphabeticModifiers="CTRL" />
+
+    <item android:id="@+id/single_modifier"
+          android:alphabeticShortcut="f"
+          android:alphabeticModifiers="SHIFT" />
+
+    <item android:id="@+id/multiple_modifiers"
+          android:alphabeticShortcut="g"
+          android:alphabeticModifiers="CTRL|SHIFT" />
+
 </menu>

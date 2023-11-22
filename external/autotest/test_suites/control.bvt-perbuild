@@ -5,7 +5,6 @@
 AUTHOR = "Chrome OS Team"
 NAME = "bvt-perbuild"
 PURPOSE = "Test basic, required functionality."
-CRITERIA = "All tests with SUITE=bvt-perbuild must pass."
 
 TIME = "SHORT"
 TEST_CATEGORY = "General"
@@ -49,10 +48,10 @@ _BUG_TEMPLATE = {
     'status': None,
     'summary': None,
     'title': None,
-    'ccs': ['chromeos-lab-errors@google.com']
+    'cc': ['chromeos-lab-errors@google.com']
 }
 
-args_dict['max_runtime_mins'] = 20
+args_dict['max_runtime_mins'] = 60
 args_dict['job'] = job
 args_dict['add_experimental'] = True
 args_dict['name'] = 'bvt-perbuild'

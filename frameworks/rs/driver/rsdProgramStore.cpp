@@ -24,9 +24,8 @@
 #include <GLES/gl.h>
 #include <GLES/glext.h>
 
-
-using namespace android;
-using namespace android::renderscript;
+using android::renderscript::Context;
+using android::renderscript::ProgramStore;
 
 struct DrvProgramStore {
     GLenum blendSrc;

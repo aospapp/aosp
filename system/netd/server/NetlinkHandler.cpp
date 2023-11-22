@@ -34,6 +34,9 @@
 static const char *kUpdated = "updated";
 static const char *kRemoved = "removed";
 
+namespace android {
+namespace net {
+
 NetlinkHandler::NetlinkHandler(NetlinkManager *nm, int listenerSocket,
                                int format) :
                         NetlinkListener(listenerSocket, format) {
@@ -215,12 +218,15 @@ void NetlinkHandler::notifyRouteChange(NetlinkEvent::Action action, const char *
            "Route %s %s%s%s%s%s",
            (action == NetlinkEvent::Action::kRouteUpdated) ? kUpdated : kRemoved,
            route,
-           *gateway ? " via " : "",
+           (gateway && *gateway) ? " via " : "",
            gateway,
-           *iface ? " dev " : "",
+           (iface && *iface) ? " dev " : "",
            iface);
 }
 
 void NetlinkHandler::notifyStrictCleartext(const char* uid, const char* hex) {
     notify(ResponseCode::StrictCleartext, "%s %s", uid, hex);
 }
+
+}  // namespace net
+}  // namespace android

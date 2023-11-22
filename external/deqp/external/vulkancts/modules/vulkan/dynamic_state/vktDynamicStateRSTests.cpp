@@ -39,6 +39,9 @@ namespace vkt
 {
 namespace DynamicState
 {
+
+using namespace Draw;
+
 namespace
 {
 
@@ -249,7 +252,7 @@ protected:
 		vk::flushMappedMemoryRange(m_vk, device,
 								   m_vertexBuffer->getBoundMemory().getMemory(),
 								   m_vertexBuffer->getBoundMemory().getOffset(),
-								   sizeof(dataSize));
+								   dataSize);
 
 		const CmdPoolCreateInfo cmdPoolCreateInfo(m_context.getUniversalQueueFamilyIndex());
 		m_cmdPool = vk::createCommandPool(m_vk, device, &cmdPoolCreateInfo);
@@ -292,7 +295,7 @@ protected:
 		const vk::VkClearDepthStencilValue depthStencilClearValue = { 0.0f, 0 };
 
 		const ImageSubresourceRange subresourceRangeDepthStencil[2] = { vk::VK_IMAGE_ASPECT_DEPTH_BIT, vk::VK_IMAGE_ASPECT_STENCIL_BIT };
-		
+
 		m_vk.cmdClearDepthStencilImage(*m_cmdBuffer, m_depthStencilImage->object(),
 									   vk::VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &depthStencilClearValue, 2, subresourceRangeDepthStencil);
 
@@ -398,7 +401,7 @@ public:
 
 		// enable depth test
 		m_depthStencilState = PipelineCreateInfo::DepthStencilState(
-			vk::VK_TRUE, vk::VK_TRUE, vk::VK_COMPARE_OP_GREATER_OR_EQUAL);
+			VK_TRUE, VK_TRUE, vk::VK_COMPARE_OP_GREATER_OR_EQUAL);
 
 		DepthBiasBaseCase::initialize();
 	}
@@ -505,7 +508,7 @@ public:
 		m_data.push_back(PositionColorVertex(tcu::Vec4(0.5f, -0.5f, 0.01f, 1.0f), tcu::RGBA::green().toVec()));
 
 		// enable depth test
-		m_depthStencilState = PipelineCreateInfo::DepthStencilState(vk::VK_TRUE, vk::VK_TRUE, vk::VK_COMPARE_OP_GREATER_OR_EQUAL);
+		m_depthStencilState = PipelineCreateInfo::DepthStencilState(VK_TRUE, VK_TRUE, vk::VK_COMPARE_OP_GREATER_OR_EQUAL);
 
 		DepthBiasBaseCase::initialize();
 	}

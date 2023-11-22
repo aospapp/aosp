@@ -25,6 +25,7 @@ import android.widget.Filter;
  * widgets.</p>
  *
  * NOTE: this is copied directly from android.widget.CursorFilter
+ * @hide
  */
 class CursorFilter extends Filter {
 

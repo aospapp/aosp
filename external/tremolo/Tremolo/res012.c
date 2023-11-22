@@ -153,7 +153,7 @@ int res_inverse(vorbis_dsp_state *vd,vorbis_info_residue *info,
                    always being at most six bits */
                 for(k=0;k<partitions_per_word;k++){
                   ogg_uint32_t div=partword[j][i+k];
-                  partword[j][i+k]=temp/div;
+                  partword[j][i+k]= (div == 0) ? 0 : (temp / div);
                   temp-=partword[j][i+k]*div;
                 }
 
@@ -218,7 +218,7 @@ int res_inverse(vorbis_dsp_state *vd,vorbis_info_residue *info,
                always being at most six bits */
             for(k=0;k<partitions_per_word;k++){
               ogg_uint32_t div=partword[i+k];
-              partword[i+k]=temp/div;
+              partword[i+k]= (div == 0) ? 0 : (temp / div);
               temp-=partword[i+k]*div;
             }
           }

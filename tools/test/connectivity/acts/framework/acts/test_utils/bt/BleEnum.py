@@ -46,11 +46,14 @@ class ScanSettingsScanMode(Enum):
     SCAN_MODE_BALANCED = 1
     SCAN_MODE_LOW_LATENCY = 2
 
-
 class ScanSettingsReportDelaySeconds(Enum):
     MIN = 0
     MAX = 9223372036854775807
 
+class ScanSettingsPhy(Enum):
+    PHY_LE_1M = 1
+    PHY_LE_CODED = 3
+    PHY_LE_ALL_SUPPORTED = 255
 
 class AdvertiseSettingsAdvertiseType(Enum):
     ADVERTISE_TYPE_NON_CONNECTABLE = 0

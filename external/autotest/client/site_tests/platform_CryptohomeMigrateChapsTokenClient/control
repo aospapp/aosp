@@ -5,7 +5,6 @@
 AUTHOR = "usanghi"
 NAME = "platform_CryptohomeMigrateChapsTokenClient"
 ATTRIBUTES = "suite:manual"
-SUITE = "manual"
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "Platform"
@@ -15,4 +14,8 @@ DOC = """
 This test executes client side code for platform_CryptohomeMigrateChapsToken
 """
 
-job.run_test("platform_CryptohomeMigrateChapsTokenClient")
+job.run_test("platform_CryptohomeMigrateChapsTokenClient",
+              generate_key=True, tag="generate_key_true")
+
+job.run_test("platform_CryptohomeMigrateChapsTokenClient",
+              tag="generate_key_false")

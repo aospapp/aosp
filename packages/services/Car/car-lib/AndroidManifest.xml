@@ -17,4 +17,5 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
         xmlns:androidprv="http://schemas.android.com/apk/prv/res/android"
         package="android.car" >
+    <uses-sdk android:minSdkVersion="23" android:targetSdkVersion="23" />
 </manifest>

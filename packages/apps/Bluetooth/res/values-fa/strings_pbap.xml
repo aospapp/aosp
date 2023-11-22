@@ -12,4 +12,5 @@
     <string name="unknownName" msgid="2841414754740600042">"نام ناشناس"</string>
     <string name="localPhoneName" msgid="2349001318925409159">"نام من"</string>
     <string name="defaultnumber" msgid="8520116145890867338">"000000"</string>
+    <string name="pbap_notification_group" msgid="8487669554703627168">"اشتراک‌گذاری مخاطبین ازطریق بلوتوث"</string>
 </resources>

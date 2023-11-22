@@ -3,10 +3,12 @@
 # found in the LICENSE file.
 
 import logging
+import os
 import re
 import traceback
 from autotest_lib.client.common_lib import error
 from autotest_lib.server import test
+from autotest_lib.client.bin import site_utils
 
 class platform_CorruptRootfs(test.test):
     """Tests how the system recovers when the root file system is corrupted
@@ -59,33 +61,14 @@ class platform_CorruptRootfs(test.test):
         result = self.client.run('rootdev -s')
         logging.info('Root partition %s', result.stdout)
         rootdev = result.stdout.strip()
-
-        if rootdev == '/dev/sda3':
-            dev = '/dev/sda'
-            kernelA = dev + '2'
-            rootfsA = dev + '3'
-            kernelB = dev + '4'
-            rootfsB = dev + '5'
-        elif rootdev == '/dev/sda5':
-            dev = '/dev/sda'
-            kernelA = dev + '4'
-            rootfsA = dev + '5'
-            kernelB = dev + '2'
-            rootfsB = dev + '3'
-        elif rootdev == '/dev/mmcblk0p3':
-            dev = '/dev/mmcblk0'
-            kernelA = dev + 'p2'
-            rootfsA = dev + 'p3'
-            kernelB = dev + 'p4'
-            rootfsB = dev + 'p5'
-        elif rootdev == '/dev/mmcblk0p5':
-            dev = '/dev/mmcblk0'
-            kernelA = dev + 'p4'
-            rootfsA = dev + 'p5'
-            kernelB = dev + 'p2'
-            rootfsB = dev + 'p3'
+        if os.path.basename(rootdev).startswith('mmc'):
+            dev = rootdev[:-2]
         else:
-            raise error.TestError('Unexpected root device %s' % rootdev)
+            dev = rootdev[:-1]
+        kernelA = site_utils.get_kernel_partition(rootdev)
+        rootfsA = rootdev
+        kernelB = site_utils.get_free_kernel_partition(rootdev)
+        rootfsB = site_utils.get_free_root_partition(rootdev)
         return dev, kernelA, rootfsA, kernelB, rootfsB
 
 

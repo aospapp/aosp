@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 
+#include <atomic>
+
 #include <limits.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -29,6 +31,12 @@
 #include <linux/msm_ion.h>
 
 using namespace gralloc;
+
+static uint64_t next_backing_store_id()
+{
+    static std::atomic<uint64_t> next_id(1);
+    return next_id++;
+}
 
 gpu_context_t::gpu_context_t(const private_module_t* module,
                              IAllocController* alloc_ctrl ) :
@@ -159,7 +167,7 @@ int gpu_context_t::gralloc_alloc_buffer(unsigned int size, int usage,
         hnd->offset = data.offset;
         hnd->base = (uint64_t)(data.base) + data.offset;
         hnd->gpuaddr = 0;
-        ColorSpace_t colorSpace = ITU_R_601_FR;
+        ColorSpace_t colorSpace = ITU_R_601;
         setMetaData(hnd, UPDATE_COLOR_SPACE, (void*) &colorSpace);
 
         *pHandle = hnd;
@@ -329,6 +337,11 @@ int gpu_context_t::alloc_impl(int w, int h, int format, int usage,
     if (err < 0) {
         return err;
     }
+
+    auto hnd = (private_handle_t*) *pHandle;
+    hnd->backing_store = next_backing_store_id();
+    hnd->original_width = w;
+    hnd->original_format = format;
 
     *pStride = alignedw;
     return 0;

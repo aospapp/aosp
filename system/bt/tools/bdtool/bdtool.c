@@ -27,10 +27,14 @@
 #include "test/suite/support/callbacks.h"
 #include "test/suite/support/hal.h"
 
-static const bt_uuid_t HFP_UUID = {{ 0x00, 0x00, 0x11, 0x1E, 0x00, 0x00, 0x10, 0x00, 0x80, 0x00, 0x00, 0x80, 0x5F, 0x9B, 0x34, 0xFB }};
-static const bt_uuid_t HFP_AG_UUID = {{ 0x00, 0x00, 0x11, 0x1F, 0x00, 0x00, 0x10, 0x00, 0x80, 0x00, 0x00, 0x80, 0x5F, 0x9B, 0x34, 0xFB }};
+static const bt_uuid_t HFP_UUID = {{0x00, 0x00, 0x11, 0x1E, 0x00, 0x00, 0x10,
+                                    0x00, 0x80, 0x00, 0x00, 0x80, 0x5F, 0x9B,
+                                    0x34, 0xFB}};
+static const bt_uuid_t HFP_AG_UUID = {{0x00, 0x00, 0x11, 0x1F, 0x00, 0x00, 0x10,
+                                       0x00, 0x80, 0x00, 0x00, 0x80, 0x5F, 0x9B,
+                                       0x34, 0xFB}};
 
-const bt_interface_t *bt_interface;
+const bt_interface_t* bt_interface;
 
 bt_bdaddr_t bt_remote_bdaddr;
 
@@ -45,30 +49,23 @@ static bool sco_listen = false;
 static bool sco_connect = false;
 
 static int timeout_in_sec = 30;
-static char *bd_name;
+static char* bd_name;
 
 static struct option long_options[] = {
-  {"bdaddr", required_argument, 0, 0 },
-  {"discover", no_argument, 0, 0 },
-  {"discoverable", no_argument, 0, 0 },
-  {"time", required_argument, 0, 0 },
-  {"bond", no_argument, 0, 0 },
-  {"up", no_argument, 0, 0 },
-  {"verbose", no_argument, 0, 0 },
-  {"get_name", no_argument, 0, 0 },
-  {"set_name", required_argument, 0, 0 },
-  {"sco_listen", no_argument, 0, 0 },
-  {"sco_connect", no_argument, 0, 0 },
-  {0, 0, 0, 0 }
-};
+    {"bdaddr", required_argument, 0, 0},   {"discover", no_argument, 0, 0},
+    {"discoverable", no_argument, 0, 0},   {"time", required_argument, 0, 0},
+    {"bond", no_argument, 0, 0},           {"up", no_argument, 0, 0},
+    {"verbose", no_argument, 0, 0},        {"get_name", no_argument, 0, 0},
+    {"set_name", required_argument, 0, 0}, {"sco_listen", no_argument, 0, 0},
+    {"sco_connect", no_argument, 0, 0},    {0, 0, 0, 0}};
 
-static void usage(const char *name);
-static bool parse_args(int argc, char **argv);
+static void usage(const char* name);
+static bool parse_args(int argc, char** argv);
 static void sig_handler(int signo);
 
-bt_property_t *adapter_get_property(bt_property_type_t type);
+bt_property_t* adapter_get_property(bt_property_type_t type);
 
-int main(int argc, char **argv) {
+int main(int argc, char** argv) {
   if (!parse_args(argc, argv)) {
     usage(argv[0]);
   }
@@ -79,11 +76,13 @@ int main(int argc, char **argv) {
   }
 
   if (sco_listen && sco_connect) {
-    fprintf(stderr, "Can only select either sco_listen or sco_connect, not both\n");
+    fprintf(stderr,
+            "Can only select either sco_listen or sco_connect, not both\n");
     usage(argv[0]);
   }
 
-  if (!bond && !discover && !discoverable && !up && !get_name && !set_name && !sco_listen && !sco_connect) {
+  if (!bond && !discover && !discoverable && !up && !get_name && !set_name &&
+      !sco_listen && !sco_connect) {
     fprintf(stderr, "Must specify one command\n");
     usage(argv[0]);
   }
@@ -117,26 +116,31 @@ int main(int argc, char **argv) {
     CALL_AND_WAIT(bt_interface->enable(), adapter_state_changed);
     fprintf(stdout, "BT adapter is up\n");
 
-    bt_property_t *property = property_new_scan_mode(BT_SCAN_MODE_CONNECTABLE_DISCOVERABLE);
+    bt_property_t* property =
+        property_new_scan_mode(BT_SCAN_MODE_CONNECTABLE_DISCOVERABLE);
 
     int rc = bt_interface->set_adapter_property(property);
-    fprintf(stdout, "Set rc:%d device as discoverable for %d seconds\n", rc, timeout_in_sec);
+    fprintf(stdout, "Set rc:%d device as discoverable for %d seconds\n", rc,
+            timeout_in_sec);
 
     sleep(timeout_in_sec);
 
     property_free(property);
   }
 
-   if (bond) {
+  if (bond) {
     if (bdaddr_is_empty(&bt_remote_bdaddr)) {
-      fprintf(stderr, "Must specify a remote device address [ --bdaddr=xx:yy:zz:aa:bb:cc ]\n");
+      fprintf(stderr,
+              "Must specify a remote device address [ "
+              "--bdaddr=xx:yy:zz:aa:bb:cc ]\n");
       exit(1);
     }
 
     CALL_AND_WAIT(bt_interface->enable(), adapter_state_changed);
     fprintf(stdout, "BT adapter is up\n");
 
-    int rc = bt_interface->create_bond(&bt_remote_bdaddr, 0 /* UNKNOWN; Currently not documented :( */);
+    int rc = bt_interface->create_bond(
+        &bt_remote_bdaddr, 0 /* UNKNOWN; Currently not documented :( */);
     fprintf(stdout, "Started bonding:%d for %d seconds\n", rc, timeout_in_sec);
 
     sleep(timeout_in_sec);
@@ -154,13 +158,15 @@ int main(int argc, char **argv) {
     CALL_AND_WAIT(bt_interface->enable(), adapter_state_changed);
     fprintf(stdout, "BT adapter is up\n");
     int error;
-    CALL_AND_WAIT(error = bt_interface->get_adapter_property(BT_PROPERTY_BDNAME), adapter_properties);
+    CALL_AND_WAIT(
+        error = bt_interface->get_adapter_property(BT_PROPERTY_BDNAME),
+        adapter_properties);
     if (error != BT_STATUS_SUCCESS) {
       fprintf(stderr, "Unable to get adapter property\n");
       exit(1);
     }
-    bt_property_t *property = adapter_get_property(BT_PROPERTY_BDNAME);
-    const bt_bdname_t *name = property_as_name(property);
+    bt_property_t* property = adapter_get_property(BT_PROPERTY_BDNAME);
+    const bt_bdname_t* name = property_as_name(property);
     if (name)
       printf("Queried bluetooth device name:%s\n", name->name);
     else
@@ -171,15 +177,18 @@ int main(int argc, char **argv) {
     CALL_AND_WAIT(bt_interface->enable(), adapter_state_changed);
     fprintf(stdout, "BT adapter is up\n");
 
-    bt_property_t *property = property_new_name(bd_name);
+    bt_property_t* property = property_new_name(bd_name);
     printf("Setting bluetooth device name to:%s\n", bd_name);
     int error;
-    CALL_AND_WAIT(error = bt_interface->set_adapter_property(property), adapter_properties);
+    CALL_AND_WAIT(error = bt_interface->set_adapter_property(property),
+                  adapter_properties);
     if (error != BT_STATUS_SUCCESS) {
       fprintf(stderr, "Unable to set adapter property\n");
       exit(1);
     }
-    CALL_AND_WAIT(error = bt_interface->get_adapter_property(BT_PROPERTY_BDNAME), adapter_properties);
+    CALL_AND_WAIT(
+        error = bt_interface->get_adapter_property(BT_PROPERTY_BDNAME),
+        adapter_properties);
     if (error != BT_STATUS_SUCCESS) {
       fprintf(stderr, "Unable to get adapter property\n");
       exit(1);
@@ -194,16 +203,22 @@ int main(int argc, char **argv) {
     CALL_AND_WAIT(bt_interface->enable(), adapter_state_changed);
     fprintf(stdout, "BT adapter is up\n");
 
-    bt_property_t *property = property_new_scan_mode(BT_SCAN_MODE_CONNECTABLE_DISCOVERABLE);
-    CALL_AND_WAIT(bt_interface->set_adapter_property(property), adapter_properties);
+    bt_property_t* property =
+        property_new_scan_mode(BT_SCAN_MODE_CONNECTABLE_DISCOVERABLE);
+    CALL_AND_WAIT(bt_interface->set_adapter_property(property),
+                  adapter_properties);
     property_free(property);
 
-    const btsock_interface_t *sock = bt_interface->get_profile_interface(BT_PROFILE_SOCKETS_ID);
+    const btsock_interface_t* sock =
+        bt_interface->get_profile_interface(BT_PROFILE_SOCKETS_ID);
 
     int rfcomm_fd = INVALID_FD;
-    int error = sock->listen(BTSOCK_RFCOMM, "meow", (const uint8_t *)&HFP_AG_UUID, 0, &rfcomm_fd, 0, app_uid);
+    int error =
+        sock->listen(BTSOCK_RFCOMM, "meow", (const uint8_t*)&HFP_AG_UUID, 0,
+                     &rfcomm_fd, 0, app_uid);
     if (error != BT_STATUS_SUCCESS) {
-      fprintf(stderr, "Unable to listen for incoming RFCOMM socket: %d\n", error);
+      fprintf(stderr, "Unable to listen for incoming RFCOMM socket: %d\n",
+              error);
       exit(1);
     }
 
@@ -219,17 +234,22 @@ int main(int argc, char **argv) {
 
   if (sco_connect) {
     if (bdaddr_is_empty(&bt_remote_bdaddr)) {
-      fprintf(stderr, "Must specify a remote device address [ --bdaddr=xx:yy:zz:aa:bb:cc ]\n");
+      fprintf(stderr,
+              "Must specify a remote device address [ "
+              "--bdaddr=xx:yy:zz:aa:bb:cc ]\n");
       exit(1);
     }
 
     CALL_AND_WAIT(bt_interface->enable(), adapter_state_changed);
     fprintf(stdout, "BT adapter is up\n");
 
-    const btsock_interface_t *sock = bt_interface->get_profile_interface(BT_PROFILE_SOCKETS_ID);
+    const btsock_interface_t* sock =
+        bt_interface->get_profile_interface(BT_PROFILE_SOCKETS_ID);
 
     int rfcomm_fd = INVALID_FD;
-    int error = sock->connect(&bt_remote_bdaddr, BTSOCK_RFCOMM, (const uint8_t *)&HFP_AG_UUID, 0, &rfcomm_fd, 0, app_uid);
+    int error =
+        sock->connect(&bt_remote_bdaddr, BTSOCK_RFCOMM,
+                      (const uint8_t*)&HFP_AG_UUID, 0, &rfcomm_fd, 0, app_uid);
     if (error != BT_STATUS_SUCCESS) {
       fprintf(stderr, "Unable to connect to RFCOMM socket: %d.\n", error);
       exit(1);
@@ -240,7 +260,8 @@ int main(int argc, char **argv) {
     fprintf(stdout, "Establishing SCO connection...\n");
 
     int sock_fd = INVALID_FD;
-    error = sock->connect(&bt_remote_bdaddr, BTSOCK_SCO, NULL, 5, &sock_fd, 0, app_uid);
+    error = sock->connect(&bt_remote_bdaddr, BTSOCK_SCO, NULL, 5, &sock_fd, 0,
+                          app_uid);
     if (error != BT_STATUS_SUCCESS) {
       fprintf(stderr, "Unable to connect to SCO socket: %d.\n", error);
       exit(1);
@@ -261,24 +282,29 @@ static void sig_handler(int signo) {
   }
 }
 
-static void usage(const char *name) {
-  fprintf(stderr, "Usage: %s [--bond|--discover|--discoverable|--up|--sco_listen|--sco_connect] [--bdaddr=<bdaddr>] [--time=<time_in_sec>] --verbose\n", name);
+static void usage(const char* name) {
+  fprintf(stderr,
+          "Usage: %s "
+          "[--bond|--discover|--discoverable|--up|--sco_listen|--sco_connect] "
+          "[--bdaddr=<bdaddr>] [--time=<time_in_sec>] --verbose\n",
+          name);
   fprintf(stderr, "     bond: Discover actively advertising devices\n");
   fprintf(stderr, "     discover: Discover actively advertising devices\n");
-  fprintf(stderr, "     discoverable: Set into a connectable and discoverable mode\n");
+  fprintf(stderr,
+          "     discoverable: Set into a connectable and discoverable mode\n");
   fprintf(stderr, "     up: Only bring up stack\n");
   fprintf(stderr, "     sco_listen: Listen for incoming SCO connections\n");
-  fprintf(stderr, "     sco_connect: Establish a SCO connection with another device\n");
+  fprintf(stderr,
+          "     sco_connect: Establish a SCO connection with another device\n");
   fprintf(stderr, "     time: Time to hold in the specified mode\n");
   exit(1);
 }
 
-static bool parse_args(int argc, char **argv) {
+static bool parse_args(int argc, char** argv) {
   while (1) {
     int option_index = 0;
     int c = getopt_long_only(argc, argv, "", long_options, &option_index);
-    if (c != 0)
-      break;
+    if (c != 0) break;
 
     switch (c) {
       case 0:
@@ -297,7 +323,7 @@ static bool parse_args(int argc, char **argv) {
           timeout_in_sec = atoi(optarg);
         }
         if (option_index == 4) {
-          bond  = true;
+          bond = true;
         }
         if (option_index == 5) {
           up = true;
@@ -309,7 +335,7 @@ static bool parse_args(int argc, char **argv) {
           get_name = true;
         }
         if (option_index == 8) {
-          bd_name = (char *)optarg;
+          bd_name = (char*)optarg;
           set_name = true;
         }
         if (option_index == 9) {
@@ -327,8 +353,7 @@ static bool parse_args(int argc, char **argv) {
 
   if (optind < argc) {
     fprintf(stderr, "non-option ARGV-elements: ");
-    while (optind < argc)
-      fprintf(stderr, "%s ", argv[optind++]);
+    while (optind < argc) fprintf(stderr, "%s ", argv[optind++]);
     fprintf(stderr, "\n");
     return false;
   }

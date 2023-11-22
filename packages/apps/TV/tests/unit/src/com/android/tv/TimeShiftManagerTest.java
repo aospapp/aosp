@@ -23,7 +23,7 @@ import static com.android.tv.TimeShiftManager.TIME_SHIFT_ACTION_ID_PAUSE;
 import static com.android.tv.TimeShiftManager.TIME_SHIFT_ACTION_ID_PLAY;
 import static com.android.tv.TimeShiftManager.TIME_SHIFT_ACTION_ID_REWIND;
 
-import android.test.suitebuilder.annotation.MediumTest;
+import android.support.test.filters.MediumTest;
 
 @MediumTest
 public class TimeShiftManagerTest extends BaseMainActivityTestCase {

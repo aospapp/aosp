@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*****************************************************************************************
  *
  *   Copyright (C) 1996-2015, International Business Machines
@@ -23,23 +25,19 @@ import java.text.ParsePosition;
 import java.util.Date;
 import java.util.Locale;
 
+import org.junit.Test;
+
 import android.icu.dev.test.TestUtil;
 import android.icu.dev.test.TestUtil.JavaVendor;
 import android.icu.text.DateFormat;
 import android.icu.text.NumberFormat;
 import android.icu.util.Calendar;
 import android.icu.util.TimeZone;
-import org.junit.runner.RunWith;
-import android.icu.junit.IcuTestFmwkRunner;
 
-@RunWith(IcuTestFmwkRunner.class)
 public class IntlTestDateFormatAPI extends android.icu.dev.test.TestFmwk
 {
-    public static void main(String[] args) throws Exception {
-        new IntlTestDateFormatAPI().run(args);
-    }
-
     // Test that the equals method works correctly.
+    @Test
     public void TestEquals()
     {
         // Create two objects at different system times
@@ -72,6 +70,7 @@ public class IntlTestDateFormatAPI extends android.icu.dev.test.TestFmwk
     }
 
     // This test checks various generic API methods in DateFormat to achieve 100% API coverage.
+    @Test
     public void TestAPI()
     {
         logln("DateFormat API test---"); logln("");

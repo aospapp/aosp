@@ -17,8 +17,6 @@
 package com.android.bluetooth.btservice;
 
 import android.bluetooth.BluetoothAdapter;
-import android.content.Context;
-import android.content.Intent;
 import android.os.Message;
 import android.os.UserManager;
 import android.util.Log;
@@ -84,27 +82,19 @@ final class AdapterState extends StateMachine {
     private BleOnState mBleOnState = new BleOnState();
 
     public boolean isTurningOn() {
-        boolean isTurningOn=  mPendingCommandState.isTurningOn();
-        verboseLog("isTurningOn()=" + isTurningOn);
-        return isTurningOn;
+        return mPendingCommandState.isTurningOn();
     }
 
     public boolean isBleTurningOn() {
-        boolean isBleTurningOn=  mPendingCommandState.isBleTurningOn();
-        verboseLog("isBleTurningOn()=" + isBleTurningOn);
-        return isBleTurningOn;
+        return mPendingCommandState.isBleTurningOn();
     }
 
     public boolean isBleTurningOff() {
-        boolean isBleTurningOff =  mPendingCommandState.isBleTurningOff();
-        verboseLog("isBleTurningOff()=" + isBleTurningOff);
-        return isBleTurningOff;
+        return mPendingCommandState.isBleTurningOff();
     }
 
     public boolean isTurningOff() {
-        boolean isTurningOff= mPendingCommandState.isTurningOff();
-        verboseLog("isTurningOff()=" + isTurningOff);
-        return isTurningOff;
+        return mPendingCommandState.isTurningOff();
     }
 
     private AdapterState(AdapterService service, AdapterProperties adapterProperties) {
@@ -233,7 +223,6 @@ final class AdapterState extends StateMachine {
                 return;
             }
             adapterService.updateUuids();
-            adapterService.autoConnect();
         }
 
         @Override
@@ -314,10 +303,17 @@ final class AdapterState extends StateMachine {
         @Override
         public boolean processMessage(Message msg) {
 
-            boolean isTurningOn= isTurningOn();
+            /* Cache current states */
+            /* TODO(eisenbach): Not sure why this is done at all.
+             * Seems like the mIs* variables should be protected,
+             * or really, removed. Which reminds me: This file needs
+             * a serious refactor...*/
+            boolean isTurningOn = isTurningOn();
             boolean isTurningOff = isTurningOff();
             boolean isBleTurningOn = isBleTurningOn();
             boolean isBleTurningOff = isBleTurningOff();
+
+            logTransientStates();
 
             AdapterService adapterService = mAdapterService;
             AdapterProperties adapterProperties = mAdapterProperties;
@@ -438,6 +434,7 @@ final class AdapterState extends StateMachine {
                 case BREDR_START_TIMEOUT:
                     errorLog("Error enabling Bluetooth (start timeout)");
                     mPendingCommandState.setTurningOn(false);
+                    adapterService.stopProfileServices();
                     transitionTo(mBleOnState);
                     notifyAdapterStateChange(BluetoothAdapter.STATE_BLE_ON);
                     break;
@@ -446,6 +443,8 @@ final class AdapterState extends StateMachine {
                     errorLog("Error enabling Bluetooth (enable timeout)");
                     mPendingCommandState.setBleTurningOn(false);
                     transitionTo(mOffState);
+                    adapterService.stopProfileServices();
+                    adapterService.stopGattProfileService();
                     notifyAdapterStateChange(BluetoothAdapter.STATE_OFF);
                     break;
 
@@ -479,6 +478,18 @@ final class AdapterState extends StateMachine {
                     return false;
             }
             return true;
+        }
+
+        private void logTransientStates() {
+            StringBuilder sb = new StringBuilder();
+            sb.append("PendingCommand - transient state(s):");
+
+            if (isTurningOn()) sb.append(" isTurningOn");
+            if (isTurningOff()) sb.append(" isTurningOff");
+            if (isBleTurningOn()) sb.append(" isBleTurningOn");
+            if (isBleTurningOff()) sb.append(" isBleTurningOff");
+
+            verboseLog(sb.toString());
         }
     }
 
@@ -518,7 +529,7 @@ final class AdapterState extends StateMachine {
     }
 
     private void warningLog(String msg) {
-        if (DBG) Log.d(TAG, msg);
+        if (DBG) Log.w(TAG, msg);
     }
 
     private void verboseLog(String msg) {

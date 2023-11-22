@@ -22,7 +22,15 @@ LOCAL_MULTILIB := both
 
 LOCAL_JAVA_LIBRARIES := android.test.runner
 
-LOCAL_STATIC_JAVA_LIBRARIES := mockito-target ctsdeviceutil ctstestrunner
+LOCAL_STATIC_JAVA_LIBRARIES += \
+    android-support-test \
+    mockito-target-minus-junit4 \
+    compatibility-device-util \
+    ctstestrunner \
+    android-support-annotations \
+    junit \
+    legacy-android-test
+
 LOCAL_JNI_SHARED_LIBRARIES := libctsgraphics_jni
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
@@ -32,7 +40,8 @@ LOCAL_PACKAGE_NAME := CtsGraphicsTestCases
 # Tag this module as a cts test artifact
 LOCAL_COMPATIBILITY_SUITE := cts
 
-LOCAL_SDK_VERSION := current
+# Enforce public / test api only
+LOCAL_SDK_VERSION := test_current
 
 include $(BUILD_CTS_PACKAGE)
 

@@ -42,6 +42,7 @@ public class SetValuesDebuggee extends SyncDebuggee {
     private int privateIntField;
     final int finalIntField = 12345;
 
+    @Override
     public void run() {
         logWriter.println("--> Debuggee: SetValuesDebuggee: START");
         setValuesDebuggeeObject = new SetValuesDebuggee();

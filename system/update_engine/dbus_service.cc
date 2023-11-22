@@ -17,6 +17,7 @@
 #include "update_engine/dbus_service.h"
 
 #include "update_engine/dbus-constants.h"
+#include "update_engine/dbus_connection.h"
 #include "update_engine/update_status_utils.h"
 
 namespace chromeos_update_engine {
@@ -97,6 +98,16 @@ bool DBusUpdateEngineService::GetChannel(ErrorPtr* error,
   return common_->GetChannel(error, in_get_current_channel, out_channel);
 }
 
+bool DBusUpdateEngineService::GetCohortHint(ErrorPtr* error,
+                                            string* out_cohort_hint) {
+  return common_->GetCohortHint(error, out_cohort_hint);
+}
+
+bool DBusUpdateEngineService::SetCohortHint(ErrorPtr* error,
+                                            const string& in_cohort_hint) {
+  return common_->SetCohortHint(error, in_cohort_hint);
+}
+
 bool DBusUpdateEngineService::SetP2PUpdatePermission(ErrorPtr* error,
                                                      bool in_enabled) {
   return common_->SetP2PUpdatePermission(error, in_enabled);
@@ -133,18 +144,22 @@ bool DBusUpdateEngineService::GetRollbackPartition(
 }
 
 bool DBusUpdateEngineService::GetLastAttemptError(
-    ErrorPtr* error, int32_t* out_last_attempt_error){
- return common_->GetLastAttemptError(error, out_last_attempt_error);
+    ErrorPtr* error, int32_t* out_last_attempt_error) {
+  return common_->GetLastAttemptError(error, out_last_attempt_error);
 }
 
-UpdateEngineAdaptor::UpdateEngineAdaptor(SystemState* system_state,
-                                         const scoped_refptr<dbus::Bus>& bus)
+bool DBusUpdateEngineService::GetEolStatus(ErrorPtr* error,
+                                           int32_t* out_eol_status) {
+  return common_->GetEolStatus(error, out_eol_status);
+}
+
+UpdateEngineAdaptor::UpdateEngineAdaptor(SystemState* system_state)
     : org::chromium::UpdateEngineInterfaceAdaptor(&dbus_service_),
-    bus_(bus),
-    dbus_service_(system_state),
-    dbus_object_(nullptr,
-                 bus,
-                 dbus::ObjectPath(update_engine::kUpdateEngineServicePath)) {}
+      bus_(DBusConnection::Get()->GetDBus()),
+      dbus_service_(system_state),
+      dbus_object_(nullptr,
+                   bus_,
+                   dbus::ObjectPath(update_engine::kUpdateEngineServicePath)) {}
 
 void UpdateEngineAdaptor::RegisterAsync(
     const base::Callback<void(bool)>& completion_callback) {

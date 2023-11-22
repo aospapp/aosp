@@ -35,18 +35,10 @@
             android:layout_gravity="center_horizontal" />
     </FrameLayout>
 
-    <TextView
+    <FrameLayout
         android:layout_width="match_parent"
-        android:layout_height="@dimen/card_meta_layout_height"
-        android:paddingStart="@dimen/card_meta_padding_start"
-        android:paddingEnd="@dimen/card_meta_padding_end"
-        android:paddingTop="@dimen/card_meta_padding_top"
-        android:singleLine="true"
-        android:ellipsize="end"
-        android:fontFamily="@string/condensed_font"
-        android:textColor="@color/card_meta_text_color"
-        android:background="@color/guide_card_meta_background"
-        android:text="@string/channels_item_dvr"
-        android:textSize="12sp" />
-
+        android:layout_height="wrap_content"
+        android:background="@color/guide_card_meta_background">
+        <include layout="@layout/menu_card_text" />
+    </FrameLayout>
 </com.android.tv.menu.SimpleCardView>

@@ -20,6 +20,8 @@
 
 #include <hardware/sensors.h>
 
+extern const float kScaleAccel;
+extern const float kScaleMag;
 // A list of sensors provided by a device.
 extern const sensor_t kSensorList[];
 extern const size_t kSensorCount;

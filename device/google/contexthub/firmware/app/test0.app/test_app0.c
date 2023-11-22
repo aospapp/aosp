@@ -58,7 +58,7 @@ static void handle_event(uint32_t evtType, const void* evtData)
         te = evtData;
         eOsLog(LOG_INFO, "App 0 received timer %u callback: %d (TIM: %lld, RTC: %lld, SENSOR: %lld, HOST: %lld)\n", te->timerId, *(int *)te->data, eOsTimGetTime(), eOsRtcGetTime(), eOsSensorGetTime(), eOsHostGetTime());
         extMsg = eOsHeapAlloc(sizeof(*extMsg));
-        extMsg->hdr.appId = APP_ID_MAKE(APP_ID_VENDOR_GOOGLE, 0x548000);
+        extMsg->hdr.appId = APP_ID_MAKE(NANOHUB_VENDOR_GOOGLE, 0x548000);
         extMsg->hdr.dataLen = 5;
         extMsg->msg = 0x01;
         extMsg->val = *(int *)te->data;

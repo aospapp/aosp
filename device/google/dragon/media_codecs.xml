@@ -134,6 +134,16 @@ Only the three quirks included above are recognized at this point:
             <Feature name="adaptive-playback" />
             <Limit name="concurrent-instances" max="32" />
         </MediaCodec>
+         <MediaCodec name="OMX.Nvidia.vp9.decode.secure" type="video/x-vnd.on2.vp9" >
+            <Limit name="size" min="180x180" max="3840x2176" />
+            <Limit name="alignment" value="2x2" />
+            <Limit name="block-size" value="16x16" />
+            <Limit name="blocks-per-second" min="1" max="783360" />
+            <Limit name="bitrate" range="1-120000000" />
+            <Feature name="adaptive-playback" />
+            <Feature name="secure-playback" required="true" />
+            <Limit name="concurrent-instances" max="32" />
+        </MediaCodec>
         <MediaCodec name="OMX.Nvidia.h265.decode" type="video/hevc" >
             <Limit name="size" min="180x180" max="3840x2176" />
             <Limit name="alignment" value="2x2" />

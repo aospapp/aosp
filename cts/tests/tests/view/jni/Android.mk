@@ -18,6 +18,8 @@ include $(CLEAR_VARS)
 
 LOCAL_MODULE := libctsview_jni
 
+LOCAL_CFLAGS += -Werror
+
 LOCAL_MODULE_TAGS := tests
 
 LOCAL_SRC_FILES := \

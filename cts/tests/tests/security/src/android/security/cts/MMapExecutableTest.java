@@ -15,12 +15,14 @@
  */
 package android.security.cts;
 
+import android.platform.test.annotations.SecurityTest;
 import android.test.AndroidTestCase;
 
 /**
  * Verify that we can mmap executable code from an APK.
  * Prevent regression on: b/16727210 and b/16076402.
  */
+@SecurityTest
 public class MMapExecutableTest extends AndroidTestCase {
     public MMapExecutableTest() {}
 

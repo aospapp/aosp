@@ -53,7 +53,7 @@ static void usage(char* myname) {
 }
 
 using Sorter = std::function<void(std::vector<TaskStatistics>&)>;
-static Sorter GetSorter(const std::string field) {
+static Sorter GetSorter(const std::string& field) {
   // Generic comparator
   static auto comparator = [](auto& lhs, auto& rhs, auto field, bool ascending) -> bool {
     auto a = (lhs.*field)();

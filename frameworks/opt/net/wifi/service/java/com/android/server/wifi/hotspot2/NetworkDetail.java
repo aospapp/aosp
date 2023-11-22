@@ -1,15 +1,14 @@
 package com.android.server.wifi.hotspot2;
 
-import static com.android.server.wifi.anqp.Constants.BYTES_IN_EUI48;
-import static com.android.server.wifi.anqp.Constants.BYTE_MASK;
+import static com.android.server.wifi.hotspot2.anqp.Constants.BYTES_IN_EUI48;
+import static com.android.server.wifi.hotspot2.anqp.Constants.BYTE_MASK;
 
 import android.net.wifi.ScanResult;
 import android.util.Log;
 
-import com.android.server.wifi.anqp.ANQPElement;
-import com.android.server.wifi.anqp.Constants;
-import com.android.server.wifi.anqp.RawByteElement;
-import com.android.server.wifi.anqp.VenueNameElement;
+import com.android.server.wifi.hotspot2.anqp.ANQPElement;
+import com.android.server.wifi.hotspot2.anqp.Constants;
+import com.android.server.wifi.hotspot2.anqp.RawByteElement;
 import com.android.server.wifi.util.InformationElementUtil;
 
 import java.nio.BufferUnderflowException;
@@ -24,9 +23,7 @@ import java.util.Map;
 
 public class NetworkDetail {
 
-    //turn off when SHIP
-    private static final boolean DBG = true;
-    private static final boolean VDBG = false;
+    private static final boolean DBG = false;
 
     private static final String TAG = "NetworkDetail:";
 
@@ -59,6 +56,8 @@ public class NetworkDetail {
     private final String mSSID;
     private final long mHESSID;
     private final long mBSSID;
+    // True if the SSID is potentially from a hidden network
+    private final boolean mIsHiddenSsid;
 
     // BSS Load element:
     private final int mStationCount;
@@ -93,12 +92,9 @@ public class NetworkDetail {
     /*
      * From Interworking element:
      * mAnt non null indicates the presence of Interworking, i.e. 802.11u
-     * mVenueGroup and mVenueType may be null if not present in the Interworking element.
      */
     private final Ant mAnt;
     private final boolean mInternet;
-    private final VenueNameElement.VenueGroup mVenueGroup;
-    private final VenueNameElement.VenueType mVenueType;
 
     /*
      * From HS20 Indication element:
@@ -131,6 +127,7 @@ public class NetworkDetail {
         mBSSID = Utils.parseMac(bssid);
 
         String ssid = null;
+        boolean isHiddenSsid = false;
         byte[] ssidOctets = null;
 
         InformationElementUtil.BssLoad bssLoad = new InformationElementUtil.BssLoad();
@@ -236,23 +233,29 @@ public class NetworkDetail {
                     ssid = new String(ssidOctets, StandardCharsets.ISO_8859_1);
                 }
             }
+            isHiddenSsid = true;
+            for (byte byteVal : ssidOctets) {
+                if (byteVal != 0) {
+                    isHiddenSsid = false;
+                    break;
+                }
+            }
         }
 
         mSSID = ssid;
         mHESSID = interworking.hessid;
+        mIsHiddenSsid = isHiddenSsid;
         mStationCount = bssLoad.stationCount;
         mChannelUtilization = bssLoad.channelUtilization;
         mCapacity = bssLoad.capacity;
         mAnt = interworking.ant;
         mInternet = interworking.internet;
-        mVenueGroup = interworking.venueGroup;
-        mVenueType = interworking.venueType;
         mHSRelease = vsa.hsRelease;
         mAnqpDomainID = vsa.anqpDomainID;
         mAnqpOICount = roamingConsortium.anqpOICount;
         mRoamingConsortiums = roamingConsortium.roamingConsortiums;
         mExtendedCapabilities = extendedCapabilities;
-        mANQPElements = SupplicantBridge.parseANQPLines(anqpLines);
+        mANQPElements = null;
         //set up channel info
         mPrimaryFreq = freq;
 
@@ -268,7 +271,9 @@ public class NetworkDetail {
         }
 
         // If trafficIndicationMap is not valid, mDtimPeriod will be negative
-        mDtimInterval = trafficIndicationMap.mDtimPeriod;
+        if (trafficIndicationMap.isValid()) {
+            mDtimInterval = trafficIndicationMap.mDtimPeriod;
+        }
 
         int maxRateA = 0;
         int maxRateB = 0;
@@ -290,10 +295,10 @@ public class NetworkDetail {
             mMaxRate = 0;
             Log.w("WifiMode", mSSID + ", Invalid SupportedRates!!!");
         }
-        if (VDBG) {
+        if (DBG) {
             Log.d(TAG, mSSID + "ChannelWidth is: " + mChannelWidth + " PrimaryFreq: " + mPrimaryFreq
                     + " mCenterfreq0: " + mCenterfreq0 + " mCenterfreq1: " + mCenterfreq1
-                    + (extendedCapabilities.is80211McRTTResponder ? "Support RTT reponder"
+                    + (extendedCapabilities.is80211McRTTResponder() ? "Support RTT responder"
                     : "Do not support RTT responder"));
             Log.v("WifiMode", mSSID
                     + ", WifiMode: " + InformationElementUtil.WifiMode.toString(mWifiMode)
@@ -318,6 +323,7 @@ public class NetworkDetail {
 
     private NetworkDetail(NetworkDetail base, Map<Constants.ANQPElementType, ANQPElement> anqpElements) {
         mSSID = base.mSSID;
+        mIsHiddenSsid = base.mIsHiddenSsid;
         mBSSID = base.mBSSID;
         mHESSID = base.mHESSID;
         mStationCount = base.mStationCount;
@@ -325,8 +331,6 @@ public class NetworkDetail {
         mCapacity = base.mCapacity;
         mAnt = base.mAnt;
         mInternet = base.mInternet;
-        mVenueGroup = base.mVenueGroup;
-        mVenueType = base.mVenueType;
         mHSRelease = base.mHSRelease;
         mAnqpDomainID = base.mAnqpDomainID;
         mAnqpOICount = base.mAnqpOICount;
@@ -366,9 +370,11 @@ public class NetworkDetail {
     }
 
     public String getTrimmedSSID() {
-        for (int n = 0; n < mSSID.length(); n++) {
-            if (mSSID.charAt(n) != 0) {
-                return mSSID;
+        if (mSSID != null) {
+            for (int n = 0; n < mSSID.length(); n++) {
+                if (mSSID.charAt(n) != 0) {
+                    return mSSID;
+                }
             }
         }
         return "";
@@ -406,14 +412,6 @@ public class NetworkDetail {
         return mInternet;
     }
 
-    public VenueNameElement.VenueGroup getVenueGroup() {
-        return mVenueGroup;
-    }
-
-    public VenueNameElement.VenueType getVenueType() {
-        return mVenueType;
-    }
-
     public HSRelease getHSRelease() {
         return mHSRelease;
     }
@@ -436,10 +434,6 @@ public class NetworkDetail {
 
     public long[] getRoamingConsortiums() {
         return mRoamingConsortiums;
-    }
-
-    public Long getExtendedCapabilities() {
-        return mExtendedCapabilities.extendedCapabilities;
     }
 
     public Map<Constants.ANQPElementType, ANQPElement> getANQPElements() {
@@ -467,7 +461,7 @@ public class NetworkDetail {
     }
 
     public boolean is80211McResponderSupport() {
-        return mExtendedCapabilities.is80211McRTTResponder;
+        return mExtendedCapabilities.is80211McRTTResponder();
     }
 
     public boolean isSSID_UTF8() {
@@ -497,11 +491,11 @@ public class NetworkDetail {
     public String toString() {
         return String.format("NetworkInfo{SSID='%s', HESSID=%x, BSSID=%x, StationCount=%d, " +
                 "ChannelUtilization=%d, Capacity=%d, Ant=%s, Internet=%s, " +
-                "VenueGroup=%s, VenueType=%s, HSRelease=%s, AnqpDomainID=%d, " +
+                "HSRelease=%s, AnqpDomainID=%d, " +
                 "AnqpOICount=%d, RoamingConsortiums=%s}",
                 mSSID, mHESSID, mBSSID, mStationCount,
                 mChannelUtilization, mCapacity, mAnt, mInternet,
-                mVenueGroup, mVenueType, mHSRelease, mAnqpDomainID,
+                mHSRelease, mAnqpDomainID,
                 mAnqpOICount, Utils.roamingConsortiumsToString(mRoamingConsortiums));
     }
 
@@ -513,6 +507,28 @@ public class NetworkDetail {
 
     public String getBSSIDString() {
         return toMACString(mBSSID);
+    }
+
+    /**
+     * Evaluates the ScanResult this NetworkDetail is built from
+     * returns true if built from a Beacon Frame
+     * returns false if built from a Probe Response
+     */
+    public boolean isBeaconFrame() {
+        // Beacon frames have a 'Traffic Indication Map' Information element
+        // Probe Responses do not. This is indicated by a DTIM period > 0
+        return mDtimInterval > 0;
+    }
+
+    /**
+     * Evaluates the ScanResult this NetworkDetail is built from
+     * returns true if built from a hidden Beacon Frame
+     * returns false if not hidden or not a Beacon
+     */
+    public boolean isHiddenBeaconFrame() {
+        // Hidden networks are not 80211 standard, but it is common for a hidden network beacon
+        // frame to either send zero-value bytes as the SSID, or to send no bytes at all.
+        return isBeaconFrame() && mIsHiddenSsid;
     }
 
     public static String toMACString(long mac) {
@@ -528,5 +544,4 @@ public class NetworkDetail {
         }
         return sb.toString();
     }
-
 }

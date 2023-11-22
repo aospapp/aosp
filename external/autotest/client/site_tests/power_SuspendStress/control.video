@@ -4,9 +4,7 @@
 
 AUTHOR = "jwerner, chromeos-power"
 NAME = "power_SuspendStress.video"
-#SUITE = "jailed_build"
 ATTRIBUTES = "suite:stress_experimental"
-SUITE = "stress_experimental"
 PURPOSE = "Run repeated iterations of suspend/resume while rendering a video."
 TIME = "MEDIUM"
 TEST_CATEGORY = "Functional"

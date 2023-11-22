@@ -52,9 +52,6 @@ echo -n Google >> $target_owner/staging/device-partial.mk
 intel)
 echo -n Intel >> $target_owner/staging/device-partial.mk
 ;;
-widevine)
-echo -n Widevine >> $target_owner/staging/device-partial.mk
-;;
 esac
 echo " blob(s) necessary for Fugu hardware" >> $target_owner/staging/device-partial.mk
 echo "PRODUCT_COPY_FILES := \\" >> $target_owner/staging/device-partial.mk

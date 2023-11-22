@@ -14,19 +14,21 @@
  * limitations under the License
  */
 
+// TODO (b/35202196): move this class out of the root of the package.
 package com.android.settings;
 
 import android.annotation.Nullable;
 import android.app.ActivityManager;
-import android.app.ActivityManagerNative;
 import android.app.ActivityOptions;
 import android.app.AlertDialog;
+import android.app.Dialog;
+import android.app.DialogFragment;
+import android.app.FragmentManager;
 import android.app.IActivityManager;
 import android.app.admin.DevicePolicyManager;
 import android.app.trust.TrustManager;
 import android.content.Context;
 import android.content.DialogInterface;
-import android.content.DialogInterface.OnClickListener;
 import android.content.Intent;
 import android.content.IntentSender;
 import android.graphics.Point;
@@ -37,7 +39,6 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.RemoteException;
 import android.os.UserManager;
-import android.security.KeyStore;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
@@ -67,13 +68,12 @@ public abstract class ConfirmDeviceCredentialBaseFragment extends OptionsMenuFra
             PACKAGE + ".ConfirmCredentials.showWhenLocked";
 
     private FingerprintUiHelper mFingerprintHelper;
-    protected boolean mIsStrongAuthRequired;
-    private boolean mAllowFpAuthentication;
     protected boolean mReturnCredentials = false;
     protected Button mCancelButton;
     protected ImageView mFingerprintIcon;
     protected int mEffectiveUserId;
     protected int mUserId;
+    protected UserManager mUserManager;
     protected LockPatternUtils mLockPatternUtils;
     protected TextView mErrorTextView;
     protected final Handler mHandler = new Handler();
@@ -81,19 +81,14 @@ public abstract class ConfirmDeviceCredentialBaseFragment extends OptionsMenuFra
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        mAllowFpAuthentication = getActivity().getIntent().getBooleanExtra(
-                ALLOW_FP_AUTHENTICATION, false);
         mReturnCredentials = getActivity().getIntent().getBooleanExtra(
                 ChooseLockSettingsHelper.EXTRA_KEY_RETURN_CREDENTIALS, false);
         // Only take this argument into account if it belongs to the current profile.
         Intent intent = getActivity().getIntent();
         mUserId = Utils.getUserIdFromBundle(getActivity(), intent.getExtras());
-        final UserManager userManager = UserManager.get(getActivity());
-        mEffectiveUserId = userManager.getCredentialOwnerProfile(mUserId);
+        mUserManager = UserManager.get(getActivity());
+        mEffectiveUserId = mUserManager.getCredentialOwnerProfile(mUserId);
         mLockPatternUtils = new LockPatternUtils(getActivity());
-        mIsStrongAuthRequired = isFingerprintDisallowedByStrongAuth();
-        mAllowFpAuthentication = mAllowFpAuthentication && !isFingerprintDisabledByAdmin()
-                && !mReturnCredentials && !mIsStrongAuthRequired;
     }
 
     @Override
@@ -118,7 +113,7 @@ public abstract class ConfirmDeviceCredentialBaseFragment extends OptionsMenuFra
                 Utils.getUserIdFromBundle(
                         getActivity(),
                         getActivity().getIntent().getExtras()));
-        if (Utils.isManagedProfile(UserManager.get(getActivity()), credentialOwnerUserId)) {
+        if (mUserManager.isManagedProfile(credentialOwnerUserId)) {
             setWorkChallengeBackground(view, credentialOwnerUserId);
         }
     }
@@ -134,9 +129,16 @@ public abstract class ConfirmDeviceCredentialBaseFragment extends OptionsMenuFra
     // credential. Otherwise, fingerprint can't unlock fbe/keystore through
     // verifyTiedProfileChallenge. In such case, we also wanna show the user message that
     // fingerprint is disabled due to device restart.
-    private boolean isFingerprintDisallowedByStrongAuth() {
+    protected boolean isFingerprintDisallowedByStrongAuth() {
         return !(mLockPatternUtils.isFingerprintAllowedForUser(mEffectiveUserId)
-                && KeyStore.getInstance().state(mUserId) == KeyStore.State.UNLOCKED);
+                && mUserManager.isUserUnlocked(mUserId));
+    }
+
+    private boolean isFingerprintAllowed() {
+        return !mReturnCredentials
+                && getActivity().getIntent().getBooleanExtra(ALLOW_FP_AUTHENTICATION, false)
+                && !isFingerprintDisallowedByStrongAuth()
+                && !isFingerprintDisabledByAdmin();
     }
 
     @Override
@@ -146,7 +148,7 @@ public abstract class ConfirmDeviceCredentialBaseFragment extends OptionsMenuFra
     }
 
     protected void refreshLockScreen() {
-        if (mAllowFpAuthentication) {
+        if (isFingerprintAllowed()) {
             mFingerprintHelper.startListening();
         } else {
             if (mFingerprintHelper.isListening()) {
@@ -164,12 +166,16 @@ public abstract class ConfirmDeviceCredentialBaseFragment extends OptionsMenuFra
         if (intent != null) {
             CharSequence titleText = intent.getCharSequenceExtra(
                     ConfirmDeviceCredentialBaseFragment.TITLE_TEXT);
-            if (titleText == null || supplementalText == null) {
+            if (supplementalText == null) {
                 return;
             }
-            String accessibilityTitle =
-                    new StringBuilder(titleText).append(",").append(supplementalText).toString();
-            getActivity().setTitle(Utils.createAccessibleSequence(titleText, accessibilityTitle));
+            if (titleText == null) {
+                getActivity().setTitle(supplementalText);
+            } else {
+                String accessibilityTitle =
+                        new StringBuilder(titleText).append(",").append(supplementalText).toString();
+                getActivity().setTitle(Utils.createAccessibleSequence(titleText, accessibilityTitle));
+            }
         }
     }
 
@@ -188,7 +194,6 @@ public abstract class ConfirmDeviceCredentialBaseFragment extends OptionsMenuFra
             TrustManager trustManager =
                 (TrustManager) getActivity().getSystemService(Context.TRUST_SERVICE);
             trustManager.setDeviceLockedForUser(mEffectiveUserId, false);
-            authenticationSucceeded();
             authenticationSucceeded();
             checkForPendingIntent();
         }
@@ -210,7 +215,7 @@ public abstract class ConfirmDeviceCredentialBaseFragment extends OptionsMenuFra
         int taskId = getActivity().getIntent().getIntExtra(Intent.EXTRA_TASK_ID, -1);
         if (taskId != -1) {
             try {
-                IActivityManager activityManager = ActivityManagerNative.getDefault();
+                IActivityManager activityManager = ActivityManager.getService();
                 final ActivityOptions options = ActivityOptions.makeBasic();
                 options.setLaunchStackId(ActivityManager.StackId.INVALID_STACK_ID);
                 activityManager.startActivityFromRecents(taskId, options.toBundle());
@@ -256,7 +261,7 @@ public abstract class ConfirmDeviceCredentialBaseFragment extends OptionsMenuFra
     }
 
     protected boolean isProfileChallenge() {
-        return Utils.isManagedProfile(UserManager.get(getContext()), mEffectiveUserId);
+        return mUserManager.isManagedProfile(mEffectiveUserId);
     }
 
     protected void reportSuccessfullAttempt() {
@@ -286,12 +291,13 @@ public abstract class ConfirmDeviceCredentialBaseFragment extends OptionsMenuFra
                 // Last try
                 final String title = getActivity().getString(
                         R.string.lock_profile_wipe_warning_title);
-                final String message = getActivity().getString(getLastTryErrorMessage());
-                showDialog(title, message, android.R.string.ok, false /* dismiss */);
+                LastTryDialog.show(getFragmentManager(), title, getLastTryErrorMessage(),
+                        android.R.string.ok, false /* dismiss */);
             } else if (remainingAttempts <= 0) {
                 // Profile is wiped
-                final String message = getActivity().getString(R.string.lock_profile_wipe_content);
-                showDialog(null, message, R.string.lock_profile_wipe_dismiss, true /* dismiss */);
+                LastTryDialog.show(getFragmentManager(), null /* title */,
+                        R.string.lock_profile_wipe_content, R.string.lock_profile_wipe_dismiss,
+                        true /* dismiss */);
             }
             if (mErrorTextView != null) {
                 final String message = getActivity().getString(R.string.lock_profile_wipe_attempts,
@@ -325,19 +331,64 @@ public abstract class ConfirmDeviceCredentialBaseFragment extends OptionsMenuFra
         showError(getText(msg), timeout);
     }
 
-    private void showDialog(String title, String message, int buttonString, final boolean dismiss) {
-        final AlertDialog dialog = new AlertDialog.Builder(getActivity())
-            .setTitle(title)
-            .setMessage(message)
-            .setPositiveButton(buttonString, new OnClickListener() {
-                @Override
-                public void onClick(DialogInterface dialog, int which) {
-                    if (dismiss) {
-                        getActivity().finish();
-                    }
-                }
-            })
-            .create();
-        dialog.show();
+    public static class LastTryDialog extends DialogFragment {
+        private static final String TAG = LastTryDialog.class.getSimpleName();
+
+        private static final String ARG_TITLE = "title";
+        private static final String ARG_MESSAGE = "message";
+        private static final String ARG_BUTTON = "button";
+        private static final String ARG_DISMISS = "dismiss";
+
+        static boolean show(FragmentManager from, String title, int message, int button,
+                boolean dismiss) {
+            LastTryDialog existent = (LastTryDialog) from.findFragmentByTag(TAG);
+            if (existent != null && !existent.isRemoving()) {
+                return false;
+            }
+            Bundle args = new Bundle();
+            args.putString(ARG_TITLE, title);
+            args.putInt(ARG_MESSAGE, message);
+            args.putInt(ARG_BUTTON, button);
+            args.putBoolean(ARG_DISMISS, dismiss);
+
+            DialogFragment dialog = new LastTryDialog();
+            dialog.setArguments(args);
+            dialog.show(from, TAG);
+            return true;
+        }
+
+        static void hide(FragmentManager from) {
+            LastTryDialog dialog = (LastTryDialog) from.findFragmentByTag(TAG);
+            if (dialog != null) {
+                dialog.dismissAllowingStateLoss();
+                from.executePendingTransactions();
+            }
+        }
+
+        /**
+         * Dialog setup.
+         * <p>
+         * To make it less likely that the dialog is dismissed accidentally, for example if the
+         * device is malfunctioning or if the device is in a pocket, we set
+         * {@code setCanceledOnTouchOutside(false)}.
+         */
+        @Override
+        public Dialog onCreateDialog(Bundle savedInstanceState) {
+            Dialog dialog = new AlertDialog.Builder(getActivity())
+                    .setTitle(getArguments().getString(ARG_TITLE))
+                    .setMessage(getArguments().getInt(ARG_MESSAGE))
+                    .setPositiveButton(getArguments().getInt(ARG_BUTTON), null)
+                    .create();
+            dialog.setCanceledOnTouchOutside(false);
+            return dialog;
+        }
+
+        @Override
+        public void onDismiss(final DialogInterface dialog) {
+            super.onDismiss(dialog);
+            if (getActivity() != null && getArguments().getBoolean(ARG_DISMISS)) {
+                getActivity().finish();
+            }
+        }
     }
 }

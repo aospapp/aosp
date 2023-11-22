@@ -110,8 +110,16 @@ ProgramBinary* buildProgram (const glu::ProgramSources& program, ProgramFormat b
 	{
 		vector<deUint32> binary;
 
-		if (!compileGlslToSpirV(program, &binary, buildInfo))
-			TCU_THROW(InternalError, "Compiling GLSL to SPIR-V failed");
+		{
+			vector<deUint32> nonStrippedBinary;
+
+			if (!compileGlslToSpirV(program, &nonStrippedBinary, buildInfo))
+				TCU_THROW(InternalError, "Compiling GLSL to SPIR-V failed");
+
+			TCU_CHECK_INTERNAL(!nonStrippedBinary.empty());
+			stripSpirVDebugInfo(nonStrippedBinary.size(), &nonStrippedBinary[0], &binary);
+			TCU_CHECK_INTERNAL(!binary.empty());
+		}
 
 		if (validateBinary)
 		{
@@ -119,7 +127,7 @@ ProgramBinary* buildProgram (const glu::ProgramSources& program, ProgramFormat b
 
 			if (!validateSpirV(binary.size(), &binary[0], &validationLog))
 			{
-				buildInfo->program.linkOk 	 = false;
+				buildInfo->program.linkOk	 = false;
 				buildInfo->program.infoLog	+= "\n" + validationLog.str();
 
 				TCU_THROW(InternalError, "Validation failed for compiled SPIR-V binary");

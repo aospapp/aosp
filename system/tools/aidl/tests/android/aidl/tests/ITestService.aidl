@@ -30,6 +30,13 @@ interface ITestService {
   const int TEST_CONSTANT6 = -0;
   const int TEST_CONSTANT7 = +0;
   const int TEST_CONSTANT8 = 0;
+  const int TEST_CONSTANT9 = 0x56;
+  const int TEST_CONSTANT10 = 0xa5;
+  const int TEST_CONSTANT11 = 0xFA;
+  const int TEST_CONSTANT12 = 0xffffffff;
+
+  const String STRING_TEST_CONSTANT = "foo";
+  const String STRING_TEST_CONSTANT2 = "bar";
 
   // Test that primitives work as parameters and return types.
   boolean RepeatBoolean(boolean token);
@@ -40,6 +47,7 @@ interface ITestService {
   float RepeatFloat(float token);
   double RepeatDouble(double token);
   String RepeatString(String token);
+  Map RepeatMap(in Map token);
 
   SimpleParcelable RepeatSimpleParcelable(in SimpleParcelable input,
                                           out SimpleParcelable repeat);
@@ -83,6 +91,11 @@ interface ITestService {
   @nullable List<String> RepeatNullableStringList(in @nullable List<String> input);
   @nullable SimpleParcelable RepeatNullableParcelable(in @nullable SimpleParcelable input);
 
+  void TakesAnIBinder(in IBinder input);
+  void TakesAnIBinderList(in List<IBinder> input);
+  void TakesANullableIBinder(in @nullable IBinder input);
+  void TakesANullableIBinderList(in @nullable List<IBinder> input);
+
   // Test utf8 decoding from utf16 wire format
   @utf8InCpp String RepeatUtf8CppString(@utf8InCpp String token);
   @nullable @utf8InCpp String RepeatNullableUtf8CppString(
@@ -94,4 +107,6 @@ interface ITestService {
   @nullable @utf8InCpp List<String> ReverseUtf8CppStringList(
       in @nullable @utf8InCpp List<String> input,
       out @nullable @utf8InCpp List<String> repeated);
+
+  @nullable INamedCallback GetCallback(boolean return_null);
 }

@@ -18,9 +18,6 @@
 (http://msoon.com/LabEquipment/PowerMonitor/).
 """
 
-_Python3_author_ = 'angli@google.com (Ang Li)'
-_author_ = 'kens@google.com (Ken Shirriff)'
-
 import argparse
 import sys
 import time

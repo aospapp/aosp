@@ -28,7 +28,11 @@ using base::FilePath;
 
 namespace tpm_manager {
 
+#if defined(__ANDROID__)
+const char kTpmLocalDataFile[] = "/data/misc/tpm_managerd/local_tpm_data";
+#else
 const char kTpmLocalDataFile[] = "/var/lib/tpm_manager/local_tpm_data";
+#endif
 const mode_t kLocalDataPermissions = 0600;
 
 bool LocalDataStoreImpl::Read(LocalData* data) {
@@ -76,7 +80,7 @@ bool LocalDataStoreImpl::Write(const LocalData& data) {
   }
   // Sync the parent directory.
   std::string dir_name = path.DirName().value();
-  int dir_fd = HANDLE_EINTR(open(dir_name.c_str(), O_RDONLY|O_DIRECTORY));
+  int dir_fd = HANDLE_EINTR(open(dir_name.c_str(), O_RDONLY | O_DIRECTORY));
   if (dir_fd < 0) {
     PLOG(WARNING) << "Could not open " << dir_name << " for syncing";
     return false;

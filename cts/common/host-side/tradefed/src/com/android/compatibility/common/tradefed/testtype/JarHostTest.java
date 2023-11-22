@@ -19,13 +19,15 @@ import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.config.Option.Importance;
+import com.android.tradefed.device.DeviceNotAvailableException;
+import com.android.tradefed.log.LogUtil.CLog;
+import com.android.tradefed.result.ITestInvocationListener;
+import com.android.tradefed.result.ResultForwarder;
 import com.android.tradefed.testtype.HostTest;
-import com.android.tradefed.testtype.IAbi;
-import com.android.tradefed.testtype.IAbiReceiver;
-import com.android.tradefed.testtype.IBuildReceiver;
 import com.android.tradefed.testtype.IRemoteTest;
-import com.android.tradefed.testtype.IRuntimeHintProvider;
-import com.android.tradefed.util.TimeVal;
+import com.android.tradefed.util.StreamUtil;
+
+import com.google.common.annotations.VisibleForTesting;
 
 import junit.framework.Test;
 
@@ -34,9 +36,11 @@ import java.io.IOException;
 import java.lang.reflect.Modifier;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.util.Collections;
 import java.util.Enumeration;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
@@ -44,45 +48,29 @@ import java.util.jar.JarFile;
 /**
  * Test runner for host-side JUnit tests.
  */
-public class JarHostTest extends HostTest implements IAbiReceiver, IBuildReceiver,
-        IRuntimeHintProvider {
+public class JarHostTest extends HostTest {
 
     @Option(name="jar", description="The jars containing the JUnit test class to run.",
             importance = Importance.IF_UNSET)
     private Set<String> mJars = new HashSet<>();
 
-    @Option(name = "runtime-hint",
-            isTimeVal = true,
-            description="The hint about the test's runtime.")
-    private long mRuntimeHint = 60000;// 1 minute
-
-    private IAbi mAbi;
-    private IBuildInfo mBuild;
-    private CompatibilityBuildHelper mHelper;
-
     /**
      * {@inheritDoc}
      */
     @Override
-    public void setAbi(IAbi abi) {
-        mAbi = abi;
+    protected HostTest createHostTest(Class<?> classObj) {
+        JarHostTest test = (JarHostTest) super.createHostTest(classObj);
+        // clean the jar option since we are loading directly from classes after.
+        test.mJars = new HashSet<>();
+        return test;
     }
 
     /**
-     * {@inheritDoc}
+     * Create a {@link CompatibilityBuildHelper} from the build info provided.
      */
-    @Override
-    public void setBuild(IBuildInfo build) {
-        mBuild = build;
-        mHelper = new CompatibilityBuildHelper(build);
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public long getRuntimeHint() {
-        return mRuntimeHint;
+    @VisibleForTesting
+    CompatibilityBuildHelper createBuildHelper(IBuildInfo info) {
+        return new CompatibilityBuildHelper(info);
     }
 
     /**
@@ -91,10 +79,11 @@ public class JarHostTest extends HostTest implements IAbiReceiver, IBuildReceive
     @Override
     protected List<Class<?>> getClasses() throws IllegalArgumentException  {
         List<Class<?>> classes = super.getClasses();
+        CompatibilityBuildHelper helper = createBuildHelper(getBuild());
         for (String jarName : mJars) {
             JarFile jarFile = null;
             try {
-                File file = new File(mHelper.getTestsDir(), jarName);
+                File file = new File(helper.getTestsDir(), jarName);
                 jarFile = new JarFile(file);
                 Enumeration<JarEntry> e = jarFile.entries();
                 URL[] urls = {
@@ -113,7 +102,8 @@ public class JarHostTest extends HostTest implements IAbiReceiver, IBuildReceive
                         Class<?> cls = cl.loadClass(className);
                         int modifiers = cls.getModifiers();
                         if ((IRemoteTest.class.isAssignableFrom(cls)
-                                || Test.class.isAssignableFrom(cls))
+                                || Test.class.isAssignableFrom(cls)
+                                || hasJUnit4Annotation(cls))
                                 && !Modifier.isStatic(modifiers)
                                 && !Modifier.isPrivate(modifiers)
                                 && !Modifier.isProtected(modifiers)
@@ -127,15 +117,10 @@ public class JarHostTest extends HostTest implements IAbiReceiver, IBuildReceive
                     }
                 }
             } catch (IOException e) {
-                e.printStackTrace();
+                CLog.e(e);
+                throw new RuntimeException(e);
             } finally {
-                if (jarFile != null) {
-                    try {
-                        jarFile.close();
-                    } catch (IOException e) {
-                        // Ignored
-                    }
-                }
+                StreamUtil.close(jarFile);
             }
         }
         return classes;
@@ -150,14 +135,39 @@ public class JarHostTest extends HostTest implements IAbiReceiver, IBuildReceive
      * {@inheritDoc}
      */
     @Override
-    protected Object loadObject(Class<?> classObj) throws IllegalArgumentException {
-        Object object = super.loadObject(classObj);
-        if (object instanceof IAbiReceiver) {
-            ((IAbiReceiver) object).setAbi(mAbi);
+    public void run(ITestInvocationListener listener) throws DeviceNotAvailableException {
+        int numTests = countTestCases();
+        long startTime = System.currentTimeMillis();
+        listener.testRunStarted(getClass().getName(), numTests);
+        super.run(new HostTestListener(listener));
+        listener.testRunEnded(System.currentTimeMillis() - startTime, Collections.emptyMap());
+    }
+
+    /**
+     * Wrapper listener that forwards all events except testRunStarted() and testRunEnded() to
+     * the embedded listener. Each test class in the jar will invoke these events, which
+     * HostTestListener withholds from listeners for console logging and result reporting.
+     */
+    public class HostTestListener extends ResultForwarder {
+
+        public HostTestListener(ITestInvocationListener listener) {
+            super(listener);
         }
-        if (object instanceof IBuildReceiver) {
-            ((IBuildReceiver) object).setBuild(mBuild);
+
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+        public void testRunStarted(String name, int numTests) {
+            CLog.d("HostTestListener.testRunStarted(%s, %d)", name, numTests);
         }
-        return object;
+
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+        public void testRunEnded(long elapsedTime, Map<String, String> metrics) {
+            CLog.d("HostTestListener.testRunEnded(%d, %s)", elapsedTime, metrics.toString());
+        }
     }
 }

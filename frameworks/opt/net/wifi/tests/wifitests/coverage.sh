@@ -56,5 +56,4 @@ java -jar $REPORTER_JAR \
   --coverage-file $COVERAGE_OUTPUT_FILE \
   --report-type $REPORT_TYPE \
   --source-dir $ANDROID_BUILD_TOP/frameworks/opt/net/wifi/tests/wifitests/src \
-  --source-dir $ANDROID_BUILD_TOP/frameworks/opt/net/wifi/service/java \
-  --source-dir $ANDROID_BUILD_TOP/frameworks/base/wifi/java
+  --source-dir $ANDROID_BUILD_TOP/frameworks/opt/net/wifi/service/java

@@ -19,15 +19,23 @@ package android.text.style.cts;
 import android.app.PendingIntent;
 import android.content.Intent;
 import android.os.Parcel;
-import android.test.AndroidTestCase;
-import android.test.suitebuilder.annotation.SmallTest;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.text.style.EasyEditSpan;
 
-public class EasyEditSpanTest extends AndroidTestCase {
-    @SmallTest
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class EasyEditSpanTest {
+    @Test
     public void testConstructor() {
         new EasyEditSpan();
-        new EasyEditSpan(PendingIntent.getActivity(getContext(), 0, new Intent(), 0));
+        new EasyEditSpan(PendingIntent.getActivity(
+                InstrumentationRegistry.getTargetContext(), 0, new Intent(), 0));
+
         Parcel p = Parcel.obtain();
         try {
             new EasyEditSpan(p);
@@ -36,19 +44,19 @@ public class EasyEditSpanTest extends AndroidTestCase {
         }
     }
 
-    @SmallTest
+    @Test
     public void testDescribeContents_doesNotThrowException() {
         EasyEditSpan easyEditSpan = new EasyEditSpan();
         easyEditSpan.describeContents();
     }
 
-    @SmallTest
+    @Test
     public void testGetSpanTypeId_doesNotThrowException() {
         EasyEditSpan easyEditSpan = new EasyEditSpan();
         easyEditSpan.getSpanTypeId();
     }
 
-    @SmallTest
+    @Test
     public void testWriteToParcel() {
         Parcel p = Parcel.obtain();
         try {

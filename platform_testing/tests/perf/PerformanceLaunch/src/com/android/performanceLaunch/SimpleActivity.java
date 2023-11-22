@@ -20,13 +20,16 @@ import com.android.performanceLaunch.R;
 
 import android.app.Activity;
 import android.os.Bundle;
+import android.os.Trace;
 
 public class SimpleActivity extends Activity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        Trace.traceBegin(Trace.TRACE_TAG_ACTIVITY_MANAGER, "onCreate");
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_simple);
+        Trace.traceEnd(Trace.TRACE_TAG_ACTIVITY_MANAGER);
     }
 
 }

@@ -70,16 +70,15 @@ class network_WiFi_OverlappingBSSScan(wifi_cell_test_base.WiFiCellTestBase):
 
         # Re-configure the AP for OBSS and repeat the ping test.
         self.context.configure(self.get_ap_config('obss_enabled', True))
-        self.context.router.start_capture(
-          self.WIFI_FREQUENCY, filename='obss_enabled.pcap')
-
+        self.context.capture_host.start_capture(
+                self.WIFI_FREQUENCY, filename='obss_enabled.pcap')
         self.context.assert_connect_wifi(get_assoc_params())
         logging.info('Pinging router with OBSS scans for %d seconds.',
                      self.OBSS_SCAN_SAMPLE_PERIOD_SECONDS)
         result_obss_scan = self.context.client.ping(
                 get_ping_config(self.OBSS_SCAN_SAMPLE_PERIOD_SECONDS))
         logging.info('Ping statistics with OBSS scans: %r', result_obss_scan)
-        self.context.router.stop_capture()
+        self.context.capture_host.stop_capture()
 
         if not self.context.router.detect_client_coexistence_report(
                 self.context.client.wifi_mac):

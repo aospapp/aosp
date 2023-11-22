@@ -16,7 +16,6 @@
 package android.media.cts;
 
 import android.content.pm.PackageManager;
-import android.cts.util.MediaUtils;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
@@ -24,30 +23,50 @@ import android.hardware.Camera;
 import android.media.CamcorderProfile;
 import android.media.EncoderCapabilities;
 import android.media.MediaCodec;
+import android.media.MediaCodecInfo;
+import android.media.MediaCodecList;
+import android.media.MediaExtractor;
 import android.media.MediaFormat;
 import android.media.MediaMetadataRetriever;
 import android.media.MediaRecorder;
 import android.media.EncoderCapabilities.VideoEncoderCap;
+import android.media.MediaCodecInfo.CodecCapabilities;
+import android.media.MediaCodecInfo.CodecProfileLevel;
 import android.media.MediaRecorder.OnErrorListener;
 import android.media.MediaRecorder.OnInfoListener;
 import android.media.MediaMetadataRetriever;
-import android.os.Environment;
+import android.opengl.GLES20;
 import android.os.ConditionVariable;
+import android.os.Environment;
+import android.os.ParcelFileDescriptor;
+import android.os.PersistableBundle;
+import android.support.test.filters.SmallTest;
+import android.platform.test.annotations.RequiresDevice;
 import android.test.ActivityInstrumentationTestCase2;
 import android.test.UiThreadTest;
 import android.view.Surface;
 
 import android.util.Log;
 
+import com.android.compatibility.common.util.MediaUtils;
+
 import java.io.File;
 import java.io.FileDescriptor;
 import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.RandomAccessFile;
 import java.lang.InterruptedException;
 import java.lang.Runnable;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
+import static android.media.MediaCodecInfo.CodecProfileLevel.*;
+
+@SmallTest
+@RequiresDevice
 public class MediaRecorderTest extends ActivityInstrumentationTestCase2<MediaStubActivity> {
     private final String TAG = "MediaRecorderTest";
     private final String OUTPUT_PATH;
@@ -85,10 +104,26 @@ public class MediaRecorderTest extends ActivityInstrumentationTestCase2<MediaStu
     private File mOutFile2;
     private Camera mCamera;
     private MediaStubActivity mActivity = null;
+    private int mFileIndex;
 
     private MediaRecorder mMediaRecorder;
     private ConditionVariable mMaxDurationCond;
     private ConditionVariable mMaxFileSizeCond;
+    private ConditionVariable mMaxFileSizeApproachingCond;
+    private ConditionVariable mNextOutputFileStartedCond;
+    private boolean mExpectMaxFileCond;
+
+    // movie length, in frames
+    private static final int NUM_FRAMES = 120;
+
+    private static final int TEST_R0 = 0;                   // RGB equivalent of {0,0,0} (BT.601)
+    private static final int TEST_G0 = 136;
+    private static final int TEST_B0 = 0;
+    private static final int TEST_R1 = 236;                 // RGB equivalent of {120,160,200} (BT.601)
+    private static final int TEST_G1 = 50;
+    private static final int TEST_B1 = 186;
+
+    private final static String AVC = MediaFormat.MIMETYPE_VIDEO_AVC;
 
     public MediaRecorderTest() {
         super("android.media.cts", MediaStubActivity.class);
@@ -124,9 +159,13 @@ public class MediaRecorderTest extends ActivityInstrumentationTestCase2<MediaStu
                 mMediaRecorder = new MediaRecorder();
                 mOutFile = new File(OUTPUT_PATH);
                 mOutFile2 = new File(OUTPUT_PATH2);
+                mFileIndex = 0;
 
                 mMaxDurationCond = new ConditionVariable();
                 mMaxFileSizeCond = new ConditionVariable();
+                mMaxFileSizeApproachingCond = new ConditionVariable();
+                mNextOutputFileStartedCond = new ConditionVariable();
+                mExpectMaxFileCond = true;
 
                 mMediaRecorder.setOutputFile(OUTPUT_PATH);
                 mMediaRecorder.setOnInfoListener(new OnInfoListener() {
@@ -173,6 +212,10 @@ public class MediaRecorderTest extends ActivityInstrumentationTestCase2<MediaStu
         mMaxDurationCond = null;
         mMaxFileSizeCond.close();
         mMaxFileSizeCond = null;
+        mMaxFileSizeApproachingCond.close();
+        mMaxFileSizeApproachingCond = null;
+        mNextOutputFileStartedCond.close();
+        mNextOutputFileStartedCond = null;
         mActivity = null;
         super.tearDown();
     }
@@ -204,6 +247,118 @@ public class MediaRecorderTest extends ActivityInstrumentationTestCase2<MediaStu
         mMediaRecorder.prepare();
         mMediaRecorder.start();
         Thread.sleep(RECORD_TIME_MS);
+
+
+        // verify some getMetrics() behaviors while we're here.
+        PersistableBundle metrics = mMediaRecorder.getMetrics();
+        if (metrics == null) {
+            fail("MediaRecorder.getMetrics() returned null metrics");
+        } else if (metrics.isEmpty()) {
+            fail("MediaRecorder.getMetrics() returned empty metrics");
+        } else {
+            int size = metrics.size();
+            Set<String> keys = metrics.keySet();
+
+            if (size == 0) {
+                fail("MediaRecorder.getMetrics().size() reports empty record");
+            }
+
+            if (keys == null) {
+                fail("MediaMetricsSet returned no keys");
+            } else if (keys.size() != size) {
+                fail("MediaMetricsSet.keys().size() mismatch MediaMetricsSet.size()");
+            }
+
+            // ensure existence of some known fields
+            int videoBitRate = metrics.getInt(MediaRecorder.MetricsConstants.VIDEO_BITRATE, -1);
+            if (videoBitRate != VIDEO_BIT_RATE_IN_BPS) {
+                fail("getMetrics() videoEncodeBitrate set " +
+                     VIDEO_BIT_RATE_IN_BPS + " got " + videoBitRate);
+            }
+
+            // valid values are -1.0 and >= 0;
+            // tolerate some floating point rounding variability
+            double captureFrameRate = metrics.getDouble(MediaRecorder.MetricsConstants.CAPTURE_FPS, -2);
+            if (captureFrameRate < 0.) {
+                assertEquals("getMetrics() capture framerate=" + captureFrameRate, -1.0, captureFrameRate, 0.001);
+            }
+        }
+
+
+        mMediaRecorder.stop();
+        checkOutputExist();
+    }
+
+    public void testRecorderMPEG2TS() throws Exception {
+        int width;
+        int height;
+        Camera camera = null;
+        if (!hasCamera()) {
+            MediaUtils.skipTest("no camera");
+            return;
+        }
+        if (!hasMicrophone() || !hasAac()) {
+            MediaUtils.skipTest("no audio codecs or microphone");
+            return;
+        }
+        // Try to get camera profile for QUALITY_LOW; if unavailable,
+        // set the video size to default value.
+        CamcorderProfile profile = CamcorderProfile.get(
+                0 /* cameraId */, CamcorderProfile.QUALITY_LOW);
+        if (profile != null) {
+            width = profile.videoFrameWidth;
+            height = profile.videoFrameHeight;
+        } else {
+            width = VIDEO_WIDTH;
+            height = VIDEO_HEIGHT;
+        }
+        mMediaRecorder.setAudioSource(MediaRecorder.AudioSource.MIC);
+        mMediaRecorder.setVideoSource(MediaRecorder.VideoSource.CAMERA);
+        mMediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_2_TS);
+        mMediaRecorder.setVideoEncoder(MediaRecorder.VideoEncoder.H264);
+        mMediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
+        mMediaRecorder.setVideoSize(width, height);
+        mMediaRecorder.setVideoEncodingBitRate(VIDEO_BIT_RATE_IN_BPS);
+        mMediaRecorder.setPreviewDisplay(mActivity.getSurfaceHolder().getSurface());
+        mMediaRecorder.prepare();
+        mMediaRecorder.start();
+        Thread.sleep(RECORD_TIME_MS);
+
+        // verify some getMetrics() behaviors while we're here.
+        PersistableBundle metrics = mMediaRecorder.getMetrics();
+        if (metrics == null) {
+            fail("MediaRecorder.getMetrics() returned null metrics");
+        } else if (metrics.isEmpty()) {
+            fail("MediaRecorder.getMetrics() returned empty metrics");
+        } else {
+            int size = metrics.size();
+            Set<String> keys = metrics.keySet();
+
+            if (size == 0) {
+                fail("MediaRecorder.getMetrics().size() reports empty record");
+            }
+
+            if (keys == null) {
+                fail("MediaMetricsSet returned no keys");
+            } else if (keys.size() != size) {
+                fail("MediaMetricsSet.keys().size() mismatch MediaMetricsSet.size()");
+            }
+
+            // ensure existence of some known fields
+            int videoBitRate = metrics.getInt(MediaRecorder.MetricsConstants.VIDEO_BITRATE, -1);
+            if (videoBitRate != VIDEO_BIT_RATE_IN_BPS) {
+                fail("getMetrics() videoEncodeBitrate set " +
+                     VIDEO_BIT_RATE_IN_BPS + " got " + videoBitRate);
+            }
+
+            // valid values are -1.0 and >= 0;
+            // tolerate some floating point rounding variability
+            double captureFrameRate = metrics.getDouble(MediaRecorder.MetricsConstants.CAPTURE_FPS, -2);
+            if (captureFrameRate < 0.) {
+                assertEquals("getMetrics() capture framerate=" + captureFrameRate, -1.0, captureFrameRate, 0.001);
+            }
+        }
+
         mMediaRecorder.stop();
         checkOutputExist();
     }
@@ -387,6 +542,19 @@ public class MediaRecorderTest extends ActivityInstrumentationTestCase2<MediaStu
         fos.close();
     }
 
+    public void testSetOutputFile() throws Exception {
+        if (!hasCamera()) {
+            return;
+        }
+        mMediaRecorder.setVideoSource(MediaRecorder.VideoSource.CAMERA);
+        mMediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.DEFAULT);
+        mMediaRecorder.setVideoEncoder(MediaRecorder.VideoEncoder.DEFAULT);
+        mMediaRecorder.setPreviewDisplay(mActivity.getSurfaceHolder().getSurface());
+        mMediaRecorder.setOutputFile(mOutFile);
+        long maxFileSize = MAX_FILE_SIZE * 10;
+        recordMedia(maxFileSize, mOutFile);
+    }
+
     public void testRecordingAudioInRawFormats() throws Exception {
         int testsRun = 0;
         if (hasAmrNb()) {
@@ -425,8 +593,9 @@ public class MediaRecorderTest extends ActivityInstrumentationTestCase2<MediaStu
     }
 
     public void testRecordAudioFromAudioSourceUnprocessed() throws Exception {
-        if (!hasMicrophone()) {
-            return; // skip
+        if (!hasMicrophone() || !hasAmrNb()) {
+            MediaUtils.skipTest("no audio codecs or microphone");
+            return;
         }
         mMediaRecorder.setAudioSource(MediaRecorder.AudioSource.UNPROCESSED);
         mMediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.DEFAULT);
@@ -449,7 +618,7 @@ public class MediaRecorderTest extends ActivityInstrumentationTestCase2<MediaStu
     }
 
     public void testRecorderAudio() throws Exception {
-        if (!hasMicrophone() || !hasAmrNb()) {
+        if (!hasMicrophone() || !hasAac()) {
             MediaUtils.skipTest("no audio codecs or microphone");
             return;
         }
@@ -457,7 +626,7 @@ public class MediaRecorderTest extends ActivityInstrumentationTestCase2<MediaStu
         assertEquals(0, mMediaRecorder.getMaxAmplitude());
         mMediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP);
         mMediaRecorder.setOutputFile(OUTPUT_PATH);
-        mMediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AMR_NB);
+        mMediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
         mMediaRecorder.setAudioChannels(AUDIO_NUM_CHANNELS);
         mMediaRecorder.setAudioSamplingRate(AUDIO_SAMPLE_RATE_HZ);
         mMediaRecorder.setAudioEncodingBitRate(AUDIO_BIT_RATE_IN_BPS);
@@ -465,14 +634,14 @@ public class MediaRecorderTest extends ActivityInstrumentationTestCase2<MediaStu
     }
 
     public void testOnInfoListener() throws Exception {
-        if (!hasMicrophone() || !hasAmrNb()) {
+        if (!hasMicrophone() || !hasAac()) {
             MediaUtils.skipTest("no audio codecs or microphone");
             return;
         }
         mMediaRecorder.setAudioSource(MediaRecorder.AudioSource.MIC);
         mMediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP);
         mMediaRecorder.setMaxDuration(MAX_DURATION_MSEC);
-        mMediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AMR_NB);
+        mMediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
         mMediaRecorder.prepare();
         mMediaRecorder.start();
         Thread.sleep(RECORD_TIME_MS);
@@ -480,7 +649,7 @@ public class MediaRecorderTest extends ActivityInstrumentationTestCase2<MediaStu
     }
 
     public void testSetMaxDuration() throws Exception {
-        if (!hasMicrophone() || !hasAmrNb()) {
+        if (!hasMicrophone() || !hasAac()) {
             MediaUtils.skipTest("no audio codecs or microphone");
             return;
         }
@@ -491,7 +660,7 @@ public class MediaRecorderTest extends ActivityInstrumentationTestCase2<MediaStu
         mMediaRecorder.setAudioSource(MediaRecorder.AudioSource.MIC);
         mMediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP);
         mMediaRecorder.setMaxDuration((int)durationMs);
-        mMediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AMR_NB);
+        mMediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
         mMediaRecorder.prepare();
         mMediaRecorder.start();
         long startTimeMs = System.currentTimeMillis();
@@ -549,20 +718,338 @@ public class MediaRecorderTest extends ActivityInstrumentationTestCase2<MediaStu
         checkOutputFileSize(OUTPUT_PATH, fileSize, tolerance);
     }
 
-    private void checkOutputFileSize(final String fileName, long fileSize, long tolerance) {
+    /**
+     * Returns the first codec capable of encoding the specified MIME type, or null if no
+     * match was found.
+     */
+    private static CodecCapabilities getCapsForPreferredCodecForMediaType(String mimeType) {
+        // FIXME: select codecs based on the complete use-case, not just the mime
+        MediaCodecList mcl = new MediaCodecList(MediaCodecList.REGULAR_CODECS);
+        for (MediaCodecInfo info : mcl.getCodecInfos()) {
+            if (!info.isEncoder()) {
+                continue;
+            }
+
+            String[] types = info.getSupportedTypes();
+            for (int j = 0; j < types.length; j++) {
+                if (types[j].equalsIgnoreCase(mimeType)) {
+                    return info.getCapabilitiesForType(mimeType);
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Generates a frame of data using GL commands.
+     */
+    private void generateSurfaceFrame(int frameIndex, int width, int height) {
+        frameIndex %= 8;
+
+        int startX, startY;
+        if (frameIndex < 4) {
+            // (0,0) is bottom-left in GL
+            startX = frameIndex * (width / 4);
+            startY = height / 2;
+        } else {
+            startX = (7 - frameIndex) * (width / 4);
+            startY = 0;
+        }
+
+        GLES20.glDisable(GLES20.GL_SCISSOR_TEST);
+        GLES20.glClearColor(TEST_R0 / 255.0f, TEST_G0 / 255.0f, TEST_B0 / 255.0f, 1.0f);
+        GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
+        GLES20.glEnable(GLES20.GL_SCISSOR_TEST);
+        GLES20.glScissor(startX, startY, width / 4, height / 2);
+        GLES20.glClearColor(TEST_R1 / 255.0f, TEST_G1 / 255.0f, TEST_B1 / 255.0f, 1.0f);
+        GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
+    }
+
+    /**
+     * Generates the presentation time for frame N, in microseconds.
+     */
+    private static long computePresentationTime(
+            long startTimeOffset, int frameIndex, int frameRate) {
+        return startTimeOffset + frameIndex * 1000000 / frameRate;
+    }
+
+    private void testLevel(String mediaType, int width, int height, int framerate,
+            int bitrate, int profile, int requestedLevel, int... expectedLevels) throws Exception {
+        CodecCapabilities cap = getCapsForPreferredCodecForMediaType(mediaType);
+        if (cap == null) { // not supported
+            return;
+        }
+        MediaCodecInfo.VideoCapabilities vCap = cap.getVideoCapabilities();
+        if (!vCap.areSizeAndRateSupported(width, height, framerate)
+            || !vCap.getBitrateRange().contains(bitrate * 1000)) {
+            Log.i(TAG, "Skip the test");
+            return;
+        }
+
+        Surface surface = MediaCodec.createPersistentInputSurface();
+        if (surface == null) {
+            return;
+        }
+        InputSurface encSurface = new InputSurface(surface);
+        mMediaRecorder.setVideoSource(MediaRecorder.VideoSource.SURFACE);
+        mMediaRecorder.setInputSurface(encSurface.getSurface());
+        mMediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
+        mMediaRecorder.setVideoEncoder(MediaRecorder.VideoEncoder.H264);
+        mMediaRecorder.setOutputFile(mOutFile);
+
+        try {
+            mMediaRecorder.setVideoEncodingProfileLevel(-1, requestedLevel);
+            fail("Expect IllegalArgumentException.");
+        } catch (IllegalArgumentException e) {
+            // Expect exception.
+        }
+        try {
+            mMediaRecorder.setVideoEncodingProfileLevel(profile, -1);
+            fail("Expect IllegalArgumentException.");
+        } catch (IllegalArgumentException e) {
+            // Expect exception.
+        }
+
+        mMediaRecorder.setVideoEncodingProfileLevel(profile, requestedLevel);
+        mMediaRecorder.setVideoSize(width, height);
+        mMediaRecorder.setVideoEncodingBitRate(bitrate * 1000);
+        mMediaRecorder.setVideoFrameRate(framerate);
+        mMediaRecorder.setPreviewDisplay(mActivity.getSurfaceHolder().getSurface());
+        mMediaRecorder.prepare();
+        encSurface.updateSize(width, height);
+        mMediaRecorder.start();
+
+
+        long startNsec = System.nanoTime();
+        long startTimeOffset =  3000 / framerate;
+        for (int i = 0; i < NUM_FRAMES; i++) {
+            encSurface.makeCurrent();
+            generateSurfaceFrame(i, width, height);
+            long time = startNsec +
+                    computePresentationTime(startTimeOffset, i, framerate) * 1000;
+            encSurface.setPresentationTime(time);
+            encSurface.swapBuffers();
+        }
+
+        mMediaRecorder.stop();
+
         assertTrue(mOutFile.exists());
-        assertEquals(fileSize, mOutFile.length(), tolerance);
-        assertTrue(mOutFile.delete());
+        assertTrue(mOutFile.length() > 0);
+
+        // Verify the recorded file profile/level,
+        MediaExtractor ex = new MediaExtractor();
+        ex.setDataSource(OUTPUT_PATH);
+        for (int i = 0; i < ex.getTrackCount(); i++) {
+            MediaFormat format = ex.getTrackFormat(i);
+            String mime = format.getString(MediaFormat.KEY_MIME);
+            if (mime.startsWith("video/")) {
+                int finalProfile = format.getInteger(MediaFormat.KEY_PROFILE);
+                if (finalProfile != profile) {
+                    fail("Incorrect profile: " + finalProfile + " Expected: " + profile);
+                }
+                int finalLevel = format.getInteger(MediaFormat.KEY_LEVEL);
+                boolean match = false;
+                String expectLvls = new String();
+                for (int level : expectedLevels) {
+                    expectLvls += level;
+                    if (finalLevel == level) {
+                        match = true;
+                        break;
+                    }
+                }
+                if (!match) {
+                    fail("Incorrect Level: " + finalLevel + " Expected: " + expectLvls);
+                }
+            }
+        }
+        mOutFile.delete();
+        if (encSurface != null) {
+            encSurface.release();
+            encSurface = null;
+        }
+    }
+
+    public void testProfileAvcBaselineLevel1() throws Exception {
+        int profile = AVCProfileBaseline;
+
+        if (!hasH264()) {
+            MediaUtils.skipTest("no Avc codecs");
+            return;
+        }
+
+        /*              W    H   fps kbps  profile  request level   expected levels */
+        testLevel(AVC, 176, 144, 15, 64,   profile,  AVCLevel1, AVCLevel1);
+        // Enable them when vendor fixes the failure
+        //testLevel(AVC, 178, 144, 15, 64,   profile,  AVCLevel1, AVCLevel11);
+        //testLevel(AVC, 178, 146, 15, 64,   profile,  AVCLevel1, AVCLevel11);
+        //testLevel(AVC, 176, 144, 16, 64,   profile,  AVCLevel1, AVCLevel11);
+        //testLevel(AVC, 176, 144, 15, 65,   profile,  AVCLevel1, AVCLevel1b);
+        testLevel(AVC, 176, 144, 15, 64,   profile,  AVCLevel1b, AVCLevel1,
+                AVCLevel1b);
+        // testLevel(AVC, 176, 144, 15, 65,   profile,  AVCLevel2, AVCLevel1b,
+        //        AVCLevel11, AVCLevel12, AVCLevel13, AVCLevel2);
+    }
+
+
+    public void testRecordExceedFileSizeLimit() throws Exception {
+        if (!hasMicrophone() || !hasCamera() || !hasAmrNb() || !hasH264()) {
+            MediaUtils.skipTest("no microphone, camera, or codecs");
+            return;
+        }
+        long fileSize = 128 * 1024;
+        long tolerance = 50 * 1024;
+        List<String> recordFileList = new ArrayList<String>();
+        mFileIndex = 0;
+
+        // Override the handler in setup for test.
+        mMediaRecorder.setOnInfoListener(new OnInfoListener() {
+            public void onInfo(MediaRecorder mr, int what, int extra) {
+                mOnInfoCalled = true;
+                if (what ==
+                    MediaRecorder.MEDIA_RECORDER_INFO_MAX_DURATION_REACHED) {
+                    Log.v(TAG, "max duration reached");
+                    mMaxDurationCond.open();
+                } else if (what ==
+                    MediaRecorder.MEDIA_RECORDER_INFO_MAX_FILESIZE_REACHED) {
+                    if (!mExpectMaxFileCond) {
+                        fail("Do not expect MEDIA_RECORDER_INFO_MAX_FILESIZE_REACHED");
+                    } else {
+                        Log.v(TAG, "max file size reached");
+                        mMaxFileSizeCond.open();
+                    }
+                } else if (what ==
+                    MediaRecorder.MEDIA_RECORDER_INFO_MAX_FILESIZE_APPROACHING) {
+                    Log.v(TAG, "max file size is approaching");
+                    mMaxFileSizeApproachingCond.open();
+
+                    // Test passing a read-only FileDescriptor and expect IOException.
+                    if (mFileIndex == 1) {
+                        RandomAccessFile file = null;
+                        try {
+                            String path = OUTPUT_PATH + '0';
+                            file = new RandomAccessFile(path, "r");
+                            mMediaRecorder.setNextOutputFile(file.getFD());
+                            fail("Expect IOException.");
+                        } catch (IOException e) {
+                            // Expected.
+                        } finally {
+                            try {
+                                file.close();
+                            } catch (IOException e) {
+                                fail("Fail to close file");
+                            }
+                        }
+                    }
+
+                    // Test passing a read-only FileDescriptor and expect IOException.
+                    if (mFileIndex == 2) {
+                        ParcelFileDescriptor out = null;
+                        String path = null;
+                        try {
+                            path = OUTPUT_PATH + '0';
+                            out = ParcelFileDescriptor.open(new File(path),
+                                    ParcelFileDescriptor.MODE_READ_ONLY | ParcelFileDescriptor.MODE_CREATE);
+                            mMediaRecorder.setNextOutputFile(out.getFileDescriptor());
+                            fail("Expect IOException.");
+                        } catch (IOException e) {
+                            // Expected.
+                        } finally {
+                            try {
+                                out.close();
+                            } catch (IOException e) {
+                                fail("Fail to close file");
+                            }
+                        }
+                    }
+
+                    // Test passing a write-only FileDescriptor and expect NO IOException.
+                    if (mFileIndex == 3) {
+                        try {
+                            ParcelFileDescriptor out = null;
+                            String path = OUTPUT_PATH + mFileIndex;
+                            out = ParcelFileDescriptor.open(new File(path),
+                                    ParcelFileDescriptor.MODE_WRITE_ONLY | ParcelFileDescriptor.MODE_CREATE);
+                            mMediaRecorder.setNextOutputFile(out.getFileDescriptor());
+                            out.close();
+                            recordFileList.add(path);
+                            mFileIndex++;
+                        } catch (IOException e) {
+                            fail("Fail to set next output file error: " + e);
+                        }
+                    } else if (mFileIndex < 6) {
+                        try {
+                            String path = OUTPUT_PATH + mFileIndex;
+                            File nextFile = new File(path);
+                            mMediaRecorder.setNextOutputFile(nextFile);
+                            recordFileList.add(path);
+                            mFileIndex++;
+                        } catch (IOException e) {
+                            fail("Fail to set next output file error: " + e);
+                        }
+                    }
+                } else if (what ==
+                    MediaRecorder.MEDIA_RECORDER_INFO_NEXT_OUTPUT_FILE_STARTED) {
+                    Log.v(TAG, "Next output file started");
+                    mNextOutputFileStartedCond.open();
+                }
+            }
+        });
+        mExpectMaxFileCond = false;
+        mMediaRecorder.setOutputFile(OUTPUT_PATH + mFileIndex);
+        recordFileList.add(OUTPUT_PATH + mFileIndex);
+        mFileIndex++;
+        mMediaRecorder.setAudioSource(MediaRecorder.AudioSource.MIC);
+        mMediaRecorder.setVideoSource(MediaRecorder.VideoSource.CAMERA);
+        mMediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
+        mMediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
+        mMediaRecorder.setVideoEncoder(MediaRecorder.VideoEncoder.H264);
+        mMediaRecorder.setVideoSize(VIDEO_WIDTH, VIDEO_HEIGHT);
+        mMediaRecorder.setVideoEncodingBitRate(256000);
+        mMediaRecorder.setPreviewDisplay(mActivity.getSurfaceHolder().getSurface());
+        mMediaRecorder.setMaxFileSize(fileSize);
+        mMediaRecorder.prepare();
+        mMediaRecorder.start();
+
+        // Record total 5 files including previous one.
+        int fileCount = 0;
+        while (fileCount < 5) {
+            if (!mMaxFileSizeApproachingCond.block(MAX_FILE_SIZE_TIMEOUT_MS)) {
+                fail("timed out waiting for MEDIA_RECORDER_INFO_MAX_FILESIZE_APPROACHING");
+            }
+            if (!mNextOutputFileStartedCond.block(MAX_FILE_SIZE_TIMEOUT_MS)) {
+                fail("timed out waiting for MEDIA_RECORDER_INFO_NEXT_OUTPUT_FILE_STARTED");
+            }
+            fileCount++;
+            mMaxFileSizeApproachingCond.close();
+            mNextOutputFileStartedCond.close();
+        }
+
+        mExpectMaxFileCond = true;
+        if (!mMaxFileSizeCond.block(MAX_FILE_SIZE_TIMEOUT_MS)) {
+            fail("timed out waiting for MEDIA_RECORDER_INFO_MAX_FILESIZE_REACHED");
+        }
+        mMediaRecorder.stop();
+
+        for (String filePath : recordFileList) {
+            checkOutputFileSize(filePath, fileSize, tolerance);
+        }
+    }
+
+    private void checkOutputFileSize(final String fileName, long fileSize, long tolerance) {
+        File file = new File(fileName);
+        assertTrue(file.exists());
+        assertEquals(fileSize, file.length(), tolerance);
+        assertTrue(file.delete());
     }
 
     public void testOnErrorListener() throws Exception {
-        if (!hasMicrophone() || !hasAmrNb()) {
+        if (!hasMicrophone() || !hasAac()) {
             MediaUtils.skipTest("no audio codecs or microphone");
             return;
         }
         mMediaRecorder.setAudioSource(MediaRecorder.AudioSource.DEFAULT);
         mMediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP);
-        mMediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AMR_NB);
+        mMediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
 
         recordMedia(MAX_FILE_SIZE, mOutFile);
         // TODO: how can we trigger a recording error?
@@ -934,12 +1421,13 @@ public class MediaRecorderTest extends ActivityInstrumentationTestCase2<MediaStu
         boolean success = false;
         Surface surface = null;
         int noOfFailure = 0;
-        final float frameRate = getMaxFrameRateForCodec(MediaRecorder.VideoEncoder.H264);
 
         if (!hasH264()) {
             MediaUtils.skipTest("no codecs");
             return true;
         }
+
+        final float frameRate = getMaxFrameRateForCodec(MediaRecorder.VideoEncoder.H264);
 
         try {
             if (persistent) {
@@ -1049,5 +1537,30 @@ public class MediaRecorderTest extends ActivityInstrumentationTestCase2<MediaStu
 
     private static boolean hasH264() {
         return MediaUtils.hasEncoder(MediaFormat.MIMETYPE_VIDEO_AVC);
+    }
+
+    public void testSetCaptureRate() throws Exception {
+        // No exception expected for 30fps
+        mMediaRecorder.setCaptureRate(30.0);
+        try {
+            mMediaRecorder.setCaptureRate(-1.0);
+            fail("Should fail setting negative fps");
+        } catch (Exception ex) {
+            // expected
+        }
+        // No exception expected for 1/24hr
+        mMediaRecorder.setCaptureRate(1.0 / 86400.0);
+        try {
+            mMediaRecorder.setCaptureRate(1.0 / 90000.0);
+            fail("Should fail setting smaller fps than one frame per day");
+        } catch (Exception ex) {
+            // expected
+        }
+        try {
+            mMediaRecorder.setCaptureRate(0);
+            fail("Should fail setting zero fps");
+        } catch (Exception ex) {
+            // expected
+        }
     }
 }

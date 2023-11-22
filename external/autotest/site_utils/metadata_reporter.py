@@ -15,7 +15,6 @@ import threading
 
 import common
 from autotest_lib.client.common_lib.cros.graphite import autotest_es
-from autotest_lib.client.common_lib.cros.graphite import autotest_stats
 from autotest_lib.scheduler import email_manager
 # The metadata_reporter thread runs inside scheduler process, thus it doesn't
 # need to setup django, otherwise, following import is needed:
@@ -111,17 +110,11 @@ def _run():
                     time_used = time.time() - start_time
                     logging.info('%d entries of metadata uploaded in %s '
                                  'seconds.', len(data_list), time_used)
-                    autotest_stats.Timer('metadata_reporter').send(
-                            'time_used', time_used)
-                    autotest_stats.Gauge('metadata_reporter').send(
-                            'entries_uploaded', len(data_list))
                     first_failed_upload = None
                     email_alert = False
                 else:
                     logging.warn('Failed to upload %d entries of metadata, '
                                  'they will be retried later.', len(data_list))
-                    autotest_stats.Gauge('metadata_reporter').send(
-                            'entries_failed', len(data_list))
                     for data in data_list:
                         queue(data)
                     if not first_failed_upload:

@@ -21,6 +21,8 @@
 #include <utils/String16.h>
 #include <utils/Vector.h>
 
+namespace android {
+namespace net {
 
 class DumpWriter {
 public:
@@ -37,5 +39,8 @@ private:
     uint8_t mIndentLevel;
     int mFd;
 };
+
+}  // namespace net
+}  // namespace android
 
 #endif  // NETD_SERVER_DUMPWRITER_H_

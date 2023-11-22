@@ -2,16 +2,14 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-AUTHOR = "scunningham"
-NAME = "policy_RestoreOnStartupURLs"
-ATTRIBUTES = "suite:bvt-perbuild"
-SUITE = "bvt-perbuild"
-TIME = "SHORT"
-TEST_CATEGORY = "General"
-TEST_CLASS = "enterprise"
-TEST_TYPE = "client"
+AUTHOR = 'scunningham'
+NAME = 'policy_RestoreOnStartupURLs'
+TIME = 'SHORT'
+TEST_CATEGORY = 'General'
+TEST_CLASS = 'enterprise'
+TEST_TYPE = 'client'
 
-DOC = """
+DOC = '''
 Verify effects of RestoreOnStartupURLs policy on client behavior.
 
 This test verifies the effect of the RestoreOnStartupURLs user policy on
@@ -22,22 +20,11 @@ A test case shall pass when a single browser tab is opened for only the URLs
 specified in the policy value, and in the order specified (left to right).
 A test case shall fail if the above behavior is not enforced.
 
-Default useage example:
-$ test_that <IPAddress> policy_RestoreOnStartupURLs
+See accompanying README file for usage instructions and examples.
 
-Runs all three test cases using the local AutoTest fake DM server, and with
-the default policy values defined by each test case.
+'''
 
-Arguments useage example:
-$ test_that <IPAddress> policy_RestoreOnStartupURLs --args="env=prod
-mode=single case=SingleUrl_1Tab value=http://www.irs.com"
+args_dict = utils.args_to_dict(args)
 
-Runs a single test case (e.g., SingleUrl_1Tab) against the production
-environment, with an user-specified policy value of http://www.irs.com.
-
-See accompanying README file for additional usage instructions and examples.
-
-"""
-
-job.run_test("policy_RestoreOnStartupURLs", args=args)
+job.run_test('policy_RestoreOnStartupURLs', **args_dict)
 

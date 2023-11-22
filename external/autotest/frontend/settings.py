@@ -106,7 +106,6 @@ MIDDLEWARE_CLASSES = (
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.middleware.doc.XViewMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
-    'frontend.shared.json_html_formatter.JsonToHtmlMiddleware',
 )
 
 ROOT_URLCONF = 'frontend.urls'

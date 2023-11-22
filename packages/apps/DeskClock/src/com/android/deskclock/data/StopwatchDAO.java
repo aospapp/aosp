@@ -16,11 +16,8 @@
 
 package com.android.deskclock.data;
 
-import android.content.Context;
 import android.content.SharedPreferences;
-import android.preference.PreferenceManager;
 
-import com.android.deskclock.Utils;
 import com.android.deskclock.data.Stopwatch.State;
 
 import java.util.ArrayList;
@@ -35,52 +32,60 @@ import static com.android.deskclock.data.Stopwatch.State.RESET;
  */
 final class StopwatchDAO {
 
-    // Key to a preference that stores the state of the stopwatch.
+    /** Key to a preference that stores the state of the stopwatch. */
     private static final String STATE = "sw_state";
 
-    // Key to a preference that stores the last start time of the stopwatch.
+    /** Key to a preference that stores the last start time of the stopwatch. */
     private static final String LAST_START_TIME = "sw_start_time";
 
-    // Key to a preference that stores the accumulated elapsed time of the stopwatch.
+    /** Key to a preference that stores the epoch time when the stopwatch last started. */
+    private static final String LAST_WALL_CLOCK_TIME = "sw_wall_clock_time";
+
+    /** Key to a preference that stores the accumulated elapsed time of the stopwatch. */
     private static final String ACCUMULATED_TIME = "sw_accum_time";
 
-    // Key to a preference that stores the number of recorded laps.
+    /** Prefix for a key to a preference that stores the number of recorded laps. */
     private static final String LAP_COUNT = "sw_lap_num";
 
-    // Prefix for a key to a preference that stores accumulated time at the end of a particular lap.
+    /** Prefix for a key to a preference that stores accumulated time at the end of a lap. */
     private static final String LAP_ACCUMULATED_TIME = "sw_lap_time_";
-
-    // Lazily instantiated and cached for the life of the application.
-    private static SharedPreferences sPrefs;
 
     private StopwatchDAO() {}
 
     /**
      * @return the stopwatch from permanent storage or a reset stopwatch if none exists
      */
-    public static Stopwatch getStopwatch(Context context) {
-        final SharedPreferences prefs = getSharedPreferences(context);
+    static Stopwatch getStopwatch(SharedPreferences prefs) {
         final int stateIndex = prefs.getInt(STATE, RESET.ordinal());
         final State state = State.values()[stateIndex];
-        final long lastStartTime = prefs.getLong(LAST_START_TIME, Long.MIN_VALUE);
+        final long lastStartTime = prefs.getLong(LAST_START_TIME, Stopwatch.UNUSED);
+        final long lastWallClockTime = prefs.getLong(LAST_WALL_CLOCK_TIME, Stopwatch.UNUSED);
         final long accumulatedTime = prefs.getLong(ACCUMULATED_TIME, 0);
-        return new Stopwatch(state, lastStartTime, accumulatedTime);
+        Stopwatch s = new Stopwatch(state, lastStartTime, lastWallClockTime, accumulatedTime);
+
+        // If the stopwatch reports an illegal (negative) amount of time, remove the bad data.
+        if (s.getTotalTime() < 0) {
+            s = s.reset();
+            setStopwatch(prefs, s);
+        }
+        return s;
     }
 
     /**
      * @param stopwatch the last state of the stopwatch
      */
-    public static void setStopwatch(Context context, Stopwatch stopwatch) {
-        final SharedPreferences prefs = getSharedPreferences(context);
+    static void setStopwatch(SharedPreferences prefs, Stopwatch stopwatch) {
         final SharedPreferences.Editor editor = prefs.edit();
 
         if (stopwatch.isReset()) {
             editor.remove(STATE)
                     .remove(LAST_START_TIME)
+                    .remove(LAST_WALL_CLOCK_TIME)
                     .remove(ACCUMULATED_TIME);
         } else {
             editor.putInt(STATE, stopwatch.getState().ordinal())
                     .putLong(LAST_START_TIME, stopwatch.getLastStartTime())
+                    .putLong(LAST_WALL_CLOCK_TIME, stopwatch.getLastWallClockTime())
                     .putLong(ACCUMULATED_TIME, stopwatch.getAccumulatedTime());
         }
 
@@ -90,9 +95,7 @@ final class StopwatchDAO {
     /**
      * @return a list of recorded laps for the stopwatch
      */
-    public static List<Lap> getLaps(Context context) {
-        final SharedPreferences prefs = getSharedPreferences(context);
-
+    static List<Lap> getLaps(SharedPreferences prefs) {
         // Prepare the container to be filled with laps.
         final int lapCount = prefs.getInt(LAP_COUNT, 0);
         final List<Lap> laps = new ArrayList<>(lapCount);
@@ -125,8 +128,8 @@ final class StopwatchDAO {
      * @param newLapCount the number of laps including the new lap
      * @param accumulatedTime the amount of time accumulate by the stopwatch at the end of the lap
      */
-    public static void addLap(Context context, int newLapCount, long accumulatedTime) {
-        getSharedPreferences(context).edit()
+    static void addLap(SharedPreferences prefs, int newLapCount, long accumulatedTime) {
+        prefs.edit()
                 .putInt(LAP_COUNT, newLapCount)
                 .putLong(LAP_ACCUMULATED_TIME + newLapCount, accumulatedTime)
                 .apply();
@@ -135,8 +138,7 @@ final class StopwatchDAO {
     /**
      * Remove the recorded laps for the stopwatch
      */
-    public static void clearLaps(Context context) {
-        final SharedPreferences prefs = getSharedPreferences(context);
+    static void clearLaps(SharedPreferences prefs) {
         final SharedPreferences.Editor editor = prefs.edit();
 
         final int lapCount = prefs.getInt(LAP_COUNT, 0);
@@ -146,13 +148,5 @@ final class StopwatchDAO {
         editor.remove(LAP_COUNT);
 
         editor.apply();
-    }
-
-    private static SharedPreferences getSharedPreferences(Context context) {
-        if (sPrefs == null) {
-            sPrefs = Utils.getDefaultSharedPreferences(context.getApplicationContext());
-        }
-
-        return sPrefs;
     }
 }

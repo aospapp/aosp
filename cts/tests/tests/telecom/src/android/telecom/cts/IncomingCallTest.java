@@ -88,7 +88,8 @@ public class IncomingCallTest extends BaseTelecomTestWithMockServices {
 
         // Do not enable PhoneAccount
         setupConnectionService(null, FLAG_REGISTER);
-        assertFalse(mTelecomManager.getPhoneAccount(TEST_PHONE_ACCOUNT_HANDLE).isEnabled());
+        assertFalse(mTelecomManager.getPhoneAccount(TestUtils.TEST_PHONE_ACCOUNT_HANDLE)
+                .isEnabled());
         try {
             addAndVerifyNewIncomingCall(createTestNumber(), null);
             fail();

@@ -16,7 +16,9 @@
 package com.android.server.pm;
 
 import android.annotation.NonNull;
+import android.annotation.Nullable;
 import android.annotation.UserIdInt;
+import android.content.pm.PackageInfo;
 import android.content.pm.ShortcutInfo;
 import android.util.ArrayMap;
 import android.util.ArraySet;
@@ -102,6 +104,9 @@ class ShortcutLauncher extends ShortcutPackageItem {
         // Nothing to do.
     }
 
+    /**
+     * Pin the given shortcuts, replacing the current pinned ones.
+     */
     public void pinShortcuts(@UserIdInt int packageUserId,
             @NonNull String packageName, @NonNull List<String> ids) {
         final ShortcutPackage packageShortcuts =
@@ -142,13 +147,51 @@ class ShortcutLauncher extends ShortcutPackageItem {
     /**
      * Return the pinned shortcut IDs for the publisher package.
      */
+    @Nullable
     public ArraySet<String> getPinnedShortcutIds(@NonNull String packageName,
             @UserIdInt int packageUserId) {
         return mPinnedShortcuts.get(PackageWithUser.of(packageUserId, packageName));
     }
 
+    /**
+     * Return true if the given shortcut is pinned by this launcher.
+     */
+    public boolean hasPinned(ShortcutInfo shortcut) {
+        final ArraySet<String> pinned =
+                getPinnedShortcutIds(shortcut.getPackage(), shortcut.getUserId());
+        return (pinned != null) && pinned.contains(shortcut.getId());
+    }
+
+    /**
+     * Additionally pin a shortcut. c.f. {@link #pinShortcuts(int, String, List)}
+     */
+    public void addPinnedShortcut(@NonNull String packageName, @UserIdInt int packageUserId,
+            String id) {
+        final ArraySet<String> pinnedSet = getPinnedShortcutIds(packageName, packageUserId);
+        final ArrayList<String> pinnedList;
+        if (pinnedSet != null) {
+            pinnedList = new ArrayList<>(pinnedSet.size() + 1);
+            pinnedList.addAll(pinnedSet);
+        } else {
+            pinnedList = new ArrayList<>(1);
+        }
+        pinnedList.add(id);
+
+        pinShortcuts(packageUserId, packageName, pinnedList);
+    }
+
     boolean cleanUpPackage(String packageName, @UserIdInt int packageUserId) {
         return mPinnedShortcuts.remove(PackageWithUser.of(packageUserId, packageName)) != null;
+    }
+
+    public void ensureVersionInfo() {
+        final PackageInfo pi = mShortcutUser.mService.getPackageInfoWithSignatures(
+                getPackageName(), getPackageUserId());
+        if (pi == null) {
+            Slog.w(TAG, "Package not found: " + getPackageName());
+            return;
+        }
+        getPackageInfo().updateVersionInfo(pi);
     }
 
     /**
@@ -202,7 +245,7 @@ class ShortcutLauncher extends ShortcutPackageItem {
                 fromBackup ? ownerUserId
                 : ShortcutService.parseIntAttribute(parser, ATTR_LAUNCHER_USER_ID, ownerUserId);
 
-        final ShortcutLauncher ret = new ShortcutLauncher(shortcutUser, launcherUserId,
+        final ShortcutLauncher ret = new ShortcutLauncher(shortcutUser, ownerUserId,
                 launcherPackageName, launcherUserId);
 
         ArraySet<String> ids = null;

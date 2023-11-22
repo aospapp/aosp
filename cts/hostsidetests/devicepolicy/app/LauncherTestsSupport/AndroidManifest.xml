@@ -17,7 +17,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.android.cts.launchertests.support">
 
-    <uses-sdk android:minSdkVersion="21"/>
+    <!-- Target 25.  Don't change to >= 26 since that'll break background services. -->
+    <uses-sdk android:minSdkVersion="21" android:targetSdkVersion="25"/>
 
     <application>
         <service android:name=".LauncherCallbackTestsService" >

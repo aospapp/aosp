@@ -24,7 +24,7 @@ class Adb {
 public:
     /// device: device number typically passed in adb's -s argument.
     /// if device string is empty, adb command will be called without -s option.
-    Adb(const android::String8& device);
+    explicit Adb(const android::String8& device);
     ~Adb();
     bool setPortForwarding(int hostPort, int devicePort);
     /// install given clientBinary to DUT and launch given component.

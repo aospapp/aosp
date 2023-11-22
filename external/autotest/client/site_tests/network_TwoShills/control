@@ -5,7 +5,6 @@
 AUTHOR = 'quiche, wiley, pstew'
 NAME = 'network_TwoShills'
 ATTRIBUTES = "suite:network_nightly"
-SUITE = 'network_nightly'
 TIME = 'SHORT'
 TEST_TYPE = 'client'
 

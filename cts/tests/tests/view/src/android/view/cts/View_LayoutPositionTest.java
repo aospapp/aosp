@@ -16,36 +16,41 @@
 
 package android.view.cts;
 
-import android.view.cts.R;
-
+import static org.junit.Assert.assertEquals;
 
 import android.app.Activity;
-import android.graphics.Canvas;
 import android.graphics.Rect;
-import android.test.ActivityInstrumentationTestCase2;
-import android.test.UiThreadTest;
+import android.support.test.annotation.UiThreadTest;
+import android.support.test.filters.MediumTest;
+import android.support.test.rule.ActivityTestRule;
+import android.support.test.runner.AndroidJUnit4;
 import android.view.View;
+
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 /**
  * For the view test is too big, we divide the test cases into several parts.
  * This part contains size, padding, margin, layout and drawing
  */
-public class View_LayoutPositionTest
-        extends ActivityInstrumentationTestCase2<ViewLayoutPositionTestCtsActivity> {
-
+@MediumTest
+@RunWith(AndroidJUnit4.class)
+public class View_LayoutPositionTest {
     private Activity mActivity;
 
-    public View_LayoutPositionTest() {
-        super("android.view.cts", ViewLayoutPositionTestCtsActivity.class);
-    }
+    @Rule
+    public ActivityTestRule<ViewLayoutPositionTestCtsActivity> mActivityRule =
+            new ActivityTestRule<>(ViewLayoutPositionTestCtsActivity.class);
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mActivity = getActivity();
+    @Before
+    public void setup() {
+        mActivity = mActivityRule.getActivity();
     }
 
     @UiThreadTest
+    @Test
     public void testPositionInParent() {
         View parent = mActivity.findViewById(R.id.testparent);
         View view = mActivity.findViewById(R.id.testview);
@@ -101,6 +106,7 @@ public class View_LayoutPositionTest
         assertEquals(bottom + v_offset, nbottom);
     }
 
+    @Test
     public void testPadding() {
         View view = new View(mActivity);
 

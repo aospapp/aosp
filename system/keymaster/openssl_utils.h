@@ -34,7 +34,7 @@ struct KeymasterKeyBlob;
 
 class EvpMdCtxCleaner {
   public:
-    EvpMdCtxCleaner(EVP_MD_CTX* ctx) : ctx_(ctx) {}
+    explicit EvpMdCtxCleaner(EVP_MD_CTX* ctx) : ctx_(ctx) {}
     ~EvpMdCtxCleaner() { EVP_MD_CTX_cleanup(ctx_); }
 
   private:

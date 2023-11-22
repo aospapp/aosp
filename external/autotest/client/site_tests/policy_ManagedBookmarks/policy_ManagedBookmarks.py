@@ -2,12 +2,10 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import json
-import logging
 import time
 
 from autotest_lib.client.common_lib import error
-from autotest_lib.client.cros import enterprise_policy_base
+from autotest_lib.client.cros.enterprise import enterprise_policy_base
 
 
 class policy_ManagedBookmarks(enterprise_policy_base.EnterprisePolicyTest):
@@ -15,9 +13,9 @@ class policy_ManagedBookmarks(enterprise_policy_base.EnterprisePolicyTest):
 
     This test verifies the behavior of Chrome OS for a range of valid values
     of the ManagedBookmarks user policy, as defined by three test cases:
-    NotSet, SingleBookmark_Shown, and MultiBookmark_Shown.
+    NotSet_NotShown, SingleBookmark_Shown, and MultiBookmarks_Shown.
 
-    When NotSet, the policy value is undefined. This induces the default
+    When not set, the policy value is undefined. This induces the default
     behavior of not showing the managed bookmarks folder, which is equivalent
     to what is seen by an un-managed user.
 
@@ -28,61 +26,49 @@ class policy_ManagedBookmarks(enterprise_policy_base.EnterprisePolicyTest):
     version = 1
 
     POLICY_NAME = 'ManagedBookmarks'
-    SINGLE_BOOKMARK = '''
-    {
-      "name": "Google",
-      "url": "https://www.google.com/"
-    }
-    '''
-    MULTI_BOOKMARK = '''
-    {
-      "name": "Google",
-      "url": "https://www.google.com/"
-    }
-    ,{
-      "name": "CNN",
-      "url": "http://www.cnn.com/"
-    }
-    ,{
-      "name": "IRS",
-      "url": "http://www.irs.gov/"
-    }
-    '''
+    SINGLE_BOOKMARK = [{'name': 'Google',
+                        'url': 'https://www.google.com/'}]
+
+    MULTI_BOOKMARK = [{'name': 'Google',
+                       'url': 'https://www.google.com/'},
+                      {'name': 'CNN',
+                       'url': 'http://www.cnn.com/'},
+                      {'name': 'IRS',
+                       'url': 'http://www.irs.gov/'}]
+
     SUPPORTING_POLICIES = {
         'BookmarkBarEnabled': True
     }
 
-    # Dictionary of named test cases and policy values.
+    # Dictionary of test case names and policy values.
     TEST_CASES = {
         'NotSet_NotShown': None,
         'SingleBookmark_Shown': SINGLE_BOOKMARK,
-        'MultiBookmark_Shown': MULTI_BOOKMARK
+        'MultipleBookmarks_Shown': MULTI_BOOKMARK
     }
 
-    def _test_managed_bookmarks(self, policy_value, policies_json):
+    def _test_managed_bookmarks(self, policy_value):
         """Verify CrOS enforces ManagedBookmarks policy.
 
         When ManagedBookmarks is not set, the UI shall not show the managed
         bookmarks folder nor its contents. When set to one or more bookmarks
         the UI shows the folder and its contents.
 
-        @param policy_value: policy value expected on chrome://policy page.
-        @param policies_json: policy JSON data to send to the fake DM server.
+        @param policy_value: policy value for this case.
 
         """
-        self.setup_case(self.POLICY_NAME, policy_value, policies_json)
-        logging.info('Running _test_managed_bookmarks(policy_value=%s, '
-                     'policies_json=%s)', policy_value, policies_json)
+        managed_bookmarks_are_shown = self._are_bookmarks_shown(policy_value)
         if policy_value is None:
-            if self._managed_bookmarks_are_shown(policy_value):
+            if managed_bookmarks_are_shown:
                 raise error.TestFail('Managed Bookmarks should be hidden.')
         else:
-            if not self._managed_bookmarks_are_shown(policy_value):
+            if not managed_bookmarks_are_shown:
                 raise error.TestFail('Managed Bookmarks should be shown.')
 
-    def _managed_bookmarks_are_shown(self, policy_bookmarks):
+    def _are_bookmarks_shown(self, policy_bookmarks):
         """Check whether managed bookmarks are shown in the UI.
 
+        @param policy_bookmarks: bookmarks expected.
         @returns: True if the managed bookmarks are shown.
 
         """
@@ -92,7 +78,7 @@ class policy_ManagedBookmarks(enterprise_policy_base.EnterprisePolicyTest):
         tree_items = self.get_elements_from_page(tab, cmd)
 
         # Scan bookmark tree for a folder with the domain-name in title.
-        domain_name = self.USERNAME.split('@')[1]
+        domain_name = self.username.split('@')[1]
         folder_title = domain_name + ' bookmarks'
         for bookmark_element in tree_items.itervalues():
             bookmark_node = bookmark_element['bookmarkNode']
@@ -120,8 +106,9 @@ class policy_ManagedBookmarks(enterprise_policy_base.EnterprisePolicyTest):
         tab.Close()
 
         # Get list of expected bookmarks as set by policy.
-        json_bookmarks = json.loads('[%s]' % policy_bookmarks)
-        bookmarks_expected = [bmk['name'] for bmk in json_bookmarks]
+        bookmarks_expected = None
+        if policy_bookmarks:
+            bookmarks_expected = [bmk['name'] for bmk in policy_bookmarks]
 
         # Compare bookmarks shown vs expected.
         if bookmark_items != bookmarks_expected:
@@ -142,41 +129,17 @@ class policy_ManagedBookmarks(enterprise_policy_base.EnterprisePolicyTest):
         tab = self.navigate_to_url(bmp_url)
 
         # Wait until list.reload() is defined on page.
-        tab.WaitForJavaScriptExpression(
-            "typeof bmm.list.reload == 'function'", 60)
+        tab.WaitForJavaScriptCondition(
+            "typeof bmm.list.reload == 'function'", timeout=60)
         time.sleep(1)  # Allow JS to run after function is defined.
         return tab
 
-    def _run_test_case(self, case):
+    def run_test_case(self, case):
         """Setup and run the test configured for the specified test case.
-
-        Set the expected |policy_value| string and |policies_json| data based
-        on the test |case|. If the user specified an expected |value| in the
-        command line args, then use it to set the |policy_value| and blank out
-        the |policies_json|.
 
         @param case: Name of the test case to run.
 
         """
-        if self.is_value_given:
-            # If |value| was given by user, then set expected |policy_value|
-            # to the given value, and setup |policies_json| to None.
-            policy_value = self.value
-            policies_json = None
-        else:
-            # Otherwise, set expected |policy_value| and setup |policies_json|
-            # data to the defaults required by the test |case|.
-            policies_json = self.SUPPORTING_POLICIES.copy()
-            if self.TEST_CASES[case] is None:
-                policy_value = None
-                policy_json = {self.POLICY_NAME: None}
-            else:
-                policy_value = self.TEST_CASES[case]
-                policy_json = {self.POLICY_NAME: ('[%s]' % policy_value)}
-            policies_json.update(policy_json)
-
-        # Run test using values configured for the test case.
-        self._test_managed_bookmarks(policy_value, policies_json)
-
-    def run_once(self):
-        self.run_once_impl(self._run_test_case)
+        case_value = self.TEST_CASES[case]
+        self.setup_case(self.POLICY_NAME, case_value, self.SUPPORTING_POLICIES)
+        self._test_managed_bookmarks(case_value)

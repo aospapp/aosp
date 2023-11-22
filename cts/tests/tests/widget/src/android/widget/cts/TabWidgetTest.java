@@ -16,13 +16,19 @@
 
 package android.widget.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
 
-import android.app.Activity;
 import android.content.Context;
 import android.graphics.drawable.Drawable;
-import android.test.ActivityInstrumentationTestCase2;
-import android.test.UiThreadTest;
-import android.test.suitebuilder.annotation.SmallTest;
+import android.support.test.annotation.UiThreadTest;
+import android.support.test.filters.MediumTest;
+import android.support.test.rule.ActivityTestRule;
+import android.support.test.runner.AndroidJUnit4;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.LinearLayout;
@@ -33,23 +39,31 @@ import android.widget.TabWidget;
 import android.widget.TextView;
 import android.widget.cts.util.TestUtils;
 
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
 /**
  * Test {@link TabWidget}.
  */
-@SmallTest
-public class TabWidgetTest extends ActivityInstrumentationTestCase2<TabHostCtsActivity> {
-    private Activity mActivity;
+@MediumTest
+@RunWith(AndroidJUnit4.class)
+public class TabWidgetTest {
+    private TabHostCtsActivity mActivity;
+    private TabWidget mTabWidget;
 
-    public TabWidgetTest() {
-        super("android.widget.cts", TabHostCtsActivity.class);
+    @Rule
+    public ActivityTestRule<TabHostCtsActivity> mActivityRule =
+            new ActivityTestRule<>(TabHostCtsActivity.class);
+
+    @Before
+    public void setup() {
+        mActivity = mActivityRule.getActivity();
+        mTabWidget = mActivity.getTabWidget();
     }
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mActivity = getActivity();
-    }
-
+    @Test
     public void testConstructor() {
         new TabWidget(mActivity);
 
@@ -58,6 +72,7 @@ public class TabWidgetTest extends ActivityInstrumentationTestCase2<TabHostCtsAc
         new TabWidget(mActivity, null, 0);
     }
 
+    @Test
     public void testConstructorWithStyle() {
         TabWidget tabWidget = new TabWidget(mActivity, null, 0, R.style.TabWidgetCustomStyle);
 
@@ -76,6 +91,7 @@ public class TabWidgetTest extends ActivityInstrumentationTestCase2<TabHostCtsAc
                 true, 0xFFFF0000, 1, false);
     }
 
+    @Test
     public void testInflateFromXml() {
         LayoutInflater inflater = LayoutInflater.from(mActivity);
         TabWidget tabWidget = (TabWidget) inflater.inflate(R.layout.tabhost_custom, null, false);
@@ -96,38 +112,36 @@ public class TabWidgetTest extends ActivityInstrumentationTestCase2<TabHostCtsAc
     }
 
     @UiThreadTest
+    @Test
     public void testTabCount() {
-        TabHostCtsActivity activity = getActivity();
-        TabWidget tabWidget = activity.getTabWidget();
-
         // We have one tab added in onCreate() of our activity
-        assertEquals(1, tabWidget.getTabCount());
+        assertEquals(1, mTabWidget.getTabCount());
 
         for (int i = 1; i < 10; i++) {
-            tabWidget.addView(new TextView(mActivity));
-            assertEquals(i + 1, tabWidget.getTabCount());
+            mTabWidget.addView(new TextView(mActivity));
+            assertEquals(i + 1, mTabWidget.getTabCount());
         }
     }
 
     @UiThreadTest
+    @Test
     public void testTabViews() {
-        TabHostCtsActivity activity = getActivity();
-        TabWidget tabWidget = activity.getTabWidget();
-
         // We have one tab added in onCreate() of our activity. We "reach" into the default tab
         // indicator layout in the same way we do in TabHost_TabSpecTest tests.
-        TextView tab0 = (TextView) tabWidget.getChildTabViewAt(0).findViewById(android.R.id.title);
+        TextView tab0 = (TextView) mTabWidget.getChildTabViewAt(0).findViewById(android.R.id.title);
         assertNotNull(tab0);
         assertEquals(TabHostCtsActivity.INITIAL_TAB_LABEL, tab0.getText());
 
         for (int i = 1; i < 10; i++) {
             TextView toAdd = new TextView(mActivity);
             toAdd.setText("Tab #" + i);
-            tabWidget.addView(toAdd);
-            assertEquals(toAdd, tabWidget.getChildTabViewAt(i));
+            mTabWidget.addView(toAdd);
+            assertEquals(toAdd, mTabWidget.getChildTabViewAt(i));
         }
     }
 
+    @UiThreadTest
+    @Test
     public void testChildDrawableStateChanged() {
         MockTabWidget mockTabWidget = new MockTabWidget(mActivity);
         TextView tv0 = new TextView(mActivity);
@@ -148,93 +162,84 @@ public class TabWidgetTest extends ActivityInstrumentationTestCase2<TabHostCtsAc
         assertFalse(mockTabWidget.hasCalledInvalidate());
     }
 
-    public void testDispatchDraw() {
-        // implementation details
-    }
-
     @UiThreadTest
+    @Test
     public void testSetCurrentTab() {
-        TabHostCtsActivity activity = getActivity();
-        TabWidget tabWidget = activity.getTabWidget();
-        tabWidget.addView(new TextView(mActivity));
+        mTabWidget.addView(new TextView(mActivity));
 
-        assertTrue(tabWidget.getChildAt(0).isSelected());
-        assertFalse(tabWidget.getChildAt(1).isSelected());
-        assertTrue(tabWidget.getChildAt(0).isFocused());
-        assertFalse(tabWidget.getChildAt(1).isFocused());
+        assertTrue(mTabWidget.getChildAt(0).isSelected());
+        assertFalse(mTabWidget.getChildAt(1).isSelected());
+        assertTrue(mTabWidget.getChildAt(0).isFocused());
+        assertFalse(mTabWidget.getChildAt(1).isFocused());
 
-        tabWidget.setCurrentTab(1);
-        assertFalse(tabWidget.getChildAt(0).isSelected());
-        assertTrue(tabWidget.getChildAt(1).isSelected());
-        assertTrue(tabWidget.getChildAt(0).isFocused());
-        assertFalse(tabWidget.getChildAt(1).isFocused());
+        mTabWidget.setCurrentTab(1);
+        assertFalse(mTabWidget.getChildAt(0).isSelected());
+        assertTrue(mTabWidget.getChildAt(1).isSelected());
+        assertTrue(mTabWidget.getChildAt(0).isFocused());
+        assertFalse(mTabWidget.getChildAt(1).isFocused());
     }
 
     @UiThreadTest
+    @Test
     public void testFocusCurrentTab() {
-        TabHostCtsActivity activity = getActivity();
-        TabWidget tabWidget = activity.getTabWidget();
-        tabWidget.addView(new TextView(mActivity));
+        mTabWidget.addView(new TextView(mActivity));
 
-        assertTrue(tabWidget.getChildAt(0).isSelected());
-        assertFalse(tabWidget.getChildAt(1).isSelected());
-        assertEquals(tabWidget.getChildAt(0), tabWidget.getFocusedChild());
-        assertTrue(tabWidget.getChildAt(0).isFocused());
-        assertFalse(tabWidget.getChildAt(1).isFocused());
+        assertTrue(mTabWidget.getChildAt(0).isSelected());
+        assertFalse(mTabWidget.getChildAt(1).isSelected());
+        assertEquals(mTabWidget.getChildAt(0), mTabWidget.getFocusedChild());
+        assertTrue(mTabWidget.getChildAt(0).isFocused());
+        assertFalse(mTabWidget.getChildAt(1).isFocused());
 
         // normal
-        tabWidget.focusCurrentTab(1);
-        assertFalse(tabWidget.getChildAt(0).isSelected());
-        assertTrue(tabWidget.getChildAt(1).isSelected());
-        assertEquals(tabWidget.getChildAt(1), tabWidget.getFocusedChild());
-        assertFalse(tabWidget.getChildAt(0).isFocused());
-        assertTrue(tabWidget.getChildAt(1).isFocused());
+        mTabWidget.focusCurrentTab(1);
+        assertFalse(mTabWidget.getChildAt(0).isSelected());
+        assertTrue(mTabWidget.getChildAt(1).isSelected());
+        assertEquals(mTabWidget.getChildAt(1), mTabWidget.getFocusedChild());
+        assertFalse(mTabWidget.getChildAt(0).isFocused());
+        assertTrue(mTabWidget.getChildAt(1).isFocused());
 
-        tabWidget.focusCurrentTab(0);
-        assertTrue(tabWidget.getChildAt(0).isSelected());
-        assertFalse(tabWidget.getChildAt(1).isSelected());
-        assertEquals(tabWidget.getChildAt(0), tabWidget.getFocusedChild());
-        assertTrue(tabWidget.getChildAt(0).isFocused());
-        assertFalse(tabWidget.getChildAt(1).isFocused());
-
-        // exceptional
-        try {
-            tabWidget.focusCurrentTab(-1);
-            fail("Should throw NullPointerException");
-        } catch (NullPointerException e) {
-            // expected exception
-        }
-
-        try {
-            tabWidget.focusCurrentTab(tabWidget.getChildCount() + 1);
-            fail("Should throw NullPointerException");
-        } catch (NullPointerException e) {
-            // expected exception
-        }
+        mTabWidget.focusCurrentTab(0);
+        assertTrue(mTabWidget.getChildAt(0).isSelected());
+        assertFalse(mTabWidget.getChildAt(1).isSelected());
+        assertEquals(mTabWidget.getChildAt(0), mTabWidget.getFocusedChild());
+        assertTrue(mTabWidget.getChildAt(0).isFocused());
+        assertFalse(mTabWidget.getChildAt(1).isFocused());
     }
 
     @UiThreadTest
-    public void testSetEnabled() {
-        TabHostCtsActivity activity = getActivity();
-        TabWidget tabWidget = activity.getTabWidget();
-
-        tabWidget.addView(new TextView(mActivity));
-        tabWidget.addView(new TextView(mActivity));
-        assertTrue(tabWidget.isEnabled());
-        assertTrue(tabWidget.getChildAt(0).isEnabled());
-        assertTrue(tabWidget.getChildAt(1).isEnabled());
-
-        tabWidget.setEnabled(false);
-        assertFalse(tabWidget.isEnabled());
-        assertFalse(tabWidget.getChildAt(0).isEnabled());
-        assertFalse(tabWidget.getChildAt(1).isEnabled());
-
-        tabWidget.setEnabled(true);
-        assertTrue(tabWidget.isEnabled());
-        assertTrue(tabWidget.getChildAt(0).isEnabled());
-        assertTrue(tabWidget.getChildAt(1).isEnabled());
+    @Test(expected=NullPointerException.class)
+    public void testFocusCurrentTabIndexTooLow() {
+        mTabWidget.focusCurrentTab(-1);
     }
 
+    @UiThreadTest
+    @Test(expected=NullPointerException.class)
+    public void testFocusCurrentTabIndexTooHigh() {
+        mTabWidget.focusCurrentTab(mTabWidget.getChildCount() + 1);
+    }
+
+    @UiThreadTest
+    @Test
+    public void testSetEnabled() {
+        mTabWidget.addView(new TextView(mActivity));
+        mTabWidget.addView(new TextView(mActivity));
+        assertTrue(mTabWidget.isEnabled());
+        assertTrue(mTabWidget.getChildAt(0).isEnabled());
+        assertTrue(mTabWidget.getChildAt(1).isEnabled());
+
+        mTabWidget.setEnabled(false);
+        assertFalse(mTabWidget.isEnabled());
+        assertFalse(mTabWidget.getChildAt(0).isEnabled());
+        assertFalse(mTabWidget.getChildAt(1).isEnabled());
+
+        mTabWidget.setEnabled(true);
+        assertTrue(mTabWidget.isEnabled());
+        assertTrue(mTabWidget.getChildAt(0).isEnabled());
+        assertTrue(mTabWidget.getChildAt(1).isEnabled());
+    }
+
+    @UiThreadTest
+    @Test
     public void testAddView() {
         MockTabWidget mockTabWidget = new MockTabWidget(mActivity);
 
@@ -256,66 +261,62 @@ public class TabWidgetTest extends ActivityInstrumentationTestCase2<TabHostCtsAc
         View view2 = new RelativeLayout(mActivity);
         mockTabWidget.addView(view2);
         assertSame(view2, mockTabWidget.getChildAt(1));
+    }
 
-        try {
-            mockTabWidget.addView(new ListView(mActivity));
-            fail("did not throw RuntimeException when adding invalid view");
-        } catch (RuntimeException e) {
-            // issue 1695243
-        }
+    @Test(expected=RuntimeException.class)
+    public void testAddAdapterView() {
+        MockTabWidget mockTabWidget = new MockTabWidget(mActivity);
+        // Since TabWidget registers a click listener on each child, this is expected
+        // to fail with anything that extends AdapterView
+        mockTabWidget.addView(new ListView(mActivity));
+    }
 
-        try {
-            mockTabWidget.addView(null);
-            fail("did not throw NullPointerException when child is null");
-        } catch (NullPointerException e) {
-            // issue 1695243
-        }
+    @Test(expected=NullPointerException.class)
+    public void testAddNullView() {
+        MockTabWidget mockTabWidget = new MockTabWidget(mActivity);
+        // Since TabWidget registers a click listener on each child, this is expected
+        // to fail with anything that extends AdapterView
+        mockTabWidget.addView(null);
     }
 
     @UiThreadTest
+    @Test
     public void testStripEnabled() {
-        TabHostCtsActivity activity = getActivity();
-        TabWidget tabWidget = activity.getTabWidget();
+        mTabWidget.setStripEnabled(true);
+        assertTrue(mTabWidget.isStripEnabled());
 
-        tabWidget.setStripEnabled(true);
-        assertTrue(tabWidget.isStripEnabled());
-
-        tabWidget.setStripEnabled(false);
-        assertFalse(tabWidget.isStripEnabled());
+        mTabWidget.setStripEnabled(false);
+        assertFalse(mTabWidget.isStripEnabled());
     }
 
     @UiThreadTest
+    @Test
     public void testStripDrawables() {
-        TabHostCtsActivity activity = getActivity();
-        TabWidget tabWidget = activity.getTabWidget();
-
         // Test setting left strip drawable
-        tabWidget.setLeftStripDrawable(R.drawable.icon_green);
-        Drawable leftStripDrawable = tabWidget.getLeftStripDrawable();
+        mTabWidget.setLeftStripDrawable(R.drawable.icon_green);
+        Drawable leftStripDrawable = mTabWidget.getLeftStripDrawable();
         assertNotNull(leftStripDrawable);
         TestUtils.assertAllPixelsOfColor("Left strip green", leftStripDrawable,
                 leftStripDrawable.getIntrinsicWidth(), leftStripDrawable.getIntrinsicHeight(),
                 true, 0xFF00FF00, 1, false);
 
-        tabWidget.setLeftStripDrawable(activity.getResources().getDrawable(
-                R.drawable.icon_red, null));
-        leftStripDrawable = tabWidget.getLeftStripDrawable();
+        mTabWidget.setLeftStripDrawable(mActivity.getDrawable(R.drawable.icon_red));
+        leftStripDrawable = mTabWidget.getLeftStripDrawable();
         assertNotNull(leftStripDrawable);
         TestUtils.assertAllPixelsOfColor("Left strip red", leftStripDrawable,
                 leftStripDrawable.getIntrinsicWidth(), leftStripDrawable.getIntrinsicHeight(),
                 true, 0xFFFF0000, 1, false);
 
         // Test setting right strip drawable
-        tabWidget.setRightStripDrawable(R.drawable.icon_red);
-        Drawable rightStripDrawable = tabWidget.getRightStripDrawable();
+        mTabWidget.setRightStripDrawable(R.drawable.icon_red);
+        Drawable rightStripDrawable = mTabWidget.getRightStripDrawable();
         assertNotNull(rightStripDrawable);
         TestUtils.assertAllPixelsOfColor("Right strip red", rightStripDrawable,
                 rightStripDrawable.getIntrinsicWidth(), rightStripDrawable.getIntrinsicHeight(),
                 true, 0xFFFF0000, 1, false);
 
-        tabWidget.setRightStripDrawable(activity.getResources().getDrawable(
-                R.drawable.icon_green, null));
-        rightStripDrawable = tabWidget.getRightStripDrawable();
+        mTabWidget.setRightStripDrawable(mActivity.getDrawable(R.drawable.icon_green));
+        rightStripDrawable = mTabWidget.getRightStripDrawable();
         assertNotNull(rightStripDrawable);
         TestUtils.assertAllPixelsOfColor("Left strip green", rightStripDrawable,
                 rightStripDrawable.getIntrinsicWidth(), rightStripDrawable.getIntrinsicHeight(),
@@ -323,33 +324,22 @@ public class TabWidgetTest extends ActivityInstrumentationTestCase2<TabHostCtsAc
     }
 
     @UiThreadTest
+    @Test
     public void testDividerDrawables() {
-        TabHostCtsActivity activity = getActivity();
-        TabWidget tabWidget = activity.getTabWidget();
-
-        tabWidget.setDividerDrawable(R.drawable.icon_blue);
-        Drawable dividerDrawable = tabWidget.getDividerDrawable();
+        mTabWidget.setDividerDrawable(R.drawable.icon_blue);
+        Drawable dividerDrawable = mTabWidget.getDividerDrawable();
         assertNotNull(dividerDrawable);
         TestUtils.assertAllPixelsOfColor("Divider blue", dividerDrawable,
                 dividerDrawable.getIntrinsicWidth(), dividerDrawable.getIntrinsicHeight(),
                 true, 0xFF0000FF, 1, false);
 
-        tabWidget.setDividerDrawable(activity.getResources().getDrawable(
-                R.drawable.icon_yellow, null));
-        dividerDrawable = tabWidget.getDividerDrawable();
+        mTabWidget.setDividerDrawable(mActivity.getDrawable(R.drawable.icon_yellow));
+        dividerDrawable = mTabWidget.getDividerDrawable();
         assertNotNull(dividerDrawable);
         TestUtils.assertAllPixelsOfColor("Divider yellow", dividerDrawable,
                 dividerDrawable.getIntrinsicWidth(), dividerDrawable.getIntrinsicHeight(),
                 true, 0xFFFFFF00, 1, false);
 
-    }
-
-    public void testOnFocusChange() {
-        // onFocusChange() is implementation details, do NOT test
-    }
-
-    public void testOnSizeChanged() {
-        // implementation details
     }
 
     /*

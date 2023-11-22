@@ -1,7 +1,7 @@
 #
 # Copyright 2008 Google Inc. Released under the GPL v2
 
-# pylint: disable-msg=C0111
+#pylint: disable=missing-docstring
 
 import StringIO
 import errno
@@ -15,7 +15,6 @@ import resource
 import select
 import shutil
 import signal
-import smtplib
 import socket
 import string
 import struct
@@ -25,8 +24,6 @@ import time
 import urllib2
 import urlparse
 import warnings
-
-from threading import Thread, Event
 
 try:
     import hashlib
@@ -103,7 +100,7 @@ def _join_with_nickname(base_string, nickname):
 class BgJob(object):
     def __init__(self, command, stdout_tee=None, stderr_tee=None, verbose=True,
                  stdin=None, stderr_level=DEFAULT_STDERR_LEVEL, nickname=None,
-                 no_pipes=False):
+                 no_pipes=False, env=None, extra_paths=None):
         """Create and start a new BgJob.
 
         This constructor creates a new BgJob, and uses Popen to start a new
@@ -145,6 +142,10 @@ class BgJob(object):
                          with other BgJobs, or long runing background jobs that
                          will never be joined with join_bg_jobs, such as the
                          master-ssh connection BgJob.
+        @param env: Dict containing environment variables used in subprocess.
+        @param extra_paths: Optional string list, to be prepended to the PATH
+                            env variable in env (or os.environ dict if env is
+                            not specified).
         """
         self.command = command
         self._no_pipes = no_pipes
@@ -173,6 +174,13 @@ class BgJob(object):
             stdout_param = subprocess.PIPE
             stderr_param = subprocess.PIPE
 
+        # Prepend extra_paths to env['PATH'] if necessary.
+        if extra_paths:
+            env = (os.environ if env is None else env).copy()
+            oldpath = env.get('PATH')
+            env['PATH'] = os.pathsep.join(
+                    extra_paths + ([oldpath] if oldpath else []))
+
         if verbose:
             logging.debug("Running '%s'", command)
         if type(command) == list:
@@ -180,13 +188,17 @@ class BgJob(object):
                                        stdout=stdout_param,
                                        stderr=stderr_param,
                                        preexec_fn=self._reset_sigpipe,
-                                       stdin=stdin)
+                                       stdin=stdin,
+                                       env=env,
+                                       close_fds=True)
         else:
             self.sp = subprocess.Popen(command, stdout=stdout_param,
                                        stderr=stderr_param,
                                        preexec_fn=self._reset_sigpipe, shell=True,
                                        executable="/bin/bash",
-                                       stdin=stdin)
+                                       stdin=stdin,
+                                       env=env,
+                                       close_fds=True)
 
         self._output_prepare_called = False
         self._process_output_warned = False
@@ -331,30 +343,6 @@ def get_ip_local_port_range():
 def set_ip_local_port_range(lower, upper):
     write_one_line('/proc/sys/net/ipv4/ip_local_port_range',
                    '%d %d\n' % (lower, upper))
-
-
-def send_email(mail_from, mail_to, subject, body):
-    """
-    Sends an email via smtp
-
-    mail_from: string with email address of sender
-    mail_to: string or list with email address(es) of recipients
-    subject: string with subject of email
-    body: (multi-line) string with body of email
-    """
-    if isinstance(mail_to, str):
-        mail_to = [mail_to]
-    msg = "From: %s\nTo: %s\nSubject: %s\n\n%s" % (mail_from, ','.join(mail_to),
-                                                   subject, body)
-    try:
-        mailer = smtplib.SMTP('localhost')
-        try:
-            mailer.sendmail(mail_from, mail_to, msg)
-        finally:
-            mailer.quit()
-    except Exception, e:
-        # Emails are non-critical, not errors, but don't raise them
-        print "Sending email failed. Reason: %s" % repr(e)
 
 
 def read_one_line(filename):
@@ -548,155 +536,6 @@ def write_keyval(path, dictionary, type_tag=None, tap_report=None):
     if tap_report is not None and tap_report.do_tap_report:
         tap_report.record_keyval(path, dictionary, type_tag=type_tag)
 
-class FileFieldMonitor(object):
-    """
-    Monitors the information from the file and reports it's values.
-
-    It gather the information at start and stop of the measurement or
-    continuously during the measurement.
-    """
-    class Monitor(Thread):
-        """
-        Internal monitor class to ensure continuous monitor of monitored file.
-        """
-        def __init__(self, master):
-            """
-            @param master: Master class which control Monitor
-            """
-            Thread.__init__(self)
-            self.master = master
-
-        def run(self):
-            """
-            Start monitor in thread mode
-            """
-            while not self.master.end_event.isSet():
-                self.master._get_value(self.master.logging)
-                time.sleep(self.master.time_step)
-
-
-    def __init__(self, status_file, data_to_read, mode_diff, continuously=False,
-                 contlogging=False, separator=" +", time_step=0.1):
-        """
-        Initialize variables.
-        @param status_file: File contain status.
-        @param mode_diff: If True make a difference of value, else average.
-        @param data_to_read: List of tuples with data position.
-            format: [(start_of_line,position in params)]
-            example:
-              data:
-                 cpu   324 345 34  5 345
-                 cpu0  34  11  34 34  33
-                 ^^^^
-                 start of line
-                 params 0   1   2  3   4
-        @param mode_diff: True to subtract old value from new value,
-            False make average of the values.
-        @parma continuously: Start the monitoring thread using the time_step
-            as the measurement period.
-        @param contlogging: Log data in continuous run.
-        @param separator: Regular expression of separator.
-        @param time_step: Time period of the monitoring value.
-        """
-        self.end_event = Event()
-        self.start_time = 0
-        self.end_time = 0
-        self.test_time = 0
-
-        self.status_file = status_file
-        self.separator = separator
-        self.data_to_read = data_to_read
-        self.num_of_params = len(self.data_to_read)
-        self.mode_diff = mode_diff
-        self.continuously = continuously
-        self.time_step = time_step
-
-        self.value = [0 for i in range(self.num_of_params)]
-        self.old_value = [0 for i in range(self.num_of_params)]
-        self.log = []
-        self.logging = contlogging
-
-        self.started = False
-        self.num_of_get_value = 0
-        self.monitor = None
-
-
-    def _get_value(self, logging=True):
-        """
-        Return current values.
-        @param logging: If true log value in memory. There can be problem
-          with long run.
-        """
-        data = read_file(self.status_file)
-        value = []
-        for i in range(self.num_of_params):
-            value.append(int(get_field(data,
-                             self.data_to_read[i][1],
-                             self.data_to_read[i][0],
-                             self.separator)))
-
-        if logging:
-            self.log.append(value)
-        if not self.mode_diff:
-            value = map(lambda x, y: x + y, value, self.old_value)
-
-        self.old_value = value
-        self.num_of_get_value += 1
-        return value
-
-
-    def start(self):
-        """
-        Start value monitor.
-        """
-        if self.started:
-            self.stop()
-        self.old_value = [0 for i in range(self.num_of_params)]
-        self.num_of_get_value = 0
-        self.log = []
-        self.end_event.clear()
-        self.start_time = time.time()
-        self._get_value()
-        self.started = True
-        if (self.continuously):
-            self.monitor = FileFieldMonitor.Monitor(self)
-            self.monitor.start()
-
-
-    def stop(self):
-        """
-        Stop value monitor.
-        """
-        if self.started:
-            self.started = False
-            self.end_time = time.time()
-            self.test_time = self.end_time - self.start_time
-            self.value = self._get_value()
-            if (self.continuously):
-                self.end_event.set()
-                self.monitor.join()
-            if (self.mode_diff):
-                self.value = map(lambda x, y: x - y, self.log[-1], self.log[0])
-            else:
-                self.value = map(lambda x: x / self.num_of_get_value,
-                                 self.value)
-
-
-    def get_status(self):
-        """
-        @return: Status of monitored process average value,
-            time of test and array of monitored values and time step of
-            continuous run.
-        """
-        if self.started:
-            self.stop()
-        if self.mode_diff:
-            for i in range(len(self.log) - 1):
-                self.log[i] = (map(lambda x, y: x - y,
-                                   self.log[i + 1], self.log[i]))
-            self.log.pop()
-        return (self.value, self.test_time, self.log, self.time_step)
-
 
 def is_url(path):
     """Return true if path looks like a URL"""
@@ -831,7 +670,8 @@ def get_stderr_level(stderr_is_expected):
 
 def run(command, timeout=None, ignore_status=False,
         stdout_tee=None, stderr_tee=None, verbose=True, stdin=None,
-        stderr_is_expected=None, args=(), nickname=None, ignore_timeout=False):
+        stderr_is_expected=None, args=(), nickname=None, ignore_timeout=False,
+        env=None, extra_paths=None):
     """
     Run a command on the host.
 
@@ -841,8 +681,6 @@ def run(command, timeout=None, ignore_status=False,
             longer than 'timeout' to complete if it has to kill the process.
     @param ignore_status: do not raise an exception, no matter what the exit
             code of the command is.
-    @param ignore_timeout: If True, timeouts are ignored otherwise if a
-            timeout occurs it will raise CmdTimeoutError.
     @param stdout_tee: optional file-like object to which stdout data
             will be written as it is generated (data will still be stored
             in result.stdout).
@@ -850,12 +688,20 @@ def run(command, timeout=None, ignore_status=False,
     @param verbose: if True, log the command being run.
     @param stdin: stdin to pass to the executed process (can be a file
             descriptor, a file object of a real file or a string).
+    @param stderr_is_expected: if True, stderr will be logged at the same level
+            as stdout
     @param args: sequence of strings of arguments to be given to the command
             inside " quotes after they have been escaped for that; each
             element in the sequence will be given as a separate command
             argument
     @param nickname: Short string that will appear in logging messages
                      associated with this command.
+    @param ignore_timeout: If True, timeouts are ignored otherwise if a
+            timeout occurs it will raise CmdTimeoutError.
+    @param env: Dict containing environment variables used in a subprocess.
+    @param extra_paths: Optional string list, to be prepended to the PATH
+                        env variable in env (or os.environ dict if env is
+                        not specified).
 
     @return a CmdResult object or None if the command timed out and
             ignore_timeout is True
@@ -882,7 +728,8 @@ def run(command, timeout=None, ignore_status=False,
         bg_job = join_bg_jobs(
             (BgJob(command, stdout_tee, stderr_tee, verbose, stdin=stdin,
                    stderr_level=get_stderr_level(stderr_is_expected),
-                   nickname=nickname),), timeout)[0]
+                   nickname=nickname, env=env, extra_paths=extra_paths),),
+            timeout)[0]
     except error.CmdTimeoutError:
         if not ignore_timeout:
             raise
@@ -1248,226 +1095,6 @@ def get_cpu_percentage(function, *args, **dargs):
     cpu_percent = (s_user + c_user + s_system + c_system) / elapsed
 
     return cpu_percent, to_return
-
-
-class SystemLoad(object):
-    """
-    Get system and/or process values and return average value of load.
-    """
-    def __init__(self, pids, advanced=False, time_step=0.1, cpu_cont=False,
-                 use_log=False):
-        """
-        @param pids: List of pids to be monitored. If pid = 0 whole system will
-          be monitored. pid == 0 means whole system.
-        @param advanced: monitor add value for system irq count and softirq
-          for process minor and maior page fault
-        @param time_step: Time step for continuous monitoring.
-        @param cpu_cont: If True monitor CPU load continuously.
-        @param use_log: If true every monitoring is logged for dump.
-        """
-        self.pids = []
-        self.stats = {}
-        for pid in pids:
-            if pid == 0:
-                cpu = FileFieldMonitor("/proc/stat",
-                                       [("cpu", 0), # User Time
-                                        ("cpu", 2), # System Time
-                                        ("intr", 0), # IRQ Count
-                                        ("softirq", 0)], # Soft IRQ Count
-                                       True,
-                                       cpu_cont,
-                                       use_log,
-                                       " +",
-                                       time_step)
-                mem = FileFieldMonitor("/proc/meminfo",
-                                       [("MemTotal:", 0), # Mem Total
-                                        ("MemFree:", 0), # Mem Free
-                                        ("Buffers:", 0), # Buffers
-                                        ("Cached:", 0)], # Cached
-                                       False,
-                                       True,
-                                       use_log,
-                                       " +",
-                                       time_step)
-                self.stats[pid] = ["TOTAL", cpu, mem]
-                self.pids.append(pid)
-            else:
-                name = ""
-                if (type(pid) is int):
-                    self.pids.append(pid)
-                    name = get_process_name(pid)
-                else:
-                    self.pids.append(pid[0])
-                    name = pid[1]
-
-                cpu = FileFieldMonitor("/proc/%d/stat" %
-                                       self.pids[-1],
-                                       [("", 13), # User Time
-                                        ("", 14), # System Time
-                                        ("", 9), # Minority Page Fault
-                                        ("", 11)], # Majority Page Fault
-                                       True,
-                                       cpu_cont,
-                                       use_log,
-                                       " +",
-                                       time_step)
-                mem = FileFieldMonitor("/proc/%d/status" %
-                                       self.pids[-1],
-                                       [("VmSize:", 0), # Virtual Memory Size
-                                        ("VmRSS:", 0), # Resident Set Size
-                                        ("VmPeak:", 0), # Peak VM Size
-                                        ("VmSwap:", 0)], # VM in Swap
-                                       False,
-                                       True,
-                                       use_log,
-                                       " +",
-                                       time_step)
-                self.stats[self.pids[-1]] = [name, cpu, mem]
-
-        self.advanced = advanced
-
-
-    def __str__(self):
-        """
-        Define format how to print
-        """
-        out = ""
-        for pid in self.pids:
-            for stat in self.stats[pid][1:]:
-                out += str(stat.get_status()) + "\n"
-        return out
-
-
-    def start(self, pids=[]):
-        """
-        Start monitoring of the process system usage.
-        @param pids: List of PIDs you intend to control. Use pids=[] to control
-            all defined PIDs.
-        """
-        if pids == []:
-            pids = self.pids
-
-        for pid in pids:
-            for stat in self.stats[pid][1:]:
-                stat.start()
-
-
-    def stop(self, pids=[]):
-        """
-        Stop monitoring of the process system usage.
-        @param pids: List of PIDs you intend to control. Use pids=[] to control
-            all defined PIDs.
-        """
-        if pids == []:
-            pids = self.pids
-
-        for pid in pids:
-            for stat in self.stats[pid][1:]:
-                stat.stop()
-
-
-    def dump(self, pids=[]):
-        """
-        Get the status of monitoring.
-        @param pids: List of PIDs you intend to control. Use pids=[] to control
-            all defined PIDs.
-         @return:
-            tuple([cpu load], [memory load]):
-                ([(PID1, (PID1_cpu_meas)), (PID2, (PID2_cpu_meas)), ...],
-                 [(PID1, (PID1_mem_meas)), (PID2, (PID2_mem_meas)), ...])
-
-            PID1_cpu_meas:
-                average_values[], test_time, cont_meas_values[[]], time_step
-            PID1_mem_meas:
-                average_values[], test_time, cont_meas_values[[]], time_step
-            where average_values[] are the measured values (mem_free,swap,...)
-            which are described in SystemLoad.__init__()-FileFieldMonitor.
-            cont_meas_values[[]] is a list of average_values in the sampling
-            times.
-        """
-        if pids == []:
-            pids = self.pids
-
-        cpus = []
-        memory = []
-        for pid in pids:
-            stat = (pid, self.stats[pid][1].get_status())
-            cpus.append(stat)
-        for pid in pids:
-            stat = (pid, self.stats[pid][2].get_status())
-            memory.append(stat)
-
-        return (cpus, memory)
-
-
-    def get_cpu_status_string(self, pids=[]):
-        """
-        Convert status to string array.
-        @param pids: List of PIDs you intend to control. Use pids=[] to control
-            all defined PIDs.
-        @return: String format to table.
-        """
-        if pids == []:
-            pids = self.pids
-
-        headers = ["NAME",
-                   ("%7s") % "PID",
-                   ("%5s") % "USER",
-                   ("%5s") % "SYS",
-                   ("%5s") % "SUM"]
-        if self.advanced:
-            headers.extend(["MINFLT/IRQC",
-                            "MAJFLT/SOFTIRQ"])
-        headers.append(("%11s") % "TIME")
-        textstatus = []
-        for pid in pids:
-            stat = self.stats[pid][1].get_status()
-            time = stat[1]
-            stat = stat[0]
-            textstatus.append(["%s" % self.stats[pid][0],
-                               "%7s" % pid,
-                               "%4.0f%%" % (stat[0] / time),
-                               "%4.0f%%" % (stat[1] / time),
-                               "%4.0f%%" % ((stat[0] + stat[1]) / time),
-                               "%10.3fs" % time])
-            if self.advanced:
-                textstatus[-1].insert(-1, "%11d" % stat[2])
-                textstatus[-1].insert(-1, "%14d" % stat[3])
-
-        return matrix_to_string(textstatus, tuple(headers))
-
-
-    def get_mem_status_string(self, pids=[]):
-        """
-        Convert status to string array.
-        @param pids: List of PIDs you intend to control. Use pids=[] to control
-            all defined PIDs.
-        @return: String format to table.
-        """
-        if pids == []:
-            pids = self.pids
-
-        headers = ["NAME",
-                   ("%7s") % "PID",
-                   ("%8s") % "TOTAL/VMSIZE",
-                   ("%8s") % "FREE/VMRSS",
-                   ("%8s") % "BUFFERS/VMPEAK",
-                   ("%8s") % "CACHED/VMSWAP",
-                   ("%11s") % "TIME"]
-        textstatus = []
-        for pid in pids:
-            stat = self.stats[pid][2].get_status()
-            time = stat[1]
-            stat = stat[0]
-            textstatus.append(["%s" % self.stats[pid][0],
-                               "%7s" % pid,
-                               "%10dMB" % (stat[0] / 1024),
-                               "%8dMB" % (stat[1] / 1024),
-                               "%12dMB" % (stat[2] / 1024),
-                               "%11dMB" % (stat[3] / 1024),
-                               "%10.3fs" % time])
-
-        return matrix_to_string(textstatus, tuple(headers))
 
 
 def get_arch(run_function=run):
@@ -2136,16 +1763,3 @@ def wait_for_value_changed(func,
         time.sleep(0.1)
 
     return value
-
-
-def restart_job(name):
-    """
-    Restarts an upstart job if it's running.
-    If it's not running, start it.
-    """
-
-    if system_output('status %s' % name).find('start/running') != -1:
-        system_output('restart %s' % name)
-    else:
-        system_output('start %s' % name)
-

@@ -45,6 +45,7 @@ public class CombinedEventsDebuggee extends SyncDebuggee {
     }
     
        
+    @Override
     public void run() {
         logWriter.println("-> CombinedEventsDebuggee: Starting...");
         combinedEventsDebuggee = this;

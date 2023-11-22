@@ -16,25 +16,35 @@
 
 package android.view.cts;
 
-import android.view.cts.R;
-
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertSame;
 
 import android.app.Activity;
-import android.test.ActivityInstrumentationTestCase2;
-import android.test.UiThreadTest;
-import android.view.View;
+import android.support.test.annotation.UiThreadTest;
+import android.support.test.filters.MediumTest;
+import android.support.test.rule.ActivityTestRule;
+import android.support.test.runner.AndroidJUnit4;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
 
-public class View_IdsTest extends ActivityInstrumentationTestCase2<UsingViewsCtsActivity> {
-    public View_IdsTest() {
-        super("android.view.cts", UsingViewsCtsActivity.class);
-    }
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+@MediumTest
+@RunWith(AndroidJUnit4.class)
+public class View_IdsTest {
+    @Rule
+    public ActivityTestRule<UsingViewsCtsActivity> mActivityRule =
+            new ActivityTestRule<>(UsingViewsCtsActivity.class);
 
     @UiThreadTest
+    @Test
     public void testIds() {
-        Activity activity = getActivity();
+        Activity activity;
+        activity = mActivityRule.getActivity();
 
         EditText editText = (EditText) activity.findViewById(R.id.entry);
         Button buttonOk = (Button) activity.findViewById(R.id.ok);

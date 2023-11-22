@@ -36,7 +36,7 @@ const PreciseConstType* RegTypeCache::small_precise_constants_[kMaxSmallConstant
                                                                kMinSmallConstant + 1];
 
 ALWAYS_INLINE static inline bool MatchingPrecisionForClass(const RegType* entry, bool precise)
-    SHARED_REQUIRES(Locks::mutator_lock_) {
+    REQUIRES_SHARED(Locks::mutator_lock_) {
   if (entry->IsPreciseReference() == precise) {
     // We were or weren't looking for a precise reference and we found what we need.
     return true;
@@ -154,8 +154,7 @@ mirror::Class* RegTypeCache::ResolveClass(const char* descriptor, mirror::ClassL
   if (can_load_classes_) {
     klass = class_linker->FindClass(self, descriptor, class_loader);
   } else {
-    klass = class_linker->LookupClass(self, descriptor, ComputeModifiedUtf8Hash(descriptor),
-                                      loader);
+    klass = class_linker->LookupClass(self, descriptor, loader);
     if (klass != nullptr && !klass->IsResolved()) {
       // We found the class but without it being loaded its not safe for use.
       klass = nullptr;
@@ -342,7 +341,9 @@ void RegTypeCache::CreatePrimitiveAndSmallConstantTypes() {
   }
 }
 
-const RegType& RegTypeCache::FromUnresolvedMerge(const RegType& left, const RegType& right) {
+const RegType& RegTypeCache::FromUnresolvedMerge(const RegType& left,
+                                                 const RegType& right,
+                                                 MethodVerifier* verifier) {
   ArenaBitVector types(&arena_,
                        kDefaultArenaBitVectorBytes * kBitsPerByte,  // Allocate at least 8 bytes.
                        true);                                       // Is expandable.
@@ -383,7 +384,7 @@ const RegType& RegTypeCache::FromUnresolvedMerge(const RegType& left, const RegT
   }
 
   // Merge the resolved parts. Left and right might be equal, so use SafeMerge.
-  const RegType& resolved_parts_merged = left_resolved->SafeMerge(*right_resolved, this);
+  const RegType& resolved_parts_merged = left_resolved->SafeMerge(*right_resolved, this, verifier);
   // If we get a conflict here, the merge result is a conflict, not an unresolved merge type.
   if (resolved_parts_merged.IsConflict()) {
     return Conflict();

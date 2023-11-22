@@ -95,6 +95,11 @@ public class TranslateJcite {
         return "// END_INCLUDE(" + jciteTag + ")";
       }
     }
+
+    @Override
+    public String toString() {
+      return "BeginEndTagsHandler{}";
+    }
   }
 
   /**
@@ -186,6 +191,14 @@ public class TranslateJcite {
       replacement.fragments().add(AstNodes.createTextElement(ast, ESCAPED_JCITE_TAG));
       replacement.fragments().addAll(ASTNode.copySubtrees(ast, tagNode.fragments()));
       return replacement;
+    }
+
+    @Override
+    public String toString() {
+      return "InclusionHandler{" +
+          "whitelist=" + whitelist +
+          ", sampleSrcDir='" + sampleSrcDir + '\'' +
+          '}';
     }
   }
 }

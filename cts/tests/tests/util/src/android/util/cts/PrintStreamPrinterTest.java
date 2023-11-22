@@ -16,6 +16,18 @@
 
 package android.util.cts;
 
+import static org.junit.Assert.assertEquals;
+
+import android.support.test.InstrumentationRegistry;
+import android.support.test.filters.MediumTest;
+import android.support.test.runner.AndroidJUnit4;
+import android.util.PrintStreamPrinter;
+
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
@@ -24,52 +36,49 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.PrintStream;
-import android.test.AndroidTestCase;
-import android.util.PrintStreamPrinter;
 
-public class PrintStreamPrinterTest extends AndroidTestCase {
+@MediumTest
+@RunWith(AndroidJUnit4.class)
+public class PrintStreamPrinterTest {
     private File mFile;
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mFile = new File(getContext().getFilesDir(), "PrintStreamPrinter.log");
+
+    @Before
+    public void setup() throws IOException {
+        mFile = new File(InstrumentationRegistry.getTargetContext().getFilesDir(),
+                "PrintStreamPrinter.log");
         if (!mFile.exists()) {
             mFile.createNewFile();
         }
     }
 
+    @After
+    public void teardown() throws Exception {
+        if (mFile.exists()) {
+            mFile.delete();
+        }
+    }
+
+    @Test
     public void testConstructor() throws FileNotFoundException {
         new PrintStreamPrinter(new PrintStream(mFile));
     }
 
-    public void testPrintln() throws FileNotFoundException, SecurityException, IOException {
-        PrintStreamPrinter printStreamPrinter = null;
+    @Test
+    public void testPrintln() throws SecurityException, IOException {
         final String message = "testMessageOfPrintStreamPrinter";
-        InputStream is = null;
 
         PrintStream ps = new PrintStream(mFile);
-        printStreamPrinter = new PrintStreamPrinter(ps);
+        PrintStreamPrinter printStreamPrinter = new PrintStreamPrinter(ps);
         printStreamPrinter.println(message);
         ps.flush();
         ps.close();
         String mLine;
 
-        try {
-            is = new FileInputStream(mFile);
+        try (InputStream is = new FileInputStream(mFile)){
             BufferedReader reader = new BufferedReader(new InputStreamReader(is));
             mLine = reader.readLine();
             assertEquals(message, mLine);
             reader.close();
-        } finally {
-            is.close();
         }
-    }
-
-    @Override
-    protected void tearDown() throws Exception {
-        if (mFile.exists()) {
-            mFile.delete();
-        }
-        super.tearDown();
     }
 }

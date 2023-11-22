@@ -16,30 +16,53 @@
 
 package android.widget.cts;
 
-import android.cts.util.PollingCheck;
-import android.test.ActivityInstrumentationTestCase2;
-import android.view.ViewGroup;
-import android.widget.FrameLayout;
-
 import static android.view.Gravity.CENTER;
 import static android.view.Gravity.LEFT;
 import static android.view.Gravity.NO_GRAVITY;
 import static android.view.Gravity.RIGHT;
 import static android.view.View.TEXT_ALIGNMENT_INHERIT;
-import static android.widget.TextView.TEXT_ALIGNMENT_TEXT_START;
 import static android.widget.TextView.TEXT_ALIGNMENT_TEXT_END;
-import static android.widget.TextView.TEXT_ALIGNMENT_VIEW_START;
+import static android.widget.TextView.TEXT_ALIGNMENT_TEXT_START;
 import static android.widget.TextView.TEXT_ALIGNMENT_VIEW_END;
+import static android.widget.TextView.TEXT_ALIGNMENT_VIEW_START;
 
-public class TextViewFadingEdgeTest extends ActivityInstrumentationTestCase2<EmptyCtsActivity> {
+import static org.junit.Assert.assertEquals;
+
+import android.app.Activity;
+import android.app.Instrumentation;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.filters.MediumTest;
+import android.support.test.rule.ActivityTestRule;
+import android.support.test.runner.AndroidJUnit4;
+import android.util.TypedValue;
+import android.view.ViewGroup;
+import android.widget.FrameLayout;
+
+import com.android.compatibility.common.util.PollingCheck;
+
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+@MediumTest
+@RunWith(AndroidJUnit4.class)
+public class TextViewFadingEdgeTest {
+    private Activity mActivity;
+
+    @Rule
+    public ActivityTestRule<EmptyCtsActivity> mActivityRule =
+            new ActivityTestRule<>(EmptyCtsActivity.class);
 
     public static final float DELTA = 0.01f;
     private static final String LONG_RTL_STRING = "مرحبا الروبوت مرحبا الروبوت مرحبا الروبوت";
     private static final String LONG_LTR_STRING = "start start1 middle middle1 end end1";
     private static final String SHORT_RTL_STRING = "ت";
     private static final String SHORT_LTR_STRING = "s";
-    public static final int ANY_PADDING = 15;
-    public static final int ANY_FADE_LENGTH = 60;
+    public static final int ANY_PADDING = 20;
+    public static final int ANY_FADE_LENGTH = 20;
+    public static final int TEXT_SIZE = 20;
+    public static final int WIDTH = 100;
 
     private static final TestCase[] TEST_DATA = {
             // no fade - fading disabled
@@ -113,22 +136,14 @@ public class TextViewFadingEdgeTest extends ActivityInstrumentationTestCase2<Emp
                     LONG_RTL_STRING, true, NO_GRAVITY, TEXT_ALIGNMENT_INHERIT, true, 1f, 1f)
     };
 
-    public TextViewFadingEdgeTest() {
-        super("android.widget.cts", EmptyCtsActivity.class);
+    @Before
+    public void setup() {
+        mActivity = mActivityRule.getActivity();
+        PollingCheck.waitFor(mActivity::hasWindowFocus);
     }
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        new PollingCheck() {
-            @Override
-            protected boolean check() {
-                return getActivity().hasWindowFocus();
-            }
-        }.run();
-    }
-
-    public void testFadingEdge() {
+    @Test
+    public void testFadingEdge() throws Throwable {
         for (TestCase data : TEST_DATA) {
             MockTextView textView = createTextView(data.text, data.horizontalFadingEnabled,
                     data.gravity, data.textAlignment, data.scrollToMiddle);
@@ -141,45 +156,37 @@ public class TextViewFadingEdgeTest extends ActivityInstrumentationTestCase2<Emp
     }
 
     private final MockTextView createTextView(String text, boolean horizontalFadingEnabled,
-            int gravity, int textAlignment, boolean scrollToMiddle) {
-        final MockTextView textView = new MockTextView(getActivity());
+            int gravity, int textAlignment, boolean scrollToMiddle) throws Throwable {
+        final MockTextView textView = new MockTextView(mActivity);
         textView.setSingleLine(true);
-        textView.setTextSize(30);
+        textView.setTextSize(TypedValue.COMPLEX_UNIT_PX, TEXT_SIZE);
         textView.setPadding(ANY_PADDING, ANY_PADDING, ANY_PADDING, ANY_PADDING);
         textView.setFadingEdgeLength(ANY_FADE_LENGTH);
-        textView.setLayoutParams(new ViewGroup.LayoutParams(300,
+        textView.setLayoutParams(new ViewGroup.LayoutParams(WIDTH,
                 ViewGroup.LayoutParams.WRAP_CONTENT));
         textView.setHorizontalFadingEdgeEnabled(horizontalFadingEnabled);
         textView.setText(text);
         textView.setGravity(gravity);
         textView.setTextAlignment(textAlignment);
 
-        final FrameLayout layout = new FrameLayout(getActivity());
+        final FrameLayout layout = new FrameLayout(mActivity);
         ViewGroup.LayoutParams layoutParams = new ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT);
         layout.setLayoutParams(layoutParams);
         layout.addView(textView);
 
-        getActivity().runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                getActivity().setContentView(layout);
-            }
-        });
-        getInstrumentation().waitForIdleSync();
-        if(scrollToMiddle) {
-            getActivity().runOnUiThread(new Runnable() {
-                @Override
-                public void run() {
-                    float lineMid = (textView.getLayout().getLineLeft(0) +
-                            textView.getLayout().getLineRight(0)) / 2;
-                    int scrollPosition = (int) lineMid;
-                    textView.setScrollX(scrollPosition);
-                }
+        final Instrumentation instrumentation = InstrumentationRegistry.getInstrumentation();
+        mActivityRule.runOnUiThread(() -> mActivity.setContentView(layout));
+        if (scrollToMiddle) {
+            mActivityRule.runOnUiThread(() -> {
+                float lineMid = (textView.getLayout().getLineLeft(0) +
+                        textView.getLayout().getLineRight(0)) / 2;
+                int scrollPosition = (int) lineMid;
+                textView.setScrollX(scrollPosition);
             });
         }
-        getInstrumentation().waitForIdleSync();
+        instrumentation.waitForIdleSync();
         return textView;
     }
 

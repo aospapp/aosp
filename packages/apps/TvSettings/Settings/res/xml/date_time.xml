@@ -16,28 +16,35 @@
   -->
 
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
-    android:title="@string/system_date_time">
+                  xmlns:app="http://schemas.android.com/apk/res-auto"
+                  android:title="@string/system_date_time">
     <ListPreference android:key="auto_date_time"
-        android:persistent="false"
-        android:title="@string/system_auto_date_time"
-        android:summary="%s"
-        android:entries="@array/auto_date_time_entries"
-        android:entryValues="@array/auto_date_time_entry_values" />
+                    android:persistent="false"
+                    android:title="@string/system_auto_date_time"
+                    android:summary="%s"
+                    android:entries="@array/auto_date_time_entries"
+                    android:entryValues="@array/auto_date_time_entry_values" />
 
-    <Preference android:key="set_date"
-        android:persistent="false"
-        android:title="@string/system_set_date" />
 
-    <Preference android:key="set_time"
+    <com.android.tv.settings.system.LeanbackPickerDialogPreference
+        android:key="set_date"
         android:persistent="false"
-        android:title="@string/system_set_time" />
+        android:title="@string/system_set_date"
+        app:pickerType="date" />
+
+    <com.android.tv.settings.system.LeanbackPickerDialogPreference
+        android:key="set_time"
+        android:persistent="false"
+        android:title="@string/system_set_time"
+        app:pickerType="time" />
 
     <Preference android:key="set_time_zone"
-        android:persistent="false"
-        android:title="@string/system_set_time_zone"
-        android:fragment="com.android.tv.settings.system.TimeZoneFragment" />
+                android:persistent="false"
+                android:title="@string/system_set_time_zone"
+                android:fragment="com.android.tv.settings.system.TimeZoneFragment" />
 
     <SwitchPreference android:key="use_24_hour"
-        android:persistent="false"
-        android:title="@string/system_set_time_format" />
+                      android:persistent="false"
+                      android:title="@string/system_set_time_format" />
+
 </PreferenceScreen>

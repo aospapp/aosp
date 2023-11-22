@@ -422,6 +422,7 @@ _cpri__EccPointMultiply(
     BN_CTX_free(context);
     return retVal;
 }
+#if defined TPM_ALG_ECDAA || defined TPM_ALG_SM2 //%
 //
 //
 //       ClearPoint2B()
@@ -438,7 +439,6 @@ ClearPoint2B(
         p->y.t.size = 0;
     }
 }
-#if defined TPM_ALG_ECDAA || defined TPM_ALG_SM2 //%
 //
 //
 //       _cpri__EccCommitCompute()
@@ -500,14 +500,17 @@ _cpri__EccCommitCompute(
         goto Cleanup2;
     }
     keySizeInBytes = (UINT16) ((EC_GROUP_get_degree(group)+7)/8);
-    // Sizes of the r and d parameters may not be zero
-    pAssert(((int) r->t.size > 0) && ((int) d->t.size > 0));
+    // Size of the r parameter may not be zero
+    pAssert((int) r->t.size > 0);
     // Convert scalars to BIGNUM
     BnFrom2B(bnR, &r->b);
-    BnFrom2B(bnD, &d->b);
    // If B is provided, compute K=[d]B and L=[r]B
    if(B != NULL)
    {
+       // Size of the d parameter may not be zero
+       pAssert((int) d->t.size > 0);
+       BnFrom2B(bnD, &d->b);
+
        // Allocate the points to receive the value
        if(    (pK = EC_POINT_new(group)) == NULL
            || (pL = EC_POINT_new(group)) == NULL)

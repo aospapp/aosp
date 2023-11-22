@@ -40,9 +40,56 @@
 
     <string name="endCallButton">End Call</string>
 
+    <string name="answerCallButton">Answer</string>
+
+    <string name="startCallWithRtt">Start call with RTT</string>
+
+    <string name="rttIfaceButton">RTT</string>
+
+    <string name="endRttButton">End RTT</string>
+
+    <string name="startRttButton">Start RTT</string>
+
+    <string name="acceptRttButton">Accept RTT request</string>
+
     <string name="muteButton">Mute</string>
 
     <string name="holdButton">Hold</string>
 
     <string name="inCallUiAppLabel">Test InCall UI</string>
+
+    <string name="UssdUiAppLabel">Test Ussd UI</string>
+
+    <string name="placeUssdButton">Send USSD</string>
+
+    <!-- String for button in SelfManagedCallingActivity. -->
+    <string name="checkIfPermittedBeforeCallingButton">Check if calls permitted before calling</string>
+
+    <string name="selfManagedCallingActivityLabel">Self-Managed Sample</string>
+
+    <string name="outgoingCallNotPermitted">Outgoing call not permitted.</string>
+
+    <string name="outgoingCallNotPermittedCS">Outgoing call not permitted (CS Reported).</string>
+
+    <string name="incomingCallNotPermitted">Incoming call not permitted.</string>
+
+    <string name="incomingCallNotPermittedCS">Incoming call not permitted (CS Reported).</string>
+
+    <string name="rttUiLabel">Test RTT UI</string>
+
+    <string-array name="rtt_mode_array">
+        <item>Full</item>
+        <item>HCO</item>
+        <item>VCO</item>
+    </string-array>
+
+    <string-array name="rtt_reply_one_liners">
+        <item>To RTT or not to RTT, that is the question...</item>
+        <item>Making TTY great again!</item>
+        <item>I would be more comfortable with real "Thyme" chatting. I don\'t know how to end
+        this pun</item>
+        <item>お疲れ様でした</item>
+        <item>The FCC has mandated that I respond... I will do so begrudgingly</item>
+        <item>😂😂😂💯</item>
+    </string-array>
 </resources>

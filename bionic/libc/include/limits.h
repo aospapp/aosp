@@ -33,11 +33,15 @@
  */
 
 #ifndef _LIMITS_H_
-#define	_LIMITS_H_
+#define _LIMITS_H_
 
 #include <sys/cdefs.h>
 
-#if __XPG_VISIBLE
+/* Historically bionic exposed the content of <float.h> from <limits.h> and <sys/limits.h> too. */
+#include <float.h>
+
+#include <linux/limits.h>
+
 #define PASS_MAX		128	/* _PASSWORD_LEN from <pwd.h> */
 
 #define NL_ARGMAX		9
@@ -48,13 +52,49 @@
 #define NL_TEXTMAX		255
 
 #define TMP_MAX                 308915776
-#endif /* __XPG_VISIBLE */
 
-#include <sys/limits.h>
+/* TODO: get all these from the compiler's <limits.h>? */
 
-#if __POSIX_VISIBLE
-#include <sys/syslimits.h>
+#define CHAR_BIT 8
+#ifdef __LP64__
+# define LONG_BIT 64
+#else
+# define LONG_BIT 32
 #endif
+
+#define	SCHAR_MAX	0x7f		/* max value for a signed char */
+#define SCHAR_MIN	(-0x7f-1)	/* min value for a signed char */
+
+#define	UCHAR_MAX	0xffU		/* max value for an unsigned char */
+#ifdef __CHAR_UNSIGNED__
+# define CHAR_MIN	0		/* min value for a char */
+# define CHAR_MAX	0xff		/* max value for a char */
+#else
+# define CHAR_MAX	0x7f
+# define CHAR_MIN	(-0x7f-1)
+#endif
+
+#define	USHRT_MAX	0xffffU		/* max value for an unsigned short */
+#define	SHRT_MAX	0x7fff		/* max value for a short */
+#define SHRT_MIN        (-0x7fff-1)     /* min value for a short */
+
+#define	UINT_MAX	0xffffffffU	/* max value for an unsigned int */
+#define	INT_MAX		0x7fffffff	/* max value for an int */
+#define	INT_MIN		(-0x7fffffff-1)	/* min value for an int */
+
+#ifdef __LP64__
+# define ULONG_MAX	0xffffffffffffffffUL     /* max value for unsigned long */
+# define LONG_MAX	0x7fffffffffffffffL      /* max value for a signed long */
+# define LONG_MIN	(-0x7fffffffffffffffL-1) /* min value for a signed long */
+#else
+# define ULONG_MAX	0xffffffffUL	/* max value for an unsigned long */
+# define LONG_MAX	0x7fffffffL	/* max value for a long */
+# define LONG_MIN	(-0x7fffffffL-1)/* min value for a long */
+#endif
+
+# define ULLONG_MAX	0xffffffffffffffffULL     /* max value for unsigned long long */
+# define LLONG_MAX	0x7fffffffffffffffLL      /* max value for a signed long long */
+# define LLONG_MIN	(-0x7fffffffffffffffLL-1) /* min value for a signed long long */
 
 /* GLibc compatibility definitions.
    Note that these are defined by GCC's <limits.h>
@@ -72,19 +112,41 @@
 #define ULONG_LONG_MAX  ULLONG_MAX
 #endif
 
-/* BSD compatibility definitions. */
-#if __BSD_VISIBLE
+#if defined(__USE_BSD) || defined(__BIONIC__) /* Historically bionic exposed these. */
+# define UID_MAX	UINT_MAX	/* max value for a uid_t */
+# define GID_MAX	UINT_MAX	/* max value for a gid_t */
+#if defined(__LP64__)
 #define SIZE_T_MAX ULONG_MAX
-#endif /* __BSD_VISIBLE */
+#else
+#define SIZE_T_MAX UINT_MAX
+#endif
+#endif
 
+#if defined(__LP64__)
 #define SSIZE_MAX LONG_MAX
+#else
+#define SSIZE_MAX INT_MAX
+#endif
 
 #define MB_LEN_MAX 4
 
+#define IOV_MAX 1024
 #define SEM_VALUE_MAX 0x3fffffff
 
 /* POSIX says these belong in <unistd.h> but BSD has some in <limits.h>. */
 #include <bits/posix_limits.h>
 
 #define HOST_NAME_MAX _POSIX_HOST_NAME_MAX
+
+#define  _POSIX_VERSION             200809L   /* Posix C language bindings version */
+#define  _POSIX2_VERSION            -1        /* we don't support Posix command-line tools */
+#define  _XOPEN_VERSION             700       /* by Posix definition */
+
+/* >= _POSIX_THREAD_DESTRUCTOR_ITERATIONS */
+#define PTHREAD_DESTRUCTOR_ITERATIONS 4
+/* >= _POSIX_THREAD_KEYS_MAX */
+#define PTHREAD_KEYS_MAX 128
+/* bionic has no specific limit */
+#undef PTHREAD_THREADS_MAX
+
 #endif /* !_LIMITS_H_ */

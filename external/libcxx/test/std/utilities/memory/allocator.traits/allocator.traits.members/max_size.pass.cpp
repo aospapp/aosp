@@ -21,6 +21,8 @@
 #include <type_traits>
 #include <cassert>
 
+#include "test_macros.h"
+
 template <class T>
 struct A
 {
@@ -41,18 +43,6 @@ struct B
 
 int main()
 {
-#ifndef _LIBCPP_HAS_NO_ADVANCED_SFINAE
-    {
-        A<int> a;
-        assert(std::allocator_traits<A<int> >::max_size(a) ==
-               std::numeric_limits<std::size_t>::max());
-    }
-    {
-        const A<int> a = {};
-        assert(std::allocator_traits<A<int> >::max_size(a) ==
-               std::numeric_limits<std::size_t>::max());
-    }
-#endif  // _LIBCPP_HAS_NO_ADVANCED_SFINAE
     {
         B<int> b;
         assert(std::allocator_traits<B<int> >::max_size(b) == 100);
@@ -61,7 +51,17 @@ int main()
         const B<int> b = {};
         assert(std::allocator_traits<B<int> >::max_size(b) == 100);
     }
-#if __cplusplus >= 201103
+#if TEST_STD_VER >= 11
+    {
+        A<int> a;
+        assert(std::allocator_traits<A<int> >::max_size(a) ==
+               std::numeric_limits<std::size_t>::max() / sizeof(int));
+    }
+    {
+        const A<int> a = {};
+        assert(std::allocator_traits<A<int> >::max_size(a) ==
+               std::numeric_limits<std::size_t>::max() / sizeof(int));
+    }
     {
         std::allocator<int> a;
         static_assert(noexcept(std::allocator_traits<std::allocator<int>>::max_size(a)) == true, "");

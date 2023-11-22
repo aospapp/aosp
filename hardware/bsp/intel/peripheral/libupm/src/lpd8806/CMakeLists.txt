@@ -1,5 +1,0 @@
-set (libname "lpd8806")
-set (libdescription “Digital RGB LED strip”)
-set (module_src ${libname}.cxx)
-set (module_h ${libname}.h)
-upm_module_init()

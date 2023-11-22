@@ -23,7 +23,7 @@
     <package>com.example.android.swiperefreshmultipleviews</package>
 
     <!-- change minSdk if needed-->
-    <minSdk>14</minSdk>
+    <minSdk>9</minSdk>
     <strings>
         <intro>
             <![CDATA[

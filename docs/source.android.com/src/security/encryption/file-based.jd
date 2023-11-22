@@ -26,7 +26,7 @@ page.title=File-Based Encryption
 </div>
 
 <p>
-Android 7.0 and above supports file-based encryption (FBE). File-based
+Android 7.0 and later supports file-based encryption (FBE). File-based
 encryption allows different files to be encrypted with different keys that can
 be unlocked independently.
 </p>
@@ -38,7 +38,7 @@ Direct Boot APIs and offer users the best, most secure experience possible.
 <h2 id="direct-boot">Direct Boot</h2>
 <p>
 File-based encryption enables a new feature introduced in Android 7.0 called <a
-href="https://developer.android.com/preview/features/direct-boot.html">Direct
+href="https://developer.android.com/training/articles/direct-boot.html">Direct
 Boot</a>. Direct Boot allows encrypted devices to boot straight to the lock
 screen. Previously, on encrypted devices using <a href="full-disk.html">full disk
 encryption</a> (FDE), users needed to provided credentials before any data could
@@ -56,11 +56,13 @@ credentials while still protecting private user information.
 <p>
 On an FBE-enabled device, each user of the device has two storage locations
 available to applications:
-</p><ul>
-<li>Credential Encrypted (CE) storage, which is the default storage location and
-only available after the user has unlocked the device.
-<li>Device Encrypted (DE) storage, which is a storage location available both
-during Direct Boot mode and after the user has unlocked the device.</li></ul>
+</p>
+<ul>
+  <li>Credential Encrypted (CE) storage, which is the default storage location
+      and only available after the user has unlocked the device.</li>
+  <li>Device Encrypted (DE) storage, which is a storage location available both
+      during Direct Boot mode and after the user has unlocked the device.</li>
+</ul>
 <p>
 This separation makes work profiles more secure because it allows more than one
 user to be protected at a time as the encryption is no longer based solely on a
@@ -71,14 +73,14 @@ The Direct Boot API allows encryption-aware applications to access each of these
 areas. There are changes to the application lifecycle to accommodate the need to
 notify applications when a user’s CE storage is <em>unlocked</em> in response to
 first entering credentials at the lock screen, or in the case of work profile
-providing a <a
-href="https://developer.android.com/preview/api-overview.html#android_for_work">work
+providing a
+<a href="https://developer.android.com/about/versions/nougat/android-7.0.html#android_for_work">work
 challenge</a>. Devices running Android 7.0 must support these new APIs and
 lifecycles regardless of whether or not they implement FBE. Although, without
 FBE, DE and CE storage will always be in the unlocked state.
 </p>
 <p>
-A complete implementation of file based encryption on an Ext4 file system is
+A complete implementation of file-based encryption on an Ext4 file system is
 provided in the Android Open Source Project (AOSP) and needs only be enabled on
 devices that meet the requirements. Manufacturers electing to use FBE may wish
 to explore ways of optimizing the feature based on the system on chip (SoC)
@@ -165,9 +167,9 @@ device-encrypted storage.
 
 <h2 id="implementation">Implementation</h2>
 <p>
-First and foremost, apps such as alarm clocks, phone, accessibility features 
+First and foremost, apps such as alarm clocks, phone, accessibility features
 should be made android:directBootAware according to <a
-href="https://developer.android.com/preview/features/direct-boot.html">Direct
+href="https://developer.android.com/training/articles/direct-boot.html">Direct
 Boot</a> developer documentation.
 </p>
 <h3 id="kernel-support">Kernel Support</h3>
@@ -209,8 +211,7 @@ href="https://android.googlesource.com/kernel/msm/+/android-msm-bullhead-3.10-n-
    <td>Nexus 6P (angler)
    </td>
    <td><strong>kernel/msm</strong> android-msm-angler-3.10-n-preview-2 (<a
-href="https://android.googlesource.com/kernel/msm/+/android-msm-angler-3.10-n-preview-2">git</a>
- )
+href="https://android.googlesource.com/kernel/msm/+/android-msm-angler-3.10-n-preview-2">git</a>)
    </td>
   </tr>
 </table>
@@ -282,7 +283,7 @@ encryption uses AES-256 in XTS mode
 <p class="note">
 <strong>Note</strong>: All encryption is based on AES-256 in
 XTS mode. Due to the way XTS is defined, it needs two 256-bit keys; so in
-effect, both CE and DE keys are 512-bit keys.i
+effect, both CE and DE keys are 512-bit keys.
 </p>
 </li>
 </ul>

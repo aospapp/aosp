@@ -25,7 +25,7 @@ import android.car.hardware.CarPropertyValue;
  * @hide
  */
 @SystemApi
-public class VehicleZone {
+public final class VehicleZone {
     public static final int ZONE_ROW_1_LEFT = 0x00000001;
     public static final int ZONE_ROW_1_CENTER = 0x00000002;
     public static final int ZONE_ROW_1_RIGHT = 0x00000004;
@@ -43,4 +43,6 @@ public class VehicleZone {
     public static final int ZONE_ROW_4_RIGHT = 0x00004000;
     public static final int ZONE_ROW_4_ALL = 0x00008000;
     public static final int ZONE_ALL = 0x80000000;
+
+    private VehicleZone() {}
 }

@@ -22,9 +22,13 @@ import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
+import android.platform.test.annotations.RequiresDevice;
+import android.test.suitebuilder.annotation.SmallTest;
 
 import java.util.List;
 
+@SmallTest
+@RequiresDevice
 public class CarPackageManagerTest extends CarApiTestBase {
 
     private CarPackageManager mCarPm;

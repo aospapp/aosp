@@ -42,6 +42,7 @@ public class EventDebuggee extends SyncDebuggee {
             super(testedThreadName);   
         }
         
+        @Override
         public void run() {
             logWriter.println("-> SimpleThread: Running...");
         } 
@@ -51,6 +52,7 @@ public class EventDebuggee extends SyncDebuggee {
         runDebuggee(EventDebuggee.class);
     }
     
+    @Override
     public void run() {
         logWriter.println("-> EventDebuggee: STARTED");
         

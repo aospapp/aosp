@@ -16,30 +16,50 @@
 
 package android.graphics.drawable.cts;
 
-import android.graphics.cts.R;
-
-
-import org.xmlpull.v1.XmlPullParser;
-import org.xmlpull.v1.XmlPullParserException;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import android.content.res.Resources;
 import android.content.res.XmlResourceParser;
 import android.graphics.Rect;
+import android.graphics.cts.R;
 import android.graphics.drawable.PaintDrawable;
 import android.graphics.drawable.shapes.RoundRectShape;
-import android.test.AndroidTestCase;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.util.AttributeSet;
 import android.util.Xml;
 
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.xmlpull.v1.XmlPullParser;
+import org.xmlpull.v1.XmlPullParserException;
+
 import java.io.IOException;
 
-public class PaintDrawableTest extends AndroidTestCase {
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class PaintDrawableTest {
+    private Resources mResources;
+
+    @Before
+    public void setup() {
+        mResources = InstrumentationRegistry.getTargetContext().getResources();
+    }
+
+    @Test
     public void testConstructor() {
         new PaintDrawable();
         new PaintDrawable(0x0);
         new PaintDrawable(0xffffffff);
     }
 
+    @Test
     public void testSetCornerRadius() {
         PaintDrawable paintDrawable;
 
@@ -64,6 +84,7 @@ public class PaintDrawableTest extends AndroidTestCase {
         assertNull(paintDrawable.getShape());
     }
 
+    @Test
     public void testSetCornerRadii() {
         PaintDrawable paintDrawable;
 
@@ -100,10 +121,11 @@ public class PaintDrawableTest extends AndroidTestCase {
         assertTrue(paintDrawable.getShape() instanceof RoundRectShape);
     }
 
+    @Test
     public void testInflateTag() throws XmlPullParserException, IOException {
         // Test name is not 'corners', and default executing path will load super's method.
         XmlResourceParser parser = getParser();
-        AttributeSet attr = getAtrributeSet(parser);
+        AttributeSet attr = getAttributeSet(parser);
         assertNotNull(attr);
         gotoTag(parser, "padding");
         Rect padding = new Rect(0, 0, 10, 10);
@@ -114,20 +136,19 @@ public class PaintDrawableTest extends AndroidTestCase {
         //If the Tagname is not 'corners',inflateTag will invoke its super's version. and the super
         // version is a operation on mPadding, in this case, it will set mPadding to null, and
         // return false by getPadding.
-        assertTrue(paintDrawable.inflateTag("padding", getContext().getResources(), parser, attr));
+        assertTrue(paintDrawable.inflateTag("padding", mResources, parser, attr));
         assertFalse(paintDrawable.getPadding(padding));
 
         // Test tag-name with ''
         parser = getParser();
-        attr = getAtrributeSet(parser);
+        attr = getAttributeSet(parser);
         assertNotNull(attr);
-        assertFalse(new MyPaintDrawable().inflateTag("", getContext().getResources(), parser,
-                attr));
+        assertFalse(new MyPaintDrawable().inflateTag("", mResources, parser, attr));
 
         // Exceptional input Tests
         try {
             // null tag name
-            new MyPaintDrawable().inflateTag(null, getContext().getResources(), parser, attr);
+            new MyPaintDrawable().inflateTag(null, mResources, parser, attr);
             fail("Normally the function would throw a NullPointerException here.");
         } catch (NullPointerException e) {
             // expected
@@ -144,15 +165,15 @@ public class PaintDrawableTest extends AndroidTestCase {
 
         // null XmlPullParser
         parser = getParser();
-        attr = getAtrributeSet(parser);
+        attr = getAttributeSet(parser);
         assertNotNull(attr);
         gotoTag(parser, "padding");
         paintDrawable = new MyPaintDrawable();
-        assertTrue(paintDrawable.inflateTag("padding", getContext().getResources(), null, attr));
+        assertTrue(paintDrawable.inflateTag("padding", mResources, null, attr));
 
         try {
             // null AttributeSet
-            new MyPaintDrawable().inflateTag("padding", getContext().getResources(), parser, null);
+            new MyPaintDrawable().inflateTag("padding", mResources, parser, null);
             fail("Normally the function would throw a NullPointerException here.");
         } catch (NullPointerException e) {
             // expected
@@ -161,18 +182,18 @@ public class PaintDrawableTest extends AndroidTestCase {
         assertNull(paintDrawable.getShape());
 
         parser = getParser();
-        attr = getAtrributeSet(parser);
+        attr = getAttributeSet(parser);
         assertNotNull(attr);
         gotoTag(parser, "corners");
-        assertTrue(paintDrawable.inflateTag("corners", getContext().getResources(), parser, attr));
+        assertTrue(paintDrawable.inflateTag("corners", mResources, parser, attr));
         assertNotNull(paintDrawable.getShape());
     }
 
     private XmlResourceParser getParser() {
-        return getContext().getResources().getXml(R.drawable.paintdrawable_attr);
+        return mResources.getXml(R.drawable.paintdrawable_attr);
     }
 
-    private AttributeSet getAtrributeSet(XmlResourceParser parser) throws XmlPullParserException,
+    private AttributeSet getAttributeSet(XmlResourceParser parser) throws XmlPullParserException,
             IOException {
         int type;
         // FIXME: this come from
@@ -212,7 +233,7 @@ public class PaintDrawableTest extends AndroidTestCase {
         }
     }
 
-    private PaintDrawable getPaintDrawable(boolean hasShape) {
+    private static PaintDrawable getPaintDrawable(boolean hasShape) {
         PaintDrawable paintDrawable = new PaintDrawable();
         if (hasShape) {
             paintDrawable.setCornerRadius(1.5f);

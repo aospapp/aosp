@@ -17,7 +17,13 @@ package android.car.cts;
 
 import android.car.Car;
 import android.car.CarInfoManager;
+import android.os.Bundle;
+import android.platform.test.annotations.RequiresDevice;
+import android.test.suitebuilder.annotation.SmallTest;
 
+
+@SmallTest
+@RequiresDevice
 public class CarInfoManagerTest extends CarApiTestBase {
 
     private CarInfoManager mCarInfoManager;
@@ -28,45 +34,14 @@ public class CarInfoManagerTest extends CarApiTestBase {
         mCarInfoManager = (CarInfoManager) getCar().getCarManager(Car.INFO_SERVICE);
     }
 
-    public void testManufacturer() throws Exception {
-        // The values are not guaranteed, so just checking data types here.
-        mCarInfoManager.getString(CarInfoManager.KEY_MANUFACTURER);
-        mCarInfoManager.getInt(CarInfoManager.KEY_MODEL_YEAR);
-        mCarInfoManager.getString(CarInfoManager.KEY_VEHICLE_ID);
-        mCarInfoManager.getString(CarInfoManager.KEY_MODEL);
-        try {
-            mCarInfoManager.getFloat(CarInfoManager.KEY_MANUFACTURER);
-            fail("type check failed");
-        } catch (IllegalArgumentException e) {
-            // Expected.
-        }
-        try {
-            mCarInfoManager.getInt(CarInfoManager.KEY_MANUFACTURER);
-            fail("type check failed");
-        } catch (IllegalArgumentException e) {
-            // Expected.
-        }
+    public void testVehicleId() throws Exception {
+        assertNotNull(mCarInfoManager.getVehicleId());
     }
 
-    public void testNoSuchInfo() throws Exception {
-        final String NO_SUCH_NAME = "no-such-information-available";
-        try {
-            mCarInfoManager.getString(NO_SUCH_NAME);
-            fail("wrong param check");
-        } catch (IllegalArgumentException e) {
-            // Expected.
-        }
-        try {
-            mCarInfoManager.getInt(NO_SUCH_NAME);
-            fail("wrong param check");
-        } catch (IllegalArgumentException e) {
-            // Expected.
-        }
-        try {
-            mCarInfoManager.getFloat(NO_SUCH_NAME);
-            fail("wrong param check");
-        } catch (IllegalArgumentException e) {
-            // Expected.
-        }
+    public void testNullables() throws Exception {
+        // no guarantee of existence. just call and check if it throws exception.
+        mCarInfoManager.getManufacturer();
+        mCarInfoManager.getModel();
+        mCarInfoManager.getModelYear();
     }
 }

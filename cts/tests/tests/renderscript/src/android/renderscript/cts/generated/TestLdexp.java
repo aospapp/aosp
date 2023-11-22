@@ -37,6 +37,13 @@ public class TestLdexp extends RSBaseCompute {
         scriptRelaxed = new ScriptC_TestLdexpRelaxed(mRS);
     }
 
+    @Override
+    protected void tearDown() throws Exception {
+        script.destroy();
+        scriptRelaxed.destroy();
+        super.tearDown();
+    }
+
     public class ArgumentsFloatIntFloat {
         public float inMantissa;
         public int inExponent;
@@ -44,13 +51,14 @@ public class TestLdexp extends RSBaseCompute {
     }
 
     private void checkLdexpFloatIntFloat() {
-        Allocation inMantissa = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 1, 0x90f0e26fl, false);
-        Allocation inExponent = createRandomAllocation(mRS, Element.DataType.SIGNED_32, 1, 0x2e4133c4l, false);
+        Allocation inMantissa = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 1, 0xdffd225490f0e26fl, false);
+        Allocation inExponent = createRandomAllocation(mRS, Element.DataType.SIGNED_32, 1, 0xdffd207c2e4133c4l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 1), INPUTSIZE);
             script.set_gAllocInExponent(inExponent);
             script.forEach_testLdexpFloatIntFloat(inMantissa, out);
             verifyResultsLdexpFloatIntFloat(inMantissa, inExponent, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testLdexpFloatIntFloat: " + e.toString());
         }
@@ -59,9 +67,12 @@ public class TestLdexp extends RSBaseCompute {
             scriptRelaxed.set_gAllocInExponent(inExponent);
             scriptRelaxed.forEach_testLdexpFloatIntFloat(inMantissa, out);
             verifyResultsLdexpFloatIntFloat(inMantissa, inExponent, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testLdexpFloatIntFloat: " + e.toString());
         }
+        inMantissa.destroy();
+        inExponent.destroy();
     }
 
     private void verifyResultsLdexpFloatIntFloat(Allocation inMantissa, Allocation inExponent, Allocation out, boolean relaxed) {
@@ -123,13 +134,14 @@ public class TestLdexp extends RSBaseCompute {
     }
 
     private void checkLdexpFloat2Int2Float2() {
-        Allocation inMantissa = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 2, 0x4fe92893l, false);
-        Allocation inExponent = createRandomAllocation(mRS, Element.DataType.SIGNED_32, 2, 0xed3979e8l, false);
+        Allocation inMantissa = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 2, 0x7d0b1a44fe92893l, false);
+        Allocation inExponent = createRandomAllocation(mRS, Element.DataType.SIGNED_32, 2, 0x7d0afcbed3979e8l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 2), INPUTSIZE);
             script.set_gAllocInExponent(inExponent);
             script.forEach_testLdexpFloat2Int2Float2(inMantissa, out);
             verifyResultsLdexpFloat2Int2Float2(inMantissa, inExponent, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testLdexpFloat2Int2Float2: " + e.toString());
         }
@@ -138,9 +150,12 @@ public class TestLdexp extends RSBaseCompute {
             scriptRelaxed.set_gAllocInExponent(inExponent);
             scriptRelaxed.forEach_testLdexpFloat2Int2Float2(inMantissa, out);
             verifyResultsLdexpFloat2Int2Float2(inMantissa, inExponent, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testLdexpFloat2Int2Float2: " + e.toString());
         }
+        inMantissa.destroy();
+        inExponent.destroy();
     }
 
     private void verifyResultsLdexpFloat2Int2Float2(Allocation inMantissa, Allocation inExponent, Allocation out, boolean relaxed) {
@@ -202,13 +217,14 @@ public class TestLdexp extends RSBaseCompute {
     }
 
     private void checkLdexpFloat3Int3Float3() {
-        Allocation inMantissa = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 3, 0x3fa3335el, false);
-        Allocation inExponent = createRandomAllocation(mRS, Element.DataType.SIGNED_32, 3, 0xdcf384b3l, false);
+        Allocation inMantissa = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 3, 0xa8e041253fa3335el, false);
+        Allocation inExponent = createRandomAllocation(mRS, Element.DataType.SIGNED_32, 3, 0xa8e03f4cdcf384b3l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 3), INPUTSIZE);
             script.set_gAllocInExponent(inExponent);
             script.forEach_testLdexpFloat3Int3Float3(inMantissa, out);
             verifyResultsLdexpFloat3Int3Float3(inMantissa, inExponent, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testLdexpFloat3Int3Float3: " + e.toString());
         }
@@ -217,9 +233,12 @@ public class TestLdexp extends RSBaseCompute {
             scriptRelaxed.set_gAllocInExponent(inExponent);
             scriptRelaxed.forEach_testLdexpFloat3Int3Float3(inMantissa, out);
             verifyResultsLdexpFloat3Int3Float3(inMantissa, inExponent, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testLdexpFloat3Int3Float3: " + e.toString());
         }
+        inMantissa.destroy();
+        inExponent.destroy();
     }
 
     private void verifyResultsLdexpFloat3Int3Float3(Allocation inMantissa, Allocation inExponent, Allocation out, boolean relaxed) {
@@ -281,13 +300,14 @@ public class TestLdexp extends RSBaseCompute {
     }
 
     private void checkLdexpFloat4Int4Float4() {
-        Allocation inMantissa = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 4, 0x2f5d3e29l, false);
-        Allocation inExponent = createRandomAllocation(mRS, Element.DataType.SIGNED_32, 4, 0xccad8f7el, false);
+        Allocation inMantissa = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 4, 0x49efd0a62f5d3e29l, false);
+        Allocation inExponent = createRandomAllocation(mRS, Element.DataType.SIGNED_32, 4, 0x49efcecdccad8f7el, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 4), INPUTSIZE);
             script.set_gAllocInExponent(inExponent);
             script.forEach_testLdexpFloat4Int4Float4(inMantissa, out);
             verifyResultsLdexpFloat4Int4Float4(inMantissa, inExponent, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testLdexpFloat4Int4Float4: " + e.toString());
         }
@@ -296,9 +316,12 @@ public class TestLdexp extends RSBaseCompute {
             scriptRelaxed.set_gAllocInExponent(inExponent);
             scriptRelaxed.forEach_testLdexpFloat4Int4Float4(inMantissa, out);
             verifyResultsLdexpFloat4Int4Float4(inMantissa, inExponent, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testLdexpFloat4Int4Float4: " + e.toString());
         }
+        inMantissa.destroy();
+        inExponent.destroy();
     }
 
     private void verifyResultsLdexpFloat4Int4Float4(Allocation inMantissa, Allocation inExponent, Allocation out, boolean relaxed) {
@@ -360,13 +383,14 @@ public class TestLdexp extends RSBaseCompute {
     }
 
     private void checkLdexpFloat2IntFloat2() {
-        Allocation inMantissa = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 2, 0x38bd38d1l, false);
-        Allocation inExponent = createRandomAllocation(mRS, Element.DataType.SIGNED_32, 1, 0xd60d8a26l, false);
+        Allocation inMantissa = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 2, 0x6a72b89838bd38d1l, false);
+        Allocation inExponent = createRandomAllocation(mRS, Element.DataType.SIGNED_32, 1, 0x6a72b6bfd60d8a26l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 2), INPUTSIZE);
             script.set_gAllocInExponent(inExponent);
             script.forEach_testLdexpFloat2IntFloat2(inMantissa, out);
             verifyResultsLdexpFloat2IntFloat2(inMantissa, inExponent, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testLdexpFloat2IntFloat2: " + e.toString());
         }
@@ -375,9 +399,12 @@ public class TestLdexp extends RSBaseCompute {
             scriptRelaxed.set_gAllocInExponent(inExponent);
             scriptRelaxed.forEach_testLdexpFloat2IntFloat2(inMantissa, out);
             verifyResultsLdexpFloat2IntFloat2(inMantissa, inExponent, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testLdexpFloat2IntFloat2: " + e.toString());
         }
+        inMantissa.destroy();
+        inExponent.destroy();
     }
 
     private void verifyResultsLdexpFloat2IntFloat2(Allocation inMantissa, Allocation inExponent, Allocation out, boolean relaxed) {
@@ -439,13 +466,14 @@ public class TestLdexp extends RSBaseCompute {
     }
 
     private void checkLdexpFloat3IntFloat3() {
-        Allocation inMantissa = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 3, 0x5150f83dl, false);
-        Allocation inExponent = createRandomAllocation(mRS, Element.DataType.SIGNED_32, 1, 0xeea14992l, false);
+        Allocation inMantissa = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 3, 0x49ba40205150f83dl, false);
+        Allocation inExponent = createRandomAllocation(mRS, Element.DataType.SIGNED_32, 1, 0x49ba3e47eea14992l, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 3), INPUTSIZE);
             script.set_gAllocInExponent(inExponent);
             script.forEach_testLdexpFloat3IntFloat3(inMantissa, out);
             verifyResultsLdexpFloat3IntFloat3(inMantissa, inExponent, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testLdexpFloat3IntFloat3: " + e.toString());
         }
@@ -454,9 +482,12 @@ public class TestLdexp extends RSBaseCompute {
             scriptRelaxed.set_gAllocInExponent(inExponent);
             scriptRelaxed.forEach_testLdexpFloat3IntFloat3(inMantissa, out);
             verifyResultsLdexpFloat3IntFloat3(inMantissa, inExponent, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testLdexpFloat3IntFloat3: " + e.toString());
         }
+        inMantissa.destroy();
+        inExponent.destroy();
     }
 
     private void verifyResultsLdexpFloat3IntFloat3(Allocation inMantissa, Allocation inExponent, Allocation out, boolean relaxed) {
@@ -518,13 +549,14 @@ public class TestLdexp extends RSBaseCompute {
     }
 
     private void checkLdexpFloat4IntFloat4() {
-        Allocation inMantissa = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 4, 0x69e4b7a9l, false);
-        Allocation inExponent = createRandomAllocation(mRS, Element.DataType.SIGNED_32, 1, 0x73508fel, false);
+        Allocation inMantissa = createRandomAllocation(mRS, Element.DataType.FLOAT_32, 4, 0x2901c7a869e4b7a9l, false);
+        Allocation inExponent = createRandomAllocation(mRS, Element.DataType.SIGNED_32, 1, 0x2901c5d0073508fel, false);
         try {
             Allocation out = Allocation.createSized(mRS, getElement(mRS, Element.DataType.FLOAT_32, 4), INPUTSIZE);
             script.set_gAllocInExponent(inExponent);
             script.forEach_testLdexpFloat4IntFloat4(inMantissa, out);
             verifyResultsLdexpFloat4IntFloat4(inMantissa, inExponent, out, false);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testLdexpFloat4IntFloat4: " + e.toString());
         }
@@ -533,9 +565,12 @@ public class TestLdexp extends RSBaseCompute {
             scriptRelaxed.set_gAllocInExponent(inExponent);
             scriptRelaxed.forEach_testLdexpFloat4IntFloat4(inMantissa, out);
             verifyResultsLdexpFloat4IntFloat4(inMantissa, inExponent, out, true);
+            out.destroy();
         } catch (Exception e) {
             throw new RSRuntimeException("RenderScript. Can't invoke forEach_testLdexpFloat4IntFloat4: " + e.toString());
         }
+        inMantissa.destroy();
+        inExponent.destroy();
     }
 
     private void verifyResultsLdexpFloat4IntFloat4(Allocation inMantissa, Allocation inExponent, Allocation out, boolean relaxed) {

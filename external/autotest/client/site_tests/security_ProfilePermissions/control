@@ -13,11 +13,11 @@ CRITERIA = """
 Fail if there are any files or directories writable by group/other in ~.
 """
 ATTRIBUTES = "suite:bvt-inline"
-SUITE = "bvt-inline"
 TEST_CLASS = "security"
 TEST_CATEGORY = "Functional"
 TEST_TYPE = "client"
-JOB_RETRIES = 2
+# TODO(crbug.com/631640): Revert to 2 retries.
+JOB_RETRIES = 5
 
 job.run_test("security_ProfilePermissions",
         logged_in=True, tag='login')

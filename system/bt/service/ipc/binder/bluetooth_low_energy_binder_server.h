@@ -20,11 +20,18 @@
 
 #include <base/macros.h>
 
-#include "service/common/bluetooth/binder/IBluetoothLowEnergy.h"
-#include "service/common/bluetooth/binder/IBluetoothLowEnergyCallback.h"
+#include <android/bluetooth/IBluetoothLowEnergyCallback.h>
+#include "android/bluetooth/BnBluetoothLowEnergy.h"
+
 #include "service/common/bluetooth/low_energy_constants.h"
 #include "service/ipc/binder/interface_with_instances_base.h"
 #include "service/low_energy_client.h"
+
+using android::binder::Status;
+using android::String16;
+
+using android::bluetooth::BnBluetoothLowEnergy;
+using android::bluetooth::IBluetoothLowEnergyCallback;
 
 namespace bluetooth {
 class Adapter;
@@ -43,32 +50,23 @@ class BluetoothLowEnergyBinderServer
   ~BluetoothLowEnergyBinderServer() override;
 
   // IBluetoothLowEnergy overrides:
-  bool RegisterClient(
-      const android::sp<IBluetoothLowEnergyCallback>& callback) override;
-  void UnregisterClient(int client_id) override;
-  void UnregisterAll() override;
-  bool Connect(int client_id, const char* address, bool is_direct) override;
-  bool Disconnect(int client_id, const char* address) override;
-  bool SetMtu(int client_id, const char* address, int mtu) override;
-  bool StartScan(
-      int client_id,
-      const bluetooth::ScanSettings& settings,
-      const std::vector<bluetooth::ScanFilter>& filters) override;
-  bool StopScan(int client_id) override;
-  bool StartMultiAdvertising(
-      int client_id,
-      const bluetooth::AdvertiseData& advertise_data,
-      const bluetooth::AdvertiseData& scan_response,
-      const bluetooth::AdvertiseSettings& settings) override;
-  bool StopMultiAdvertising(int client_id) override;
+  Status RegisterClient(
+      const android::sp<IBluetoothLowEnergyCallback>& callback,
+      bool* _aidl_return) override;
+  Status UnregisterClient(int client_id) override;
+  Status UnregisterAll() override;
+  Status Connect(int client_id, const String16& address, bool is_direct,
+                 bool* _aidl_return) override;
+  Status Disconnect(int client_id, const String16& address,
+                    bool* _aidl_return) override;
+  Status SetMtu(int client_id, const String16& address, int mtu,
+                bool* _aidl_return) override;
 
   // bluetooth::LowEnergyClient::Delegate overrides:
   void OnConnectionState(bluetooth::LowEnergyClient* client, int status,
                          const char* address, bool connected) override;
   void OnMtuChanged(bluetooth::LowEnergyClient* client, int status,
                     const char* address, int mtu) override;
-  void OnScanResult(bluetooth::LowEnergyClient* client,
-                    const bluetooth::ScanResult& result) override;
 
  private:
   // Returns a pointer to the IBluetoothLowEnergyCallback instance associated
@@ -80,10 +78,9 @@ class BluetoothLowEnergyBinderServer
   std::shared_ptr<bluetooth::LowEnergyClient> GetLEClient(int client_id);
 
   // InterfaceWithInstancesBase override:
-  void OnRegisterInstanceImpl(
-      bluetooth::BLEStatus status,
-      android::sp<IInterface> callback,
-      bluetooth::BluetoothInstance* instance) override;
+  void OnRegisterInstanceImpl(bluetooth::BLEStatus status,
+                              android::sp<IInterface> callback,
+                              bluetooth::BluetoothInstance* instance) override;
 
   bluetooth::Adapter* adapter_;  // weak
 

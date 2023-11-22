@@ -17,8 +17,8 @@
 from acts import base_test
 from acts.controllers.sniffer import Sniffer
 
-class SnifferSanityTest(base_test.BaseTestClass):
 
+class SnifferSanityTest(base_test.BaseTestClass):
     def setup_class(self):
         self._channels = [6, 44]
 
@@ -38,9 +38,9 @@ class SnifferSanityTest(base_test.BaseTestClass):
         for sniffer in self.sniffers:
             for channel in self._channels:
                 with sniffer.start_capture(
-                         override_configs={Sniffer.CONFIG_KEY_CHANNEL:channel},
-                                           duration=self._capture_sec,
-                                           packet_count=self._packet_count):
+                        override_configs={Sniffer.CONFIG_KEY_CHANNEL: channel},
+                        duration=self._capture_sec,
+                        packet_count=self._packet_count):
                     self.log.info("Capture: %s", sniffer.get_capture_file())
 
     def test_sniffer_validation_manual(self):
@@ -56,8 +56,8 @@ class SnifferSanityTest(base_test.BaseTestClass):
         for sniffer in self.sniffers:
             for channel in self._channels:
                 sniffer.start_capture(
-                          override_configs={Sniffer.CONFIG_KEY_CHANNEL:channel},
-                                      packet_count=self._packet_count)
+                    override_configs={Sniffer.CONFIG_KEY_CHANNEL: channel},
+                    packet_count=self._packet_count)
                 self.log.info("Capture: %s", sniffer.get_capture_file())
                 sniffer.wait_for_capture(timeout=self._capture_sec)
 
@@ -68,9 +68,8 @@ class SnifferSanityTest(base_test.BaseTestClass):
         for sniffer in self.sniffers:
             for channel in self._channels:
                 with sniffer.start_capture(
-                         override_configs={Sniffer.CONFIG_KEY_CHANNEL:channel},
-                                           duration=self._capture_sec,
-                                           packet_count=3,
-                                           additional_args=self._filter[
-                                                       sniffer.get_subtype()]):
+                        override_configs={Sniffer.CONFIG_KEY_CHANNEL: channel},
+                        duration=self._capture_sec,
+                        packet_count=3,
+                        additional_args=self._filter[sniffer.get_subtype()]):
                     self.log.info("Capture: %s", sniffer.get_capture_file())

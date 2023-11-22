@@ -16,6 +16,8 @@
 
 package android.support.design.internal;
 
+import static android.support.annotation.RestrictTo.Scope.LIBRARY_GROUP;
+
 import android.content.Context;
 import android.content.res.ColorStateList;
 import android.content.res.Resources;
@@ -26,6 +28,7 @@ import android.os.Parcelable;
 import android.support.annotation.LayoutRes;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.support.annotation.RestrictTo;
 import android.support.annotation.StyleRes;
 import android.support.design.R;
 import android.support.v4.view.ViewCompat;
@@ -49,26 +52,28 @@ import java.util.ArrayList;
 /**
  * @hide
  */
+@RestrictTo(LIBRARY_GROUP)
 public class NavigationMenuPresenter implements MenuPresenter {
 
     private static final String STATE_HIERARCHY = "android:menu:list";
     private static final String STATE_ADAPTER = "android:menu:adapter";
+    private static final String STATE_HEADER = "android:menu:header";
 
     private NavigationMenuView mMenuView;
-    private LinearLayout mHeaderLayout;
+    LinearLayout mHeaderLayout;
 
     private Callback mCallback;
-    private MenuBuilder mMenu;
+    MenuBuilder mMenu;
     private int mId;
 
-    private NavigationMenuAdapter mAdapter;
-    private LayoutInflater mLayoutInflater;
+    NavigationMenuAdapter mAdapter;
+    LayoutInflater mLayoutInflater;
 
-    private int mTextAppearance;
-    private boolean mTextAppearanceSet;
-    private ColorStateList mTextColor;
-    private ColorStateList mIconTintList;
-    private Drawable mItemBackground;
+    int mTextAppearance;
+    boolean mTextAppearanceSet;
+    ColorStateList mTextColor;
+    ColorStateList mIconTintList;
+    Drawable mItemBackground;
 
     /**
      * Padding to be inserted at the top of the list to avoid the first menu item
@@ -79,7 +84,7 @@ public class NavigationMenuPresenter implements MenuPresenter {
     /**
      * Padding for separators between items
      */
-    private int mPaddingSeparator;
+    int mPaddingSeparator;
 
     @Override
     public void initForMenu(Context context, MenuBuilder menu) {
@@ -169,6 +174,11 @@ public class NavigationMenuPresenter implements MenuPresenter {
             if (mAdapter != null) {
                 state.putBundle(STATE_ADAPTER, mAdapter.createInstanceState());
             }
+            if (mHeaderLayout != null) {
+                SparseArray<Parcelable> header = new SparseArray<>();
+                mHeaderLayout.saveHierarchyState(header);
+                state.putSparseParcelableArray(STATE_HEADER, header);
+            }
             return state;
         }
         return null;
@@ -185,6 +195,10 @@ public class NavigationMenuPresenter implements MenuPresenter {
             Bundle adapterState = state.getBundle(STATE_ADAPTER);
             if (adapterState != null) {
                 mAdapter.restoreInstanceState(adapterState);
+            }
+            SparseArray<Parcelable> header = state.getSparseParcelableArray(STATE_HEADER);
+            if (header != null) {
+                mHeaderLayout.restoreHierarchyState(header);
             }
         }
     }
@@ -318,7 +332,7 @@ public class NavigationMenuPresenter implements MenuPresenter {
     /**
      * Handles click events for the menu items. The items has to be {@link NavigationMenuItemView}.
      */
-    private final View.OnClickListener mOnClickListener = new View.OnClickListener() {
+    final View.OnClickListener mOnClickListener = new View.OnClickListener() {
 
         @Override
         public void onClick(View v) {
@@ -403,12 +417,12 @@ public class NavigationMenuPresenter implements MenuPresenter {
                     NavigationMenuItemView itemView = (NavigationMenuItemView) holder.itemView;
                     itemView.setIconTintList(mIconTintList);
                     if (mTextAppearanceSet) {
-                        itemView.setTextAppearance(itemView.getContext(), mTextAppearance);
+                        itemView.setTextAppearance(mTextAppearance);
                     }
                     if (mTextColor != null) {
                         itemView.setTextColor(mTextColor);
                     }
-                    itemView.setBackgroundDrawable(mItemBackground != null ?
+                    ViewCompat.setBackground(itemView, mItemBackground != null ?
                             mItemBackground.getConstantState().newDrawable() : null);
                     NavigationMenuTextItem item = (NavigationMenuTextItem) mItems.get(position);
                     itemView.setNeedsEmptyIcon(item.needsEmptyIcon);
@@ -546,7 +560,8 @@ public class NavigationMenuPresenter implements MenuPresenter {
             }
             // Store the states of the action views.
             SparseArray<ParcelableSparseArray> actionViewStates = new SparseArray<>();
-            for (NavigationMenuItem navigationMenuItem : mItems) {
+            for (int i = 0, size = mItems.size(); i < size; i++) {
+                NavigationMenuItem navigationMenuItem = mItems.get(i);
                 if (navigationMenuItem instanceof NavigationMenuTextItem) {
                     MenuItemImpl item = ((NavigationMenuTextItem) navigationMenuItem).getMenuItem();
                     View actionView = item != null ? item.getActionView() : null;
@@ -565,7 +580,8 @@ public class NavigationMenuPresenter implements MenuPresenter {
             int checkedItem = state.getInt(STATE_CHECKED_ITEM, 0);
             if (checkedItem != 0) {
                 mUpdateSuspended = true;
-                for (NavigationMenuItem item : mItems) {
+                for (int i = 0, size = mItems.size(); i < size; i++) {
+                    NavigationMenuItem item = mItems.get(i);
                     if (item instanceof NavigationMenuTextItem) {
                         MenuItemImpl menuItem = ((NavigationMenuTextItem) item).getMenuItem();
                         if (menuItem != null && menuItem.getItemId() == checkedItem) {
@@ -580,13 +596,25 @@ public class NavigationMenuPresenter implements MenuPresenter {
             // Restore the states of the action views.
             SparseArray<ParcelableSparseArray> actionViewStates = state
                     .getSparseParcelableArray(STATE_ACTION_VIEWS);
-            for (NavigationMenuItem navigationMenuItem : mItems) {
-                if (navigationMenuItem instanceof NavigationMenuTextItem) {
-                    MenuItemImpl item = ((NavigationMenuTextItem) navigationMenuItem).getMenuItem();
-                    View actionView = item != null ? item.getActionView() : null;
-                    if (actionView != null) {
-                        actionView.restoreHierarchyState(actionViewStates.get(item.getItemId()));
+            if (actionViewStates != null) {
+                for (int i = 0, size = mItems.size(); i < size; i++) {
+                    NavigationMenuItem navigationMenuItem = mItems.get(i);
+                    if (!(navigationMenuItem instanceof NavigationMenuTextItem)) {
+                        continue;
                     }
+                    MenuItemImpl item = ((NavigationMenuTextItem) navigationMenuItem).getMenuItem();
+                    if (item == null) {
+                        continue;
+                    }
+                    View actionView = item.getActionView();
+                    if (actionView == null) {
+                        continue;
+                    }
+                    ParcelableSparseArray container = actionViewStates.get(item.getItemId());
+                    if (container == null) {
+                        continue;
+                    }
+                    actionView.restoreHierarchyState(container);
                 }
             }
         }
@@ -612,7 +640,7 @@ public class NavigationMenuPresenter implements MenuPresenter {
 
         boolean needsEmptyIcon;
 
-        private NavigationMenuTextItem(MenuItemImpl item) {
+        NavigationMenuTextItem(MenuItemImpl item) {
             mMenuItem = item;
         }
 
@@ -650,6 +678,8 @@ public class NavigationMenuPresenter implements MenuPresenter {
      * Header (not subheader) items.
      */
     private static class NavigationMenuHeaderItem implements NavigationMenuItem {
+        NavigationMenuHeaderItem() {
+        }
         // The actual content is hold by NavigationMenuPresenter#mHeaderLayout.
     }
 

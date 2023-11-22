@@ -1,17 +1,17 @@
 /*
- * Copyright (C) 2016 Google Inc.
+ * Copyright (C) 2017 The Android Open Source Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License"); you may not
- * use this file except in compliance with the License. You may obtain a copy of
- * the License at
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
- * License for the specific language governing permissions and limitations under
- * the License.
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 package com.googlecode.android_scripting.facade;
@@ -29,6 +29,7 @@ import android.provider.Settings.SettingNotFoundException;
 import android.view.WindowManager;
 
 import com.android.internal.widget.LockPatternUtils;
+
 import com.googlecode.android_scripting.BaseApplication;
 import com.googlecode.android_scripting.FutureActivityTaskExecutor;
 import com.googlecode.android_scripting.Log;
@@ -41,7 +42,6 @@ import com.googlecode.android_scripting.rpc.RpcParameter;
 /**
  * Exposes phone settings functionality.
  *
- * @author Frank Spychalski (frank.spychalski@gmail.com)
  */
 public class SettingsFacade extends RpcReceiver {
 
@@ -150,6 +150,24 @@ public class SettingsFacade extends RpcReceiver {
         mAudio.setStreamVolume(AudioManager.STREAM_MUSIC, volume, 0);
     }
 
+    /**
+    * Sets the voice call volume.
+    * @param volume the volume number to be set for voice call.
+    */
+    @Rpc(description = "Sets the voice call volume.")
+    public void setVoiceCallVolume(@RpcParameter(name = "volume") Integer volume) {
+        mAudio.setStreamVolume(AudioManager.STREAM_VOICE_CALL, volume, 0);
+    }
+
+    /**
+    * Sets the alarm volume.
+    * @param volume the volume number to be set for alarm.
+    */
+    @Rpc(description = "Sets the alarm volume.")
+    public void setAlarmVolume(@RpcParameter(name = "volume") Integer volume) {
+        mAudio.setStreamVolume(AudioManager.STREAM_ALARM, volume, 0);
+    }
+
     @Rpc(description = "Returns the screen backlight brightness.",
             returns = "the current screen brightness between 0 and 255")
     public Integer getScreenBrightness() {
@@ -241,7 +259,7 @@ public class SettingsFacade extends RpcReceiver {
         mLockPatternUtils.setLockScreenDisabled(true, UserHandle.myUserId());
         mLockPatternUtils.setCredentialRequiredToDecrypt(false);
         mLockPatternUtils.clearEncryptionPassword();
-        mLockPatternUtils.clearLock(UserHandle.myUserId());
+        mLockPatternUtils.clearLock(null, UserHandle.myUserId());
         mLockPatternUtils.setLockScreenDisabled(true, UserHandle.myUserId());
     }
 

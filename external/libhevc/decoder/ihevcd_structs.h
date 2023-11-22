@@ -1161,7 +1161,10 @@ typedef struct
      */
     WORD32 i4_next_tu_ctb_cnt;
 
-
+    /**
+     * SEI parameters
+     */
+    sei_params_t s_sei_params;
 }parse_ctxt_t;
 
 /**
@@ -1928,6 +1931,9 @@ struct _codec_t
      * Pointer to MV Buf structure array
      */
     void *ps_mv_buf;
+
+    /** Holds the number of mv_buf_t structures allocated */
+    WORD32 i4_max_dpb_size;
 
     /**
      * Base address for Motion Vector bank buffer

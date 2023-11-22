@@ -22,7 +22,7 @@
     <string name="requesting_application" msgid="1589142627467598421">"Η εφαρμογή %s έχει ζητήσει πιστοποιητικό. Η επιλογή ενός πιστοποιητικού θα επιτρέψει στην εφαρμογή να χρησιμοποιήσει αυτήν την ταυτότητα στους διακομιστές τώρα και μελλοντικά."</string>
     <string name="requesting_server" msgid="5832565605998634370">"Η εφαρμογή έχει εντοπίσει τον ζητούμενο διακομιστή ως %s, αλλά θα πρέπει να παρέχετε στην εφαρμογή πρόσβαση για το πιστοποιητικό μόνο εφόσον την εμπιστεύεστε."</string>
     <string name="install_new_cert_message" msgid="4451971501142085495">"Μπορείτε να εγκαταστήσετε πιστοποιητικά από ένα αρχείο PKCS#12 με επέκταση %1$s ή %2$s που βρίσκονται σε εξωτερική συσκευή αποθήκευσης."</string>
-    <string name="install_new_cert_button_label" msgid="510732745267546907">"Εγκατάσταση"</string>
-    <string name="allow_button" msgid="5340501035618157678">"Αποδοχή"</string>
+    <string name="install_new_cert_button_label" msgid="903474285774077171">"Εγκατάσταση πιστοποιητικού"</string>
+    <string name="allow_button" msgid="3030990695030371561">"Επιλογή"</string>
     <string name="deny_button" msgid="3766539809121892584">"Απόρριψη"</string>
 </resources>

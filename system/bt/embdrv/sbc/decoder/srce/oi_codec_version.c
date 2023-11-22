@@ -1,7 +1,8 @@
 /******************************************************************************
  *
  *  Copyright (C) 2014 The Android Open Source Project
- *  Copyright 2002 - 2004 Open Interface North America, Inc. All rights reserved.
+ *  Copyright 2002 - 2004 Open Interface North America, Inc. All rights
+ *                        reserved.
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -30,27 +31,26 @@ version number of the eSBC codec
 @{
 */
 
-/**********************************************************************************
+/*******************************************************************************
   $Revision: #1 $
-***********************************************************************************/
+ ******************************************************************************/
 
-#include "oi_stddefs.h"
 #include "oi_codec_sbc_private.h"
+#include "oi_stddefs.h"
 
 /** Version string for the BLUEmagic 3.0 protocol stack and profiles */
-PRIVATE OI_CHAR * const codecVersion = "v1.5"
+PRIVATE OI_CHAR* const codecVersion =
+    "v1.5"
 #ifdef OI_SBC_EVAL
-" (Evaluation version)"
+    " (Evaluation version)"
 #endif
-;
+    ;
 
-/** This function returns the version string for the BLUEmagic 3.0 protocol stack
+/* This function returns the version string for the BLUEmagic 3.0 protocol stack
     and profiles */
-OI_CHAR *OI_CODEC_Version(void) {
-    return codecVersion;
-}
+OI_CHAR* OI_CODEC_Version(void) { return codecVersion; }
 
-/**********************************************************************************/
+/******************************************************************************/
 
 /**
 @}

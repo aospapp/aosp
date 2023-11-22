@@ -20,6 +20,7 @@ import android.support.v7.widget.RecyclerView;
 
 /**
  * {@link DefaultItemAnimator} with a few minor changes where it had undesired behavior.
+ * @hide
  */
 public class CarItemAnimator extends DefaultItemAnimator {
 

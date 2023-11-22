@@ -20,14 +20,17 @@
 
 #include "time_utils.h"
 
+#include "android-base/stringprintf.h"
+
 #include "base/logging.h"
-#include "base/stringprintf.h"
 
 #if defined(__APPLE__)
 #include <sys/time.h>
 #endif
 
 namespace art {
+
+using android::base::StringPrintf;
 
 std::string PrettyDuration(uint64_t nano_duration, size_t max_fraction_digits) {
   if (nano_duration == 0) {
@@ -162,6 +165,17 @@ uint64_t ThreadCpuNanoTime() {
   clock_gettime(CLOCK_THREAD_CPUTIME_ID, &now);
   return static_cast<uint64_t>(now.tv_sec) * UINT64_C(1000000000) + now.tv_nsec;
 #else  // __APPLE__
+  UNIMPLEMENTED(WARNING);
+  return -1;
+#endif
+}
+
+uint64_t ProcessCpuNanoTime() {
+#if defined(__linux__)
+  timespec now;
+  clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &now);
+  return static_cast<uint64_t>(now.tv_sec) * UINT64_C(1000000000) + now.tv_nsec;
+#else
   UNIMPLEMENTED(WARNING);
   return -1;
 #endif

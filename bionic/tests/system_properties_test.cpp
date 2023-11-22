@@ -20,14 +20,14 @@
 #include <errno.h>
 #include <sys/wait.h>
 #include <unistd.h>
+
 #include <string>
+#include <thread>
 
 #if defined(__BIONIC__)
 
 #define _REALLY_INCLUDE_SYS__SYSTEM_PROPERTIES_H_
 #include <sys/_system_properties.h>
-
-extern void *__system_property_area__;
 
 struct LocalPropertyTestState {
     LocalPropertyTestState() : valid(false) {
@@ -69,7 +69,7 @@ private:
 static void foreach_test_callback(const prop_info *pi, void* cookie) {
     size_t *count = static_cast<size_t *>(cookie);
 
-    ASSERT_NE((prop_info *)NULL, pi);
+    ASSERT_TRUE(pi != nullptr);
     (*count)++;
 }
 
@@ -98,31 +98,39 @@ static void hierarchical_test_callback(const prop_info *pi, void *cookie) {
     ok[name_i][name_j][name_k] = true;
 }
 
-static void *PropertyWaitHelperFn(void *arg) {
-    int *flag = (int *)arg;
-    prop_info *pi;
-    pi = (prop_info *)__system_property_find("property");
+static void* PropertyWaitHelperFn(void* arg) {
+    int* flag = static_cast<int*>(arg);
+    prop_info* pi = const_cast<prop_info*>(__system_property_find("property"));
     usleep(100000);
 
     *flag = 1;
     __system_property_update(pi, "value3", 6);
 
-    return NULL;
+    return nullptr;
 }
 
 #endif // __BIONIC__
 
-TEST(properties, add) {
+TEST(properties, __system_property_add) {
 #if defined(__BIONIC__)
     LocalPropertyTestState pa;
     ASSERT_TRUE(pa.valid);
-
-    char propvalue[PROP_VALUE_MAX];
 
     ASSERT_EQ(0, __system_property_add("property", 8, "value1", 6));
     ASSERT_EQ(0, __system_property_add("other_property", 14, "value2", 6));
     ASSERT_EQ(0, __system_property_add("property_other", 14, "value3", 6));
 
+    // check that there is no limit on property name length
+    char name[PROP_NAME_MAX + 11];
+    name[0] = 'p';
+    for (size_t i = 1; i < sizeof(name); i++) {
+      name[i] = 'x';
+    }
+
+    name[sizeof(name)-1] = '\0';
+    ASSERT_EQ(0, __system_property_add(name, strlen(name), "value", 5));
+
+    char propvalue[PROP_VALUE_MAX];
     ASSERT_EQ(6, __system_property_get("property", propvalue));
     ASSERT_STREQ(propvalue, "value1");
 
@@ -131,35 +139,36 @@ TEST(properties, add) {
 
     ASSERT_EQ(6, __system_property_get("property_other", propvalue));
     ASSERT_STREQ(propvalue, "value3");
+
+    ASSERT_EQ(5, __system_property_get(name, propvalue));
+    ASSERT_STREQ(propvalue, "value");
 #else // __BIONIC__
     GTEST_LOG_(INFO) << "This test does nothing.\n";
 #endif // __BIONIC__
 }
 
-TEST(properties, update) {
+TEST(properties, __system_property_update) {
 #if defined(__BIONIC__)
     LocalPropertyTestState pa;
     ASSERT_TRUE(pa.valid);
-
-    char propvalue[PROP_VALUE_MAX];
-    prop_info *pi;
 
     ASSERT_EQ(0, __system_property_add("property", 8, "oldvalue1", 9));
     ASSERT_EQ(0, __system_property_add("other_property", 14, "value2", 6));
     ASSERT_EQ(0, __system_property_add("property_other", 14, "value3", 6));
 
-    pi = (prop_info *)__system_property_find("property");
-    ASSERT_NE((prop_info *)NULL, pi);
-    __system_property_update(pi, "value4", 6);
+    const prop_info* pi = __system_property_find("property");
+    ASSERT_TRUE(pi != nullptr);
+    __system_property_update(const_cast<prop_info*>(pi), "value4", 6);
 
-    pi = (prop_info *)__system_property_find("other_property");
-    ASSERT_NE((prop_info *)NULL, pi);
-    __system_property_update(pi, "newvalue5", 9);
+    pi = __system_property_find("other_property");
+    ASSERT_TRUE(pi != nullptr);
+    __system_property_update(const_cast<prop_info*>(pi), "newvalue5", 9);
 
-    pi = (prop_info *)__system_property_find("property_other");
-    ASSERT_NE((prop_info *)NULL, pi);
-    __system_property_update(pi, "value6", 6);
+    pi = __system_property_find("property_other");
+    ASSERT_TRUE(pi != nullptr);
+    __system_property_update(const_cast<prop_info*>(pi), "value6", 6);
 
+    char propvalue[PROP_VALUE_MAX];
     ASSERT_EQ(6, __system_property_get("property", propvalue));
     ASSERT_STREQ(propvalue, "value4");
 
@@ -218,16 +227,16 @@ TEST(properties, fill) {
 #endif // __BIONIC__
 }
 
-TEST(properties, foreach) {
+TEST(properties, __system_property_foreach) {
 #if defined(__BIONIC__)
     LocalPropertyTestState pa;
     ASSERT_TRUE(pa.valid);
-    size_t count = 0;
 
     ASSERT_EQ(0, __system_property_add("property", 8, "value1", 6));
     ASSERT_EQ(0, __system_property_add("other_property", 14, "value2", 6));
     ASSERT_EQ(0, __system_property_add("property_other", 14, "value3", 6));
 
+    size_t count = 0;
     ASSERT_EQ(0, __system_property_foreach(foreach_test_callback, &count));
     ASSERT_EQ(3U, count);
 #else // __BIONIC__
@@ -235,7 +244,7 @@ TEST(properties, foreach) {
 #endif // __BIONIC__
 }
 
-TEST(properties, find_nth) {
+TEST(properties, __system_property_find_nth) {
 #if defined(__BIONIC__)
     LocalPropertyTestState pa;
     ASSERT_TRUE(pa.valid);
@@ -244,16 +253,21 @@ TEST(properties, find_nth) {
     ASSERT_EQ(0, __system_property_add("other_property", 14, "value2", 6));
     ASSERT_EQ(0, __system_property_add("property_other", 14, "value3", 6));
 
-    ASSERT_NE((const prop_info *)NULL, __system_property_find_nth(0));
-    ASSERT_NE((const prop_info *)NULL, __system_property_find_nth(1));
-    ASSERT_NE((const prop_info *)NULL, __system_property_find_nth(2));
+    char name[PROP_NAME_MAX];
+    char value[PROP_VALUE_MAX];
+    EXPECT_EQ(6, __system_property_read(__system_property_find_nth(0), name, value));
+    EXPECT_STREQ("property", name);
+    EXPECT_STREQ("value1", value);
+    EXPECT_EQ(6, __system_property_read(__system_property_find_nth(1), name, value));
+    EXPECT_STREQ("other_property", name);
+    EXPECT_STREQ("value2", value);
+    EXPECT_EQ(6, __system_property_read(__system_property_find_nth(2), name, value));
+    EXPECT_STREQ("property_other", name);
+    EXPECT_STREQ("value3", value);
 
-    ASSERT_EQ((const prop_info *)NULL, __system_property_find_nth(3));
-    ASSERT_EQ((const prop_info *)NULL, __system_property_find_nth(4));
-    ASSERT_EQ((const prop_info *)NULL, __system_property_find_nth(5));
-    ASSERT_EQ((const prop_info *)NULL, __system_property_find_nth(100));
-    ASSERT_EQ((const prop_info *)NULL, __system_property_find_nth(200));
-    ASSERT_EQ((const prop_info *)NULL, __system_property_find_nth(247));
+    for (unsigned i = 3; i < 1024; ++i) {
+      ASSERT_TRUE(__system_property_find_nth(i) == nullptr);
+    }
 #else // __BIONIC__
     GTEST_LOG_(INFO) << "This test does nothing.\n";
 #endif // __BIONIC__
@@ -329,7 +343,6 @@ TEST(properties, errors) {
     ASSERT_EQ(0, __system_property_find("property1"));
     ASSERT_EQ(0, __system_property_get("property1", prop_value));
 
-    ASSERT_EQ(-1, __system_property_add("name", PROP_NAME_MAX, "value", 5));
     ASSERT_EQ(-1, __system_property_add("name", 4, "value", PROP_VALUE_MAX));
     ASSERT_EQ(-1, __system_property_update(NULL, "value", PROP_VALUE_MAX));
 #else // __BIONIC__
@@ -337,46 +350,76 @@ TEST(properties, errors) {
 #endif // __BIONIC__
 }
 
-TEST(properties, serial) {
+TEST(properties, __system_property_serial) {
 #if defined(__BIONIC__)
     LocalPropertyTestState pa;
     ASSERT_TRUE(pa.valid);
-    const prop_info *pi;
-    unsigned int serial;
 
     ASSERT_EQ(0, __system_property_add("property", 8, "value1", 6));
-    ASSERT_NE((const prop_info *)NULL, pi = __system_property_find("property"));
-    serial = __system_property_serial(pi);
-    ASSERT_EQ(0, __system_property_update((prop_info *)pi, "value2", 6));
+    const prop_info* pi = __system_property_find("property");
+    ASSERT_TRUE(pi != nullptr);
+    unsigned serial = __system_property_serial(pi);
+    ASSERT_EQ(0, __system_property_update(const_cast<prop_info*>(pi), "value2", 6));
     ASSERT_NE(serial, __system_property_serial(pi));
 #else // __BIONIC__
     GTEST_LOG_(INFO) << "This test does nothing.\n";
 #endif // __BIONIC__
 }
 
-TEST(properties, wait) {
+TEST(properties, __system_property_wait_any) {
 #if defined(__BIONIC__)
     LocalPropertyTestState pa;
     ASSERT_TRUE(pa.valid);
-    unsigned int serial;
-    prop_info *pi;
-    pthread_t t;
-    int flag = 0;
 
     ASSERT_EQ(0, __system_property_add("property", 8, "value1", 6));
-    serial = __system_property_wait_any(0);
-    pi = (prop_info *)__system_property_find("property");
-    ASSERT_NE((prop_info *)NULL, pi);
+    unsigned serial = __system_property_wait_any(0);
+
+    prop_info* pi = const_cast<prop_info*>(__system_property_find("property"));
+    ASSERT_TRUE(pi != nullptr);
     __system_property_update(pi, "value2", 6);
     serial = __system_property_wait_any(serial);
 
-    ASSERT_EQ(0, pthread_create(&t, NULL, PropertyWaitHelperFn, &flag));
+    int flag = 0;
+    pthread_t t;
+    ASSERT_EQ(0, pthread_create(&t, nullptr, PropertyWaitHelperFn, &flag));
     ASSERT_EQ(flag, 0);
     serial = __system_property_wait_any(serial);
     ASSERT_EQ(flag, 1);
 
-    void* result;
-    ASSERT_EQ(0, pthread_join(t, &result));
+    ASSERT_EQ(0, pthread_join(t, nullptr));
+#else // __BIONIC__
+    GTEST_LOG_(INFO) << "This test does nothing.\n";
+#endif // __BIONIC__
+}
+
+TEST(properties, __system_property_wait) {
+#if defined(__BIONIC__)
+    LocalPropertyTestState pa;
+    ASSERT_TRUE(pa.valid);
+
+    ASSERT_EQ(0, __system_property_add("property", 8, "value1", 6));
+
+    prop_info* pi = const_cast<prop_info*>(__system_property_find("property"));
+    ASSERT_TRUE(pi != nullptr);
+
+    unsigned serial = __system_property_serial(pi);
+
+    std::thread thread([]() {
+        prop_info* pi = const_cast<prop_info*>(__system_property_find("property"));
+        ASSERT_TRUE(pi != nullptr);
+
+        __system_property_update(pi, "value2", 6);
+    });
+
+    uint32_t new_serial;
+    __system_property_wait(pi, serial, &new_serial, nullptr);
+    ASSERT_GT(new_serial, serial);
+
+    char value[PROP_VALUE_MAX];
+    ASSERT_EQ(6, __system_property_get("property", value));
+    ASSERT_STREQ("value2", value);
+
+    thread.join();
 #else // __BIONIC__
     GTEST_LOG_(INFO) << "This test does nothing.\n";
 #endif // __BIONIC__
@@ -402,9 +445,7 @@ TEST_F(properties_DeathTest, read_only) {
 
   // This test only makes sense if we're talking to the real system property service.
   struct stat sb;
-  if (stat(PROP_FILENAME, &sb) == -1 && errno == ENOENT) {
-    return;
-  }
+  ASSERT_FALSE(stat(PROP_FILENAME, &sb) == -1 && errno == ENOENT);
 
   ASSERT_EXIT(__system_property_add("property", 8, "value", 5), KilledByFault(), "");
 #else // __BIONIC__

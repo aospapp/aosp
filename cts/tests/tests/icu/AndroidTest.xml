@@ -1,3 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
 <!-- Copyright (C) 2015 The Android Open Source Project
 
      Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,18 +14,16 @@
      limitations under the License.
 -->
 <configuration description="Config for CTS ICU test cases">
-    <target_preparer class="com.android.compatibility.common.tradefed.targetprep.ApkInstaller">
+    <option name="config-descriptor:metadata" key="component" value="libcore" />
+    <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />
         <option name="test-file-name" value="CtsIcuTestCases.apk" />
     </target_preparer>
-    <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
-        <!-- override AJUR -->
-        <option name="runner" value="com.android.cts.core.runner.CoreTestRunner" />
+    <test class="com.android.compatibility.testtype.LibcoreTest" >
         <option name="package" value="android.icu.cts" />
-        <option name="instrumentation-arg" key="core-root-classes"
-                value="android.icu.cts.coverage.TestAll,android.icu.dev.test.TestAll" />
-        <option name="instrumentation-arg" key="core-expectations"
-                value="/android/icu/cts/expectations/icu-known-failures.txt" />
-        <option name="runtime-hint" value="30m19s" />
+        <option name="instrumentation-arg" key="filter"
+                value="com.android.cts.core.runner.ExpectationBasedFilter" />
+        <option name="core-expectation" value="/android/icu/cts/expectations/icu-known-failures.txt" />
+        <option name="runtime-hint" value="18m30s" />
     </test>
 </configuration>

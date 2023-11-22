@@ -16,7 +16,8 @@
 
 #include "register_line.h"
 
-#include "base/stringprintf.h"
+#include "android-base/stringprintf.h"
+
 #include "dex_instruction-inl.h"
 #include "method_verifier-inl.h"
 #include "register_line-inl.h"
@@ -24,6 +25,8 @@
 
 namespace art {
 namespace verifier {
+
+using android::base::StringPrintf;
 
 bool RegisterLine::CheckConstructorReturn(MethodVerifier* verifier) const {
   if (kIsDebugBuild && this_initialized_) {
@@ -33,8 +36,7 @@ bool RegisterLine::CheckConstructorReturn(MethodVerifier* verifier) const {
       CHECK(!type.IsUninitializedThisReference() &&
             !type.IsUnresolvedAndUninitializedThisReference())
           << i << ": " << type.IsUninitializedThisReference() << " in "
-          << PrettyMethod(verifier->GetMethodReference().dex_method_index,
-                          *verifier->GetMethodReference().dex_file);
+          << verifier->GetMethodReference().PrettyMethod();
     }
   }
   if (!this_initialized_) {
@@ -45,8 +47,9 @@ bool RegisterLine::CheckConstructorReturn(MethodVerifier* verifier) const {
 }
 
 const RegType& RegisterLine::GetInvocationThis(MethodVerifier* verifier, const Instruction* inst,
-                                               bool is_range, bool allow_failure) {
-  const size_t args_count = is_range ? inst->VRegA_3rc() : inst->VRegA_35c();
+                                               bool allow_failure) {
+  DCHECK(inst->IsInvoke());
+  const size_t args_count = inst->VRegA();
   if (args_count < 1) {
     if (!allow_failure) {
       verifier->Fail(VERIFY_ERROR_BAD_CLASS_HARD) << "invoke lacks 'this'";
@@ -54,7 +57,7 @@ const RegType& RegisterLine::GetInvocationThis(MethodVerifier* verifier, const I
     return verifier->GetRegTypeCache()->Conflict();
   }
   /* Get the element type of the array held in vsrc */
-  const uint32_t this_reg = (is_range) ? inst->VRegC_3rc() : inst->VRegC_35c();
+  const uint32_t this_reg = inst->VRegC();
   const RegType& this_type = GetRegisterType(verifier, this_reg);
   if (!this_type.IsReferenceTypes()) {
     if (!allow_failure) {
@@ -73,7 +76,7 @@ bool RegisterLine::VerifyRegisterTypeWide(MethodVerifier* verifier, uint32_t vsr
   DCHECK(check_type1.CheckWidePair(check_type2));
   // Verify the src register type against the check type refining the type of the register
   const RegType& src_type = GetRegisterType(verifier, vsrc);
-  if (!check_type1.IsAssignableFrom(src_type)) {
+  if (!check_type1.IsAssignableFrom(src_type, verifier)) {
     verifier->Fail(VERIFY_ERROR_BAD_CLASS_HARD) << "register v" << vsrc << " has type " << src_type
                                << " but expected " << check_type1;
     return false;
@@ -338,8 +341,7 @@ void RegisterLine::PushMonitor(MethodVerifier* verifier, uint32_t reg_idx, int32
     verifier->Fail(VERIFY_ERROR_LOCKING);
     if (kDumpLockFailures) {
       VLOG(verifier) << "monitor-enter stack overflow while verifying "
-                     << PrettyMethod(verifier->GetMethodReference().dex_method_index,
-                                     *verifier->GetMethodReference().dex_file);
+                     << verifier->GetMethodReference().PrettyMethod();
     }
   } else {
     if (SetRegToLockDepth(reg_idx, monitors_.size())) {
@@ -354,8 +356,7 @@ void RegisterLine::PushMonitor(MethodVerifier* verifier, uint32_t reg_idx, int32
       verifier->Fail(VERIFY_ERROR_LOCKING);
       if (kDumpLockFailures) {
         VLOG(verifier) << "unexpected monitor-enter on register v" <<  reg_idx << " in "
-                       << PrettyMethod(verifier->GetMethodReference().dex_method_index,
-                                       *verifier->GetMethodReference().dex_file);
+                       << verifier->GetMethodReference().PrettyMethod();
       }
     }
   }
@@ -369,8 +370,7 @@ void RegisterLine::PopMonitor(MethodVerifier* verifier, uint32_t reg_idx) {
     verifier->Fail(VERIFY_ERROR_LOCKING);
     if (kDumpLockFailures) {
       VLOG(verifier) << "monitor-exit stack underflow while verifying "
-                     << PrettyMethod(verifier->GetMethodReference().dex_method_index,
-                                     *verifier->GetMethodReference().dex_file);
+                     << verifier->GetMethodReference().PrettyMethod();
     }
   } else {
     monitors_.pop_back();
@@ -390,8 +390,7 @@ void RegisterLine::PopMonitor(MethodVerifier* verifier, uint32_t reg_idx) {
       verifier->Fail(VERIFY_ERROR_LOCKING);
       if (kDumpLockFailures) {
         VLOG(verifier) << "monitor-exit not unlocking the top of the monitor stack while verifying "
-                       << PrettyMethod(verifier->GetMethodReference().dex_method_index,
-                                       *verifier->GetMethodReference().dex_file);
+                       << verifier->GetMethodReference().PrettyMethod();
       }
     } else {
       // Record the register was unlocked. This clears all aliases, thus it will also clear the
@@ -416,7 +415,7 @@ bool FindLockAliasedRegister(uint32_t src,
   }
 
   // Scan the map for the same value.
-  for (const std::pair<uint32_t, uint32_t>& pair : search_map) {
+  for (const std::pair<const uint32_t, uint32_t>& pair : search_map) {
     if (pair.first != src && pair.second == src_lock_levels) {
       return true;
     }
@@ -433,7 +432,8 @@ bool RegisterLine::MergeRegisters(MethodVerifier* verifier, const RegisterLine* 
     if (line_[idx] != incoming_line->line_[idx]) {
       const RegType& incoming_reg_type = incoming_line->GetRegisterType(verifier, idx);
       const RegType& cur_type = GetRegisterType(verifier, idx);
-      const RegType& new_type = cur_type.Merge(incoming_reg_type, verifier->GetRegTypeCache());
+      const RegType& new_type = cur_type.Merge(
+          incoming_reg_type, verifier->GetRegTypeCache(), verifier);
       changed = changed || !cur_type.Equals(new_type);
       line_[idx] = new_type.GetId();
     }
@@ -444,8 +444,7 @@ bool RegisterLine::MergeRegisters(MethodVerifier* verifier, const RegisterLine* 
       if (kDumpLockFailures) {
         VLOG(verifier) << "mismatched stack depths (depth=" << MonitorStackDepth()
                        << ", incoming depth=" << incoming_line->MonitorStackDepth() << ") in "
-                       << PrettyMethod(verifier->GetMethodReference().dex_method_index,
-                                       *verifier->GetMethodReference().dex_file);
+                       << verifier->GetMethodReference().PrettyMethod();
       }
     } else if (reg_to_lock_depths_ != incoming_line->reg_to_lock_depths_) {
       for (uint32_t idx = 0; idx < num_regs_; idx++) {
@@ -479,8 +478,7 @@ bool RegisterLine::MergeRegisters(MethodVerifier* verifier, const RegisterLine* 
             if (kDumpLockFailures) {
               VLOG(verifier) << "mismatched stack depths for register v" << idx
                              << ": " << depths  << " != " << incoming_depths << " in "
-                             << PrettyMethod(verifier->GetMethodReference().dex_method_index,
-                                             *verifier->GetMethodReference().dex_file);
+                             << verifier->GetMethodReference().PrettyMethod();
             }
             break;
           }
@@ -522,8 +520,7 @@ bool RegisterLine::MergeRegisters(MethodVerifier* verifier, const RegisterLine* 
                 VLOG(verifier) << "mismatched lock levels for register v" << idx << ": "
                                << std::hex << locked_levels << std::dec  << " != "
                                << std::hex << incoming_locked_levels << std::dec << " in "
-                               << PrettyMethod(verifier->GetMethodReference().dex_method_index,
-                                               *verifier->GetMethodReference().dex_file);
+                               << verifier->GetMethodReference().PrettyMethod();
               }
               break;
             }

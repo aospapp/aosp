@@ -49,6 +49,11 @@ public class ConfigurationScreenLayoutTest
         // Check that all four orientations report the same configuration value.
         for (int i = 0; i < ORIENTATIONS.length; i++) {
             Activity activity = startOrientationActivity(ORIENTATIONS[i]);
+            if (activity.isInMultiWindowMode()) {
+                // activity.setRequestedOrientation has no effect in multiwindow mode.
+                tearDown();
+                return;
+            }
             Configuration mConfig = activity.getResources().getConfiguration();
             int actualSize = mConfig.screenLayout & Configuration.SCREENLAYOUT_SIZE_MASK;
             int actualLong = mConfig.screenLayout & Configuration.SCREENLAYOUT_LONG_MASK;

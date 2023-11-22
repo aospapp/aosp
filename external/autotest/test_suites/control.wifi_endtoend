@@ -5,7 +5,6 @@
 AUTHOR = "bmahadev, harpreet, krisr"
 NAME = "wifi_endtoend"
 PURPOSE = "Verify end-to-end WiFi functionality."
-CRITERIA = "All tests with SUITE=wifi_endtoend must pass."
 
 TIME = "SHORT"
 TEST_CATEGORY = "General"

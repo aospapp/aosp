@@ -47,7 +47,7 @@ USE_OPENGL_RENDERER := true
 BOARD_USE_LEGACY_UI := true
 
 # PDK does not use ext4 image, but it is added here to prevent build break.
-BOARD_EGL_CFG := device/generic/goldfish/opengl/system/egl/egl.cfg
+BOARD_EGL_CFG := device/generic/goldfish-opengl/system/egl/egl.cfg
 TARGET_USERIMAGES_USE_EXT4 := true
 BOARD_SYSTEMIMAGE_PARTITION_SIZE := 786432000
 BOARD_USERDATAIMAGE_PARTITION_SIZE := 576716800

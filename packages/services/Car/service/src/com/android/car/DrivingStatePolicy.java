@@ -16,7 +16,6 @@
 
 package com.android.car;
 
-import android.car.Car;
 import android.car.hardware.CarSensorEvent;
 import android.car.hardware.CarSensorManager;
 import android.car.hardware.ICarSensorEventListener;
@@ -24,8 +23,7 @@ import android.content.Context;
 import android.os.SystemClock;
 import android.util.Log;
 
-import com.android.car.hal.SensorHalServiceBase.SensorListener;
-
+import com.android.car.hal.SensorHalService.SensorListener;
 import java.io.PrintWriter;
 import java.util.List;
 
@@ -35,11 +33,11 @@ import java.util.List;
  * no restriction vs fully restrictive. To enter no restriction state, speed should be zero
  * while either parking brake is applied or transmission gear is in P.
  */
-public class DrivingStatePolicy extends CarSensorService.LogicalSensorHalBase {
+public class DrivingStatePolicy extends CarSensorService.LogicalSensor {
 
     private final Context mContext;
     private CarSensorService mSensorService;
-    private int mDringState = CarSensorEvent.DRIVE_STATUS_FULLY_RESTRICTED;
+    private int mDrivingState = CarSensorEvent.DRIVE_STATUS_FULLY_RESTRICTED;
     private SensorListener mSensorListener;
     private boolean mIsReady = false;
     private boolean mStarted = false;
@@ -56,8 +54,9 @@ public class DrivingStatePolicy extends CarSensorService.LogicalSensorHalBase {
         }
     };
 
-    public DrivingStatePolicy(Context context) {
+    public DrivingStatePolicy(Context context, CarSensorService sensorService) {
         mContext = context;
+        mSensorService = sensorService;
     }
 
     @Override
@@ -67,8 +66,6 @@ public class DrivingStatePolicy extends CarSensorService.LogicalSensorHalBase {
 
     @Override
     public synchronized void onSensorServiceReady() {
-        mSensorService =
-                (CarSensorService) ICarImpl.getInstance(mContext).getCarService(Car.SENSOR_SERVICE);
         int sensorList[] = mSensorService.getSupportedSensors();
         boolean hasSpeed = subscribeIfSupportedLocked(sensorList,
                 CarSensorManager.SENSOR_TYPE_CAR_SPEED, CarSensorManager.SENSOR_RATE_FASTEST);
@@ -88,7 +85,6 @@ public class DrivingStatePolicy extends CarSensorService.LogicalSensorHalBase {
 
     @Override
     public void release() {
-        // TODO Auto-generated method stub
     }
 
     public static CarSensorEvent getDefaultValue(int sensorType) {
@@ -97,15 +93,14 @@ public class DrivingStatePolicy extends CarSensorService.LogicalSensorHalBase {
                     sensorType);
             return null;
         }
-        return createEvent(CarSensorEvent.DRIVE_STATUS_FULLY_RESTRICTED);
+        // There's a race condition and timestamp from vehicle HAL could be slightly less
+        // then current call to SystemClock.elapsedRealtimeNanos() will return.
+        // We want vehicle HAL value always override this default value so we set timestamp to 0.
+        return createEvent(CarSensorEvent.DRIVE_STATUS_FULLY_RESTRICTED, 0 /* timestamp */);
     }
 
-    @Override
     public synchronized void registerSensorListener(SensorListener listener) {
         mSensorListener = listener;
-        if (mIsReady) {
-            mSensorListener.onSensorHalReady(this);
-        }
     }
 
     @Override
@@ -121,7 +116,7 @@ public class DrivingStatePolicy extends CarSensorService.LogicalSensorHalBase {
     @Override
     public synchronized boolean requestSensorStart(int sensorType, int rate) {
         mStarted = true;
-        dispatchCarSensorEvent(mSensorListener, createEvent(mDringState));
+        dispatchCarSensorEvent(mSensorListener, createEvent(mDrivingState));
         return true;
     }
 
@@ -132,7 +127,6 @@ public class DrivingStatePolicy extends CarSensorService.LogicalSensorHalBase {
 
     @Override
     public void dump(PrintWriter writer) {
-        // TODO Auto-generated method stub
     }
 
     private boolean subscribeIfSupportedLocked(int sensorList[], int sensorType, int rate) {
@@ -150,9 +144,9 @@ public class DrivingStatePolicy extends CarSensorService.LogicalSensorHalBase {
             case CarSensorManager.SENSOR_TYPE_GEAR:
             case CarSensorManager.SENSOR_TYPE_CAR_SPEED:
                 int drivingState = recalcDrivingStateLocked();
-                if (drivingState != mDringState && mSensorListener != null) {
-                    mDringState = drivingState;
-                    dispatchCarSensorEvent(mSensorListener, createEvent(mDringState));
+                if (drivingState != mDrivingState && mSensorListener != null) {
+                    mDrivingState = drivingState;
+                    dispatchCarSensorEvent(mSensorListener, createEvent(mDrivingState));
                 }
                 break;
             default:
@@ -202,8 +196,15 @@ public class DrivingStatePolicy extends CarSensorService.LogicalSensorHalBase {
     }
 
     private static CarSensorEvent createEvent(int drivingState) {
-        CarSensorEvent event = new CarSensorEvent(CarSensorManager.SENSOR_TYPE_DRIVING_STATUS,
-                SystemClock.elapsedRealtimeNanos(), 0, 1);
+        return createEvent(drivingState, SystemClock.elapsedRealtimeNanos());
+    }
+
+    private static CarSensorEvent createEvent(int drivingState, long timestamp) {
+        CarSensorEvent event = new CarSensorEvent(
+                CarSensorManager.SENSOR_TYPE_DRIVING_STATUS,
+                timestamp,
+                0 /* float values */,
+                1 /* int values */);
         event.intValues[0] = drivingState;
         return event;
     }

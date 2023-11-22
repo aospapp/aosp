@@ -33,29 +33,10 @@ public class CookiePolicyTest extends TestCase {
     public void test_ShouldAccept_LURI_LHttpCookie() throws URISyntaxException {
         HttpCookie cookie = new HttpCookie("Harmony_6", "ongoing");
         URI uri = new URI("");
-        try {
-            CookiePolicy.ACCEPT_ORIGINAL_SERVER.shouldAccept(null, cookie);
-            fail("Should throw NullPointerException");
-        } catch (NullPointerException e) {
-            // expected
-        }
-
-        try {
-            CookiePolicy.ACCEPT_ORIGINAL_SERVER.shouldAccept(uri, null);
-            fail("Should throw NullPointerException");
-        } catch (NullPointerException e) {
-            // expected
-        }
-
-        try {
-            CookiePolicy.ACCEPT_ORIGINAL_SERVER.shouldAccept(null, null);
-            fail("Should throw NullPointerException");
-        } catch (NullPointerException e) {
-            // expected
-        }
+        boolean accept;
 
         // Policy: ACCEPT_ALL, always returns true
-        boolean accept = CookiePolicy.ACCEPT_ALL.shouldAccept(null, cookie);
+        accept = CookiePolicy.ACCEPT_ALL.shouldAccept(null, cookie);
         assertTrue(accept);
 
         accept = CookiePolicy.ACCEPT_ALL.shouldAccept(null, null);
@@ -106,6 +87,15 @@ public class CookiePolicyTest extends TestCase {
         cookie.setDomain("");
         accept = CookiePolicy.ACCEPT_ORIGINAL_SERVER.shouldAccept(new URI(
                 "s://a.b.c.d"), cookie);
+        assertFalse(accept);
+
+        accept = CookiePolicy.ACCEPT_ORIGINAL_SERVER.shouldAccept(null, cookie);
+        assertFalse(accept);
+
+        accept = CookiePolicy.ACCEPT_ORIGINAL_SERVER.shouldAccept(uri, null);
+        assertFalse(accept);
+
+        accept = CookiePolicy.ACCEPT_ORIGINAL_SERVER.shouldAccept(null, null);
         assertFalse(accept);
     }
 

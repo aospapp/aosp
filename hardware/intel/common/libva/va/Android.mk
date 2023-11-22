@@ -91,8 +91,8 @@ LOCAL_GENERATED_SOURCES := $(GEN)
 include $(BUILD_SHARED_LIBRARY)
 
 my_header := $(TARGET_OUT_HEADERS)/libva/va/va_version.h
-ALL_COPIED_HEADERS.$(my_header).MAKEFILE += $(my_header)
-ALL_COPIED_HEADERS.$(my_header).SRC += $(GEN)
+ALL_COPIED_HEADERS.$(my_header).MAKEFILE := $(ALL_COPIED_HEADERS.$(my_header).MAKEFILE) $(my_header)
+ALL_COPIED_HEADERS.$(my_header).SRC := $(ALL_COPIED_HEADERS.$(my_header).SRC) $(GEN)
 ALL_COPIED_HEADERS += $(my_header)
 
 # For libva-android

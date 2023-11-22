@@ -10,7 +10,8 @@ group valid "Valid scoping and name redeclaration cases"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 			${DECLARATIONS}
 
 			int a = -1;
@@ -36,7 +37,8 @@ group valid "Valid scoping and name redeclaration cases"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 			${DECLARATIONS}
 			void main()
 			{
@@ -61,7 +63,8 @@ group valid "Valid scoping and name redeclaration cases"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 			${DECLARATIONS}
 
 			int a = -1;
@@ -89,7 +92,8 @@ group valid "Valid scoping and name redeclaration cases"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 			${DECLARATIONS}
 			void main()
 			{
@@ -114,7 +118,8 @@ group valid "Valid scoping and name redeclaration cases"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 			${DECLARATIONS}
 			void main()
 			{
@@ -141,7 +146,8 @@ group valid "Valid scoping and name redeclaration cases"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 			${DECLARATIONS}
 
 			int a = 5;
@@ -168,7 +174,8 @@ group valid "Valid scoping and name redeclaration cases"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 			${DECLARATIONS}
 
 			int a = 5;
@@ -197,7 +204,8 @@ group valid "Valid scoping and name redeclaration cases"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 			${DECLARATIONS}
 
 			int a = 1;
@@ -223,7 +231,8 @@ group valid "Valid scoping and name redeclaration cases"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 			${DECLARATIONS}
 			void main()
 			{
@@ -250,7 +259,8 @@ group valid "Valid scoping and name redeclaration cases"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 			${DECLARATIONS}
 
 			struct S { int val; };
@@ -275,7 +285,8 @@ group valid "Valid scoping and name redeclaration cases"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 			${DECLARATIONS}
 
 			struct S { int val; };
@@ -300,7 +311,8 @@ group valid "Valid scoping and name redeclaration cases"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 			${DECLARATIONS}
 
 			int foo (int x) { return x; }
@@ -325,7 +337,8 @@ group valid "Valid scoping and name redeclaration cases"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 			${DECLARATIONS}
 
 			int a = -1;
@@ -351,7 +364,8 @@ group valid "Valid scoping and name redeclaration cases"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 			${DECLARATIONS}
 
 			struct S { int x; };
@@ -377,7 +391,8 @@ group valid "Valid scoping and name redeclaration cases"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 			${DECLARATIONS}
 
 			int func (int func) { return func; }
@@ -401,7 +416,8 @@ group valid "Valid scoping and name redeclaration cases"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 			${DECLARATIONS}
 			int func (int inp, int x) { { int x = 5; return inp + x - 5; } }
 
@@ -424,7 +440,8 @@ group valid "Valid scoping and name redeclaration cases"
 
 		both ""
 			#version 310 es
-			precision mediump float;
+			precision highp float;
+			precision highp int;
 			${DECLARATIONS}
 
 			int func (int x);

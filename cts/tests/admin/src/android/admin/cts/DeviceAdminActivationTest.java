@@ -177,7 +177,7 @@ public class DeviceAdminActivationTest
                 .onActivityResult(
                         Mockito.eq(REQUEST_CODE_ACTIVATE_ADMIN),
                         Mockito.anyInt(),
-                        Mockito.any(Intent.class));
+                        Mockito.nullable(Intent.class));
     }
 
     private void assertWithTimeoutOnActivityResultInvokedWithResultCode(int expectedResultCode) {
@@ -186,7 +186,7 @@ public class DeviceAdminActivationTest
                 .onActivityResult(
                         Mockito.eq(REQUEST_CODE_ACTIVATE_ADMIN),
                         resultCodeCaptor.capture(),
-                        Mockito.any(Intent.class));
+                        Mockito.nullable(Intent.class));
         assertEquals(expectedResultCode, (int) resultCodeCaptor.getValue());
     }
 

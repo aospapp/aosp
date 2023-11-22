@@ -18,8 +18,10 @@
 #define LIBVULKAN_DRIVER_H 1
 
 #include <inttypes.h>
+
 #include <bitset>
 #include <type_traits>
+
 #include <log/log.h>
 
 #include <vulkan/vulkan.h>
@@ -61,7 +63,7 @@ VK_DEFINE_HANDLE(InstanceDispatchable)
 VK_DEFINE_HANDLE(DeviceDispatchable)
 
 struct InstanceData {
-    InstanceData(const VkAllocationCallbacks& alloc)
+    explicit InstanceData(const VkAllocationCallbacks& alloc)
         : opaque_api_data(),
           allocator(alloc),
           driver(),
@@ -100,11 +102,16 @@ struct DeviceData {
 
     VkDevice driver_device;
     DeviceDriverTable driver;
+    uint32_t driver_version;
 };
 
 bool Debuggable();
 bool OpenHAL();
 const VkAllocationCallbacks& GetDefaultAllocator();
+
+bool QueryPresentationProperties(
+    VkPhysicalDevice physicalDevice,
+    VkPhysicalDevicePresentationPropertiesANDROID *presentation_properties);
 
 // clang-format off
 VKAPI_ATTR PFN_vkVoidFunction GetInstanceProcAddr(VkInstance instance, const char* pName);

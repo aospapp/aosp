@@ -26,21 +26,29 @@ public class CarAudioAttributesUtil {
 
     public static final int CAR_AUDIO_USAGE_CARSERVICE_BOTTOM = 100;
     public static final int CAR_AUDIO_USAGE_CARSERVICE_CAR_PROXY = 101;
+    public static final int CAR_AUDIO_USAGE_CARSERVICE_MEDIA_MUTE = 102;
 
-    /** Bundle key for storing media type */
+    /** Bundle key for storing media type. */
     public static final String KEY_CAR_AUDIO_TYPE = "car_audio_type";
-    public static final int CAR_AUDIO_TYPE_DEFAULT = 0;
-    public static final int CAR_AUDIO_TYPE_VOICE_COMMAND = 1;
-    public static final int CAR_AUDIO_TYPE_SAFETY_ALERT = 2;
-    public static final int CAR_AUDIO_TYPE_RADIO = 3;
-    public static final int CAR_AUDIO_TYPE_CARSERVICE_BOTTOM = 4;
-    public static final int CAR_AUDIO_TYPE_CARSERVICE_CAR_PROXY = 5;
+
+    private static final int CAR_AUDIO_TYPE_DEFAULT = 0;
+    private static final int CAR_AUDIO_TYPE_VOICE_COMMAND = 1;
+    private static final int CAR_AUDIO_TYPE_SAFETY_ALERT = 2;
+    private static final int CAR_AUDIO_TYPE_RADIO = 3;
+    private static final int CAR_AUDIO_TYPE_CARSERVICE_BOTTOM = 4;
+    private static final int CAR_AUDIO_TYPE_CARSERVICE_CAR_PROXY = 5;
+    private static final int CAR_AUDIO_TYPE_CARSERVICE_MEDIA_MUTE = 6;
+    private static final int CAR_AUDIO_TYPE_EXTERNAL_SOURCE = 7;
+
+    /** Bundle key for storing routing type which is String. */
+    public static final String KEY_EXT_ROUTING_TYPE = "ext_routing_type";
 
     public static AudioAttributes getAudioAttributesForCarUsage(int carUsage) {
         switch (carUsage) {
             case CarAudioManager.CAR_AUDIO_USAGE_MUSIC:
                 return createAudioAttributes(AudioAttributes.CONTENT_TYPE_MUSIC,
                         AudioAttributes.USAGE_MEDIA);
+            case CarAudioManager.CAR_AUDIO_USAGE_EXTERNAL_AUDIO_SOURCE: // default to radio
             case CarAudioManager.CAR_AUDIO_USAGE_RADIO:
                 return createCustomAudioAttributes(CAR_AUDIO_TYPE_RADIO,
                         AudioAttributes.CONTENT_TYPE_MUSIC, AudioAttributes.USAGE_MEDIA);
@@ -75,6 +83,10 @@ public class CarAudioAttributesUtil {
                 return createCustomAudioAttributes(CAR_AUDIO_TYPE_CARSERVICE_CAR_PROXY,
                         AudioAttributes.CONTENT_TYPE_UNKNOWN,
                         AudioAttributes.USAGE_UNKNOWN);
+            case CAR_AUDIO_USAGE_CARSERVICE_MEDIA_MUTE:
+                return createCustomAudioAttributes(CAR_AUDIO_TYPE_CARSERVICE_MEDIA_MUTE,
+                        AudioAttributes.CONTENT_TYPE_MUSIC,
+                        AudioAttributes.USAGE_UNKNOWN);
             case CarAudioManager.CAR_AUDIO_USAGE_DEFAULT:
             default:
                 return createAudioAttributes(AudioAttributes.CONTENT_TYPE_UNKNOWN,
@@ -91,10 +103,13 @@ public class CarAudioAttributesUtil {
         }
         switch (usage) {
             case AudioAttributes.USAGE_MEDIA:
-                if (type == CAR_AUDIO_TYPE_RADIO) {
-                    return CarAudioManager.CAR_AUDIO_USAGE_RADIO;
-                } else {
-                    return CarAudioManager.CAR_AUDIO_USAGE_MUSIC;
+                switch (type) {
+                    case CAR_AUDIO_TYPE_RADIO:
+                        return CarAudioManager.CAR_AUDIO_USAGE_RADIO;
+                    case CAR_AUDIO_TYPE_EXTERNAL_SOURCE:
+                        return CarAudioManager.CAR_AUDIO_USAGE_EXTERNAL_AUDIO_SOURCE;
+                    default:
+                        return CarAudioManager.CAR_AUDIO_USAGE_MUSIC;
                 }
             case AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE:
                 if (type == CAR_AUDIO_TYPE_VOICE_COMMAND) {
@@ -115,13 +130,18 @@ public class CarAudioAttributesUtil {
             case AudioAttributes.USAGE_ASSISTANCE_SONIFICATION:
                 return CarAudioManager.CAR_AUDIO_USAGE_SYSTEM_SOUND;
             case AudioAttributes.USAGE_UNKNOWN:
-            default:
-                if (type == CAR_AUDIO_TYPE_CARSERVICE_BOTTOM) {
-                    return CAR_AUDIO_USAGE_CARSERVICE_BOTTOM;
-                } else if (type == CAR_AUDIO_TYPE_CARSERVICE_CAR_PROXY) {
-                    return CAR_AUDIO_USAGE_CARSERVICE_CAR_PROXY;
+            default: {
+                switch (type) {
+                    case CAR_AUDIO_TYPE_CARSERVICE_BOTTOM:
+                        return CAR_AUDIO_USAGE_CARSERVICE_BOTTOM;
+                    case CAR_AUDIO_TYPE_CARSERVICE_CAR_PROXY:
+                        return CAR_AUDIO_USAGE_CARSERVICE_CAR_PROXY;
+                    case CAR_AUDIO_TYPE_CARSERVICE_MEDIA_MUTE:
+                        return CAR_AUDIO_USAGE_CARSERVICE_MEDIA_MUTE;
+                    default:
+                        return CarAudioManager.CAR_AUDIO_USAGE_DEFAULT;
                 }
-                return CarAudioManager.CAR_AUDIO_USAGE_DEFAULT;
+            }
         }
     }
 
@@ -136,5 +156,37 @@ public class CarAudioAttributesUtil {
         Bundle bundle = new Bundle();
         bundle.putInt(KEY_CAR_AUDIO_TYPE, carAudioType);
         return builder.setContentType(contentType).setUsage(usage).addBundle(bundle).build();
+    }
+
+    public static AudioAttributes getCarRadioAttributes(String radioType) {
+        AudioAttributes.Builder builder = new AudioAttributes.Builder();
+        Bundle bundle = new Bundle();
+        bundle.putInt(KEY_CAR_AUDIO_TYPE, CAR_AUDIO_TYPE_RADIO);
+        bundle.putString(KEY_EXT_ROUTING_TYPE, radioType);
+        return builder.setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).
+                setUsage(AudioAttributes.USAGE_MEDIA).addBundle(bundle).build();
+    }
+
+    public static AudioAttributes getCarExtSourceAttributes(String externalSourceType) {
+        AudioAttributes.Builder builder = new AudioAttributes.Builder();
+        Bundle bundle = new Bundle();
+        bundle.putInt(KEY_CAR_AUDIO_TYPE, CAR_AUDIO_TYPE_EXTERNAL_SOURCE);
+        bundle.putString(KEY_EXT_ROUTING_TYPE, externalSourceType);
+        return builder.setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).
+                setUsage(AudioAttributes.USAGE_MEDIA).addBundle(bundle).build();
+    }
+
+    /**
+     * Get ext routing type from given AudioAttributes.
+     * @param attr
+     * @return {@link CarAudioManager#CAR_RADIO_TYPE_AM_FM} if ext routing info does not exist.
+     */
+    public static String getExtRouting(AudioAttributes attr) {
+        Bundle bundle = attr.getBundle();
+        String extRouting = CarAudioManager.CAR_RADIO_TYPE_AM_FM;
+        if (bundle != null) {
+            extRouting = bundle.getString(KEY_EXT_ROUTING_TYPE);
+        }
+        return extRouting;
     }
 }

@@ -280,6 +280,7 @@ public final class Field {
      * @see java.lang.Object#equals(java.lang.Object)
      * @return boolean
      */
+    @Override
     public boolean equals(Object obj) {
         if (!(obj instanceof Field)) {
             return false;
@@ -302,6 +303,7 @@ public final class Field {
      * @see java.lang.Object#toString()
      * @return String
      */
+    @Override
     public String toString() {
         String str = "Field: id=" + id + ", classID=" + classID + ", name='"
                 + name + "', signature='" + signature + "', modBits=";

@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*****************************************************************************************
  *
  *   Copyright (C) 1996-2015, International Business Machines
@@ -22,6 +24,8 @@ import java.text.ParsePosition;
 import java.util.Date;
 import java.util.Locale;
 
+import org.junit.Test;
+
 import com.ibm.icu.dev.test.TestUtil;
 import com.ibm.icu.dev.test.TestUtil.JavaVendor;
 import com.ibm.icu.text.DateFormat;
@@ -31,11 +35,8 @@ import com.ibm.icu.util.TimeZone;
 
 public class IntlTestDateFormatAPI extends com.ibm.icu.dev.test.TestFmwk
 {
-    public static void main(String[] args) throws Exception {
-        new IntlTestDateFormatAPI().run(args);
-    }
-
     // Test that the equals method works correctly.
+    @Test
     public void TestEquals()
     {
         // Create two objects at different system times
@@ -68,6 +69,7 @@ public class IntlTestDateFormatAPI extends com.ibm.icu.dev.test.TestFmwk
     }
 
     // This test checks various generic API methods in DateFormat to achieve 100% API coverage.
+    @Test
     public void TestAPI()
     {
         logln("DateFormat API test---"); logln("");

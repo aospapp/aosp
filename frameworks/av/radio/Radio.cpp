@@ -55,7 +55,7 @@ namespace {
     sp<DeathNotifier>         gDeathNotifier;
 }; // namespace anonymous
 
-const sp<IRadioService>& Radio::getRadioService()
+const sp<IRadioService> Radio::getRadioService()
 {
     Mutex::Autolock _l(gLock);
     if (gRadioService.get() == 0) {
@@ -84,7 +84,7 @@ status_t Radio::listModules(struct radio_properties *properties,
                             uint32_t *numModules)
 {
     ALOGV("listModules()");
-    const sp<IRadioService>& service = getRadioService();
+    const sp<IRadioService> service = getRadioService();
     if (service == 0) {
         return NO_INIT;
     }
@@ -98,7 +98,7 @@ sp<Radio> Radio::attach(radio_handle_t handle,
 {
     ALOGV("attach()");
     sp<Radio> radio;
-    const sp<IRadioService>& service = getRadioService();
+    const sp<IRadioService> service = getRadioService();
     if (service == 0) {
         return radio;
     }
@@ -240,20 +240,31 @@ void Radio::onEvent(const sp<IMemory>& eventMemory)
         return;
     }
 
+    // The event layout in shared memory is:
+    // sizeof(struct radio_event) bytes : the event itself
+    // 4 bytes                          : metadata size or 0
+    // N bytes                          : metadata if present
     struct radio_event *event = (struct radio_event *)eventMemory->pointer();
+    uint32_t metadataOffset = sizeof(struct radio_event) + sizeof(uint32_t);
+    uint32_t metadataSize = *(uint32_t *)((uint8_t *)event + metadataOffset - sizeof(uint32_t));
+
     // restore local metadata pointer from offset
     switch (event->type) {
     case RADIO_EVENT_TUNED:
     case RADIO_EVENT_AF_SWITCH:
-        if (event->info.metadata != NULL) {
+        if (metadataSize != 0) {
             event->info.metadata =
-                    (radio_metadata_t *)((char *)event + (size_t)event->info.metadata);
+                    (radio_metadata_t *)((uint8_t *)event + metadataOffset);
+        } else {
+            event->info.metadata = 0;
         }
         break;
     case RADIO_EVENT_METADATA:
-        if (event->metadata != NULL) {
+        if (metadataSize != 0) {
             event->metadata =
-                    (radio_metadata_t *)((char *)event + (size_t)event->metadata);
+                    (radio_metadata_t *)((uint8_t *)event + metadataOffset);
+        } else {
+            event->metadata = 0;
         }
         break;
     default:

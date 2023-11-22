@@ -18,7 +18,9 @@
 
 #include <dirent.h>
 #include <errno.h>
+#include <pwd.h>
 #include <sys/capability.h>
+#include <sys/types.h>
 #include <unistd.h>
 
 #include <string>
@@ -26,7 +28,7 @@
 
 #include <android-base/file.h>
 #include <cutils/properties.h>
-#include <log/logger.h>
+#include <log/log.h>
 #include <private/android_filesystem_config.h>
 #include <utils/String8.h>
 
@@ -202,13 +204,8 @@ int main(int argc, char** argv) {
   }
 
   // Username lookup.
-  std::string username;
-  for (size_t i = 0; i < android_id_count; ++i) {
-    if (android_ids[i].aid == appid) {
-      username = android_ids[i].name;
-      break;
-    }
-  }
+  passwd* pwd = getpwuid(appid);
+  std::string username((pwd != NULL) ? pwd->pw_name : "");
   // Delete old crash reports.
   if (!MakeRoomForNewReport()) {
     ALOGE("Failed to delete old crash reports.");

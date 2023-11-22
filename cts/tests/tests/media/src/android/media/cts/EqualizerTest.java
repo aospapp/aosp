@@ -51,7 +51,7 @@ public class EqualizerTest extends PostProcTestBase {
     public void test0_0ConstructorAndRelease() throws Exception {
         Equalizer eq = null;
         try {
-            eq = new Equalizer(0, 0);
+            eq = new Equalizer(0, getSessionId());
             try {
                 assertTrue("invalid effect ID", (eq.getId() != 0));
             } catch (IllegalStateException e) {
@@ -75,7 +75,7 @@ public class EqualizerTest extends PostProcTestBase {
 
     //Test case 1.0: test setBandLevel() and getBandLevel()
     public void test1_0BandLevel() throws Exception {
-        getEqualizer(0);
+        getEqualizer(getSessionId());
         try {
             short numBands = mEqualizer.getNumberOfBands();
             assertTrue("not enough bands", numBands >= MIN_NUMBER_OF_BANDS);
@@ -104,7 +104,7 @@ public class EqualizerTest extends PostProcTestBase {
 
     //Test case 1.1: test band frequency
     public void test1_1BandFrequency() throws Exception {
-        getEqualizer(0);
+        getEqualizer(getSessionId());
         try {
             short band = mEqualizer.getBand(TEST_FREQUENCY_MILLIHERTZ);
             assertTrue("getBand failed", band >= 0);
@@ -129,7 +129,7 @@ public class EqualizerTest extends PostProcTestBase {
 
     //Test case 1.2: test presets
     public void test1_2Presets() throws Exception {
-        getEqualizer(0);
+        getEqualizer(getSessionId());
         try {
             short numPresets = mEqualizer.getNumberOfPresets();
             assertTrue("getNumberOfPresets failed", numPresets >= MIN_NUMBER_OF_PRESETS);
@@ -154,7 +154,7 @@ public class EqualizerTest extends PostProcTestBase {
 
     //Test case 1.3: test properties
     public void test1_3Properties() throws Exception {
-        getEqualizer(0);
+        getEqualizer(getSessionId());
         try {
             Equalizer.Settings settings = mEqualizer.getProperties();
             assertTrue("no enough bands", settings.numBands >= MIN_NUMBER_OF_BANDS);
@@ -185,7 +185,7 @@ public class EqualizerTest extends PostProcTestBase {
 
     //Test case 1.4: test setBandLevel() throws exception after release
     public void test1_4SetBandLevelAfterRelease() throws Exception {
-        getEqualizer(0);
+        getEqualizer(getSessionId());
         mEqualizer.release();
         try {
             mEqualizer.setBandLevel((short)0, (short)0);
@@ -202,7 +202,7 @@ public class EqualizerTest extends PostProcTestBase {
 
     //Test case 2.0: test setEnabled() and getEnabled() in valid state
     public void test2_0SetEnabledGetEnabled() throws Exception {
-        getEqualizer(0);
+        getEqualizer(getSessionId());
         try {
             mEqualizer.setEnabled(true);
             assertTrue("invalid state from getEnabled", mEqualizer.getEnabled());
@@ -218,7 +218,7 @@ public class EqualizerTest extends PostProcTestBase {
 
     //Test case 2.1: test setEnabled() throws exception after release
     public void test2_1SetEnabledAfterRelease() throws Exception {
-        getEqualizer(0);
+        getEqualizer(getSessionId());
         mEqualizer.release();
         try {
             mEqualizer.setEnabled(true);
@@ -241,7 +241,7 @@ public class EqualizerTest extends PostProcTestBase {
             createListenerLooper(true, false, false);
             waitForLooperInitialization_l();
 
-            getEqualizer(0);
+            getEqualizer(mSession);
             int looperWaitCount = MAX_LOOPER_WAIT_COUNT;
             while (mHasControl && (looperWaitCount-- > 0)) {
                 try {
@@ -264,7 +264,7 @@ public class EqualizerTest extends PostProcTestBase {
 
             mEqualizer2.setEnabled(true);
             mIsEnabled = true;
-            getEqualizer(0);
+            getEqualizer(mSession);
             mEqualizer.setEnabled(false);
             int looperWaitCount = MAX_LOOPER_WAIT_COUNT;
             while (mIsEnabled && (looperWaitCount-- > 0)) {
@@ -286,7 +286,7 @@ public class EqualizerTest extends PostProcTestBase {
             createListenerLooper(false, false, true);
             waitForLooperInitialization_l();
 
-            getEqualizer(0);
+            getEqualizer(mSession);
             mChangedParameter = -1;
             mEqualizer.setBandLevel((short)0, (short)0);
 
@@ -377,7 +377,8 @@ public class EqualizerTest extends PostProcTestBase {
                 // after we are done with it.
                 mLooper = Looper.myLooper();
 
-                mEqualizer2 = new Equalizer(0, 0);
+                mSession = getSessionId();
+                mEqualizer2 = new Equalizer(0, mSession);
                 assertNotNull("could not create Equalizer2", mEqualizer2);
 
                 synchronized(mLock) {

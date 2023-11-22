@@ -76,6 +76,13 @@ public class ImageProcessingTest extends RSBaseCompute {
         a2 = Allocation.createTyped(mRS, t);
     }
 
+    @Override
+    protected void tearDown() throws Exception {
+        a1.destroy();
+        a2.destroy();
+        super.tearDown();
+    }
+
     public void testBlur() {
         ScriptIntrinsicBlur mBlur;
         mBlur = ScriptIntrinsicBlur.create(mRS, Element.U8_4(mRS));
@@ -97,6 +104,9 @@ public class ImageProcessingTest extends RSBaseCompute {
 
         }
 
+        a1_copy.destroy();
+        a2_copy.destroy();
+        mBlur.destroy();
     }
 
     public void testBlend() {
@@ -209,6 +219,10 @@ public class ImageProcessingTest extends RSBaseCompute {
             Log.v("BlendUnit", name + " " + similar(resultData, dstData));
 
         }
+
+        src.destroy();
+        dst.destroy();
+        mBlend.destroy();
     }
 
     // utility to create and allocation of a given dimension
@@ -679,9 +693,9 @@ public class ImageProcessingTest extends RSBaseCompute {
 
         mColorMatrix.forEach(a1_copy, a2_copy);
 
-        //validate color matrix
-
-
+        a1_copy.destroy();
+        a2_copy.destroy();
+        mColorMatrix.destroy();
     }
 
     public void testConvolve3x3() {
@@ -703,8 +717,9 @@ public class ImageProcessingTest extends RSBaseCompute {
         mConvolve3x3.setInput(a1_copy);
         mConvolve3x3.forEach(a2_copy);
 
-        // validate
-
+        a1_copy.destroy();
+        a2_copy.destroy();
+        mConvolve3x3.destroy();
     }
 
     public void testConvolve5x5() {
@@ -728,8 +743,9 @@ public class ImageProcessingTest extends RSBaseCompute {
         mConvolve5x5.setInput(a1_copy);
         mConvolve5x5.forEach(a2_copy);
 
-        // validate
-
+        a1_copy.destroy();
+        a2_copy.destroy();
+        mConvolve5x5.destroy();
     }
 
     public void testLUT() {
@@ -769,8 +785,9 @@ public class ImageProcessingTest extends RSBaseCompute {
 
         mLUT.forEach(a1_copy, a2_copy);
 
-        // validate
-
+        a1_copy.destroy();
+        a2_copy.destroy();
+        mLUT.destroy();
     }
 
     public void testScriptGroup() {
@@ -815,6 +832,10 @@ public class ImageProcessingTest extends RSBaseCompute {
 
         // validate
 
+        a1_copy.destroy();
+        a2_copy.destroy();
+        mConvolve3x3.destroy();
+        mColorMatrix.destroy();
     }
 
 

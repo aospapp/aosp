@@ -23,7 +23,7 @@ LOCAL_MODULE_TAGS := optional
 # Must match the package name in CtsTestCaseList.mk
 LOCAL_MODULE := CtsCppToolsTestCases
 
-LOCAL_JAVA_LIBRARIES := old-cts-tradefed ddmlib-prebuilt tradefed-prebuilt
+LOCAL_JAVA_LIBRARIES := ddmlib-prebuilt tradefed
 
 LOCAL_CTS_TEST_PACKAGE := android.tests.cpptools
 

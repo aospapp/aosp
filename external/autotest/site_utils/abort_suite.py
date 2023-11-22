@@ -28,17 +28,14 @@ import getpass
 import logging
 import os
 import sys
-from datetime import datetime
 
 import common
-from autotest_lib.client.common_lib.cros.graphite import autotest_stats
 from autotest_lib.server import frontend
 from autotest_lib.server import utils
 
 
 LOG_NAME_TEMPLATE = 'abort_suite-%s.log'
 SUITE_JOB_NAME_TEMPLATE = '%s-test_suites/control.%s'
-_timer = autotest_stats.Timer('abort_suites')
 
 
 def parse_args():
@@ -54,7 +51,6 @@ def parse_args():
     return parser.parse_args()
 
 
-@_timer.decorate
 def abort_suites(afe, substring):
     """
     Abort the suite.
@@ -92,6 +88,7 @@ def main():
 
     afe = frontend.AFE()
     name = SUITE_JOB_NAME_TEMPLATE % (args.build, args.name)
+
     abort_suites(afe, name)
     return 0
 

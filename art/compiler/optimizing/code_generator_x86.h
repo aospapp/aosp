@@ -18,8 +18,9 @@
 #define ART_COMPILER_OPTIMIZING_CODE_GENERATOR_X86_H_
 
 #include "arch/x86/instruction_set_features_x86.h"
+#include "base/enums.h"
 #include "code_generator.h"
-#include "dex/compiler_enums.h"
+#include "dex_file_types.h"
 #include "driver/compiler_options.h"
 #include "nodes.h"
 #include "parallel_move_resolver.h"
@@ -29,7 +30,7 @@ namespace art {
 namespace x86 {
 
 // Use a local definition to prevent copying mistakes.
-static constexpr size_t kX86WordSize = kX86PointerSize;
+static constexpr size_t kX86WordSize = static_cast<size_t>(kX86PointerSize);
 
 class CodeGeneratorX86;
 
@@ -109,7 +110,9 @@ class FieldAccessCallingConventionX86 : public FieldAccessCallingConvention {
   }
   Location GetSetValueLocation(Primitive::Type type, bool is_instance) const OVERRIDE {
     return Primitive::Is64BitType(type)
-        ? Location::RegisterPairLocation(EDX, EBX)
+        ? (is_instance
+            ? Location::RegisterPairLocation(EDX, EBX)
+            : Location::RegisterPairLocation(ECX, EDX))
         : (is_instance
             ? Location::RegisterLocation(EDX)
             : Location::RegisterLocation(ECX));
@@ -240,7 +243,8 @@ class InstructionCodeGeneratorX86 : public InstructionCodeGenerator {
   void GenerateReferenceLoadOneRegister(HInstruction* instruction,
                                         Location out,
                                         uint32_t offset,
-                                        Location maybe_temp);
+                                        Location maybe_temp,
+                                        ReadBarrierOption read_barrier_option);
   // Generate a heap reference load using two different registers
   // `out` and `obj`:
   //
@@ -255,16 +259,17 @@ class InstructionCodeGeneratorX86 : public InstructionCodeGenerator {
                                          Location out,
                                          Location obj,
                                          uint32_t offset,
-                                         Location maybe_temp);
+                                         ReadBarrierOption read_barrier_option);
   // Generate a GC root reference load:
   //
   //   root <- *address
   //
-  // while honoring read barriers (if any).
+  // while honoring read barriers based on read_barrier_option.
   void GenerateGcRootFieldLoad(HInstruction* instruction,
                                Location root,
                                const Address& address,
-                               Label* fixup_label = nullptr);
+                               Label* fixup_label,
+                               ReadBarrierOption read_barrier_option);
 
   // Push value to FPU stack. `is_fp` specifies whether the value is floating point or not.
   // `is_wide` specifies whether it is long/double or not.
@@ -295,7 +300,6 @@ class InstructionCodeGeneratorX86 : public InstructionCodeGenerator {
                                    HBasicBlock* default_block);
 
   void GenerateFPCompare(Location lhs, Location rhs, HInstruction* insn, bool is_double);
-  void GenerateIntCompare(Location lhs, Location rhs);
 
   X86Assembler* const assembler_;
   CodeGeneratorX86* const codegen_;
@@ -329,20 +333,24 @@ class CodeGeneratorX86 : public CodeGenerator {
   void InvokeRuntime(QuickEntrypointEnum entrypoint,
                      HInstruction* instruction,
                      uint32_t dex_pc,
-                     SlowPathCode* slow_path) OVERRIDE;
+                     SlowPathCode* slow_path = nullptr) OVERRIDE;
 
-  void InvokeRuntime(int32_t entry_point_offset,
-                     HInstruction* instruction,
-                     uint32_t dex_pc,
-                     SlowPathCode* slow_path);
+  // Generate code to invoke a runtime entry point, but do not record
+  // PC-related information in a stack map.
+  void InvokeRuntimeWithoutRecordingPcInfo(int32_t entry_point_offset,
+                                           HInstruction* instruction,
+                                           SlowPathCode* slow_path);
+
+  void GenerateInvokeRuntime(int32_t entry_point_offset);
 
   size_t GetWordSize() const OVERRIDE {
     return kX86WordSize;
   }
 
   size_t GetFloatingPointSpillSlotSize() const OVERRIDE {
-    // 8 bytes == 2 words for each spill.
-    return 2 * kX86WordSize;
+    return GetGraph()->HasSIMD()
+        ? 4 * kX86WordSize   // 16 bytes == 4 words for each spill
+        : 2 * kX86WordSize;  //  8 bytes == 2 words for each spill
   }
 
   HGraphVisitor* GetLocationBuilder() OVERRIDE {
@@ -370,9 +378,6 @@ class CodeGeneratorX86 : public CodeGenerator {
   void DumpCoreRegister(std::ostream& stream, int reg) const OVERRIDE;
   void DumpFloatingPointRegister(std::ostream& stream, int reg) const OVERRIDE;
 
-  // Blocks all register pairs made out of blocked core registers.
-  void UpdateBlockedPairRegisters() const;
-
   ParallelMoveResolverX86* GetMoveResolver() OVERRIDE {
     return &move_resolver_;
   }
@@ -391,25 +396,47 @@ class CodeGeneratorX86 : public CodeGenerator {
   HLoadString::LoadKind GetSupportedLoadStringKind(
       HLoadString::LoadKind desired_string_load_kind) OVERRIDE;
 
+  // Check if the desired_class_load_kind is supported. If it is, return it,
+  // otherwise return a fall-back kind that should be used instead.
+  HLoadClass::LoadKind GetSupportedLoadClassKind(
+      HLoadClass::LoadKind desired_class_load_kind) OVERRIDE;
+
   // Check if the desired_dispatch_info is supported. If it is, return it,
   // otherwise return a fall-back info that should be used instead.
   HInvokeStaticOrDirect::DispatchInfo GetSupportedInvokeStaticOrDirectDispatch(
       const HInvokeStaticOrDirect::DispatchInfo& desired_dispatch_info,
-      MethodReference target_method) OVERRIDE;
+      HInvokeStaticOrDirect* invoke) OVERRIDE;
 
   // Generate a call to a static or direct method.
+  Location GenerateCalleeMethodStaticOrDirectCall(HInvokeStaticOrDirect* invoke, Location temp);
   void GenerateStaticOrDirectCall(HInvokeStaticOrDirect* invoke, Location temp) OVERRIDE;
   // Generate a call to a virtual method.
   void GenerateVirtualCall(HInvokeVirtual* invoke, Location temp) OVERRIDE;
 
-  void RecordSimplePatch();
-  void RecordStringPatch(HLoadString* load_string);
-  Label* NewPcRelativeDexCacheArrayPatch(const DexFile& dex_file, uint32_t element_offset);
+  void RecordBootStringPatch(HLoadString* load_string);
+  void RecordBootTypePatch(HLoadClass* load_class);
+  Label* NewTypeBssEntryPatch(HLoadClass* load_class);
+  Label* NewStringBssEntryPatch(HLoadString* load_string);
+  Label* NewPcRelativeDexCacheArrayPatch(HX86ComputeBaseMethodAddress* method_address,
+                                         const DexFile& dex_file,
+                                         uint32_t element_offset);
+  Label* NewJitRootStringPatch(const DexFile& dex_file,
+                               dex::StringIndex dex_index,
+                               Handle<mirror::String> handle);
+  Label* NewJitRootClassPatch(const DexFile& dex_file,
+                              dex::TypeIndex dex_index,
+                              Handle<mirror::Class> handle);
 
   void MoveFromReturnRegister(Location trg, Primitive::Type type) OVERRIDE;
 
   // Emit linker patches.
   void EmitLinkerPatches(ArenaVector<LinkerPatch>* linker_patches) OVERRIDE;
+
+  void PatchJitRootUse(uint8_t* code,
+                       const uint8_t* roots_data,
+                       const PatchInfo<Label>& info,
+                       uint64_t index_in_table) const;
+  void EmitJitRootPatches(uint8_t* code, const uint8_t* roots_data) OVERRIDE;
 
   // Emit a write barrier.
   void MarkGCCard(Register temp,
@@ -440,28 +467,38 @@ class CodeGeneratorX86 : public CodeGenerator {
     return isa_features_;
   }
 
-  void SetMethodAddressOffset(int32_t offset) {
-    method_address_offset_ = offset;
+  void AddMethodAddressOffset(HX86ComputeBaseMethodAddress* method_base, int32_t offset) {
+    method_address_offset_.Put(method_base->GetId(), offset);
   }
 
-  int32_t GetMethodAddressOffset() const {
-    return method_address_offset_;
+  int32_t GetMethodAddressOffset(HX86ComputeBaseMethodAddress* method_base) const {
+    return method_address_offset_.Get(method_base->GetId());
   }
 
   int32_t ConstantAreaStart() const {
     return constant_area_start_;
   }
 
-  Address LiteralDoubleAddress(double v, Register reg);
-  Address LiteralFloatAddress(float v, Register reg);
-  Address LiteralInt32Address(int32_t v, Register reg);
-  Address LiteralInt64Address(int64_t v, Register reg);
+  Address LiteralDoubleAddress(double v, HX86ComputeBaseMethodAddress* method_base, Register reg);
+  Address LiteralFloatAddress(float v, HX86ComputeBaseMethodAddress* method_base, Register reg);
+  Address LiteralInt32Address(int32_t v, HX86ComputeBaseMethodAddress* method_base, Register reg);
+  Address LiteralInt64Address(int64_t v, HX86ComputeBaseMethodAddress* method_base, Register reg);
 
   // Load a 32-bit value into a register in the most efficient manner.
   void Load32BitValue(Register dest, int32_t value);
 
   // Compare a register with a 32-bit value in the most efficient manner.
   void Compare32BitValue(Register dest, int32_t value);
+
+  // Compare int values. Supports only register locations for `lhs`.
+  void GenerateIntCompare(Location lhs, Location rhs);
+  void GenerateIntCompare(Register lhs, Location rhs);
+
+  // Construct address for array access.
+  static Address ArrayAddress(Register obj,
+                              Location index,
+                              ScaleFactor scale,
+                              uint32_t data_offset);
 
   Address LiteralCaseTable(HX86PackedSwitch* switch_instr, Register reg, Register value);
 
@@ -473,7 +510,6 @@ class CodeGeneratorX86 : public CodeGenerator {
                                              Location ref,
                                              Register obj,
                                              uint32_t offset,
-                                             Location temp,
                                              bool needs_null_check);
   // Fast path implementation of ReadBarrier::Barrier for a heap
   // reference array load when Baker's read barriers are used.
@@ -482,8 +518,25 @@ class CodeGeneratorX86 : public CodeGenerator {
                                              Register obj,
                                              uint32_t data_offset,
                                              Location index,
-                                             Location temp,
                                              bool needs_null_check);
+  // Factored implementation, used by GenerateFieldLoadWithBakerReadBarrier,
+  // GenerateArrayLoadWithBakerReadBarrier and some intrinsics.
+  //
+  // Load the object reference located at address `src`, held by
+  // object `obj`, into `ref`, and mark it if needed.  The base of
+  // address `src` must be `obj`.
+  //
+  // If `always_update_field` is true, the value of the reference is
+  // atomically updated in the holder (`obj`).  This operation
+  // requires a temporary register, which must be provided as a
+  // non-null pointer (`temp`).
+  void GenerateReferenceLoadWithBakerReadBarrier(HInstruction* instruction,
+                                                 Location ref,
+                                                 Register obj,
+                                                 const Address& src,
+                                                 bool needs_null_check,
+                                                 bool always_update_field = false,
+                                                 Register* temp = nullptr);
 
   // Generate a read barrier for a heap reference within `instruction`
   // using a slow path.
@@ -538,42 +591,36 @@ class CodeGeneratorX86 : public CodeGenerator {
   // touch (but not change) the top of the stack.
   // The 'non_temporal' parameter should be used to ensure ordering of non-temporal stores.
   void MemoryFence(bool non_temporal = false) {
-    if (!non_temporal && isa_features_.PrefersLockedAddSynchronization()) {
+    if (!non_temporal) {
       assembler_.lock()->addl(Address(ESP, 0), Immediate(0));
     } else {
       assembler_.mfence();
     }
   }
 
-  void GenerateNop();
-  void GenerateImplicitNullCheck(HNullCheck* instruction);
-  void GenerateExplicitNullCheck(HNullCheck* instruction);
+  void GenerateNop() OVERRIDE;
+  void GenerateImplicitNullCheck(HNullCheck* instruction) OVERRIDE;
+  void GenerateExplicitNullCheck(HNullCheck* instruction) OVERRIDE;
 
   // When we don't know the proper offset for the value, we use kDummy32BitOffset.
   // The correct value will be inserted when processing Assembler fixups.
   static constexpr int32_t kDummy32BitOffset = 256;
 
  private:
-  // Factored implementation of GenerateFieldLoadWithBakerReadBarrier
-  // and GenerateArrayLoadWithBakerReadBarrier.
-  void GenerateReferenceLoadWithBakerReadBarrier(HInstruction* instruction,
-                                                 Location ref,
-                                                 Register obj,
-                                                 const Address& src,
-                                                 Location temp,
-                                                 bool needs_null_check);
+  struct X86PcRelativePatchInfo : PatchInfo<Label> {
+    X86PcRelativePatchInfo(HX86ComputeBaseMethodAddress* address,
+                           const DexFile& target_dex_file,
+                           uint32_t target_index)
+        : PatchInfo(target_dex_file, target_index),
+          method_address(address) {}
+    HX86ComputeBaseMethodAddress* method_address;
+  };
+
+  template <LinkerPatch (*Factory)(size_t, const DexFile*, uint32_t, uint32_t)>
+  void EmitPcRelativeLinkerPatches(const ArenaDeque<X86PcRelativePatchInfo>& infos,
+                                   ArenaVector<LinkerPatch>* linker_patches);
 
   Register GetInvokeStaticOrDirectExtraParameter(HInvokeStaticOrDirect* invoke, Register temp);
-
-  struct PcRelativeDexCacheAccessInfo {
-    PcRelativeDexCacheAccessInfo(const DexFile& dex_file, uint32_t element_off)
-        : target_dex_file(dex_file), element_offset(element_off), label() { }
-
-    const DexFile& target_dex_file;
-    uint32_t element_offset;
-    // NOTE: Label is bound to the end of the instruction that has an embedded 32-bit offset.
-    Label label;
-  };
 
   // Labels for each block that will be compiled.
   Label* block_labels_;  // Indexed by block id.
@@ -584,15 +631,20 @@ class CodeGeneratorX86 : public CodeGenerator {
   X86Assembler assembler_;
   const X86InstructionSetFeatures& isa_features_;
 
-  // Method patch info. Using ArenaDeque<> which retains element addresses on push/emplace_back().
-  ArenaDeque<MethodPatchInfo<Label>> method_patches_;
-  ArenaDeque<MethodPatchInfo<Label>> relative_call_patches_;
   // PC-relative DexCache access info.
-  ArenaDeque<PcRelativeDexCacheAccessInfo> pc_relative_dex_cache_patches_;
-  // Patch locations for patchoat where the linker doesn't do any other work.
-  ArenaDeque<Label> simple_patches_;
-  // String patch locations.
-  ArenaDeque<StringPatchInfo<Label>> string_patches_;
+  ArenaDeque<X86PcRelativePatchInfo> pc_relative_dex_cache_patches_;
+  // String patch locations; type depends on configuration (app .bss or boot image PIC/non-PIC).
+  ArenaDeque<X86PcRelativePatchInfo> string_patches_;
+  // Type patch locations for boot image; type depends on configuration (boot image PIC/non-PIC).
+  ArenaDeque<X86PcRelativePatchInfo> boot_image_type_patches_;
+  // Type patch locations for kBssEntry.
+  ArenaDeque<X86PcRelativePatchInfo> type_bss_entry_patches_;
+
+  // Patches for string root accesses in JIT compiled code.
+  ArenaDeque<PatchInfo<Label>> jit_string_patches_;
+
+  // Patches for class root accesses in JIT compiled code.
+  ArenaDeque<PatchInfo<Label>> jit_class_patches_;
 
   // Offset to the start of the constant area in the assembled code.
   // Used for fixups to the constant area.
@@ -601,11 +653,9 @@ class CodeGeneratorX86 : public CodeGenerator {
   // Fixups for jump tables that need to be patched after the constant table is generated.
   ArenaVector<JumpTableRIPFixup*> fixups_to_jump_tables_;
 
-  // If there is a HX86ComputeBaseMethodAddress instruction in the graph
-  // (which shall be the sole instruction of this kind), subtracting this offset
-  // from the value contained in the out register of this HX86ComputeBaseMethodAddress
-  // instruction gives the address of the start of this method.
-  int32_t method_address_offset_;
+  // Maps a HX86ComputeBaseMethodAddress instruction id, to its offset in the
+  // compiled code.
+  ArenaSafeMap<uint32_t, int32_t> method_address_offset_;
 
   DISALLOW_COPY_AND_ASSIGN(CodeGeneratorX86);
 };

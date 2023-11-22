@@ -32,127 +32,89 @@ using testing::WithArgs;
 
 namespace trunks {
 
-// From definition of TPMA_STARTUP_CLEAR.
-const trunks::TPMA_STARTUP_CLEAR kPlatformHierarchyMask = 1U;
-
 // A test fixture for TpmState tests.
 class TpmStateTest : public testing::Test {
  public:
-  TpmStateTest() {}
-  ~TpmStateTest() override {}
+  TpmStateTest() = default;
+  ~TpmStateTest() override = default;
 
   void SetUp() override {
     factory_.set_tpm(&mock_tpm_);
-    permanent_data_ = GetValidCapabilityData(TPM_PT_PERMANENT, 0);
-    startup_clear_data_ = GetValidCapabilityData(TPM_PT_STARTUP_CLEAR, 0);
-    rsa_data_ = GetValidAlgorithmData(TPM_ALG_RSA, 0);
-    ecc_data_ = GetValidAlgorithmData(TPM_ALG_ECC, 0);
-    lockout_counter_ = GetValidCapabilityData(TPM_PT_LOCKOUT_COUNTER, 0);
-    lockout_threshold_ = GetValidCapabilityData(TPM_PT_MAX_AUTH_FAIL, 0);
-    lockout_interval_ = GetValidCapabilityData(TPM_PT_LOCKOUT_INTERVAL, 0);
-    lockout_recovery_ = GetValidCapabilityData(TPM_PT_LOCKOUT_RECOVERY, 0);
-    EXPECT_CALL(mock_tpm_, GetCapabilitySync(TPM_CAP_TPM_PROPERTIES,
-                                             TPM_PT_PERMANENT, 1, _, _, _))
-        .WillRepeatedly(WithArgs<4>(
-            Invoke(this, &TpmStateTest::GetLivePermanent)));
-    EXPECT_CALL(mock_tpm_, GetCapabilitySync(TPM_CAP_TPM_PROPERTIES,
-                                             TPM_PT_STARTUP_CLEAR, 1, _, _, _))
-        .WillRepeatedly(WithArgs<4>(
-            Invoke(this, &TpmStateTest::GetLiveStartupClear)));
-    EXPECT_CALL(mock_tpm_, GetCapabilitySync(TPM_CAP_ALGS,
-                                             TPM_ALG_RSA, 1, _, _, _))
-        .WillRepeatedly(WithArgs<4>(
-            Invoke(this, &TpmStateTest::GetLiveRSA)));
-    EXPECT_CALL(mock_tpm_, GetCapabilitySync(TPM_CAP_ALGS,
-                                             TPM_ALG_ECC, 1, _, _, _))
-        .WillRepeatedly(WithArgs<4>(
-            Invoke(this, &TpmStateTest::GetLiveECC)));
-    EXPECT_CALL(mock_tpm_, GetCapabilitySync(TPM_CAP_TPM_PROPERTIES,
-                                             TPM_PT_LOCKOUT_COUNTER,
-                                             1, _, _, _))
-        .WillRepeatedly(WithArgs<4>(
-            Invoke(this, &TpmStateTest::GetLiveLockoutCounter)));
-    EXPECT_CALL(mock_tpm_, GetCapabilitySync(TPM_CAP_TPM_PROPERTIES,
-                                             TPM_PT_MAX_AUTH_FAIL,
-                                             1, _, _, _))
-        .WillRepeatedly(WithArgs<4>(
-            Invoke(this, &TpmStateTest::GetLiveLockoutThreshold)));
-    EXPECT_CALL(mock_tpm_, GetCapabilitySync(TPM_CAP_TPM_PROPERTIES,
-                                             TPM_PT_LOCKOUT_INTERVAL,
-                                             1, _, _, _))
-        .WillRepeatedly(WithArgs<4>(
-            Invoke(this, &TpmStateTest::GetLiveLockoutInterval)));
-    EXPECT_CALL(mock_tpm_, GetCapabilitySync(TPM_CAP_TPM_PROPERTIES,
-                                             TPM_PT_LOCKOUT_RECOVERY,
-                                             1, _, _, _))
-        .WillRepeatedly(WithArgs<4>(
-            Invoke(this, &TpmStateTest::GetLiveLockoutRecovery)));
-  }
-
-  TPM_RC GetLivePermanent(TPMS_CAPABILITY_DATA* capability_data) {
-    *capability_data = permanent_data_;
-    return TPM_RC_SUCCESS;
-  }
-  TPM_RC GetLiveStartupClear(TPMS_CAPABILITY_DATA* capability_data) {
-    *capability_data = startup_clear_data_;
-    return TPM_RC_SUCCESS;
-  }
-  TPM_RC GetLiveRSA(TPMS_CAPABILITY_DATA* capability_data) {
-    *capability_data = rsa_data_;
-    return TPM_RC_SUCCESS;
-  }
-  TPM_RC GetLiveECC(TPMS_CAPABILITY_DATA* capability_data) {
-    *capability_data = ecc_data_;
-    return TPM_RC_SUCCESS;
-  }
-  TPM_RC GetLiveLockoutCounter(TPMS_CAPABILITY_DATA* capability_data) {
-    *capability_data = lockout_counter_;
-    return TPM_RC_SUCCESS;
-  }
-  TPM_RC GetLiveLockoutThreshold(TPMS_CAPABILITY_DATA* capability_data) {
-    *capability_data = lockout_threshold_;
-    return TPM_RC_SUCCESS;
-  }
-  TPM_RC GetLiveLockoutInterval(TPMS_CAPABILITY_DATA* capability_data) {
-    *capability_data = lockout_interval_;
-    return TPM_RC_SUCCESS;
-  }
-  TPM_RC GetLiveLockoutRecovery(TPMS_CAPABILITY_DATA* capability_data) {
-    *capability_data = lockout_recovery_;
-    return TPM_RC_SUCCESS;
+    // All auth set (i.e. IsOwned() -> true) and in lockout.
+    fake_tpm_properties_[TPM_PT_PERMANENT] = 0x207;
+    // Orderly shutdown, storage and endorsement enabled, platform disabled
+    // (i.e. IsEnabled() -> true).
+    fake_tpm_properties_[TPM_PT_STARTUP_CLEAR] = 0x80000006;
+    fake_tpm_properties_[TPM_PT_LOCKOUT_COUNTER] = 2;
+    fake_tpm_properties_[TPM_PT_MAX_AUTH_FAIL] = 5;
+    fake_tpm_properties_[TPM_PT_LOCKOUT_INTERVAL] = 100;
+    fake_tpm_properties_[TPM_PT_LOCKOUT_RECOVERY] = 200;
+    fake_tpm_properties_[TPM_PT_NV_INDEX_MAX] = 2048;
+    fake_tpm_properties_[TPM_PT_NV_BUFFER_MAX] = 2048;
+    fake_algorithm_properties_[TPM_ALG_RSA] = 0x9;
+    fake_algorithm_properties_[TPM_ALG_ECC] = 0x9;
+    EXPECT_CALL(mock_tpm_, GetCapabilitySync(_, _, _, _, _, _))
+        .WillRepeatedly(Invoke(this, &TpmStateTest::FakeGetCapability));
   }
 
  protected:
-  TPMS_CAPABILITY_DATA GetValidCapabilityData(TPM_PT property, UINT32 value) {
-    TPMS_CAPABILITY_DATA data;
-    memset(&data, 0, sizeof(TPMS_CAPABILITY_DATA));
-    data.capability = TPM_CAP_TPM_PROPERTIES;
-    data.data.tpm_properties.count = 1;
-    data.data.tpm_properties.tpm_property[0].property = property;
-    data.data.tpm_properties.tpm_property[0].value = value;
-    return data;
-  }
-
-  TPMS_CAPABILITY_DATA GetValidAlgorithmData(TPM_ALG_ID alg_id, UINT32 value) {
-    TPMS_CAPABILITY_DATA data;
-    memset(&data, 0, sizeof(TPMS_CAPABILITY_DATA));
-    data.capability = TPM_CAP_ALGS;
-    data.data.tpm_properties.count = 1;
-    data.data.algorithms.alg_properties[0].alg = alg_id;
-    data.data.algorithms.alg_properties[0].alg_properties = value;
-    return data;
+  TPM_RC FakeGetCapability(const TPM_CAP& capability,
+                           const UINT32& property,
+                           const UINT32& property_count,
+                           TPMI_YES_NO* more_data,
+                           TPMS_CAPABILITY_DATA* capability_data,
+                           AuthorizationDelegate* /* not_used */) {
+    // Return only two properties at a time, this will exercise the more_data
+    // logic.
+    constexpr uint32_t kMaxProperties = 2;
+    *more_data = NO;
+    memset(capability_data, 0, sizeof(TPMS_CAPABILITY_DATA));
+    capability_data->capability = capability;
+    TPMU_CAPABILITIES& data = capability_data->data;
+    if (capability == TPM_CAP_TPM_PROPERTIES) {
+      // TPM properties get returned one group at a time, mimic this.
+      uint32_t group = (property >> 8);
+      uint32_t stop = PT_GROUP * (group + 1);
+      for (uint32_t i = property; i < stop; ++i) {
+        if (fake_tpm_properties_.count(i) > 0) {
+          if (data.tpm_properties.count == kMaxProperties ||
+              data.tpm_properties.count == property_count) {
+            // There are more properties than we can fit.
+            *more_data = YES;
+            break;
+          }
+          data.tpm_properties.tpm_property[data.tpm_properties.count].property =
+              i;
+          data.tpm_properties.tpm_property[data.tpm_properties.count].value =
+              fake_tpm_properties_[i];
+          data.tpm_properties.count++;
+        }
+      }
+    } else if (capability == TPM_CAP_ALGS) {
+      // Algorithm properties.
+      uint32_t stop = TPM_ALG_LAST + 1;
+      for (uint32_t i = property; i < stop; ++i) {
+        if (fake_algorithm_properties_.count(i) > 0) {
+          if (data.algorithms.count == kMaxProperties ||
+              data.algorithms.count == property_count) {
+            // There are more properties than we can fit.
+            *more_data = YES;
+            break;
+          }
+          data.algorithms.alg_properties[data.algorithms.count].alg = i;
+          data.algorithms.alg_properties[data.algorithms.count].alg_properties =
+              fake_algorithm_properties_[i];
+          data.algorithms.count++;
+        }
+      }
+    }
+    return TPM_RC_SUCCESS;
   }
 
   TrunksFactoryForTest factory_;
   NiceMock<MockTpm> mock_tpm_;
-  TPMS_CAPABILITY_DATA permanent_data_;
-  TPMS_CAPABILITY_DATA startup_clear_data_;
-  TPMS_CAPABILITY_DATA rsa_data_;
-  TPMS_CAPABILITY_DATA ecc_data_;
-  TPMS_CAPABILITY_DATA lockout_counter_;
-  TPMS_CAPABILITY_DATA lockout_threshold_;
-  TPMS_CAPABILITY_DATA lockout_interval_;
-  TPMS_CAPABILITY_DATA lockout_recovery_;
+  std::map<TPM_PT, uint32_t> fake_tpm_properties_;
+  std::map<TPM_ALG_ID, TPMA_ALGORITHM> fake_algorithm_properties_;
 };
 
 TEST(TpmState_DeathTest, NotInitialized) {
@@ -178,11 +140,18 @@ TEST(TpmState_DeathTest, NotInitialized) {
   EXPECT_DEATH_IF_SUPPORTED(tpm_state.GetLockoutThreshold(), "Check failed");
   EXPECT_DEATH_IF_SUPPORTED(tpm_state.GetLockoutInterval(), "Check failed");
   EXPECT_DEATH_IF_SUPPORTED(tpm_state.GetLockoutRecovery(), "Check failed");
+  EXPECT_DEATH_IF_SUPPORTED(tpm_state.GetMaxNVSize(), "Check failed");
+  EXPECT_DEATH_IF_SUPPORTED(tpm_state.GetTpmProperty(0, nullptr),
+                            "Check failed");
+  EXPECT_DEATH_IF_SUPPORTED(tpm_state.GetAlgorithmProperties(0, nullptr),
+                            "Check failed");
 }
 
 TEST_F(TpmStateTest, FlagsClear) {
+  fake_tpm_properties_[TPM_PT_PERMANENT] = 0;
+  fake_tpm_properties_[TPM_PT_STARTUP_CLEAR] = 0;
   TpmStateImpl tpm_state(factory_);
-  EXPECT_EQ(TPM_RC_SUCCESS, tpm_state.Initialize());
+  ASSERT_EQ(TPM_RC_SUCCESS, tpm_state.Initialize());
   EXPECT_FALSE(tpm_state.IsOwnerPasswordSet());
   EXPECT_FALSE(tpm_state.IsEndorsementPasswordSet());
   EXPECT_FALSE(tpm_state.IsLockoutPasswordSet());
@@ -191,34 +160,15 @@ TEST_F(TpmStateTest, FlagsClear) {
   EXPECT_FALSE(tpm_state.IsPlatformHierarchyEnabled());
   EXPECT_FALSE(tpm_state.IsStorageHierarchyEnabled());
   EXPECT_FALSE(tpm_state.IsEndorsementHierarchyEnabled());
-  EXPECT_FALSE(tpm_state.IsEnabled());
   EXPECT_FALSE(tpm_state.WasShutdownOrderly());
-  EXPECT_FALSE(tpm_state.IsRSASupported());
-  EXPECT_FALSE(tpm_state.IsECCSupported());
-  EXPECT_EQ(0u, tpm_state.GetLockoutCounter());
-  EXPECT_EQ(0u, tpm_state.GetLockoutThreshold());
-  EXPECT_EQ(0u, tpm_state.GetLockoutInterval());
-  EXPECT_EQ(0u, tpm_state.GetLockoutRecovery());
 }
 
 TEST_F(TpmStateTest, FlagsSet) {
-  uint32_t lockout_counter = 5;
-  uint32_t lockout_threshold = 8;
-  uint32_t lockout_interval = 1200;
-  uint32_t lockout_recovery = 84600;
-  permanent_data_.data.tpm_properties.tpm_property[0].value = ~0U;
-  startup_clear_data_.data.tpm_properties.tpm_property[0].value = ~0U;
-  lockout_counter_.data.tpm_properties.tpm_property[0].value = lockout_counter;
-  lockout_threshold_.data.tpm_properties.tpm_property[0].value =
-      lockout_threshold;
-  lockout_interval_.data.tpm_properties.tpm_property[0].value =
-      lockout_interval;
-  lockout_recovery_.data.tpm_properties.tpm_property[0].value =
-      lockout_recovery;
-  rsa_data_.data.algorithms.alg_properties[0].alg_properties = ~0U;
-  ecc_data_.data.algorithms.alg_properties[0].alg_properties = ~0U;
+  fake_tpm_properties_[TPM_PT_PERMANENT] = ~0;
+  fake_tpm_properties_[TPM_PT_STARTUP_CLEAR] = ~0;
+
   TpmStateImpl tpm_state(factory_);
-  EXPECT_EQ(TPM_RC_SUCCESS, tpm_state.Initialize());
+  ASSERT_EQ(TPM_RC_SUCCESS, tpm_state.Initialize());
   EXPECT_TRUE(tpm_state.IsOwnerPasswordSet());
   EXPECT_TRUE(tpm_state.IsEndorsementPasswordSet());
   EXPECT_TRUE(tpm_state.IsLockoutPasswordSet());
@@ -227,158 +177,189 @@ TEST_F(TpmStateTest, FlagsSet) {
   EXPECT_TRUE(tpm_state.IsPlatformHierarchyEnabled());
   EXPECT_TRUE(tpm_state.IsStorageHierarchyEnabled());
   EXPECT_TRUE(tpm_state.IsEndorsementHierarchyEnabled());
-  EXPECT_FALSE(tpm_state.IsEnabled());
   EXPECT_TRUE(tpm_state.WasShutdownOrderly());
-  EXPECT_TRUE(tpm_state.IsRSASupported());
-  EXPECT_TRUE(tpm_state.IsECCSupported());
-  EXPECT_EQ(lockout_counter, tpm_state.GetLockoutCounter());
-  EXPECT_EQ(lockout_threshold, tpm_state.GetLockoutThreshold());
-  EXPECT_EQ(lockout_interval, tpm_state.GetLockoutInterval());
-  EXPECT_EQ(lockout_recovery, tpm_state.GetLockoutRecovery());
 }
 
 TEST_F(TpmStateTest, EnabledTpm) {
-  startup_clear_data_.data.tpm_properties.tpm_property[0].value =
-      ~kPlatformHierarchyMask;
   TpmStateImpl tpm_state(factory_);
-  EXPECT_EQ(TPM_RC_SUCCESS, tpm_state.Initialize());
-  EXPECT_FALSE(tpm_state.IsPlatformHierarchyEnabled());
-  EXPECT_TRUE(tpm_state.IsStorageHierarchyEnabled());
-  EXPECT_TRUE(tpm_state.IsEndorsementHierarchyEnabled());
+  ASSERT_EQ(TPM_RC_SUCCESS, tpm_state.Initialize());
   EXPECT_TRUE(tpm_state.IsEnabled());
-  EXPECT_TRUE(tpm_state.WasShutdownOrderly());
+  // All hierarchies enabled.
+  fake_tpm_properties_[TPM_PT_STARTUP_CLEAR] = 0x7;
+  ASSERT_EQ(TPM_RC_SUCCESS, tpm_state.Initialize());
+  EXPECT_FALSE(tpm_state.IsEnabled());
+  // All hierarchies disabled.
+  fake_tpm_properties_[TPM_PT_STARTUP_CLEAR] = 0x0;
+  ASSERT_EQ(TPM_RC_SUCCESS, tpm_state.Initialize());
+  EXPECT_FALSE(tpm_state.IsEnabled());
+  // Storage disabled.
+  fake_tpm_properties_[TPM_PT_STARTUP_CLEAR] = 0x5;
+  ASSERT_EQ(TPM_RC_SUCCESS, tpm_state.Initialize());
+  EXPECT_FALSE(tpm_state.IsEnabled());
+  // Endorsement disabled.
+  fake_tpm_properties_[TPM_PT_STARTUP_CLEAR] = 0x3;
+  ASSERT_EQ(TPM_RC_SUCCESS, tpm_state.Initialize());
+  EXPECT_FALSE(tpm_state.IsEnabled());
 }
 
-TEST_F(TpmStateTest, BadResponsePermanentCapabilityType) {
-  permanent_data_.capability = 0xFFFFF;
+TEST_F(TpmStateTest, OwnedTpm) {
+  TpmStateImpl tpm_state(factory_);
+  ASSERT_EQ(TPM_RC_SUCCESS, tpm_state.Initialize());
+  EXPECT_TRUE(tpm_state.IsOwned());
+  // All auth missing.
+  fake_tpm_properties_[TPM_PT_PERMANENT] = 0x0;
+  ASSERT_EQ(TPM_RC_SUCCESS, tpm_state.Initialize());
+  EXPECT_FALSE(tpm_state.IsOwned());
+  // Owner auth missing.
+  fake_tpm_properties_[TPM_PT_PERMANENT] = 0x6;
+  ASSERT_EQ(TPM_RC_SUCCESS, tpm_state.Initialize());
+  EXPECT_FALSE(tpm_state.IsOwned());
+  // Endorsement auth missing.
+  fake_tpm_properties_[TPM_PT_PERMANENT] = 0x5;
+  ASSERT_EQ(TPM_RC_SUCCESS, tpm_state.Initialize());
+  EXPECT_FALSE(tpm_state.IsOwned());
+  // Lockout auth missing.
+  fake_tpm_properties_[TPM_PT_PERMANENT] = 0x3;
+  ASSERT_EQ(TPM_RC_SUCCESS, tpm_state.Initialize());
+  EXPECT_FALSE(tpm_state.IsOwned());
+}
+
+TEST_F(TpmStateTest, AlgorithmSupport) {
+  TpmStateImpl tpm_state(factory_);
+  ASSERT_EQ(TPM_RC_SUCCESS, tpm_state.Initialize());
+  EXPECT_TRUE(tpm_state.IsRSASupported());
+  EXPECT_TRUE(tpm_state.IsECCSupported());
+
+  fake_algorithm_properties_.clear();
+  // Use a new instance because algorithm properties will not be queried again.
+  TpmStateImpl tpm_state2(factory_);
+  ASSERT_EQ(TPM_RC_SUCCESS, tpm_state2.Initialize());
+  EXPECT_FALSE(tpm_state2.IsRSASupported());
+  EXPECT_FALSE(tpm_state2.IsECCSupported());
+}
+
+TEST_F(TpmStateTest, LockoutValuePassthrough) {
+  TpmStateImpl tpm_state(factory_);
+  ASSERT_EQ(TPM_RC_SUCCESS, tpm_state.Initialize());
+  EXPECT_EQ(tpm_state.GetLockoutCounter(),
+            fake_tpm_properties_[TPM_PT_LOCKOUT_COUNTER]);
+  EXPECT_EQ(tpm_state.GetLockoutThreshold(),
+            fake_tpm_properties_[TPM_PT_MAX_AUTH_FAIL]);
+  EXPECT_EQ(tpm_state.GetLockoutInterval(),
+            fake_tpm_properties_[TPM_PT_LOCKOUT_INTERVAL]);
+  EXPECT_EQ(tpm_state.GetLockoutRecovery(),
+            fake_tpm_properties_[TPM_PT_LOCKOUT_RECOVERY]);
+
+  fake_tpm_properties_[TPM_PT_LOCKOUT_COUNTER]++;
+  fake_tpm_properties_[TPM_PT_MAX_AUTH_FAIL]++;
+  fake_tpm_properties_[TPM_PT_LOCKOUT_INTERVAL]++;
+  fake_tpm_properties_[TPM_PT_LOCKOUT_RECOVERY]++;
+  // Refresh and check for the new values.
+  ASSERT_EQ(TPM_RC_SUCCESS, tpm_state.Initialize());
+  EXPECT_EQ(tpm_state.GetLockoutCounter(),
+            fake_tpm_properties_[TPM_PT_LOCKOUT_COUNTER]);
+  EXPECT_EQ(tpm_state.GetLockoutThreshold(),
+            fake_tpm_properties_[TPM_PT_MAX_AUTH_FAIL]);
+  EXPECT_EQ(tpm_state.GetLockoutInterval(),
+            fake_tpm_properties_[TPM_PT_LOCKOUT_INTERVAL]);
+  EXPECT_EQ(tpm_state.GetLockoutRecovery(),
+            fake_tpm_properties_[TPM_PT_LOCKOUT_RECOVERY]);
+}
+
+TEST_F(TpmStateTest, MaxNVSize) {
+  auto CheckMaxNVSize = [this]() {
+    TpmStateImpl tpm_state(factory_);
+    ASSERT_EQ(TPM_RC_SUCCESS, tpm_state.Initialize());
+    bool has_index = fake_tpm_properties_.count(TPM_PT_NV_INDEX_MAX) > 0;
+    bool has_buffer = fake_tpm_properties_.count(TPM_PT_NV_BUFFER_MAX) > 0;
+    if (has_index && has_buffer) {
+      EXPECT_EQ(tpm_state.GetMaxNVSize(),
+                std::min(fake_tpm_properties_[TPM_PT_NV_INDEX_MAX],
+                         fake_tpm_properties_[TPM_PT_NV_BUFFER_MAX]));
+    } else if (has_index) {
+      EXPECT_EQ(tpm_state.GetMaxNVSize(),
+                fake_tpm_properties_[TPM_PT_NV_INDEX_MAX]);
+    } else if (has_buffer) {
+      EXPECT_EQ(tpm_state.GetMaxNVSize(),
+                fake_tpm_properties_[TPM_PT_NV_BUFFER_MAX]);
+    } else {
+      // Check for a reasonable default value. Brillo specs a minimum of 2048 so
+      // it shouldn't be less than that.
+      EXPECT_GE(tpm_state.GetMaxNVSize(), 2048u);
+    }
+  };
+  // Check with the defaults (same index and buffer max).
+  CheckMaxNVSize();
+  // Check with lower buffer max.
+  fake_tpm_properties_[TPM_PT_NV_INDEX_MAX] = 20;
+  fake_tpm_properties_[TPM_PT_NV_BUFFER_MAX] = 10;
+  CheckMaxNVSize();
+  // Check with lower index max.
+  fake_tpm_properties_[TPM_PT_NV_INDEX_MAX] = 10;
+  fake_tpm_properties_[TPM_PT_NV_BUFFER_MAX] = 20;
+  CheckMaxNVSize();
+  // Check without index property.
+  fake_tpm_properties_.erase(TPM_PT_NV_INDEX_MAX);
+  fake_tpm_properties_[TPM_PT_NV_BUFFER_MAX] = 5;
+  CheckMaxNVSize();
+  // Check without buffer property.
+  fake_tpm_properties_[TPM_PT_NV_INDEX_MAX] = 5;
+  fake_tpm_properties_.erase(TPM_PT_NV_BUFFER_MAX);
+  CheckMaxNVSize();
+  // Check without any properties.
+  fake_tpm_properties_.erase(TPM_PT_NV_INDEX_MAX);
+  fake_tpm_properties_.erase(TPM_PT_NV_BUFFER_MAX);
+  CheckMaxNVSize();
+}
+
+TEST_F(TpmStateTest, RawTpmProperty) {
+  constexpr TPM_PT kProperty = 0x2FF;
+  TpmStateImpl tpm_state(factory_);
+  ASSERT_EQ(TPM_RC_SUCCESS, tpm_state.Initialize());
+  EXPECT_FALSE(tpm_state.GetTpmProperty(kProperty, nullptr));
+  uint32_t value;
+  EXPECT_FALSE(tpm_state.GetTpmProperty(kProperty, &value));
+
+  fake_tpm_properties_[kProperty] = 1234;
+  ASSERT_EQ(TPM_RC_SUCCESS, tpm_state.Initialize());
+  EXPECT_TRUE(tpm_state.GetTpmProperty(kProperty, nullptr));
+  EXPECT_TRUE(tpm_state.GetTpmProperty(kProperty, &value));
+  EXPECT_EQ(value, fake_tpm_properties_[kProperty]);
+}
+
+TEST_F(TpmStateTest, RawAlgorithmProperties) {
+  constexpr TPM_ALG_ID kAlgorithm = 0x39;
+  TpmStateImpl tpm_state(factory_);
+  ASSERT_EQ(TPM_RC_SUCCESS, tpm_state.Initialize());
+  EXPECT_FALSE(tpm_state.GetAlgorithmProperties(kAlgorithm, nullptr));
+  uint32_t value;
+  EXPECT_FALSE(tpm_state.GetAlgorithmProperties(kAlgorithm, &value));
+
+  fake_algorithm_properties_[kAlgorithm] = 1234;
+  TpmStateImpl tpm_state2(factory_);
+  ASSERT_EQ(TPM_RC_SUCCESS, tpm_state2.Initialize());
+  EXPECT_TRUE(tpm_state2.GetAlgorithmProperties(kAlgorithm, nullptr));
+  EXPECT_TRUE(tpm_state2.GetAlgorithmProperties(kAlgorithm, &value));
+  EXPECT_EQ(value, fake_algorithm_properties_[kAlgorithm]);
+}
+
+TEST_F(TpmStateTest, InitFailOnMissingPermanentFlags) {
+  fake_tpm_properties_.erase(TPM_PT_PERMANENT);
   TpmStateImpl tpm_state(factory_);
   EXPECT_NE(TPM_RC_SUCCESS, tpm_state.Initialize());
 }
 
-TEST_F(TpmStateTest, BadResponseStartupClearCapabilityType) {
-  startup_clear_data_.capability = 0xFFFFF;
+TEST_F(TpmStateTest, InitFailOnMissingStartupClearFlags) {
+  fake_tpm_properties_.erase(TPM_PT_STARTUP_CLEAR);
   TpmStateImpl tpm_state(factory_);
   EXPECT_NE(TPM_RC_SUCCESS, tpm_state.Initialize());
 }
 
-TEST_F(TpmStateTest, BadResponseLockoutCounterCapabilityType) {
-  lockout_counter_.capability = 0xFFFFF;
+TEST_F(TpmStateTest, InitFailOnFailedTPMCommand) {
+  EXPECT_CALL(mock_tpm_, GetCapabilitySync(_, _, _, _, _, _))
+      .WillRepeatedly(Return(TPM_RC_FAILURE));
   TpmStateImpl tpm_state(factory_);
-  EXPECT_NE(TPM_RC_SUCCESS, tpm_state.Initialize());
-}
-
-TEST_F(TpmStateTest, BadResponseLockoutThresholdCapabilityType) {
-  lockout_threshold_.capability = 0xFFFFF;
-  TpmStateImpl tpm_state(factory_);
-  EXPECT_NE(TPM_RC_SUCCESS, tpm_state.Initialize());
-}
-
-TEST_F(TpmStateTest, BadResponseLockoutIntervalCapabilityType) {
-  lockout_interval_.capability = 0xFFFFF;
-  TpmStateImpl tpm_state(factory_);
-  EXPECT_NE(TPM_RC_SUCCESS, tpm_state.Initialize());
-}
-
-TEST_F(TpmStateTest, BadResponseLockoutRecoveryCapabilityType) {
-  lockout_recovery_.capability = 0xFFFFF;
-  TpmStateImpl tpm_state(factory_);
-  EXPECT_NE(TPM_RC_SUCCESS, tpm_state.Initialize());
-}
-
-TEST_F(TpmStateTest, BadResponseRSAAlgCapabilityType) {
-  rsa_data_.capability = 0xFFFFF;
-  TpmStateImpl tpm_state(factory_);
-  EXPECT_NE(TPM_RC_SUCCESS, tpm_state.Initialize());
-}
-
-TEST_F(TpmStateTest, BadResponseECCAlgCapabilityType) {
-  ecc_data_.capability = 0xFFFFF;
-  TpmStateImpl tpm_state(factory_);
-  EXPECT_NE(TPM_RC_SUCCESS, tpm_state.Initialize());
-}
-
-TEST_F(TpmStateTest, BadResponsePermanentPropertyCount) {
-  permanent_data_.data.tpm_properties.count = 0;
-  TpmStateImpl tpm_state(factory_);
-  EXPECT_NE(TPM_RC_SUCCESS, tpm_state.Initialize());
-}
-
-TEST_F(TpmStateTest, BadResponseStartupClearPropertyCount) {
-  startup_clear_data_.data.tpm_properties.count = 0;
-  TpmStateImpl tpm_state(factory_);
-  EXPECT_NE(TPM_RC_SUCCESS, tpm_state.Initialize());
-}
-
-TEST_F(TpmStateTest, BadResponseLockoutCounterPropertyCount) {
-  lockout_counter_.data.tpm_properties.count = 0;
-  TpmStateImpl tpm_state(factory_);
-  EXPECT_NE(TPM_RC_SUCCESS, tpm_state.Initialize());
-}
-
-TEST_F(TpmStateTest, BadResponseLockoutThresholdPropertyCount) {
-  lockout_threshold_.data.tpm_properties.count = 0;
-  TpmStateImpl tpm_state(factory_);
-  EXPECT_NE(TPM_RC_SUCCESS, tpm_state.Initialize());
-}
-
-TEST_F(TpmStateTest, BadResponseLockoutIntervalPropertyCount) {
-  lockout_interval_.data.tpm_properties.count = 0;
-  TpmStateImpl tpm_state(factory_);
-  EXPECT_NE(TPM_RC_SUCCESS, tpm_state.Initialize());
-}
-
-TEST_F(TpmStateTest, BadResponseLockoutRecoveryPropertyCount) {
-  lockout_recovery_.data.tpm_properties.count = 0;
-  TpmStateImpl tpm_state(factory_);
-  EXPECT_NE(TPM_RC_SUCCESS, tpm_state.Initialize());
-}
-
-TEST_F(TpmStateTest, BadResponseRSAAlgPropertyCount) {
-  rsa_data_.data.algorithms.count = 0;
-  TpmStateImpl tpm_state(factory_);
-  EXPECT_NE(TPM_RC_SUCCESS, tpm_state.Initialize());
-}
-
-TEST_F(TpmStateTest, BadResponseECCAlgPropertyCount) {
-  ecc_data_.data.algorithms.count = 0;
-  TpmStateImpl tpm_state(factory_);
-  EXPECT_NE(TPM_RC_SUCCESS, tpm_state.Initialize());
-}
-
-TEST_F(TpmStateTest, BadResponsePermanentPropertyType) {
-  permanent_data_.data.tpm_properties.tpm_property[0].property = 0xFFFFF;
-  TpmStateImpl tpm_state(factory_);
-  EXPECT_NE(TPM_RC_SUCCESS, tpm_state.Initialize());
-}
-
-TEST_F(TpmStateTest, BadResponseStartupClearPropertyType) {
-  startup_clear_data_.data.tpm_properties.tpm_property[0].property = 0xFFFFF;
-  TpmStateImpl tpm_state(factory_);
-  EXPECT_NE(TPM_RC_SUCCESS, tpm_state.Initialize());
-}
-
-TEST_F(TpmStateTest, BadResponseLockoutCounterPropertyType) {
-  lockout_counter_.data.tpm_properties.tpm_property[0].property = 0xFFFFF;
-  TpmStateImpl tpm_state(factory_);
-  EXPECT_NE(TPM_RC_SUCCESS, tpm_state.Initialize());
-}
-
-TEST_F(TpmStateTest, BadResponseLockoutThresholdPropertyType) {
-  lockout_threshold_.data.tpm_properties.tpm_property[0].property = 0xFFFFF;
-  TpmStateImpl tpm_state(factory_);
-  EXPECT_NE(TPM_RC_SUCCESS, tpm_state.Initialize());
-}
-
-TEST_F(TpmStateTest, BadResponseLockoutIntervalPropertyType) {
-  lockout_interval_.data.tpm_properties.tpm_property[0].property = 0xFFFFF;
-  TpmStateImpl tpm_state(factory_);
-  EXPECT_NE(TPM_RC_SUCCESS, tpm_state.Initialize());
-}
-
-TEST_F(TpmStateTest, BadResponseLockoutRecoveryPropertyType) {
-  lockout_recovery_.data.tpm_properties.tpm_property[0].property = 0xFFFFF;
-  TpmStateImpl tpm_state(factory_);
-  EXPECT_NE(TPM_RC_SUCCESS, tpm_state.Initialize());
+  EXPECT_EQ(TPM_RC_FAILURE, tpm_state.Initialize());
 }
 
 }  // namespace trunks

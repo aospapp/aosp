@@ -1,3 +1,5 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 2012-2016, Google, International Business Machines Corporation and
@@ -13,9 +15,10 @@ import java.util.Iterator;
 import java.util.Locale;
 
 import com.ibm.icu.impl.ICUCache;
+import com.ibm.icu.impl.ICUData;
 import com.ibm.icu.impl.ICUResourceBundle;
 import com.ibm.icu.impl.SimpleCache;
-import com.ibm.icu.impl.SimplePatternFormatter;
+import com.ibm.icu.impl.SimpleFormatterImpl;
 import com.ibm.icu.util.ULocale;
 import com.ibm.icu.util.UResourceBundle;
 
@@ -27,7 +30,7 @@ import com.ibm.icu.util.UResourceBundle;
  * @stable ICU 50
  */
 final public class ListFormatter {
-    // Compiled SimplePatternFormatter patterns.
+    // Compiled SimpleFormatter patterns.
     private final String two;
     private final String start;
     private final String middle;
@@ -124,7 +127,7 @@ final public class ListFormatter {
     }
 
     private static String compilePattern(String pattern, StringBuilder sb) {
-        return SimplePatternFormatter.compileToStringMinMaxPlaceholders(pattern, sb, 2, 2);
+        return SimpleFormatterImpl.compileToStringMinMaxArguments(pattern, sb, 2, 2);
     }
 
     /**
@@ -269,7 +272,7 @@ final public class ListFormatter {
         // is true, records the offset of next in the formatted string.
         public FormattedListBuilder append(String pattern, Object next, boolean recordOffset) {
             int[] offsets = (recordOffset || offsetRecorded()) ? new int[2] : null;
-            SimplePatternFormatter.formatAndReplace(
+            SimpleFormatterImpl.formatAndReplace(
                     pattern, current, offsets, current, next.toString());
             if (offsets != null) {
                 if (offsets[0] == -1 || offsets[1] == -1) {
@@ -316,7 +319,7 @@ final public class ListFormatter {
 
         private static ListFormatter load(ULocale ulocale, String style) {
             ICUResourceBundle r = (ICUResourceBundle)UResourceBundle.
-                    getBundleInstance(ICUResourceBundle.ICU_BASE_NAME, ulocale);
+                    getBundleInstance(ICUData.ICU_BASE_NAME, ulocale);
             StringBuilder sb = new StringBuilder();
             return new ListFormatter(
                 compilePattern(r.getWithFallback("listPattern/" + style + "/2").getString(), sb),

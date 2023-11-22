@@ -100,10 +100,10 @@ icv_variance_8x4_av8:
     addp    v20.2s,     v20.2s,  v20.2s
 
     // Sum(values)
-    smov    x0,     v4.4h[0]
+    smov    x0,     v4.h[0]
 
     // SumOfSquares
-    smov    x1,     v20.2s[0]
+    smov    x1,     v20.s[0]
 
     // SquareOfSums
     mul     x3,     x0,     x0

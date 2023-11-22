@@ -16,8 +16,8 @@
 
 #include "rsContext.h"
 
-using namespace android;
-using namespace android::renderscript;
+namespace android {
+namespace renderscript {
 
 extern "C" void rsaElementGetNativeData(RsContext con, RsElement elem,
                              uint32_t *elemData, uint32_t elemDataSize) {
@@ -44,3 +44,6 @@ extern "C" void rsaElementGetSubElements(RsContext con, RsElement elem, uintptr_
         arraySizes[i] = e->getFieldArraySize(i);
     }
 }
+
+} // namespace renderscript
+} // namespace android

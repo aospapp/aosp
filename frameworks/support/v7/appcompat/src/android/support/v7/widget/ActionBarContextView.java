@@ -16,8 +16,11 @@
 
 package android.support.v7.widget;
 
+import static android.support.annotation.RestrictTo.Scope.LIBRARY_GROUP;
+
 import android.content.Context;
-import android.os.Build;
+import android.support.annotation.RestrictTo;
+import android.support.v4.view.ViewCompat;
 import android.support.v7.appcompat.R;
 import android.support.v7.view.ActionMode;
 import android.support.v7.view.menu.MenuBuilder;
@@ -33,6 +36,7 @@ import android.widget.TextView;
 /**
  * @hide
  */
+@RestrictTo(LIBRARY_GROUP)
 public class ActionBarContextView extends AbsActionBarView {
     private static final String TAG = "ActionBarContextView";
 
@@ -62,8 +66,7 @@ public class ActionBarContextView extends AbsActionBarView {
 
         final TintTypedArray a = TintTypedArray.obtainStyledAttributes(context, attrs,
                 R.styleable.ActionMode, defStyle, 0);
-        setBackgroundDrawable(a.getDrawable(
-                R.styleable.ActionMode_background));
+        ViewCompat.setBackground(this, a.getDrawable(R.styleable.ActionMode_background));
         mTitleStyleRes = a.getResourceId(
                 R.styleable.ActionMode_titleTextStyle, 0);
         mSubtitleStyleRes = a.getResourceId(
@@ -88,6 +91,7 @@ public class ActionBarContextView extends AbsActionBarView {
         }
     }
 
+    @Override
     public void setContentHeight(int height) {
         mContentHeight = height;
     }
@@ -163,6 +167,7 @@ public class ActionBarContextView extends AbsActionBarView {
 
         View closeButton = mClose.findViewById(R.id.action_mode_close_button);
         closeButton.setOnClickListener(new OnClickListener() {
+            @Override
             public void onClick(View v) {
                 mode.finish();
             }
@@ -179,7 +184,7 @@ public class ActionBarContextView extends AbsActionBarView {
                 LayoutParams.MATCH_PARENT);
         menu.addMenuPresenter(mActionMenuPresenter, mPopupContext);
         mMenuView = (ActionMenuView) mActionMenuPresenter.getMenuView(this);
-        mMenuView.setBackgroundDrawable(null);
+        ViewCompat.setBackground(mMenuView, null);
         addView(mMenuView, layoutParams);
     }
 
@@ -350,16 +355,14 @@ public class ActionBarContextView extends AbsActionBarView {
 
     @Override
     public void onInitializeAccessibilityEvent(AccessibilityEvent event) {
-        if (Build.VERSION.SDK_INT >= 14) {
-            if (event.getEventType() == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
-                // Action mode started
-                event.setSource(this);
-                event.setClassName(getClass().getName());
-                event.setPackageName(getContext().getPackageName());
-                event.setContentDescription(mTitle);
-            } else {
-                super.onInitializeAccessibilityEvent(event);
-            }
+        if (event.getEventType() == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
+            // Action mode started
+            event.setSource(this);
+            event.setClassName(getClass().getName());
+            event.setPackageName(getContext().getPackageName());
+            event.setContentDescription(mTitle);
+        } else {
+            super.onInitializeAccessibilityEvent(event);
         }
     }
 

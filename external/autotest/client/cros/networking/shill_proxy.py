@@ -48,6 +48,13 @@ class ShillProxy(object):
     MANAGER_PROPERTY_PROFILES = 'Profiles'
     MANAGER_PROPERTY_SERVICES = 'Services'
     MANAGER_PROPERTY_ALL_SERVICES = 'ServiceCompleteList'
+    MANAGER_PROPERTY_DHCPPROPERTY_HOSTNAME = 'DHCPProperty.Hostname'
+    MANAGER_PROPERTY_DHCPPROPERTY_VENDORCLASS = 'DHCPProperty.VendorClass'
+
+    MANAGER_OPTIONAL_PROPERTY_MAP = {
+        MANAGER_PROPERTY_DHCPPROPERTY_HOSTNAME: dbus.String,
+        MANAGER_PROPERTY_DHCPPROPERTY_VENDORCLASS: dbus.String
+    }
 
     PROFILE_PROPERTY_ENTRIES = 'Entries'
     PROFILE_PROPERTY_NAME = 'Name'
@@ -296,6 +303,28 @@ class ShillProxy(object):
             dbus_class = properties[property_key].__class__
             interface.SetProperty(property_key,
                     ShillProxy.str2dbus(dbus_class, value))
+
+
+    @staticmethod
+    def set_optional_dbus_property(interface, property_key, value):
+        """set an optional property on a dbus Interface.
+
+        This method can be used for properties that are optionally listed
+        in the profile.  It skips the initial check of the property
+        being in the interface.GetProperties list.
+
+        @param interface dbus Interface to receive new setting
+        @param property_key string name of property on interface
+        @param value string value to set for property on interface from string
+
+        """
+        if property_key not in ShillProxy.MANAGER_OPTIONAL_PROPERTY_MAP:
+                raise ShillProxyError('Unsupported property %s' %
+                                      (property_key))
+        else:
+            dbus_class = ShillProxy.MANAGER_OPTIONAL_PROPERTY_MAP[property_key]
+            interface.SetProperty(property_key,
+                                  ShillProxy.str2dbus(dbus_class, value))
 
 
     @classmethod

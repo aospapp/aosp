@@ -30,7 +30,7 @@ public:
 
     ObjectBaseRef<const Element> mElement;
 
-    ScriptIntrinsic(Context *);
+    explicit ScriptIntrinsic(Context *);
     ~ScriptIntrinsic() override;
 
     bool init(Context *rsc, RsScriptIntrinsicID iid, Element *e);
@@ -63,6 +63,6 @@ protected:
 };
 
 
-}
-}
+} // namespace renderscript
+} // namespace android
 #endif

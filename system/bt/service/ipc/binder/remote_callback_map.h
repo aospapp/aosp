@@ -34,7 +34,7 @@ namespace binder {
 // TODO(armansito): We should make this class non-final and the template
 // interface abstract, so that code that depends on this can be unit tested
 // against a mock version of this class.
-template<typename K, typename V>
+template <typename K, typename V>
 class RemoteCallbackMap final {
  public:
   RemoteCallbackMap() = default;
@@ -60,8 +60,7 @@ class RemoteCallbackMap final {
   //
   // An optional |delegate| can be passed which will be assocated with the given
   // key/value pair. |delegate| must outlive this map.
-  bool Register(const K& key,
-                const android::sp<V>& callback,
+  bool Register(const K& key, const android::sp<V>& callback,
                 Delegate* delegate = nullptr);
 
   // Unregisters a previously registered callback with the given key. Returns
@@ -82,11 +81,8 @@ class RemoteCallbackMap final {
  private:
   class CallbackDeathRecipient : public android::IBinder::DeathRecipient {
    public:
-    CallbackDeathRecipient(
-        const K& key,
-        const android::sp<V>& callback,
-        RemoteCallbackMap<K, V>* owner,
-        Delegate* delegate);
+    CallbackDeathRecipient(const K& key, const android::sp<V>& callback,
+                           RemoteCallbackMap<K, V>* owner, Delegate* delegate);
 
     android::sp<V> get_callback() const { return callback_; }
 
@@ -97,7 +93,7 @@ class RemoteCallbackMap final {
     K key_;
     android::sp<V> callback_;
     RemoteCallbackMap<K, V>* owner_;  // weak
-    Delegate* delegate_;  // weak
+    Delegate* delegate_;              // weak
   };
 
   // Typedef for internal map container.
@@ -122,16 +118,14 @@ using android::wp;
 using std::lock_guard;
 using std::mutex;
 
-template<typename K, typename V>
+template <typename K, typename V>
 RemoteCallbackMap<K, V>::~RemoteCallbackMap() {
   Clear();
 }
 
-template<typename K, typename V>
-bool RemoteCallbackMap<K, V>::Register(
-    const K& key,
-    const sp<V>& callback,
-    Delegate* delegate) {
+template <typename K, typename V>
+bool RemoteCallbackMap<K, V>::Register(const K& key, const sp<V>& callback,
+                                       Delegate* delegate) {
   lock_guard<mutex> lock(map_lock_);
 
   if (map_.find(key) != map_.end()) {
@@ -154,7 +148,7 @@ bool RemoteCallbackMap<K, V>::Register(
   return true;
 }
 
-template<typename K, typename V>
+template <typename K, typename V>
 bool RemoteCallbackMap<K, V>::Unregister(const K& key) {
   lock_guard<mutex> lock(map_lock_);
 
@@ -167,31 +161,29 @@ bool RemoteCallbackMap<K, V>::Unregister(const K& key) {
   return UnregisterInternal(iter);
 }
 
-template<typename K, typename V>
+template <typename K, typename V>
 sp<V> RemoteCallbackMap<K, V>::Get(const K& key) {
   lock_guard<mutex> lock(map_lock_);
 
   auto iter = map_.find(key);
-  if (iter == map_.end())
-    return nullptr;
+  if (iter == map_.end()) return nullptr;
 
   return iter->second->get_callback();
 }
 
-template<typename K, typename V>
+template <typename K, typename V>
 sp<V> RemoteCallbackMap<K, V>::Remove(const K& key) {
   lock_guard<mutex> lock(map_lock_);
 
   auto iter = map_.find(key);
-  if (iter == map_.end())
-    return nullptr;
+  if (iter == map_.end()) return nullptr;
 
   sp<V> val = iter->second->get_callback();
   UnregisterInternal(iter);
 
   return val;
 }
-template<typename K, typename V>
+template <typename K, typename V>
 void RemoteCallbackMap<K, V>::Clear() {
   lock_guard<mutex> lock(map_lock_);
 
@@ -199,7 +191,7 @@ void RemoteCallbackMap<K, V>::Clear() {
     UnregisterInternal(iter++);
 }
 
-template<typename K, typename V>
+template <typename K, typename V>
 bool RemoteCallbackMap<K, V>::UnregisterInternal(
     typename CallbackMap::iterator iter) {
   sp<CallbackDeathRecipient> dr = iter->second;
@@ -220,20 +212,15 @@ bool RemoteCallbackMap<K, V>::UnregisterInternal(
   return true;
 }
 
-template<typename K, typename V>
+template <typename K, typename V>
 RemoteCallbackMap<K, V>::CallbackDeathRecipient::CallbackDeathRecipient(
-    const K& key,
-    const sp<V>& callback,
-    RemoteCallbackMap<K, V>* owner,
+    const K& key, const sp<V>& callback, RemoteCallbackMap<K, V>* owner,
     Delegate* delegate)
-    : key_(key),
-      callback_(callback),
-      owner_(owner),
-      delegate_(delegate) {
+    : key_(key), callback_(callback), owner_(owner), delegate_(delegate) {
   CHECK(callback_.get());
 }
 
-template<typename K, typename V>
+template <typename K, typename V>
 void RemoteCallbackMap<K, V>::CallbackDeathRecipient::binderDied(
     const wp<IBinder>& who) {
   VLOG(1) << "Received binderDied";
@@ -252,8 +239,7 @@ void RemoteCallbackMap<K, V>::CallbackDeathRecipient::binderDied(
   VLOG(1) << "Callback from dead process unregistered; notifying delegate";
 
   // Notify delegate.
-  if (delegate_)
-    delegate_->OnRemoteCallbackRemoved(key_);
+  if (delegate_) delegate_->OnRemoteCallbackRemoved(key_);
 }
 
 }  // namespace binder

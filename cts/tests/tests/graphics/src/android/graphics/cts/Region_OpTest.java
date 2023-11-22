@@ -16,12 +16,19 @@
 
 package android.graphics.cts;
 
-import android.graphics.Region;
+import static org.junit.Assert.assertEquals;
+
 import android.graphics.Region.Op;
-import android.test.AndroidTestCase;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 
-public class Region_OpTest extends AndroidTestCase {
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class Region_OpTest {
+    @Test
     public void testValueOf() {
         assertEquals(Op.DIFFERENCE, Op.valueOf("DIFFERENCE"));
         assertEquals(Op.INTERSECT, Op.valueOf("INTERSECT"));
@@ -30,10 +37,11 @@ public class Region_OpTest extends AndroidTestCase {
         assertEquals(Op.REVERSE_DIFFERENCE, Op.valueOf("REVERSE_DIFFERENCE"));
         assertEquals(Op.REPLACE, Op.valueOf("REPLACE"));
         // Every Op element has been tested in testOp1(), testOp2(), testOp3(),
-        // testOp4() and testOp5(), {@link RegionTest}.
+        // testOp4() and testOp5() in the {@link RegionTest}.
         // Every Op element indicates one operation type.
     }
 
+    @Test
     public void testValues() {
         // set the expected value
         Op[] expected = {
@@ -42,7 +50,7 @@ public class Region_OpTest extends AndroidTestCase {
                 Op.UNION,
                 Op.XOR,
                 Op.REVERSE_DIFFERENCE,
-                Op.REPLACE};
+                Op.REPLACE };
         Op[] actual = Op.values();
         assertEquals(expected.length, actual.length);
         assertEquals(expected[0], actual[0]);
@@ -52,5 +60,4 @@ public class Region_OpTest extends AndroidTestCase {
         assertEquals(expected[4], actual[4]);
         assertEquals(expected[5], actual[5]);
     }
-
 }

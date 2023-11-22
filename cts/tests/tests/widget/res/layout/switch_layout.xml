@@ -15,11 +15,31 @@
   ~ limitations under the License
   -->
 
-<Switch xmlns:android="http://schemas.android.com/apk/res/android"
-        android:id="@+id/switch_view"
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/container"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical">
+
+    <Switch
+        android:id="@+id/switch1"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:thumbTint="@android:color/white"
         android:thumbTintMode="src_over"
         android:trackTint="@android:color/black"
         android:trackTintMode="src_atop" />
+
+    <Switch
+        android:id="@+id/switch2"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:thumb="@drawable/icon_blue"
+        android:track="@drawable/red_translucent_fill" />
+
+    <Switch
+        android:id="@+id/switch3"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content" />
+</LinearLayout>

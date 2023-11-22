@@ -16,6 +16,7 @@
 
 package android.location.cts;
 
+import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
@@ -46,4 +47,14 @@ public class TestUtils {
         }
         return false;
     }
+    public static boolean waitForWithCondition(int timeInSec, Callable<Boolean> callback)
+        throws Exception {
+        long waitTimeRounds = (TimeUnit.SECONDS.toMillis(timeInSec)) / STANDARD_SLEEP_TIME_MS;
+        for (int i = 0; i < waitTimeRounds; ++i) {
+            Thread.sleep(STANDARD_SLEEP_TIME_MS);
+            if(callback.call()) return true;
+        }
+        return false;
+    }
+
 }

@@ -24,6 +24,7 @@ import java.net.UnknownHostException;
 import java.security.KeyStore;
 import java.security.SecureRandom;
 import java.util.Arrays;
+import java.util.Base64;
 import javax.net.ssl.HandshakeCompletedEvent;
 import javax.net.ssl.HandshakeCompletedListener;
 import javax.net.ssl.KeyManager;
@@ -35,7 +36,6 @@ import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManager;
 import javax.security.cert.X509Certificate;
 import junit.framework.TestCase;
-import libcore.io.Base64;
 import libcore.java.security.StandardNames;
 import org.apache.harmony.tests.javax.net.ssl.HandshakeCompletedEventTest.TestTrustManager;
 
@@ -249,6 +249,7 @@ public class SSLSocketTest extends TestCase {
 
         try {
             ssl.removeHandshakeCompletedListener(ls);
+            fail();
         } catch (IllegalArgumentException expected) {
         }
 
@@ -586,7 +587,7 @@ public class SSLSocketTest extends TestCase {
      * for the result.
      */
     private KeyManager[] getKeyManagers(String keys) throws Exception {
-        byte[] bytes = Base64.decode(keys.getBytes());
+        byte[] bytes = Base64.getDecoder().decode(keys.getBytes());
         InputStream inputStream = new ByteArrayInputStream(bytes);
 
         KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());

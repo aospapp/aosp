@@ -10,7 +10,9 @@
 #include "base/macros.h"
 #include "base/metrics/histogram_delta_serialization.h"
 #include "base/metrics/histogram_macros.h"
+#include "base/metrics/sample_vector.h"
 #include "base/metrics/statistics_recorder.h"
+#include "base/stl_util.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 namespace base {
@@ -22,6 +24,12 @@ class HistogramFlattenerDeltaRecorder : public HistogramFlattener {
   void RecordDelta(const HistogramBase& histogram,
                    const HistogramSamples& snapshot) override {
     recorded_delta_histogram_names_.push_back(histogram.histogram_name());
+    // Use CHECK instead of ASSERT to get full stack-trace and thus origin.
+    CHECK(!ContainsKey(recorded_delta_histogram_sum_,
+                       histogram.histogram_name()));
+    // Keep pointer to snapshot for testing. This really isn't ideal but the
+    // snapshot-manager keeps the snapshot alive until it's "forgotten".
+    recorded_delta_histogram_sum_[histogram.histogram_name()] = snapshot.sum();
   }
 
   void InconsistencyDetected(HistogramBase::Inconsistency problem) override {
@@ -37,12 +45,23 @@ class HistogramFlattenerDeltaRecorder : public HistogramFlattener {
     ASSERT_TRUE(false);
   }
 
+  void Reset() {
+    recorded_delta_histogram_names_.clear();
+    recorded_delta_histogram_sum_.clear();
+  }
+
   std::vector<std::string> GetRecordedDeltaHistogramNames() {
     return recorded_delta_histogram_names_;
   }
 
+  int64_t GetRecordedDeltaHistogramSum(const std::string& name) {
+    EXPECT_TRUE(ContainsKey(recorded_delta_histogram_sum_, name));
+    return recorded_delta_histogram_sum_[name];
+  }
+
  private:
   std::vector<std::string> recorded_delta_histogram_names_;
+  std::map<std::string, int64_t> recorded_delta_histogram_sum_;
 
   DISALLOW_COPY_AND_ASSIGN(HistogramFlattenerDeltaRecorder);
 };
@@ -50,22 +69,24 @@ class HistogramFlattenerDeltaRecorder : public HistogramFlattener {
 class HistogramSnapshotManagerTest : public testing::Test {
  protected:
   HistogramSnapshotManagerTest()
-      : histogram_snapshot_manager_(&histogram_flattener_delta_recorder_) {}
+      : statistics_recorder_(StatisticsRecorder::CreateTemporaryForTesting()),
+        histogram_snapshot_manager_(&histogram_flattener_delta_recorder_) {}
 
   ~HistogramSnapshotManagerTest() override {}
 
-  StatisticsRecorder statistics_recorder_;
+  std::unique_ptr<StatisticsRecorder> statistics_recorder_;
   HistogramFlattenerDeltaRecorder histogram_flattener_delta_recorder_;
   HistogramSnapshotManager histogram_snapshot_manager_;
 };
 
 TEST_F(HistogramSnapshotManagerTest, PrepareDeltasNoFlagsFilter) {
   // kNoFlags filter should record all histograms.
-  UMA_HISTOGRAM_ENUMERATION("UmaHistogram", 1, 2);
+  UMA_HISTOGRAM_ENUMERATION("UmaHistogram", 1, 4);
   UMA_STABILITY_HISTOGRAM_ENUMERATION("UmaStabilityHistogram", 1, 2);
 
-  histogram_snapshot_manager_.PrepareDeltas(HistogramBase::kNoFlags,
-                                            HistogramBase::kNoFlags);
+  histogram_snapshot_manager_.PrepareDeltas(
+      StatisticsRecorder::begin(false), StatisticsRecorder::end(),
+      HistogramBase::kNoFlags, HistogramBase::kNoFlags);
 
   const std::vector<std::string>& histograms =
       histogram_flattener_delta_recorder_.GetRecordedDeltaHistogramNames();
@@ -76,10 +97,11 @@ TEST_F(HistogramSnapshotManagerTest, PrepareDeltasNoFlagsFilter) {
 
 TEST_F(HistogramSnapshotManagerTest, PrepareDeltasUmaHistogramFlagFilter) {
   // Note that kUmaStabilityHistogramFlag includes kUmaTargetedHistogramFlag.
-  UMA_HISTOGRAM_ENUMERATION("UmaHistogram", 1, 2);
+  UMA_HISTOGRAM_ENUMERATION("UmaHistogram", 1, 4);
   UMA_STABILITY_HISTOGRAM_ENUMERATION("UmaStabilityHistogram", 1, 2);
 
   histogram_snapshot_manager_.PrepareDeltas(
+      StatisticsRecorder::begin(false), StatisticsRecorder::end(),
       HistogramBase::kNoFlags, HistogramBase::kUmaTargetedHistogramFlag);
 
   const std::vector<std::string>& histograms =
@@ -91,10 +113,11 @@ TEST_F(HistogramSnapshotManagerTest, PrepareDeltasUmaHistogramFlagFilter) {
 
 TEST_F(HistogramSnapshotManagerTest,
        PrepareDeltasUmaStabilityHistogramFlagFilter) {
-  UMA_HISTOGRAM_ENUMERATION("UmaHistogram", 1, 2);
+  UMA_HISTOGRAM_ENUMERATION("UmaHistogram", 1, 4);
   UMA_STABILITY_HISTOGRAM_ENUMERATION("UmaStabilityHistogram", 1, 2);
 
   histogram_snapshot_manager_.PrepareDeltas(
+      StatisticsRecorder::begin(false), StatisticsRecorder::end(),
       HistogramBase::kNoFlags, HistogramBase::kUmaStabilityHistogramFlag);
 
   const std::vector<std::string>& histograms =

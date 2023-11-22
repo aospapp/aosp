@@ -19,35 +19,37 @@
 
 #include <stdint.h>
 #include <sys/types.h>
-#include <UniquePtr.h>
+
+#include <memory>
 
 // ---------------------------------------------------------------------------
 
-namespace android {
+namespace minikin {
 
 // This is an implementation of a set of integers. It is optimized for
 // values that are somewhat sparse, in the ballpark of a maximum value
 // of thousands to millions. It is particularly efficient when there are
 // large gaps. The motivating example is Unicode coverage of a font, but
 // the abstraction itself is fully general.
-
 class SparseBitSet {
 public:
-    SparseBitSet(): mMaxVal(0) {
-    }
-
-    // Clear the set
-    void clear();
+    // Create an empty bit set.
+    SparseBitSet() : mMaxVal(0) {}
 
     // Initialize the set to a new value, represented by ranges. For
     // simplicity, these ranges are arranged as pairs of values,
     // inclusive of start, exclusive of end, laid out in a uint32 array.
-    void initFromRanges(const uint32_t* ranges, size_t nRanges);
+    SparseBitSet(const uint32_t* ranges, size_t nRanges) : SparseBitSet() {
+        initFromRanges(ranges, nRanges);
+    }
+
+    SparseBitSet(SparseBitSet&&) = default;
+    SparseBitSet& operator=(SparseBitSet&&) = default;
 
     // Determine whether the value is included in the set
     bool get(uint32_t ch) const {
         if (ch >= mMaxVal) return false;
-        uint32_t *bitmap = &mBitmaps[mIndices[ch >> kLogValuesPerPage]];
+        const uint32_t *bitmap = &mBitmaps[mIndices[ch >> kLogValuesPerPage]];
         uint32_t index = ch & kPageMask;
         return (bitmap[index >> kLogBitsPerEl] & (kElFirst >> (index & kElMask))) != 0;
     }
@@ -64,6 +66,9 @@ public:
     static const uint32_t kNotFound = ~0u;
 
 private:
+    void initFromRanges(const uint32_t* ranges, size_t nRanges);
+
+    static const uint32_t kMaximumCapacity = 0xFFFFFF;
     static const int kLogValuesPerPage = 8;
     static const int kPageMask = (1 << kLogValuesPerPage) - 1;
     static const int kLogBytesPerEl = 2;
@@ -73,20 +78,22 @@ private:
     typedef uint32_t element;
     static const element kElAllOnes = ~((element)0);
     static const element kElFirst = ((element)1) << kElMask;
-    static const uint32_t noZeroPage = ~0u;
+    static const uint16_t noZeroPage = 0xFFFF;
 
     static uint32_t calcNumPages(const uint32_t* ranges, size_t nRanges);
     static int CountLeadingZeros(element x);
 
     uint32_t mMaxVal;
-    UniquePtr<uint32_t[]> mIndices;
-    UniquePtr<element[]> mBitmaps;
-    uint32_t mZeroPageIndex;
+
+    std::unique_ptr<uint16_t[]> mIndices;
+    std::unique_ptr<element[]> mBitmaps;
+    uint16_t mZeroPageIndex;
+
+    // Forbid copy and assign.
+    SparseBitSet(const SparseBitSet&) = delete;
+    void operator=(const SparseBitSet&) = delete;
 };
 
-// Note: this thing cannot be used in vectors yet. If that were important, we'd need to
-// make the copy constructor work, and probably set up move traits as well.
-
-}; // namespace android
+}  // namespace minikin
 
 #endif // MINIKIN_SPARSE_BIT_SET_H

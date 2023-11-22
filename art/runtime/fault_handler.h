@@ -42,10 +42,9 @@ class FaultManager {
 
   // Unclaim signals and delete registered handlers.
   void Shutdown();
-  void EnsureArtActionInFrontOfSignalChain();
 
-  void HandleFault(int sig, siginfo_t* info, void* context);
-  void HandleNestedSignal(int sig, siginfo_t* info, void* context);
+  // Try to handle a fault, returns true if successful.
+  bool HandleFault(int sig, siginfo_t* info, void* context);
 
   // Added handlers are owned by the fault handler and will be freed on Shutdown().
   void AddHandler(FaultHandler* handler, bool generated_code);
@@ -95,6 +94,14 @@ class NullPointerHandler FINAL : public FaultHandler {
   explicit NullPointerHandler(FaultManager* manager);
 
   bool Action(int sig, siginfo_t* siginfo, void* context) OVERRIDE;
+
+  static bool IsValidImplicitCheck(siginfo_t* siginfo) {
+    // Our implicit NPE checks always limit the range to a page.
+    // Note that the runtime will do more exhaustive checks (that we cannot
+    // reasonably do in signal processing code) based on the dex instruction
+    // faulting.
+    return CanDoImplicitNullCheckOn(reinterpret_cast<uintptr_t>(siginfo->si_addr));
+  }
 
  private:
   DISALLOW_COPY_AND_ASSIGN(NullPointerHandler);

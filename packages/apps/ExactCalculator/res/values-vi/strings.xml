@@ -57,14 +57,18 @@
     <string name="desc_del" msgid="7879515781929311432">"gạch bỏ"</string>
     <string name="desc_inv_off" msgid="3672218250519616068">"hiển thị hàm nghịch"</string>
     <string name="desc_inv_on" msgid="2515675590767677178">"ẩn hàm nghịch"</string>
+    <string name="desc_formula" msgid="8056588859637585007">"Không có công thức"</string>
+    <string name="desc_result" msgid="1794073190203126821">"Không có kết quả nào"</string>
+    <string name="desc_num_pad" msgid="515720457459745571">"Số và phép tính cơ bản"</string>
+    <string name="desc_adv_pad" msgid="3794276256462677914">"Phép tính nâng cao"</string>
     <string name="error_nan" msgid="5674077944929888710">"Không phải số"</string>
     <string name="error_syntax" msgid="4786987111228645602">"Biểu thức không hợp lệ"</string>
     <string name="error_aborted" msgid="3402238176316342537">"Đã hủy bỏ"</string>
     <string name="error_overflow" msgid="7800547394563434764">"Vô hạn?"</string>
     <string name="error_zero_divide" msgid="458040988686661801">"Không chia được cho 0"</string>
     <string name="text_copied_toast" msgid="2104264466812485425">"Đã sao chép văn bản"</string>
-    <string name="cancelled" msgid="1618889609742874632">"Đã hủy phép tính"</string>
-    <string name="timeout" msgid="802690170415591535">"Đã hết thời gian chờ. Có thể giá trị là vô hạn hoặc không xác định."</string>
+    <string name="cancelled" msgid="2207323593183640994">"Đã hủy tính toán."</string>
+    <string name="timeout" msgid="5461892570729418573">"Có thể giá trị là vô hạn hoặc không xác định."</string>
     <string name="ok_remove_timeout" msgid="8344529153919268011">"Sử dụng thời gian chờ lâu hơn"</string>
     <string name="dismiss" msgid="7872443888515066216">"Loại bỏ"</string>
     <string name="exact" msgid="2597237880041789948">"(chính xác)"</string>
@@ -72,4 +76,12 @@
     <string name="menu_leading" msgid="2338520833272667740">"Trả lời bằng các chữ số đứng đầu"</string>
     <string name="menu_fraction" msgid="1247477377840252234">"Trả lời dưới dạng phân số"</string>
     <string name="menu_licenses" msgid="1890541368064108592">"Giấy phép nguồn mở"</string>
+    <string name="menu_history" msgid="9006222701220105452">"Lịch sử"</string>
+    <string name="menu_clear_history" msgid="2336526604226069572">"Xóa"</string>
+    <string name="title_history" msgid="7820912156315181539">"Lịch sử"</string>
+    <string name="desc_navigate_up" msgid="6208699569165589623">"Điều hướng lên trên"</string>
+    <string name="dialog_timeout" msgid="9069768442342329065">"Hết thời gian"</string>
+    <string name="dialog_clear" msgid="7137395395908350702">"Xóa lịch sử và bộ nhớ?"</string>
+    <string name="title_current_expression" msgid="2442754548537900591">"Biểu thức hiện tại"</string>
+    <string name="no_history" msgid="4331262030447527188">"Không có lịch sử"</string>
 </resources>

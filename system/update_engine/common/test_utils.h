@@ -30,6 +30,7 @@
 
 #include <base/callback.h>
 #include <base/files/file_path.h>
+#include <base/files/scoped_temp_dir.h>
 #include <gtest/gtest.h>
 
 #include "update_engine/common/action.h"
@@ -99,16 +100,6 @@ std::string Readlink(const std::string& path);
 bool IsXAttrSupported(const base::FilePath& dir_path);
 
 void FillWithData(brillo::Blob* buffer);
-
-// Creates an empty ext image.
-void CreateEmptyExtImageAtPath(const std::string& path,
-                               size_t size,
-                               int block_size);
-
-// Creates an ext image with some files in it. The paths creates are
-// returned in out_paths.
-void CreateExtImageAtPath(const std::string& path,
-                          std::vector<std::string>* out_paths);
 
 // Class to unmount FS when object goes out of scope
 class ScopedFilesystemUnmounter {
@@ -192,7 +183,7 @@ class ScopedLoopMounter {
   //   ScopedFilesystemUnmounter (the file system must be unmounted first)
   //   ScopedLoopbackDeviceBinder (then the loop device can be deleted)
   //   ScopedDirRemover (then the mount point can be deleted)
-  std::unique_ptr<ScopedDirRemover> dir_remover_;
+  base::ScopedTempDir temp_dir_;
   std::unique_ptr<ScopedLoopbackDeviceBinder> loop_binder_;
   std::unique_ptr<ScopedFilesystemUnmounter> unmounter_;
 };
@@ -200,6 +191,8 @@ class ScopedLoopMounter {
 // Returns the path where the build artifacts are stored. This is the directory
 // where the unittest executable is being run from.
 base::FilePath GetBuildArtifactsPath();
+// Returns the path of the build artifact specified in |relative_path|.
+std::string GetBuildArtifactsPath(const std::string& relative_path);
 
 }  // namespace test_utils
 

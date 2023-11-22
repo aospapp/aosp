@@ -50,6 +50,7 @@ extern "C" {
 #include <string.h>
 
 #include "bt_hci_bdroid.h"
+#include "bt_vendor_qcom.h"
 #include "hci_uart.h"
 #include "hw_ar3k.h"
 

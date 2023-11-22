@@ -17,9 +17,12 @@
 
 package android.support.v7.widget;
 
+import static android.support.annotation.RestrictTo.Scope.LIBRARY_GROUP;
+
 import android.content.Context;
 import android.graphics.drawable.Drawable;
 import android.os.Parcelable;
+import android.support.annotation.RestrictTo;
 import android.support.v4.view.ViewPropertyAnimatorCompat;
 import android.support.v7.view.menu.MenuBuilder;
 import android.support.v7.view.menu.MenuPresenter;
@@ -38,6 +41,7 @@ import android.widget.SpinnerAdapter;
  *
  * @hide
  */
+@RestrictTo(LIBRARY_GROUP)
 public interface DecorToolbar {
     ViewGroup getViewGroup();
     Context getContext();

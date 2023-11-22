@@ -2,11 +2,13 @@
 
 #ifdef IN_MPERS
 
-# error static const struct xlat evdev_keycode in mpers mode
+extern const struct xlat evdev_keycode[];
 
 #else
 
+# if !(defined HAVE_M32_MPERS || defined HAVE_MX32_MPERS)
 static
+# endif
 const struct xlat evdev_keycode[] = {
 #if defined(KEY_RESERVED) || (defined(HAVE_DECL_KEY_RESERVED) && HAVE_DECL_KEY_RESERVED)
   XLAT(KEY_RESERVED),
@@ -1534,6 +1536,60 @@ const struct xlat evdev_keycode[] = {
 #endif
 #if defined(KEY_KBDINPUTASSIST_CANCEL) || (defined(HAVE_DECL_KEY_KBDINPUTASSIST_CANCEL) && HAVE_DECL_KEY_KBDINPUTASSIST_CANCEL)
   XLAT(KEY_KBDINPUTASSIST_CANCEL),
+#endif
+
+#if defined(KEY_RIGHT_UP) || (defined(HAVE_DECL_KEY_RIGHT_UP) && HAVE_DECL_KEY_RIGHT_UP)
+  XLAT(KEY_RIGHT_UP),
+#endif
+#if defined(KEY_RIGHT_DOWN) || (defined(HAVE_DECL_KEY_RIGHT_DOWN) && HAVE_DECL_KEY_RIGHT_DOWN)
+  XLAT(KEY_RIGHT_DOWN),
+#endif
+#if defined(KEY_LEFT_UP) || (defined(HAVE_DECL_KEY_LEFT_UP) && HAVE_DECL_KEY_LEFT_UP)
+  XLAT(KEY_LEFT_UP),
+#endif
+#if defined(KEY_LEFT_DOWN) || (defined(HAVE_DECL_KEY_LEFT_DOWN) && HAVE_DECL_KEY_LEFT_DOWN)
+  XLAT(KEY_LEFT_DOWN),
+#endif
+
+#if defined(KEY_ROOT_MENU) || (defined(HAVE_DECL_KEY_ROOT_MENU) && HAVE_DECL_KEY_ROOT_MENU)
+  XLAT(KEY_ROOT_MENU),
+#endif
+#if defined(KEY_MEDIA_TOP_MENU) || (defined(HAVE_DECL_KEY_MEDIA_TOP_MENU) && HAVE_DECL_KEY_MEDIA_TOP_MENU)
+  XLAT(KEY_MEDIA_TOP_MENU),
+#endif
+#if defined(KEY_NUMERIC_11) || (defined(HAVE_DECL_KEY_NUMERIC_11) && HAVE_DECL_KEY_NUMERIC_11)
+  XLAT(KEY_NUMERIC_11),
+#endif
+#if defined(KEY_NUMERIC_12) || (defined(HAVE_DECL_KEY_NUMERIC_12) && HAVE_DECL_KEY_NUMERIC_12)
+  XLAT(KEY_NUMERIC_12),
+#endif
+
+#if defined(KEY_AUDIO_DESC) || (defined(HAVE_DECL_KEY_AUDIO_DESC) && HAVE_DECL_KEY_AUDIO_DESC)
+  XLAT(KEY_AUDIO_DESC),
+#endif
+#if defined(KEY_3D_MODE) || (defined(HAVE_DECL_KEY_3D_MODE) && HAVE_DECL_KEY_3D_MODE)
+  XLAT(KEY_3D_MODE),
+#endif
+#if defined(KEY_NEXT_FAVORITE) || (defined(HAVE_DECL_KEY_NEXT_FAVORITE) && HAVE_DECL_KEY_NEXT_FAVORITE)
+  XLAT(KEY_NEXT_FAVORITE),
+#endif
+#if defined(KEY_STOP_RECORD) || (defined(HAVE_DECL_KEY_STOP_RECORD) && HAVE_DECL_KEY_STOP_RECORD)
+  XLAT(KEY_STOP_RECORD),
+#endif
+#if defined(KEY_PAUSE_RECORD) || (defined(HAVE_DECL_KEY_PAUSE_RECORD) && HAVE_DECL_KEY_PAUSE_RECORD)
+  XLAT(KEY_PAUSE_RECORD),
+#endif
+#if defined(KEY_VOD) || (defined(HAVE_DECL_KEY_VOD) && HAVE_DECL_KEY_VOD)
+  XLAT(KEY_VOD),
+#endif
+#if defined(KEY_UNMUTE) || (defined(HAVE_DECL_KEY_UNMUTE) && HAVE_DECL_KEY_UNMUTE)
+  XLAT(KEY_UNMUTE),
+#endif
+#if defined(KEY_FASTREVERSE) || (defined(HAVE_DECL_KEY_FASTREVERSE) && HAVE_DECL_KEY_FASTREVERSE)
+  XLAT(KEY_FASTREVERSE),
+#endif
+#if defined(KEY_SLOWREVERSE) || (defined(HAVE_DECL_KEY_SLOWREVERSE) && HAVE_DECL_KEY_SLOWREVERSE)
+  XLAT(KEY_SLOWREVERSE),
 #endif
 
 #if defined(BTN_TRIGGER_HAPPY) || (defined(HAVE_DECL_BTN_TRIGGER_HAPPY) && HAVE_DECL_BTN_TRIGGER_HAPPY)

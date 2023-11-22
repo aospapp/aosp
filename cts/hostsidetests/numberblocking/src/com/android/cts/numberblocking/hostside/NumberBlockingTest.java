@@ -16,7 +16,7 @@
 
 package com.android.cts.numberblocking.hostside;
 
-import com.android.cts.migration.MigrationHelper;
+import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
 import com.android.ddmlib.Log;
 import com.android.ddmlib.testrunner.RemoteAndroidTestRunner;
 import com.android.tradefed.build.IBuildInfo;
@@ -149,7 +149,8 @@ public class NumberBlockingTest extends DeviceTestCase implements IBuildReceiver
 
     private void installTestAppForUser(int userId) throws Exception {
         LogUtil.CLog.logAndDisplay(Log.LogLevel.INFO, "Installing test app for user: " + userId);
-        File testAppFile = MigrationHelper.getTestFile(mCtsBuild, TEST_APK);
+        CompatibilityBuildHelper buildHelper = new CompatibilityBuildHelper(mCtsBuild);
+        File testAppFile = buildHelper.getTestFile(TEST_APK);
         String installResult = getDevice().installPackageForUser(
                 testAppFile, true /*reinstall*/, userId);
         assertNull(String.format(

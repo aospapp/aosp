@@ -16,7 +16,6 @@
 
 package com.android.server.telecom.components;
 
-import com.android.server.telecom.Log;
 import com.android.server.telecom.R;
 
 import android.app.Activity;
@@ -24,6 +23,7 @@ import android.app.AlertDialog;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.os.Bundle;
+import android.telecom.Log;
 
 // TODO: Needed for move to system service: import com.android.internal.R;
 

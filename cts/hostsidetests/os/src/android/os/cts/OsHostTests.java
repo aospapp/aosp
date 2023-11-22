@@ -16,8 +16,7 @@
 
 package android.os.cts;
 
-import com.android.compatibility.common.util.AbiUtils;
-import com.android.cts.migration.MigrationHelper;
+import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.device.CollectingOutputReceiver;
 import com.android.tradefed.device.ITestDevice;
@@ -25,6 +24,7 @@ import com.android.tradefed.testtype.DeviceTestCase;
 import com.android.tradefed.testtype.IAbi;
 import com.android.tradefed.testtype.IAbiReceiver;
 import com.android.tradefed.testtype.IBuildReceiver;
+import com.android.tradefed.util.AbiUtils;
 
 import java.io.BufferedOutputStream;
 import java.io.File;
@@ -145,6 +145,7 @@ public class OsHostTests extends DeviceTestCase implements IBuildReceiver, IAbiR
      * Helper: find a test apk
      */
     private File getTestAppFile(String fileName) throws FileNotFoundException {
-        return MigrationHelper.getTestFile(mCtsBuild, fileName);
+        CompatibilityBuildHelper buildHelper = new CompatibilityBuildHelper(mCtsBuild);
+        return buildHelper.getTestFile(fileName);
     }
 }

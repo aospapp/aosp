@@ -24,13 +24,14 @@ Pre-requisites
 --------------
 
 - Android SDK 24
-- Android Build Tools v24.0.1
+- Android Build Tools v24.0.2
 - Android Support Repository
 
 Screenshots
 -------------
 
-<img src="screenshots/before.png" height="400" alt="Screenshot"/> <img src="screenshots/after.png" height="400" alt="Screenshot"/> 
+<img src="screenshots/before.png" height="400" alt="Screenshot"/>
+<img src="screenshots/after.png" height="400" alt="Screenshot"/>
 
 Getting Started
 ---------------
@@ -45,7 +46,7 @@ Support
 - Stack Overflow: http://stackoverflow.com/questions/tagged/android
 
 If you've found an error in this sample, please file an issue:
-https://github.com/googlesamples/android-Interpolator
+https://github.com/googlesamples/android-interpolator
 
 Patches are encouraged, and may be submitted by forking this project and
 submitting a pull request through GitHub. Please see CONTRIBUTING.md for more details.

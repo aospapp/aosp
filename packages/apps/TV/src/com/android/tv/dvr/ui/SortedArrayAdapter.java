@@ -16,7 +16,8 @@
 
 package com.android.tv.dvr.ui;
 
-import android.support.v17.leanback.widget.ObjectAdapter;
+import android.support.annotation.VisibleForTesting;
+import android.support.v17.leanback.widget.ArrayObjectAdapter;
 import android.support.v17.leanback.widget.PresenterSelector;
 
 import java.util.ArrayList;
@@ -26,88 +27,36 @@ import java.util.Comparator;
 import java.util.List;
 
 /**
- * Keeps a set of {@code T} items sorted, but leaving a {@link EmptyHolder}
- * if there is no items.
+ * Keeps a set of items sorted
  *
  * <p>{@code T} must have stable IDs.
  */
-abstract class SortedArrayAdapter<T> extends ObjectAdapter {
-    private final List<T> mItems = new ArrayList<>();
+public abstract class SortedArrayAdapter<T> extends ArrayObjectAdapter {
     private final Comparator<T> mComparator;
+    private final int mMaxItemCount;
+    private int mExtraItemCount;
 
     SortedArrayAdapter(PresenterSelector presenterSelector, Comparator<T> comparator) {
+        this(presenterSelector, comparator, Integer.MAX_VALUE);
+    }
+
+    SortedArrayAdapter(PresenterSelector presenterSelector, Comparator<T> comparator,
+            int maxItemCount) {
         super(presenterSelector);
         mComparator = comparator;
-        setHasStableIds(true);
-    }
-
-    @Override
-    public final int size() {
-        return mItems.isEmpty() ? 1 : mItems.size();
-    }
-
-    @Override
-    public final Object get(int position) {
-        return isEmpty() ? EmptyHolder.EMPTY_HOLDER : getItem(position);
-    }
-
-    @Override
-    public final long getId(int position) {
-        if (isEmpty()) {
-            return NO_ID;
-        }
-        T item = mItems.get(position);
-        return item == null ? NO_ID : getId(item);
+        mMaxItemCount = maxItemCount;
     }
 
     /**
-     * Returns the id of the the given {@code item}.
+     * Sets the objects in the given collection to the adapter keeping the elements sorted.
      *
-     * The id must be stable.
+     * @param items A {@link Collection} of items to be set.
      */
-    abstract long getId(T item);
-
-    /**
-     * Returns the item at the given {@code position}.
-     *
-     * @throws IndexOutOfBoundsException if the position is out of range
-     *         (<tt>position &lt; 0 || position &gt;= size()</tt>)
-     */
-    final T getItem(int position) {
-        return mItems.get(position);
-    }
-
-    /**
-     * Returns {@code true} if the list of items is empty.
-     *
-     * <p><b>NOTE</b> when the item list is empty the adapter has a size of 1 and
-     * {@link EmptyHolder#EMPTY_HOLDER} at position 0;
-     */
-    final boolean isEmpty() {
-        return mItems.isEmpty();
-    }
-
-    /**
-     * Removes all elements from the list.
-     *
-     * <p><b>NOTE</b> when the item list is empty the adapter has a size of 1 and
-     * {@link EmptyHolder#EMPTY_HOLDER} at position 0;
-     */
-    final void clear() {
-        mItems.clear();
-        notifyChanged();
-    }
-
-    /**
-     * Adds the objects in the given collection to the adapter keeping the elements sorted.
-     * If the index is >= {@link #size} an exception will be thrown.
-     *
-     * @param items A {@link Collection} of items to insert.
-     */
-    final void addAll(Collection<T> items) {
-        mItems.addAll(items);
-        Collections.sort(mItems, mComparator);
-        notifyChanged();
+    @VisibleForTesting
+    final void setInitialItems(List<T> items) {
+        List<T> itemsCopy = new ArrayList<>(items);
+        Collections.sort(itemsCopy, mComparator);
+        addAll(0, itemsCopy.subList(0, Math.min(mMaxItemCount, itemsCopy.size())));
     }
 
     /**
@@ -115,79 +64,118 @@ abstract class SortedArrayAdapter<T> extends ObjectAdapter {
      *
      * @param item The item to add in sorted order to the adapter.
      */
-    final void add(T item) {
-        int i = findWhereToInsert(item);
-        mItems.add(i, item);
-        if (mItems.size() == 1) {
-            notifyItemRangeChanged(0, 1);
+    @Override
+    public final void add(Object item) {
+        add((T) item, false);
+    }
+
+    public boolean isEmpty() {
+        return size() == 0;
+    }
+
+    /**
+     * Adds an item in sorted order to the adapter.
+     *
+     * @param item The item to add in sorted order to the adapter.
+     * @param insertToEnd If items are inserted in a more or less sorted fashion,
+     *                    sets this parameter to {@code true} to search insertion position from
+     *                    the end to save search time.
+     */
+    public final void add(T item, boolean insertToEnd) {
+        int i;
+        if (insertToEnd) {
+            i = findInsertPosition(item);
         } else {
-            notifyItemRangeInserted(i, 1);
+            i = findInsertPositionBinary(item);
+        }
+        super.add(i, item);
+        if (size() > mMaxItemCount + mExtraItemCount) {
+            removeItems(mMaxItemCount, size() - mMaxItemCount - mExtraItemCount);
         }
     }
 
     /**
-     * Remove an item from the list
-     *
-     * @param item The item to remove from the adapter.
+     * Adds an extra item to the end of the adapter. The items will not be subjected to the sorted
+     * order or the maximum number of items. One or more extra items can be added to the adapter.
+     * They will be presented in their insertion order.
      */
-    final void remove(T item) {
-        int index = indexOf(item);
-        if (index != -1) {
-            mItems.remove(index);
-            if (mItems.isEmpty()) {
-                notifyItemRangeChanged(0, 1);
-            } else {
-                notifyItemRangeRemoved(index, 1);
-            }
-        }
+    public int addExtraItem(T item) {
+        super.add(item);
+        return ++mExtraItemCount;
+    }
+
+    /**
+     * Removes an item which has the same ID as {@code item}.
+     */
+    public boolean removeWithId(T item) {
+        int index = indexWithTypeAndId(item);
+        return index >= 0 && index < size() && remove(get(index));
     }
 
     /**
      * Change an item in the list.
      * @param item The item to change.
      */
-    final void change(T item) {
-        int oldIndex = indexOf(item);
+    public final void change(T item) {
+        int oldIndex = indexWithTypeAndId(item);
         if (oldIndex != -1) {
-            T old = mItems.get(oldIndex);
+            T old = (T) get(oldIndex);
             if (mComparator.compare(old, item) == 0) {
-                mItems.set(oldIndex, item);
-                notifyItemRangeChanged(oldIndex, 1);
+                replace(oldIndex, item);
                 return;
             }
-            mItems.remove(oldIndex);
+            removeItems(oldIndex, 1);
         }
-        int newIndex = findWhereToInsert(item);
-        mItems.add(newIndex, item);
-
-        if (oldIndex != -1) {
-            notifyItemRangeRemoved(oldIndex, 1);
-        }
-        if (newIndex != -1) {
-            notifyItemRangeInserted(newIndex, 1);
-        }
+        add(item);
     }
 
-    private int indexOf(T item) {
+    /**
+     * Returns the id of the the given {@code item}, which will be used in {@link #change} to
+     * decide if the given item is already existed in the adapter.
+     *
+     * The id must be stable.
+     */
+    abstract long getId(T item);
+
+    private int indexWithTypeAndId(T item) {
         long id = getId(item);
-        for (int i = 0; i < mItems.size(); i++) {
-            T r = mItems.get(i);
-            if (getId(r) == id) {
+        for (int i = 0; i < size() - mExtraItemCount; i++) {
+            T r = (T) get(i);
+            if (r.getClass() == item.getClass() && getId(r) == id) {
                 return i;
             }
         }
         return -1;
     }
 
-    private int findWhereToInsert(T item) {
-        int i;
-        int size = mItems.size();
-        for (i = 0; i < size; i++) {
-            T r = mItems.get(i);
-            if (mComparator.compare(r, item) > 0) {
-                return i;
+    /**
+     * Finds the position that the given item should be inserted to keep the sorted order.
+     */
+    public int findInsertPosition(T item) {
+        for (int i = size() - mExtraItemCount - 1; i >=0; i--) {
+            T r = (T) get(i);
+            if (mComparator.compare(r, item) <= 0) {
+                return i + 1;
             }
         }
-        return size;
+        return 0;
+    }
+
+    private int findInsertPositionBinary(T item) {
+        int lb = 0;
+        int ub = size() - mExtraItemCount - 1;
+        while (lb <= ub) {
+            int mid = (lb + ub) / 2;
+            T r = (T) get(mid);
+            int compareResult = mComparator.compare(item, r);
+            if (compareResult == 0) {
+                return mid;
+            } else if (compareResult > 0) {
+                lb = mid + 1;
+            } else {
+                ub = mid - 1;
+            }
+        }
+        return lb;
     }
 }

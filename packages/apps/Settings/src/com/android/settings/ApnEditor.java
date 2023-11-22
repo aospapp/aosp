@@ -16,19 +16,17 @@
 
 package com.android.settings;
 
-import static android.app.Activity.RESULT_OK;
-import static android.content.Context.TELEPHONY_SERVICE;
-
 import android.app.AlertDialog;
 import android.app.Dialog;
-import android.app.DialogFragment;
 import android.content.ContentUris;
 import android.content.ContentValues;
+import android.content.Context;
 import android.content.Intent;
 import android.content.res.Resources;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.PersistableBundle;
 import android.provider.Telephony;
 import android.support.v14.preference.MultiSelectListPreference;
 import android.support.v14.preference.SwitchPreference;
@@ -36,6 +34,7 @@ import android.support.v7.preference.EditTextPreference;
 import android.support.v7.preference.ListPreference;
 import android.support.v7.preference.Preference;
 import android.support.v7.preference.Preference.OnPreferenceChangeListener;
+import android.telephony.CarrierConfigManager;
 import android.telephony.ServiceState;
 import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
@@ -48,15 +47,24 @@ import android.view.MenuItem;
 import android.view.View;
 import android.view.View.OnKeyListener;
 
-import com.android.internal.logging.MetricsProto.MetricsEvent;
+import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
+import com.android.settings.core.instrumentation.InstrumentedDialogFragment;
+import com.android.internal.telephony.PhoneConstants;
+import com.android.internal.util.ArrayUtils;
 
+import java.util.Arrays;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
+
+import static android.app.Activity.RESULT_OK;
+import static android.content.Context.TELEPHONY_SERVICE;
 
 public class ApnEditor extends SettingsPreferenceFragment
         implements OnPreferenceChangeListener, OnKeyListener {
 
     private final static String TAG = ApnEditor.class.getSimpleName();
+    private final static boolean VDBG = false;   // STOPSHIP if true
 
     private final static String SAVED_POS = "pos";
     private final static String KEY_AUTH_TYPE = "auth_type";
@@ -65,6 +73,7 @@ public class ApnEditor extends SettingsPreferenceFragment
     private final static String KEY_CARRIER_ENABLED = "carrier_enabled";
     private final static String KEY_BEARER_MULTI = "bearer_multi";
     private final static String KEY_MVNO_TYPE = "mvno_type";
+    private final static String KEY_PASSWORD = "apn_password";
 
     private static final int MENU_DELETE = Menu.FIRST;
     private static final int MENU_SAVE = Menu.FIRST + 1;
@@ -105,6 +114,9 @@ public class ApnEditor extends SettingsPreferenceFragment
     private int mBearerInitialVal = 0;
     private String mMvnoTypeStr;
     private String mMvnoMatchDataStr;
+    private String[] mReadOnlyApnTypes;
+    private String[] mReadOnlyApnFields;
+    private boolean mReadOnlyApn;
 
     /**
      * Standard projection for the interesting columns of a normal note.
@@ -132,7 +144,8 @@ public class ApnEditor extends SettingsPreferenceFragment
             Telephony.Carriers.BEARER_BITMASK, // 19
             Telephony.Carriers.ROAMING_PROTOCOL, // 20
             Telephony.Carriers.MVNO_TYPE,   // 21
-            Telephony.Carriers.MVNO_MATCH_DATA  // 22
+            Telephony.Carriers.MVNO_MATCH_DATA,  // 22
+            Telephony.Carriers.EDITED   // 23
     };
 
     private static final int ID_INDEX = 0;
@@ -157,6 +170,7 @@ public class ApnEditor extends SettingsPreferenceFragment
     private static final int ROAMING_PROTOCOL_INDEX = 20;
     private static final int MVNO_TYPE_INDEX = 21;
     private static final int MVNO_MATCH_DATA_INDEX = 22;
+    private static final int EDITED_INDEX = 23;
 
 
     @Override
@@ -172,30 +186,19 @@ public class ApnEditor extends SettingsPreferenceFragment
         mPort = (EditTextPreference) findPreference("apn_http_port");
         mUser = (EditTextPreference) findPreference("apn_user");
         mServer = (EditTextPreference) findPreference("apn_server");
-        mPassword = (EditTextPreference) findPreference("apn_password");
+        mPassword = (EditTextPreference) findPreference(KEY_PASSWORD);
         mMmsProxy = (EditTextPreference) findPreference("apn_mms_proxy");
         mMmsPort = (EditTextPreference) findPreference("apn_mms_port");
         mMmsc = (EditTextPreference) findPreference("apn_mmsc");
         mMcc = (EditTextPreference) findPreference("apn_mcc");
         mMnc = (EditTextPreference) findPreference("apn_mnc");
         mApnType = (EditTextPreference) findPreference("apn_type");
-
         mAuthType = (ListPreference) findPreference(KEY_AUTH_TYPE);
-        mAuthType.setOnPreferenceChangeListener(this);
-
         mProtocol = (ListPreference) findPreference(KEY_PROTOCOL);
-        mProtocol.setOnPreferenceChangeListener(this);
-
         mRoamingProtocol = (ListPreference) findPreference(KEY_ROAMING_PROTOCOL);
-        mRoamingProtocol.setOnPreferenceChangeListener(this);
-
         mCarrierEnabled = (SwitchPreference) findPreference(KEY_CARRIER_ENABLED);
-
         mBearerMulti = (MultiSelectListPreference) findPreference(KEY_BEARER_MULTI);
-        mBearerMulti.setOnPreferenceChangeListener(this);
-
         mMvnoType = (ListPreference) findPreference(KEY_MVNO_TYPE);
-        mMvnoType.setOnPreferenceChangeListener(this);
         mMvnoMatchData = (EditTextPreference) findPreference("mvno_match_data");
 
         mRes = getResources();
@@ -206,6 +209,9 @@ public class ApnEditor extends SettingsPreferenceFragment
                 SubscriptionManager.INVALID_SUBSCRIPTION_ID);
 
         mFirstTime = icicle == null;
+        mReadOnlyApn = false;
+        mReadOnlyApnTypes = null;
+        mReadOnlyApnFields = null;
 
         if (action.equals(Intent.ACTION_EDIT)) {
             Uri uri = intent.getData();
@@ -213,6 +219,17 @@ public class ApnEditor extends SettingsPreferenceFragment
                 Log.e(TAG, "Edit request not for carrier table. Uri: " + uri);
                 finish();
                 return;
+            }
+            CarrierConfigManager configManager = (CarrierConfigManager)
+                    getSystemService(Context.CARRIER_CONFIG_SERVICE);
+            if (configManager != null) {
+                PersistableBundle b = configManager.getConfig();
+                if (b != null) {
+                    mReadOnlyApnTypes = b.getStringArray(
+                            CarrierConfigManager.KEY_READ_ONLY_APN_TYPES_STRING_ARRAY);
+                    mReadOnlyApnFields = b.getStringArray(
+                            CarrierConfigManager.KEY_READ_ONLY_APN_FIELDS_STRING_ARRAY);
+                }
             }
             mUri = uri;
         } else if (action.equals(Intent.ACTION_INSERT)) {
@@ -255,6 +272,17 @@ public class ApnEditor extends SettingsPreferenceFragment
 
         mTelephonyManager = (TelephonyManager) getSystemService(TELEPHONY_SERVICE);
 
+        Log.d(TAG, "onCreate: EDITED " + mCursor.getInt(EDITED_INDEX));
+        // if it's not a USER_EDITED apn, check if it's read-only
+        if (mCursor.getInt(EDITED_INDEX) != Telephony.Carriers.USER_EDITED &&
+                apnTypesMatch(mReadOnlyApnTypes, mCursor.getString(TYPE_INDEX))) {
+            Log.d(TAG, "onCreate: apnTypesMatch; read-only APN");
+            mReadOnlyApn = true;
+            disableAllFields();
+        } else if (!ArrayUtils.isEmpty(mReadOnlyApnFields)) {
+            disableFields(mReadOnlyApnFields);
+        }
+
         for (int i = 0; i < getPreferenceScreen().getPreferenceCount(); i++) {
             getPreferenceScreen().getPreference(i).setOnPreferenceChangeListener(this);
         }
@@ -262,14 +290,176 @@ public class ApnEditor extends SettingsPreferenceFragment
         fillUi();
     }
 
+    /**
+     * Check if passed in array of APN types indicates all APN types
+     * @param apnTypes array of APN types. "*" indicates all types.
+     * @return true if all apn types are included in the array, false otherwise
+     */
+    private boolean hasAllApns(String[] apnTypes) {
+        if (ArrayUtils.isEmpty(apnTypes)) {
+            return false;
+        }
+
+        List apnList = Arrays.asList(apnTypes);
+        if (apnList.contains(PhoneConstants.APN_TYPE_ALL)) {
+            Log.d(TAG, "hasAllApns: true because apnList.contains(PhoneConstants.APN_TYPE_ALL)");
+            return true;
+        }
+        for (String apn : PhoneConstants.APN_TYPES) {
+            if (!apnList.contains(apn)) {
+                return false;
+            }
+        }
+
+        Log.d(TAG, "hasAllApns: true");
+        return true;
+    }
+
+    /**
+     * Check if APN types overlap.
+     * @param apnTypesArray1 array of APNs. Empty array indicates no APN type; "*" indicates all
+     *                       types
+     * @param apnTypes2 comma separated string of APN types. Empty string represents all types.
+     * @return if any apn type matches return true, otherwise return false
+     */
+    private boolean apnTypesMatch(String[] apnTypesArray1, String apnTypes2) {
+        if (ArrayUtils.isEmpty(apnTypesArray1)) {
+            return false;
+        }
+
+        if (hasAllApns(apnTypesArray1) || TextUtils.isEmpty(apnTypes2)) {
+            return true;
+        }
+
+        List apnTypesList1 = Arrays.asList(apnTypesArray1);
+        String[] apnTypesArray2 = apnTypes2.split(",");
+
+        for (String apn : apnTypesArray2) {
+            if (apnTypesList1.contains(apn.trim())) {
+                Log.d(TAG, "apnTypesMatch: true because match found for " + apn.trim());
+                return true;
+            }
+        }
+
+        Log.d(TAG, "apnTypesMatch: false");
+        return false;
+    }
+
+    /**
+     * Function to get Preference obj corresponding to an apnField
+     * @param apnField apn field name for which pref is needed
+     * @return Preference obj corresponding to passed in apnField
+     */
+    private Preference getPreferenceFromFieldName(String apnField) {
+        switch (apnField) {
+            case Telephony.Carriers.NAME:
+                return mName;
+            case Telephony.Carriers.APN:
+                return mApn;
+            case Telephony.Carriers.PROXY:
+                return mProxy;
+            case Telephony.Carriers.PORT:
+                return mPort;
+            case Telephony.Carriers.USER:
+                return mUser;
+            case Telephony.Carriers.SERVER:
+                return mServer;
+            case Telephony.Carriers.PASSWORD:
+                return mPassword;
+            case Telephony.Carriers.MMSPROXY:
+                return mMmsProxy;
+            case Telephony.Carriers.MMSPORT:
+                return mMmsPort;
+            case Telephony.Carriers.MMSC:
+                return mMmsc;
+            case Telephony.Carriers.MCC:
+                return mMcc;
+            case Telephony.Carriers.MNC:
+                return mMnc;
+            case Telephony.Carriers.TYPE:
+                return mApnType;
+            case Telephony.Carriers.AUTH_TYPE:
+                return mAuthType;
+            case Telephony.Carriers.PROTOCOL:
+                return mProtocol;
+            case Telephony.Carriers.ROAMING_PROTOCOL:
+                return mRoamingProtocol;
+            case Telephony.Carriers.CARRIER_ENABLED:
+                return mCarrierEnabled;
+            case Telephony.Carriers.BEARER:
+            case Telephony.Carriers.BEARER_BITMASK:
+                return mBearerMulti;
+            case Telephony.Carriers.MVNO_TYPE:
+                return mMvnoType;
+            case Telephony.Carriers.MVNO_MATCH_DATA:
+                return mMvnoMatchData;
+        }
+        return null;
+    }
+
+    /**
+     * Disables given fields so that user cannot modify them
+     *
+     * @param apnFields fields to be disabled
+     */
+    private void disableFields(String[] apnFields) {
+        for (String apnField : apnFields) {
+            Preference preference = getPreferenceFromFieldName(apnField);
+            if (preference != null) {
+                preference.setEnabled(false);
+            }
+        }
+    }
+
+    /**
+     * Disables all fields so that user cannot modify the APN
+     */
+    private void disableAllFields() {
+        mName.setEnabled(false);
+        mApn.setEnabled(false);
+        mProxy.setEnabled(false);
+        mPort.setEnabled(false);
+        mUser.setEnabled(false);
+        mServer.setEnabled(false);
+        mPassword.setEnabled(false);
+        mMmsProxy.setEnabled(false);
+        mMmsPort.setEnabled(false);
+        mMmsc.setEnabled(false);
+        mMcc.setEnabled(false);
+        mMnc.setEnabled(false);
+        mApnType.setEnabled(false);
+        mAuthType.setEnabled(false);
+        mProtocol.setEnabled(false);
+        mRoamingProtocol.setEnabled(false);
+        mCarrierEnabled.setEnabled(false);
+        mBearerMulti.setEnabled(false);
+        mMvnoType.setEnabled(false);
+        mMvnoMatchData.setEnabled(false);
+    }
+
     @Override
-    protected int getMetricsCategory() {
+    public int getMetricsCategory() {
         return MetricsEvent.APN_EDITOR;
     }
 
     @Override
     public void onResume() {
         super.onResume();
+
+        if (mUri == null && mNewApn) {
+            // The URI could have been deleted when activity is paused,
+            // therefore, it needs to be restored.
+            mUri = getContentResolver().insert(getIntent().getData(), new ContentValues());
+            if (mUri == null) {
+                Log.w(TAG, "Failed to insert new telephony provider into "
+                        + getIntent().getData());
+                finish();
+                return;
+            }
+            mCursor = getActivity().managedQuery(mUri, sProjection, null, null);
+            mCursor.moveToFirst();
+        }
+
     }
 
     @Override
@@ -378,8 +568,7 @@ public class ApnEditor extends SettingsPreferenceFragment
             mAuthType.setSummary(sNotSet);
         }
 
-        mProtocol.setSummary(
-                checkNull(protocolDescription(mProtocol.getValue(), mProtocol)));
+        mProtocol.setSummary(checkNull(protocolDescription(mProtocol.getValue(), mProtocol)));
         mRoamingProtocol.setSummary(
                 checkNull(protocolDescription(mRoamingProtocol.getValue(), mRoamingProtocol)));
         mBearerMulti.setSummary(
@@ -521,10 +710,9 @@ public class ApnEditor extends SettingsPreferenceFragment
             }
             mMvnoType.setValue((String) newValue);
             mMvnoType.setSummary(mvno);
-        }
-        if (preference.equals(mPassword)) {
-            preference.setSummary(starify(newValue != null ? String.valueOf(newValue) : ""));
-        } else if (preference.equals(mCarrierEnabled) || preference.equals(mBearerMulti)) {
+        } else if (KEY_PASSWORD.equals(key)) {
+            mPassword.setSummary(starify(newValue != null ? String.valueOf(newValue) : ""));
+        } else if (KEY_CARRIER_ENABLED.equals(key)) {
             // do nothing
         } else {
             preference.setSummary(checkNull(newValue != null ? String.valueOf(newValue) : null));
@@ -537,7 +725,7 @@ public class ApnEditor extends SettingsPreferenceFragment
     public void onCreateOptionsMenu(Menu menu, MenuInflater inflater) {
         super.onCreateOptionsMenu(menu, inflater);
         // If it's a new APN, then cancel will delete the new entry in onPause
-        if (!mNewApn) {
+        if (!mNewApn && !mReadOnlyApn) {
             menu.add(0, MENU_DELETE, 0, R.string.menu_delete)
                 .setIcon(R.drawable.ic_menu_delete);
         }
@@ -572,6 +760,8 @@ public class ApnEditor extends SettingsPreferenceFragment
     public void onViewCreated(View view, Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
         view.setOnKeyListener(this);
+        view.setFocusableInTouchMode(true);
+        view.requestFocus();
     }
 
     public boolean onKey(View v, int keyCode, KeyEvent event) {
@@ -596,12 +786,57 @@ public class ApnEditor extends SettingsPreferenceFragment
     }
 
     /**
+     * Add key, value to cv and compare the value against the value at index in mCursor. Return true
+     * if values are different. assumeDiff indicates if values can be assumed different in which
+     * case no comparison is needed.
+     * @return true if value is different from the value at index in mCursor
+     */
+    boolean setStringValueAndCheckIfDiff(ContentValues cv, String key, String value,
+                                         boolean assumeDiff, int index) {
+        cv.put(key, value);
+        String valueFromCursor = mCursor.getString(index);
+        if (VDBG) {
+            Log.d(TAG, "setStringValueAndCheckIfDiff: assumeDiff: " + assumeDiff
+                    + " key: " + key
+                    + " value: '" + value
+                    + "' valueFromCursor: '" + valueFromCursor + "'");
+        }
+        return assumeDiff
+                || !((TextUtils.isEmpty(value) && TextUtils.isEmpty(valueFromCursor))
+                || (value != null && value.equals(valueFromCursor)));
+    }
+
+    /**
+     * Add key, value to cv and compare the value against the value at index in mCursor. Return true
+     * if values are different. assumeDiff indicates if values can be assumed different in which
+     * case no comparison is needed.
+     * @return true if value is different from the value at index in mCursor
+     */
+    boolean setIntValueAndCheckIfDiff(ContentValues cv, String key, int value,
+                                      boolean assumeDiff, int index) {
+        cv.put(key, value);
+        int valueFromCursor = mCursor.getInt(index);
+        if (VDBG) {
+            Log.d(TAG, "setIntValueAndCheckIfDiff: assumeDiff: " + assumeDiff
+                    + " key: " + key
+                    + " value: '" + value
+                    + "' valueFromCursor: '" + valueFromCursor + "'");
+        }
+        return assumeDiff || value != valueFromCursor;
+    }
+
+    /**
      * Check the key fields' validity and save if valid.
      * @param force save even if the fields are not valid, if the app is
      *        being suspended
-     * @return true if the data was saved
+     * @return true if there's no error
      */
     private boolean validateAndSave(boolean force) {
+        // nothing to do if it's a read only APN
+        if (mReadOnlyApn) {
+            return true;
+        }
+
         String name = checkNotSet(mName.getText());
         String apn = checkNotSet(mApn.getText());
         String mcc = checkNotSet(mMcc.getText());
@@ -621,37 +856,115 @@ public class ApnEditor extends SettingsPreferenceFragment
         // If it's a new APN and a name or apn haven't been entered, then erase the entry
         if (force && mNewApn && name.length() < 1 && apn.length() < 1) {
             getContentResolver().delete(mUri, null, null);
+            mUri = null;
             return false;
         }
 
         ContentValues values = new ContentValues();
+        // call update() if it's a new APN. If not, check if any field differs from the db value;
+        // if any diff is found update() should be called
+        boolean callUpdate = mNewApn;
 
         // Add a dummy name "Untitled", if the user exits the screen without adding a name but
         // entered other information worth keeping.
-        values.put(Telephony.Carriers.NAME,
-                name.length() < 1 ? getResources().getString(R.string.untitled_apn) : name);
-        values.put(Telephony.Carriers.APN, apn);
-        values.put(Telephony.Carriers.PROXY, checkNotSet(mProxy.getText()));
-        values.put(Telephony.Carriers.PORT, checkNotSet(mPort.getText()));
-        values.put(Telephony.Carriers.MMSPROXY, checkNotSet(mMmsProxy.getText()));
-        values.put(Telephony.Carriers.MMSPORT, checkNotSet(mMmsPort.getText()));
-        values.put(Telephony.Carriers.USER, checkNotSet(mUser.getText()));
-        values.put(Telephony.Carriers.SERVER, checkNotSet(mServer.getText()));
-        values.put(Telephony.Carriers.PASSWORD, checkNotSet(mPassword.getText()));
-        values.put(Telephony.Carriers.MMSC, checkNotSet(mMmsc.getText()));
+        callUpdate = setStringValueAndCheckIfDiff(values,
+                Telephony.Carriers.NAME,
+                name.length() < 1 ? getResources().getString(R.string.untitled_apn) : name,
+                callUpdate,
+                NAME_INDEX);
+
+        callUpdate = setStringValueAndCheckIfDiff(values,
+                Telephony.Carriers.APN,
+                apn,
+                callUpdate,
+                APN_INDEX);
+
+        callUpdate = setStringValueAndCheckIfDiff(values,
+                Telephony.Carriers.PROXY,
+                checkNotSet(mProxy.getText()),
+                callUpdate,
+                PROXY_INDEX);
+
+        callUpdate = setStringValueAndCheckIfDiff(values,
+                Telephony.Carriers.PORT,
+                checkNotSet(mPort.getText()),
+                callUpdate,
+                PORT_INDEX);
+
+        callUpdate = setStringValueAndCheckIfDiff(values,
+                Telephony.Carriers.MMSPROXY,
+                checkNotSet(mMmsProxy.getText()),
+                callUpdate,
+                MMSPROXY_INDEX);
+
+        callUpdate = setStringValueAndCheckIfDiff(values,
+                Telephony.Carriers.MMSPORT,
+                checkNotSet(mMmsPort.getText()),
+                callUpdate,
+                MMSPORT_INDEX);
+
+        callUpdate = setStringValueAndCheckIfDiff(values,
+                Telephony.Carriers.USER,
+                checkNotSet(mUser.getText()),
+                callUpdate,
+                USER_INDEX);
+
+        callUpdate = setStringValueAndCheckIfDiff(values,
+                Telephony.Carriers.SERVER,
+                checkNotSet(mServer.getText()),
+                callUpdate,
+                SERVER_INDEX);
+
+        callUpdate = setStringValueAndCheckIfDiff(values,
+                Telephony.Carriers.PASSWORD,
+                checkNotSet(mPassword.getText()),
+                callUpdate,
+                PASSWORD_INDEX);
+
+        callUpdate = setStringValueAndCheckIfDiff(values,
+                Telephony.Carriers.MMSC,
+                checkNotSet(mMmsc.getText()),
+                callUpdate,
+                MMSC_INDEX);
 
         String authVal = mAuthType.getValue();
         if (authVal != null) {
-            values.put(Telephony.Carriers.AUTH_TYPE, Integer.parseInt(authVal));
+            callUpdate = setIntValueAndCheckIfDiff(values,
+                    Telephony.Carriers.AUTH_TYPE,
+                    Integer.parseInt(authVal),
+                    callUpdate,
+                    AUTH_TYPE_INDEX);
         }
 
-        values.put(Telephony.Carriers.PROTOCOL, checkNotSet(mProtocol.getValue()));
-        values.put(Telephony.Carriers.ROAMING_PROTOCOL, checkNotSet(mRoamingProtocol.getValue()));
+        callUpdate = setStringValueAndCheckIfDiff(values,
+                Telephony.Carriers.PROTOCOL,
+                checkNotSet(mProtocol.getValue()),
+                callUpdate,
+                PROTOCOL_INDEX);
 
-        values.put(Telephony.Carriers.TYPE, checkNotSet(mApnType.getText()));
+        callUpdate = setStringValueAndCheckIfDiff(values,
+                Telephony.Carriers.ROAMING_PROTOCOL,
+                checkNotSet(mRoamingProtocol.getValue()),
+                callUpdate,
+                ROAMING_PROTOCOL_INDEX);
 
-        values.put(Telephony.Carriers.MCC, mcc);
-        values.put(Telephony.Carriers.MNC, mnc);
+        callUpdate = setStringValueAndCheckIfDiff(values,
+                Telephony.Carriers.TYPE,
+                checkNotSet(mApnType.getText()),
+                callUpdate,
+                TYPE_INDEX);
+
+        callUpdate = setStringValueAndCheckIfDiff(values,
+                Telephony.Carriers.MCC,
+                mcc,
+                callUpdate,
+                MCC_INDEX);
+
+        callUpdate = setStringValueAndCheckIfDiff(values,
+                Telephony.Carriers.MNC,
+                mnc,
+                callUpdate,
+                MNC_INDEX);
 
         values.put(Telephony.Carriers.NUMERIC, mcc + mnc);
 
@@ -671,7 +984,11 @@ public class ApnEditor extends SettingsPreferenceFragment
                 bearerBitmask |= ServiceState.getBitmaskForTech(Integer.parseInt(bearer));
             }
         }
-        values.put(Telephony.Carriers.BEARER_BITMASK, bearerBitmask);
+        callUpdate = setIntValueAndCheckIfDiff(values,
+                Telephony.Carriers.BEARER_BITMASK,
+                bearerBitmask,
+                callUpdate,
+                BEARER_BITMASK_INDEX);
 
         int bearerVal;
         if (bearerBitmask == 0 || mBearerInitialVal == 0) {
@@ -684,13 +1001,35 @@ public class ApnEditor extends SettingsPreferenceFragment
             // random tech from the new bitmask??
             bearerVal = 0;
         }
-        values.put(Telephony.Carriers.BEARER, bearerVal);
+        callUpdate = setIntValueAndCheckIfDiff(values,
+                Telephony.Carriers.BEARER,
+                bearerVal,
+                callUpdate,
+                BEARER_INDEX);
 
-        values.put(Telephony.Carriers.MVNO_TYPE, checkNotSet(mMvnoType.getValue()));
-        values.put(Telephony.Carriers.MVNO_MATCH_DATA, checkNotSet(mMvnoMatchData.getText()));
+        callUpdate = setStringValueAndCheckIfDiff(values,
+                Telephony.Carriers.MVNO_TYPE,
+                checkNotSet(mMvnoType.getValue()),
+                callUpdate,
+                MVNO_TYPE_INDEX);
 
-        values.put(Telephony.Carriers.CARRIER_ENABLED, mCarrierEnabled.isChecked() ? 1 : 0);
-        getContentResolver().update(mUri, values, null, null);
+        callUpdate = setStringValueAndCheckIfDiff(values,
+                Telephony.Carriers.MVNO_MATCH_DATA,
+                checkNotSet(mMvnoMatchData.getText()),
+                callUpdate,
+                MVNO_MATCH_DATA_INDEX);
+
+        callUpdate = setIntValueAndCheckIfDiff(values,
+                Telephony.Carriers.CARRIER_ENABLED,
+                mCarrierEnabled.isChecked() ? 1 : 0,
+                callUpdate,
+                CARRIER_ENABLED_INDEX);
+
+        if (callUpdate) {
+            getContentResolver().update(mUri, values, null, null);
+        } else {
+            if (VDBG) Log.d(TAG, "validateAndSave: not calling update()");
+        }
 
         return true;
     }
@@ -749,7 +1088,7 @@ public class ApnEditor extends SettingsPreferenceFragment
         }
     }
 
-    public static class ErrorDialog extends DialogFragment {
+    public static class ErrorDialog extends InstrumentedDialogFragment {
 
         public static void showError(ApnEditor editor) {
             ErrorDialog dialog = new ErrorDialog();
@@ -766,6 +1105,11 @@ public class ApnEditor extends SettingsPreferenceFragment
                     .setPositiveButton(android.R.string.ok, null)
                     .setMessage(msg)
                     .create();
+        }
+
+        @Override
+        public int getMetricsCategory() {
+            return MetricsEvent.DIALOG_APN_EDITOR_ERROR;
         }
     }
 

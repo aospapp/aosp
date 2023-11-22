@@ -87,16 +87,20 @@
     <!-- no translation found for organ_donor_entries:2 (9037713957399818892) -->
     <string name="emergency_contacts_title" msgid="5462202017417821030">"आपातकालीन संपर्क"</string>
     <string name="add_emergency_contact" msgid="4063577069613981029">"संपर्क जोड़ें"</string>
+    <string name="fail_load_contact_picker" msgid="817205483833876726">"संपर्क पिकर नहीं मिला"</string>
+    <string name="fail_display_contact" msgid="4128854688897045879">"संपर्क प्रदर्शित नहीं किया जा सकता"</string>
     <string name="remove_contact" msgid="6934983445723096759">"<xliff:g id="CONTACT_NAME">%1$s</xliff:g> को आपातकालीन संपर्कों में से निकालें?"</string>
     <string name="remove_contact_icon_text" msgid="4576641386490101363">"संपर्क निकालें"</string>
+    <string name="fail_add_contact" msgid="6511490846952942291">"संपर्क की जानकारी ठीक से नहीं पढ़ी जा सकी"</string>
     <string name="remove" msgid="1243949503772376064">"निकालें"</string>
     <string name="cancel" msgid="7401575239009060939">"रद्द करें"</string>
     <string name="ok" msgid="163967937451981024">"ठीक"</string>
     <string name="phone_type_and_phone_number" msgid="5034188169563878371">"<xliff:g id="PHONE_TYPE">%1$s</xliff:g> • <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
     <string name="user_emergency_info_title" msgid="7827058167207376581">"आपातकालीन जानकारी"</string>
-    <string name="user_emergency_info_consent" msgid="5636028073450797246">"आप यहां जो जानकारी डालते हैं वह आपातकाल में सबसे पहले प्रतिसाद देने वाले लोगों की सहायता कर सकती है. उसे केवल आपके डिवाइस पर संग्रहीत किया जाता है और कोई भी व्यक्ति आपके फ़ोन को अनलॉक किए बिना उसे आपातकालीन डायलर से पढ़ सकता है."</string>
+    <string name="user_emergency_info_consent" msgid="5636028073450797246">"आप यहां जो जानकारी डालते हैं वह आपातकाल में सबसे पहले प्रतिक्रिया देने वाले लोगों की सहायता कर सकती है. उसे केवल आपके डिवाइस पर संग्रहित किया जाता है और कोई भी व्यक्ति आपके फ़ोन को अनलॉक किए बिना उसे आपातकालीन डायलर से पढ़ सकता है."</string>
     <string name="emergency_info_continue" msgid="5453201508537906087">"जारी रखें"</string>
-    <string name="no_info_provided" msgid="6775035037534954056">"कोई भी आपातकालीन जानकारी प्रदान नहीं की गई है"</string>
+    <string name="no_info_provided" msgid="716200382010821001">"फ़ोन के स्वामी के बारे में कोई जानकारी नहीं है"</string>
+    <string name="tap_pencil" msgid="2723698054265296934">"यदि यह आपका फ़ोन है, तो आपात स्थिति में यहां दिखाई जाने वाली जानकारी जोड़ने के लिए पेंसिल आइकन टैप करें"</string>
     <string name="clear_all" msgid="8899013032870561633">"सभी साफ़ करें"</string>
     <string name="clear" msgid="3648880442502887163">"साफ़ करें"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"सभी जानकारी और संपर्क साफ़ करें?"</string>

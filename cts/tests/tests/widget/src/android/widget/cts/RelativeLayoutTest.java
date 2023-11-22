@@ -16,15 +16,19 @@
 
 package android.widget.cts;
 
-import android.widget.cts.R;
-
-import org.xmlpull.v1.XmlPullParser;
-import org.xmlpull.v1.XmlPullParserException;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 
 import android.app.Activity;
+import android.app.Instrumentation;
 import android.content.Context;
 import android.content.res.XmlResourceParser;
-import android.test.ActivityInstrumentationTestCase2;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.filters.MediumTest;
+import android.support.test.rule.ActivityTestRule;
+import android.support.test.runner.AndroidJUnit4;
 import android.test.ViewAsserts;
 import android.util.AttributeSet;
 import android.util.Xml;
@@ -36,25 +40,35 @@ import android.widget.AbsListView;
 import android.widget.RelativeLayout;
 import android.widget.cts.util.XmlUtils;
 
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.xmlpull.v1.XmlPullParser;
+import org.xmlpull.v1.XmlPullParserException;
+
 import java.io.IOException;
 
 /**
  * Test {@link RelativeLayout}.
  */
-public class RelativeLayoutTest extends
-        ActivityInstrumentationTestCase2<RelativeLayoutCtsActivity> {
+@MediumTest
+@RunWith(AndroidJUnit4.class)
+public class RelativeLayoutTest {
+    private Instrumentation mInstrumentation;
     private Activity mActivity;
 
-    public RelativeLayoutTest() {
-        super("android.widget.cts", RelativeLayoutCtsActivity.class);
+    @Rule
+    public ActivityTestRule<RelativeLayoutCtsActivity> mActivityRule =
+            new ActivityTestRule<>(RelativeLayoutCtsActivity.class);
+
+    @Before
+    public void setup() {
+        mInstrumentation = InstrumentationRegistry.getInstrumentation();
+        mActivity = mActivityRule.getActivity();
     }
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mActivity = getActivity();
-    }
-
+    @Test
     public void testConstructor() {
         new RelativeLayout(mActivity);
 
@@ -65,15 +79,15 @@ public class RelativeLayoutTest extends
         XmlPullParser parser = mActivity.getResources().getXml(R.layout.relative_layout);
         AttributeSet attrs = Xml.asAttributeSet(parser);
         new RelativeLayout(mActivity, attrs);
-
-        try {
-            new RelativeLayout(null, null);
-            fail("should throw NullPointerException.");
-        } catch (NullPointerException e) {
-        }
     }
 
-    public void testSetIgnoreGravity() {
+    @Test(expected=NullPointerException.class)
+    public void testConstructorNullContext() {
+        new RelativeLayout(null, null);
+    }
+
+    @Test
+    public void testSetIgnoreGravity() throws Throwable {
         // Initial gravity for this RelativeLayout is Gravity.Right.
         final RelativeLayout relativeLayout = (RelativeLayout) mActivity.findViewById(
                 R.id.relative_sublayout_ignore_gravity);
@@ -86,27 +100,20 @@ public class RelativeLayoutTest extends
         ViewAsserts.assertRightAligned(relativeLayout, view13);
 
         relativeLayout.setIgnoreGravity(R.id.relative_view13);
-        mActivity.runOnUiThread(new Runnable() {
-            public void run() {
-                relativeLayout.requestLayout();
-            }
-        });
-        getInstrumentation().waitForIdleSync();
+        mActivityRule.runOnUiThread(relativeLayout::requestLayout);
+        mInstrumentation.waitForIdleSync();
         ViewAsserts.assertRightAligned(relativeLayout, view12);
         ViewAsserts.assertLeftAligned(relativeLayout, view13);
 
         relativeLayout.setIgnoreGravity(0);
-        mActivity.runOnUiThread(new Runnable() {
-            public void run() {
-                relativeLayout.requestLayout();
-            }
-        });
-        getInstrumentation().waitForIdleSync();
+        mActivityRule.runOnUiThread(relativeLayout::requestLayout);
+        mInstrumentation.waitForIdleSync();
         ViewAsserts.assertRightAligned(relativeLayout, view12);
         ViewAsserts.assertRightAligned(relativeLayout, view13);
     }
 
-    public void testSetGravity() {
+    @Test
+    public void testAccessGravity() throws Throwable {
         final RelativeLayout relativeLayout = (RelativeLayout) mActivity.findViewById(
                 R.id.relative_sublayout_gravity);
 
@@ -120,48 +127,38 @@ public class RelativeLayoutTest extends
         assertEquals(view11.getTop(), view10.getBottom());
 
         // -- BOTTOM && RIGHT
-        mActivity.runOnUiThread(new Runnable() {
-            public void run() {
-                relativeLayout.setGravity(Gravity.BOTTOM | Gravity.RIGHT);
-            }
-        });
-        getInstrumentation().waitForIdleSync();
+        mActivityRule.runOnUiThread(
+                () -> relativeLayout.setGravity(Gravity.BOTTOM | Gravity.RIGHT));
+        mInstrumentation.waitForIdleSync();
+        assertEquals(Gravity.BOTTOM | Gravity.RIGHT, relativeLayout.getGravity());
         ViewAsserts.assertRightAligned(relativeLayout, view10);
         assertEquals(view11.getTop(), view10.getBottom());
         ViewAsserts.assertRightAligned(relativeLayout, view11);
         ViewAsserts.assertBottomAligned(relativeLayout, view11);
 
         // -- BOTTOM
-        mActivity.runOnUiThread(new Runnable() {
-            public void run() {
-                relativeLayout.setGravity(Gravity.BOTTOM);
-            }
-        });
-        getInstrumentation().waitForIdleSync();
+        mActivityRule.runOnUiThread(() -> relativeLayout.setGravity(Gravity.BOTTOM));
+        mInstrumentation.waitForIdleSync();
+        assertEquals(Gravity.BOTTOM | Gravity.START, relativeLayout.getGravity());
         ViewAsserts.assertLeftAligned(relativeLayout, view10);
         assertEquals(view11.getTop(), view10.getBottom());
         ViewAsserts.assertLeftAligned(relativeLayout, view11);
         ViewAsserts.assertBottomAligned(relativeLayout, view11);
 
         // CENTER_HORIZONTAL
-        mActivity.runOnUiThread(new Runnable() {
-            public void run() {
-                relativeLayout.setGravity(Gravity.CENTER_HORIZONTAL);
-            }
-        });
-        getInstrumentation().waitForIdleSync();
+        mActivityRule.runOnUiThread(() -> relativeLayout.setGravity(Gravity.CENTER_HORIZONTAL));
+        mInstrumentation.waitForIdleSync();
+        assertEquals(Gravity.CENTER_HORIZONTAL | Gravity.TOP,
+                relativeLayout.getGravity());
         ViewAsserts.assertHorizontalCenterAligned(relativeLayout, view10);
         ViewAsserts.assertTopAligned(relativeLayout, view10);
         ViewAsserts.assertHorizontalCenterAligned(relativeLayout, view11);
         assertEquals(view11.getTop(), view10.getBottom());
 
         // CENTER_VERTICAL
-        mActivity.runOnUiThread(new Runnable() {
-            public void run() {
-                relativeLayout.setGravity(Gravity.CENTER_VERTICAL);
-            }
-        });
-        getInstrumentation().waitForIdleSync();
+        mActivityRule.runOnUiThread(() -> relativeLayout.setGravity(Gravity.CENTER_VERTICAL));
+        mInstrumentation.waitForIdleSync();
+        assertEquals(Gravity.CENTER_VERTICAL | Gravity.START, relativeLayout.getGravity());
         ViewAsserts.assertLeftAligned(relativeLayout, view10);
         int topSpace = view10.getTop();
         int bottomSpace = relativeLayout.getHeight() - view11.getBottom();
@@ -170,7 +167,8 @@ public class RelativeLayoutTest extends
         assertEquals(view11.getTop(), view10.getBottom());
     }
 
-    public void testSetHorizontalGravity() {
+    @Test
+    public void testSetHorizontalGravity() throws Throwable {
         final RelativeLayout relativeLayout = (RelativeLayout) mActivity.findViewById(
                 R.id.relative_sublayout_gravity);
 
@@ -184,31 +182,28 @@ public class RelativeLayoutTest extends
         assertEquals(view11.getTop(), view10.getBottom());
 
         // RIGHT
-        mActivity.runOnUiThread(new Runnable() {
-            public void run() {
-                relativeLayout.setHorizontalGravity(Gravity.RIGHT);
-            }
-        });
-        getInstrumentation().waitForIdleSync();
+        mActivityRule.runOnUiThread(() -> relativeLayout.setHorizontalGravity(Gravity.RIGHT));
+        mInstrumentation.waitForIdleSync();
+        assertEquals(Gravity.RIGHT, Gravity.HORIZONTAL_GRAVITY_MASK & relativeLayout.getGravity());
         ViewAsserts.assertRightAligned(relativeLayout, view10);
         ViewAsserts.assertTopAligned(relativeLayout, view10);
         ViewAsserts.assertRightAligned(relativeLayout, view11);
         assertEquals(view11.getTop(), view10.getBottom());
 
         // CENTER_HORIZONTAL
-        mActivity.runOnUiThread(new Runnable() {
-            public void run() {
-                relativeLayout.setHorizontalGravity(Gravity.CENTER_HORIZONTAL);
-            }
-        });
-        getInstrumentation().waitForIdleSync();
+        mActivityRule.runOnUiThread(
+                () -> relativeLayout.setHorizontalGravity(Gravity.CENTER_HORIZONTAL));
+        mInstrumentation.waitForIdleSync();
+        assertEquals(Gravity.CENTER_HORIZONTAL,
+                Gravity.HORIZONTAL_GRAVITY_MASK & relativeLayout.getGravity());
         ViewAsserts.assertHorizontalCenterAligned(relativeLayout, view10);
         ViewAsserts.assertTopAligned(relativeLayout, view10);
         ViewAsserts.assertHorizontalCenterAligned(relativeLayout, view11);
         assertEquals(view11.getTop(), view10.getBottom());
     }
 
-    public void testSetVerticalGravity() {
+    @Test
+    public void testSetVerticalGravity() throws Throwable {
         final RelativeLayout relativeLayout = (RelativeLayout) mActivity.findViewById(
                 R.id.relative_sublayout_gravity);
 
@@ -222,24 +217,20 @@ public class RelativeLayoutTest extends
         assertEquals(view11.getTop(), view10.getBottom());
 
         // BOTTOM
-        mActivity.runOnUiThread(new Runnable() {
-            public void run() {
-                relativeLayout.setVerticalGravity(Gravity.BOTTOM);
-            }
-        });
-        getInstrumentation().waitForIdleSync();
+        mActivityRule.runOnUiThread(() -> relativeLayout.setVerticalGravity(Gravity.BOTTOM));
+        mInstrumentation.waitForIdleSync();
+        assertEquals(Gravity.BOTTOM, Gravity.VERTICAL_GRAVITY_MASK & relativeLayout.getGravity());
         ViewAsserts.assertLeftAligned(relativeLayout, view10);
         assertEquals(view11.getTop(), view10.getBottom());
         ViewAsserts.assertLeftAligned(relativeLayout, view11);
         ViewAsserts.assertBottomAligned(relativeLayout, view11);
 
         // CENTER_VERTICAL
-        mActivity.runOnUiThread(new Runnable() {
-            public void run() {
-                relativeLayout.setVerticalGravity(Gravity.CENTER_VERTICAL);
-            }
-        });
-        getInstrumentation().waitForIdleSync();
+        mActivityRule.runOnUiThread(
+                () -> relativeLayout.setVerticalGravity(Gravity.CENTER_VERTICAL));
+        mInstrumentation.waitForIdleSync();
+        assertEquals(Gravity.CENTER_VERTICAL,
+                Gravity.VERTICAL_GRAVITY_MASK & relativeLayout.getGravity());
         ViewAsserts.assertLeftAligned(relativeLayout, view10);
         int topSpace = view10.getTop();
         int bottomSpace = relativeLayout.getHeight() - view11.getBottom();
@@ -248,6 +239,7 @@ public class RelativeLayoutTest extends
         assertEquals(view11.getTop(), view10.getBottom());
     }
 
+    @Test
     public void testGetBaseline() {
         RelativeLayout relativeLayout = new RelativeLayout(mActivity);
         assertEquals(-1, relativeLayout.getBaseline());
@@ -257,6 +249,7 @@ public class RelativeLayoutTest extends
         assertEquals(view.getBaseline(), relativeLayout.getBaseline());
     }
 
+    @Test
     public void testGenerateLayoutParams1() throws XmlPullParserException, IOException {
         RelativeLayout relativeLayout = new RelativeLayout(mActivity);
 
@@ -268,6 +261,7 @@ public class RelativeLayoutTest extends
         assertEquals(LayoutParams.MATCH_PARENT, layoutParams.height);
     }
 
+    @Test
     public void testGenerateLayoutParams2() {
         RelativeLayout.LayoutParams p = new RelativeLayout.LayoutParams(200, 300);
 
@@ -278,15 +272,15 @@ public class RelativeLayoutTest extends
                  (RelativeLayout.LayoutParams) myRelativeLayout.generateLayoutParams(p);
          assertEquals(200, layoutParams.width);
          assertEquals(300, layoutParams.height);
-
-        // exceptional value
-         try {
-             myRelativeLayout.generateLayoutParams((ViewGroup.LayoutParams) null);
-             fail("Should throw RuntimeException");
-         } catch (RuntimeException e) {
-         }
     }
 
+    @Test(expected=NullPointerException.class)
+    public void testGenerateLayoutParamsFromNull() {
+        MyRelativeLayout myRelativeLayout = new MyRelativeLayout(mActivity);
+        myRelativeLayout.generateLayoutParams((ViewGroup.LayoutParams) null);
+    }
+
+    @Test
     public void testGenerateDefaultLayoutParams() {
         MyRelativeLayout myRelativeLayout = new MyRelativeLayout(mActivity);
 
@@ -296,6 +290,7 @@ public class RelativeLayoutTest extends
         assertEquals(ViewGroup.LayoutParams.WRAP_CONTENT, layoutParams.height);
     }
 
+    @Test
     public void testGenerateLayoutParamsFromMarginParams() {
         MyRelativeLayout layout = new MyRelativeLayout(mActivity);
         ViewGroup.MarginLayoutParams lp = new ViewGroup.MarginLayoutParams(3, 5);
@@ -315,14 +310,7 @@ public class RelativeLayoutTest extends
         assertEquals(4, generated.bottomMargin);
     }
 
-    public void testOnMeasure() {
-        // onMeasure() is implementation details, do NOT test
-    }
-
-    public void testOnLayout() {
-        // onLayout() is implementation details, do NOT test
-    }
-
+    @Test
     public void testCheckLayoutParams() {
         MyRelativeLayout myRelativeLayout = new MyRelativeLayout(mActivity);
 
@@ -336,6 +324,7 @@ public class RelativeLayoutTest extends
         assertFalse(myRelativeLayout.checkLayoutParams(p3));
     }
 
+    @Test
     public void testGetRule() {
         RelativeLayout.LayoutParams p = new RelativeLayout.LayoutParams(0, 0);
         p.addRule(RelativeLayout.LEFT_OF, R.id.abslistview_root);
@@ -351,13 +340,11 @@ public class RelativeLayoutTest extends
     /**
      * Tests to prevent regressions in baseline alignment.
      */
-    public void testBaselineAlignment() {
-        mActivity.runOnUiThread(new Runnable() {
-            public void run() {
-                mActivity.setContentView(R.layout.relative_layout_baseline);
-            }
-        });
-        getInstrumentation().waitForIdleSync();
+    @Test
+    public void testBaselineAlignment() throws Throwable {
+        mActivityRule.runOnUiThread(
+                () -> mActivity.setContentView(R.layout.relative_layout_baseline));
+        mInstrumentation.waitForIdleSync();
 
         View button = mActivity.findViewById(R.id.button1);
         assertTrue(button.getHeight() > 0);

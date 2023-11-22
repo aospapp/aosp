@@ -20,6 +20,9 @@
 #include <utils/Flattenable.h>
 #include <utils/Log.h>
 #include <utils/TypeHelpers.h>
+#include <log/log.h>
+
+#include <ui/FloatRect.h>
 #include <ui/Point.h>
 
 #include <android/rect.h>
@@ -42,13 +45,9 @@ public:
     template <typename T>
     inline Rect(T w, T h) {
         if (w > INT32_MAX) {
-            ALOG(LOG_WARN, "Rect",
-                    "Width %u too large for Rect class, clamping", w);
             w = INT32_MAX;
         }
         if (h > INT32_MAX) {
-            ALOG(LOG_WARN, "Rect",
-                    "Height %u too large for Rect class, clamping", h);
             h = INT32_MAX;
         }
         left = top = 0;
@@ -177,11 +176,15 @@ public:
     // this calculates (Region(*this) - exclude).bounds() efficiently
     Rect reduce(const Rect& exclude) const;
 
-
     // for backward compatibility
     inline int32_t width() const { return getWidth(); }
     inline int32_t height() const { return getHeight(); }
     inline void set(const Rect& rhs) { operator = (rhs); }
+
+    FloatRect toFloatRect() const {
+        return {static_cast<float>(left), static_cast<float>(top),
+                static_cast<float>(right), static_cast<float>(bottom)};
+    }
 };
 
 ANDROID_BASIC_TYPES_TRAITS(Rect)

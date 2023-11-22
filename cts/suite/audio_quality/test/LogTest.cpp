@@ -17,8 +17,6 @@
 #include <stdint.h>
 #include <gtest/gtest.h>
 
-#include <UniquePtr.h>
-
 #include "Log.h"
 
 

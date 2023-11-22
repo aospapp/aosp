@@ -10,7 +10,6 @@ from autotest_lib.client.common_lib import utils
 NAME = "factory_Basic"
 AUTHOR = "beeps@google.com, chromeos-test@google.com"
 ATTRIBUTES = "suite:factory"
-SUITE = "factory"
 TIME = "LONG"
 TEST_CATEGORY = "Functional"
 TEST_TYPE = "server"

@@ -26,14 +26,14 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.res.AssetFileDescriptor;
-import android.cts.util.FileCopyHelper;
-import android.cts.util.PollingCheck;
 import android.database.Cursor;
 import android.media.MediaMetadataRetriever;
 import android.media.MediaScannerConnection;
 import android.media.MediaScannerConnection.MediaScannerConnectionClient;
 import android.mtp.MtpConstants;
 import android.net.Uri;
+import android.support.test.filters.SmallTest;
+import android.platform.test.annotations.RequiresDevice;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.IBinder;
@@ -42,9 +42,14 @@ import android.provider.MediaStore;
 import android.test.AndroidTestCase;
 import android.util.Log;
 
+import com.android.compatibility.common.util.FileCopyHelper;
+import com.android.compatibility.common.util.PollingCheck;
+
 import java.io.File;
 import java.io.IOException;
 
+@SmallTest
+@RequiresDevice
 public class MediaScannerTest extends AndroidTestCase {
 
     private static final String MEDIA_TYPE = "audio/mpeg";

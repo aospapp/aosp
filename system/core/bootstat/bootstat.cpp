@@ -20,6 +20,7 @@
 
 #include <getopt.h>
 #include <unistd.h>
+
 #include <cmath>
 #include <cstddef>
 #include <cstdio>
@@ -27,13 +28,16 @@
 #include <map>
 #include <memory>
 #include <string>
+#include <vector>
+
+#include <android/log.h>
 #include <android-base/logging.h>
 #include <android-base/parseint.h>
+#include <android-base/strings.h>
 #include <cutils/properties.h>
-#include <log/log.h>
+#include <metricslogger/metrics_logger.h>
+
 #include "boot_event_record_store.h"
-#include "event_log_list_builder.h"
-#include "histogram_logger.h"
 #include "uptime_parser.h"
 
 namespace {
@@ -45,7 +49,23 @@ void LogBootEvents() {
 
   auto events = boot_event_store.GetAllBootEvents();
   for (auto i = events.cbegin(); i != events.cend(); ++i) {
-    bootstat::LogHistogram(i->first, i->second);
+    android::metricslogger::LogHistogram(i->first, i->second);
+  }
+}
+
+// Records the named boot |event| to the record store. If |value| is non-empty
+// and is a proper string representation of an integer value, the converted
+// integer value is associated with the boot event.
+void RecordBootEventFromCommandLine(
+    const std::string& event, const std::string& value_str) {
+  BootEventRecordStore boot_event_store;
+  if (!value_str.empty()) {
+    int32_t value = 0;
+    if (android::base::ParseInt(value_str, &value)) {
+      boot_event_store.AddBootEventWithValue(event, value);
+    }
+  } else {
+    boot_event_store.AddBootEvent(event);
   }
 }
 
@@ -68,6 +88,7 @@ void ShowHelp(const char *cmd) {
           "  -l, --log             Log all metrics to logstorage\n"
           "  -p, --print           Dump the boot event records to the console\n"
           "  -r, --record          Record the timestamp of a named boot event\n"
+          "  --value               Optional value to associate with the boot event\n"
           "  --record_boot_reason  Record the reason why the device booted\n"
           "  --record_time_since_factory_reset Record the time since the device was reset\n");
 }
@@ -122,6 +143,30 @@ const std::map<std::string, int32_t> kBootReasonMap = {
   {"Reboot", 18},
   {"rtc", 19},
   {"edl", 20},
+  {"oem_pon1", 21},
+  {"oem_powerkey", 22},
+  {"oem_unknown_reset", 23},
+  {"srto: HWWDT reset SC", 24},
+  {"srto: HWWDT reset platform", 25},
+  {"srto: bootloader", 26},
+  {"srto: kernel panic", 27},
+  {"srto: kernel watchdog reset", 28},
+  {"srto: normal", 29},
+  {"srto: reboot", 30},
+  {"srto: reboot-bootloader", 31},
+  {"srto: security watchdog reset", 32},
+  {"srto: wakesrc", 33},
+  {"srto: watchdog", 34},
+  {"srto:1-1", 35},
+  {"srto:omap_hsmm", 36},
+  {"srto:phy0", 37},
+  {"srto:rtc0", 38},
+  {"srto:touchpad", 39},
+  {"watchdog", 40},
+  {"watchdogr", 41},
+  {"wdog_bark", 42},
+  {"wdog_bite", 43},
+  {"wdog_reset", 44},
 };
 
 // Converts a string value representing the reason the system booted to an
@@ -149,7 +194,7 @@ std::string CalculateBootCompletePrefix() {
 
   std::string build_date_str = GetProperty("ro.build.date.utc");
   int32_t build_date;
-  if (!android::base::ParseInt(build_date_str.c_str(), &build_date)) {
+  if (!android::base::ParseInt(build_date_str, &build_date)) {
     return std::string();
   }
 
@@ -162,6 +207,46 @@ std::string CalculateBootCompletePrefix() {
   }
 
   return boot_complete_prefix;
+}
+
+// Records the value of a given ro.boottime.init property in milliseconds.
+void RecordInitBootTimeProp(
+    BootEventRecordStore* boot_event_store, const char* property) {
+  std::string value = GetProperty(property);
+
+  int32_t time_in_ms;
+  if (android::base::ParseInt(value, &time_in_ms)) {
+    boot_event_store->AddBootEventWithValue(property, time_in_ms);
+  }
+}
+
+// Parses and records the set of bootloader stages and associated boot times
+// from the ro.boot.boottime system property.
+void RecordBootloaderTimings(BootEventRecordStore* boot_event_store) {
+  // |ro.boot.boottime| is of the form 'stage1:time1,...,stageN:timeN'.
+  std::string value = GetProperty("ro.boot.boottime");
+  if (value.empty()) {
+    // ro.boot.boottime is not reported on all devices.
+    return;
+  }
+
+  int32_t total_time = 0;
+  auto stages = android::base::Split(value, ",");
+  for (auto const &stageTiming : stages) {
+    // |stageTiming| is of the form 'stage:time'.
+    auto stageTimingValues = android::base::Split(stageTiming, ":");
+    DCHECK_EQ(2, stageTimingValues.size());
+
+    std::string stageName = stageTimingValues[0];
+    int32_t time_ms;
+    if (android::base::ParseInt(stageTimingValues[1], &time_ms)) {
+      total_time += time_ms;
+      boot_event_store->AddBootEventWithValue(
+          "boottime.bootloader." + stageName, time_ms);
+    }
+  }
+
+  boot_event_store->AddBootEventWithValue("boottime.bootloader.total", total_time);
 }
 
 // Records several metrics related to the time it takes to boot the device,
@@ -213,6 +298,12 @@ void RecordBootComplete() {
   // Record the total time from device startup to boot complete, regardless of
   // encryption state.
   boot_event_store.AddBootEventWithValue(boot_complete_prefix, uptime);
+
+  RecordInitBootTimeProp(&boot_event_store, "ro.boottime.init");
+  RecordInitBootTimeProp(&boot_event_store, "ro.boottime.init.selinux");
+  RecordInitBootTimeProp(&boot_event_store, "ro.boottime.init.cold_boot_wait");
+
+  RecordBootloaderTimings(&boot_event_store);
 }
 
 // Records the boot_reason metric by querying the ro.boot.bootreason system
@@ -234,18 +325,18 @@ void RecordFactoryReset() {
 
   if (current_time_utc < 0) {
     // UMA does not display negative values in buckets, so convert to positive.
-    bootstat::LogHistogram(
+    android::metricslogger::LogHistogram(
         "factory_reset_current_time_failure", std::abs(current_time_utc));
 
-    // Logging via BootEventRecordStore to see if using bootstat::LogHistogram
+    // Logging via BootEventRecordStore to see if using android::metricslogger::LogHistogram
     // is losing records somehow.
     boot_event_store.AddBootEventWithValue(
         "factory_reset_current_time_failure", std::abs(current_time_utc));
     return;
   } else {
-    bootstat::LogHistogram("factory_reset_current_time", current_time_utc);
+    android::metricslogger::LogHistogram("factory_reset_current_time", current_time_utc);
 
-    // Logging via BootEventRecordStore to see if using bootstat::LogHistogram
+    // Logging via BootEventRecordStore to see if using android::metricslogger::LogHistogram
     // is losing records somehow.
     boot_event_store.AddBootEventWithValue(
         "factory_reset_current_time", current_time_utc);
@@ -264,9 +355,9 @@ void RecordFactoryReset() {
   // Calculate and record the difference in time between now and the
   // factory_reset time.
   time_t factory_reset_utc = record.second;
-  bootstat::LogHistogram("factory_reset_record_value", factory_reset_utc);
+  android::metricslogger::LogHistogram("factory_reset_record_value", factory_reset_utc);
 
-  // Logging via BootEventRecordStore to see if using bootstat::LogHistogram
+  // Logging via BootEventRecordStore to see if using android::metricslogger::LogHistogram
   // is losing records somehow.
   boot_event_store.AddBootEventWithValue(
       "factory_reset_record_value", factory_reset_utc);
@@ -286,6 +377,7 @@ int main(int argc, char **argv) {
   LOG(INFO) << "Service started: " << cmd_line;
 
   int option_index = 0;
+  static const char value_str[] = "value";
   static const char boot_complete_str[] = "record_boot_complete";
   static const char boot_reason_str[] = "record_boot_reason";
   static const char factory_reset_str[] = "record_time_since_factory_reset";
@@ -294,19 +386,26 @@ int main(int argc, char **argv) {
     { "log",             no_argument,       NULL,   'l' },
     { "print",           no_argument,       NULL,   'p' },
     { "record",          required_argument, NULL,   'r' },
+    { value_str,         required_argument, NULL,   0 },
     { boot_complete_str, no_argument,       NULL,   0 },
     { boot_reason_str,   no_argument,       NULL,   0 },
     { factory_reset_str, no_argument,       NULL,   0 },
     { NULL,              0,                 NULL,   0 }
   };
 
+  std::string boot_event;
+  std::string value;
   int opt = 0;
   while ((opt = getopt_long(argc, argv, "hlpr:", long_options, &option_index)) != -1) {
     switch (opt) {
       // This case handles long options which have no single-character mapping.
       case 0: {
         const std::string option_name = long_options[option_index].name;
-        if (option_name == boot_complete_str) {
+        if (option_name == value_str) {
+          // |optarg| is an external variable set by getopt representing
+          // the option argument.
+          value = optarg;
+        } else if (option_name == boot_complete_str) {
           RecordBootComplete();
         } else if (option_name == boot_reason_str) {
           RecordBootReason();
@@ -336,10 +435,7 @@ int main(int argc, char **argv) {
       case 'r': {
         // |optarg| is an external variable set by getopt representing
         // the option argument.
-        const char* event = optarg;
-
-        BootEventRecordStore boot_event_store;
-        boot_event_store.AddBootEvent(event);
+        boot_event = optarg;
         break;
       }
 
@@ -353,6 +449,10 @@ int main(int argc, char **argv) {
         return EXIT_FAILURE;
       }
     }
+  }
+
+  if (!boot_event.empty()) {
+    RecordBootEventFromCommandLine(boot_event, value);
   }
 
   return 0;

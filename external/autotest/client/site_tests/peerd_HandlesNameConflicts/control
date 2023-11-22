@@ -7,7 +7,6 @@ NAME = 'peerd_HandlesNameConflicts'
 TIME = 'FAST'
 TEST_TYPE = 'client'
 ATTRIBUTES = "suite:tendo_experimental"
-SUITE = 'tendo_experimental'
 
 DOC = """
 This test:

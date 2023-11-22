@@ -61,7 +61,9 @@ hardware-accelerate the Canvas API.  As you can see from the charts on the
 Acceleration</a>
 page, this was a bit of a bumpy ride.  Note in particular that while the Canvas
 provided to a View's <code>onDraw()</code> method may be hardware-accelerated, the Canvas
-obtained when an app locks a Surface directly with <code>lockCanvas()</code> never is.</p>
+obtained when an app locks a Surface directly with <code>lockCanvas()</code> never is.
+As of API 23, a hardware-accelerated Canvas can be obtained from a Surface using
+<code>lockHardwareCanvas()</code> instead.</p>
 
 <p>When you lock a Surface for Canvas access, the "CPU renderer" connects to the
 producer side of the BufferQueue and does not disconnect until the Surface is

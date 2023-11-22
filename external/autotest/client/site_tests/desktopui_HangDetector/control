@@ -5,7 +5,6 @@
 AUTHOR = "cmasone@chromium.org"
 NAME = "desktopui_HangDetector"
 ATTRIBUTES = "suite:regression"
-SUITE = "regression"
 TIME = "FAST"
 TEST_TYPE = "client"
 

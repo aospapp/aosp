@@ -15,11 +15,13 @@
  */
 package android.content.pm.cts.shortcutmanager.common;
 
+import java.security.SecureRandom;
+
 public class Constants {
     public static final String ACTION_THROTTLING_TEST =
             "android.content.pm.cts.shortcutmanager.ACTION_THROTTLING_TEST";
-    public static final String ACTION_THROTTLING_REPLY =
-            "android.content.pm.cts.shortcutmanager.ACTION_THROTTLING_REPLY";
+    public static final String ACTION_REPLY =
+            "android.content.pm.cts.shortcutmanager.ACTION_REPLY";
 
     public static final String EXTRA_METHOD = "method";
     public static final String EXTRA_REPLY_ACTION = "reply_action";
@@ -37,4 +39,14 @@ public class Constants {
 
     public static final String INLINE_REPLY_TITLE = "InlineReplyTestTitle";
     public static final String INLINE_REPLY_REMOTE_INPUT_CAPTION = "__INLINE_REPLY_REMOTE_INPUT__";
+
+    public static final String IGNORE = "IGNORE";
+    public static final String REQUEST_IGNORED_MESSAGE = "REQUEST_IGNORED_MESSAGE";
+
+    public static final String ALREADY_PINNED = "ALREADY_PINNED";
+
+    public static final String HAS_ICON = "HAS_ICON";
+    public static final String LABEL = "LABEL";
+
+    public static final SecureRandom sRandom = new SecureRandom();
 }

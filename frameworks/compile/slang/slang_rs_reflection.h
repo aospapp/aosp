@@ -243,7 +243,7 @@ private:
   void genNewItemBufferIfNull(const char *Index);
   void genNewItemBufferPackerIfNull();
 
-  void genPairwiseDimCheck(std::string name0, std::string name1);
+  void genPairwiseDimCheck(const std::string &name0, const std::string &name1);
   void genVectorLengthCompatibilityCheck(const std::string &ArrayName, unsigned VecSize);
   void genNullArrayCheck(const std::string &ArrayName);
 

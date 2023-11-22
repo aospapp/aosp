@@ -22,7 +22,7 @@
 #include "mirror/class-inl.h"
 #include "mirror/object-inl.h"
 #include "mirror/object_array-inl.h"
-#include "scoped_thread_state_change.h"
+#include "scoped_thread_state_change-inl.h"
 
 namespace art {
 namespace gc {
@@ -70,6 +70,11 @@ TEST_F(HeapTest, HeapBitmapCapacityTest) {
   mirror::Object* fake_end_of_heap_object =
       reinterpret_cast<mirror::Object*>(&heap_begin[heap_capacity - kObjectAlignment]);
   bitmap->Set(fake_end_of_heap_object);
+}
+
+TEST_F(HeapTest, DumpGCPerformanceOnShutdown) {
+  Runtime::Current()->GetHeap()->CollectGarbage(/* clear_soft_references */ false);
+  Runtime::Current()->SetDumpGCPerformanceOnShutdown(true);
 }
 
 class ZygoteHeapTest : public CommonRuntimeTest {

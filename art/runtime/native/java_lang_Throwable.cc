@@ -17,7 +17,7 @@
 #include "java_lang_Throwable.h"
 
 #include "jni_internal.h"
-#include "scoped_fast_native_object_access.h"
+#include "scoped_fast_native_object_access-inl.h"
 #include "thread.h"
 
 namespace art {
@@ -36,8 +36,8 @@ static jobjectArray Throwable_nativeGetStackTrace(JNIEnv* env, jclass, jobject j
 }
 
 static JNINativeMethod gMethods[] = {
-  NATIVE_METHOD(Throwable, nativeFillInStackTrace, "!()Ljava/lang/Object;"),
-  NATIVE_METHOD(Throwable, nativeGetStackTrace, "!(Ljava/lang/Object;)[Ljava/lang/StackTraceElement;"),
+  FAST_NATIVE_METHOD(Throwable, nativeFillInStackTrace, "()Ljava/lang/Object;"),
+  FAST_NATIVE_METHOD(Throwable, nativeGetStackTrace, "(Ljava/lang/Object;)[Ljava/lang/StackTraceElement;"),
 };
 
 void register_java_lang_Throwable(JNIEnv* env) {

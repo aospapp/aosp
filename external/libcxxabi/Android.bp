@@ -17,6 +17,7 @@
 cc_library_static {
     name: "libc++abi",
     host_supported: true,
+    vendor_available: true,
     clang: true,
     srcs: [
         "src/abort_message.cpp",
@@ -33,10 +34,11 @@ cc_library_static {
         "src/cxa_unexpected.cpp",
         "src/cxa_vector.cpp",
         "src/cxa_virtual.cpp",
-        "src/exception.cpp",
+        "src/fallback_malloc.cpp",
         "src/private_typeinfo.cpp",
-        "src/stdexcept.cpp",
-        "src/typeinfo.cpp",
+        "src/stdlib_exception.cpp",
+        "src/stdlib_stdexcept.cpp",
+        "src/stdlib_typeinfo.cpp",
     ],
     include_dirs: ["external/libcxx/include"],
     local_include_dirs:  ["include"],
@@ -49,7 +51,9 @@ cc_library_static {
         "-Wno-unused-function",
         "-Werror",
     ],
-    sanitize: ["never"],
+    sanitize: {
+        never: true,
+    },
     stl: "none",
     rtti: true,
     arch: {
@@ -82,6 +86,10 @@ cc_library_static {
             asflags: ["-integrated-as"],
             cflags: ["-integrated-as"],
             cppflags: ["-integrated-as"],
+        },
+        linux_bionic: {
+            cppflags: ["-DHAVE___CXA_THREAD_ATEXIT_IMPL"],
+            enabled: true,
         },
     },
 

@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /**
  *******************************************************************************
  * Copyright (C) 2001-2010, International Business Machines Corporation and    *
@@ -6,24 +8,20 @@
  *******************************************************************************
  */
 package android.icu.dev.test.translit;
+import org.junit.Test;
+
 import android.icu.dev.test.TestFmwk;
 import android.icu.text.ReplaceableString;
 import android.icu.text.Transliterator;
 import android.icu.text.UnicodeSet;
-import org.junit.runner.RunWith;
-import android.icu.junit.IcuTestFmwkRunner;
 
 /**
  * @test
  * @summary Error condition test of Transliterator
  */
-@RunWith(IcuTestFmwkRunner.class)
 public class ErrorTest extends TestFmwk {
 
-    public static void main(String[] args) throws Exception {
-        new ErrorTest().run(args);
-    }
-
+    @Test
     public void TestTransliteratorErrors() {
         String trans = "Latin-Greek";
         String bogusID = "LATINGREEK-GREEKLATIN";
@@ -150,6 +148,7 @@ public class ErrorTest extends TestFmwk {
         }
     }
 
+    @Test
     public void TestUnicodeSetErrors() {
         String badPattern = "[[:L:]-[0x0300-0x0400]";
         UnicodeSet set = new UnicodeSet();
@@ -196,6 +195,7 @@ public class ErrorTest extends TestFmwk {
 //        }
 //    }
 
+    @Test
     public void TestRBTErrors() {
 
         String rules = "ab>y";

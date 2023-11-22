@@ -32,6 +32,7 @@ import java.util.concurrent.TimeUnit;
  */
 @SmallTest
 public class BaseDvrDataManagerTest extends AndroidTestCase {
+    private static final String INPUT_ID = "input_id";
     private static final int CHANNEL_ID = 273;
 
     private DvrDataManagerInMemoryImpl mDvrDataManager;
@@ -62,8 +63,8 @@ public class BaseDvrDataManagerTest extends AndroidTestCase {
     private ScheduledRecording createNewScheduledRecordingStartingNow() {
         return ScheduledRecording.buildFrom(RecordingTestUtils
                 .createTestRecordingWithIdAndPeriod(
-                        -1,
-                        CHANNEL_ID,
+                        ScheduledRecording.ID_NOT_SET,
+                        INPUT_ID, CHANNEL_ID,
                         mFakeClock.currentTimeMillis(),
                         mFakeClock.currentTimeMillis() + TimeUnit.MINUTES.toMillis(5)))
                 .setState(ScheduledRecording.STATE_RECORDING_NOT_STARTED)

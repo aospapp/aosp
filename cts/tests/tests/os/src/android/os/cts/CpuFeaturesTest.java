@@ -25,7 +25,7 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import android.os.cts.CpuFeatures;
+import com.android.compatibility.common.util.CpuFeatures;
 
 import junit.framework.TestCase;
 

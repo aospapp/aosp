@@ -15,19 +15,27 @@
  */
 package android.graphics.cts;
 
+import static org.junit.Assert.assertEquals;
+
 import android.graphics.Bitmap;
+import android.graphics.Bitmap.Config;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.PorterDuff;
 import android.graphics.PorterDuffColorFilter;
-import android.graphics.Bitmap.Config;
-import android.test.AndroidTestCase;
+import android.support.test.filters.SmallTest;
+import android.support.test.runner.AndroidJUnit4;
 
-public class PorterDuffColorFilterTest extends AndroidTestCase {
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class PorterDuffColorFilterTest {
     private static final int TOLERANCE = 5;
 
+    @Test
     public void testPorterDuffColorFilter() {
         int width = 100;
         int height = 100;

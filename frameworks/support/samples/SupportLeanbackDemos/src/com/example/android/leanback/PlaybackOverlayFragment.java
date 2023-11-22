@@ -14,33 +14,24 @@
 package com.example.android.leanback;
 
 import android.content.Context;
-import android.graphics.drawable.Drawable;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
-import android.support.v17.leanback.app.PlaybackControlGlue;
 import android.support.v17.leanback.widget.Action;
 import android.support.v17.leanback.widget.ArrayObjectAdapter;
-import android.support.v17.leanback.widget.PlaybackControlsRow;
-import android.support.v17.leanback.widget.PlaybackControlsRow.RepeatAction;
-import android.support.v17.leanback.widget.PlaybackControlsRow.ThumbsUpAction;
-import android.support.v17.leanback.widget.PlaybackControlsRow.ThumbsDownAction;
-import android.support.v17.leanback.widget.PlaybackControlsRowPresenter;
+import android.support.v17.leanback.widget.ClassPresenterSelector;
 import android.support.v17.leanback.widget.HeaderItem;
-import android.support.v17.leanback.widget.PresenterSelector;
-import android.support.v17.leanback.widget.Row;
 import android.support.v17.leanback.widget.ListRow;
-import android.support.v17.leanback.widget.Presenter;
-import android.support.v17.leanback.widget.RowPresenter;
 import android.support.v17.leanback.widget.ListRowPresenter;
-import android.support.v17.leanback.widget.OnItemViewSelectedListener;
 import android.support.v17.leanback.widget.OnItemViewClickedListener;
-import android.support.v17.leanback.widget.ControlButtonPresenterSelector;
+import android.support.v17.leanback.widget.OnItemViewSelectedListener;
+import android.support.v17.leanback.widget.PlaybackControlsRow;
+import android.support.v17.leanback.widget.PlaybackControlsRowPresenter;
+import android.support.v17.leanback.widget.Presenter;
+import android.support.v17.leanback.widget.Row;
+import android.support.v17.leanback.widget.RowPresenter;
 import android.support.v17.leanback.widget.SparseArrayObjectAdapter;
 import android.util.Log;
-import android.view.LayoutInflater;
-import android.view.View;
-import android.view.ViewGroup;
-import android.widget.Toast;
 
 public class PlaybackOverlayFragment
         extends android.support.v17.leanback.app.PlaybackOverlayFragment
@@ -65,8 +56,11 @@ public class PlaybackOverlayFragment
     private static final int ROW_CONTROLS = 0;
 
     private PlaybackControlHelper mGlue;
-    private PlaybackControlsRowPresenter mPlaybackControlsRowPresenter;
-    private ListRowPresenter mListRowPresenter;
+    final Handler mHandler = new Handler();
+
+    // Artificial delay to simulate a media being prepared. The onRowChanged callback should be
+    // called and the playback row UI should be updated after this delay.
+    private static final int MEDIA_PREPARATION_DELAY = 500;
 
     private OnItemViewClickedListener mOnItemViewClickedListener = new OnItemViewClickedListener() {
         @Override
@@ -79,14 +73,16 @@ public class PlaybackOverlayFragment
         }
     };
 
-    private OnItemViewSelectedListener mOnItemViewSelectedListener = new OnItemViewSelectedListener() {
-        @Override
-        public void onItemSelected(Presenter.ViewHolder itemViewHolder, Object item,
-                                   RowPresenter.ViewHolder rowViewHolder, Row row) {
-            Log.i(TAG, "onItemSelected: " + item + " row " + row);
-        }
+    private OnItemViewSelectedListener mOnItemViewSelectedListener =
+            new OnItemViewSelectedListener() {
+                @Override
+                public void onItemSelected(Presenter.ViewHolder itemViewHolder, Object item,
+                                           RowPresenter.ViewHolder rowViewHolder, Row row) {
+                    Log.i(TAG, "onItemSelected: " + item + " row " + row);
+                }
     };
 
+    @Override
     public SparseArrayObjectAdapter getAdapter() {
         return (SparseArrayObjectAdapter) super.getAdapter();
     }
@@ -106,11 +102,11 @@ public class PlaybackOverlayFragment
         mGlue = new PlaybackControlHelper(context, this) {
             @Override
             public int getUpdatePeriod() {
-                int totalTime = getControlsRow().getTotalTime();
+                long totalTime = getControlsRow().getDuration();
                 if (getView() == null || getView().getWidth() == 0 || totalTime <= 0) {
                     return 1000;
                 }
-                return Math.max(16, totalTime / getView().getWidth());
+                return 16;
             }
 
             @Override
@@ -127,30 +123,32 @@ public class PlaybackOverlayFragment
             @Override
             public void onActionClicked(Action action) {
                 if (action.getId() == R.id.lb_control_picture_in_picture) {
-                    getActivity().enterPictureInPictureMode();
+                    if (Build.VERSION.SDK_INT >= 24) {
+                        getActivity().enterPictureInPictureMode();
+                    }
                     return;
                 }
                 super.onActionClicked(action);
             }
         };
 
+        mGlue.setInitialized(false);
+        mHandler.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                mGlue.setInitialized(true);
+            }
+        }, MEDIA_PREPARATION_DELAY);
         mGlue.setOnItemViewClickedListener(mOnItemViewClickedListener);
 
-        mPlaybackControlsRowPresenter = mGlue.createControlsRowAndPresenter();
-        mPlaybackControlsRowPresenter.setSecondaryActionsHidden(SECONDARY_HIDDEN);
-        mListRowPresenter = new ListRowPresenter();
+        PlaybackControlsRowPresenter playbackControlsRowPresenter =
+                mGlue.createControlsRowAndPresenter();
+        playbackControlsRowPresenter.setSecondaryActionsHidden(SECONDARY_HIDDEN);
+        ClassPresenterSelector selector = new ClassPresenterSelector();
+        selector.addClassPresenter(ListRow.class, new ListRowPresenter());
+        selector.addClassPresenter(PlaybackControlsRow.class, playbackControlsRowPresenter);
 
-        setAdapter(new SparseArrayObjectAdapter(new PresenterSelector() {
-            @Override
-            public Presenter getPresenter(Object object) {
-                if (object instanceof PlaybackControlsRow) {
-                    return mPlaybackControlsRowPresenter;
-                } else if (object instanceof ListRow) {
-                    return mListRowPresenter;
-                }
-                throw new IllegalArgumentException("Unhandled object: " + object);
-            }
-        }));
+        setAdapter(new SparseArrayObjectAdapter(selector));
 
         // Add the controls row
         getAdapter().set(ROW_CONTROLS, mGlue.getControlsRow());
@@ -170,7 +168,7 @@ public class PlaybackOverlayFragment
     public void onStart() {
         super.onStart();
         mGlue.setFadingEnabled(true);
-        mGlue.enableProgressUpdating(mGlue.hasValidMedia() && mGlue.isMediaPlaying());
+        mGlue.enableProgressUpdating(true);
         ((PlaybackOverlayActivity) getActivity()).registerPictureInPictureListener(this);
     }
 
@@ -188,7 +186,7 @@ public class PlaybackOverlayFragment
             setFadingEnabled(true);
             fadeOut();
         } else {
-            setFadingEnabled(mGlue.isMediaPlaying());
+            setFadingEnabled(mGlue.isPlaying());
         }
     }
 }

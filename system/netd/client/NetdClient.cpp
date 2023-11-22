@@ -16,7 +16,9 @@
 
 #include "NetdClient.h"
 
+#include <arpa/inet.h>
 #include <errno.h>
+#include <math.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
@@ -26,6 +28,7 @@
 #include "FwmarkClient.h"
 #include "FwmarkCommand.h"
 #include "resolv_netid.h"
+#include "Stopwatch.h"
 
 namespace {
 
@@ -65,7 +68,7 @@ int netdClientAccept4(int sockfd, sockaddr* addr, socklen_t* addrlen, int flags)
     }
     if (FwmarkClient::shouldSetFwmark(family)) {
         FwmarkCommand command = {FwmarkCommand::ON_ACCEPT, 0, 0};
-        if (int error = FwmarkClient().send(&command, acceptedSocket)) {
+        if (int error = FwmarkClient().send(&command, acceptedSocket, nullptr)) {
             return closeFdAndSetErrno(acceptedSocket, error);
         }
     }
@@ -73,14 +76,32 @@ int netdClientAccept4(int sockfd, sockaddr* addr, socklen_t* addrlen, int flags)
 }
 
 int netdClientConnect(int sockfd, const sockaddr* addr, socklen_t addrlen) {
-    if (sockfd >= 0 && addr && FwmarkClient::shouldSetFwmark(addr->sa_family)) {
+    const bool shouldSetFwmark = (sockfd >= 0) && addr
+            && FwmarkClient::shouldSetFwmark(addr->sa_family);
+    if (shouldSetFwmark) {
         FwmarkCommand command = {FwmarkCommand::ON_CONNECT, 0, 0};
-        if (int error = FwmarkClient().send(&command, sockfd)) {
+        if (int error = FwmarkClient().send(&command, sockfd, nullptr)) {
             errno = -error;
             return -1;
         }
     }
-    return libcConnect(sockfd, addr, addrlen);
+    // Latency measurement does not include time of sending commands to Fwmark
+    Stopwatch s;
+    const int ret = libcConnect(sockfd, addr, addrlen);
+    // Save errno so it isn't clobbered by sending ON_CONNECT_COMPLETE
+    const int connectErrno = errno;
+    const unsigned latencyMs = lround(s.timeTaken());
+    // Send an ON_CONNECT_COMPLETE command that includes sockaddr and connect latency for reporting
+    if (shouldSetFwmark && FwmarkClient::shouldReportConnectComplete(addr->sa_family)) {
+        FwmarkConnectInfo connectInfo(ret == 0 ? 0 : connectErrno, latencyMs, addr);
+        // TODO: get the netId from the socket mark once we have continuous benchmark runs
+        FwmarkCommand command = {FwmarkCommand::ON_CONNECT_COMPLETE, /* netId (ignored) */ 0,
+                /* uid (filled in by the server) */ 0};
+        // Ignore return value since it's only used for logging
+        FwmarkClient().send(&command, sockfd, &connectInfo);
+    }
+    errno = connectErrno;
+    return ret;
 }
 
 int netdClientSocket(int domain, int type, int protocol) {
@@ -185,7 +206,7 @@ extern "C" int setNetworkForSocket(unsigned netId, int socketFd) {
         return -EBADF;
     }
     FwmarkCommand command = {FwmarkCommand::SELECT_NETWORK, netId, 0};
-    return FwmarkClient().send(&command, socketFd);
+    return FwmarkClient().send(&command, socketFd, nullptr);
 }
 
 extern "C" int setNetworkForProcess(unsigned netId) {
@@ -201,7 +222,7 @@ extern "C" int protectFromVpn(int socketFd) {
         return -EBADF;
     }
     FwmarkCommand command = {FwmarkCommand::PROTECT_FROM_VPN, 0, 0};
-    return FwmarkClient().send(&command, socketFd);
+    return FwmarkClient().send(&command, socketFd, nullptr);
 }
 
 extern "C" int setNetworkForUser(uid_t uid, int socketFd) {
@@ -209,10 +230,10 @@ extern "C" int setNetworkForUser(uid_t uid, int socketFd) {
         return -EBADF;
     }
     FwmarkCommand command = {FwmarkCommand::SELECT_FOR_USER, 0, uid};
-    return FwmarkClient().send(&command, socketFd);
+    return FwmarkClient().send(&command, socketFd, nullptr);
 }
 
 extern "C" int queryUserAccess(uid_t uid, unsigned netId) {
     FwmarkCommand command = {FwmarkCommand::QUERY_USER_ACCESS, netId, uid};
-    return FwmarkClient().send(&command, -1);
+    return FwmarkClient().send(&command, -1, nullptr);
 }

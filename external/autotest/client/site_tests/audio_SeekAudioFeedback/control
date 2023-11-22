@@ -9,7 +9,6 @@ CRITERIA = """
 This test will fail if audio file sound is not audible after seek.
 """
 ATTRIBUTES = "suite:audio"
-SUITE = "audio"
 TIME = "SHORT"
 TEST_CATEGORY = "General"
 TEST_CLASS = "audio"

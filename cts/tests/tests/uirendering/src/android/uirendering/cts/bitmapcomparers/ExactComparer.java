@@ -15,20 +15,13 @@
  */
 package android.uirendering.cts.bitmapcomparers;
 
-import android.uirendering.cts.R;
-import android.uirendering.cts.ScriptC_ExactComparer;
-
-import android.content.res.Resources;
-import android.renderscript.Allocation;
-import android.renderscript.RenderScript;
 import android.util.Log;
 
 /**
  * This class does an exact comparison of the pixels in a bitmap.
  */
-public class ExactComparer extends BaseRenderScriptComparer {
+public class ExactComparer extends BitmapComparer {
     private static final String TAG = "ExactComparer";
-    private ScriptC_ExactComparer mScript;
 
     /**
      * This method does an exact 1 to 1 comparison of the two bitmaps
@@ -53,28 +46,5 @@ public class ExactComparer extends BaseRenderScriptComparer {
         Log.d(TAG, "Number of different pixels : " + count);
 
         return (count == 0);
-    }
-
-    @Override
-    public boolean verifySameRowsRS(Resources resources, Allocation ideal,
-            Allocation given, int offset, int stride, int width, int height,
-            RenderScript renderScript, Allocation inputAllocation, Allocation outputAllocation) {
-        if (mScript == null) {
-            mScript = new ScriptC_ExactComparer(renderScript);
-        }
-        mScript.set_WIDTH(width);
-        mScript.set_OFFSET(offset);
-
-        //Set the bitmap allocations
-        mScript.set_ideal(ideal);
-        mScript.set_given(given);
-
-        //Call the renderscript function on each row
-        mScript.forEach_exactCompare(inputAllocation, outputAllocation);
-
-        float val = sum1DFloatAllocation(outputAllocation);
-        Log.d(TAG, "Number of different pixels RS : " + val);
-
-        return val == 0;
     }
 }

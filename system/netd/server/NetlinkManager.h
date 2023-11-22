@@ -20,6 +20,8 @@
 #include <sysutils/SocketListener.h>
 #include <sysutils/NetlinkListener.h>
 
+namespace android {
+namespace net {
 
 class NetlinkHandler;
 
@@ -59,4 +61,8 @@ private:
     NetlinkHandler* setupSocket(int *sock, int netlinkFamily, int groups,
         int format, bool configNflog);
 };
+
+}  // namespace net
+}  // namespace android
+
 #endif

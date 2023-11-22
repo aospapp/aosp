@@ -23,10 +23,10 @@
     <string name="button_etws_other_type" msgid="4129451610585426791">"‏שלח שידור ETWS במקרה חירום אחר"</string>
     <string name="button_etws_cancel_type" msgid="4770911191572322801">"‏שלח ביטול שידור ETWS"</string>
     <string name="button_etws_test_type" msgid="5520113823851979673">"‏שלח שידור בדיקה מסוג ETWS"</string>
-    <string name="button_cmas_pres_alert" msgid="1269455100893365889">"‏שלח התראת CMAS נשיאותית"</string>
-    <string name="button_cmas_extreme_alert" msgid="5922644977169679386">"‏שלח התראת CMAS קיצונית"</string>
-    <string name="button_cmas_severe_alert" msgid="5197711586353552255">"‏שלח התראת CMAS חמורה"</string>
-    <string name="button_cmas_amber_alert" msgid="860091654456014191">"‏שלח התראת CMAS AMBER"</string>
+    <string name="button_cmas_pres_alert" msgid="1269455100893365889">"‏שלח התרעת CMAS נשיאותית"</string>
+    <string name="button_cmas_extreme_alert" msgid="5922644977169679386">"‏שלח התרעת CMAS קיצונית"</string>
+    <string name="button_cmas_severe_alert" msgid="5197711586353552255">"‏שלח התרעת CMAS חמורה"</string>
+    <string name="button_cmas_amber_alert" msgid="860091654456014191">"‏שלח התרעת CMAS AMBER"</string>
     <string name="button_cmas_monthly_test" msgid="6797479769988491996">"‏שלח התראת בדיקה חודשית של CMAS"</string>
     <string name="button_gsm_7bit_type" msgid="4902292221458231081">"‏שלח שידור בדיקה מסוג GSM 7 Bit"</string>
     <string name="button_gsm_7bit_umts_type" msgid="5871195118138691977">"‏שלח שידור בדיקה מסוג UMTS 7 Bit"</string>

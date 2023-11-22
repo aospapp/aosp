@@ -112,6 +112,11 @@ bool isSRGB (TextureFormat format)
 			format.order == TextureFormat::sBGRA;
 }
 
+tcu::Vec4 linearToSRGBIfNeeded (const TextureFormat& format, const tcu::Vec4& color)
+{
+	return isSRGB(format) ? linearToSRGB(color) : color;
+}
+
 bool isCombinedDepthStencilType (TextureFormat::ChannelType type)
 {
 	// make sure to update this if type table is updated
@@ -469,6 +474,10 @@ IVec4 getFormatMaxIntValue (const TextureFormat& format)
 {
 	DE_ASSERT(getTextureChannelClass(format.type) == TEXTURECHANNELCLASS_SIGNED_INTEGER);
 
+	if (format == TextureFormat(TextureFormat::RGBA, TextureFormat::SIGNED_INT_1010102_REV) ||
+		format == TextureFormat(TextureFormat::BGRA, TextureFormat::SIGNED_INT_1010102_REV))
+		return IVec4(511, 511, 511, 1);
+
 	switch (format.type)
 	{
 		case TextureFormat::SIGNED_INT8:	return IVec4(std::numeric_limits<deInt8>::max());
@@ -485,7 +494,8 @@ UVec4 getFormatMaxUintValue (const TextureFormat& format)
 {
 	DE_ASSERT(getTextureChannelClass(format.type) == TEXTURECHANNELCLASS_UNSIGNED_INTEGER);
 
-	if (format == TextureFormat(TextureFormat::RGBA, TextureFormat::UNSIGNED_INT_1010102_REV))
+	if (format == TextureFormat(TextureFormat::RGBA, TextureFormat::UNSIGNED_INT_1010102_REV) ||
+		format == TextureFormat(TextureFormat::BGRA, TextureFormat::UNSIGNED_INT_1010102_REV))
 		return UVec4(1023u, 1023u, 1023u, 3u);
 
 	switch (format.type)
@@ -1103,14 +1113,14 @@ void scale (const PixelBufferAccess& dst, const ConstPixelBufferAccess& src, Sam
 	{
 		for (int y = 0; y < dst.getHeight(); y++)
 		for (int x = 0; x < dst.getWidth(); x++)
-			dst.setPixel(src.sample2D(sampler, filter, ((float)x+0.5f)*sX, ((float)y+0.5f)*sY, 0), x, y);
+			dst.setPixel(linearToSRGBIfNeeded(dst.getFormat(), src.sample2D(sampler, filter, ((float)x+0.5f)*sX, ((float)y+0.5f)*sY, 0)), x, y);
 	}
 	else
 	{
 		for (int z = 0; z < dst.getDepth(); z++)
 		for (int y = 0; y < dst.getHeight(); y++)
 		for (int x = 0; x < dst.getWidth(); x++)
-			dst.setPixel(src.sample3D(sampler, filter, ((float)x+0.5f)*sX, ((float)y+0.5f)*sY, ((float)z+0.5f)*sZ), x, y, z);
+			dst.setPixel(linearToSRGBIfNeeded(dst.getFormat(), src.sample3D(sampler, filter, ((float)x+0.5f)*sX, ((float)y+0.5f)*sY, ((float)z+0.5f)*sZ)), x, y, z);
 	}
 }
 
@@ -1578,7 +1588,7 @@ static tcu::IVec4 getNBitSignedIntegerVec4MinValue (const tcu::IVec4& numBits)
 
 static tcu::Vec4 getTextureBorderColorFloat (const TextureFormat& format, const Sampler& sampler)
 {
-	const tcu::TextureChannelClass	channelClass 	= getTextureChannelClass(format.type);
+	const tcu::TextureChannelClass	channelClass	= getTextureChannelClass(format.type);
 	const TextureSwizzle::Channel*	channelMap		= getBorderColorReadSwizzle(format.order).components;
 	const bool						isFloat			= channelClass == tcu::TEXTURECHANNELCLASS_FLOATING_POINT;
 	const bool						isSigned		= channelClass != tcu::TEXTURECHANNELCLASS_UNSIGNED_FIXED_POINT;
@@ -1614,7 +1624,7 @@ static tcu::Vec4 getTextureBorderColorFloat (const TextureFormat& format, const 
 
 static tcu::IVec4 getTextureBorderColorInt (const TextureFormat& format, const Sampler& sampler)
 {
-	const tcu::TextureChannelClass	channelClass 	= getTextureChannelClass(format.type);
+	const tcu::TextureChannelClass	channelClass	= getTextureChannelClass(format.type);
 	const TextureSwizzle::Channel*	channelMap		= getBorderColorReadSwizzle(format.order).components;
 	const IVec4						channelBits		= getChannelBitDepth(format.type);
 	const IVec4						valueMin		= getNBitSignedIntegerVec4MinValue(channelBits);
@@ -1643,7 +1653,7 @@ static tcu::IVec4 getTextureBorderColorInt (const TextureFormat& format, const S
 
 static tcu::UVec4 getTextureBorderColorUint (const TextureFormat& format, const Sampler& sampler)
 {
-	const tcu::TextureChannelClass	channelClass 	= getTextureChannelClass(format.type);
+	const tcu::TextureChannelClass	channelClass	= getTextureChannelClass(format.type);
 	const TextureSwizzle::Channel*	channelMap		= getBorderColorReadSwizzle(format.order).components;
 	const IVec4						channelBits		= getChannelBitDepth(format.type);
 	const UVec4						valueMax		= getNBitUnsignedIntegerVec4MaxValue(channelBits);

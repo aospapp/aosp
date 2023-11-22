@@ -16,9 +16,9 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_label" msgid="7559008249836700599">"Mobile Broadcasts"</string>
-    <string name="sms_cb_settings" msgid="971917159442705371">"Mobile Broadcast settings"</string>
-    <string name="cell_broadcast_settings_not_available" msgid="2612364350745967915">"Mobile Broadcast settings are not available for this user"</string>
+    <string name="app_label" msgid="7559008249836700599">"Mobile broadcasts"</string>
+    <string name="sms_cb_settings" msgid="971917159442705371">"Mobile broadcast settings"</string>
+    <string name="cell_broadcast_settings_not_available" msgid="2612364350745967915">"Mobile broadcast settings are not available for this user"</string>
     <string name="button_dismiss" msgid="1234221657930516287">"OK"</string>
     <string name="no_cell_broadcasts" msgid="5409324337492758562">"There are no active alerts in your area. You can change the Alert settings using the Settings menu option."</string>
     <string name="menu_preferences" msgid="3596514894131599202">"Settings"</string>
@@ -46,6 +46,7 @@
     <string name="pws_other_message_identifiers" msgid="1813329661891149820">"Emergency alert"</string>
     <string name="cb_other_message_identifiers" msgid="7083176204482365281">"Mobile broadcast"</string>
     <string name="emergency_alert_settings_title" msgid="5427868392642771940">"Emergency alert settings"</string>
+    <string name="notification_channel_broadcast_messages" msgid="880704362482824524">"Broadcast messages"</string>
     <string name="enable_emergency_alerts_title" msgid="1411195469162410084">"Turn on notifications"</string>
     <string name="enable_emergency_alerts_summary" msgid="5932655529367149358">"Display emergency alert broadcasts"</string>
     <string name="alert_reminder_interval_title" msgid="3283595202268218149">"Alert reminder"</string>

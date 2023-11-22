@@ -29,7 +29,7 @@ static const uint32_t crctab[] =
 
 static uint32_t crcOneWord(uint32_t crc, uint32_t data, int cnt)
 {
-        uint32_t i;
+        int i;
 
         crc = crc ^ data;
         for (i = 0; i < cnt; i++)
@@ -38,11 +38,12 @@ static uint32_t crcOneWord(uint32_t crc, uint32_t data, int cnt)
         return crc;
 }
 
-uint32_t crc32(const void *buf, size_t size, uint32_t crc)
+uint32_t soft_crc32(const void *buf, size_t size, uint32_t crc)
 {
         const uint32_t *data32 = (const uint32_t *)buf;
         const uint8_t *data8;
-        uint32_t word, i;
+        uint32_t word;
+        size_t i;
 
         // word by word crc32
         for (i = 0; i < size / 4; i++)

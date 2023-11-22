@@ -42,6 +42,8 @@
 #ifndef _SYS_TTYDEFAULTS_H_
 #define	_SYS_TTYDEFAULTS_H_
 
+#include <sys/cdefs.h>
+
 /*
  * Defaults on "first" open.
  */
@@ -84,7 +86,6 @@
 /*
  * #define TTYDEFCHARS to include an array of default control characters.
  */
-#ifdef _KERNEL
 #ifdef TTYDEFCHARS
 const cc_t ttydefchars[NCCS] = {
 	[VEOF] = CEOF,
@@ -109,7 +110,4 @@ const cc_t ttydefchars[NCCS] = {
 	[19] = _POSIX_VDISABLE,	/* spare */
 };
 #undef TTYDEFCHARS
-#else
-extern const cc_t ttydefchars[NCCS];
 #endif
-#endif /* _KERNEL */

@@ -31,7 +31,7 @@ __BEGIN_DECLS
 
 /*****************************************************************************/
 
-#define ARRAY_SIZE(a) (sizeof(a) / sizeof(a[0]))
+#define ARRAY_SIZE(a) (sizeof(a) / sizeof((a)[0]))
 
 #define ID_A  (0)
 #define ID_M  (1)

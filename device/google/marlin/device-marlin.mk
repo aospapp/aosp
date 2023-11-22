@@ -42,15 +42,8 @@ PRODUCT_PROPERTY_OVERRIDES += \
     ro.hwui.path_cache_size=32
 
 PRODUCT_COPY_FILES += \
-    device/google/marlin/init.common.rc:root/init.marlin.rc \
-    device/google/marlin/init.common.usb.rc:root/init.marlin.usb.rc \
-    device/google/marlin/fstab.common:root/fstab.marlin \
-    device/google/marlin/ueventd.common.rc:root/ueventd.marlin.rc \
+    device/google/marlin/fstab.common:$(TARGET_COPY_OUT_VENDOR)/etc/fstab.marlin \
     device/google/marlin/init.recovery.common.rc:root/init.recovery.marlin.rc
-
-# Sensor hub init script
-PRODUCT_COPY_FILES += \
-    device/google/marlin/init.common.nanohub.rc:root/init.marlin.nanohub.rc
 
 # Sensor packages
 PRODUCT_PACKAGES += \
@@ -62,7 +55,7 @@ PRODUCT_PACKAGES += \
     nfc_nci.marlin
 
 PRODUCT_COPY_FILES += \
-    device/google/marlin/nfc/libnfc-nxp.marlin.conf:system/etc/libnfc-nxp.conf
+    device/google/marlin/nfc/libnfc-nxp.marlin.conf:$(TARGET_COPY_OUT_VENDOR)/etc/libnfc-nxp.conf
 
 # Led packages
 PRODUCT_PACKAGES += \
@@ -76,3 +69,6 @@ PRODUCT_PACKAGES += \
 PRODUCT_PACKAGES += \
     vr.marlin
 
+# Fingerprint
+PRODUCT_PACKAGES += \
+    fingerprint.marlin

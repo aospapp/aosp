@@ -39,8 +39,8 @@
 
 #include <android/configuration.h>
 
-#include <cutils/log.h>
 #include <cutils/properties.h>
+#include <log/log.h>
 
 #include <system/graphics.h>
 
@@ -277,7 +277,7 @@ void HWComposer::hook_hotplug(const struct hwc_procs* procs, int disp,
 }
 
 void HWComposer::invalidate() {
-    mFlinger->repaintEverything();
+    mEventHandler.onInvalidateReceived(this);
 }
 
 void HWComposer::vsync(int disp, int64_t timestamp) {
@@ -302,7 +302,7 @@ void HWComposer::vsync(int disp, int64_t timestamp) {
         snprintf(tag, sizeof(tag), "HW_VSYNC_%1u", disp);
         ATRACE_INT(tag, ++mVSyncCounts[disp] & 1);
 
-        mEventHandler.onVSyncReceived(disp, timestamp);
+        mEventHandler.onVSyncReceived(this, disp, timestamp);
     }
 }
 
@@ -315,7 +315,7 @@ void HWComposer::hotplug(int disp, int connected) {
     queryDisplayProperties(disp);
     // Do not teardown or recreate the primary display
     if (disp != HWC_DISPLAY_PRIMARY) {
-        mEventHandler.onHotplugReceived(disp, bool(connected));
+        mEventHandler.onHotplugReceived(this, disp, bool(connected));
     }
 }
 
@@ -933,7 +933,7 @@ class Iterable : public HWComposer::HWCLayer {
 protected:
     HWCTYPE* const mLayerList;
     HWCTYPE* mCurrentLayer;
-    Iterable(HWCTYPE* layer) : mLayerList(layer), mCurrentLayer(layer),
+    explicit Iterable(HWCTYPE* layer) : mLayerList(layer), mCurrentLayer(layer),
             mIndex(0) { }
     inline HWCTYPE const * getLayer() const { return mCurrentLayer; }
     inline HWCTYPE* getLayer() { return mCurrentLayer; }
@@ -1159,6 +1159,8 @@ static String8 getFormatStr(PixelFormat format) {
     switch (format) {
     case PIXEL_FORMAT_RGBA_8888:    return String8("RGBA_8888");
     case PIXEL_FORMAT_RGBX_8888:    return String8("RGBx_8888");
+    case PIXEL_FORMAT_RGBA_FP16:    return String8("RGBA_FP16");
+    case PIXEL_FORMAT_RGBA_1010102: return String8("RGBA_1010102");
     case PIXEL_FORMAT_RGB_888:      return String8("RGB_888");
     case PIXEL_FORMAT_RGB_565:      return String8("RGB_565");
     case PIXEL_FORMAT_BGRA_8888:    return String8("BGRA_8888");
@@ -1317,7 +1319,7 @@ bool HWComposer::VSyncThread::threadLoop() {
     } while (err<0 && errno == EINTR);
 
     if (err == 0) {
-        mHwc.mEventHandler.onVSyncReceived(0, next_vsync);
+        mHwc.mEventHandler.onVSyncReceived(&mHwc, 0, next_vsync);
     }
 
     return true;

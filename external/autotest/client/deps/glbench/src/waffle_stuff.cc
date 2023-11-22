@@ -4,6 +4,8 @@
 
 #define WAFFLE_API_VERSION 0x0106
 
+#include <memory>
+
 #include "base/logging.h"
 #include "main.h"
 #include "waffle_stuff.h"
@@ -12,7 +14,7 @@
 GLint g_width = WINDOW_WIDTH;
 GLint g_height = WINDOW_HEIGHT;
 
-scoped_ptr<GLInterface> g_main_gl_interface;
+std::unique_ptr<GLInterface> g_main_gl_interface;
 
 #ifdef USE_OPENGL
 namespace gl {

@@ -13,6 +13,9 @@
  */
 package android.support.v17.leanback.widget;
 
+import static android.support.annotation.RestrictTo.Scope.LIBRARY_GROUP;
+
+import android.support.annotation.RestrictTo;
 import android.view.View;
 
 /**
@@ -26,6 +29,7 @@ interface FocusHighlightHandler {
      * @param view The view whose focus is changing.
      * @param hasFocus True if focus is gained; false otherwise.
      */
+    @RestrictTo(LIBRARY_GROUP)
     void onItemFocused(View view, boolean hasFocus);
 
     /**

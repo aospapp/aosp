@@ -34,7 +34,7 @@ import android.widget.Button;
 import android.widget.Toast;
 
 import com.android.ims.ImsManager;
-import com.android.internal.logging.MetricsProto.MetricsEvent;
+import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
 import com.android.internal.telephony.PhoneConstants;
 import com.android.settingslib.RestrictedLockUtils;
 
@@ -149,7 +149,7 @@ public class ResetNetworkConfirm extends OptionsMenuFragment {
     }
 
     @Override
-    protected int getMetricsCategory() {
+    public int getMetricsCategory() {
         return MetricsEvent.RESET_NETWORK_CONFIRM;
     }
 }

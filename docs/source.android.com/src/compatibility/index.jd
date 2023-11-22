@@ -73,13 +73,13 @@ process:</p>
 <li><em>Obtain the <a href="{@docRoot}source/index.html">Android software source
 code</a></em>. This is the source code for the Android platform that you port
 to your hardware.</li>
-<li><em>Comply with the <a href="{@docRoot}compatibility/android-cdd.pdf">Android
-Compatibility Definition Document (CDD)</a></em>. The CDD enumerates the
-software and hardware requirements of a compatible Android device.</li>
+<li><em>Comply with the Android Compatibility Definition Document (CDD)</em>
+(<a href="{@docRoot}compatibility/android-cdd.pdf">PDF</a>, <a
+href="{@docRoot}compatibility/android-cdd.html">HTML</a>). The CDD enumerates
+the software and hardware requirements of a compatible Android device.</li>
 <li><em>Pass the <a href="{@docRoot}compatibility/cts-intro.html">Compatibility
 Test Suite (CTS)</a></em>. Use the CTS as an ongoing aid to evaluate
-compatibility during the development process.</li>
-</ol>
+compatibility during the development process.</li> </ol>
 
 <p>After complying with the CDD and passing the CTS, your device is Android
 compatible, meaning Android apps in the ecosystem provide a consistent

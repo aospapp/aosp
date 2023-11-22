@@ -27,6 +27,7 @@
 #include "jni_util.h"
 #include "jvm.h"
 #include "jlong.h"
+#include "sun_nio_ch_PollArrayWrapper.h"
 #include <poll.h>
 #include <unistd.h>
 #include <sys/time.h>
@@ -36,11 +37,6 @@
     _result = _cmd; \
   } while((_result == -1) && (errno == EINTR)); \
 } while(0)
-
-#include "JNIHelp.h"
-
-#define NATIVE_METHOD(className, functionName, signature) \
-{ #functionName, signature, (void*)(Java_sun_nio_ch_ ## className ## _ ## functionName) }
 
 static int
 ipoll(struct pollfd fds[], unsigned int nfds, int timeout)
@@ -103,14 +99,4 @@ Java_sun_nio_ch_PollArrayWrapper_interrupt(JNIEnv *env, jobject this, jint fd)
          JNU_ThrowIOExceptionWithLastError(env,
                                           "Write to interrupt fd failed");
     }
-}
-
-
-static JNINativeMethod gMethods[] = {
-  NATIVE_METHOD(PollArrayWrapper, poll0, "(JIJ)I"),
-  NATIVE_METHOD(PollArrayWrapper, interrupt, "(I)V"),
-};
-
-void register_sun_nio_ch_PollArrayWrapper(JNIEnv* env) {
-  jniRegisterNativeMethods(env, "sun/nio/ch/PollArrayWrapper", gMethods, NELEM(gMethods));
 }

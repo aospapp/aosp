@@ -19,6 +19,7 @@ package com.android.internal.view.animation;
 import com.android.layoutlib.bridge.impl.DelegateManager;
 import com.android.tools.layoutlib.annotations.LayoutlibDelegate;
 
+import android.graphics.Path;
 import android.util.MathUtils;
 import android.view.animation.AccelerateDecelerateInterpolator;
 import android.view.animation.AccelerateInterpolator;
@@ -31,6 +32,7 @@ import android.view.animation.DecelerateInterpolator;
 import android.view.animation.Interpolator;
 import android.view.animation.LinearInterpolator;
 import android.view.animation.OvershootInterpolator;
+import android.view.animation.PathInterpolator;
 
 /**
  * Delegate used to provide new implementation of a select few methods of {@link
@@ -93,6 +95,16 @@ public class NativeInterpolatorFactoryHelper_Delegate {
         return sManager.addNewDelegate(new OvershootInterpolator(tension));
     }
 
+    @LayoutlibDelegate
+    /*package*/ static long createPathInterpolator(float[] x, float[] y) {
+        Path path = new Path();
+        path.moveTo(x[0], y[0]);
+        for (int i = 1; i < x.length; i++) {
+            path.lineTo(x[i], y[i]);
+        }
+        return sManager.addNewDelegate(new PathInterpolator(path));
+    }
+
     private static class LutInterpolator extends BaseInterpolator {
         private final float[] mValues;
         private final int mSize;
@@ -104,7 +116,7 @@ public class NativeInterpolatorFactoryHelper_Delegate {
 
         @Override
         public float getInterpolation(float input) {
-            float lutpos = input * mSize;
+            float lutpos = input * (mSize - 1);
             if (lutpos >= (mSize - 1)) {
                 return mValues[mSize - 1];
             }

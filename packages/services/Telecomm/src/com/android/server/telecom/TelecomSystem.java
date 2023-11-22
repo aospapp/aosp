@@ -17,20 +17,28 @@
 package com.android.server.telecom;
 
 import com.android.internal.annotations.VisibleForTesting;
+import com.android.server.telecom.bluetooth.BluetoothDeviceManager;
+import com.android.server.telecom.bluetooth.BluetoothRouteManager;
 import com.android.server.telecom.components.UserCallIntentProcessor;
 import com.android.server.telecom.components.UserCallIntentProcessorFactory;
+import com.android.server.telecom.ui.IncomingCallNotifier;
+import com.android.server.telecom.ui.IncomingCallNotifier.IncomingCallNotifierFactory;
 import com.android.server.telecom.ui.MissedCallNotifierImpl.MissedCallNotifierImplFactory;
 import com.android.server.telecom.BluetoothPhoneServiceImpl.BluetoothPhoneServiceImplFactory;
 import com.android.server.telecom.CallAudioManager.AudioServiceFactory;
-import com.android.server.telecom.TelecomServiceImpl.DefaultDialerManagerAdapter;
+import com.android.server.telecom.DefaultDialerCache.DefaultDialerManagerAdapter;
 
 import android.Manifest;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.pm.ApplicationInfo;
+import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.UserHandle;
+import android.telecom.Log;
+import android.telecom.PhoneAccountHandle;
 
 import java.io.FileNotFoundException;
 import java.io.InputStream;
@@ -38,7 +46,7 @@ import java.io.InputStream;
 /**
  * Top-level Application class for Telecom.
  */
-public final class TelecomSystem {
+public class TelecomSystem {
 
     /**
      * This interface is implemented by system-instantiated components (e.g., Services and
@@ -68,6 +76,9 @@ public final class TelecomSystem {
     private static final IntentFilter USER_STARTING_FILTER =
             new IntentFilter(Intent.ACTION_USER_STARTING);
 
+    private static final IntentFilter BOOT_COMPLETE_FILTER =
+            new IntentFilter(Intent.ACTION_BOOT_COMPLETED);
+
     /** Intent filter for dialer secret codes. */
     private static final IntentFilter DIALER_SECRET_CODE_FILTER;
 
@@ -91,6 +102,7 @@ public final class TelecomSystem {
 
     private final SyncRoot mLock = new SyncRoot() { };
     private final MissedCallNotifier mMissedCallNotifier;
+    private final IncomingCallNotifier mIncomingCallNotifier;
     private final PhoneAccountRegistrar mPhoneAccountRegistrar;
     private final CallsManager mCallsManager;
     private final RespondViaSmsManager mRespondViaSmsManager;
@@ -102,15 +114,19 @@ public final class TelecomSystem {
     private final ContactsAsyncHelper mContactsAsyncHelper;
     private final DialerCodeReceiver mDialerCodeReceiver;
 
+    private boolean mIsBootComplete = false;
+
     private final BroadcastReceiver mUserSwitchedReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
             Log.startSession("TSSwR.oR");
             try {
-                int userHandleId = intent.getIntExtra(Intent.EXTRA_USER_HANDLE, 0);
-                UserHandle currentUserHandle = new UserHandle(userHandleId);
-                mPhoneAccountRegistrar.setCurrentUserHandle(currentUserHandle);
-                mCallsManager.onUserSwitch(currentUserHandle);
+                synchronized (mLock) {
+                    int userHandleId = intent.getIntExtra(Intent.EXTRA_USER_HANDLE, 0);
+                    UserHandle currentUserHandle = new UserHandle(userHandleId);
+                    mPhoneAccountRegistrar.setCurrentUserHandle(currentUserHandle);
+                    mCallsManager.onUserSwitch(currentUserHandle);
+                }
             } finally {
                 Log.endSession();
             }
@@ -122,9 +138,26 @@ public final class TelecomSystem {
         public void onReceive(Context context, Intent intent) {
             Log.startSession("TSStR.oR");
             try {
-                int userHandleId = intent.getIntExtra(Intent.EXTRA_USER_HANDLE, 0);
-                UserHandle addingUserHandle = new UserHandle(userHandleId);
-                mCallsManager.onUserStarting(addingUserHandle);
+                synchronized (mLock) {
+                    int userHandleId = intent.getIntExtra(Intent.EXTRA_USER_HANDLE, 0);
+                    UserHandle addingUserHandle = new UserHandle(userHandleId);
+                    mCallsManager.onUserStarting(addingUserHandle);
+                }
+            } finally {
+                Log.endSession();
+            }
+        }
+    };
+
+    private final BroadcastReceiver mBootCompletedReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            Log.startSession("TSBCR.oR");
+            try {
+                synchronized (mLock) {
+                    mIsBootComplete = true;
+                    mCallsManager.onBootCompleted();
+                }
             } finally {
                 Log.endSession();
             }
@@ -137,7 +170,7 @@ public final class TelecomSystem {
 
     public static void setInstance(TelecomSystem instance) {
         if (INSTANCE != null) {
-            throw new RuntimeException("Attempt to set TelecomSystem.INSTANCE twice");
+            Log.w("TelecomSystem", "Attempt to set TelecomSystem.INSTANCE twice");
         }
         Log.i(TelecomSystem.class, "TelecomSystem.INSTANCE being set");
         INSTANCE = instance;
@@ -155,13 +188,32 @@ public final class TelecomSystem {
                     bluetoothPhoneServiceImplFactory,
             Timeouts.Adapter timeoutsAdapter,
             AsyncRingtonePlayer asyncRingtonePlayer,
-            PhoneNumberUtilsAdapter phoneNumberUtilsAdapter) {
+            PhoneNumberUtilsAdapter phoneNumberUtilsAdapter,
+            IncomingCallNotifier incomingCallNotifier) {
         mContext = context.getApplicationContext();
-        Log.setContext(mContext);
-        Log.initMd5Sum();
+        LogUtils.initLogging(mContext);
+        DefaultDialerManagerAdapter defaultDialerAdapter =
+                new DefaultDialerCache.DefaultDialerManagerAdapterImpl();
+
+        DefaultDialerCache defaultDialerCache = new DefaultDialerCache(mContext,
+                defaultDialerAdapter, mLock);
 
         Log.startSession("TS.init");
-        mPhoneAccountRegistrar = new PhoneAccountRegistrar(mContext);
+        mPhoneAccountRegistrar = new PhoneAccountRegistrar(mContext, defaultDialerCache,
+                new PhoneAccountRegistrar.AppLabelProxy() {
+                    @Override
+                    public CharSequence getAppLabel(String packageName) {
+                        PackageManager pm = mContext.getPackageManager();
+                        try {
+                            ApplicationInfo info = pm.getApplicationInfo(packageName, 0);
+                            return pm.getApplicationLabel(info);
+                        } catch (PackageManager.NameNotFoundException nnfe) {
+                            Log.w(this, "Could not determine package name.");
+                        }
+
+                        return null;
+                    }
+                });
         mContactsAsyncHelper = new ContactsAsyncHelper(
                 new ContactsAsyncHelper.ContentResolverAdapter() {
                     @Override
@@ -170,17 +222,18 @@ public final class TelecomSystem {
                         return context.getContentResolver().openInputStream(uri);
                     }
                 });
-        BluetoothManager bluetoothManager = new BluetoothManager(mContext,
-                new BluetoothAdapterProxy());
+        BluetoothDeviceManager bluetoothDeviceManager = new BluetoothDeviceManager(mContext,
+                new BluetoothAdapterProxy(), mLock);
+        BluetoothRouteManager bluetoothRouteManager = new BluetoothRouteManager(mContext, mLock,
+                bluetoothDeviceManager, new Timeouts.Adapter());
         WiredHeadsetManager wiredHeadsetManager = new WiredHeadsetManager(mContext);
         SystemStateProvider systemStateProvider = new SystemStateProvider(mContext);
 
         mMissedCallNotifier = missedCallNotifierImplFactory
-                .makeMissedCallNotifierImpl(mContext, mPhoneAccountRegistrar,
-                        phoneNumberUtilsAdapter);
+                .makeMissedCallNotifierImpl(mContext, mPhoneAccountRegistrar, defaultDialerCache);
 
-        DefaultDialerManagerAdapter defaultDialerAdapter =
-                new TelecomServiceImpl.DefaultDialerManagerAdapterImpl();
+        EmergencyCallHelper emergencyCallHelper = new EmergencyCallHelper(mContext,
+                mContext.getResources().getString(R.string.ui_default_package), timeoutsAdapter);
 
         mCallsManager = new CallsManager(
                 mContext,
@@ -193,19 +246,40 @@ public final class TelecomSystem {
                 proximitySensorManagerFactory,
                 inCallWakeLockControllerFactory,
                 audioServiceFactory,
-                bluetoothManager,
+                bluetoothRouteManager,
                 wiredHeadsetManager,
                 systemStateProvider,
-                defaultDialerAdapter,
+                defaultDialerCache,
                 timeoutsAdapter,
                 asyncRingtonePlayer,
-                phoneNumberUtilsAdapter);
+                phoneNumberUtilsAdapter,
+                emergencyCallHelper);
+
+        mIncomingCallNotifier = incomingCallNotifier;
+        incomingCallNotifier.setCallsManagerProxy(new IncomingCallNotifier.CallsManagerProxy() {
+            @Override
+            public boolean hasCallsForOtherPhoneAccount(PhoneAccountHandle phoneAccountHandle) {
+                return mCallsManager.hasCallsForOtherPhoneAccount(phoneAccountHandle);
+            }
+
+            @Override
+            public int getNumCallsForOtherPhoneAccount(PhoneAccountHandle phoneAccountHandle) {
+                return mCallsManager.getNumCallsForOtherPhoneAccount(phoneAccountHandle);
+            }
+
+            @Override
+            public Call getActiveCall() {
+                return mCallsManager.getActiveCall();
+            }
+        });
+        mCallsManager.setIncomingCallNotifier(mIncomingCallNotifier);
 
         mRespondViaSmsManager = new RespondViaSmsManager(mCallsManager, mLock);
         mCallsManager.setRespondViaSmsManager(mRespondViaSmsManager);
 
         mContext.registerReceiver(mUserSwitchedReceiver, USER_SWITCHED_FILTER);
         mContext.registerReceiver(mUserStartingReceiver, USER_STARTING_FILTER);
+        mContext.registerReceiver(mBootCompletedReceiver, BOOT_COMPLETE_FILTER);
 
         mBluetoothPhoneServiceImpl = bluetoothPhoneServiceImplFactory.makeBluetoothPhoneServiceImpl(
                 mContext, mLock, mCallsManager, mPhoneAccountRegistrar);
@@ -227,7 +301,7 @@ public final class TelecomSystem {
                         return new UserCallIntentProcessor(context, userHandle);
                     }
                 },
-                defaultDialerAdapter,
+                defaultDialerCache,
                 new TelecomServiceImpl.SubscriptionManagerAdapterImpl(),
                 mLock);
         Log.endSession();
@@ -261,5 +335,9 @@ public final class TelecomSystem {
 
     public Object getLock() {
         return mLock;
+    }
+
+    public boolean isBootComplete() {
+        return mIsBootComplete;
     }
 }

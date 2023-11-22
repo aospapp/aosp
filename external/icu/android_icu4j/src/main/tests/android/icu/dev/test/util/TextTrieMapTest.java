@@ -1,4 +1,6 @@
 /* GENERATED SOURCE. DO NOT MODIFY. */
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 /*
  *******************************************************************************
  * Copyright (C) 2007, International Business Machines Corporation and         *
@@ -9,12 +11,11 @@ package android.icu.dev.test.util;
 
 import java.util.Iterator;
 
+import org.junit.Test;
+
 import android.icu.dev.test.TestFmwk;
 import android.icu.impl.TextTrieMap;
-import org.junit.runner.RunWith;
-import android.icu.junit.IcuTestFmwkRunner;
 
-@RunWith(IcuTestFmwkRunner.class)
 public class TextTrieMapTest extends TestFmwk {
 
     private static final Integer SUN = new Integer(1);
@@ -64,12 +65,8 @@ public class TextTrieMapTest extends TestFmwk {
         {"super", null, SUN},
         {"NO", null, null}
     };
-    
-    public static void main(String[] args) throws Exception {
-        TextTrieMapTest test = new TextTrieMapTest();
-        test.run(args);
-    }
 
+    @Test
     public void TestCaseSensitive() {
         Iterator itr = null;
         TextTrieMap map = new TextTrieMap(false);
@@ -105,6 +102,7 @@ public class TextTrieMapTest extends TestFmwk {
         checkResult(itr, new Object[]{FOO, SUN});
     }
 
+    @Test
     public void TestCaseInsensitive() {
         Iterator itr = null;
         TextTrieMap map = new TextTrieMap(true);

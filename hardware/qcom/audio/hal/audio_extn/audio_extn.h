@@ -57,6 +57,8 @@ void audio_extn_spkr_prot_calib_cancel(void *adev);
 #define audio_extn_hfp_is_active(adev)                  (0)
 #define audio_extn_hfp_get_usecase()                    (-1)
 #define audio_extn_hfp_set_parameters(adev, params)     (0)
+#define audio_extn_hfp_set_mic_mute(adev, state)        (0)
+
 #else
 bool audio_extn_hfp_is_active(struct audio_device *adev);
 
@@ -64,7 +66,34 @@ audio_usecase_t audio_extn_hfp_get_usecase();
 
 void audio_extn_hfp_set_parameters(struct audio_device *adev,
                                     struct str_parms *parms);
+int audio_extn_hfp_set_mic_mute(struct audio_device *adev, bool state);
+
 #endif
+
+#ifndef USB_TUNNEL_ENABLED
+#define audio_extn_usb_init(adev)                                      (0)
+#define audio_extn_usb_deinit()                                        (0)
+#define audio_extn_usb_add_device(device, card)                        (0)
+#define audio_extn_usb_remove_device(device, card)                     (0)
+#define audio_extn_usb_is_config_supported(bit_width, sample_rate, ch, pb) (false)
+#define audio_extn_usb_enable_sidetone(device, enable)                 (0)
+#define audio_extn_usb_set_sidetone_gain(parms, value, len)            (0)
+#define audio_extn_usb_is_capture_supported()                          (false)
+#else
+void audio_extn_usb_init(void *adev);
+void audio_extn_usb_deinit();
+void audio_extn_usb_add_device(audio_devices_t device, int card);
+void audio_extn_usb_remove_device(audio_devices_t device, int card);
+bool audio_extn_usb_is_config_supported(unsigned int *bit_width,
+                                        unsigned int *sample_rate,
+                                        unsigned int *ch,
+                                        bool is_playback);
+int audio_extn_usb_enable_sidetone(int device, bool enable);
+int audio_extn_usb_set_sidetone_gain(struct str_parms *parms,
+                                     char *value, int len);
+bool audio_extn_usb_is_capture_supported();
+#endif
+
 
 #ifndef SOUND_TRIGGER_ENABLED
 #define audio_extn_sound_trigger_init(adev)                            (0)
@@ -105,6 +134,9 @@ void audio_extn_dsm_feedback_enable(struct audio_device *adev,
                          bool benable);
 #endif
 
+void audio_extn_utils_send_default_app_type_cfg(void *platform, struct mixer *mixer);
+int audio_extn_utils_send_app_type_cfg(struct audio_device *adev,
+                                       struct audio_usecase *usecase);
 #ifndef HWDEP_CAL_ENABLED
 #define  audio_extn_hwdep_cal_send(snd_card, acdb_handle) (0)
 #else

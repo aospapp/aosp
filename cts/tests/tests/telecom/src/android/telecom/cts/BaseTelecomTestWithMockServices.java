@@ -15,20 +15,18 @@
  */
 
 package android.telecom.cts;
-
-import static android.telecom.cts.TestUtils.*;
+import static android.telecom.cts.TestUtils.PACKAGE;
+import static android.telecom.cts.TestUtils.TAG;
+import static android.telecom.cts.TestUtils.WAIT_FOR_STATE_CHANGE_TIMEOUT_MS;
 
 import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.junit.Assert.assertThat;
 
-import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
-import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
-import android.os.SystemClock;
 import android.telecom.Call;
 import android.telecom.CallAudioState;
 import android.telecom.Conference;
@@ -57,35 +55,19 @@ public class BaseTelecomTestWithMockServices extends InstrumentationTestCase {
     public static final int FLAG_REGISTER = 0x1;
     public static final int FLAG_ENABLE = 0x2;
 
-    public static final PhoneAccountHandle TEST_PHONE_ACCOUNT_HANDLE =
-            new PhoneAccountHandle(new ComponentName(PACKAGE, COMPONENT), ACCOUNT_ID);
-
-    public static final PhoneAccount TEST_PHONE_ACCOUNT = PhoneAccount.builder(
-            TEST_PHONE_ACCOUNT_HANDLE, ACCOUNT_LABEL)
-            .setAddress(Uri.parse("tel:555-TEST"))
-            .setSubscriptionAddress(Uri.parse("tel:555-TEST"))
-            .setCapabilities(PhoneAccount.CAPABILITY_CALL_PROVIDER |
-                    PhoneAccount.CAPABILITY_VIDEO_CALLING |
-                    PhoneAccount.CAPABILITY_CONNECTION_MANAGER)
-            .setHighlightColor(Color.RED)
-            .setShortDescription(ACCOUNT_LABEL)
-            .addSupportedUriScheme(PhoneAccount.SCHEME_TEL)
-            .addSupportedUriScheme(PhoneAccount.SCHEME_VOICEMAIL)
-            .build();
-
-    private static int sCounter = 9999;
+    private static int sCounter = 5549999;
 
     Context mContext;
     TelecomManager mTelecomManager;
 
-    InvokeCounter mOnBringToForegroundCounter;
-    InvokeCounter mOnCallAudioStateChangedCounter;
-    InvokeCounter mOnPostDialWaitCounter;
-    InvokeCounter mOnCannedTextResponsesLoadedCounter;
-    InvokeCounter mOnSilenceRingerCounter;
-    InvokeCounter mOnConnectionEventCounter;
-    InvokeCounter mOnExtrasChangedCounter;
-    InvokeCounter mOnPropertiesChangedCounter;
+    TestUtils.InvokeCounter mOnBringToForegroundCounter;
+    TestUtils.InvokeCounter mOnCallAudioStateChangedCounter;
+    TestUtils.InvokeCounter mOnPostDialWaitCounter;
+    TestUtils.InvokeCounter mOnCannedTextResponsesLoadedCounter;
+    TestUtils.InvokeCounter mOnSilenceRingerCounter;
+    TestUtils.InvokeCounter mOnConnectionEventCounter;
+    TestUtils.InvokeCounter mOnExtrasChangedCounter;
+    TestUtils.InvokeCounter mOnPropertiesChangedCounter;
     Bundle mPreviousExtras;
     int mPreviousProperties = -1;
 
@@ -101,7 +83,7 @@ public class BaseTelecomTestWithMockServices extends InstrumentationTestCase {
         mContext = getInstrumentation().getContext();
         mTelecomManager = (TelecomManager) mContext.getSystemService(Context.TELECOM_SERVICE);
 
-        mShouldTestTelecom = shouldTestTelecom(mContext);
+        mShouldTestTelecom = TestUtils.shouldTestTelecom(mContext);
         if (mShouldTestTelecom) {
             mPreviousDefaultDialer = TestUtils.getDefaultDialer(getInstrumentation());
             TestUtils.setDefaultDialer(getInstrumentation(), PACKAGE);
@@ -116,7 +98,7 @@ public class BaseTelecomTestWithMockServices extends InstrumentationTestCase {
             if (!TextUtils.isEmpty(mPreviousDefaultDialer)) {
                 TestUtils.setDefaultDialer(getInstrumentation(), mPreviousDefaultDialer);
             }
-            tearDownConnectionService(TEST_PHONE_ACCOUNT_HANDLE);
+            tearDownConnectionService(TestUtils.TEST_PHONE_ACCOUNT_HANDLE);
             assertMockInCallServiceUnbound();
         }
         super.tearDown();
@@ -130,18 +112,18 @@ public class BaseTelecomTestWithMockServices extends InstrumentationTestCase {
             // Generate a vanilla mock connection service, if not provided.
             this.connectionService = new MockConnectionService();
         }
-        CtsConnectionService.setUp(TEST_PHONE_ACCOUNT_HANDLE, this.connectionService);
+        CtsConnectionService.setUp(this.connectionService);
 
         if ((flags & FLAG_REGISTER) != 0) {
-            mTelecomManager.registerPhoneAccount(TEST_PHONE_ACCOUNT);
+            mTelecomManager.registerPhoneAccount(TestUtils.TEST_PHONE_ACCOUNT);
         }
         if ((flags & FLAG_ENABLE) != 0) {
-            TestUtils.enablePhoneAccount(getInstrumentation(), TEST_PHONE_ACCOUNT_HANDLE);
+            TestUtils.enablePhoneAccount(getInstrumentation(), TestUtils.TEST_PHONE_ACCOUNT_HANDLE);
             // Wait till the adb commands have executed and account is enabled in Telecom database.
-            assertPhoneAccountEnabled(TEST_PHONE_ACCOUNT_HANDLE);
+            assertPhoneAccountEnabled(TestUtils.TEST_PHONE_ACCOUNT_HANDLE);
         }
 
-        return TEST_PHONE_ACCOUNT;
+        return TestUtils.TEST_PHONE_ACCOUNT;
     }
 
     protected void tearDownConnectionService(PhoneAccountHandle accountHandle) throws Exception {
@@ -252,14 +234,14 @@ public class BaseTelecomTestWithMockServices extends InstrumentationTestCase {
 
         // TODO: If more InvokeCounters are added in the future, consider consolidating them into a
         // single Collection.
-        mOnBringToForegroundCounter = new InvokeCounter("OnBringToForeground");
-        mOnCallAudioStateChangedCounter = new InvokeCounter("OnCallAudioStateChanged");
-        mOnPostDialWaitCounter = new InvokeCounter("OnPostDialWait");
-        mOnCannedTextResponsesLoadedCounter = new InvokeCounter("OnCannedTextResponsesLoaded");
-        mOnSilenceRingerCounter = new InvokeCounter("OnSilenceRinger");
-        mOnConnectionEventCounter = new InvokeCounter("OnConnectionEvent");
-        mOnExtrasChangedCounter = new InvokeCounter("OnDetailsChangedCounter");
-        mOnPropertiesChangedCounter = new InvokeCounter("OnPropertiesChangedCounter");
+        mOnBringToForegroundCounter = new TestUtils.InvokeCounter("OnBringToForeground");
+        mOnCallAudioStateChangedCounter = new TestUtils.InvokeCounter("OnCallAudioStateChanged");
+        mOnPostDialWaitCounter = new TestUtils.InvokeCounter("OnPostDialWait");
+        mOnCannedTextResponsesLoadedCounter = new TestUtils.InvokeCounter("OnCannedTextResponsesLoaded");
+        mOnSilenceRingerCounter = new TestUtils.InvokeCounter("OnSilenceRinger");
+        mOnConnectionEventCounter = new TestUtils.InvokeCounter("OnConnectionEvent");
+        mOnExtrasChangedCounter = new TestUtils.InvokeCounter("OnDetailsChangedCounter");
+        mOnPropertiesChangedCounter = new TestUtils.InvokeCounter("OnPropertiesChangedCounter");
     }
 
     /**
@@ -277,7 +259,7 @@ public class BaseTelecomTestWithMockServices extends InstrumentationTestCase {
             extras = new Bundle();
         }
         extras.putParcelable(TelecomManager.EXTRA_INCOMING_CALL_ADDRESS, incomingHandle);
-        mTelecomManager.addNewIncomingCall(TEST_PHONE_ACCOUNT_HANDLE, extras);
+        mTelecomManager.addNewIncomingCall(TestUtils.TEST_PHONE_ACCOUNT_HANDLE, extras);
 
         try {
             if (!mInCallCallbacks.lock.tryAcquire(TestUtils.WAIT_FOR_CALL_ADDED_TIMEOUT_S,
@@ -513,7 +495,7 @@ public class BaseTelecomTestWithMockServices extends InstrumentationTestCase {
         if (extras == null) {
             extras = new Bundle();
         }
-        extras.putParcelable(TelecomManager.EXTRA_PHONE_ACCOUNT_HANDLE, TEST_PHONE_ACCOUNT_HANDLE);
+        extras.putParcelable(TelecomManager.EXTRA_PHONE_ACCOUNT_HANDLE, TestUtils.TEST_PHONE_ACCOUNT_HANDLE);
 
         if (!VideoProfile.isAudioOnly(videoState)) {
             extras.putInt(TelecomManager.EXTRA_START_CALL_WITH_VIDEO_STATE, videoState);
@@ -857,6 +839,27 @@ public class BaseTelecomTestWithMockServices extends InstrumentationTestCase {
         );
     }
 
+    /**
+     * Checks all fields of two PhoneAccounts for equality, with the exception of the enabled state.
+     * Should only be called after assertPhoneAccountRegistered when it can be guaranteed
+     * that the PhoneAccount is registered.
+     * @param expected The expected PhoneAccount.
+     * @param actual The actual PhoneAccount.
+     */
+    void assertPhoneAccountEquals(final PhoneAccount expected,
+            final PhoneAccount actual) {
+        assertEquals(expected.getAddress(), actual.getAddress());
+        assertEquals(expected.getAccountHandle(), actual.getAccountHandle());
+        assertEquals(expected.getCapabilities(), actual.getCapabilities());
+        assertTrue(areBundlesEqual(expected.getExtras(), actual.getExtras()));
+        assertEquals(expected.getHighlightColor(), actual.getHighlightColor());
+        assertEquals(expected.getIcon(), actual.getIcon());
+        assertEquals(expected.getLabel(), actual.getLabel());
+        assertEquals(expected.getShortDescription(), actual.getShortDescription());
+        assertEquals(expected.getSubscriptionAddress(), actual.getSubscriptionAddress());
+        assertEquals(expected.getSupportedUriSchemes(), actual.getSupportedUriSchemes());
+    }
+
     void assertPhoneAccountRegistered(final PhoneAccountHandle handle) {
         waitUntilConditionIsTrueOrTimeout(
                 new Condition() {
@@ -895,21 +898,10 @@ public class BaseTelecomTestWithMockServices extends InstrumentationTestCase {
     }
 
     void assertCtsConnectionServiceUnbound() {
-        waitUntilConditionIsTrueOrTimeout(
-                new Condition() {
-                    @Override
-                    public Object expected() {
-                        return false;
-                    }
-
-                    @Override
-                    public Object actual() {
-                        return CtsConnectionService.isServiceBound();
-                    }
-                },
-                WAIT_FOR_STATE_CHANGE_TIMEOUT_MS,
-                "CtsConnectionService not yet unbound!"
-        );
+        if (CtsConnectionService.isBound()) {
+            assertTrue("CtsConnectionService not yet unbound!",
+                    CtsConnectionService.waitForUnBinding());
+        }
     }
 
     void assertMockInCallServiceUnbound() {
@@ -927,6 +919,42 @@ public class BaseTelecomTestWithMockServices extends InstrumentationTestCase {
                 },
                 WAIT_FOR_STATE_CHANGE_TIMEOUT_MS,
                 "MockInCallService not yet unbound!"
+        );
+    }
+
+    void assertIsInCall(boolean isIncall) {
+        waitUntilConditionIsTrueOrTimeout(
+                new Condition() {
+                    @Override
+                    public Object expected() {
+                        return isIncall;
+                    }
+
+                    @Override
+                    public Object actual() {
+                        return mTelecomManager.isInCall();
+                    }
+                },
+                WAIT_FOR_STATE_CHANGE_TIMEOUT_MS,
+                "Expected isInCall to be " + isIncall
+        );
+    }
+
+    void assertIsInManagedCall(boolean isIncall) {
+        waitUntilConditionIsTrueOrTimeout(
+                new Condition() {
+                    @Override
+                    public Object expected() {
+                        return isIncall;
+                    }
+
+                    @Override
+                    public Object actual() {
+                        return mTelecomManager.isInManagedCall();
+                    }
+                },
+                WAIT_FOR_STATE_CHANGE_TIMEOUT_MS,
+                "Expected isInManagedCall to be " + isIncall
         );
     }
 
@@ -1017,84 +1045,6 @@ public class BaseTelecomTestWithMockServices extends InstrumentationTestCase {
 
     protected interface Work {
         void doWork();
-    }
-
-    /**
-     * Utility class used to track the number of times a callback was invoked, and the arguments it
-     * was invoked with. This class is prefixed Invoke rather than the more typical Call for
-     * disambiguation purposes.
-     */
-    public static final class InvokeCounter {
-        private final String mName;
-        private final Object mLock = new Object();
-        private final ArrayList<Object[]> mInvokeArgs = new ArrayList<>();
-
-        private int mInvokeCount;
-
-        public InvokeCounter(String callbackName) {
-            mName = callbackName;
-        }
-
-        public void invoke(Object... args) {
-            synchronized (mLock) {
-                mInvokeCount++;
-                mInvokeArgs.add(args);
-                mLock.notifyAll();
-            }
-        }
-
-        public Object[] getArgs(int index) {
-            synchronized (mLock) {
-                return mInvokeArgs.get(index);
-            }
-        }
-
-        public int getInvokeCount() {
-            synchronized (mLock) {
-                return mInvokeCount;
-            }
-        }
-
-        public void waitForCount(int count) {
-            waitForCount(count, WAIT_FOR_STATE_CHANGE_TIMEOUT_MS);
-        }
-
-        public void waitForCount(int count, long timeoutMillis) {
-            waitForCount(count, timeoutMillis, null);
-        }
-
-        public void waitForCount(long timeoutMillis) {
-             synchronized (mLock) {
-             try {
-                  mLock.wait(timeoutMillis);
-             }catch (InterruptedException ex) {
-                  ex.printStackTrace();
-             }
-           }
-        }
-
-        public void waitForCount(int count, long timeoutMillis, String message) {
-            synchronized (mLock) {
-                final long startTimeMillis = SystemClock.uptimeMillis();
-                while (mInvokeCount < count) {
-                    try {
-                        final long elapsedTimeMillis = SystemClock.uptimeMillis() - startTimeMillis;
-                        final long remainingTimeMillis = timeoutMillis - elapsedTimeMillis;
-                        if (remainingTimeMillis <= 0) {
-                            if (message != null) {
-                                fail(message);
-                            } else {
-                                fail(String.format("Expected %s to be called %d times.", mName,
-                                        count));
-                            }
-                        }
-                        mLock.wait(timeoutMillis);
-                    } catch (InterruptedException ie) {
-                        /* ignore */
-                    }
-                }
-            }
-        }
     }
 
     public static boolean areBundlesEqual(Bundle extras, Bundle newExtras) {

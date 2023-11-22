@@ -17,6 +17,9 @@
 package com.android.cts.core.runner.support;
 
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 /**
  * Listener for TestNG runs that provides gtest-like console output.
@@ -29,6 +32,8 @@ import java.util.Arrays;
  */
 public class SingleTestNGTestRunListener implements org.testng.ITestListener {
     private int mTestStarted = 0;
+
+    private Map<String, Throwable> failures = new LinkedHashMap<>();
 
     private static class Prefixes {
         @SuppressWarnings("unused")
@@ -43,6 +48,10 @@ public class SingleTestNGTestRunListener implements org.testng.ITestListener {
     // How many tests did TestNG *actually* try to run?
     public int getNumTestStarted() {
       return mTestStarted;
+    }
+
+    public Map<String, Throwable> getFailures() {
+        return Collections.unmodifiableMap(failures);
     }
 
     @Override
@@ -68,8 +77,11 @@ public class SingleTestNGTestRunListener implements org.testng.ITestListener {
         // failure at the end.
         //
         // The big pass/fail is printed from SingleTestNGTestRunner, not from the listener.
+        String id = getId(result);
+        Throwable throwable = result.getThrowable();
         System.out.println(String.format("%s %s ::: %s", Prefixes.ERROR_TEST_RUN_MARKER,
-              getId(result), stringify(result.getThrowable())));
+                id, stringify(throwable)));
+        failures.put(id, throwable);
     }
 
     @Override

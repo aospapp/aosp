@@ -33,12 +33,18 @@ enum {
 
 class IBatteryPropertiesListener : public IInterface {
 public:
-    DECLARE_META_INTERFACE(BatteryPropertiesListener);
+    DECLARE_META_INTERFACE(BatteryPropertiesListener)
 
     virtual void batteryPropertiesChanged(struct BatteryProperties props) = 0;
 };
 
 // ----------------------------------------------------------------------------
+
+class BnBatteryPropertiesListener: public BnInterface<IBatteryPropertiesListener> {
+public:
+    virtual status_t onTransact(uint32_t code, const Parcel& data,
+                                Parcel* reply, uint32_t flags = 0);
+};
 
 }; // namespace android
 

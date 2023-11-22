@@ -7,7 +7,6 @@
 import unittest
 
 import common
-from autotest_lib.client.common_lib.test_utils import unittest
 from autotest_lib.frontend import setup_django_environment
 from autotest_lib.frontend.afe import frontend_test_utils
 from autotest_lib.frontend.afe import rdb_model_extensions as rdb_models

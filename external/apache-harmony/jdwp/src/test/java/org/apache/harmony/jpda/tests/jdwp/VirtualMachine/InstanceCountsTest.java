@@ -40,6 +40,7 @@ public class InstanceCountsTest extends JDWPSyncTestCase {
 
     static final String debuggeeSignature = "Lorg/apache/harmony/jpda/tests/jdwp/VirtualMachine/InstanceCountsDebuggee;";
 
+    @Override
     protected String getDebuggeeClassName() {
         return "org.apache.harmony.jpda.tests.jdwp.VirtualMachine.InstanceCountsDebuggee";
     }

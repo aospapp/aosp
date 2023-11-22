@@ -51,7 +51,7 @@ struct selabel_handle;
 
 #include "make_f2fs.h"
 
-#ifdef USE_MINGW
+#ifdef _WIN32
 
 #include <winsock2.h>
 

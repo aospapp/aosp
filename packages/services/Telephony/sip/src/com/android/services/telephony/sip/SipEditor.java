@@ -17,6 +17,8 @@
 package com.android.services.telephony.sip;
 
 import android.app.AlertDialog;
+import android.app.Dialog;
+import android.app.DialogFragment;
 import android.content.Intent;
 import android.net.sip.SipProfile;
 import android.os.Bundle;
@@ -66,6 +68,39 @@ public class SipEditor extends PreferenceActivity
     private SipProfile mOldProfile;
     private Button mRemoveButton;
     private SipAccountRegistry mSipAccountRegistry;
+
+    /**
+     * Dialog fragment class to be used for displaying an alert dialog.
+     */
+    public static class AlertDialogFragment extends DialogFragment {
+        private static final String KEY_MESSAGE = "message";
+
+        /**
+         * Initialize the AlertDialogFragment instance.
+         *
+         * @param message the dialog message to display.
+         * @return the AlertDialogFragment.
+         */
+        public static AlertDialogFragment newInstance(String message) {
+            AlertDialogFragment frag = new AlertDialogFragment();
+            Bundle args = new Bundle();
+            args.putString(KEY_MESSAGE, message);
+            frag.setArguments(args);
+            return frag;
+        }
+
+        @Override
+        public Dialog onCreateDialog(Bundle savedInstanceState) {
+            String message = getArguments().getString(KEY_MESSAGE);
+
+            return new AlertDialog.Builder(getActivity())
+                    .setTitle(android.R.string.dialog_alert_title)
+                    .setIconAttribute(android.R.attr.alertDialogIcon)
+                    .setMessage(message)
+                    .setPositiveButton(R.string.alert_dialog_ok, null)
+                    .create();
+        }
+    }
 
     enum PreferenceKey {
         Username(R.string.username, 0, R.string.default_preference_summary_username),
@@ -259,7 +294,7 @@ public class SipEditor extends PreferenceActivity
      *
      * @param p The {@link SipProfile} to delete.
      */
-    private void deleteAndUnregisterProfile(SipProfile p) {
+    private void deleteAndUnregisterProfile(SipProfile p) throws IOException {
         if (p == null) return;
         mProfileDb.deleteProfile(p);
         mSipAccountRegistry.stopSipService(this, p.getProfileName());
@@ -285,17 +320,9 @@ public class SipEditor extends PreferenceActivity
             if (VERBOSE) log("Home button clicked, don't show dialog: " + message);
             return;
         }
-        runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                new AlertDialog.Builder(SipEditor.this)
-                        .setTitle(android.R.string.dialog_alert_title)
-                        .setIconAttribute(android.R.attr.alertDialogIcon)
-                        .setMessage(message)
-                        .setPositiveButton(R.string.alert_dialog_ok, null)
-                        .show();
-            }
-        });
+
+        AlertDialogFragment newFragment = AlertDialogFragment.newInstance(message);
+        newFragment.show(getFragmentManager(), null);
     }
 
     private boolean isEditTextEmpty(PreferenceKey key) {
@@ -333,7 +360,13 @@ public class SipEditor extends PreferenceActivity
                             }
                     }
                 } else if (key == PreferenceKey.Port) {
-                    int port = Integer.parseInt(PreferenceKey.Port.getValue());
+                    int port;
+                    try {
+                        port = Integer.parseInt(PreferenceKey.Port.getValue());
+                    } catch (NumberFormatException e) {
+                        showAlert(getString(R.string.not_a_valid_port));
+                        return;
+                    }
                     if ((port < 1000) || (port > 65534)) {
                         showAlert(getString(R.string.not_a_valid_port));
                         return;

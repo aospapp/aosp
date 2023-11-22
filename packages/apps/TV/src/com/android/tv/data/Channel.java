@@ -16,7 +16,6 @@
 
 package com.android.tv.data;
 
-import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -24,14 +23,12 @@ import android.database.Cursor;
 import android.media.tv.TvContract;
 import android.media.tv.TvInputInfo;
 import android.net.Uri;
-import android.os.Build;
 import android.support.annotation.Nullable;
 import android.support.annotation.UiThread;
 import android.support.annotation.VisibleForTesting;
 import android.text.TextUtils;
 import android.util.Log;
 
-import com.android.tv.common.CollectionUtils;
 import com.android.tv.common.TvCommonConstants;
 import com.android.tv.util.ImageLoader;
 import com.android.tv.util.TvInputManagerHelper;
@@ -73,7 +70,7 @@ public final class Channel {
     private static final int APP_LINK_TYPE_NOT_SET = 0;
     private static final String INVALID_PACKAGE_NAME = "packageName";
 
-    private static final String[] PROJECTION_BASE = {
+    public static final String[] PROJECTION = {
             // Columns must match what is read in Channel.fromCursor()
             TvContract.Channels._ID,
             TvContract.Channels.COLUMN_PACKAGE_NAME,
@@ -85,28 +82,12 @@ public final class Channel {
             TvContract.Channels.COLUMN_VIDEO_FORMAT,
             TvContract.Channels.COLUMN_BROWSABLE,
             TvContract.Channels.COLUMN_LOCKED,
-    };
-
-    // Additional fields added in MNC.
-    @SuppressLint("InlinedApi")
-    private static final String[] PROJECTION_ADDED_IN_MNC = {
-            // Columns should match what is read in Channel.fromCursor()
             TvContract.Channels.COLUMN_APP_LINK_TEXT,
             TvContract.Channels.COLUMN_APP_LINK_COLOR,
             TvContract.Channels.COLUMN_APP_LINK_ICON_URI,
             TvContract.Channels.COLUMN_APP_LINK_POSTER_ART_URI,
             TvContract.Channels.COLUMN_APP_LINK_INTENT_URI,
     };
-
-    public static final String[] PROJECTION = createProjection();
-
-    private static String[] createProjection() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            return CollectionUtils.concatAll(PROJECTION_BASE, PROJECTION_ADDED_IN_MNC);
-        } else {
-            return PROJECTION_BASE;
-        }
-    }
 
     /**
      * Creates {@code Channel} object from cursor.
@@ -128,13 +109,11 @@ public final class Channel {
         channel.mVideoFormat = Utils.intern(cursor.getString(index++));
         channel.mBrowsable = cursor.getInt(index++) == 1;
         channel.mLocked = cursor.getInt(index++) == 1;
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            channel.mAppLinkText = cursor.getString(index++);
-            channel.mAppLinkColor = cursor.getInt(index++);
-            channel.mAppLinkIconUri = cursor.getString(index++);
-            channel.mAppLinkPosterArtUri = cursor.getString(index++);
-            channel.mAppLinkIntentUri = cursor.getString(index++);
-        }
+        channel.mAppLinkText = cursor.getString(index++);
+        channel.mAppLinkColor = cursor.getInt(index++);
+        channel.mAppLinkIconUri = cursor.getString(index++);
+        channel.mAppLinkPosterArtUri = cursor.getString(index++);
+        channel.mAppLinkIntentUri = cursor.getString(index++);
         return channel;
     }
 
@@ -170,11 +149,6 @@ public final class Channel {
     private int mAppLinkType;
 
     private long mDvrId;
-
-    /**
-     * TODO(DVR): Need to fill the following data.
-     */
-    private boolean mRecordable;
 
     private Channel() {
         // Do nothing.
@@ -224,6 +198,15 @@ public final class Channel {
 
     public boolean isPassthrough() {
         return mIsPassthrough;
+    }
+
+    /**
+     * Gets identification text for displaying or debugging.
+     * It's made from Channels' display number plus their display name.
+     */
+    public String getDisplayText() {
+        return TextUtils.isEmpty(mDisplayName) ? mDisplayNumber
+                : mDisplayNumber + " " + mDisplayName;
     }
 
     public String getAppLinkText() {
@@ -578,6 +561,8 @@ public final class Channel {
                             getUri().toString());
                     mAppLinkType = APP_LINK_TYPE_CHANNEL;
                     return;
+                } else {
+                    Log.w(TAG, "No activity exists to handle : " + mAppLinkIntentUri);
                 }
             } catch (URISyntaxException e) {
                 Log.w(TAG, "Unable to set app link for " + mAppLinkIntentUri, e);
@@ -650,8 +635,7 @@ public final class Channel {
             result = ChannelNumber.compare(lhs.getDisplayNumber(), rhs.getDisplayNumber());
             if (mDetectDuplicatesEnabled && result == 0) {
                 Log.w(TAG, "Duplicate channels detected! - \""
-                        + lhs.getDisplayNumber() + " " + lhs.getDisplayName() + "\" and \""
-                        + rhs.getDisplayNumber() + " " + rhs.getDisplayName() + "\"");
+                        + lhs.getDisplayText() + "\" and \"" + rhs.getDisplayText() + "\"");
             }
             return result;
         }

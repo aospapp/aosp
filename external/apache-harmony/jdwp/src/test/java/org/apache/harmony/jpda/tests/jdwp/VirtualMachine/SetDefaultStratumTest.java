@@ -43,6 +43,7 @@ public class SetDefaultStratumTest extends JDWPSyncTestCase {
     static final String thisCommandName = "VirtualMachine::SetDefaultStratum command";
     static final String debuggeeSignature = "Lorg/apache/harmony/jpda/tests/jdwp/share/debuggee/HelloWorld;";
 
+    @Override
     protected String getDebuggeeClassName() {
         return "org.apache.harmony.jpda.tests.jdwp.share.debuggee.HelloWorld";
     }

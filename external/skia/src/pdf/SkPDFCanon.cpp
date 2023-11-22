@@ -9,105 +9,69 @@
 #include "SkPDFBitmap.h"
 #include "SkPDFCanon.h"
 #include "SkPDFFont.h"
-#include "SkPDFShader.h"
 
 ////////////////////////////////////////////////////////////////////////////////
+
+namespace {
+template <typename K, typename V> struct UnrefValue {
+    void operator()(K, V** v) { SkSafeUnref(*v); }
+};
+}
+
+SkPDFCanon::~SkPDFCanon() {
+    // TODO(halcanary): make SkTHashSet work nicely with sk_sp<>,
+    // or use std::unordered_set<>
+    fGraphicStateRecords.foreach ([](WrapGS w) { w.fPtr->unref(); });
+    fPDFBitmapMap.foreach(UnrefValue<SkBitmapKey, SkPDFObject>());
+    fTypefaceMetrics.foreach(UnrefValue<uint32_t, SkAdvancedTypefaceMetrics>());
+    fFontDescriptors.foreach(UnrefValue<uint32_t, SkPDFDict>());
+    fFontMap.foreach(UnrefValue<uint64_t, SkPDFFont>());
+}
 
 void SkPDFCanon::reset() {
-    for (int i = 0; i < fFontRecords.count(); ++i) {
-        fFontRecords[i].fFont->unref();
-    }
-    fFontRecords.reset();
-    fFunctionShaderRecords.unrefAll();
-    fFunctionShaderRecords.reset();
-    fAlphaShaderRecords.unrefAll();
-    fAlphaShaderRecords.reset();
-    fImageShaderRecords.unrefAll();
-    fImageShaderRecords.reset();
-    fGraphicStateRecords.foreach ([](WrapGS w) { w.fPtr->unref(); });
-    fGraphicStateRecords.reset();
-
-    fBitmapToImageMap.foreach(
-            [](SkBitmapKey, const SkImage** p) { SkSafeUnref(*p); });
-    fBitmapToImageMap.reset();
-
-    fPDFBitmapMap.foreach([](uint32_t, SkPDFObject** p) { SkSafeUnref(*p); });
-    fPDFBitmapMap.reset();
+    this->~SkPDFCanon();
+    new (this)SkPDFCanon;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
-template <class T> T* assert_ptr(T* p) { SkASSERT(p); return p; }
-
-// requires `bool T::equals(const U&) const`
-template <typename T, typename U>
-T* find_item(const SkTDArray<T*>& ptrArray, const U& object) {
-    for (int i = 0; i < ptrArray.count(); ++i) {
-        if (ptrArray[i]->equals(object)) {
-            return ptrArray[i];
+template <typename T>
+sk_sp<SkPDFObject> find_shader(const SkTArray<T>& records,
+                               const SkPDFShader::State& state) {
+    for (const T& record : records) {
+        if (record.fShaderState == state) {
+            return record.fShaderObject;
         }
     }
     return nullptr;
 }
 
-////////////////////////////////////////////////////////////////////////////////
-
-SkPDFFont* SkPDFCanon::findFont(uint32_t fontID,
-                                uint16_t glyphID,
-                                SkPDFFont** relatedFontPtr) const {
-    SkASSERT(relatedFontPtr);
-
-    SkPDFFont* relatedFont = nullptr;
-    for (int i = 0; i < fFontRecords.count(); ++i) {
-        SkPDFFont::Match match = SkPDFFont::IsMatch(
-                fFontRecords[i].fFont, fFontRecords[i].fFontID,
-                fFontRecords[i].fGlyphID, fontID, glyphID);
-        if (SkPDFFont::kExact_Match == match) {
-            return fFontRecords[i].fFont;
-        } else if (!relatedFont && SkPDFFont::kRelated_Match == match) {
-            relatedFont = fFontRecords[i].fFont;
-        }
-    }
-    *relatedFontPtr = relatedFont;  // May still be nullptr.
-    return nullptr;
-}
-
-void SkPDFCanon::addFont(SkPDFFont* font, uint32_t fontID, uint16_t fGlyphID) {
-    SkPDFCanon::FontRec* rec = fFontRecords.push();
-    rec->fFont = SkRef(font);
-    rec->fFontID = fontID;
-    rec->fGlyphID = fGlyphID;
-}
-
-////////////////////////////////////////////////////////////////////////////////
-
-SkPDFFunctionShader* SkPDFCanon::findFunctionShader(
+sk_sp<SkPDFObject> SkPDFCanon::findFunctionShader(
         const SkPDFShader::State& state) const {
-    return find_item(fFunctionShaderRecords, state);
+    return find_shader(fFunctionShaderRecords, state);
 }
-void SkPDFCanon::addFunctionShader(SkPDFFunctionShader* pdfShader) {
-    fFunctionShaderRecords.push(SkRef(pdfShader));
+void SkPDFCanon::addFunctionShader(sk_sp<SkPDFObject> pdfShader,
+                                   SkPDFShader::State state) {
+    fFunctionShaderRecords.emplace_back(std::move(state), std::move(pdfShader));
 }
 
-////////////////////////////////////////////////////////////////////////////////
-
-SkPDFAlphaFunctionShader* SkPDFCanon::findAlphaShader(
+sk_sp<SkPDFObject> SkPDFCanon::findAlphaShader(
         const SkPDFShader::State& state) const {
-    return find_item(fAlphaShaderRecords, state);
+    return find_shader(fAlphaShaderRecords, state);
 }
-void SkPDFCanon::addAlphaShader(SkPDFAlphaFunctionShader* pdfShader) {
-    fAlphaShaderRecords.push(SkRef(pdfShader));
+void SkPDFCanon::addAlphaShader(sk_sp<SkPDFObject> pdfShader,
+                                SkPDFShader::State state) {
+    fAlphaShaderRecords.emplace_back(std::move(state), std::move(pdfShader));
 }
 
-////////////////////////////////////////////////////////////////////////////////
-
-SkPDFImageShader* SkPDFCanon::findImageShader(
+sk_sp<SkPDFObject> SkPDFCanon::findImageShader(
         const SkPDFShader::State& state) const {
-    return find_item(fImageShaderRecords, state);
+    return find_shader(fImageShaderRecords, state);
 }
 
-void SkPDFCanon::addImageShader(SkPDFImageShader* pdfShader) {
-    fImageShaderRecords.push(SkRef(pdfShader));
+void SkPDFCanon::addImageShader(sk_sp<SkPDFObject> pdfShader,
+                                SkPDFShader::State state) {
+    fImageShaderRecords.emplace_back(std::move(state), std::move(pdfShader));
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -127,25 +91,35 @@ void SkPDFCanon::addGraphicState(const SkPDFGraphicState* state) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-SkPDFObject* SkPDFCanon::findPDFBitmap(const SkImage* image) const {
-    SkPDFObject** ptr = fPDFBitmapMap.find(image->uniqueID());
-    return ptr ? *ptr : nullptr;
+sk_sp<SkPDFObject> SkPDFCanon::findPDFBitmap(SkBitmapKey key) const {
+    SkPDFObject** ptr = fPDFBitmapMap.find(key);
+    return ptr ? sk_ref_sp(*ptr) : sk_sp<SkPDFObject>();
 }
 
-void SkPDFCanon::addPDFBitmap(uint32_t imageUniqueID, SkPDFObject* pdfBitmap) {
-    fPDFBitmapMap.set(imageUniqueID, SkRef(pdfBitmap));
+void SkPDFCanon::addPDFBitmap(SkBitmapKey key, sk_sp<SkPDFObject> pdfBitmap) {
+    fPDFBitmapMap.set(key, pdfBitmap.release());
 }
 
-const SkImage* SkPDFCanon::bitmapToImage(const SkBitmap& bm) {
-    // reference remains owned by the fBitmapToImageMap!
-    SkBitmapKey key(bm);
-    if (const SkImage** img = fBitmapToImageMap.find(key)) {
-        return *img;
+////////////////////////////////////////////////////////////////////////////////
+
+sk_sp<SkPDFStream> SkPDFCanon::makeInvertFunction() {
+    if (fInvertFunction) {
+        return fInvertFunction;
     }
-    if (SkImage* image = SkImage::NewFromBitmap(bm)) {
-        return *fBitmapToImageMap.set(key, image);
+    fInvertFunction = SkPDFGraphicState::MakeInvertFunction();
+    return fInvertFunction;
+}
+sk_sp<SkPDFDict> SkPDFCanon::makeNoSmaskGraphicState() {
+    if (fNoSmaskGraphicState) {
+        return fNoSmaskGraphicState;
     }
-    SkBitmap n32bitmap;  // SkImage::NewFromBitmap can be finicky.
-    bm.copyTo(&n32bitmap, kN32_SkColorType);
-    return *fBitmapToImageMap.set(key, SkImage::NewFromBitmap(n32bitmap));
+    fNoSmaskGraphicState = SkPDFGraphicState::MakeNoSmaskGraphicState();
+    return fNoSmaskGraphicState;
+}
+sk_sp<SkPDFArray> SkPDFCanon::makeRangeObject() {
+    if (fRangeObject) {
+        return fRangeObject;
+    }
+    fRangeObject = SkPDFShader::MakeRangeObject();
+    return fRangeObject;
 }

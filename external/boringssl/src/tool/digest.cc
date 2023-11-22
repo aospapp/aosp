@@ -21,6 +21,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
+#include <stdio.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 
@@ -31,9 +32,9 @@
 #define O_BINARY 0
 #endif
 #else
-#pragma warning(push, 3)
+OPENSSL_MSVC_PRAGMA(warning(push, 3))
 #include <windows.h>
-#pragma warning(pop)
+OPENSSL_MSVC_PRAGMA(warning(pop))
 #include <io.h>
 #define PATH_MAX MAX_PATH
 typedef int ssize_t;
@@ -41,10 +42,12 @@ typedef int ssize_t;
 
 #include <openssl/digest.h>
 
+#include "internal.h"
+
 
 struct close_delete {
   void operator()(int *fd) {
-    close(*fd);
+    BORINGSSL_CLOSE(*fd);
   }
 };
 
@@ -62,8 +65,9 @@ struct Source {
   };
 
   Source() : is_stdin_(false) {}
-  Source(Type) : is_stdin_(true) {}
-  Source(const std::string &name) : is_stdin_(false), filename_(name) {}
+  explicit Source(Type) : is_stdin_(true) {}
+  explicit Source(const std::string &name)
+      : is_stdin_(false), filename_(name) {}
 
   bool is_stdin() const { return is_stdin_; }
   const std::string &filename() const { return filename_; }
@@ -81,7 +85,7 @@ static const char kStdinName[] = "standard input";
 static bool OpenFile(int *out_fd, const std::string &filename) {
   *out_fd = -1;
 
-  int fd = open(filename.c_str(), O_RDONLY | O_BINARY);
+  int fd = BORINGSSL_OPEN(filename.c_str(), O_RDONLY | O_BINARY);
   if (fd < 0) {
     fprintf(stderr, "Failed to open input file '%s': %s\n", filename.c_str(),
             strerror(errno));
@@ -130,12 +134,8 @@ static bool SumFile(std::string *out_hex, const EVP_MD *md,
   static const size_t kBufSize = 8192;
   std::unique_ptr<uint8_t[]> buf(new uint8_t[kBufSize]);
 
-  EVP_MD_CTX ctx;
-  EVP_MD_CTX_init(&ctx);
-  std::unique_ptr<EVP_MD_CTX, func_delete<EVP_MD_CTX, int, EVP_MD_CTX_cleanup>>
-      scoped_ctx(&ctx);
-
-  if (!EVP_DigestInit_ex(&ctx, md, NULL)) {
+  bssl::ScopedEVP_MD_CTX ctx;
+  if (!EVP_DigestInit_ex(ctx.get(), md, NULL)) {
     fprintf(stderr, "Failed to initialize EVP_MD_CTX.\n");
     return false;
   }
@@ -144,7 +144,7 @@ static bool SumFile(std::string *out_hex, const EVP_MD *md,
     ssize_t n;
 
     do {
-      n = read(fd, buf.get(), kBufSize);
+      n = BORINGSSL_READ(fd, buf.get(), kBufSize);
     } while (n == -1 && errno == EINTR);
 
     if (n == 0) {
@@ -156,7 +156,7 @@ static bool SumFile(std::string *out_hex, const EVP_MD *md,
       return false;
     }
 
-    if (!EVP_DigestUpdate(&ctx, buf.get(), n)) {
+    if (!EVP_DigestUpdate(ctx.get(), buf.get(), n)) {
       fprintf(stderr, "Failed to update hash.\n");
       return false;
     }
@@ -164,7 +164,7 @@ static bool SumFile(std::string *out_hex, const EVP_MD *md,
 
   uint8_t digest[EVP_MAX_MD_SIZE];
   unsigned digest_len;
-  if (!EVP_DigestFinal_ex(&ctx, digest, &digest_len)) {
+  if (!EVP_DigestFinal_ex(ctx.get(), digest, &digest_len)) {
     fprintf(stderr, "Failed to finish hash.\n");
     return false;
   }
@@ -232,10 +232,10 @@ static bool Check(const CheckModeArguments &args, const EVP_MD *md,
       return false;
     }
 
-    file = fdopen(fd, "rb");
+    file = BORINGSSL_FDOPEN(fd, "rb");
     if (!file) {
       perror("fdopen");
-      close(fd);
+      BORINGSSL_CLOSE(fd);
       return false;
     }
 

@@ -36,8 +36,6 @@
 
 __BEGIN_DECLS
 
-#include "libc_events.h"
-
 enum {
   ANDROID_LOG_UNKNOWN = 0,
   ANDROID_LOG_DEFAULT,    /* only for SetMinPriority() */
@@ -64,53 +62,43 @@ enum {
   LOG_ID_MAX
 };
 
-struct abort_msg_t {
-  size_t size;
-  char msg[0];
-};
-
-//
 // Formats a message to the log (priority 'fatal'), then aborts.
-//
+__noreturn void __libc_fatal(const char* _Nonnull, ...) __printflike(1, 2);
 
-__LIBC_HIDDEN__ __noreturn void __libc_fatal(const char* format, ...) __printflike(1, 2);
-
-//
-// Formats a message to the log (priority 'fatal'), but doesn't abort.
-// Used by the malloc implementation to ensure that debuggerd dumps memory
-// around the bad address.
-//
-
-__LIBC_HIDDEN__ void __libc_fatal_no_abort(const char* format, ...)
-    __printflike(1, 2);
+// Formats a message to the log (priority 'fatal'), prefixed by "FORTIFY: ", then aborts.
+__noreturn void __fortify_fatal(const char* _Nonnull, ...) __printflike(1, 2);
 
 //
 // Formatting routines for the C library's internal debugging.
 // Unlike the usual alternatives, these don't allocate, and they don't drag in all of stdio.
 //
 
-__LIBC_HIDDEN__ int __libc_format_buffer(char* buffer, size_t buffer_size, const char* format, ...)
-    __printflike(3, 4);
+int __libc_format_buffer(char* _Nonnull buf, size_t size, const char* _Nonnull fmt, ...) __printflike(3, 4);
 
-__LIBC_HIDDEN__ int __libc_format_fd(int fd, const char* format, ...)
-    __printflike(2, 3);
+#if defined(__arm__) || defined(__aarch64__) || defined(__x86_64__)
+int __libc_format_buffer_va_list(char* _Nonnull buffer, size_t buffer_size,
+                                 const char* _Nonnull format, va_list args);
+#else // defined(__mips__) || defined(__i386__)
+int __libc_format_buffer_va_list(char* _Nonnull buffer, size_t buffer_size,
+                                 const char* _Nonnull format, va_list _Nonnull args);
+#endif
 
-__LIBC_HIDDEN__ int __libc_format_log(int priority, const char* tag, const char* format, ...)
-    __printflike(3, 4);
+int __libc_format_fd(int fd, const char* _Nonnull format , ...) __printflike(2, 3);
+int __libc_format_log(int pri, const char* _Nonnull tag, const char* _Nonnull fmt, ...) __printflike(3, 4);
+#if defined(__arm__) || defined(__aarch64__) || defined(__x86_64__)
+int __libc_format_log_va_list(int pri, const char* _Nonnull tag, const char* _Nonnull fmt, va_list ap);
+#else // defined(__mips__) || defined(__i386__)
+int __libc_format_log_va_list(int pri, const char* _Nonnull tag, const char* _Nonnull fmt, va_list _Nonnull ap);
+#endif
+int __libc_write_log(int pri, const char* _Nonnull tag, const char* _Nonnull msg);
 
-__LIBC_HIDDEN__ int __libc_format_log_va_list(int priority, const char* tag, const char* format,
-                                              va_list ap);
-
-__LIBC_HIDDEN__ int __libc_write_log(int priority, const char* tag, const char* msg);
-
-//
-// Event logging.
-//
-
-__LIBC_HIDDEN__ void __libc_android_log_event_int(int32_t tag, int value);
-__LIBC_HIDDEN__ void __libc_android_log_event_uid(int32_t tag);
-
-__LIBC_HIDDEN__ __noreturn void __fortify_chk_fail(const char* msg, uint32_t event_tag);
+#define CHECK(predicate) \
+  do { \
+    if (!(predicate)) { \
+      __libc_fatal("%s:%d: %s CHECK '" #predicate "' failed", \
+          __FILE__, __LINE__, __FUNCTION__); \
+    } \
+  } while(0)
 
 __END_DECLS
 

@@ -26,6 +26,7 @@ import android.widget.CheckBox;
  * loaders, the default state will be restored instead of the saved state.
  * Reflection cannot be used to recreate the state because the class that stores the state
  * (CompoundButton$SavedState) has been stripped out of the Android SDK.
+ * @hide
  */
 public class CheckboxWrapperView extends CheckBox {
 

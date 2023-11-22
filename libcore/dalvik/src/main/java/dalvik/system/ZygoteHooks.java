@@ -69,7 +69,7 @@ public final class ZygoteHooks {
      * {@code postForkChild}.
      */
     public void postForkCommon() {
-        Daemons.start();
+        Daemons.startPostZygoteFork();
     }
 
     private static native long nativePreFork();

@@ -2,7 +2,9 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <stdbool.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
@@ -16,6 +18,8 @@
 
 int create_tmp_file(char *filename, off_t size) {
     void *buf;
+    uint8_t *tmp_buf;
+    off_t tmp_size;
     ssize_t rc;
     int fd;
     int urandom;
@@ -48,17 +52,19 @@ int create_tmp_file(char *filename, off_t size) {
         goto err_mmap;
     }
 
-    rc = read(urandom, buf, size);
+    tmp_buf = buf;
+    tmp_size = size;
+    do {
+        rc = read(urandom, tmp_buf, tmp_size);
 
-    if (rc < 0) {
-        fprintf(stderr, "write random data failed: %s\n", strerror(errno));
-        goto err;
-    }
+        if (rc < 0) {
+            fprintf(stderr, "write random data failed: %s\n", strerror(errno));
+            goto err;
+        }
 
-    if (rc != size) {
-        fprintf(stderr, "write random data incomplete\n");
-        goto err;
-    }
+        tmp_buf += rc;
+        tmp_size -= rc;
+    } while (tmp_size > 0);
 
     if (madvise(buf, size, MADV_DONTNEED)) {
         fprintf(stderr, "madvise DONTNEED failed: %s\n", strerror(errno));
@@ -161,11 +167,19 @@ int main(int argc, char **argv) {
     if (rc) {
         return rc;
     }
-    rc = pageinout_test(test_runs, file_size);
+    rc = pageinout_test(test_runs, true, file_size);
     if (rc) {
         return rc;
     }
-    rc = thrashing_test(test_runs);
+    rc = pageinout_test(test_runs, false, file_size);
+    if (rc) {
+        return rc;
+    }
+    rc = thrashing_test(test_runs, true);
+    if (rc) {
+        return rc;
+    }
+    rc = thrashing_test(test_runs, false);
 
     return rc;
 }

@@ -16,7 +16,6 @@
 
 package vogar.monitor;
 
-import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import java.io.BufferedInputStream;
 import java.io.IOException;
@@ -125,9 +124,7 @@ public final class HostMonitor {
                 if (jsonObject.get("outcome") != null) {
                     currentOutcome = jsonObject.get("outcome").getAsString();
                     handler.output(currentOutcome, "");
-                    JsonElement runner = jsonObject.get("runner");
-                    String runnerClass = runner != null ? runner.getAsString() : null;
-                    handler.start(currentOutcome, runnerClass);
+                    handler.start(currentOutcome);
                 } else if (jsonObject.get("result") != null) {
                     Result currentResult = Result.valueOf(jsonObject.get("result").getAsString());
                     handler.finish(new Outcome(currentOutcome, currentResult, output.toString()));
@@ -151,10 +148,9 @@ public final class HostMonitor {
     public interface Handler {
 
         /**
-         * @param runnerClass can be null, indicating nothing is actually being run. This will
-         *        happen in the event of an impending error.
+         * Receive notification that an outcome is pending.
          */
-        void start(String outcomeName, String runnerClass);
+        void start(String outcomeName);
 
         /**
          * Receive a completed outcome.

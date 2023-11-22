@@ -81,7 +81,7 @@ out_free:
 }
 
 static int update_recovery_fw(struct flash_device *spi, struct flash_device *ec,
-			      struct flash_device *img, Value *ec_file)
+			      struct flash_device *img, const Value *ec_file)
 {
 	int res, ra, rb, rs;
 	int wp = 1; /* TODO: read SPI read-write */
@@ -166,7 +166,7 @@ static int update_ap_fw(struct flash_device *spi, struct flash_device *img)
 	return res;
 }
 
-int update_fw(Value *fw_file, Value *ec_file, int force)
+int update_fw(const Value *fw_file, const Value *ec_file, int force)
 {
 	int res = -EINVAL;
 	struct flash_device *img, *spi, *ec;

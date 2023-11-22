@@ -23,8 +23,3 @@
 // Debug API
 
 void btif_debug_init(void);
-
-// Debug helpers
-
-// Timestamp in us
-uint64_t btif_debug_ts(void);

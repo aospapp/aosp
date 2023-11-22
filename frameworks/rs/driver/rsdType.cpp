@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-
 #include "rsdCore.h"
 #include "rsdSampler.h"
 
@@ -29,9 +28,9 @@
 #include <GLES/glext.h>
 #endif
 
-using namespace android;
-using namespace android::renderscript;
-
+using android::renderscript::Context;
+using android::renderscript::Type;
+using android::renderscript::rs_type;
 
 bool rsdTypeInit(const Context *, const Type *t) {
     return true;
@@ -40,15 +39,12 @@ bool rsdTypeInit(const Context *, const Type *t) {
 void rsdTypeDestroy(const Context *rsc, const Type *t) {
 }
 
-void rsdTypeUpdateCachedObject(const Context *rsc,
-                               const Type *t,
-                               rs_type *obj)
-{
+void rsdTypeUpdateCachedObject(const Context *rsc, const Type *t,
+                               rs_type *obj) {
     obj->p = t;
 #ifdef __LP64__
-    obj->r = nullptr;
-    obj->v1 = nullptr;
-    obj->v2 = nullptr;
+    obj->unused1 = nullptr;
+    obj->unused2 = nullptr;
+    obj->unused3 = nullptr;
 #endif
 }
-

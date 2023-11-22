@@ -20,6 +20,9 @@
 #include "Network.h"
 #include "Permission.h"
 
+namespace android {
+namespace net {
+
 class PhysicalNetwork : public Network {
 public:
     class Delegate {
@@ -46,10 +49,14 @@ private:
     Type getType() const override;
     int addInterface(const std::string& interface) override WARN_UNUSED_RESULT;
     int removeInterface(const std::string& interface) override WARN_UNUSED_RESULT;
+    int destroySocketsLackingPermission(Permission permission);
 
     Delegate* const mDelegate;
     Permission mPermission;
     bool mIsDefault;
 };
+
+}  // namespace net
+}  // namespace android
 
 #endif  // NETD_SERVER_PHYSICAL_NETWORK_H

@@ -44,18 +44,19 @@
 
 #include <utils/Log.h>
 
-#include <testUtil.h>
-
 #include "dns_responder.h"
+#include "dns_responder_client.h"
 #include "resolv_params.h"
 #include "ResolverStats.h"
 
 #include "android/net/INetd.h"
+#include "android/net/metrics/INetdEventListener.h"
 #include "binder/IServiceManager.h"
 
 using android::base::StringPrintf;
 using android::base::StringAppendF;
 using android::net::ResolverStats;
+using android::net::metrics::INetdEventListener;
 
 // Emulates the behavior of UnorderedElementsAreArray, which currently cannot be used.
 // TODO: Use UnorderedElementsAreArray, which depends on being able to compile libgmock_host,
@@ -77,51 +78,6 @@ bool UnorderedCompareArray(const A& a, const B& b) {
         if (a_count != b_count) return false;
     }
     return true;
-}
-
-// The only response code used in this test, see
-// frameworks/base/services/java/com/android/server/NetworkManagementService.java
-// for others.
-static constexpr int ResponseCodeOK = 200;
-
-// Returns ResponseCode.
-int netdCommand(const char* sockname, const char* command) {
-    int sock = socket_local_client(sockname,
-                                   ANDROID_SOCKET_NAMESPACE_RESERVED,
-                                   SOCK_STREAM);
-    if (sock < 0) {
-        perror("Error connecting");
-        return -1;
-    }
-
-    // FrameworkListener expects the whole command in one read.
-    char buffer[256];
-    int nwritten = snprintf(buffer, sizeof(buffer), "0 %s", command);
-    if (write(sock, buffer, nwritten + 1) < 0) {
-        perror("Error sending netd command");
-        close(sock);
-        return -1;
-    }
-
-    int nread = read(sock, buffer, sizeof(buffer));
-    if (nread < 0) {
-        perror("Error reading response");
-        close(sock);
-        return -1;
-    }
-    close(sock);
-    return atoi(buffer);
-}
-
-bool expectNetdResult(int expected, const char* sockname, const char* format, ...) {
-    char command[256];
-    va_list args;
-    va_start(args, format);
-    vsnprintf(command, sizeof(command), format, args);
-    va_end(args);
-    int result = netdCommand(sockname, command);
-    EXPECT_EQ(expected, result) << command;
-    return (200 <= expected && expected < 300);
 }
 
 class AddrInfo {
@@ -168,131 +124,31 @@ class AddrInfo {
     int error_;
 };
 
-class ResolverTest : public ::testing::Test {
-protected:
-    struct Mapping {
-        std::string host;
-        std::string entry;
-        std::string ip4;
-        std::string ip6;
-    };
+class ResolverTest : public ::testing::Test, public DnsResponderClient {
+private:
+    int mOriginalMetricsLevel;
 
+protected:
     virtual void SetUp() {
         // Ensure resolutions go via proxy.
-        setenv("ANDROID_DNS_MODE", "", 1);
-        uid = getuid();
-        pid = getpid();
-        SetupOemNetwork();
+        DnsResponderClient::SetUp();
 
-        // binder setup
-        auto binder = android::defaultServiceManager()->getService(android::String16("netd"));
-        ASSERT_TRUE(binder != nullptr);
-        mNetdSrv = android::interface_cast<android::net::INetd>(binder);
+        // If DNS reporting is off: turn it on so we run through everything.
+        auto rv = mNetdSrv->getMetricsReportingLevel(&mOriginalMetricsLevel);
+        ASSERT_TRUE(rv.isOk());
+        if (mOriginalMetricsLevel != INetdEventListener::REPORTING_LEVEL_FULL) {
+            rv = mNetdSrv->setMetricsReportingLevel(INetdEventListener::REPORTING_LEVEL_FULL);
+            ASSERT_TRUE(rv.isOk());
+        }
     }
 
     virtual void TearDown() {
-        TearDownOemNetwork();
-        netdCommand("netd", "network destroy " TEST_OEM_NETWORK);
-    }
-
-    void SetupOemNetwork() {
-        netdCommand("netd", "network destroy " TEST_OEM_NETWORK);
-        if (expectNetdResult(ResponseCodeOK, "netd",
-                             "network create %s", TEST_OEM_NETWORK)) {
-            oemNetId = TEST_NETID;
-        }
-        setNetworkForProcess(oemNetId);
-        ASSERT_EQ((unsigned) oemNetId, getNetworkForProcess());
-    }
-
-    void SetupMappings(unsigned num_hosts, const std::vector<std::string>& domains,
-            std::vector<Mapping>* mappings) const {
-        mappings->resize(num_hosts * domains.size());
-        auto mappings_it = mappings->begin();
-        for (unsigned i = 0 ; i < num_hosts ; ++i) {
-            for (const auto& domain : domains) {
-                ASSERT_TRUE(mappings_it != mappings->end());
-                mappings_it->host = StringPrintf("host%u", i);
-                mappings_it->entry = StringPrintf("%s.%s.", mappings_it->host.c_str(),
-                        domain.c_str());
-                mappings_it->ip4 = StringPrintf("192.0.2.%u", i%253 + 1);
-                mappings_it->ip6 = StringPrintf("2001:db8::%x", i%65534 + 1);
-                ++mappings_it;
-            }
-        }
-    }
-
-    void SetupDNSServers(unsigned num_servers, const std::vector<Mapping>& mappings,
-            std::vector<std::unique_ptr<test::DNSResponder>>* dns,
-            std::vector<std::string>* servers) const {
-        ASSERT_TRUE(num_servers != 0 && num_servers < 100);
-        const char* listen_srv = "53";
-        dns->resize(num_servers);
-        servers->resize(num_servers);
-        for (unsigned i = 0 ; i < num_servers ; ++i) {
-            auto& server = (*servers)[i];
-            auto& d = (*dns)[i];
-            server = StringPrintf("127.0.0.%u", i + 100);
-            d = std::make_unique<test::DNSResponder>(server, listen_srv, 250,
-                    ns_rcode::ns_r_servfail, 1.0);
-            ASSERT_TRUE(d.get() != nullptr);
-            for (const auto& mapping : mappings) {
-                d->addMapping(mapping.entry.c_str(), ns_type::ns_t_a, mapping.ip4.c_str());
-                d->addMapping(mapping.entry.c_str(), ns_type::ns_t_aaaa, mapping.ip6.c_str());
-            }
-            ASSERT_TRUE(d->startServer());
-        }
-    }
-
-    void ShutdownDNSServers(std::vector<std::unique_ptr<test::DNSResponder>>* dns) const {
-        for (const auto& d : *dns) {
-            ASSERT_TRUE(d.get() != nullptr);
-            d->stopServer();
-        }
-        dns->clear();
-    }
-
-    void TearDownOemNetwork() {
-        if (oemNetId != -1) {
-            expectNetdResult(ResponseCodeOK, "netd",
-                             "network destroy %s", TEST_OEM_NETWORK);
-        }
-    }
-
-    bool SetResolversForNetwork(const std::vector<std::string>& servers,
-            const std::vector<std::string>& domains, const std::vector<int>& params) {
-        auto rv = mNetdSrv->setResolverConfiguration(TEST_NETID, servers, domains, params);
-        return rv.isOk();
-    }
-
-    bool SetResolversForNetwork(const std::vector<std::string>& searchDomains,
-            const std::vector<std::string>& servers, const std::string& params) {
-        std::string cmd = StringPrintf("resolver setnetdns %d \"", oemNetId);
-        if (!searchDomains.empty()) {
-            cmd += searchDomains[0].c_str();
-            for (size_t i = 1 ; i < searchDomains.size() ; ++i) {
-                cmd += " ";
-                cmd += searchDomains[i];
-            }
-        }
-        cmd += "\"";
-
-        for (const auto& str : servers) {
-            cmd += " ";
-            cmd += str;
+        if (mOriginalMetricsLevel != INetdEventListener::REPORTING_LEVEL_FULL) {
+            auto rv = mNetdSrv->setMetricsReportingLevel(mOriginalMetricsLevel);
+            ASSERT_TRUE(rv.isOk());
         }
 
-        if (!params.empty()) {
-            cmd += " --params \"";
-            cmd += params;
-            cmd += "\"";
-        }
-
-        int rv = netdCommand("netd", cmd.c_str());
-        if (rv != ResponseCodeOK) {
-            return false;
-        }
-        return true;
+        DnsResponderClient::TearDown();
     }
 
     bool GetResolverInfo(std::vector<std::string>* servers, std::vector<std::string>* domains,
@@ -368,7 +224,7 @@ protected:
         std::vector<std::string> domains = { "example.com" };
         std::vector<std::unique_ptr<test::DNSResponder>> dns;
         std::vector<std::string> servers;
-        std::vector<Mapping> mappings;
+        std::vector<DnsResponderClient::Mapping> mappings;
         ASSERT_NO_FATAL_FAILURE(SetupMappings(num_hosts, domains, &mappings));
         ASSERT_NO_FATAL_FAILURE(SetupDNSServers(MAXNS, mappings, &dns, &servers));
 
@@ -380,8 +236,7 @@ protected:
            thread = std::thread([this, &servers, &dns, &mappings, num_queries]() {
                 for (unsigned i = 0 ; i < num_queries ; ++i) {
                     uint32_t ofs = arc4random_uniform(mappings.size());
-                    ASSERT_TRUE(ofs < mappings.size());
-                    auto& mapping = mappings[i];
+                    auto& mapping = mappings[ofs];
                     addrinfo* result = nullptr;
                     int rv = getaddrinfo(mapping.host.c_str(), nullptr, nullptr, &result);
                     EXPECT_EQ(0, rv) << "error [" << rv << "] " << gai_strerror(rv);
@@ -408,10 +263,6 @@ protected:
         ASSERT_NO_FATAL_FAILURE(ShutdownDNSServers(&dns));
     }
 
-    int pid;
-    int uid;
-    int oemNetId = -1;
-    android::sp<android::net::INetd> mNetdSrv = nullptr;
     const std::vector<std::string> mDefaultSearchDomains = { "example.com" };
     // <sample validity in s> <success threshold in percent> <min samples> <max samples>
     const std::string mDefaultParams = "300 25 8 8";
@@ -422,20 +273,30 @@ TEST_F(ResolverTest, GetHostByName) {
     const char* listen_addr = "127.0.0.3";
     const char* listen_srv = "53";
     const char* host_name = "hello.example.com.";
+    const char *nonexistent_host_name = "nonexistent.example.com.";
     test::DNSResponder dns(listen_addr, listen_srv, 250, ns_rcode::ns_r_servfail, 1.0);
     dns.addMapping(host_name, ns_type::ns_t_a, "1.2.3.3");
     ASSERT_TRUE(dns.startServer());
     std::vector<std::string> servers = { listen_addr };
     ASSERT_TRUE(SetResolversForNetwork(mDefaultSearchDomains, servers, mDefaultParams));
 
+    const hostent* result;
+
     dns.clearQueries();
-    const hostent* result = gethostbyname("hello");
+    result = gethostbyname("nonexistent");
+    EXPECT_EQ(1U, GetNumQueriesForType(dns, ns_type::ns_t_a, nonexistent_host_name));
+    ASSERT_TRUE(result == nullptr);
+    ASSERT_EQ(HOST_NOT_FOUND, h_errno);
+
+    dns.clearQueries();
+    result = gethostbyname("hello");
     EXPECT_EQ(1U, GetNumQueriesForType(dns, ns_type::ns_t_a, host_name));
     ASSERT_FALSE(result == nullptr);
     ASSERT_EQ(4, result->h_length);
     ASSERT_FALSE(result->h_addr_list[0] == nullptr);
     EXPECT_EQ("1.2.3.3", ToString(result));
     EXPECT_TRUE(result->h_addr_list[1] == nullptr);
+
     dns.stopServer();
 }
 
@@ -523,60 +384,60 @@ TEST_F(ResolverTest, GetAddrInfo) {
     dns2.addMapping(host_name, ns_type::ns_t_aaaa, "::1.2.3.4");
     ASSERT_TRUE(dns2.startServer());
 
-    for (size_t i = 0 ; i < 1000 ; ++i) {
-        std::vector<std::string> servers = { listen_addr };
-        ASSERT_TRUE(SetResolversForNetwork(mDefaultSearchDomains, servers, mDefaultParams));
-        dns.clearQueries();
-        dns2.clearQueries();
 
-        EXPECT_EQ(0, getaddrinfo("howdy", nullptr, nullptr, &result));
-        size_t found = GetNumQueries(dns, host_name);
-        EXPECT_LE(1U, found);
-        // Could be A or AAAA
-        std::string result_str = ToString(result);
-        EXPECT_TRUE(result_str == "1.2.3.4" || result_str == "::1.2.3.4")
-            << ", result_str='" << result_str << "'";
-        // TODO: Use ScopedAddrinfo or similar once it is available in a common header file.
-        if (result) {
-            freeaddrinfo(result);
-            result = nullptr;
-        }
+    std::vector<std::string> servers = { listen_addr };
+    ASSERT_TRUE(SetResolversForNetwork(mDefaultSearchDomains, servers, mDefaultParams));
+    dns.clearQueries();
+    dns2.clearQueries();
 
-        // Verify that the name is cached.
-        size_t old_found = found;
-        EXPECT_EQ(0, getaddrinfo("howdy", nullptr, nullptr, &result));
-        found = GetNumQueries(dns, host_name);
-        EXPECT_LE(1U, found);
-        EXPECT_EQ(old_found, found);
-        result_str = ToString(result);
-        EXPECT_TRUE(result_str == "1.2.3.4" || result_str == "::1.2.3.4")
-            << result_str;
-        if (result) {
-            freeaddrinfo(result);
-            result = nullptr;
-        }
-
-        // Change the DNS resolver, ensure that queries are no longer cached.
-        servers = { listen_addr2 };
-        ASSERT_TRUE(SetResolversForNetwork(mDefaultSearchDomains, servers, mDefaultParams));
-        dns.clearQueries();
-        dns2.clearQueries();
-
-        EXPECT_EQ(0, getaddrinfo("howdy", nullptr, nullptr, &result));
-        found = GetNumQueries(dns, host_name);
-        size_t found2 = GetNumQueries(dns2, host_name);
-        EXPECT_EQ(0U, found);
-        EXPECT_LE(1U, found2);
-
-        // Could be A or AAAA
-        result_str = ToString(result);
-        EXPECT_TRUE(result_str == "1.2.3.4" || result_str == "::1.2.3.4")
-            << ", result_str='" << result_str << "'";
-        if (result) {
-            freeaddrinfo(result);
-            result = nullptr;
-        }
+    EXPECT_EQ(0, getaddrinfo("howdy", nullptr, nullptr, &result));
+    size_t found = GetNumQueries(dns, host_name);
+    EXPECT_LE(1U, found);
+    // Could be A or AAAA
+    std::string result_str = ToString(result);
+    EXPECT_TRUE(result_str == "1.2.3.4" || result_str == "::1.2.3.4")
+        << ", result_str='" << result_str << "'";
+    // TODO: Use ScopedAddrinfo or similar once it is available in a common header file.
+    if (result) {
+        freeaddrinfo(result);
+        result = nullptr;
     }
+
+    // Verify that the name is cached.
+    size_t old_found = found;
+    EXPECT_EQ(0, getaddrinfo("howdy", nullptr, nullptr, &result));
+    found = GetNumQueries(dns, host_name);
+    EXPECT_LE(1U, found);
+    EXPECT_EQ(old_found, found);
+    result_str = ToString(result);
+    EXPECT_TRUE(result_str == "1.2.3.4" || result_str == "::1.2.3.4")
+        << result_str;
+    if (result) {
+        freeaddrinfo(result);
+        result = nullptr;
+    }
+
+    // Change the DNS resolver, ensure that queries are still cached.
+    servers = { listen_addr2 };
+    ASSERT_TRUE(SetResolversForNetwork(mDefaultSearchDomains, servers, mDefaultParams));
+    dns.clearQueries();
+    dns2.clearQueries();
+
+    EXPECT_EQ(0, getaddrinfo("howdy", nullptr, nullptr, &result));
+    found = GetNumQueries(dns, host_name);
+    size_t found2 = GetNumQueries(dns2, host_name);
+    EXPECT_EQ(0U, found);
+    EXPECT_LE(0U, found2);
+
+    // Could be A or AAAA
+    result_str = ToString(result);
+    EXPECT_TRUE(result_str == "1.2.3.4" || result_str == "::1.2.3.4")
+        << ", result_str='" << result_str << "'";
+    if (result) {
+        freeaddrinfo(result);
+        result = nullptr;
+    }
+
     dns.stopServer();
     dns2.stopServer();
 }

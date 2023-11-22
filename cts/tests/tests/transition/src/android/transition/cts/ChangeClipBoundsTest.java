@@ -15,25 +15,37 @@
  */
 package android.transition.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+
 import android.graphics.Rect;
+import android.support.test.filters.MediumTest;
+import android.support.test.runner.AndroidJUnit4;
 import android.transition.ChangeClipBounds;
 import android.transition.TransitionManager;
 import android.view.View;
 
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+@MediumTest
+@RunWith(AndroidJUnit4.class)
 public class ChangeClipBoundsTest extends BaseTransitionTest {
     private ChangeClipBounds mChangeClipBounds;
 
-    public ChangeClipBoundsTest() {
-    }
-
     @Override
-    protected void setUp() throws Exception {
-        super.setUp();
+    @Before
+    public void setup() {
+        super.setup();
         mChangeClipBounds = new ChangeClipBounds();
         mTransition = mChangeClipBounds;
         resetListener();
     }
 
+    @Test
     public void testChangeClipBounds() throws Throwable {
         enterScene(R.layout.scene1);
 
@@ -41,69 +53,49 @@ public class ChangeClipBoundsTest extends BaseTransitionTest {
         final Rect newClip = new Rect(redSquare.getLeft() + 10, redSquare.getTop() + 10,
                 redSquare.getRight() - 10, redSquare.getBottom() - 10);
 
-        runTestOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                assertNull(redSquare.getClipBounds());
-                TransitionManager.beginDelayedTransition(mSceneRoot, mChangeClipBounds);
-                redSquare.setClipBounds(newClip);
-            }
+        mActivityRule.runOnUiThread(() -> {
+            assertNull(redSquare.getClipBounds());
+            TransitionManager.beginDelayedTransition(mSceneRoot, mChangeClipBounds);
+            redSquare.setClipBounds(newClip);
         });
         waitForStart();
         Thread.sleep(150);
-        runTestOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                Rect midClip = redSquare.getClipBounds();
-                assertNotNull(midClip);
-                assertTrue(midClip.left > 0 && midClip.left < newClip.left);
-                assertTrue(midClip.top > 0 && midClip.top < newClip.top);
-                assertTrue(midClip.right < redSquare.getRight() && midClip.right > newClip.right);
-                assertTrue(midClip.bottom < redSquare.getBottom() &&
-                        midClip.bottom > newClip.bottom);
-            }
+        mActivityRule.runOnUiThread(() -> {
+            Rect midClip = redSquare.getClipBounds();
+            assertNotNull(midClip);
+            assertTrue(midClip.left > 0 && midClip.left < newClip.left);
+            assertTrue(midClip.top > 0 && midClip.top < newClip.top);
+            assertTrue(midClip.right < redSquare.getRight() && midClip.right > newClip.right);
+            assertTrue(midClip.bottom < redSquare.getBottom() &&
+                    midClip.bottom > newClip.bottom);
         });
         waitForEnd(400);
 
-        runTestOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                final Rect endRect = redSquare.getClipBounds();
-                assertNotNull(endRect);
-                assertEquals(newClip, endRect);
-            }
+        mActivityRule.runOnUiThread(() -> {
+            final Rect endRect = redSquare.getClipBounds();
+            assertNotNull(endRect);
+            assertEquals(newClip, endRect);
         });
 
         resetListener();
-        runTestOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                TransitionManager.beginDelayedTransition(mSceneRoot, mChangeClipBounds);
-                redSquare.setClipBounds(null);
-            }
+        mActivityRule.runOnUiThread(() -> {
+            TransitionManager.beginDelayedTransition(mSceneRoot, mChangeClipBounds);
+            redSquare.setClipBounds(null);
         });
         waitForStart();
         Thread.sleep(150);
-        runTestOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                Rect midClip = redSquare.getClipBounds();
-                assertNotNull(midClip);
-                assertTrue(midClip.left > 0 && midClip.left < newClip.left);
-                assertTrue(midClip.top > 0 && midClip.top < newClip.top);
-                assertTrue(midClip.right < redSquare.getRight() && midClip.right > newClip.right);
-                assertTrue(midClip.bottom < redSquare.getBottom() &&
-                        midClip.bottom > newClip.bottom);
-            }
+        mActivityRule.runOnUiThread(() -> {
+            Rect midClip = redSquare.getClipBounds();
+            assertNotNull(midClip);
+            assertTrue(midClip.left > 0 && midClip.left < newClip.left);
+            assertTrue(midClip.top > 0 && midClip.top < newClip.top);
+            assertTrue(midClip.right < redSquare.getRight() && midClip.right > newClip.right);
+            assertTrue(midClip.bottom < redSquare.getBottom() &&
+                    midClip.bottom > newClip.bottom);
         });
         waitForEnd(400);
 
-        runTestOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                assertNotNull(redSquare.getClipBounds());
-            }
-        });
+        mActivityRule.runOnUiThread(() -> assertNull(redSquare.getClipBounds()));
     }
 }
 
