@@ -25,6 +25,7 @@ import android.annotation.NonNull;
 import android.graphics.Bitmap.Config;
 import android.graphics.ImageDecoder.InputStreamSource;
 import android.graphics.ImageDecoder.OnHeaderDecodedListener;
+import android.graphics.ImageDecoder.ResourceSource;
 import android.graphics.ImageDecoder.Source;
 
 import java.awt.image.BufferedImage;
@@ -37,6 +38,12 @@ public class ImageDecoder_Delegate {
     @LayoutlibDelegate
     /*package*/ static Bitmap decodeBitmapImpl(@NonNull Source src,
             @NonNull OnHeaderDecodedListener listener) throws IOException {
+        if (src instanceof ResourceSource) {
+            // Bypass ImageDecoder for ResourceSource as it goes through the native AssetManager
+            // which is not supported in layoutlib.
+            ResourceSource source = (ResourceSource) src;
+            return BitmapFactory.decodeResource(source.mResources, source.mResId);
+        }
         InputStream stream = src instanceof InputStreamSource ?
                 ((InputStreamSource) src).mInputStream : null;
         Bitmap bm = ImageDecoder.decodeBitmapImpl_Original(src, listener);

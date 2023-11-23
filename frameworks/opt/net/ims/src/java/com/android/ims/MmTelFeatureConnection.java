@@ -22,8 +22,11 @@ import android.os.IBinder;
 import android.os.IInterface;
 import android.os.Message;
 import android.os.RemoteException;
+import android.telephony.SubscriptionManager;
 import android.telephony.ims.ImsCallProfile;
 import android.telephony.ims.ImsService;
+import android.telephony.ims.MediaQualityStatus;
+import android.telephony.ims.MediaThreshold;
 import android.telephony.ims.RtpHeaderExtensionType;
 import android.telephony.ims.aidl.IImsCapabilityCallback;
 import android.telephony.ims.aidl.IImsConfig;
@@ -33,11 +36,14 @@ import android.telephony.ims.aidl.IImsRegistration;
 import android.telephony.ims.aidl.IImsRegistrationCallback;
 import android.telephony.ims.aidl.IImsSmsListener;
 import android.telephony.ims.aidl.ISipTransport;
+import android.telephony.ims.aidl.ISrvccStartedCallback;
 import android.telephony.ims.feature.CapabilityChangeRequest;
 import android.telephony.ims.feature.MmTelFeature;
 import android.telephony.ims.stub.ImsEcbmImplBase;
+import android.telephony.ims.stub.ImsRegistrationImplBase;
 import android.telephony.ims.stub.ImsSmsImplBase;
 import android.util.Log;
+import android.util.SparseArray;
 
 import com.android.ims.internal.IImsCallSession;
 import com.android.ims.internal.IImsEcbm;
@@ -45,7 +51,7 @@ import com.android.ims.internal.IImsMultiEndpoint;
 import com.android.ims.internal.IImsUt;
 
 import java.util.ArrayList;
-import java.util.Optional;
+import java.util.HashMap;
 import java.util.Set;
 
 /**
@@ -100,7 +106,6 @@ public class MmTelFeatureConnection extends FeatureConnection {
     }
 
     private class CapabilityCallbackManager extends ImsCallbackAdapterManager<IImsCapabilityCallback> {
-
         public CapabilityCallbackManager(Context context, Object lock) {
             super(context, lock, mSlotId, mSubId);
         }
@@ -376,6 +381,22 @@ public class MmTelFeatureConnection extends FeatureConnection {
         mProvisioningCallbackManager.removeCallback(callback);
     }
 
+    public void setMediaThreshold(@MediaQualityStatus.MediaSessionType int sessionType,
+            MediaThreshold threshold) throws RemoteException {
+        synchronized (mLock) {
+            checkServiceIsReady();
+            getServiceInterface(mBinder).setMediaQualityThreshold(sessionType, threshold);
+        }
+    }
+
+    public MediaQualityStatus queryMediaQualityStatus(
+            @MediaQualityStatus.MediaSessionType int sessionType) throws RemoteException {
+        synchronized (mLock) {
+            checkServiceIsReady();
+            return getServiceInterface(mBinder).queryMediaQualityStatus(sessionType);
+        }
+    }
+
     public void changeEnabledCapabilities(CapabilityChangeRequest request,
             IImsCapabilityCallback callback) throws RemoteException {
         synchronized (mLock) {
@@ -504,11 +525,26 @@ public class MmTelFeatureConnection extends FeatureConnection {
         }
     }
 
+    public void onMemoryAvailable(int token) throws RemoteException {
+        synchronized (mLock) {
+            checkServiceIsReady();
+            getServiceInterface(mBinder).onMemoryAvailable(token);
+        }
+    }
+
     public void acknowledgeSms(int token, int messageRef,
             @ImsSmsImplBase.SendStatusResult int result) throws RemoteException {
         synchronized (mLock) {
             checkServiceIsReady();
             getServiceInterface(mBinder).acknowledgeSms(token, messageRef, result);
+        }
+    }
+
+    public void acknowledgeSms(int token, int messageRef,
+            @ImsSmsImplBase.SendStatusResult int result, byte[] pdu) throws RemoteException {
+        synchronized (mLock) {
+            checkServiceIsReady();
+            getServiceInterface(mBinder).acknowledgeSmsWithPdu(token, messageRef, result, pdu);
         }
     }
 
@@ -538,6 +574,45 @@ public class MmTelFeatureConnection extends FeatureConnection {
         synchronized (mLock) {
             checkServiceIsReady();
             getServiceInterface(mBinder).setSmsListener(listener);
+        }
+    }
+
+    public void notifySrvccStarted(ISrvccStartedCallback cb)
+            throws RemoteException {
+        synchronized (mLock) {
+            checkServiceIsReady();
+            getServiceInterface(mBinder).notifySrvccStarted(cb);
+        }
+    }
+
+    public void notifySrvccCompleted() throws RemoteException {
+        synchronized (mLock) {
+            checkServiceIsReady();
+            getServiceInterface(mBinder).notifySrvccCompleted();
+        }
+    }
+
+    public void notifySrvccFailed() throws RemoteException {
+        synchronized (mLock) {
+            checkServiceIsReady();
+            getServiceInterface(mBinder).notifySrvccFailed();
+        }
+    }
+
+    public void notifySrvccCanceled() throws RemoteException {
+        synchronized (mLock) {
+            checkServiceIsReady();
+            getServiceInterface(mBinder).notifySrvccCanceled();
+        }
+    }
+
+    public void triggerDeregistration(@ImsRegistrationImplBase.ImsDeregistrationReason int reason)
+            throws RemoteException {
+        IImsRegistration registration = getRegistration();
+        if (registration != null) {
+            registration.triggerDeregistration(reason);
+        } else {
+            Log.e(TAG + " [" + mSlotId + "]", "triggerDeregistration IImsRegistration is null");
         }
     }
 
@@ -573,6 +648,19 @@ public class MmTelFeatureConnection extends FeatureConnection {
         synchronized (mLock) {
             mSupportsEmergencyCalling =
                     ((capabilities | ImsService.CAPABILITY_EMERGENCY_OVER_MMTEL) > 0);
+        }
+    }
+
+    /**
+     * Notifies the MmTelFeature of the enablement status of terminal based call waiting
+     *
+     * @param enabled indicates whether the user setting for call waiting is enabled or not.
+     */
+    public void setTerminalBasedCallWaitingStatus(boolean enabled)
+            throws RemoteException {
+        synchronized (mLock) {
+            checkServiceIsReady();
+            getServiceInterface(mBinder).setTerminalBasedCallWaitingStatus(enabled);
         }
     }
 

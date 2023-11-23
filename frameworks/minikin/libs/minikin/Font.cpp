@@ -18,17 +18,18 @@
 
 #include "minikin/Font.h"
 
-#include <vector>
-
 #include <hb-ot.h>
 #include <hb.h>
 #include <log/log.h>
 
-#include "minikin/HbUtils.h"
-#include "minikin/MinikinFont.h"
+#include <vector>
 
 #include "FontUtils.h"
+#include "LocaleListCache.h"
 #include "MinikinInternal.h"
+#include "minikin/HbUtils.h"
+#include "minikin/MinikinFont.h"
+#include "minikin/MinikinFontFactory.h"
 
 namespace minikin {
 
@@ -51,25 +52,80 @@ std::shared_ptr<Font> Font::Builder::build() {
                                           std::move(font), mLocaleListId));
 }
 
+Font::Font(BufferReader* reader) : mExternalRefsHolder(nullptr), mTypefaceMetadataReader(nullptr) {
+    mStyle = FontStyle(reader);
+    mLocaleListId = LocaleListCache::readFrom(reader);
+    mTypefaceMetadataReader = *reader;
+    MinikinFontFactory::getInstance().skip(reader);
+}
+
+void Font::writeTo(BufferWriter* writer) const {
+    mStyle.writeTo(writer);
+    LocaleListCache::writeTo(writer, mLocaleListId);
+    MinikinFontFactory::getInstance().write(writer, typeface().get());
+}
+
+Font::Font(Font&& o) noexcept
+        : mStyle(o.mStyle),
+          mLocaleListId(o.mLocaleListId),
+          mTypefaceMetadataReader(o.mTypefaceMetadataReader) {
+    mExternalRefsHolder.store(o.mExternalRefsHolder.exchange(nullptr));
+}
+
+Font& Font::operator=(Font&& o) noexcept {
+    resetExternalRefs(o.mExternalRefsHolder.exchange(nullptr));
+    mStyle = o.mStyle;
+    mLocaleListId = o.mLocaleListId;
+    mTypefaceMetadataReader = o.mTypefaceMetadataReader;
+    return *this;
+}
+
+Font::~Font() {
+    resetExternalRefs(nullptr);
+}
+
+void Font::resetExternalRefs(ExternalRefs* refs) {
+    ExternalRefs* oldRefs = mExternalRefsHolder.exchange(refs);
+    if (oldRefs != nullptr) {
+        delete oldRefs;
+    }
+}
+
 const std::shared_ptr<MinikinFont>& Font::typeface() const {
-    std::lock_guard lock(mTypefaceMutex);
-    if (mTypeface) return mTypeface;
-    initTypefaceLocked();
-    return mTypeface;
+    return getExternalRefs()->mTypeface;
 }
 
 const HbFontUniquePtr& Font::baseFont() const {
-    std::lock_guard lock(mTypefaceMutex);
-    if (mBaseFont) return mBaseFont;
-    initTypefaceLocked();
-    mBaseFont = prepareFont(mTypeface);
-    return mBaseFont;
+    return getExternalRefs()->mBaseFont;
 }
 
-void Font::initTypefaceLocked() const {
-    if (mTypeface) return;
-    MINIKIN_ASSERT(mTypefaceLoader, "mTypefaceLoader should not be empty when mTypeface is null");
-    mTypeface = mTypefaceLoader(mTypefaceMetadataReader);
+const Font::ExternalRefs* Font::getExternalRefs() const {
+    // Thread safety note: getExternalRefs() is thread-safe.
+    // getExternalRefs() returns the first ExternalRefs set to mExternalRefsHolder.
+    // When multiple threads called getExternalRefs() at the same time and
+    // mExternalRefsHolder is not set, multiple ExternalRefs may be created,
+    // but only one ExternalRefs will be set to mExternalRefsHolder and
+    // others will be deleted.
+    Font::ExternalRefs* externalRefs = mExternalRefsHolder.load();
+    if (externalRefs) return externalRefs;
+    // mExternalRefsHolder is null. Try creating an ExternalRefs.
+    std::shared_ptr<MinikinFont> typeface =
+            MinikinFontFactory::getInstance().create(mTypefaceMetadataReader);
+    HbFontUniquePtr font = prepareFont(typeface);
+    Font::ExternalRefs* newExternalRefs =
+            new Font::ExternalRefs(std::move(typeface), std::move(font));
+    // Set the new ExternalRefs to mExternalRefsHolder if it is still null.
+    Font::ExternalRefs* expected = nullptr;
+    if (mExternalRefsHolder.compare_exchange_strong(expected, newExternalRefs)) {
+        return newExternalRefs;
+    } else {
+        // Another thread has already created and set an ExternalRefs.
+        // Delete ours and use theirs instead.
+        delete newExternalRefs;
+        // compare_exchange_strong writes the stored value into 'expected'
+        // when comparison fails.
+        return expected;
+    }
 }
 
 // static

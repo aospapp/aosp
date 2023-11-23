@@ -2,6 +2,16 @@ package {
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
+filegroup {
+    name: "car-frameworks-updatable-service-sources",
+    srcs: [
+        "src/**/*.java",
+    ],
+    visibility: [
+        ":__subpackages__",
+    ],
+}
+
 java_library {
     name: "car-frameworks-service-module",
     installable: true,
@@ -13,11 +23,11 @@ java_library {
             "modules-utils-preconditions",
     ],
     srcs: [
-        "src/**/*.java",
+        ":car-frameworks-updatable-service-sources",
     ],
 
     sdk_version: "module_current",
-    min_sdk_version: "31",
+    min_sdk_version: "33",
     apex_available: [
         "//apex_available:platform",
         "com.android.car.framework"

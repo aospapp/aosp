@@ -26,6 +26,7 @@ import java.io.PrintWriter;
 import java.time.LocalDateTime;
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.Iterator;
 import java.util.StringJoiner;
 
 
@@ -92,6 +93,15 @@ public class SharedLog {
      */
     public void dump(FileDescriptor fd, PrintWriter writer, String[] args) {
         mLocalLog.dump(writer);
+    }
+
+    /**
+     * Reverse dump the contents of this log.
+     *
+     * <p>This method may be called on any thread.
+     */
+    public void reverseDump(PrintWriter writer) {
+        mLocalLog.reverseDump(writer);
     }
 
     //////
@@ -226,6 +236,13 @@ public class SharedLog {
         synchronized void dump(PrintWriter pw) {
             for (final String s : mLog) {
                 pw.println(s);
+            }
+        }
+
+        synchronized void reverseDump(PrintWriter pw) {
+            final Iterator<String> itr = mLog.descendingIterator();
+            while (itr.hasNext()) {
+                pw.println(itr.next());
             }
         }
     }

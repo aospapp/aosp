@@ -285,7 +285,7 @@ private:
 };
 
 TEST(CmapCoverageTest, SingleFormat4_brokenCmap) {
-    std::vector<std::unique_ptr<SparseBitSet>> vsTables;
+    std::vector<SparseBitSet> vsTables;
     {
         SCOPED_TRACE("Reading beyond buffer size - Too small cmap size");
         std::vector<uint8_t> cmap =
@@ -337,7 +337,7 @@ TEST(CmapCoverageTest, SingleFormat4_brokenCmap) {
 }
 
 TEST(CmapCoverageTest, SingleFormat4) {
-    std::vector<std::unique_ptr<SparseBitSet>> vsTables;
+    std::vector<SparseBitSet> vsTables;
     struct TestCast {
         std::string testTitle;
         uint16_t platformId;
@@ -360,7 +360,7 @@ TEST(CmapCoverageTest, SingleFormat4) {
 }
 
 TEST(CmapCoverageTest, SingleFormat12) {
-    std::vector<std::unique_ptr<SparseBitSet>> vsTables;
+    std::vector<SparseBitSet> vsTables;
 
     struct TestCast {
         std::string testTitle;
@@ -384,7 +384,7 @@ TEST(CmapCoverageTest, SingleFormat12) {
 }
 
 TEST(CmapCoverageTest, Format12_beyondTheUnicodeLimit) {
-    std::vector<std::unique_ptr<SparseBitSet>> vsTables;
+    std::vector<SparseBitSet> vsTables;
     {
         SCOPED_TRACE("Starting range is out of Unicode code point. Should be ignored.");
         std::vector<uint8_t> cmap = CmapBuilder::buildSingleFormat12Cmap(
@@ -410,7 +410,7 @@ TEST(CmapCoverageTest, Format12_beyondTheUnicodeLimit) {
 }
 
 TEST(CmapCoverageTest, notSupportedEncodings) {
-    std::vector<std::unique_ptr<SparseBitSet>> vsTables;
+    std::vector<SparseBitSet> vsTables;
 
     struct TestCast {
         std::string testTitle;
@@ -451,7 +451,7 @@ TEST(CmapCoverageTest, notSupportedEncodings) {
 }
 
 TEST(CmapCoverageTest, brokenFormat4Table) {
-    std::vector<std::unique_ptr<SparseBitSet>> vsTables;
+    std::vector<SparseBitSet> vsTables;
     {
         SCOPED_TRACE("Too small table cmap size");
         std::vector<uint8_t> table = buildCmapFormat4Table(std::vector<uint16_t>({'a', 'a'}));
@@ -505,7 +505,7 @@ TEST(CmapCoverageTest, brokenFormat4Table) {
 }
 
 TEST(CmapCoverageTest, duplicatedCmap4EntryTest) {
-    std::vector<std::unique_ptr<SparseBitSet>> vsTables;
+    std::vector<SparseBitSet> vsTables;
     std::vector<uint8_t> table = buildCmapFormat4Table(std::vector<uint16_t>({'a', 'b', 'b', 'b'}));
     CmapBuilder builder(1);
     builder.appendTable(0, 0, table);
@@ -518,7 +518,7 @@ TEST(CmapCoverageTest, duplicatedCmap4EntryTest) {
 }
 
 TEST(CmapCoverageTest, brokenFormat12Table) {
-    std::vector<std::unique_ptr<SparseBitSet>> vsTables;
+    std::vector<SparseBitSet> vsTables;
     {
         SCOPED_TRACE("Too small cmap size");
         std::vector<uint8_t> table = buildCmapFormat12Table(std::vector<uint32_t>({'a', 'a'}));
@@ -594,7 +594,7 @@ TEST(CmapCoverageTest, TableSelection_Priority) {
     std::vector<uint8_t> format4 = buildCmapFormat4Table(std::vector<uint16_t>({'b', 'b'}));
     std::vector<uint8_t> format12 = buildCmapFormat12Table(std::vector<uint32_t>({'b', 'b'}));
 
-    std::vector<std::unique_ptr<SparseBitSet>> vsTables;
+    std::vector<SparseBitSet> vsTables;
     {
         SCOPED_TRACE("(platform, encoding) = (3, 10) is the highest priority.");
 
@@ -646,7 +646,7 @@ TEST(CmapCoverageTest, TableSelection_Priority) {
 
 TEST(CmapCoverageTest, TableSelection_SkipBrokenFormat4Table) {
     std::vector<uint8_t> validTable = buildCmapFormat4Table(std::vector<uint16_t>({'a', 'a'}));
-    std::vector<std::unique_ptr<SparseBitSet>> vsTables;
+    std::vector<SparseBitSet> vsTables;
     {
         SCOPED_TRACE("Unsupported format");
         CmapBuilder builder(2);
@@ -692,7 +692,7 @@ TEST(CmapCoverageTest, TableSelection_SkipBrokenFormat4Table) {
 }
 
 TEST(CmapCoverageTest, TableSelection_SkipBrokenFormat12Table) {
-    std::vector<std::unique_ptr<SparseBitSet>> vsTables;
+    std::vector<SparseBitSet> vsTables;
     std::vector<uint8_t> validTable = buildCmapFormat12Table(std::vector<uint32_t>({'a', 'a'}));
     {
         SCOPED_TRACE("Unsupported format");
@@ -751,28 +751,28 @@ TEST(CmapCoverageTest, TableSelection_VSTable) {
     builder.appendTable(VS_PLATFORM_ID, VS_ENCODING_ID, vsTable);
     std::vector<uint8_t> cmap = builder.build();
 
-    std::vector<std::unique_ptr<SparseBitSet>> vsTables;
+    std::vector<SparseBitSet> vsTables;
     SparseBitSet coverage = CmapCoverage::getCoverage(cmap.data(), cmap.size(), &vsTables);
     EXPECT_TRUE(coverage.get('a'));
     ASSERT_FALSE(vsTables.empty());
 
     const uint16_t vs15Index = getVsIndex(0xFE0E);
     ASSERT_LT(vs15Index, vsTables.size());
-    ASSERT_TRUE(vsTables[vs15Index]);
-    EXPECT_TRUE(vsTables[vs15Index]->get('a'));
-    EXPECT_TRUE(vsTables[vs15Index]->get('b'));
+    ASSERT_FALSE(vsTables[vs15Index].empty());
+    EXPECT_TRUE(vsTables[vs15Index].get('a'));
+    EXPECT_TRUE(vsTables[vs15Index].get('b'));
 
     const uint16_t vs16Index = getVsIndex(0xFE0F);
     ASSERT_LT(vs16Index, vsTables.size());
-    ASSERT_TRUE(vsTables[vs16Index]);
-    EXPECT_TRUE(vsTables[vs16Index]->get('a'));
-    EXPECT_TRUE(vsTables[vs16Index]->get('b'));
+    ASSERT_FALSE(vsTables[vs16Index].empty());
+    EXPECT_TRUE(vsTables[vs16Index].get('a'));
+    EXPECT_TRUE(vsTables[vs16Index].get('b'));
 
     const uint16_t vs17Index = getVsIndex(0xE0100);
     ASSERT_LT(vs17Index, vsTables.size());
-    ASSERT_TRUE(vsTables[vs17Index]);
-    EXPECT_TRUE(vsTables[vs17Index]->get('a'));
-    EXPECT_TRUE(vsTables[vs17Index]->get('b'));
+    ASSERT_FALSE(vsTables[vs17Index].empty());
+    EXPECT_TRUE(vsTables[vs17Index].get('a'));
+    EXPECT_TRUE(vsTables[vs17Index].get('b'));
 }
 
 TEST(CmapCoverageTest, TableSelection_InterSection) {
@@ -799,66 +799,66 @@ TEST(CmapCoverageTest, TableSelection_InterSection) {
     builder.appendTable(VS_PLATFORM_ID, VS_ENCODING_ID, vsTable);
     std::vector<uint8_t> cmap = builder.build();
 
-    std::vector<std::unique_ptr<SparseBitSet>> vsTables;
+    std::vector<SparseBitSet> vsTables;
     SparseBitSet coverage = CmapCoverage::getCoverage(cmap.data(), cmap.size(), &vsTables);
     EXPECT_TRUE(coverage.get('a'));
     ASSERT_FALSE(vsTables.empty());
 
     const uint16_t vs15Index = getVsIndex(0xFE0E);
     ASSERT_LT(vs15Index, vsTables.size());
-    ASSERT_TRUE(vsTables[vs15Index]);
-    EXPECT_TRUE(vsTables[vs15Index]->get('a'));
-    EXPECT_TRUE(vsTables[vs15Index]->get('b'));
-    EXPECT_TRUE(vsTables[vs15Index]->get('c'));
-    EXPECT_TRUE(vsTables[vs15Index]->get('d'));
-    EXPECT_TRUE(vsTables[vs15Index]->get('e'));
+    ASSERT_FALSE(vsTables[vs15Index].empty());
+    EXPECT_TRUE(vsTables[vs15Index].get('a'));
+    EXPECT_TRUE(vsTables[vs15Index].get('b'));
+    EXPECT_TRUE(vsTables[vs15Index].get('c'));
+    EXPECT_TRUE(vsTables[vs15Index].get('d'));
+    EXPECT_TRUE(vsTables[vs15Index].get('e'));
 
     const uint16_t vs16Index = getVsIndex(0xFE0F);
     ASSERT_LT(vs16Index, vsTables.size());
-    ASSERT_TRUE(vsTables[vs16Index]);
-    EXPECT_TRUE(vsTables[vs16Index]->get('a'));
-    EXPECT_TRUE(vsTables[vs16Index]->get('b'));
-    EXPECT_TRUE(vsTables[vs16Index]->get('c'));
-    EXPECT_TRUE(vsTables[vs16Index]->get('d'));
-    EXPECT_TRUE(vsTables[vs16Index]->get('e'));
+    ASSERT_FALSE(vsTables[vs16Index].empty());
+    EXPECT_TRUE(vsTables[vs16Index].get('a'));
+    EXPECT_TRUE(vsTables[vs16Index].get('b'));
+    EXPECT_TRUE(vsTables[vs16Index].get('c'));
+    EXPECT_TRUE(vsTables[vs16Index].get('d'));
+    EXPECT_TRUE(vsTables[vs16Index].get('e'));
 
     const uint16_t vs17Index = getVsIndex(0xE0100);
     ASSERT_LT(vs17Index, vsTables.size());
-    ASSERT_TRUE(vsTables[vs17Index]);
-    EXPECT_TRUE(vsTables[vs17Index]->get('a'));
-    EXPECT_TRUE(vsTables[vs17Index]->get('b'));
-    EXPECT_TRUE(vsTables[vs17Index]->get('c'));
-    EXPECT_TRUE(vsTables[vs17Index]->get('d'));
+    ASSERT_FALSE(vsTables[vs17Index].empty());
+    EXPECT_TRUE(vsTables[vs17Index].get('a'));
+    EXPECT_TRUE(vsTables[vs17Index].get('b'));
+    EXPECT_TRUE(vsTables[vs17Index].get('c'));
+    EXPECT_TRUE(vsTables[vs17Index].get('d'));
 
     const uint16_t vs18Index = getVsIndex(0xE0101);
     ASSERT_LT(vs18Index, vsTables.size());
-    ASSERT_TRUE(vsTables[vs18Index]);
-    EXPECT_TRUE(vsTables[vs18Index]->get('a'));
-    EXPECT_TRUE(vsTables[vs18Index]->get('b'));
-    EXPECT_TRUE(vsTables[vs18Index]->get('c'));
-    EXPECT_TRUE(vsTables[vs18Index]->get('d'));
+    ASSERT_FALSE(vsTables[vs18Index].empty());
+    EXPECT_TRUE(vsTables[vs18Index].get('a'));
+    EXPECT_TRUE(vsTables[vs18Index].get('b'));
+    EXPECT_TRUE(vsTables[vs18Index].get('c'));
+    EXPECT_TRUE(vsTables[vs18Index].get('d'));
 
     const uint16_t vs19Index = getVsIndex(0xE0102);
     ASSERT_LT(vs19Index, vsTables.size());
-    ASSERT_TRUE(vsTables[vs19Index]);
-    EXPECT_TRUE(vsTables[vs19Index]->get('a'));
-    EXPECT_TRUE(vsTables[vs19Index]->get('b'));
-    EXPECT_TRUE(vsTables[vs19Index]->get('c'));
-    EXPECT_TRUE(vsTables[vs19Index]->get('d'));
-    EXPECT_TRUE(vsTables[vs19Index]->get('e'));
-    EXPECT_TRUE(vsTables[vs19Index]->get('f'));
-    EXPECT_TRUE(vsTables[vs19Index]->get('g'));
-    EXPECT_TRUE(vsTables[vs19Index]->get('h'));
+    ASSERT_FALSE(vsTables[vs19Index].empty());
+    EXPECT_TRUE(vsTables[vs19Index].get('a'));
+    EXPECT_TRUE(vsTables[vs19Index].get('b'));
+    EXPECT_TRUE(vsTables[vs19Index].get('c'));
+    EXPECT_TRUE(vsTables[vs19Index].get('d'));
+    EXPECT_TRUE(vsTables[vs19Index].get('e'));
+    EXPECT_TRUE(vsTables[vs19Index].get('f'));
+    EXPECT_TRUE(vsTables[vs19Index].get('g'));
+    EXPECT_TRUE(vsTables[vs19Index].get('h'));
 
     const uint16_t vs20Index = getVsIndex(0xE0103);
     ASSERT_LT(vs20Index, vsTables.size());
-    ASSERT_TRUE(vsTables[vs20Index]);
-    EXPECT_TRUE(vsTables[vs20Index]->get('a'));
-    EXPECT_TRUE(vsTables[vs20Index]->get('b'));
-    EXPECT_TRUE(vsTables[vs20Index]->get('c'));
-    EXPECT_TRUE(vsTables[vs20Index]->get('d'));
-    EXPECT_TRUE(vsTables[vs20Index]->get('e'));
-    EXPECT_TRUE(vsTables[vs20Index]->get('f'));
+    ASSERT_FALSE(vsTables[vs20Index].empty());
+    EXPECT_TRUE(vsTables[vs20Index].get('a'));
+    EXPECT_TRUE(vsTables[vs20Index].get('b'));
+    EXPECT_TRUE(vsTables[vs20Index].get('c'));
+    EXPECT_TRUE(vsTables[vs20Index].get('d'));
+    EXPECT_TRUE(vsTables[vs20Index].get('e'));
+    EXPECT_TRUE(vsTables[vs20Index].get('f'));
 }
 
 TEST(CmapCoverageTest, TableSelection_brokenVSTable) {
@@ -872,7 +872,7 @@ TEST(CmapCoverageTest, TableSelection_brokenVSTable) {
         builder.appendTable(VS_PLATFORM_ID, VS_ENCODING_ID, vsTable);
         std::vector<uint8_t> cmap = builder.build();
 
-        std::vector<std::unique_ptr<SparseBitSet>> vsTables;
+        std::vector<SparseBitSet> vsTables;
         SparseBitSet coverage =
                 CmapCoverage::getCoverage(cmap.data(), 3 /* too small size */, &vsTables);
         EXPECT_FALSE(coverage.get('a'));
@@ -888,7 +888,7 @@ TEST(CmapCoverageTest, TableSelection_brokenVSTable) {
         builder.appendTable(VS_PLATFORM_ID, VS_ENCODING_ID, vsTable);
         std::vector<uint8_t> cmap = builder.build();
 
-        std::vector<std::unique_ptr<SparseBitSet>> vsTables;
+        std::vector<SparseBitSet> vsTables;
         SparseBitSet coverage = CmapCoverage::getCoverage(cmap.data(), cmap.size(), &vsTables);
         ASSERT_TRUE(vsTables.empty());
     }
@@ -902,7 +902,7 @@ TEST(CmapCoverageTest, TableSelection_brokenVSTable) {
         builder.appendTable(VS_PLATFORM_ID, VS_ENCODING_ID, vsTable);
         std::vector<uint8_t> cmap = builder.build();
 
-        std::vector<std::unique_ptr<SparseBitSet>> vsTables;
+        std::vector<SparseBitSet> vsTables;
         SparseBitSet coverage = CmapCoverage::getCoverage(cmap.data(), cmap.size(), &vsTables);
         ASSERT_TRUE(vsTables.empty());
     }
@@ -916,7 +916,7 @@ TEST(CmapCoverageTest, TableSelection_brokenVSTable) {
         builder.appendTable(VS_PLATFORM_ID, VS_ENCODING_ID, vsTable);
         std::vector<uint8_t> cmap = builder.build();
 
-        std::vector<std::unique_ptr<SparseBitSet>> vsTables;
+        std::vector<SparseBitSet> vsTables;
         SparseBitSet coverage = CmapCoverage::getCoverage(cmap.data(), cmap.size(), &vsTables);
         ASSERT_TRUE(vsTables.empty());
     }
@@ -931,7 +931,7 @@ TEST(CmapCoverageTest, TableSelection_brokenVSTable) {
         builder.appendTable(VS_PLATFORM_ID, VS_ENCODING_ID, vsTable);
         std::vector<uint8_t> cmap = builder.build();
 
-        std::vector<std::unique_ptr<SparseBitSet>> vsTables;
+        std::vector<SparseBitSet> vsTables;
         SparseBitSet coverage = CmapCoverage::getCoverage(cmap.data(), cmap.size(), &vsTables);
         ASSERT_TRUE(vsTables.empty());
     }
@@ -946,7 +946,7 @@ TEST(CmapCoverageTest, TableSelection_brokenVSTable) {
         builder.appendTable(VS_PLATFORM_ID, VS_ENCODING_ID, vsTable);
         std::vector<uint8_t> cmap = builder.build();
 
-        std::vector<std::unique_ptr<SparseBitSet>> vsTables;
+        std::vector<SparseBitSet> vsTables;
         SparseBitSet coverage = CmapCoverage::getCoverage(cmap.data(), cmap.size(), &vsTables);
         ASSERT_TRUE(vsTables.empty());
     }
@@ -959,7 +959,7 @@ TEST(CmapCoverageTest, TableSelection_brokenVSTable) {
         builder.appendTable(VS_PLATFORM_ID, VS_ENCODING_ID, vsTable);
         std::vector<uint8_t> cmap = builder.build();
 
-        std::vector<std::unique_ptr<SparseBitSet>> vsTables;
+        std::vector<SparseBitSet> vsTables;
         SparseBitSet coverage = CmapCoverage::getCoverage(cmap.data(), cmap.size(), &vsTables);
         ASSERT_TRUE(vsTables.empty());
     }
@@ -972,7 +972,7 @@ TEST(CmapCoverageTest, TableSelection_brokenVSTable) {
         builder.appendTable(VS_PLATFORM_ID, VS_ENCODING_ID, vsTable);
         std::vector<uint8_t> cmap = builder.build();
 
-        std::vector<std::unique_ptr<SparseBitSet>> vsTables;
+        std::vector<SparseBitSet> vsTables;
         SparseBitSet coverage = CmapCoverage::getCoverage(cmap.data(), cmap.size(), &vsTables);
         ASSERT_TRUE(vsTables.empty());
     }
@@ -985,7 +985,7 @@ TEST(CmapCoverageTest, TableSelection_brokenVSTable) {
         builder.appendTable(VS_PLATFORM_ID, VS_ENCODING_ID, vsTable);
         std::vector<uint8_t> cmap = builder.build();
 
-        std::vector<std::unique_ptr<SparseBitSet>> vsTables;
+        std::vector<SparseBitSet> vsTables;
         SparseBitSet coverage = CmapCoverage::getCoverage(cmap.data(), cmap.size(), &vsTables);
         ASSERT_TRUE(vsTables.empty());
     }
@@ -998,7 +998,7 @@ TEST(CmapCoverageTest, TableSelection_brokenVSTable) {
         builder.appendTable(VS_PLATFORM_ID, VS_ENCODING_ID, vsTable);
         std::vector<uint8_t> cmap = builder.build();
 
-        std::vector<std::unique_ptr<SparseBitSet>> vsTables;
+        std::vector<SparseBitSet> vsTables;
         SparseBitSet coverage = CmapCoverage::getCoverage(cmap.data(), cmap.size(), &vsTables);
         ASSERT_TRUE(vsTables.empty());
     }
@@ -1014,7 +1014,7 @@ TEST(CmapCoverageTest, TableSelection_brokenVSTable) {
         builder.appendTable(VS_PLATFORM_ID, VS_ENCODING_ID, vsTable);
         std::vector<uint8_t> cmap = builder.build();
 
-        std::vector<std::unique_ptr<SparseBitSet>> vsTables;
+        std::vector<SparseBitSet> vsTables;
         SparseBitSet coverage = CmapCoverage::getCoverage(cmap.data(), cmap.size(), &vsTables);
         ASSERT_TRUE(vsTables.empty());
     }
@@ -1030,7 +1030,7 @@ TEST(CmapCoverageTest, TableSelection_brokenVSTable) {
         builder.appendTable(VS_PLATFORM_ID, VS_ENCODING_ID, vsTable);
         std::vector<uint8_t> cmap = builder.build();
 
-        std::vector<std::unique_ptr<SparseBitSet>> vsTables;
+        std::vector<SparseBitSet> vsTables;
         SparseBitSet coverage = CmapCoverage::getCoverage(cmap.data(), cmap.size(), &vsTables);
         ASSERT_TRUE(vsTables.empty());
     }
@@ -1046,7 +1046,7 @@ TEST(CmapCoverageTest, TableSelection_brokenVSTable) {
         builder.appendTable(VS_PLATFORM_ID, VS_ENCODING_ID, vsTable);
         std::vector<uint8_t> cmap = builder.build();
 
-        std::vector<std::unique_ptr<SparseBitSet>> vsTables;
+        std::vector<SparseBitSet> vsTables;
         SparseBitSet coverage = CmapCoverage::getCoverage(cmap.data(), cmap.size(), &vsTables);
         ASSERT_TRUE(vsTables.empty());
     }
@@ -1062,7 +1062,7 @@ TEST(CmapCoverageTest, TableSelection_brokenVSTable) {
         builder.appendTable(VS_PLATFORM_ID, VS_ENCODING_ID, vsTable);
         std::vector<uint8_t> cmap = builder.build();
 
-        std::vector<std::unique_ptr<SparseBitSet>> vsTables;
+        std::vector<SparseBitSet> vsTables;
         SparseBitSet coverage = CmapCoverage::getCoverage(cmap.data(), cmap.size(), &vsTables);
         ASSERT_TRUE(vsTables.empty());
     }
@@ -1078,7 +1078,7 @@ TEST(CmapCoverageTest, TableSelection_brokenVSTable) {
         builder.appendTable(VS_PLATFORM_ID, VS_ENCODING_ID, vsTable);
         std::vector<uint8_t> cmap = builder.build();
 
-        std::vector<std::unique_ptr<SparseBitSet>> vsTables;
+        std::vector<SparseBitSet> vsTables;
         SparseBitSet coverage = CmapCoverage::getCoverage(cmap.data(), cmap.size(), &vsTables);
         ASSERT_TRUE(vsTables.empty());
     }
@@ -1094,7 +1094,7 @@ TEST(CmapCoverageTest, TableSelection_brokenVSTable) {
         builder.appendTable(VS_PLATFORM_ID, VS_ENCODING_ID, vsTable);
         std::vector<uint8_t> cmap = builder.build();
 
-        std::vector<std::unique_ptr<SparseBitSet>> vsTables;
+        std::vector<SparseBitSet> vsTables;
         SparseBitSet coverage = CmapCoverage::getCoverage(cmap.data(), cmap.size(), &vsTables);
         ASSERT_TRUE(vsTables.empty());
     }
@@ -1113,17 +1113,17 @@ TEST(CmapCoverageTest, TableSelection_brokenVSTable_bestEffort) {
         builder.appendTable(VS_PLATFORM_ID, VS_ENCODING_ID, vsTable);
         std::vector<uint8_t> cmap = builder.build();
 
-        std::vector<std::unique_ptr<SparseBitSet>> vsTables;
+        std::vector<SparseBitSet> vsTables;
         SparseBitSet coverage = CmapCoverage::getCoverage(cmap.data(), cmap.size(), &vsTables);
 
         const uint16_t vs16Index = getVsIndex(0xFE0F);
         ASSERT_LT(vs16Index, vsTables.size());
-        ASSERT_TRUE(vsTables[vs16Index]);
-        EXPECT_TRUE(vsTables[vs16Index]->get('a'));
-        EXPECT_TRUE(vsTables[vs16Index]->get('b'));
+        ASSERT_FALSE(vsTables[vs16Index].empty());
+        EXPECT_TRUE(vsTables[vs16Index].get('a'));
+        EXPECT_TRUE(vsTables[vs16Index].get('b'));
 
         const uint16_t vs15Index = getVsIndex(0xFE0E);
-        EXPECT_FALSE(vsTables[vs15Index]);
+        EXPECT_TRUE(vsTables[vs15Index].empty());
     }
     {
         SCOPED_TRACE("Invalid non default UVS offset in variation records");
@@ -1136,17 +1136,17 @@ TEST(CmapCoverageTest, TableSelection_brokenVSTable_bestEffort) {
         builder.appendTable(VS_PLATFORM_ID, VS_ENCODING_ID, vsTable);
         std::vector<uint8_t> cmap = builder.build();
 
-        std::vector<std::unique_ptr<SparseBitSet>> vsTables;
+        std::vector<SparseBitSet> vsTables;
         SparseBitSet coverage = CmapCoverage::getCoverage(cmap.data(), cmap.size(), &vsTables);
 
         const uint16_t vs16Index = getVsIndex(0xFE0F);
         ASSERT_LT(vs16Index, vsTables.size());
-        ASSERT_TRUE(vsTables[vs16Index]);
-        EXPECT_TRUE(vsTables[vs16Index]->get('a'));
-        EXPECT_TRUE(vsTables[vs16Index]->get('b'));
+        ASSERT_FALSE(vsTables[vs16Index].empty());
+        EXPECT_TRUE(vsTables[vs16Index].get('a'));
+        EXPECT_TRUE(vsTables[vs16Index].get('b'));
 
         const uint16_t vs15Index = getVsIndex(0xFE0E);
-        EXPECT_FALSE(vsTables[vs15Index]);
+        EXPECT_TRUE(vsTables[vs15Index].empty());
     }
     {
         SCOPED_TRACE("Unknown variation selectors.");
@@ -1158,14 +1158,14 @@ TEST(CmapCoverageTest, TableSelection_brokenVSTable_bestEffort) {
         builder.appendTable(VS_PLATFORM_ID, VS_ENCODING_ID, vsTable);
         std::vector<uint8_t> cmap = builder.build();
 
-        std::vector<std::unique_ptr<SparseBitSet>> vsTables;
+        std::vector<SparseBitSet> vsTables;
         SparseBitSet coverage = CmapCoverage::getCoverage(cmap.data(), cmap.size(), &vsTables);
 
         const uint16_t vs16Index = getVsIndex(0xFE0F);
         ASSERT_LT(vs16Index, vsTables.size());
-        ASSERT_TRUE(vsTables[vs16Index]);
-        EXPECT_TRUE(vsTables[vs16Index]->get('a'));
-        EXPECT_TRUE(vsTables[vs16Index]->get('b'));
+        ASSERT_FALSE(vsTables[vs16Index].empty());
+        EXPECT_TRUE(vsTables[vs16Index].get('a'));
+        EXPECT_TRUE(vsTables[vs16Index].get('b'));
     }
 }
 
@@ -1183,16 +1183,16 @@ TEST(CmapCoverageTest, TableSelection_defaultUVSPointMissingGlyph) {
     builder.appendTable(VS_PLATFORM_ID, VS_ENCODING_ID, vsTable);
     std::vector<uint8_t> cmap = builder.build();
 
-    std::vector<std::unique_ptr<SparseBitSet>> vsTables;
+    std::vector<SparseBitSet> vsTables;
     SparseBitSet coverage = CmapCoverage::getCoverage(cmap.data(), cmap.size(), &vsTables);
     const uint16_t vsIndex = getVsIndex(0xFE0F);
     ASSERT_LT(vsIndex, vsTables.size());
-    ASSERT_TRUE(vsTables[vsIndex]);
+    ASSERT_FALSE(vsTables[vsIndex].empty());
 
     for (char c = 'a'; c <= 'z'; ++c) {
         // Default UVS table points the variation sequence to the glyph of the base code point.
         // Thus, if the base code point is not supported, we should exclude them.
-        EXPECT_EQ(coverage.get(c), vsTables[vsIndex]->get(c)) << c;
+        EXPECT_EQ(coverage.get(c), vsTables[vsIndex].get(c)) << c;
     }
 }
 
@@ -1206,11 +1206,11 @@ TEST(CmapCoverageTest, TableSelection_vsTableOnly) {
     builder.appendTable(VS_PLATFORM_ID, VS_ENCODING_ID, vsTable);
     std::vector<uint8_t> cmap = builder.build();
 
-    std::vector<std::unique_ptr<SparseBitSet>> vsTables;
+    std::vector<SparseBitSet> vsTables;
     SparseBitSet coverage = CmapCoverage::getCoverage(cmap.data(), cmap.size(), &vsTables);
     const uint16_t vsIndex = getVsIndex(0xFE0F);
     ASSERT_LT(vsIndex, vsTables.size());
-    ASSERT_TRUE(vsTables[vsIndex]);
-    EXPECT_TRUE(vsTables[vsIndex]->get('a'));
+    ASSERT_FALSE(vsTables[vsIndex].empty());
+    EXPECT_TRUE(vsTables[vsIndex].get('a'));
 }
 }  // namespace minikin

@@ -17,10 +17,15 @@ package com.android.internal.car;
 
 import android.annotation.NonNull;
 import android.annotation.Nullable;
+import android.annotation.RequiresApi;
 import android.annotation.SystemApi;
+import android.car.builtin.annotation.PlatformVersion;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.UserHandle;
 
+import com.android.annotation.AddedIn;
+import com.android.server.wm.CarActivityInterceptorUpdatable;
 import com.android.server.wm.CarLaunchParamsModifierUpdatable;
 
 import java.io.PrintWriter;
@@ -35,18 +40,29 @@ import java.util.function.BiConsumer;
 @SystemApi(client = SystemApi.Client.MODULE_LIBRARIES)
 public interface CarServiceHelperServiceUpdatable {
 
+    @AddedIn(PlatformVersion.TIRAMISU_0)
     void onUserRemoved(@NonNull UserHandle userHandle);
 
+    @AddedIn(PlatformVersion.TIRAMISU_0)
     void onStart();
 
+    @AddedIn(PlatformVersion.TIRAMISU_0)
     void dump(@NonNull PrintWriter pw, @Nullable String[] args);
 
+    @AddedIn(PlatformVersion.TIRAMISU_0)
     void sendUserLifecycleEvent(int eventType, @Nullable UserHandle userFrom,
             @NonNull UserHandle userTo);
 
+    @AddedIn(PlatformVersion.TIRAMISU_0)
     void onFactoryReset(@NonNull BiConsumer<Integer, Bundle> processFactoryReset);
 
+    @AddedIn(PlatformVersion.TIRAMISU_0)
     void initBootUser();
 
+    @AddedIn(PlatformVersion.TIRAMISU_0)
     CarLaunchParamsModifierUpdatable getCarLaunchParamsModifierUpdatable();
+
+    @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+    @AddedIn(PlatformVersion.UPSIDE_DOWN_CAKE_0)
+    CarActivityInterceptorUpdatable getCarActivityInterceptorUpdatable();
 }

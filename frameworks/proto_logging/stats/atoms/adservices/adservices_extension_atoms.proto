@@ -1,0 +1,266 @@
+/*
+ * Copyright (C) 2023 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+syntax = "proto2";
+
+package android.os.statsd.adservices;
+
+import "frameworks/proto_logging/stats/atoms.proto";
+import "frameworks/proto_logging/stats/atom_field_options.proto";
+import "frameworks/proto_logging/stats/enums/adservices/common/adservices_enums.proto";
+import "frameworks/proto_logging/stats/enums/app/job/enums.proto";
+import "frameworks/proto_logging/stats/enums/adservices/measurement/enums.proto";
+
+option java_package = "com.android.os.adservices";
+option java_multiple_files = true;
+
+extend Atom {
+  optional AdServicesBackCompatGetTopicsReported
+      ad_services_back_compat_get_topics_reported = 598
+        [(module) = "adservices", (truncate_timestamp) = true];
+
+  optional AdServicesBackCompatEpochComputationClassifierReported
+      ad_services_back_compat_epoch_computation_classifier_reported = 599
+          [(module) = "adservices", (truncate_timestamp) = true];
+  optional AdServicesMeasurementDebugKeys
+      ad_services_measurement_debug_keys = 640
+        [(module) = "adservices", (truncate_timestamp) = true];
+  optional AdServicesErrorReported
+      ad_services_error_reported = 662
+        [(module) = "adservices", (truncate_timestamp) = true];
+  optional AdServicesBackgroundJobsExecutionReported
+      ad_services_background_jobs_execution_reported = 663
+        [(module) = "adservices"];
+
+  optional AdServicesMeasurementDelayedSourceRegistration
+      ad_services_measurement_delayed_source_registration = 673
+        [(module) = "adservices", (truncate_timestamp) = true];
+  optional AdServicesMeasurementAttribution
+      ad_services_measurement_attribution = 674
+        [(module) = "adservices", (truncate_timestamp) = true];
+  optional AdServicesMeasurementJobs
+      ad_services_measurement_jobs = 675
+        [(module) = "adservices", (truncate_timestamp) = true];
+  optional AdServicesMeasurementWipeout
+      ad_services_measurement_wipeout = 676
+        [(module) = "adservices", (truncate_timestamp) = true];
+
+  optional AdServicesConsentMigrated ad_services_consent_migrated = 702
+  [(module) = "adservices", (truncate_timestamp) = true];
+}
+
+/**
+ * Represents a list of topic IDs.
+ */
+message AdServicesTopicIds {
+  repeated int32 topic_id = 1;
+}
+
+/**
+ * Logs for AdServices GetTopics API call on R+.
+ * This atom closely mimics AdServicesGetTopicsReported (for T+ logging) and
+ * avoids usage of field types (e.g. repeated) that aren't supported on R/S.
+ */
+message AdServicesBackCompatGetTopicsReported {
+  // Number of filtered duplicate topics.
+  optional int32 duplicate_topic_count = 1;
+
+  // Number of filtered blocked topics.
+  optional int32 filtered_blocked_topic_count = 2;
+
+  // Number of topic ids returned.
+  optional int32 count_of_topic_ids = 3;
+
+  // Topic ids returned, randomized using a random response mechanism.
+  optional AdServicesTopicIds topic_ids = 4 [(log_mode) = MODE_BYTES];
+}
+
+/**
+ * Logs for AdServices Epoch Computation Classifier on R+.
+ * One atom should be logged for each app classification.
+ * This atom closely mimics AdServicesEpochComputationClassifierReported (for T+ logging)
+ * and avoids usage of field types (e.g. repeated) that can't be supported on R/S.
+ */
+message AdServicesBackCompatEpochComputationClassifierReported {
+  // List of topics returned by the classifier for each app. The classification
+  // does not depend on the user's usage of the app.
+  optional AdServicesTopicIds topic_ids = 1 [(log_mode) = MODE_BYTES];
+
+  // Build id of the assets.
+  optional int32 build_id = 2;
+
+  // Version of the assets used.
+  optional string asset_version = 3;
+
+  // Type of the classifier used for classifying apps.
+  optional android.adservices.ClassifierType classifier_type = 4;
+
+  // On Device classifier status.
+  optional android.adservices.OnDeviceClassifierStatus on_device_classifier_status = 5;
+
+  // Precomputed classifier status.
+  optional android.adservices.PrecomputedClassifierStatus precomputed_classifier_status = 6;
+}
+
+/**
+ * Logs debug keys match state when measurement reports are being generated.
+ */
+message AdServicesMeasurementDebugKeys {
+  optional string adtech_enrollment_id = 1;
+  optional android.adservices.AttributionType attribution_type = 2;
+  optional bool is_matched = 3;
+  optional int64 join_key_hash = 4;
+  optional int64 join_key_hash_limit = 5;
+}
+
+/**
+ * Logs AdServices errors/exceptions.
+ */
+message AdServicesErrorReported {
+  optional android.adservices.ErrorCode error_code = 1;
+
+  // Name of the PPAPI if possible where error is occurring.
+  optional android.adservices.PpapiName ppapi_name = 2;
+
+  // Name of the class where we catch the exception or log the error.
+  optional string class_name = 3;
+
+  // Name of the method where we catch the exception or log the error.
+  optional string method_name = 4;
+
+  // Line number where we catch the exception or log the error.
+  optional int32 line_number = 5;
+
+  // The fully qualified name of the last encountered exception.
+  optional string last_observed_exception_name = 6;
+}
+
+/** Logs background job stats to monitor the stability of Rubidium background jobs. */
+message AdServicesBackgroundJobsExecutionReported {
+  // A unique identifier for a background job
+  optional int32 job_id = 1;
+
+  // Time interval from the start to the end of an execution of a background job.
+  // It is on a milli-second basis.
+  optional int32 execution_latency_ms = 2;
+
+  // Time interval from the start of previous execution to the start of current execution of
+  // a background job. It is on a minute basis.
+  optional int32 execution_period_minute = 3;
+
+  // Type of the result code that implies different execution results of Adservices background jobs.
+  optional android.adservices.ExecutionResultCode execution_result_code = 4;
+
+  // The publicly returned reason onStopJob() was called.
+  // This is only applicable when the state is FINISHED, but may be undefined if
+  // JobService.onStopJob() was never called for the job.
+  // The default value is STOP_REASON_UNDEFINED.
+  optional android.app.job.StopReasonEnum public_stop_reason = 5;
+}
+
+/**
+ * Logs when an AdServices delayed source is fetched and registered.
+ */
+message AdServicesMeasurementDelayedSourceRegistration {
+  optional android.adservices.service.measurement.DelayedSourceRegistrationStatus registration_status = 1;
+  // delay (in milliseconds) between a source registration and a previously registered trigger with matching attribution destination
+  optional int64 missed_source_delay_millis = 2;
+}
+
+/**
+ * Logs when an AdServices trigger is attributed to a source.
+ */
+message AdServicesMeasurementAttribution {
+  optional android.adservices.service.measurement.SourceType source_type = 1;
+  optional android.adservices.service.measurement.AttributionSurfaceCombination attribution_surface_combination = 2;
+  optional android.adservices.service.measurement.Status status = 3;
+  optional android.adservices.service.measurement.AttributionFailureType failure_type = 4;
+  optional bool is_source_derived = 5;
+  optional bool is_install_attribution = 6;
+  // delay (in milliseconds) between trigger registration and a trigger becoming attributed.
+  optional int64 trigger_to_attribution_delay_millis = 7;
+}
+
+/**
+ * Logs AdServices job finish status
+ */
+message AdServicesMeasurementJobs {
+  optional android.adservices.service.measurement.Status status = 1;
+  optional android.adservices.service.measurement.JobType job_type = 2;
+}
+
+/**
+ * Logs when AdServices deletion API is called.
+ */
+message AdServicesMeasurementWipeout {
+  optional android.adservices.service.measurement.WipeoutCause wipeout_cause = 1;
+}
+
+/**
+ * Logs for AdServices Consent Migration after OTA.
+ * This atom captures the event of consent migration when we OTA from S to T+.
+ */
+message AdServicesConsentMigrated {
+
+  // Logs the Migration status
+  enum MigrationStatus {
+    UNSPECIFIED_MIGRATION_STATUS = 0;
+
+    // Consent migration unsuccessful
+    FAILURE = 1;
+
+    // Consent migration successful with shared prefs updated
+    SUCCESS_WITH_SHARED_PREF_UPDATED = 2;
+
+    // Consent migration successful with shared prefs not updated
+    SUCCESS_WITH_SHARED_PREF_NOT_UPDATED = 3;
+
+  }
+
+  // Logs the type of migration
+  enum MigrationType {
+    UNSPECIFIED_MIGRATION_TYPE = 0;
+
+    // Migrating consent from PPAPI to system service
+    PPAPI_TO_SYSTEM_SERVICE = 1;
+
+    // Migrating consent from App Search to system service
+    APPSEARCH_TO_SYSTEM_SERVICE = 2;
+  }
+
+  // Logs the opt-in/ opt-out value of measurement app
+  optional bool is_measurement_consent_enabled = 1;
+
+  // Logs the opt-in/ opt-out value of topics app
+  optional bool is_topics_consent_enabled = 2;
+
+  // Logs the opt-in/ opt-out value of fledge app
+  optional bool is_fledge_consent_enabled = 3;
+
+  // Logs the opt-in/ opt-out value for all apps in beta
+  optional bool is_default_consent_enabled = 4;
+
+  // Logs the type of migration
+  optional MigrationType migration_type = 5;
+
+  // Logs the region where the OTA took place
+  optional android.adservices.AdServiceSettingRegion region = 6;
+
+  // Logs the Migration status
+  optional MigrationStatus migration_status = 7;
+
+
+}

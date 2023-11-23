@@ -16,17 +16,18 @@
 
 package com.android.net.module.util.ip;
 
-import static android.net.util.SocketUtils.makeNetlinkSocketAddress;
 import static android.system.OsConstants.AF_NETLINK;
+import static android.system.OsConstants.ENOBUFS;
 import static android.system.OsConstants.SOCK_DGRAM;
 import static android.system.OsConstants.SOCK_NONBLOCK;
 import static android.system.OsConstants.SOL_SOCKET;
 import static android.system.OsConstants.SO_RCVBUF;
 
+import static com.android.net.module.util.SocketUtils.closeSocketQuietly;
+import static com.android.net.module.util.SocketUtils.makeNetlinkSocketAddress;
 import static com.android.net.module.util.netlink.NetlinkConstants.hexify;
 
 import android.annotation.NonNull;
-import android.net.util.SocketUtils;
 import android.os.Handler;
 import android.os.SystemClock;
 import android.system.ErrnoException;
@@ -37,10 +38,9 @@ import com.android.net.module.util.PacketReader;
 import com.android.net.module.util.SharedLog;
 import com.android.net.module.util.netlink.NetlinkErrorMessage;
 import com.android.net.module.util.netlink.NetlinkMessage;
-import com.android.net.module.util.netlink.NetlinkSocket;
+import com.android.net.module.util.netlink.NetlinkUtils;
 
 import java.io.FileDescriptor;
-import java.io.IOException;
 import java.net.SocketAddress;
 import java.net.SocketException;
 import java.nio.ByteBuffer;
@@ -82,7 +82,7 @@ public class NetlinkMonitor extends PacketReader {
      */
     public NetlinkMonitor(@NonNull Handler h, @NonNull SharedLog log, @NonNull String tag,
             int family, int bindGroups, int sockRcvbufSize) {
-        super(h, NetlinkSocket.DEFAULT_RECV_BUFSIZE);
+        super(h, NetlinkUtils.DEFAULT_RECV_BUFSIZE);
         mLog = log.forSubComponent(tag);
         mTag = tag;
         mFamily = family;
@@ -102,10 +102,14 @@ public class NetlinkMonitor extends PacketReader {
         try {
             fd = Os.socket(AF_NETLINK, SOCK_DGRAM | SOCK_NONBLOCK, mFamily);
             if (mSockRcvbufSize != DEFAULT_SOCKET_RECV_BUFSIZE) {
-                Os.setsockoptInt(fd, SOL_SOCKET, SO_RCVBUF, mSockRcvbufSize);
+                try {
+                    Os.setsockoptInt(fd, SOL_SOCKET, SO_RCVBUF, mSockRcvbufSize);
+                } catch (ErrnoException e) {
+                    Log.wtf(mTag, "Failed to set SO_RCVBUF to " + mSockRcvbufSize, e);
+                }
             }
             Os.bind(fd, makeNetlinkSocketAddress(0, mBindGroups));
-            NetlinkSocket.connectToKernel(fd);
+            NetlinkUtils.connectSocketToNetlink(fd);
 
             if (DBG) {
                 final SocketAddress nlAddr = Os.getsockname(fd);
@@ -148,12 +152,30 @@ public class NetlinkMonitor extends PacketReader {
         }
     }
 
-    // TODO: move NetworkStackUtils to frameworks/libs/net for NetworkStackUtils#closeSocketQuietly.
-    private void closeSocketQuietly(FileDescriptor fd) {
-        try {
-            SocketUtils.closeSocket(fd);
-        } catch (IOException ignored) {
+    @Override
+    protected void logError(String msg, Exception e) {
+        mLog.e(msg, e);
+    }
+
+    // Ignoring ENOBUFS may miss any important netlink messages, there are some messages which
+    // cannot be recovered by dumping current state once missed since kernel doesn't keep state
+    // for it. In addition, dumping current state will not result in any RTM_DELxxx messages, so
+    // reconstructing current state from a dump will be difficult. However, for those netlink
+    // messages don't cause any state changes, e.g. RTM_NEWLINK with current link state, maybe
+    // it's okay to ignore them, because these netlink messages won't cause any changes on the
+    // LinkProperties. Given the above trade-offs, try to ignore ENOBUFS and that's similar to
+    // what netd does today.
+    //
+    // TODO: log metrics when ENOBUFS occurs, or even force a disconnect, it will help see how
+    // often this error occurs on fields with the associated socket receive buffer size.
+    @Override
+    protected boolean handleReadError(ErrnoException e) {
+        logError("readPacket error: ", e);
+        if (e.errno == ENOBUFS) {
+            Log.wtf(mTag, "Errno: ENOBUFS");
+            return false;
         }
+        return true;
     }
 
     /**

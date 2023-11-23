@@ -28,7 +28,11 @@ import android.content.pm.ActivityInfo;
 import android.hardware.display.DisplayManager;
 import android.os.Handler;
 import android.os.Looper;
+import android.util.Pair;
 import android.view.Display;
+
+import com.android.server.LocalServices;
+import com.android.server.pm.UserManagerInternal;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -83,6 +87,11 @@ public final class CarLaunchParamsModifier implements LaunchParamsController.Lau
         mDisplayManager = mContext.getSystemService(DisplayManager.class);
         mDisplayManager.registerDisplayListener(mUpdatable.getDisplayListener(),
                 new Handler(Looper.getMainLooper()));
+    }
+
+    /** Notifies user visibility changed. */
+    public void handleUserVisibilityChanged(int userId, boolean visible) {
+        mUpdatable.handleUserVisibilityChanged(userId, visible);
     }
 
     /** Notifies user switching. */
@@ -158,7 +167,7 @@ public final class CarLaunchParamsModifier implements LaunchParamsController.Lau
         mFallBackDisplayAreaList.clear();
 
         WindowProcessController controllerFromLaunchingRecord = mAtm.getProcessController(
-                activityRecord.launchedFromPid, activityRecord.launchedFromUid);
+                activityRecord.getLaunchedFromPid(), activityRecord.getLaunchedFromUid());
         TaskDisplayArea displayAreaForLaunchingRecord = controllerFromLaunchingRecord == null
                 ? null : controllerFromLaunchingRecord.getTopActivityDisplayArea();
         if (displayAreaForLaunchingRecord != null) {
@@ -188,7 +197,7 @@ public final class CarLaunchParamsModifier implements LaunchParamsController.Lau
 
     @Nullable
     private TaskDisplayAreaWrapper findTaskDisplayArea(int displayId, int featureId) {
-        DisplayContent display = mAtm.mRootWindowContainer.getDisplayContentOrCreate(displayId);
+        DisplayContent display = mAtm.mRootWindowContainer.getDisplayContent(displayId);
         if (display == null) {
             return null;
         }
@@ -197,8 +206,8 @@ public final class CarLaunchParamsModifier implements LaunchParamsController.Lau
         return TaskDisplayAreaWrapper.create(tda);
     }
 
-    private final CarLaunchParamsModifierInterface mBuiltinInterface
-            = new CarLaunchParamsModifierInterface() {
+    private final CarLaunchParamsModifierInterface mBuiltinInterface =
+            new CarLaunchParamsModifierInterface() {
         @Nullable
         @Override
         public TaskDisplayAreaWrapper findTaskDisplayArea(int displayId, int featureId) {
@@ -217,6 +226,26 @@ public final class CarLaunchParamsModifier implements LaunchParamsController.Lau
                 @NonNull ActivityRecordWrapper activityRecord, @Nullable RequestWrapper request) {
             return CarLaunchParamsModifier.this.getFallbackDisplayAreasForActivity(
                     activityRecord, request);
+        }
+
+        @NonNull
+        @Override
+        public Pair<Integer, Integer> getCurrentAndTargetUserIds() {
+            return mAtm.mAmInternal.getCurrentAndTargetUserIds();
+        }
+
+        @Override
+        public int getUserAssignedToDisplay(int displayId) {
+            UserManagerInternal umi = LocalServices.getService(UserManagerInternal.class);
+            int userId = umi.getUserAssignedToDisplay(displayId);
+            return userId;
+        }
+
+        @Override
+        public int getMainDisplayAssignedToUser(int userId) {
+            UserManagerInternal umi = LocalServices.getService(UserManagerInternal.class);
+            int displayId = umi.getMainDisplayAssignedToUser(userId);
+            return displayId;
         }
     };
 }

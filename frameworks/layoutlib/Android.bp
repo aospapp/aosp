@@ -30,25 +30,16 @@ java_genrule_host {
     tools: ["layoutlib_create"],
     out: ["temp_layoutlib.jar"],
     srcs: [
-        ":atf-prebuilt-371374941{.jar}",
+        ":atf-prebuilt-502584086{.jar}",
         ":core-icu4j-for-host{.jar}",
         ":core-libart-for-host{.jar}",
         ":framework-all{.jar}",
         ":ext{.jar}",
         ":icu4j-icudata-jarjar{.jar}", // HOST
         ":icu4j-icutzdata-jarjar{.jar}", // HOST
+        ":monet{.jar}",
     ],
     cmd: "rm -f $(out) && $(location layoutlib_create) --create-stub $(out) $(in)",
-}
-
-java_genrule_host {
-    name: "layoutlib-native-delegates",
-    tools: ["layoutlib_create"],
-    out: ["layoutlib-native-delegates.jar"],
-    srcs: [
-        ":framework{.jar}",
-    ],
-    cmd: "rm -f $(out) && $(location layoutlib_create) --create-native-only-delegates $(out) $(in)",
 }
 
 java_device_for_host {
@@ -61,5 +52,6 @@ java_device_for_host {
         "framework-all",
         "icu4j-icudata-jarjar",
         "icu4j-icutzdata-jarjar",
+        "monet",
     ],
 }

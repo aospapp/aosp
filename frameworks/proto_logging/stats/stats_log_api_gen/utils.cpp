@@ -48,18 +48,82 @@ void build_non_chained_decl_map(const Atoms& atoms,
     }
 }
 
-const map<AnnotationId, string>& get_annotation_id_constants() {
-    static const map<AnnotationId, string>* ANNOTATION_ID_CONSTANTS =
-        new map<AnnotationId, string>{
-            {ANNOTATION_ID_IS_UID, "ANNOTATION_ID_IS_UID"},
-            {ANNOTATION_ID_TRUNCATE_TIMESTAMP, "ANNOTATION_ID_TRUNCATE_TIMESTAMP"},
-            {ANNOTATION_ID_PRIMARY_FIELD, "ANNOTATION_ID_PRIMARY_FIELD"},
-            {ANNOTATION_ID_PRIMARY_FIELD_FIRST_UID, "ANNOTATION_ID_PRIMARY_FIELD_FIRST_UID"},
-            {ANNOTATION_ID_EXCLUSIVE_STATE, "ANNOTATION_ID_EXCLUSIVE_STATE"},
-            {ANNOTATION_ID_TRIGGER_STATE_RESET, "ANNOTATION_ID_TRIGGER_STATE_RESET"},
-            {ANNOTATION_ID_STATE_NESTED, "ANNOTATION_ID_STATE_NESTED"}};
+const map<AnnotationId, AnnotationStruct>& get_annotation_id_constants() {
+    static const map<AnnotationId, AnnotationStruct>* ANNOTATION_ID_CONSTANTS =
+            new map<AnnotationId, AnnotationStruct>{
+            {ANNOTATION_ID_IS_UID,
+             AnnotationStruct("ANNOTATION_ID_IS_UID", API_S)},
+            {ANNOTATION_ID_TRUNCATE_TIMESTAMP,
+             AnnotationStruct("ANNOTATION_ID_TRUNCATE_TIMESTAMP", API_S)},
+            {ANNOTATION_ID_PRIMARY_FIELD,
+             AnnotationStruct("ANNOTATION_ID_PRIMARY_FIELD", API_S)},
+            {ANNOTATION_ID_EXCLUSIVE_STATE,
+             AnnotationStruct("ANNOTATION_ID_EXCLUSIVE_STATE", API_S)},
+            {ANNOTATION_ID_PRIMARY_FIELD_FIRST_UID,
+             AnnotationStruct("ANNOTATION_ID_PRIMARY_FIELD_FIRST_UID", API_S)},
+            {ANNOTATION_ID_DEFAULT_STATE,
+             AnnotationStruct("ANNOTATION_ID_DEFAULT_STATE", API_S)},
+            {ANNOTATION_ID_TRIGGER_STATE_RESET,
+             AnnotationStruct("ANNOTATION_ID_TRIGGER_STATE_RESET", API_S)},
+            {ANNOTATION_ID_STATE_NESTED,
+             AnnotationStruct("ANNOTATION_ID_STATE_NESTED", API_S)},
+            {ANNOTATION_ID_RESTRICTION_CATEGORY,
+             AnnotationStruct("ANNOTATION_ID_RESTRICTION_CATEGORY", API_U)},
+            {ANNOTATION_ID_FIELD_RESTRICTION_PERIPHERAL_DEVICE_INFO,
+             AnnotationStruct("ANNOTATION_ID_FIELD_RESTRICTION_PERIPHERAL_DEVICE_INFO", API_U)},
+            {ANNOTATION_ID_FIELD_RESTRICTION_APP_USAGE,
+             AnnotationStruct("ANNOTATION_ID_FIELD_RESTRICTION_APP_USAGE", API_U)},
+            {ANNOTATION_ID_FIELD_RESTRICTION_APP_ACTIVITY,
+             AnnotationStruct("ANNOTATION_ID_FIELD_RESTRICTION_APP_ACTIVITY", API_U)},
+            {ANNOTATION_ID_FIELD_RESTRICTION_HEALTH_CONNECT,
+             AnnotationStruct("ANNOTATION_ID_FIELD_RESTRICTION_HEALTH_CONNECT", API_U)},
+            {ANNOTATION_ID_FIELD_RESTRICTION_ACCESSIBILITY,
+             AnnotationStruct("ANNOTATION_ID_FIELD_RESTRICTION_ACCESSIBILITY", API_U)},
+            {ANNOTATION_ID_FIELD_RESTRICTION_SYSTEM_SEARCH,
+             AnnotationStruct("ANNOTATION_ID_FIELD_RESTRICTION_SYSTEM_SEARCH", API_U)},
+            {ANNOTATION_ID_FIELD_RESTRICTION_USER_ENGAGEMENT,
+             AnnotationStruct("ANNOTATION_ID_FIELD_RESTRICTION_USER_ENGAGEMENT", API_U)},
+            {ANNOTATION_ID_FIELD_RESTRICTION_AMBIENT_SENSING,
+             AnnotationStruct("ANNOTATION_ID_FIELD_RESTRICTION_AMBIENT_SENSING", API_U)},
+            {ANNOTATION_ID_FIELD_RESTRICTION_DEMOGRAPHIC_CLASSIFICATION,
+             AnnotationStruct("ANNOTATION_ID_FIELD_RESTRICTION_DEMOGRAPHIC_CLASSIFICATION", API_U)},
+    };
 
     return *ANNOTATION_ID_CONSTANTS;
+}
+
+string get_java_build_version_code(int minApiLevel) {
+    switch (minApiLevel) {
+        case API_Q:
+            return "Build.VERSION_CODES.Q";
+        case API_R:
+            return "Build.VERSION_CODES.R";
+        case API_S:
+            return "Build.VERSION_CODES.S";
+        case API_S_V2:
+            return "Build.VERSION_CODES.S_V2";
+        case API_T:
+            return "Build.VERSION_CODES.TIRAMISU";
+        case API_U:
+            return "Build.VERSION_CODES.UPSIDE_DOWN_CAKE";
+        default:
+            return "Build.VERSION_CODES.CUR_DEVELOPMENT";
+    }
+}
+
+string get_restriction_category_str(int annotationValue) {
+    switch (annotationValue) {
+        case os::statsd::RestrictionCategory::RESTRICTION_DIAGNOSTIC:
+            return "RESTRICTION_CATEGORY_DIAGNOSTIC";
+        case os::statsd::RestrictionCategory::RESTRICTION_SYSTEM_INTELLIGENCE:
+            return "RESTRICTION_CATEGORY_SYSTEM_INTELLIGENCE";
+        case os::statsd::RestrictionCategory::RESTRICTION_AUTHENTICATION:
+            return "RESTRICTION_CATEGORY_AUTHENTICATION";
+        case os::statsd::RestrictionCategory::RESTRICTION_FRAUD_AND_ABUSE:
+            return "RESTRICTION_CATEGORY_FRAUD_AND_ABUSE";
+        default:
+            return "";
+    }
 }
 
 /**
@@ -87,7 +151,7 @@ string make_constant_name(const string& str) {
     return result;
 }
 
-const char* cpp_type_name(java_type_t type) {
+const char* cpp_type_name(java_type_t type, bool isVendorAtomLogging) {
     switch (type) {
         case JAVA_TYPE_BOOLEAN:
             return "bool";
@@ -103,9 +167,9 @@ const char* cpp_type_name(java_type_t type) {
         case JAVA_TYPE_STRING:
             return "char const*";
         case JAVA_TYPE_BYTE_ARRAY:
-            return "const BytesField&";
+            return isVendorAtomLogging ? "const std::vector<uint8_t>&" : "const BytesField&";
         case JAVA_TYPE_BOOLEAN_ARRAY:
-            return "const bool*";
+            return isVendorAtomLogging ? "const std::vector<bool>&" : "const bool*";
         case JAVA_TYPE_INT_ARRAY:  // Fallthrough.
         case JAVA_TYPE_ENUM_ARRAY:
             return "const std::vector<int32_t>&";
@@ -172,9 +236,22 @@ bool is_repeated_field(java_type_t type) {
     }
 }
 
+bool is_primitive_field(java_type_t type) {
+    switch (type) {
+        case JAVA_TYPE_BOOLEAN:
+        case JAVA_TYPE_INT:
+        case JAVA_TYPE_LONG:
+        case JAVA_TYPE_FLOAT:
+        case JAVA_TYPE_STRING:
+        case JAVA_TYPE_ENUM:
+            return true;
+        default:
+            return false;
+    }
+}
+
 // Native
-// Writes namespaces for the cpp and header files, returning the number of
-// namespaces written.
+// Writes namespaces for the cpp and header files
 void write_namespace(FILE* out, const string& cppNamespaces) {
     vector<string> cppNamespaceVec = Split(cppNamespaces, ",");
     for (const string& cppNamespace : cppNamespaceVec) {
@@ -191,8 +268,10 @@ void write_closing_namespace(FILE* out, const string& cppNamespaces) {
 }
 
 static void write_cpp_usage(FILE* out, const string& method_name, const string& atom_code_name,
-                            const shared_ptr<AtomDecl> atom, const AtomDecl& attributionDecl) {
-    fprintf(out, "     * Usage: %s(StatsLog.%s", method_name.c_str(), atom_code_name.c_str());
+                            const shared_ptr<AtomDecl> atom, const AtomDecl& attributionDecl,
+                            bool isVendorAtomLogging = false) {
+    const char* delimiterStr = method_name.find('(') == string::npos ? "(" : " ";
+    fprintf(out, "     * Usage: %s%s%s", method_name.c_str(), delimiterStr, atom_code_name.c_str());
 
     for (vector<AtomField>::const_iterator field = atom->fields.begin();
          field != atom->fields.end(); field++) {
@@ -208,13 +287,15 @@ static void write_cpp_usage(FILE* out, const string& method_name, const string& 
                 }
             }
         } else {
-            fprintf(out, ", %s %s", cpp_type_name(field->javaType), field->name.c_str());
+            fprintf(out, ", %s %s", cpp_type_name(field->javaType, isVendorAtomLogging),
+                    field->name.c_str());
         }
     }
     fprintf(out, ");\n");
 }
 
-void write_native_atom_constants(FILE* out, const Atoms& atoms, const AtomDecl& attributionDecl) {
+void write_native_atom_constants(FILE* out, const Atoms& atoms, const AtomDecl& attributionDecl,
+                                 const string& methodName, bool isVendorAtomLogging) {
     fprintf(out, "/**\n");
     fprintf(out, " * Constants for atom codes.\n");
     fprintf(out, " */\n");
@@ -231,12 +312,12 @@ void write_native_atom_constants(FILE* out, const Atoms& atoms, const AtomDecl& 
         fprintf(out, "\n");
         fprintf(out, "    /**\n");
         fprintf(out, "     * %s %s\n", (*atomIt)->message.c_str(), (*atomIt)->name.c_str());
-        write_cpp_usage(out, "stats_write", constant, *atomIt, attributionDecl);
+        write_cpp_usage(out, methodName, constant, *atomIt, attributionDecl, isVendorAtomLogging);
 
         auto non_chained_decl = atom_code_to_non_chained_decl_map.find((*atomIt)->code);
         if (non_chained_decl != atom_code_to_non_chained_decl_map.end()) {
-            write_cpp_usage(out, "stats_write_non_chained", constant, *non_chained_decl->second,
-                            attributionDecl);
+            write_cpp_usage(out, methodName + "_non_chained", constant, *non_chained_decl->second,
+                            attributionDecl, isVendorAtomLogging);
         }
         fprintf(out, "     */\n");
         char const* const comma = (i == atoms.decls.size() - 1) ? "" : ",";
@@ -246,6 +327,106 @@ void write_native_atom_constants(FILE* out, const Atoms& atoms, const AtomDecl& 
     fprintf(out, "\n");
     fprintf(out, "};\n");
     fprintf(out, "\n");
+}
+
+void write_native_atom_enums(FILE* out, const Atoms& atoms) {
+    // Print constants for the enum values.
+    fprintf(out, "//\n");
+    fprintf(out, "// Constants for enum values\n");
+    fprintf(out, "//\n\n");
+    for (AtomDeclSet::const_iterator atomIt = atoms.decls.begin(); atomIt != atoms.decls.end();
+         atomIt++) {
+        for (vector<AtomField>::const_iterator field = (*atomIt)->fields.begin();
+             field != (*atomIt)->fields.end(); field++) {
+            if (field->javaType == JAVA_TYPE_ENUM || field->javaType == JAVA_TYPE_ENUM_ARRAY) {
+                fprintf(out, "// Values for %s.%s\n", (*atomIt)->message.c_str(),
+                        field->name.c_str());
+                for (map<int, string>::const_iterator value = field->enumValues.begin();
+                     value != field->enumValues.end(); value++) {
+                    fprintf(out, "const int32_t %s__%s__%s = %d;\n",
+                            make_constant_name((*atomIt)->message).c_str(),
+                            make_constant_name(field->name).c_str(),
+                            make_constant_name(value->second).c_str(), value->first);
+                }
+                fprintf(out, "\n");
+            }
+        }
+    }
+}
+
+void write_native_method_signature(FILE* out, const string& signaturePrefix,
+                                          const vector<java_type_t>& signature,
+                                          const AtomDecl& attributionDecl, const string& closer,
+                                          bool isVendorAtomLogging) {
+    fprintf(out, "%sint32_t code", signaturePrefix.c_str());
+    int argIndex = 1;
+    for (vector<java_type_t>::const_iterator arg = signature.begin(); arg != signature.end();
+         arg++) {
+        if (*arg == JAVA_TYPE_ATTRIBUTION_CHAIN) {
+            for (const auto& chainField : attributionDecl.fields) {
+                if (chainField.javaType == JAVA_TYPE_STRING) {
+                    fprintf(out, ", const std::vector<%s>& %s",
+                            cpp_type_name(chainField.javaType, isVendorAtomLogging),
+                            chainField.name.c_str());
+                } else {
+                    fprintf(out, ", const %s* %s, size_t %s_length",
+                            cpp_type_name(chainField.javaType, isVendorAtomLogging),
+                            chainField.name.c_str(), chainField.name.c_str());
+                }
+            }
+        } else {
+            fprintf(out, ", %s arg%d", cpp_type_name(*arg, isVendorAtomLogging), argIndex);
+
+            if (*arg == JAVA_TYPE_BOOLEAN_ARRAY && !isVendorAtomLogging) {
+                fprintf(out, ", size_t arg%d_length", argIndex);
+            }
+        }
+        argIndex++;
+    }
+    fprintf(out, ")%s\n", closer.c_str());
+}
+
+void write_native_method_header(FILE* out, const string& methodName,
+                                       const SignatureInfoMap& signatureInfoMap,
+                                       const AtomDecl& attributionDecl,
+                                       bool isVendorAtomLogging) {
+    for (const auto& [signature, _] : signatureInfoMap) {
+        write_native_method_signature(out, methodName, signature, attributionDecl, ";",
+                                      isVendorAtomLogging);
+    }
+}
+
+void write_native_header_preamble(FILE* out, const string& cppNamespace, bool includePull,
+                                     bool isVendorAtomLogging) {
+    // Print prelude
+    fprintf(out, "// This file is autogenerated\n");
+    fprintf(out, "\n");
+    fprintf(out, "#pragma once\n");
+    fprintf(out, "\n");
+    fprintf(out, "#include <stdint.h>\n");
+    fprintf(out, "#include <vector>\n");
+    fprintf(out, "#include <map>\n");
+    fprintf(out, "#include <set>\n");
+    if (includePull) {
+        fprintf(out, "#include <stats_pull_atom_callback.h>\n");
+    }
+
+    if (isVendorAtomLogging) {
+        fprintf(out, "#include <aidl/android/frameworks/stats/VendorAtom.h>\n");
+    }
+
+    fprintf(out, "\n");
+
+    write_namespace(out, cppNamespace);
+    fprintf(out, "\n");
+    fprintf(out, "/*\n");
+    fprintf(out, " * API For logging statistics events.\n");
+    fprintf(out, " */\n");
+    fprintf(out, "\n");
+}
+
+void write_native_header_epilogue(FILE* out, const string& cppNamespace) {
+    write_closing_namespace(out, cppNamespace);
 }
 
 // Java
@@ -279,7 +460,7 @@ void write_java_enum_values(FILE* out, const Atoms& atoms) {
          atomIt++) {
         for (vector<AtomField>::const_iterator field = (*atomIt)->fields.begin();
              field != (*atomIt)->fields.end(); field++) {
-            if (field->javaType == JAVA_TYPE_ENUM) {
+            if (field->javaType == JAVA_TYPE_ENUM || field->javaType == JAVA_TYPE_ENUM_ARRAY) {
                 fprintf(out, "    // Values for %s.%s\n", (*atomIt)->message.c_str(),
                         field->name.c_str());
                 for (map<int, string>::const_iterator value = field->enumValues.begin();
@@ -287,6 +468,39 @@ void write_java_enum_values(FILE* out, const Atoms& atoms) {
                     fprintf(out, "    public static final int %s__%s__%s = %d;\n",
                             make_constant_name((*atomIt)->message).c_str(),
                             make_constant_name(field->name).c_str(),
+                            make_constant_name(value->second).c_str(), value->first);
+                }
+                fprintf(out, "\n");
+            }
+        }
+    }
+}
+
+void write_java_enum_values_vendor(FILE* out, const Atoms& atoms) {
+    set<string> processedEnums;
+
+    fprintf(out, "    // Constants for enum values.\n\n");
+    for (AtomDeclSet::const_iterator atomIt = atoms.decls.begin(); atomIt != atoms.decls.end();
+         atomIt++) {
+        for (vector<AtomField>::const_iterator field = (*atomIt)->fields.begin();
+             field != (*atomIt)->fields.end(); field++) {
+            if (field->javaType == JAVA_TYPE_ENUM || field->javaType == JAVA_TYPE_ENUM_ARRAY) {
+                // there might be N fields with the same enum type
+                // avoid duplication definitions
+                // enum type name == [atom_message_type_name]__[enum_type_name]
+                const string full_enum_type_name = (*atomIt)->message + "__" + field->enumTypeName;
+
+                if (processedEnums.find(full_enum_type_name) != processedEnums.end()) {
+                    continue;
+                }
+                processedEnums.insert(full_enum_type_name);
+
+                fprintf(out, "    // Values for %s.%s\n", (*atomIt)->message.c_str(),
+                        field->name.c_str());
+                for (map<int, string>::const_iterator value = field->enumValues.begin();
+                     value != field->enumValues.end(); value++) {
+                    fprintf(out, "    public static final int %s__%s = %d;\n",
+                            make_constant_name(full_enum_type_name).c_str(),
                             make_constant_name(value->second).c_str(), value->first);
                 }
                 fprintf(out, "\n");
@@ -430,6 +644,28 @@ int write_java_work_source_methods(FILE* out, const SignatureInfoMap& signatureI
         fprintf(out, "    }\n");          // close method
     }
     return 0;
+}
+
+bool contains_restricted(const AtomDeclSet& atomDeclSet) {
+    for (const auto& decl : atomDeclSet) {
+        if (decl->restricted) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool requires_api_needed(const AtomDeclSet& atomDeclSet) {
+    return contains_restricted(atomDeclSet);
+}
+
+int get_min_api_level(const AtomDeclSet& atomDeclSet) {
+    if (requires_api_needed(atomDeclSet)) {
+        if (contains_restricted(atomDeclSet)) {
+            return API_U;
+        }
+    }
+    return API_LEVEL_CURRENT;
 }
 
 }  // namespace stats_log_api_gen

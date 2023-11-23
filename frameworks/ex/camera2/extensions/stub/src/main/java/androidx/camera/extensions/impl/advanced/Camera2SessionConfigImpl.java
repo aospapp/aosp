@@ -43,4 +43,16 @@ public interface Camera2SessionConfigImpl {
      * {@link android.hardware.camera2.params.SessionConfiguration#setSessionParameters}.
      */
     int getSessionTemplateId();
+
+
+    /**
+     * Retrieves the session type to be used when initializing the
+     * {@link android.hardware.camera2.CameraCaptureSession}.
+     *
+     * @since 1.4
+     * @return Camera capture session type. Regular and vendor specific types are supported but
+     * not high speed values. The extension can return -1 in which case the camera capture session
+     * will be configured to use the default regular type.
+     */
+    int getSessionType();
 }

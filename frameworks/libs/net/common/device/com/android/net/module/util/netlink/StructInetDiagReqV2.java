@@ -18,7 +18,6 @@ package com.android.net.module.util.netlink;
 
 import androidx.annotation.Nullable;
 
-import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 
 /**
@@ -48,23 +47,11 @@ public class StructInetDiagReqV2 {
     private final int mState;
     public static final int INET_DIAG_REQ_V2_ALL_STATES = (int) 0xffffffff;
 
-    public StructInetDiagReqV2(int protocol, InetSocketAddress local, InetSocketAddress remote,
-            int family) {
-        this(protocol, local, remote, family, 0 /* pad */, 0 /* extension */,
-                INET_DIAG_REQ_V2_ALL_STATES);
-    }
-
-    public StructInetDiagReqV2(int protocol, @Nullable InetSocketAddress local,
-            @Nullable InetSocketAddress remote, int family, int pad, int extension, int state)
-            throws NullPointerException {
+    public StructInetDiagReqV2(int protocol, @Nullable StructInetDiagSockId id, int family, int pad,
+            int extension, int state) {
         mSdiagFamily = (byte) family;
         mSdiagProtocol = (byte) protocol;
-        // Request for all sockets if no specific socket is requested. Specify the local and remote
-        // socket address information for target request socket.
-        if ((local == null) != (remote == null)) {
-            throw new NullPointerException("Local and remote must be both null or both non-null");
-        }
-        mId = ((local != null && remote != null) ? new StructInetDiagSockId(local, remote) : null);
+        mId = id;
         mPad = (byte) pad;
         mIdiagExt = (byte) extension;
         mState = state;

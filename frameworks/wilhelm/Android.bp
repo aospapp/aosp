@@ -43,6 +43,9 @@ ndk_library {
     symbol_file: "src/libOpenMAXAL.map.txt",
     first_version: "14",
     unversioned_until: "current",
+    export_header_libs: [
+        "libOpenMAXAL_headers",
+    ],
 }
 
 ndk_headers {
@@ -58,6 +61,9 @@ ndk_library {
     symbol_file: "src/libOpenSLES.map.txt",
     first_version: "9",
     unversioned_until: "current",
+    export_header_libs: [
+        "libOpenSLES_ndk_headers",
+    ],
 }
 
 cc_library_headers {

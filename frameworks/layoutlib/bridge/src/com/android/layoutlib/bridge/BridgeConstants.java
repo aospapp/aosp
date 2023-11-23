@@ -56,4 +56,7 @@ public class BridgeConstants {
     public static final String ATTR_LIST_ITEM = "listitem";
     public static final String ATTR_OPEN_DRAWER = "openDrawer";
     public static final String ATTR_ITEM_COUNT = "itemCount";
+    public static final String ATTR_LIST_HEADER = "listheader";
+    public static final String ATTR_LIST_FOOTER = "listfooter";
+    public static final String ATTR_NUM_COLUMNS = "numColumns";
 }

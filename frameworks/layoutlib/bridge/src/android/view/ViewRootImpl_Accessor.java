@@ -17,10 +17,17 @@
 package android.view;
 
 /**
- * Accessor to allow layoutlib to call {@link ViewRootImpl#dispatchApplyInsets} directly.
+ * Accessor to allow layoutlib to call {@link ViewRootImpl} methods directly.
  */
 public class ViewRootImpl_Accessor {
     public static void dispatchApplyInsets(ViewRootImpl viewRoot, View host) {
         viewRoot.dispatchApplyInsets(host);
+    }
+
+    public static void setChild(ViewRootImpl viewRoot, View child) {
+        viewRoot.mView = child;
+        child.assignParent(viewRoot);
+        viewRoot.mWidth = child.getWidth();
+        viewRoot.mHeight = child.getHeight();
     }
 }

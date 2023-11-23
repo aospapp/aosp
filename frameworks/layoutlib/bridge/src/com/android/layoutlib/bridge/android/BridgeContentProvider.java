@@ -74,18 +74,20 @@ public final class BridgeContentProvider implements IContentProvider {
     }
 
     @Override
-    public String getType(Uri arg0) throws RemoteException {
+    public String getType(AttributionSource attributionSource, Uri arg0) throws RemoteException {
         // TODO Auto-generated method stub
         return null;
     }
 
     @SuppressWarnings("deprecation")
     @Override
-    public void getTypeAsync(Uri uri, RemoteCallback remoteCallback) {
+    public void getTypeAsync(AttributionSource attributionSource, Uri uri,
+            RemoteCallback remoteCallback) {
         AsyncTask.SERIAL_EXECUTOR.execute(() -> {
             try {
                 final Bundle bundle = new Bundle();
-                bundle.putString(ContentResolver.REMOTE_CALLBACK_RESULT, getType(uri));
+                bundle.putString(ContentResolver.REMOTE_CALLBACK_RESULT,
+                        getType(attributionSource, uri));
                 remoteCallback.sendResult(bundle);
             } catch (RemoteException e) {
               // Ignore
@@ -93,6 +95,26 @@ public final class BridgeContentProvider implements IContentProvider {
         });
     }
 
+    
+    public String getTypeAnonymous(Uri arg0) throws RemoteException {
+        // TODO Auto-generated method stub
+        return null;
+    }
+
+    @SuppressWarnings("deprecation")
+    @Override
+    public void getTypeAnonymousAsync(Uri uri, RemoteCallback remoteCallback) {
+        AsyncTask.SERIAL_EXECUTOR.execute(() -> {
+            try {
+                final Bundle bundle = new Bundle();
+                bundle.putString(ContentResolver.REMOTE_CALLBACK_RESULT,
+                        getTypeAnonymous(uri));
+                remoteCallback.sendResult(bundle);
+            } catch (RemoteException e) {
+                // Ignore
+            }
+        });
+    }
     @Override
     public Uri insert(AttributionSource attributionSource, Uri arg0, ContentValues arg1,
             Bundle arg2) throws RemoteException {
@@ -137,7 +159,8 @@ public final class BridgeContentProvider implements IContentProvider {
     }
 
     @Override
-    public String[] getStreamTypes(Uri arg0, String arg1) throws RemoteException {
+    public String[] getStreamTypes(AttributionSource attributionSource, Uri arg0, String arg1) 
+            throws RemoteException {
         // TODO Auto-generated method stub
         return null;
     }

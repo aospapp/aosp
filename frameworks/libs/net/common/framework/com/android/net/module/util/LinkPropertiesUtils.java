@@ -146,6 +146,24 @@ public final class LinkPropertiesUtils {
                 right != null ? right.getLinkAddresses() : null);
     }
 
+    /**
+     * Compares {@code left} {@code LinkProperties} allLinkAddresses against the {@code right}.
+     *
+     * @param left A LinkProperties or null
+     * @param right A LinkProperties or null
+     * @return {@code true} if both are identical, {@code false} otherwise.
+     * @see LinkProperties#getAllLinkAddresses()
+     */
+    public static boolean isIdenticalAllLinkAddresses(@Nullable LinkProperties left,
+            @Nullable LinkProperties right) {
+        if (left == right) return true;
+        if (left == null || right == null) return false;
+        final List<LinkAddress> leftAddresses = left.getAllLinkAddresses();
+        final List<LinkAddress> rightAddresses = right.getAllLinkAddresses();
+        if (leftAddresses.size() != rightAddresses.size()) return false;
+        return leftAddresses.containsAll(rightAddresses);
+    }
+
    /**
      * Compares {@code left} {@code LinkProperties} interface addresses against the {@code right}.
      *

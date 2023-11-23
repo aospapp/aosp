@@ -18,11 +18,15 @@ package com.android.net.module.util;
 
 import android.annotation.NonNull;
 import android.annotation.Nullable;
+import android.util.ArrayMap;
+import android.util.Pair;
 import android.util.SparseArray;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 import java.util.Objects;
+import java.util.function.Function;
 import java.util.function.Predicate;
 
 /**
@@ -98,7 +102,8 @@ public final class CollectionUtils {
      * @return The index of the first element that matches the predicate, or -1 if none.
      */
     @Nullable
-    public static <T> int indexOf(@NonNull Collection<T> elem, @NonNull Predicate<T> predicate) {
+    public static <T> int indexOf(@NonNull final Collection<T> elem,
+            @NonNull final Predicate<? super T> predicate) {
         int idx = 0;
         for (final T e : elem) {
             if (predicate.test(e)) return idx;
@@ -165,6 +170,26 @@ public final class CollectionUtils {
     }
 
     /**
+     * Returns the index of the needle array in the haystack array, or -1 if it can't be found.
+     * This is a byte array equivalent of Collections.indexOfSubList().
+     */
+    public static int indexOfSubArray(@NonNull byte[] haystack, @NonNull byte[] needle) {
+        for (int i = 0; i < haystack.length - needle.length + 1; i++) {
+            boolean found = true;
+            for (int j = 0; j < needle.length; j++) {
+                if (haystack[i + j] != needle[j]) {
+                    found = false;
+                    break;
+                }
+            }
+            if (found) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    /**
      * Returns a new collection of elements that match the passed predicate.
      * @param source the elements to filter.
      * @param test the predicate to test for.
@@ -201,7 +226,8 @@ public final class CollectionUtils {
      * @param <T> type of elements
      * @return true if |haystack| contains any of the |needles|, false otherwise
      */
-    public static <T> boolean containsAny(Collection<T> haystack, Collection<? extends T> needles) {
+    public static <T> boolean containsAny(@NonNull final Collection<T> haystack,
+            @NonNull final Collection<? extends T> needles) {
         for (T needle : needles) {
             if (haystack.contains(needle)) return true;
         }
@@ -215,8 +241,153 @@ public final class CollectionUtils {
      * @param <T> type of elements
      * @return true if |haystack| contains all of the |needles|, false otherwise
      */
-    public static <T> boolean containsAll(Collection<T> haystack, Collection<? extends T> needles) {
+    public static <T> boolean containsAll(@NonNull final Collection<T> haystack,
+            @NonNull final Collection<? extends T> needles) {
         return haystack.containsAll(needles);
     }
 
+    /**
+     * Returns the first item of a collection that matches the predicate.
+     * @param haystack The collection to search.
+     * @param condition The predicate to match.
+     * @param <T> The type of element in the collection.
+     * @return The first element matching the predicate, or null if none.
+     */
+    @Nullable
+    public static <T> T findFirst(@NonNull final Collection<T> haystack,
+            @NonNull final Predicate<? super T> condition) {
+        for (T needle : haystack) {
+            if (condition.test(needle)) return needle;
+        }
+        return null;
+    }
+
+    /**
+     * Returns the last item of a List that matches the predicate.
+     * @param haystack The List to search.
+     * @param condition The predicate to match.
+     * @param <T> The type of element in the list.
+     * @return The last element matching the predicate, or null if none.
+     */
+    // There is no way to reverse iterate a Collection in Java (e.g. the collection may
+    // be a single-linked list), so implementing this on Collection is necessarily very
+    // wasteful (store and reverse a copy, test all elements, or recurse to the end of the
+    // list to test on the up path and possibly blow the call stack)
+    @Nullable
+    public static <T> T findLast(@NonNull final List<T> haystack,
+            @NonNull final Predicate<? super T> condition) {
+        for (int i = haystack.size() - 1; i >= 0; --i) {
+            final T needle = haystack.get(i);
+            if (condition.test(needle)) return needle;
+        }
+        return null;
+    }
+
+    /**
+     * Returns whether a collection contains an element matching a condition
+     * @param haystack The collection to search.
+     * @param condition The predicate to match.
+     * @param <T> The type of element in the collection.
+     * @return Whether the collection contains any element matching the condition.
+     */
+    public static <T> boolean contains(@NonNull final Collection<T> haystack,
+            @NonNull final Predicate<? super T> condition) {
+        return -1 != indexOf(haystack, condition);
+    }
+
+    /**
+     * Standard map function, but returns a new modifiable ArrayList
+     *
+     * This returns a new list that contains, for each element of the source collection, its
+     * image through the passed transform.
+     * Elements in the source can be null if the transform accepts null inputs.
+     * Elements in the output can be null if the transform ever returns null.
+     * This function never returns null. If the source collection is empty, it returns the
+     * empty list.
+     * Contract : this method calls the transform function exactly once for each element in the
+     * list, in iteration order.
+     *
+     * @param source the source collection
+     * @param transform the function to transform the elements
+     * @param <T> type of source elements
+     * @param <R> type of destination elements
+     * @return an unmodifiable list of transformed elements
+     */
+    @NonNull
+    public static <T, R> ArrayList<R> map(@NonNull final Collection<T> source,
+            @NonNull final Function<? super T, ? extends R> transform) {
+        final ArrayList<R> dest = new ArrayList<>(source.size());
+        for (final T e : source) {
+            dest.add(transform.apply(e));
+        }
+        return dest;
+    }
+
+    /**
+     * Standard zip function, but returns a new modifiable ArrayList
+     *
+     * This returns a list of pairs containing, at each position, a pair of the element from the
+     * first list at that index and the element from the second list at that index.
+     * Both lists must be the same size. They may contain null.
+     *
+     * The easiest way to visualize what's happening is to think of two lists being laid out next
+     * to each other and stitched together with a zipper.
+     *
+     * Contract : this method will read each element of each list exactly once, in some unspecified
+     * order. If it throws, it will not read any element.
+     *
+     * @param first the first list of elements
+     * @param second the second list of elements
+     * @param <T> the type of first elements
+     * @param <R> the type of second elements
+     * @return the zipped list
+     */
+    @NonNull
+    public static <T, R> ArrayList<Pair<T, R>> zip(@NonNull final List<T> first,
+            @NonNull final List<R> second) {
+        final int size = first.size();
+        if (size != second.size()) {
+            throw new IllegalArgumentException("zip : collections must be the same size");
+        }
+        final ArrayList<Pair<T, R>> dest = new ArrayList<>(size);
+        for (int i = 0; i < size; ++i) {
+            dest.add(new Pair<>(first.get(i), second.get(i)));
+        }
+        return dest;
+    }
+
+    /**
+     * Returns a new ArrayMap that associates each key with the value at the same index.
+     *
+     * Both lists must be the same size.
+     * Both keys and values may contain null.
+     * Keys may not contain the same value twice.
+     *
+     * Contract : this method will read each element of each list exactly once, but does not
+     * specify the order, except if it throws in which case the number of reads is undefined.
+     *
+     * @param keys The list of keys
+     * @param values The list of values
+     * @param <T> The type of keys
+     * @param <R> The type of values
+     * @return The associated map
+     */
+    @NonNull
+    public static <T, R> ArrayMap<T, R> assoc(
+            @NonNull final List<T> keys, @NonNull final List<R> values) {
+        final int size = keys.size();
+        if (size != values.size()) {
+            throw new IllegalArgumentException("assoc : collections must be the same size");
+        }
+        final ArrayMap<T, R> dest = new ArrayMap<>(size);
+        for (int i = 0; i < size; ++i) {
+            final T key = keys.get(i);
+            if (dest.containsKey(key)) {
+                throw new IllegalArgumentException(
+                        "assoc : keys may not contain the same value twice");
+            }
+            dest.put(key, values.get(i));
+        }
+        return dest;
+    }
 }

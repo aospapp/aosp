@@ -16,6 +16,8 @@
 
 package com.android.wifitrackerlib;
 
+import android.app.admin.DevicePolicyManager;
+import android.app.admin.WifiSsidPolicy;
 import android.content.Context;
 import android.net.ConnectivityManager;
 import android.net.Network;
@@ -23,7 +25,6 @@ import android.net.NetworkCapabilities;
 import android.net.TransportInfo;
 import android.net.vcn.VcnTransportInfo;
 import android.net.wifi.WifiInfo;
-import android.os.Handler;
 import android.os.UserManager;
 import android.text.Annotation;
 import android.text.SpannableString;
@@ -33,6 +34,8 @@ import android.text.style.ClickableSpan;
 import android.view.View;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.core.os.BuildCompat;
 
 import com.android.settingslib.HelpUtils;
 
@@ -44,6 +47,10 @@ import com.android.settingslib.HelpUtils;
  * replaces this class with the version found in WifiTrackerLib/sdk_src/../NonSdkApiWrapper.java.
  */
 class NonSdkApiWrapper {
+    private NonSdkApiWrapper() {
+        // Empty constructor to make this class non-instantiable.
+    }
+
     /**
      * Starts the System captive portal app.
      */
@@ -85,13 +92,14 @@ class NonSdkApiWrapper {
     }
 
     /**
-     * Returns whether or not the network capabilities is determined to be VCN over Wi-Fi or not.
+     * Tries to get WifiInfo from network capabilities if it is VCN-over-Wifi.
      */
-    static boolean isVcnOverWifi(@NonNull NetworkCapabilities networkCapabilities) {
+    static WifiInfo getVcnWifiInfo(@NonNull NetworkCapabilities networkCapabilities) {
         TransportInfo transportInfo = networkCapabilities.getTransportInfo();
-        return transportInfo != null
-                && transportInfo instanceof VcnTransportInfo
-                && ((VcnTransportInfo) transportInfo).getWifiInfo() != null;
+        if (transportInfo instanceof VcnTransportInfo) {
+            return ((VcnTransportInfo) transportInfo).getWifiInfo();
+        }
+        return null;
     }
 
     /**
@@ -102,19 +110,28 @@ class NonSdkApiWrapper {
     }
 
     /**
-     * Registers the default network callback.
-     */
-    static void registerSystemDefaultNetworkCallback(
-            @NonNull ConnectivityManager connectivityManager,
-            @NonNull ConnectivityManager.NetworkCallback callback,
-            @NonNull Handler handler) {
-        connectivityManager.registerSystemDefaultNetworkCallback(callback, handler);
-    }
-
-    /**
      * Returns true if the WifiInfo is for the primary network, false otherwise.
      */
     static boolean isPrimary(@NonNull WifiInfo wifiInfo) {
         return wifiInfo.isPrimary();
+    }
+
+    /**
+     * Returns true if the NetworkCapabilities is OEM_PAID or OEM_PRIVATE
+     */
+    static boolean isOemCapabilities(@NonNull NetworkCapabilities capabilities) {
+        return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_OEM_PAID)
+                || capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_OEM_PRIVATE);
+    }
+
+    /**
+     * Returns the {@link WifiSsidPolicy} of the device.
+     */
+    @Nullable
+    static WifiSsidPolicy getWifiSsidPolicy(@NonNull DevicePolicyManager devicePolicyManager) {
+        if (BuildCompat.isAtLeastT()) {
+            return devicePolicyManager.getWifiSsidPolicy();
+        }
+        return null;
     }
 }

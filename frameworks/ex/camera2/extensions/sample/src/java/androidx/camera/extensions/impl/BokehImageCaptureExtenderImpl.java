@@ -16,10 +16,13 @@
 package androidx.camera.extensions.impl;
 
 import android.content.Context;
+import android.graphics.ImageFormat;
 import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.CaptureResult;
 import android.hardware.camera2.TotalCaptureResult;
+import android.hardware.camera2.params.SessionConfiguration;
+import android.hardware.camera2.params.StreamConfigurationMap;
 import android.media.Image;
 import android.media.ImageWriter;
 import android.os.Build;
@@ -51,6 +54,8 @@ public final class BokehImageCaptureExtenderImpl implements ImageCaptureExtender
     private static final int SESSION_STAGE_ID = 101;
     private static final int MODE = CaptureRequest.CONTROL_AWB_MODE_SHADE;
 
+    private CameraCharacteristics mCameraCharacteristics;
+
     /**
      * @hide
      */
@@ -62,6 +67,7 @@ public final class BokehImageCaptureExtenderImpl implements ImageCaptureExtender
      */
     @Override
     public void init(String cameraId, CameraCharacteristics cameraCharacteristics) {
+        mCameraCharacteristics = cameraCharacteristics;
     }
 
     /**
@@ -104,11 +110,67 @@ public final class BokehImageCaptureExtenderImpl implements ImageCaptureExtender
         CaptureProcessorImpl captureProcessor =
                 new CaptureProcessorImpl() {
                     private ImageWriter mImageWriter;
+                    private ImageWriter mImageWriterPostview;
 
                     @Override
                     public void onOutputSurface(Surface surface, int imageFormat) {
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                             mImageWriter = ImageWriter.newInstance(surface, 1);
+                        }
+                    }
+
+                    @Override
+                    public void onPostviewOutputSurface(Surface surface) {
+                        if ((Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) &&
+                                mImageWriterPostview == null) {
+                            mImageWriterPostview = ImageWriter.newInstance(surface, 1);
+                        }
+                    }
+
+                    @Override
+                    public void processWithPostview(
+                            Map<Integer, Pair<Image, TotalCaptureResult>> results,
+                            ProcessResultImpl resultCallback, Executor executor) {
+
+                        Pair<Image, TotalCaptureResult> result = results.get(DEFAULT_STAGE_ID);
+                        if (result == null) {
+                            Log.w(TAG,
+                                    "Unable to process since images does not contain all " +
+                                    "stages.");
+                            return;
+                        } else {
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                                Image image = mImageWriterPostview.dequeueInputImage();
+
+                                // Postview processing here
+                                ByteBuffer yByteBuffer = image.getPlanes()[0].getBuffer();
+                                ByteBuffer uByteBuffer = image.getPlanes()[2].getBuffer();
+                                ByteBuffer vByteBuffer = image.getPlanes()[1].getBuffer();
+
+                                // For sample, allocate empty buffer to match postview size
+                                yByteBuffer.put(ByteBuffer.allocate(image.getPlanes()[0]
+                                        .getBuffer().capacity()));
+                                uByteBuffer.put(ByteBuffer.allocate(image.getPlanes()[2]
+                                        .getBuffer().capacity()));
+                                vByteBuffer.put(ByteBuffer.allocate(image.getPlanes()[1]
+                                        .getBuffer().capacity()));
+                                Long sensorTimestamp =
+                                        result.second.get(CaptureResult.SENSOR_TIMESTAMP);
+                                if (sensorTimestamp != null) {
+                                    image.setTimestamp(sensorTimestamp);
+                                } else {
+                                    Log.e(TAG, "Sensor timestamp absent using default!");
+                                }
+
+                                mImageWriterPostview.queueInputImage(image);
+                            }
+                        }
+
+                        // Process still capture
+                        if (resultCallback != null) {
+                            process(results, resultCallback, executor);
+                        } else {
+                            process(results);
                         }
                     }
 
@@ -241,6 +303,11 @@ public final class BokehImageCaptureExtenderImpl implements ImageCaptureExtender
                     }
 
                     @Override
+                    public void onResolutionUpdate(Size size, Size postviewSize) {
+
+                    }
+
+                    @Override
                     public void onImageFormatUpdate(int imageFormat) {
 
                     }
@@ -317,7 +384,59 @@ public final class BokehImageCaptureExtenderImpl implements ImageCaptureExtender
      */
     @Override
     public List<Pair<Integer, Size[]>> getSupportedResolutions() {
-        return null;
+        List<Pair<Integer, Size[]>> formatResolutionsPairList = new ArrayList<>();
+
+        StreamConfigurationMap map =
+                mCameraCharacteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
+
+        if (map != null) {
+            // The sample implementation only retrieves originally supported resolutions from
+            // CameraCharacteristics for JPEG and YUV_420_888 formats to return.
+            Size[] outputSizes = map.getOutputSizes(ImageFormat.JPEG);
+
+            if (outputSizes != null) {
+                formatResolutionsPairList.add(Pair.create(ImageFormat.JPEG, outputSizes));
+            }
+
+            outputSizes = map.getOutputSizes(ImageFormat.YUV_420_888);
+
+            if (outputSizes != null) {
+                formatResolutionsPairList.add(Pair.create(ImageFormat.YUV_420_888, outputSizes));
+            }
+        }
+
+        return formatResolutionsPairList;
+    }
+
+    @Override
+    public List<Pair<Integer, Size[]>> getSupportedPostviewResolutions(Size captureSize) {
+        // Sample for supported postview sizes, returns subset of supported resolutions for
+        // still capture that are less than its size and match the aspect ratio
+        List<Pair<Integer, Size[]>> res = new ArrayList<>();
+        List<Pair<Integer, Size[]>> captureSupportedResolutions = getSupportedResolutions();
+        float targetAr = ((float) captureSize.getWidth()) / captureSize.getHeight();
+
+        for (Pair<Integer, Size[]> elem : captureSupportedResolutions) {
+            Integer currFormat = elem.first;
+            Size[] currFormatSizes = elem.second;
+            List<Size> postviewSizes = new ArrayList<>();
+
+            for (Size s : currFormatSizes) {
+                if ((s.equals(captureSize)) || (s.getWidth() > captureSize.getWidth())
+                        || (s.getHeight() > captureSize.getHeight())) continue;
+                float currentAr = ((float) s.getWidth()) / s.getHeight();
+                if (Math.abs(targetAr - currentAr) < 0.01) {
+                    postviewSizes.add(s);
+                }
+            }
+
+            if (!postviewSizes.isEmpty()) {
+                res.add(new Pair<Integer, Size[]>(currFormat,
+                        postviewSizes.toArray(new Size[postviewSizes.size()])));
+            }
+        }
+
+        return res;
     }
 
     @Override
@@ -340,5 +459,25 @@ public final class BokehImageCaptureExtenderImpl implements ImageCaptureExtender
             CaptureResult.CONTROL_AE_STATE, CaptureResult.FLASH_MODE,
             CaptureResult.FLASH_STATE};
         return Arrays.asList(CAPTURE_RESULT_SET);
+    }
+
+    @Override
+    public int onSessionType() {
+        return SessionConfiguration.SESSION_REGULAR;
+    }
+
+    @Override
+    public boolean isCaptureProcessProgressAvailable() {
+        return false;
+    }
+
+    @Override
+    public Pair<Long, Long> getRealtimeCaptureLatency() {
+        return null;
+    }
+
+    @Override
+    public boolean isPostviewAvailable() {
+        return true;
     }
 }

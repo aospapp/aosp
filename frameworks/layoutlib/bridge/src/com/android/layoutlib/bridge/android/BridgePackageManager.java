@@ -55,6 +55,7 @@ import android.os.PersistableBundle;
 import android.os.UserHandle;
 import android.os.storage.VolumeInfo;
 
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -148,7 +149,7 @@ public class BridgePackageManager extends PackageManager {
     @Override
     public List<PermissionInfo> queryPermissionsByGroup(String group, int flags)
             throws NameNotFoundException {
-        return null;
+        return Collections.emptyList();
     }
 
     @Override
@@ -164,63 +165,63 @@ public class BridgePackageManager extends PackageManager {
     @Override
     public PermissionGroupInfo getPermissionGroupInfo(String name, int flags)
             throws NameNotFoundException {
-        return null;
+        throw new NameNotFoundException("PackageManager features are not supported");
     }
 
     @Override
     public List<PermissionGroupInfo> getAllPermissionGroups(int flags) {
-        return null;
+        return Collections.emptyList();
     }
 
     @Override
     public ApplicationInfo getApplicationInfo(String packageName, int flags)
             throws NameNotFoundException {
-        return null;
+        throw new NameNotFoundException("PackageManager features are not supported");
     }
 
     @Override
     public ApplicationInfo getApplicationInfoAsUser(String packageName, int flags, int userId)
             throws NameNotFoundException {
-        return null;
+        throw new NameNotFoundException("PackageManager features are not supported");
     }
 
     @Override
     public ActivityInfo getActivityInfo(ComponentName component, int flags)
             throws NameNotFoundException {
-        return null;
+        throw new NameNotFoundException("PackageManager features are not supported");
     }
 
     @Override
     public ActivityInfo getReceiverInfo(ComponentName component, int flags)
             throws NameNotFoundException {
-        return null;
+        throw new NameNotFoundException("PackageManager features are not supported");
     }
 
     @Override
     public ServiceInfo getServiceInfo(ComponentName component, int flags)
             throws NameNotFoundException {
-        return null;
+        throw new NameNotFoundException("PackageManager features are not supported");
     }
 
     @Override
     public ProviderInfo getProviderInfo(ComponentName component, int flags)
             throws NameNotFoundException {
-        return null;
+        throw new NameNotFoundException("PackageManager features are not supported");
     }
 
     @Override
     public List<PackageInfo> getInstalledPackages(int flags) {
-        return null;
+        return Collections.emptyList();
     }
 
     @Override
     public List<PackageInfo> getPackagesHoldingPermissions(String[] permissions, int flags) {
-        return null;
+        return Collections.emptyList();
     }
 
     @Override
     public List<PackageInfo> getInstalledPackagesAsUser(int flags, int userId) {
-        return null;
+        return Collections.emptyList();
     }
 
     @Override
@@ -308,12 +309,12 @@ public class BridgePackageManager extends PackageManager {
 
     @Override
     public List<ApplicationInfo> getInstalledApplications(int flags) {
-        return null;
+        return Collections.emptyList();
     }
 
     @Override
     public List<ApplicationInfo> getInstalledApplicationsAsUser(int flags, int userId) {
-        return null;
+        return Collections.emptyList();
     }
 
     @Override
@@ -409,28 +410,28 @@ public class BridgePackageManager extends PackageManager {
 
     @Override
     public List<ResolveInfo> queryIntentActivities(Intent intent, int flags) {
-        return null;
+        return Collections.emptyList();
     }
 
     @Override
     public List<ResolveInfo> queryIntentActivitiesAsUser(Intent intent, int flags, int userId) {
-        return null;
+        return Collections.emptyList();
     }
 
     @Override
     public List<ResolveInfo> queryIntentActivityOptions(ComponentName caller, Intent[] specifics,
             Intent intent, int flags) {
-        return null;
+        return Collections.emptyList();
     }
 
     @Override
     public List<ResolveInfo> queryBroadcastReceivers(Intent intent, int flags) {
-        return null;
+        return Collections.emptyList();
     }
 
     @Override
     public List<ResolveInfo> queryBroadcastReceiversAsUser(Intent intent, int flags, int userId) {
-        return null;
+        return Collections.emptyList();
     }
 
     @Override
@@ -445,23 +446,23 @@ public class BridgePackageManager extends PackageManager {
 
     @Override
     public List<ResolveInfo> queryIntentServices(Intent intent, int flags) {
-        return null;
+        return Collections.emptyList();
     }
 
     @Override
     public List<ResolveInfo> queryIntentServicesAsUser(Intent intent, int flags, int userId) {
-        return null;
+        return Collections.emptyList();
     }
 
     @Override
     public List<ResolveInfo> queryIntentContentProvidersAsUser(Intent intent, int flags,
             int userId) {
-        return null;
+        return Collections.emptyList();
     }
 
     @Override
     public List<ResolveInfo> queryIntentContentProviders(Intent intent, int flags) {
-        return null;
+        return Collections.emptyList();
     }
 
     @Override
@@ -476,18 +477,18 @@ public class BridgePackageManager extends PackageManager {
 
     @Override
     public List<ProviderInfo> queryContentProviders(String processName, int uid, int flags) {
-        return null;
+        return Collections.emptyList();
     }
 
     @Override
     public InstrumentationInfo getInstrumentationInfo(ComponentName className, int flags)
             throws NameNotFoundException {
-        return null;
+        throw new NameNotFoundException("PackageManager features are not supported");
     }
 
     @Override
     public List<InstrumentationInfo> queryInstrumentation(String targetPackage, int flags) {
-        return null;
+        return Collections.emptyList();
     }
 
     @Override
@@ -497,12 +498,12 @@ public class BridgePackageManager extends PackageManager {
 
     @Override
     public Drawable getActivityIcon(ComponentName activityName) throws NameNotFoundException {
-        return null;
+        throw new NameNotFoundException("PackageManager features are not supported");
     }
 
     @Override
     public Drawable getActivityIcon(Intent intent) throws NameNotFoundException {
-        return null;
+        throw new NameNotFoundException("PackageManager features are not supported");
     }
 
     @Override
@@ -527,7 +528,7 @@ public class BridgePackageManager extends PackageManager {
 
     @Override
     public Drawable getApplicationIcon(String packageName) throws NameNotFoundException {
-        return null;
+        throw new NameNotFoundException("PackageManager features are not supported");
     }
 
     @Override
@@ -604,24 +605,24 @@ public class BridgePackageManager extends PackageManager {
     @Override
     public Resources getResourcesForActivity(ComponentName activityName)
             throws NameNotFoundException {
-        return null;
+        throw new NameNotFoundException("PackageManager features are not supported");
     }
 
     @Override
     public Resources getResourcesForApplication(ApplicationInfo app) throws NameNotFoundException {
-        return null;
+        throw new NameNotFoundException("PackageManager features are not supported");
     }
 
     @Override
     public Resources getResourcesForApplication(String appPackageName)
             throws NameNotFoundException {
-        return null;
+        throw new NameNotFoundException("PackageManager features are not supported");
     }
 
     @Override
     public Resources getResourcesForApplicationAsUser(String appPackageName, int userId)
             throws NameNotFoundException {
-        return null;
+        throw new NameNotFoundException("PackageManager features are not supported");
     }
 
     @Override
@@ -667,12 +668,12 @@ public class BridgePackageManager extends PackageManager {
 
     @Override
     public List<IntentFilterVerificationInfo> getIntentFilterVerifications(String packageName) {
-        return null;
+        return Collections.emptyList();
     }
 
     @Override
     public List<IntentFilter> getAllIntentFilters(String packageName) {
-        return null;
+        return Collections.emptyList();
     }
 
     @Override
@@ -744,7 +745,7 @@ public class BridgePackageManager extends PackageManager {
 
     @Override
     public List<PackageInfo> getPreferredPackages(int flags) {
-        return null;
+        return Collections.emptyList();
     }
 
     @Override
@@ -878,7 +879,7 @@ public class BridgePackageManager extends PackageManager {
 
     @Override
     public List<VolumeInfo> getPackageCandidateVolumes(ApplicationInfo app) {
-        return null;
+        return Collections.emptyList();
     }
 
     @Override

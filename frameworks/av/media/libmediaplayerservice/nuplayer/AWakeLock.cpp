@@ -28,11 +28,13 @@
 
 namespace android {
 
+const int32_t INVALID_DISPLAY_ID = -1;
+
 AWakeLock::AWakeLock() :
     mPowerManager(NULL),
     mWakeLockToken(NULL),
     mWakeLockCount(0),
-    mDeathRecipient(new PMDeathRecipient(this)) {}
+    mDeathRecipient(new PMDeathRecipient(this)){}
 
 AWakeLock::~AWakeLock() {
     if (mPowerManager != NULL) {
@@ -60,14 +62,19 @@ bool AWakeLock::acquire() {
             sp<IBinder> binder = new BBinder();
             int64_t token = IPCThreadState::self()->clearCallingIdentity();
             binder::Status status = mPowerManager->acquireWakeLock(
-                    binder, POWERMANAGER_PARTIAL_WAKE_LOCK,
-                    String16("AWakeLock"), String16("media"),
-                    {} /* workSource */, {} /* historyTag */, -1 /* displayId */,
-                    nullptr /* callback */);
+                binder,
+                /*flags= */ POWERMANAGER_PARTIAL_WAKE_LOCK,
+                /*tag=*/ String16("AWakeLock"),
+                /*packageName=*/ String16("media"),
+                /*ws=*/ {},
+                /*historyTag=*/ {},
+                /*displayId=*/ INVALID_DISPLAY_ID,
+                /*callback=*/NULL);
             IPCThreadState::self()->restoreCallingIdentity(token);
             if (status.isOk()) {
                 mWakeLockToken = binder;
                 mWakeLockCount++;
+                ALOGI("AwakeLock acquired");
                 return true;
             }
         }
@@ -94,6 +101,7 @@ void AWakeLock::release(bool force) {
             IPCThreadState::self()->restoreCallingIdentity(token);
         }
         mWakeLockToken.clear();
+        ALOGI("AwakeLock released");
     }
 }
 

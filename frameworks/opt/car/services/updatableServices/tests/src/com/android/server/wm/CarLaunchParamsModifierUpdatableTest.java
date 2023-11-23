@@ -50,8 +50,6 @@ import android.content.pm.ActivityInfo;
 import android.content.pm.ApplicationInfo;
 import android.content.res.Configuration;
 import android.hardware.display.DisplayManager;
-import android.os.Parcel;
-import android.os.Parcelable;
 import android.os.ServiceSpecificException;
 import android.os.UserHandle;
 import android.view.Display;
@@ -64,6 +62,7 @@ import com.android.internal.policy.AttributeCache;
 import com.android.server.LocalServices;
 import com.android.server.display.color.ColorDisplayService;
 import com.android.server.input.InputManagerService;
+import com.android.server.pm.UserManagerInternal;
 import com.android.server.policy.WindowManagerPolicy;
 
 import org.junit.After;
@@ -84,8 +83,11 @@ import java.util.function.Function;
  */
 @RunWith(AndroidJUnit4.class)
 public class CarLaunchParamsModifierUpdatableTest {
+    // TODO(b/262267582): Use these constants directly in the tests and remove the corresponding
+    // mock variables.
     private static final int PASSENGER_DISPLAY_ID_10 = 10;
     private static final int PASSENGER_DISPLAY_ID_11 = 11;
+    private static final int RANDOM_DISPLAY_ID_99 = 99;
     private static final int VIRTUAL_DISPLAY_ID_2 = 2;
     private static final int FEATURE_MAP_ID = 1111;
 
@@ -117,26 +119,23 @@ public class CarLaunchParamsModifierUpdatableTest {
     private PackageConfigPersister mPackageConfigPersister;
     @Mock
     private InputManagerService mInputManagerService;
+    @Mock
+    private UserManagerInternal mUserManagerInternal;
 
     @Mock
     private Display mDisplay0ForDriver;
-    @Mock
     private TaskDisplayArea mDisplayArea0ForDriver;
     @Mock
     private Display mDisplay1Private;
-    @Mock
     private TaskDisplayArea mDisplayArea1Private;
     @Mock
     private Display mDisplay10ForPassenger;
-    @Mock
     private TaskDisplayArea mDisplayArea10ForPassenger;
     @Mock
     private Display mDisplay11ForPassenger;
-    @Mock
     private TaskDisplayArea mDisplayArea11ForPassenger;
     @Mock
     private Display mDisplay2Virtual;
-    @Mock
     private TaskDisplayArea mDisplayArea2Virtual;
     private TaskDisplayArea mMapTaskDisplayArea;
 
@@ -157,8 +156,7 @@ public class CarLaunchParamsModifierUpdatableTest {
     @Mock
     private LaunchParamsController.LaunchParams mOutParams;
 
-    private void mockDisplay(Display display, TaskDisplayArea defaultTaskDisplayArea,
-            int displayId, int flags, int type) {
+    private TaskDisplayArea mockDisplay(Display display, int displayId, int flags, int type) {
         when(mDisplayManager.getDisplay(displayId)).thenReturn(display);
         when(display.getDisplayId()).thenReturn(displayId);
         when(display.getFlags()).thenReturn(flags);
@@ -166,12 +164,14 @@ public class CarLaunchParamsModifierUpdatableTest {
 
         // Return the same id as the display for simplicity
         DisplayContent dc = mock(DisplayContent.class);
-        defaultTaskDisplayArea.mDisplayContent = dc;
-        when(defaultTaskDisplayArea.getDisplayContent()).thenReturn(dc);
+        TaskDisplayArea defaultTaskDisplayArea = new TaskDisplayArea(dc, mWindowManagerService,
+                "defaultTDA#" + displayId, DisplayAreaOrganizer.FEATURE_DEFAULT_TASK_CONTAINER);
+        when(mRootWindowContainer.getDisplayContent(displayId)).thenReturn(dc);
         when(mRootWindowContainer.getDisplayContentOrCreate(displayId)).thenReturn(dc);
         when(dc.getDisplay()).thenReturn(display);
         when(dc.getDefaultTaskDisplayArea()).thenReturn(defaultTaskDisplayArea);
         when(dc.isTrusted()).thenReturn((flags & FLAG_TRUSTED) == FLAG_TRUSTED);
+        return defaultTaskDisplayArea;
     }
 
     @Before
@@ -181,6 +181,7 @@ public class CarLaunchParamsModifierUpdatableTest {
                 .mockStatic(ActivityTaskManager.class)
                 .strictness(Strictness.LENIENT)
                 .startMocking();
+
         mContext = getInstrumentation().getTargetContext();
         spyOn(mContext);
         doReturn(mDisplayManager).when(mContext).getSystemService(eq(DisplayManager.class));
@@ -194,15 +195,26 @@ public class CarLaunchParamsModifierUpdatableTest {
         mActivityTaskManagerService.mPackageConfigPersister = mPackageConfigPersister;
         mActivityTaskManagerService.mWindowOrganizerController =
                 new WindowOrganizerController(mActivityTaskManagerService);
+        mActivityTaskManagerService.mContext = mContext;
         when(mActivityTaskManagerService.getTransitionController()).thenCallRealMethod();
         when(mActivityTaskManagerService.getRecentTasks()).thenReturn(mRecentTasks);
         when(mActivityTaskManagerService.getGlobalLock()).thenReturn(mWindowManagerGlobalLock);
+        when(mActivityTaskManagerService.getUiContext()).thenReturn(mContext);
 
+        LocalServices.removeServiceForTest(UserManagerInternal.class);
+        LocalServices.addService(UserManagerInternal.class, mUserManagerInternal);
+        when(mUserManagerInternal.getUserAssignedToDisplay(anyInt()))
+                .thenReturn(UserHandle.USER_NULL);
+        when(mUserManagerInternal.getMainDisplayAssignedToUser(anyInt()))
+                .thenReturn(INVALID_DISPLAY);
+
+        LocalServices.removeServiceForTest(WindowManagerInternal.class);
+        LocalServices.removeServiceForTest(ImeTargetVisibilityPolicy.class);
         mWindowManagerService = WindowManagerService.main(
-                mContext, mInputManagerService, /* showBootMsgs= */ false, /* onlyCore= */ false,
-                /* policy= */ null, mActivityTaskManagerService,
+                mContext, mInputManagerService, /* showBootMsgs= */ false, /* policy= */ null,
+                mActivityTaskManagerService,
                 /* displayWindowSettingsProvider= */ null, () -> new SurfaceControl.Transaction(),
-                /* surfaceFactory= */ null, /* surfaceControlFactory= */ null);
+                /* surfaceControlFactory= */ null);
         mActivityTaskManagerService.mWindowManager = mWindowManagerService;
         mRootWindowContainer.mWindowManager = mWindowManagerService;
 
@@ -210,7 +222,7 @@ public class CarLaunchParamsModifierUpdatableTest {
         LocalServices.addService(ColorDisplayService.ColorDisplayServiceInternal.class,
                 mColorDisplayServiceInternal);
         when(mActivityOptions.getLaunchDisplayId()).thenReturn(INVALID_DISPLAY);
-        mockDisplay(mDisplay0ForDriver, mDisplayArea0ForDriver, DEFAULT_DISPLAY,
+        mDisplayArea0ForDriver = mockDisplay(mDisplay0ForDriver, DEFAULT_DISPLAY,
                 FLAG_TRUSTED, /* type= */ 0);
         DisplayContent defaultDC = mRootWindowContainer.getDisplayContentOrCreate(DEFAULT_DISPLAY);
         mMapTaskDisplayArea = new TaskDisplayArea(
@@ -221,13 +233,13 @@ public class CarLaunchParamsModifierUpdatableTest {
         }).when(defaultDC).getItemFromTaskDisplayAreas(any());
         when(mActivityRecordSource.getDisplayContent()).thenReturn(defaultDC);
 
-        mockDisplay(mDisplay10ForPassenger, mDisplayArea10ForPassenger, PASSENGER_DISPLAY_ID_10,
+        mDisplayArea10ForPassenger = mockDisplay(mDisplay10ForPassenger, PASSENGER_DISPLAY_ID_10,
                 FLAG_TRUSTED, /* type= */ 0);
-        mockDisplay(mDisplay11ForPassenger, mDisplayArea11ForPassenger, PASSENGER_DISPLAY_ID_11,
+        mDisplayArea11ForPassenger = mockDisplay(mDisplay11ForPassenger, PASSENGER_DISPLAY_ID_11,
                 FLAG_TRUSTED, /* type= */ 0);
-        mockDisplay(mDisplay1Private, mDisplayArea1Private, 1,
+        mDisplayArea1Private = mockDisplay(mDisplay1Private, 1,
                 FLAG_TRUSTED | FLAG_PRIVATE, /* type= */ 0);
-        mockDisplay(mDisplay2Virtual, mDisplayArea2Virtual, VIRTUAL_DISPLAY_ID_2,
+        mDisplayArea2Virtual = mockDisplay(mDisplay2Virtual, VIRTUAL_DISPLAY_ID_2,
                 FLAG_PRIVATE, /* type= */ 0);
 
         mModifier = new CarLaunchParamsModifier(mContext);
@@ -242,7 +254,10 @@ public class CarLaunchParamsModifierUpdatableTest {
         LocalServices.removeServiceForTest(WindowManagerInternal.class);
         LocalServices.removeServiceForTest(WindowManagerPolicy.class);
         LocalServices.removeServiceForTest(ColorDisplayService.ColorDisplayServiceInternal.class);
-        mMockingSession.finishMocking();
+        // If the exception is thrown during the MockingSession setUp, mMockingSession can be null.
+        if (mMockingSession != null) {
+            mMockingSession.finishMocking();
+        }
     }
 
     private void assertDisplayIsAllowed(@UserIdInt int userId, Display display) {
@@ -250,8 +265,8 @@ public class CarLaunchParamsModifierUpdatableTest {
         mCurrentParams.mPreferredTaskDisplayArea = mBuiltin.getDefaultTaskDisplayAreaOnDisplay(
                 display.getDisplayId()).getTaskDisplayArea();
         assertThat(mModifier.onCalculate(mTask, mWindowLayout, mActivityRecordActivity,
-                mActivityRecordSource, mActivityOptions, null /* request */, 0, mCurrentParams,
-                mOutParams))
+                mActivityRecordSource, mActivityOptions, /* request= */ null , /* phase= */ 0,
+                mCurrentParams, mOutParams))
                 .isEqualTo(LaunchParamsController.LaunchParamsModifier.RESULT_SKIP);
     }
 
@@ -265,8 +280,8 @@ public class CarLaunchParamsModifierUpdatableTest {
                 displayAssigned.getDisplayId()).getTaskDisplayArea();
         mCurrentParams.mPreferredTaskDisplayArea = requestedTaskDisplayArea;
         assertThat(mModifier.onCalculate(mTask, mWindowLayout, mActivityRecordActivity,
-                mActivityRecordSource, mActivityOptions, null /* request */, 0, mCurrentParams,
-                mOutParams))
+                mActivityRecordSource, mActivityOptions, /* request= */ null, /* phase= */ 0,
+                mCurrentParams, mOutParams))
                 .isEqualTo(LaunchParamsController.LaunchParamsModifier.RESULT_DONE);
         assertThat(mOutParams.mPreferredTaskDisplayArea).isEqualTo(assignedTaskDisplayArea);
     }
@@ -278,8 +293,8 @@ public class CarLaunchParamsModifierUpdatableTest {
         }
         mCurrentParams.mPreferredTaskDisplayArea = null;
         assertThat(mModifier.onCalculate(mTask, mWindowLayout, mActivityRecordActivity,
-                mActivityRecordSource, mActivityOptions, null /* request */, 0, mCurrentParams,
-                mOutParams))
+                mActivityRecordSource, mActivityOptions, /* request= */ null, /* phase= */ 0,
+                mCurrentParams, mOutParams))
                 .isEqualTo(LaunchParamsController.LaunchParamsModifier.RESULT_DONE);
         assertThat(mOutParams.mPreferredTaskDisplayArea).isEqualTo(expectedDisplayArea);
     }
@@ -288,8 +303,8 @@ public class CarLaunchParamsModifierUpdatableTest {
         mTask.mUserId = userId;
         mCurrentParams.mPreferredTaskDisplayArea = null;
         assertThat(mModifier.onCalculate(mTask, mWindowLayout, mActivityRecordActivity,
-                mActivityRecordSource, mActivityOptions, null /* request */, 0, mCurrentParams,
-                mOutParams))
+                mActivityRecordSource, mActivityOptions, /* request= */ null, /* phase= */ 0,
+                mCurrentParams, mOutParams))
                 .isEqualTo(LaunchParamsController.LaunchParamsModifier.RESULT_SKIP);
         assertThat(mOutParams.mPreferredTaskDisplayArea).isNull();
     }
@@ -615,7 +630,7 @@ public class CarLaunchParamsModifierUpdatableTest {
 
     @Test
     public void testSourceDisplayFromProcessDisplayIfAvailable() {
-        int userId = 10;
+        int userId = 108;
         String processName = "processName";
         int processUid = 11;
         when(mActivityRecordActivity.getProcessName())
@@ -635,15 +650,15 @@ public class CarLaunchParamsModifierUpdatableTest {
         mTask.mUserId = userId;
 
         assertThat(mModifier.onCalculate(mTask, mWindowLayout, mActivityRecordActivity,
-                mActivityRecordSource, null, null /* request */, 0, mCurrentParams, mOutParams))
-                .isEqualTo(TaskLaunchParamsModifier.RESULT_DONE);
+                mActivityRecordSource, /* options= */ null, /* request= */ null, /* phase= */ 0,
+                mCurrentParams, mOutParams)).isEqualTo(TaskLaunchParamsModifier.RESULT_DONE);
         assertThat(mOutParams.mPreferredTaskDisplayArea)
                 .isEqualTo(mDisplayArea10ForPassenger);
     }
 
     @Test
     public void testSourceDisplayFromLaunchingDisplayIfAvailable() {
-        int userId = 10;
+        int userId = 108;
         int launchedFromPid = 1324;
         int launchedFromUid = 325;
         when(mActivityRecordActivity.getLaunchedFromPid())
@@ -660,18 +675,18 @@ public class CarLaunchParamsModifierUpdatableTest {
         when(controller.getTopActivityDisplayArea())
                 .thenReturn(mDisplayArea10ForPassenger);
         mCurrentParams.mPreferredTaskDisplayArea = null;
-        mTask.mUserId = 10;
+        mTask.mUserId = userId;
 
         assertThat(mModifier.onCalculate(mTask, mWindowLayout, mActivityRecordActivity,
-                mActivityRecordSource, null, null /* request */, 0, mCurrentParams, mOutParams))
-                .isEqualTo(TaskLaunchParamsModifier.RESULT_DONE);
+                mActivityRecordSource, /* options= */ null, /* request= */ null, /* phase= */ 0,
+                mCurrentParams, mOutParams)).isEqualTo(TaskLaunchParamsModifier.RESULT_DONE);
         assertThat(mOutParams.mPreferredTaskDisplayArea)
                 .isEqualTo(mDisplayArea10ForPassenger);
     }
 
     @Test
     public void testSourceDisplayFromCallingDisplayIfAvailable() {
-        int userId = 10;
+        int userId = 108;
         ActivityStarter.Request request = fakeRequest();
         mUpdatable.setPassengerDisplays(new int[]{mDisplay11ForPassenger.getDisplayId(),
                 mDisplay10ForPassenger.getDisplayId()});
@@ -687,8 +702,8 @@ public class CarLaunchParamsModifierUpdatableTest {
         mTask.mUserId = userId;
 
         assertThat(mModifier.onCalculate(mTask, mWindowLayout, mActivityRecordActivity,
-                mActivityRecordSource, null, request, 0, mCurrentParams, mOutParams))
-                .isEqualTo(TaskLaunchParamsModifier.RESULT_DONE);
+                mActivityRecordSource, /* options= */ null, request, /* phase= */ 0, mCurrentParams,
+                mOutParams)).isEqualTo(TaskLaunchParamsModifier.RESULT_DONE);
         assertThat(mOutParams.mPreferredTaskDisplayArea)
                 .isEqualTo(mDisplayArea10ForPassenger);
     }
@@ -709,7 +724,8 @@ public class CarLaunchParamsModifierUpdatableTest {
         mTask.mUserId = 10;
 
         assertThat(mModifier.onCalculate(mTask, mWindowLayout, mActivityRecordActivity,
-                mActivityRecordSource, null, request, 0, mCurrentParams, mOutParams))
+                mActivityRecordSource, /* options= */ null, request, /* phase= */ 0, mCurrentParams,
+                mOutParams))
                 .isEqualTo(TaskLaunchParamsModifier.RESULT_DONE);
         assertThat(mOutParams.mPreferredTaskDisplayArea)
                 .isEqualTo(mDisplayArea11ForPassenger);
@@ -770,6 +786,62 @@ public class CarLaunchParamsModifierUpdatableTest {
         assertThrows(ServiceSpecificException.class,
                 () -> mUpdatable.setPersistentActivity(mapActivity, DEFAULT_DISPLAY,
                         DisplayAreaOrganizer.FEATURE_UNDEFINED));
+    }
+
+    @Test
+    public void testWindowingMode_forPassengerActivityOptions_updatedInParams() {
+        int userId = 108;
+        int launchedFromPid = 1324;
+        int launchedFromUid = 325;
+        when(mActivityOptions.getLaunchWindowingMode()).thenReturn(6);
+        when(mActivityRecordActivity.getLaunchedFromPid()).thenReturn(launchedFromPid);
+        when(mActivityRecordActivity.getLaunchedFromUid()).thenReturn(launchedFromUid);
+        mUpdatable.setPassengerDisplays(new int[]{PASSENGER_DISPLAY_ID_11,
+                PASSENGER_DISPLAY_ID_10});
+        mUpdatable.setDisplayAllowListForUser(userId, new int[]{PASSENGER_DISPLAY_ID_10});
+        WindowProcessController controller = mock(WindowProcessController.class);
+        when(mActivityTaskManagerService.getProcessController(launchedFromPid, launchedFromUid))
+                .thenReturn(controller);
+        when(controller.getTopActivityDisplayArea()).thenReturn(mDisplayArea10ForPassenger);
+        mCurrentParams.mPreferredTaskDisplayArea = null;
+        mTask.mUserId = 108;
+
+        assertThat(mModifier.onCalculate(mTask, mWindowLayout, mActivityRecordActivity,
+                mActivityRecordSource, mActivityOptions, /* request= */ null, /* phase= */ 0,
+                mCurrentParams, mOutParams)).isEqualTo(TaskLaunchParamsModifier.RESULT_DONE);
+        assertThat(mOutParams.mPreferredTaskDisplayArea).isEqualTo(mDisplayArea10ForPassenger);
+        assertThat(mOutParams.mWindowingMode).isEqualTo(6);
+    }
+
+    @Test
+    public void testVisibleUserStartsButNoOccupantZoneIsAssigned() {
+        // We have a Passenger display, but a visible user is started, but not an occupant zone is
+        // assigned yet. This happens for Home when a visible user is started.
+        mUpdatable.setPassengerDisplays(
+                new int[]{PASSENGER_DISPLAY_ID_10, PASSENGER_DISPLAY_ID_11});
+        int visibleUserId = 100;
+        when(mUserManagerInternal.getUserAssignedToDisplay(PASSENGER_DISPLAY_ID_11))
+                .thenReturn(visibleUserId);
+        when(mActivityOptions.getLaunchDisplayId()).thenReturn(PASSENGER_DISPLAY_ID_11);
+
+        // CarLaunchParamsModifier admires the launchDisplayId, not assigning a display.
+        assertNoDisplayIsAssigned(visibleUserId);
+    }
+
+    @Test
+    public void testVisibleUserUsesMainDisplayAsFallback_whenLaunchedOnRandomDisplay() {
+        mUpdatable.setPassengerDisplays(
+                new int[]{PASSENGER_DISPLAY_ID_10, PASSENGER_DISPLAY_ID_11});
+        int visibleUserId = 100;
+        when(mUserManagerInternal.getUserAssignedToDisplay(PASSENGER_DISPLAY_ID_11))
+                .thenReturn(visibleUserId);
+        when(mUserManagerInternal.getMainDisplayAssignedToUser(visibleUserId))
+                .thenReturn(PASSENGER_DISPLAY_ID_11);
+        // Try to start Activity on the non-main display.
+        when(mActivityOptions.getLaunchDisplayId()).thenReturn(RANDOM_DISPLAY_ID_99);
+
+        // For the visible user, fallbacks to the main display.
+        assertDisplayIsAssigned(visibleUserId, mDisplayArea11ForPassenger);
     }
 
     private static ActivityStarter.Request fakeRequest() {

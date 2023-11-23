@@ -24,16 +24,19 @@ cc_library_shared {
         "ASensorEventQueue.cpp",
         "ASensorManager.cpp",
     ],
-    cflags: ["-Wall", "-Werror"],
+    cflags: [
+        "-Wall",
+        "-Werror",
+    ],
     shared_libs: [
         "libbase",
-        "libhidlbase",
+        "libbinder_ndk",
         "libutils",
-        "android.frameworks.sensorservice@1.0",
-        "android.hardware.sensors@1.0",
+        "android.frameworks.sensorservice-V1-ndk",
+        "android.hardware.sensors-V2-ndk",
     ],
     static_libs: [
-        "android.hardware.sensors@1.0-convert",
+        "android.hardware.sensors-V1-convert",
     ],
 
     header_libs: [
@@ -42,5 +45,12 @@ cc_library_shared {
 
     export_header_lib_headers: [
         "libandroid_sensor_headers",
+    ],
+
+    export_shared_lib_headers: [
+        "android.frameworks.sensorservice-V1-ndk",
+    ],
+    export_static_lib_headers: [
+        "android.hardware.sensors-V1-convert",
     ],
 }

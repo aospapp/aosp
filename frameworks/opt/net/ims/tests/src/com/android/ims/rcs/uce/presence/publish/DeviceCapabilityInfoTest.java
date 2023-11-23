@@ -16,6 +16,19 @@
 
 package com.android.ims.rcs.uce.presence.publish;
 
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anyBoolean;
+import static org.mockito.Mockito.anyInt;
+import static org.mockito.Mockito.doReturn;
+
+import android.content.Context;
+import android.telephony.CarrierConfigManager;
+import android.telephony.TelephonyManager;
+import android.telephony.ims.RcsContactPresenceTuple;
+import android.util.ArraySet;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 
@@ -26,6 +39,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.SmallTest;
 
 import com.android.ims.ImsTestBase;
+import com.android.ims.rcs.uce.util.UceUtils;
 
 import org.junit.After;
 import org.junit.Before;
@@ -33,10 +47,17 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Set;
+
 @RunWith(AndroidJUnit4.class)
 public class DeviceCapabilityInfoTest extends ImsTestBase {
-
     int mSubId = 1;
+
+    @Mock PublishServiceDescTracker mPublishServiceDescTracker;
+    @Mock Context mMockContext;
 
     String sipNumber = "123456789";
     String telNumber = "987654321";
@@ -49,6 +70,22 @@ public class DeviceCapabilityInfoTest extends ImsTestBase {
     @After
     public void tearDown() throws Exception {
         super.tearDown();
+    }
+
+    @Test
+    @SmallTest
+    public void testGetPresenceCapabilityForSameDescription() throws Exception {
+        DeviceCapabilityInfo deviceCapInfo = createDeviceCapabilityInfo();
+
+        Set<ServiceDescription> mTestCapability = new ArraySet<>();
+        mTestCapability.add(getChatDescription());
+        mTestCapability.add(getMmtelDescription());
+        mTestCapability.add(getUndefinedDescription());
+
+        deviceCapInfo.addLastSuccessfulServiceDescription(getMmtelDescription());
+        deviceCapInfo.addLastSuccessfulServiceDescription(getChatDescription());
+        deviceCapInfo.addLastSuccessfulServiceDescription(getUndefinedDescription());
+        assertFalse(deviceCapInfo.isPresenceCapabilityChanged(mTestCapability));
     }
 
     @Test
@@ -86,6 +123,23 @@ public class DeviceCapabilityInfoTest extends ImsTestBase {
         number = numberParts[0];
 
         assertEquals(number, telNumber);
+    }
+
+    @Test
+    @SmallTest
+    public void testGetPresenceCapabilityForSameSizeOfDescription() throws Exception {
+        DeviceCapabilityInfo deviceCapInfo = createDeviceCapabilityInfo();
+
+        Set<ServiceDescription> mTestCapability = new ArraySet<>();
+        mTestCapability.add(getChatDescription());
+        mTestCapability.add(getMmtelDescription());
+        mTestCapability.add(getUndefinedDescription());
+
+        deviceCapInfo.addLastSuccessfulServiceDescription(getMmtelDescription());
+        deviceCapInfo.addLastSuccessfulServiceDescription(getChatDescription());
+        deviceCapInfo.addLastSuccessfulServiceDescription(getUndefined2Description());
+
+        assertTrue(deviceCapInfo.isPresenceCapabilityChanged(mTestCapability));
     }
 
     @Test
@@ -138,7 +192,43 @@ public class DeviceCapabilityInfoTest extends ImsTestBase {
         number = numberParts[0];
 
         assertEquals(number, telNumber);
+    }
 
+    @Test
+    @SmallTest
+    public void testGetLastSuccessfulPresenceTuples() throws Exception {
+         DeviceCapabilityInfo deviceCapInfo = createDeviceCapabilityInfo();
+
+        List<RcsContactPresenceTuple> tuples =
+                deviceCapInfo.getLastSuccessfulPresenceTuplesWithoutContactUri();
+        // Verify that the presence tuples are empty when the last capabilities are empty.
+        assertTrue(tuples.isEmpty());
+
+        doReturn(null).when(mMockContext).getSystemService(CarrierConfigManager.class);
+        doReturn(null).when(mMockContext).getSystemService(TelephonyManager.class);
+        ServiceDescription mmtelDescription = getMmtelDescription();
+        deviceCapInfo.addLastSuccessfulServiceDescription(mmtelDescription);
+        ServiceDescription chatDescription = getChatDescription();
+        deviceCapInfo.addLastSuccessfulServiceDescription(chatDescription);
+        tuples = deviceCapInfo.getLastSuccessfulPresenceTuplesWithoutContactUri();
+        assertEquals(2, tuples.size());
+
+        Uri[] uris = new Uri[1];
+        uris[0] = Uri.fromParts(PhoneAccount.SCHEME_SIP, sipNumber, null);
+        deviceCapInfo.updateRcsAssociatedUri(uris);
+        List<RcsContactPresenceTuple> expectedTuples = new ArrayList<>();
+        expectedTuples.add(mmtelDescription.getTupleBuilder().setContactUri(uris[0]).build());
+        expectedTuples.add(chatDescription.getTupleBuilder().setContactUri(uris[0]).build());
+
+        tuples = deviceCapInfo.getLastSuccessfulPresenceTuplesWithoutContactUri();
+        assertTrue(!tuples.isEmpty());
+        assertEquals(expectedTuples.size(), tuples.size());
+        for (int i = 0; i < tuples.size(); i++) {
+            assertEquals(expectedTuples.get(i).getServiceId(), tuples.get(i).getServiceId());
+            assertEquals(expectedTuples.get(i).getServiceVersion(),
+                    tuples.get(i).getServiceVersion());
+            assertNull(tuples.get(i).getContactUri());
+        }
     }
 
     private DeviceCapabilityInfo createDeviceCapabilityInfo() {
@@ -146,4 +236,40 @@ public class DeviceCapabilityInfoTest extends ImsTestBase {
         return deviceCapInfo;
     }
 
+    private ServiceDescription getChatDescription() {
+        ServiceDescription SERVICE_DESCRIPTION_CHAT_SESSION =
+                new ServiceDescription(
+                        RcsContactPresenceTuple.SERVICE_ID_CHAT_V2,
+                        "2.0" /*version*/,
+                        null /*description*/
+                );
+        return SERVICE_DESCRIPTION_CHAT_SESSION;
+    }
+
+    private ServiceDescription getMmtelDescription() {
+        ServiceDescription SERVICE_DESCRIPTION_MMTEL_VOICE = new ServiceDescription(
+                RcsContactPresenceTuple.SERVICE_ID_MMTEL,
+                "1.0" /*version*/,
+                "Voice Service" /*description*/
+        );
+        return SERVICE_DESCRIPTION_MMTEL_VOICE;
+    }
+
+    private ServiceDescription getUndefinedDescription() {
+        ServiceDescription SERVICE_DESCRIPTION_TEST = new ServiceDescription(
+                "test",
+                "1.0" /*version*/,
+                "Test_Service" /*description*/
+        );
+        return SERVICE_DESCRIPTION_TEST;
+    }
+
+    private ServiceDescription getUndefined2Description() {
+        ServiceDescription SERVICE_DESCRIPTION_TEST2 = new ServiceDescription(
+                "test1",
+                "1.0" /*version*/,
+                "Test_Service" /*description*/
+        );
+        return SERVICE_DESCRIPTION_TEST2;
+    }
 }

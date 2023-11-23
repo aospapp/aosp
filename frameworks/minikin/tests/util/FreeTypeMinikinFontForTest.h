@@ -17,13 +17,14 @@
 #ifndef MINIKIN_TEST_FREE_TYPE_MINIKIN_FONT_FOR_TEST_H
 #define MINIKIN_TEST_FREE_TYPE_MINIKIN_FONT_FOR_TEST_H
 
+#include <ft2build.h>
+
 #include <string>
 
 #include "minikin/Buffer.h"
 #include "minikin/Font.h"
 #include "minikin/MinikinFont.h"
-
-#include <ft2build.h>
+#include "minikin/MinikinFontFactory.h"
 #include FT_FREETYPE_H
 
 #include "minikin/Macros.h"
@@ -64,9 +65,19 @@ private:
     MINIKIN_PREVENT_COPY_AND_ASSIGN(FreeTypeMinikinFontForTest);
 };
 
-void writeFreeTypeMinikinFontForTest(BufferWriter* writer, const MinikinFont* typeface);
+class FreeTypeMinikinFontForTestFactory : MinikinFontFactory {
+private:
+    FreeTypeMinikinFontForTestFactory();
 
-Font::TypefaceLoader* readFreeTypeMinikinFontForTest(BufferReader* reader);
+public:
+    static void init();
+
+    void write(BufferWriter* writer, const MinikinFont* typeface) const override;
+
+    std::shared_ptr<MinikinFont> create(BufferReader reader) const override;
+
+    void skip(BufferReader* reader) const override;
+};
 
 }  // namespace minikin
 

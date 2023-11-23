@@ -31,8 +31,6 @@ import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.os.Handler_Delegate;
 import android.os.SystemClock_Delegate;
-import android.view.Choreographer;
-import android.view.DisplayEventReceiver_VsyncEventData_Accessor;
 import android.view.MotionEvent;
 
 import java.awt.image.BufferedImage;
@@ -193,6 +191,10 @@ public class BridgeRenderSession extends RenderSession {
             int motionEventType = toMotionEventType(type);
             mSession.dispatchTouchEvent(motionEventType, System_Delegate.nanoTime(), x, y);
         });
+    }
+
+    public void triggerKeyEvent(java.awt.event.KeyEvent event) {
+        execute(() -> mSession.dispatchKeyEvent(event, System_Delegate.nanoTime()));
     }
 
     @Override

@@ -35,7 +35,7 @@ public:
 
     // Check if the process is debuggable. It returns false except in any of the
     // following circumstances:
-    // 1. ro.debuggable=1 (global debuggable enabled).
+    // 1. ANDROID_DEBUGGABLE is defined (global debuggable enabled).
     // 2. android:debuggable="true" in the manifest for an individual app.
     // 3. An app which explicitly calls prctl(PR_SET_DUMPABLE, 1).
     // 4. GraphicsEnv calls prctl(PR_SET_DUMPABLE, 1) in the presence of
@@ -71,10 +71,19 @@ public:
                      const std::string& appPackageName, const int32_t vulkanVersion);
     // Set stats for target GpuStatsInfo::Stats type.
     void setTargetStats(const GpuStatsInfo::Stats stats, const uint64_t value = 0);
+    // Set array of stats for target GpuStatsInfo::Stats type.
+    void setTargetStatsArray(const GpuStatsInfo::Stats stats, const uint64_t* values,
+                             const uint32_t valueCount);
     // Set which driver is intended to load.
     void setDriverToLoad(GpuStatsInfo::Driver driver);
     // Set which driver is actually loaded.
     void setDriverLoaded(GpuStatsInfo::Api api, bool isDriverLoaded, int64_t driverLoadingTime);
+    // Set which instance extensions are enabled for the app.
+    void setVulkanInstanceExtensions(uint32_t enabledExtensionCount,
+                                     const char* const* ppEnabledExtensionNames);
+    // Set which device extensions are enabled for the app.
+    void setVulkanDeviceExtensions(uint32_t enabledExtensionCount,
+                                   const char* const* ppEnabledExtensionNames);
 
     /*
      * Api for Vk/GL layer injection.  Presently, drivers enable certain
@@ -122,6 +131,8 @@ public:
     const std::string& getDebugLayers();
     // Get the debug layers to load.
     const std::string& getDebugLayersGLES();
+    // Set the persist.graphics.egl system property value.
+    void nativeToggleAngleAsSystemDriver(bool enabled);
 
 private:
     enum UseAngle { UNKNOWN, YES, NO };

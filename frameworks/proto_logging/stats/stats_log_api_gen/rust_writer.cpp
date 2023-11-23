@@ -99,12 +99,9 @@ static string get_variable_name(const string& str) {
     }
 }
 
-static void write_rust_method_signature(FILE* out, const char* namePrefix,
-                                        const AtomDecl& atomDecl,
-                                        const AtomDecl& attributionDecl,
-                                        bool isCode,
-                                        bool isNonChained,
-                                        const char* headerCrate) {
+static void write_rust_method_signature(FILE* out, const char* namePrefix, const AtomDecl& atomDecl,
+                                        const AtomDecl& attributionDecl, bool isCode,
+                                        bool isNonChained, const char* headerCrate) {
     // To make the generated code pretty, add newlines between arguments.
     const char* separator = (isCode ? "\n" : " ");
     if (isCode) {
@@ -115,14 +112,14 @@ static void write_rust_method_signature(FILE* out, const char* namePrefix,
     if (isCode) {
         fprintf(out, "\n");
     }
-    if (atomDecl.oneOfName == ONEOF_PULLED_ATOM_NAME) {
+    if (atomDecl.atomType == ATOM_TYPE_PULLED) {
         if (isCode) {
             fprintf(out, "        ");
         }
         fprintf(out, "pulled_data_: &mut AStatsEventList,%s", separator);
     }
     for (int i = 0; i < atomDecl.fields.size(); i++) {
-        const AtomField &atomField = atomDecl.fields[i];
+        const AtomField& atomField = atomDecl.fields[i];
         const java_type_t& type = atomField.javaType;
         if (type == JAVA_TYPE_ATTRIBUTION_CHAIN) {
             for (int j = 0; j < attributionDecl.fields.size(); j++) {
@@ -145,8 +142,7 @@ static void write_rust_method_signature(FILE* out, const char* namePrefix,
                 fprintf(out, "%s", get_variable_name(atomField.name).c_str());
             }
             if (type == JAVA_TYPE_ENUM) {
-                fprintf(out, ": %s,%s", make_camel_case_name(atomField.name).c_str(),
-                        separator);
+                fprintf(out, ": %s,%s", make_camel_case_name(atomField.name).c_str(), separator);
             } else {
                 fprintf(out, ": %s,%s", rust_type_name(type, false), separator);
             }
@@ -163,14 +159,13 @@ static bool write_rust_usage(FILE* out, const string& method_name, const shared_
                              const AtomDecl& attributionDecl, bool isNonChained,
                              const char* headerCrate) {
     fprintf(out, "    // Definition: ");
-    write_rust_method_signature(out, method_name.c_str(), *atom, attributionDecl,
-                                false, isNonChained, headerCrate);
+    write_rust_method_signature(out, method_name.c_str(), *atom, attributionDecl, false,
+                                isNonChained, headerCrate);
     return true;
 }
 
 static void write_rust_atom_constants(FILE* out, const Atoms& atoms,
-                                      const AtomDecl& attributionDecl,
-                                      const char* headerCrate) {
+                                      const AtomDecl& attributionDecl, const char* headerCrate) {
     fprintf(out, "// Constants for atom codes.\n");
     fprintf(out, "#[derive(Clone, Copy)]\n");
     fprintf(out, "pub enum Atoms {\n");
@@ -182,8 +177,8 @@ static void write_rust_atom_constants(FILE* out, const Atoms& atoms,
         string constant = make_camel_case_name(atomDecl->name);
         fprintf(out, "\n");
         fprintf(out, "    // %s %s\n", atomDecl->message.c_str(), atomDecl->name.c_str());
-        bool isSupported = write_rust_usage(out, "// stats_write", atomDecl,
-                            attributionDecl, false, headerCrate);
+        bool isSupported = write_rust_usage(out, "// stats_write", atomDecl, attributionDecl, false,
+                                            headerCrate);
         if (!isSupported) {
             continue;
         }
@@ -210,8 +205,8 @@ static void write_rust_atom_constant_values(FILE* out, const shared_ptr<AtomDecl
             fprintf(out, "    pub enum %s {\n", make_camel_case_name(field.name).c_str());
             for (map<int, string>::const_iterator value = field.enumValues.begin();
                  value != field.enumValues.end(); value++) {
-                fprintf(out, "        %s = %d,\n",
-                        make_camel_case_name(value->second).c_str(), value->first);
+                fprintf(out, "        %s = %d,\n", make_camel_case_name(value->second).c_str(),
+                        value->first);
             }
             fprintf(out, "    }\n");
             hasConstants = true;
@@ -227,13 +222,14 @@ static void write_rust_annotation_constants(FILE* out) {
     // The annotation names are all prefixed with AnnotationId.
     // Ideally that would go into the enum name instead,
     // but I don't want to modify the actual name strings in case they change in the future.
-    fprintf(out, "#[allow(clippy::enum_variant_names)]\n");
+    fprintf(out, "#[allow(unused, clippy::enum_variant_names)]\n");
     fprintf(out, "#[repr(u8)]\n");
     fprintf(out, "enum Annotations {\n");
 
-    const map<AnnotationId, string>& ANNOTATION_ID_CONSTANTS = get_annotation_id_constants();
-    for (const auto& [id, name] : ANNOTATION_ID_CONSTANTS) {
-        fprintf(out, "    %s = %hhu,\n", make_camel_case_name(name).c_str(), id);
+    const map<AnnotationId, AnnotationStruct>& ANNOTATION_ID_CONSTANTS =
+            get_annotation_id_constants();
+    for (const auto& [id, annotation] : ANNOTATION_ID_CONSTANTS) {
+        fprintf(out, "    %s = %hhu,\n", make_camel_case_name(annotation.name).c_str(), id);
     }
     fprintf(out, "}\n\n");
 }
@@ -242,7 +238,8 @@ static void write_rust_annotation_constants(FILE* out) {
 // Note that argIndex is 1 for the first argument.
 static void write_annotations(FILE* out, int argIndex, const AtomDecl& atomDecl,
                               const string& methodPrefix, const string& methodSuffix) {
-    const map<AnnotationId, string>& ANNOTATION_ID_CONSTANTS = get_annotation_id_constants();
+    const map<AnnotationId, AnnotationStruct>& ANNOTATION_ID_CONSTANTS =
+            get_annotation_id_constants();
     auto annotationsIt = atomDecl.fieldNumberToAnnotations.find(argIndex);
     if (annotationsIt == atomDecl.fieldNumberToAnnotations.end()) {
         return;
@@ -250,66 +247,67 @@ static void write_annotations(FILE* out, int argIndex, const AtomDecl& atomDecl,
     int resetState = -1;
     int defaultState = -1;
     for (const shared_ptr<Annotation>& annotation : annotationsIt->second) {
-        const string& annotationConstant = ANNOTATION_ID_CONSTANTS.at(annotation->annotationId);
+        const string& annotationConstant =
+                ANNOTATION_ID_CONSTANTS.at(annotation->annotationId).name;
         switch (annotation->type) {
-        case ANNOTATION_TYPE_INT:
-            if (ANNOTATION_ID_TRIGGER_STATE_RESET == annotation->annotationId) {
-                resetState = annotation->value.intValue;
-            } else if (ANNOTATION_ID_DEFAULT_STATE == annotation->annotationId) {
-                defaultState = annotation->value.intValue;
-            } else {
-                fprintf(out, "            %saddInt32Annotation(%scrate::Annotations::%s as u8, %d);\n",
+            case ANNOTATION_TYPE_INT:
+                if (ANNOTATION_ID_TRIGGER_STATE_RESET == annotation->annotationId) {
+                    resetState = annotation->value.intValue;
+                } else if (ANNOTATION_ID_DEFAULT_STATE == annotation->annotationId) {
+                    defaultState = annotation->value.intValue;
+                } else {
+                    fprintf(out,
+                            "            %saddInt32Annotation(%scrate::Annotations::%s as u8, "
+                            "%d);\n",
+                            methodPrefix.c_str(), methodSuffix.c_str(),
+                            make_camel_case_name(annotationConstant).c_str(),
+                            annotation->value.intValue);
+                }
+                break;
+            case ANNOTATION_TYPE_BOOL:
+                fprintf(out,
+                        "            %saddBoolAnnotation(%scrate::Annotations::%s as u8, %s);\n",
                         methodPrefix.c_str(), methodSuffix.c_str(),
                         make_camel_case_name(annotationConstant).c_str(),
-                        annotation->value.intValue);
-            }
-            break;
-        case ANNOTATION_TYPE_BOOL:
-            fprintf(out, "            %saddBoolAnnotation(%scrate::Annotations::%s as u8, %s);\n",
-                    methodPrefix.c_str(), methodSuffix.c_str(),
-                    make_camel_case_name(annotationConstant).c_str(),
-                    annotation->value.boolValue ? "true" : "false");
-            break;
-        default:
-            break;
+                        annotation->value.boolValue ? "true" : "false");
+                break;
+            default:
+                break;
         }
     }
     if (defaultState != -1 && resetState != -1) {
         const string& annotationConstant =
-            ANNOTATION_ID_CONSTANTS.at(ANNOTATION_ID_TRIGGER_STATE_RESET);
+                ANNOTATION_ID_CONSTANTS.at(ANNOTATION_ID_TRIGGER_STATE_RESET).name;
         const AtomField& field = atomDecl.fields[argIndex - 1];
         if (field.javaType == JAVA_TYPE_ENUM) {
             fprintf(out, "            if %s as i32 == %d {\n",
                     get_variable_name(field.name).c_str(), resetState);
         } else {
-            fprintf(out, "            if %s == %d {\n",
-                    get_variable_name(field.name).c_str(), resetState);
+            fprintf(out, "            if %s == %d {\n", get_variable_name(field.name).c_str(),
+                    resetState);
         }
         fprintf(out, "                %saddInt32Annotation(%scrate::Annotations::%s as u8, %d);\n",
                 methodPrefix.c_str(), methodSuffix.c_str(),
-                make_camel_case_name(annotationConstant).c_str(),
-                defaultState);
+                make_camel_case_name(annotationConstant).c_str(), defaultState);
         fprintf(out, "            }\n");
     }
 }
 
 static int write_rust_method_body(FILE* out, const AtomDecl& atomDecl,
-                                  const AtomDecl& attributionDecl,
-                                  const int minApiLevel,
+                                  const AtomDecl& attributionDecl, const int minApiLevel,
                                   const char* headerCrate) {
     fprintf(out, "        unsafe {\n");
     if (minApiLevel == API_Q) {
         fprintf(stderr, "TODO: Do we need to handle this case?");
         return 1;
     }
-    if (atomDecl.oneOfName == ONEOF_PUSHED_ATOM_NAME) {
+    if (atomDecl.atomType == ATOM_TYPE_PUSHED) {
         fprintf(out, "            let __event = AStatsEvent_obtain();\n");
         fprintf(out, "            let __dropper = crate::AStatsEventDropper(__event);\n");
     } else {
         fprintf(out, "            let __event = AStatsEventList_addStatsEvent(pulled_data_);\n");
     }
-    fprintf(out, "            AStatsEvent_setAtomId(__event, %s::Atoms::%s as u32);\n",
-            headerCrate,
+    fprintf(out, "            AStatsEvent_setAtomId(__event, %s::Atoms::%s as u32);\n", headerCrate,
             make_camel_case_name(atomDecl.name).c_str());
     write_annotations(out, ATOM_ID_FIELD_NUMBER, atomDecl, "AStatsEvent_", "__event, ");
     for (int i = 0; i < atomDecl.fields.size(); i++) {
@@ -317,59 +315,62 @@ static int write_rust_method_body(FILE* out, const AtomDecl& atomDecl,
         const string& name = get_variable_name(atomField.name);
         const java_type_t& type = atomField.javaType;
         switch (type) {
-        case JAVA_TYPE_ATTRIBUTION_CHAIN: {
-	    const char* uidName = attributionDecl.fields.front().name.c_str();
-	    const char* tagName = attributionDecl.fields.back().name.c_str();
-	    fprintf(out,
-                    "            let uids = %s_chain_.iter().map(|n| (*n).try_into())"
-                    ".collect::<std::result::Result<Vec<_>, _>>()?;\n"
-                    "            let str_arr = %s_chain_.iter().map(|s| std::ffi::CString::new(*s))"
-                    ".collect::<std::result::Result<Vec<_>, _>>()?;\n"
-                    "            let ptr_arr = str_arr.iter().map(|s| s.as_ptr())"
-                    ".collect::<std::vec::Vec<_>>();\n"
-		    "            AStatsEvent_writeAttributionChain(__event, uids.as_ptr(),\n"
-                    "                ptr_arr.as_ptr(), %s_chain_.len().try_into()?);\n",
-		    uidName, tagName, uidName);
-	    break;
-        }
-        case JAVA_TYPE_BYTE_ARRAY:
-	    fprintf(out,
-		    "            AStatsEvent_writeByteArray(__event, "
-                    "%s.as_ptr(), %s.len());\n",
-		    name.c_str(), name.c_str());
-	    break;
-        case JAVA_TYPE_BOOLEAN:
-	    fprintf(out, "            AStatsEvent_writeBool(__event, %s);\n", name.c_str());
-	    break;
-        case JAVA_TYPE_ENUM:
-	    fprintf(out, "            AStatsEvent_writeInt32(__event, %s as i32);\n", name.c_str());
-	    break;
-        case JAVA_TYPE_INT:
-	    fprintf(out, "            AStatsEvent_writeInt32(__event, %s);\n", name.c_str());
-	    break;
-        case JAVA_TYPE_FLOAT:
-	    fprintf(out, "            AStatsEvent_writeFloat(__event, %s);\n", name.c_str());
-	    break;
-        case JAVA_TYPE_LONG:
-	    fprintf(out, "            AStatsEvent_writeInt64(__event, %s);\n", name.c_str());
-	    break;
-        case JAVA_TYPE_STRING:
-            fprintf(out, "            let str = std::ffi::CString::new(%s)?;\n", name.c_str());
-            fprintf(out, "            AStatsEvent_writeString(__event, str.as_ptr());\n");
-            break;
-        default:
-            // Unsupported types: OBJECT, DOUBLE
-            fprintf(stderr, "Encountered unsupported type: %d.", type);
-            return 1;
+            case JAVA_TYPE_ATTRIBUTION_CHAIN: {
+                const char* uidName = attributionDecl.fields.front().name.c_str();
+                const char* tagName = attributionDecl.fields.back().name.c_str();
+                fprintf(out,
+                        "            let uids = %s_chain_.iter().map(|n| (*n).try_into())"
+                        ".collect::<std::result::Result<Vec<_>, _>>()?;\n"
+                        "            let str_arr = %s_chain_.iter().map(|s| "
+                        "std::ffi::CString::new(*s))"
+                        ".collect::<std::result::Result<Vec<_>, _>>()?;\n"
+                        "            let ptr_arr = str_arr.iter().map(|s| s.as_ptr())"
+                        ".collect::<std::vec::Vec<_>>();\n"
+                        "            AStatsEvent_writeAttributionChain(__event, uids.as_ptr(),\n"
+                        "                ptr_arr.as_ptr(), %s_chain_.len().try_into()?);\n",
+                        uidName, tagName, uidName);
+                break;
+            }
+            case JAVA_TYPE_BYTE_ARRAY:
+                fprintf(out,
+                        "            AStatsEvent_writeByteArray(__event, "
+                        "%s.as_ptr(), %s.len());\n",
+                        name.c_str(), name.c_str());
+                break;
+            case JAVA_TYPE_BOOLEAN:
+                fprintf(out, "            AStatsEvent_writeBool(__event, %s);\n", name.c_str());
+                break;
+            case JAVA_TYPE_ENUM:
+                fprintf(out, "            AStatsEvent_writeInt32(__event, %s as i32);\n",
+                        name.c_str());
+                break;
+            case JAVA_TYPE_INT:
+                fprintf(out, "            AStatsEvent_writeInt32(__event, %s);\n", name.c_str());
+                break;
+            case JAVA_TYPE_FLOAT:
+                fprintf(out, "            AStatsEvent_writeFloat(__event, %s);\n", name.c_str());
+                break;
+            case JAVA_TYPE_LONG:
+                fprintf(out, "            AStatsEvent_writeInt64(__event, %s);\n", name.c_str());
+                break;
+            case JAVA_TYPE_STRING:
+                fprintf(out, "            let str = std::ffi::CString::new(%s)?;\n", name.c_str());
+                fprintf(out, "            AStatsEvent_writeString(__event, str.as_ptr());\n");
+                break;
+            default:
+                // Unsupported types: OBJECT, DOUBLE
+                fprintf(stderr, "Encountered unsupported type: %d.", type);
+                return 1;
         }
         // write_annotations expects the first argument to have an index of 1.
         write_annotations(out, i + 1, atomDecl, "AStatsEvent_", "__event, ");
     }
-    if (atomDecl.oneOfName == ONEOF_PUSHED_ATOM_NAME) {
+    if (atomDecl.atomType == ATOM_TYPE_PUSHED) {
         fprintf(out, "            let __ret = AStatsEvent_write(__event);\n");
-        fprintf(out, "            if __ret >= 0 { %s::StatsResult::Ok(()) }"
-                " else { Err(%s::StatsError::Return(__ret)) }\n", headerCrate,
-                headerCrate);
+        fprintf(out,
+                "            if __ret >= 0 { %s::StatsResult::Ok(()) }"
+                " else { Err(%s::StatsError::Return(__ret)) }\n",
+                headerCrate, headerCrate);
     } else {
         fprintf(out, "            AStatsEvent_build(__event);\n");
         fprintf(out, "            %s::StatsResult::Ok(())\n", headerCrate);
@@ -379,15 +380,14 @@ static int write_rust_method_body(FILE* out, const AtomDecl& atomDecl,
 }
 
 static int write_rust_stats_write_method(FILE* out, const shared_ptr<AtomDecl>& atomDecl,
-                                          const AtomDecl& attributionDecl,
-                                          const int minApiLevel,
-                                          const char* headerCrate) {
-    if (atomDecl->oneOfName == ONEOF_PUSHED_ATOM_NAME) {
-        write_rust_method_signature(out, "stats_write", *atomDecl, attributionDecl,
-                                    true, false, headerCrate);
+                                         const AtomDecl& attributionDecl, const int minApiLevel,
+                                         const char* headerCrate) {
+    if (atomDecl->atomType == ATOM_TYPE_PUSHED) {
+        write_rust_method_signature(out, "stats_write", *atomDecl, attributionDecl, true, false,
+                                    headerCrate);
     } else {
-        write_rust_method_signature(out, "add_astats_event", *atomDecl, attributionDecl,
-                                    true, false, headerCrate);
+        write_rust_method_signature(out, "add_astats_event", *atomDecl, attributionDecl, true,
+                                    false, headerCrate);
     }
     int ret = write_rust_method_body(out, *atomDecl, attributionDecl, minApiLevel, headerCrate);
     if (ret != 0) {
@@ -401,26 +401,26 @@ static void write_rust_stats_write_non_chained_method(FILE* out,
                                                       const shared_ptr<AtomDecl>& atomDecl,
                                                       const AtomDecl& attributionDecl,
                                                       const char* headerCrate) {
-    write_rust_method_signature(out, "stats_write_non_chained", *atomDecl, attributionDecl,
-                                true, true, headerCrate);
+    write_rust_method_signature(out, "stats_write_non_chained", *atomDecl, attributionDecl, true,
+                                true, headerCrate);
     fprintf(out, "        stats_write(");
     for (int i = 0; i < atomDecl->fields.size(); i++) {
         if (i != 0) {
             fprintf(out, ", ");
         }
-        const AtomField &atomField = atomDecl->fields[i];
+        const AtomField& atomField = atomDecl->fields[i];
         const java_type_t& type = atomField.javaType;
         if (i < 2) {
             // The first two args are attribution chains.
             fprintf(out, "&[%s_non_chained_]", atomField.name.c_str());
         } else if (type == JAVA_TYPE_ATTRIBUTION_CHAIN) {
-                for (int j = 0; j < attributionDecl.fields.size(); j++) {
-                    const AtomField& chainField = attributionDecl.fields[j];
-                    if (i != 0 || j != 0)  {
-                        fprintf(out, ", ");
-                    }
-                    fprintf(out, "&[%s_chain_]", chainField.name.c_str());
+            for (int j = 0; j < attributionDecl.fields.size(); j++) {
+                const AtomField& chainField = attributionDecl.fields[j];
+                if (i != 0 || j != 0) {
+                    fprintf(out, ", ");
                 }
+                fprintf(out, "&[%s_chain_]", chainField.name.c_str());
+            }
         } else {
             fprintf(out, "%s", get_variable_name(atomField.name).c_str());
         }
@@ -432,8 +432,8 @@ static void write_rust_stats_write_non_chained_method(FILE* out,
 static bool needs_lifetime(const shared_ptr<AtomDecl>& atomDecl) {
     for (const AtomField& atomField : atomDecl->fields) {
         const java_type_t& type = atomField.javaType;
-        if (type == JAVA_TYPE_ATTRIBUTION_CHAIN
-            || type == JAVA_TYPE_STRING || type == JAVA_TYPE_BYTE_ARRAY) {
+        if (type == JAVA_TYPE_ATTRIBUTION_CHAIN || type == JAVA_TYPE_STRING ||
+            type == JAVA_TYPE_BYTE_ARRAY) {
             return true;
         }
     }
@@ -468,7 +468,7 @@ static void write_rust_struct(FILE* out, const shared_ptr<AtomDecl>& atomDecl,
     fprintf(out, "    }\n");
 
     // Write the impl
-    bool isPush = atomDecl->oneOfName == ONEOF_PUSHED_ATOM_NAME;
+    bool isPush = atomDecl->atomType == ATOM_TYPE_PUSHED;
     if (isPush) {
         if (lifetime) {
             fprintf(out, "    impl<'a> %s<'a> {\n", make_camel_case_name(atomDecl->name).c_str());
@@ -486,12 +486,16 @@ static void write_rust_struct(FILE* out, const shared_ptr<AtomDecl>& atomDecl,
     }
     fprintf(out, "        #[inline(always)]\n");
     if (isPush) {
-        fprintf(out, "        pub fn stats_write(&self)"
-                " -> %s::StatsResult {\n", headerCrate);
+        fprintf(out,
+                "        pub fn stats_write(&self)"
+                " -> %s::StatsResult {\n",
+                headerCrate);
         fprintf(out, "            stats_write(");
     } else {
-        fprintf(out, "        fn add_astats_event(&self, pulled_data: &mut AStatsEventList)"
-                " -> %s::StatsResult {\n", headerCrate);
+        fprintf(out,
+                "        fn add_astats_event(&self, pulled_data: &mut AStatsEventList)"
+                " -> %s::StatsResult {\n",
+                headerCrate);
         fprintf(out, "            add_astats_event(pulled_data, ");
     }
     for (const AtomField& atomField : atomDecl->fields) {
@@ -512,8 +516,7 @@ static void write_rust_struct(FILE* out, const shared_ptr<AtomDecl>& atomDecl,
 static int write_rust_stats_write_atoms(FILE* out, const AtomDeclSet& atomDeclSet,
                                         const AtomDecl& attributionDecl,
                                         const AtomDeclSet& nonChainedAtomDeclSet,
-                                        const int minApiLevel,
-                                        const char* headerCrate) {
+                                        const int minApiLevel, const char* headerCrate) {
     for (const auto& atomDecl : atomDeclSet) {
         // TODO(b/216543320): support repeated fields in Rust
         if (std::find_if(atomDecl->fields.begin(), atomDecl->fields.end(),
@@ -529,15 +532,15 @@ static int write_rust_stats_write_atoms(FILE* out, const AtomDeclSet& atomDeclSe
         fprintf(out, "\n");
         write_rust_atom_constant_values(out, atomDecl);
         write_rust_struct(out, atomDecl, attributionDecl, headerCrate);
-        int ret = write_rust_stats_write_method(out, atomDecl, attributionDecl,
-                    minApiLevel, headerCrate);
+        int ret = write_rust_stats_write_method(out, atomDecl, attributionDecl, minApiLevel,
+                                                headerCrate);
         if (ret != 0) {
             return ret;
         }
         auto nonChained = nonChainedAtomDeclSet.find(atomDecl);
         if (nonChained != nonChainedAtomDeclSet.end()) {
-            write_rust_stats_write_non_chained_method(out, *nonChained,
-                attributionDecl, headerCrate);
+            write_rust_stats_write_non_chained_method(out, *nonChained, attributionDecl,
+                                                      headerCrate);
         }
         fprintf(out, "}\n");
     }
@@ -545,7 +548,7 @@ static int write_rust_stats_write_atoms(FILE* out, const AtomDeclSet& atomDeclSe
 }
 
 void write_stats_log_rust_header(FILE* out, const Atoms& atoms, const AtomDecl& attributionDecl,
-                                    const char* headerCrate) {
+                                 const char* headerCrate) {
     // Print prelude
     fprintf(out, "// This file is autogenerated.\n");
     fprintf(out, "\n");
@@ -562,7 +565,8 @@ void write_stats_log_rust_header(FILE* out, const Atoms& atoms, const AtomDecl& 
     fprintf(out, "pub type StatsResult = std::result::Result<(), StatsError>;\n");
     fprintf(out, "\n");
     fprintf(out, "pub trait Stat {\n");
-    fprintf(out, "    fn add_astats_event(&self,"
+    fprintf(out,
+            "    fn add_astats_event(&self,"
             " pulled_data: &mut statspull_bindgen::AStatsEventList)"
             " -> StatsResult;\n");
     fprintf(out, "}\n");
@@ -573,7 +577,7 @@ void write_stats_log_rust_header(FILE* out, const Atoms& atoms, const AtomDecl& 
 
 int write_stats_log_rust(FILE* out, const Atoms& atoms, const AtomDecl& attributionDecl,
                          const int minApiLevel, const char* headerCrate) {
-    //Print prelude
+    // Print prelude
     fprintf(out, "// This file is autogenerated.\n");
     fprintf(out, "\n");
     fprintf(out, "struct AStatsEventDropper(*mut statspull_bindgen::AStatsEvent);\n");
@@ -587,9 +591,8 @@ int write_stats_log_rust(FILE* out, const Atoms& atoms, const AtomDecl& attribut
 
     write_rust_annotation_constants(out);
 
-    int errorCount = write_rust_stats_write_atoms(out, atoms.decls, attributionDecl,
-                                                  atoms.non_chained_decls,
-                                                  minApiLevel, headerCrate);
+    int errorCount = write_rust_stats_write_atoms(
+            out, atoms.decls, attributionDecl, atoms.non_chained_decls, minApiLevel, headerCrate);
 
     return errorCount;
 }

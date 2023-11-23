@@ -32,7 +32,7 @@ cc_test {
         "libbinder_ndk",
     ],
     static_libs: [
-        "android.frameworks.automotive.powerpolicy-V1-ndk",
+        "android.frameworks.automotive.powerpolicy-V2-ndk",
         "libgmock",
     ],
     test_suites: [

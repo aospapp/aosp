@@ -33,7 +33,7 @@ license {
 
 cc_library_headers {
     name: "libnativedisplay_headers",
-    export_include_dirs: ["include",],
+    export_include_dirs: ["include"],
 }
 
 cc_library_shared {
@@ -42,8 +42,6 @@ cc_library_shared {
         "include",
         "include-private",
     ],
-
-    clang: true,
 
     cflags: [
         "-Wall",
@@ -55,6 +53,7 @@ cc_library_shared {
     version_script: "libnativedisplay.map.txt",
 
     srcs: [
+        ":libgui_frame_event_aidl",
         "AChoreographer.cpp",
         "ADisplay.cpp",
         "surfacetexture/surface_texture.cpp",

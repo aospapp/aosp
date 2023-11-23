@@ -18,16 +18,21 @@ package android.frameworks.automotive.display;
 
 import android.frameworks.automotive.display.DisplayDesc;
 import android.hardware.common.NativeHandle;
+import android.view.Surface;
 
 /**
  * ICarDisplayProxy is an interface implemented by the car display proxy daemon and allows
  * the vendor processes to render their contents on the display via SurfaceFlinger.
  *
- * To obtain a Surface associated with the target display, a client needs to call
+ * A client can obtain a Surface associated with the target display via
+ * ICarDisplayProxy.getSurface() and control the visibility of the target surface via
+ * ICarDisplayProxy.showWindow() and ICarDisplayProxy.hideWindow().
+ *
+ * If a client uses ICarDisplayProxy.getHGraphicBufferProducer(), which is deprecated with
+ * android.frameworks.automotive.display-V2, a client should call
  * ICarDisplayProxy.getHGraphicBufferProducer() and convert a returned NativeHandle into
  * HGraphicBufferProducer.  libbufferqueueconverter provides getSurfaceFromHGPB() to get
- * the surface from a converted HGraphicBufferProducer.  A client can control the visibility
- * of a target surface via ICarDisplayProxy.showWindow() and ICarDisplayProxy.hideWindow().
+ * the surface from a converted HGraphicBufferProducer.
  */
 @VintfStability
 interface ICarDisplayProxy {
@@ -55,6 +60,8 @@ interface ICarDisplayProxy {
      * @throws STATUS_FAILED_TRANSACTION if it fails to create the surface or read the display
      *         information
      *         STATUS_BAD_VALUE if it fails to create HGraphicBufferProducer
+     * @deprecated As of android.frameworks.automotive.display-V2, this method is deprecated and
+     *             replaced with getSurface().
      */
     NativeHandle getHGraphicBufferProducer(in long id);
 
@@ -77,4 +84,15 @@ interface ICarDisplayProxy {
      *         Other STATUS_* if it fails to apply a SurfaceFlinger transaction.
      */
     void showWindow(in long id);
+
+    /**
+     * Gets a Surface associated with the target display.
+     *
+     * @param  in id A stable ID of a target display.
+     * @return android.view.Surface object.
+     * @throws STATUS_FAILED_TRANSACTION if it fails to create the surface or read the display
+     *         information
+     *         STATUS_BAD_VALUE if it fails to create a Surface object.
+     */
+    Surface getSurface(in long id);
 }

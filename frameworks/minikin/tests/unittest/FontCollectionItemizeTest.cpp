@@ -741,7 +741,7 @@ TEST(FontCollectionItemizeTest, itemize_vs_sequence_but_no_base_char) {
     families.push_back(buildFontFamily(kLatinFont));
     families.push_back(buildFontFamily(kVSTestFont));
 
-    std::shared_ptr<FontCollection> collection(new FontCollection(families));
+    std::shared_ptr<FontCollection> collection(FontCollection::create(families));
 
     auto runs = itemize(collection, "U+717D U+FE02");
     ASSERT_EQ(1U, runs.size());
@@ -937,9 +937,9 @@ TEST(FontCollectionItemizeTest, itemize_LocaleScore) {
                 std::make_shared<FreeTypeMinikinFontForTest>(getTestFontPath(kNoGlyphFont));
         std::vector<std::shared_ptr<Font>> fonts;
         fonts.push_back(Font::Builder(firstFamilyMinikinFont).build());
-        auto firstFamily =
-                std::make_shared<FontFamily>(registerLocaleList("und"), FamilyVariant::DEFAULT,
-                                             std::move(fonts), false /* isCustomFallback */);
+        auto firstFamily = FontFamily::create(registerLocaleList("und"), FamilyVariant::DEFAULT,
+                                              std::move(fonts), false /* isCustomFallback */,
+                                              false /* isDefaultFallback */);
         families.push_back(firstFamily);
 
         // Prepare font families
@@ -952,13 +952,13 @@ TEST(FontCollectionItemizeTest, itemize_LocaleScore) {
                     std::make_shared<FreeTypeMinikinFontForTest>(getTestFontPath(kJAFont));
             std::vector<std::shared_ptr<Font>> fonts;
             fonts.push_back(Font::Builder(minikinFont).build());
-            auto family = std::make_shared<FontFamily>(registerLocaleList(testCase.fontLocales[i]),
-                                                       FamilyVariant::DEFAULT, std::move(fonts),
-                                                       false /* isCustomFallback */);
+            auto family = FontFamily::create(
+                    registerLocaleList(testCase.fontLocales[i]), FamilyVariant::DEFAULT,
+                    std::move(fonts), false /* isCustomFallback */, false /* isDefaultFallback */);
             families.push_back(family);
             fontLocaleIdxMap.insert(std::make_pair(minikinFont.get(), i));
         }
-        std::shared_ptr<FontCollection> collection(new FontCollection(families));
+        std::shared_ptr<FontCollection> collection(FontCollection::create(families));
         // Do itemize
         auto runs = itemize(collection, "U+9AA8", testCase.userPreferredLocale);
         ASSERT_EQ(1U, runs.size());
@@ -1525,8 +1525,8 @@ TEST(FontCollectionItemizeTest, itemizeShouldKeepOrderForVS) {
     std::vector<std::shared_ptr<FontFamily>> families = {dummyFamily, familyA, familyB};
     std::vector<std::shared_ptr<FontFamily>> reversedFamilies = {dummyFamily, familyB, familyA};
 
-    std::shared_ptr<FontCollection> collection(new FontCollection(families));
-    std::shared_ptr<FontCollection> reversedCollection(new FontCollection(reversedFamilies));
+    std::shared_ptr<FontCollection> collection(FontCollection::create(families));
+    std::shared_ptr<FontCollection> reversedCollection(FontCollection::create(reversedFamilies));
 
     // Both fontA/fontB support U+35A8 but don't support U+35A8 U+E0100. The first font should be
     // selected.
@@ -1548,8 +1548,8 @@ TEST(FontCollectionItemizeTest, itemizeShouldKeepOrderForVS2) {
     std::vector<std::shared_ptr<FontFamily>> reversedFamilies = {dummyFamily, noCmapFormat14Family,
                                                                  hasCmapFormat14Family};
 
-    std::shared_ptr<FontCollection> collection(new FontCollection(families));
-    std::shared_ptr<FontCollection> reversedCollection(new FontCollection(reversedFamilies));
+    std::shared_ptr<FontCollection> collection(FontCollection::create(families));
+    std::shared_ptr<FontCollection> reversedCollection(FontCollection::create(reversedFamilies));
 
     // Both hasCmapFormat14Font/noCmapFormat14Font support U+5380 but don't support U+5380 U+E0100.
     // The first font should be selected.
@@ -1567,7 +1567,7 @@ TEST(FontCollectionItemizeTest, colorEmojiSelectionTest) {
 
     std::vector<std::shared_ptr<FontFamily>> families = {dummyFamily, textEmojiFamily,
                                                          colorEmojiFamily};
-    auto collection = std::make_shared<FontCollection>(families);
+    auto collection = FontCollection::create(families);
     // Both textEmojiFamily and colorEmojiFamily supports U+203C and U+23E9.
     // U+203C is text default emoji, and U+23E9 is color default emoji.
     auto runs = itemize(collection, "U+203C", "en-US,en-Zsym");
@@ -1619,7 +1619,7 @@ TEST(FontCollectionItemizeTest, customFallbackTest) {
     std::vector<std::shared_ptr<FontFamily>> families = {firstFamily, customFallbackFamily,
                                                          languageFamily};
 
-    auto collection = std::make_shared<FontCollection>(families);
+    auto collection = FontCollection::create(families);
 
     auto runs = itemize(collection, "'a'", "");
     EXPECT_EQ(customFallbackFamily->getFont(0), runs[0].fakedFont.font.get());
@@ -1643,7 +1643,7 @@ std::vector<ItemizeResult> itemizeEmojiAndFontPostScriptNames(const std::string&
     std::vector<std::shared_ptr<FontFamily>> families = {firstFamily, OverrideEmojiFamily,
                                                          emojiBaseFamily};
 
-    auto collection = std::make_shared<FontCollection>(families);
+    auto collection = FontCollection::create(families);
     auto runs = itemize(collection, txt.c_str());
 
     std::vector<ItemizeResult> out;

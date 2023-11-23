@@ -54,6 +54,9 @@ prebuilt_etc {
         arm64: {
             src: "seccomp_policy/mediaswcodec-arm64.policy",
         },
+        riscv64: {
+            src: "seccomp_policy/mediaswcodec-riscv64.policy",
+        },
         x86: {
             src: "seccomp_policy/mediaswcodec-x86.policy",
         },
@@ -143,6 +146,9 @@ prebuilt_etc {
         },
         arm64: {
             src: "seccomp_policy/mediacodec-arm64.policy",
+        },
+        riscv64: {
+            enabled: false,
         },
         x86: {
             src: "seccomp_policy/mediacodec-x86.policy",

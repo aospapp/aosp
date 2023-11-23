@@ -26,7 +26,7 @@ namespace {
 
 // Retry syscall fn as long as it returns -1 with errno == EINTR
 template <typename FnT, typename... Params>
-typename std::result_of<FnT(Params...)>::type syscallRetry(FnT fn, Params&&... params) {
+typename std::invoke_result<FnT, Params...>::type syscallRetry(FnT fn, Params&&... params) {
     auto rv = fn(std::forward<Params>(params)...);
     while ((rv == -1) && (errno == EINTR)) {
         rv = fn(std::forward<Params>(params)...);

@@ -10,6 +10,10 @@ package {
 cc_library_shared {
     name: "libaudiopolicyservice",
 
+    defaults: [
+        "latest_android_media_audio_common_types_cpp_shared",
+    ],
+
     srcs: [
         "AudioPolicyClientImpl.cpp",
         "AudioPolicyEffects.cpp",
@@ -32,6 +36,7 @@ cc_library_shared {
         "libaudiohal",
         "libaudiopolicy",
         "libaudiopolicymanagerdefault",
+        "libaudiousecasevalidation",
         "libaudioutils",
         "libbinder",
         "libcutils",
@@ -47,9 +52,9 @@ cc_library_shared {
         "libsensor",
         "libsensorprivacy",
         "libshmemcompat",
-        "libutils",
         "libstagefright_foundation",
-        "android.media.audio.common.types-V1-cpp",
+        "libutils",
+        "libxml2",
         "audioclient-types-aidl-cpp",
         "audioflinger-aidl-cpp",
         "audiopolicy-aidl-cpp",
@@ -82,6 +87,7 @@ cc_library_shared {
 
     export_shared_lib_headers: [
         "libactivitymanager_aidl",
+        "libaudiousecasevalidation",
         "libheadtracking",
         "libheadtracking-binding",
         "libsensorprivacy",

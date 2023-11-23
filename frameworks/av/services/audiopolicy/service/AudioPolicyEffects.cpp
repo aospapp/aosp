@@ -41,25 +41,24 @@ using content::AttributionSourceState;
 // AudioPolicyEffects Implementation
 // ----------------------------------------------------------------------------
 
-AudioPolicyEffects::AudioPolicyEffects()
-{
-    status_t loadResult = loadAudioEffectXmlConfig();
+AudioPolicyEffects::AudioPolicyEffects(const sp<EffectsFactoryHalInterface>& effectsFactoryHal) {
+    // load xml config with effectsFactoryHal
+    status_t loadResult = loadAudioEffectConfig(effectsFactoryHal);
     if (loadResult == NO_ERROR) {
-        mDefaultDeviceEffectFuture = std::async(
-                    std::launch::async, &AudioPolicyEffects::initDefaultDeviceEffects, this);
+        mDefaultDeviceEffectFuture =
+                std::async(std::launch::async, &AudioPolicyEffects::initDefaultDeviceEffects, this);
     } else if (loadResult < 0) {
-        ALOGW("Failed to load XML effect configuration, fallback to .conf");
+        ALOGW("Failed to query effect configuration, fallback to load .conf");
         // load automatic audio effect modules
         if (access(AUDIO_EFFECT_VENDOR_CONFIG_FILE, R_OK) == 0) {
-            loadAudioEffectConfig(AUDIO_EFFECT_VENDOR_CONFIG_FILE);
+            loadAudioEffectConfigLegacy(AUDIO_EFFECT_VENDOR_CONFIG_FILE);
         } else if (access(AUDIO_EFFECT_DEFAULT_CONFIG_FILE, R_OK) == 0) {
-            loadAudioEffectConfig(AUDIO_EFFECT_DEFAULT_CONFIG_FILE);
+            loadAudioEffectConfigLegacy(AUDIO_EFFECT_DEFAULT_CONFIG_FILE);
         }
     } else if (loadResult > 0) {
         ALOGE("Effect config is partially invalid, skipped %d elements", loadResult);
     }
 }
-
 
 AudioPolicyEffects::~AudioPolicyEffects()
 {
@@ -127,7 +126,8 @@ status_t AudioPolicyEffects::addInputEffects(audio_io_handle_t input,
             attributionSource.packageName = "android";
             attributionSource.token = sp<BBinder>::make();
             sp<AudioEffect> fx = new AudioEffect(attributionSource);
-            fx->set(NULL, &effect->mUuid, -1, 0, 0, audioSession, input);
+            fx->set(nullptr /*type */, &effect->mUuid, -1 /* priority */, nullptr /* callback */,
+                    audioSession, input);
             status_t status = fx->initCheck();
             if (status != NO_ERROR && status != ALREADY_EXISTS) {
                 ALOGW("addInputEffects(): failed to create Fx %s on source %d",
@@ -279,7 +279,8 @@ status_t AudioPolicyEffects::addOutputSessionEffects(audio_io_handle_t output,
             attributionSource.packageName = "android";
             attributionSource.token = sp<BBinder>::make();
             sp<AudioEffect> fx = new AudioEffect(attributionSource);
-            fx->set(NULL, &effect->mUuid, 0, 0, 0, audioSession, output);
+            fx->set(nullptr /* type */, &effect->mUuid, 0 /* priority */, nullptr /* callback */,
+                    audioSession, output);
             status_t status = fx->initCheck();
             if (status != NO_ERROR && status != ALREADY_EXISTS) {
                 ALOGE("addOutputSessionEffects(): failed to create Fx  %s on session %d",
@@ -905,30 +906,35 @@ status_t AudioPolicyEffects::loadEffects(cnode *root, Vector <EffectDesc *>& eff
     return NO_ERROR;
 }
 
-status_t AudioPolicyEffects::loadAudioEffectXmlConfig() {
-    auto result = effectsConfig::parse();
-    if (result.parsedConfig == nullptr) {
-        return -ENOENT;
+status_t AudioPolicyEffects::loadAudioEffectConfig(
+        const sp<EffectsFactoryHalInterface>& effectsFactoryHal) {
+    if (!effectsFactoryHal) {
+        ALOGE("%s Null EffectsFactoryHalInterface", __func__);
+        return UNEXPECTED_NULL;
+    }
+
+    const auto skippedElements = VALUE_OR_RETURN_STATUS(effectsFactoryHal->getSkippedElements());
+    const auto processings = effectsFactoryHal->getProcessings();
+    if (!processings) {
+        ALOGE("%s Null processings with %zu skipped elements", __func__, skippedElements);
+        return UNEXPECTED_NULL;
     }
 
     auto loadProcessingChain = [](auto& processingChain, auto& streams) {
         for (auto& stream : processingChain) {
             auto effectDescs = std::make_unique<EffectDescVector>();
             for (auto& effect : stream.effects) {
-                effectDescs->mEffects.add(
-                        new EffectDesc{effect.get().name.c_str(), effect.get().uuid});
+                effectDescs->mEffects.add(new EffectDesc{effect->name.c_str(), effect->uuid});
             }
             streams.add(stream.type, effectDescs.release());
         }
     };
 
-    auto loadDeviceProcessingChain = [](auto &processingChain, auto& devicesEffects) {
+    auto loadDeviceProcessingChain = [](auto& processingChain, auto& devicesEffects) {
         for (auto& deviceProcess : processingChain) {
-
             auto effectDescs = std::make_unique<EffectDescVector>();
             for (auto& effect : deviceProcess.effects) {
-                effectDescs->mEffects.add(
-                        new EffectDesc{effect.get().name.c_str(), effect.get().uuid});
+                effectDescs->mEffects.add(new EffectDesc{effect->name.c_str(), effect->uuid});
             }
             auto deviceEffects = std::make_unique<DeviceEffects>(
                         std::move(effectDescs), deviceProcess.type, deviceProcess.address);
@@ -936,17 +942,18 @@ status_t AudioPolicyEffects::loadAudioEffectXmlConfig() {
         }
     };
 
-    loadProcessingChain(result.parsedConfig->preprocess, mInputSources);
-    loadProcessingChain(result.parsedConfig->postprocess, mOutputStreams);
+    loadProcessingChain(processings->preprocess, mInputSources);
+    loadProcessingChain(processings->postprocess, mOutputStreams);
+
     {
         Mutex::Autolock _l(mLock);
-        loadDeviceProcessingChain(result.parsedConfig->deviceprocess, mDeviceEffects);
+        loadDeviceProcessingChain(processings->deviceprocess, mDeviceEffects);
     }
-    // Casting from ssize_t to status_t is probably safe, there should not be more than 2^31 errors
-    return result.nbSkippedElement;
+
+    return skippedElements;
 }
 
-status_t AudioPolicyEffects::loadAudioEffectConfig(const char *path)
+status_t AudioPolicyEffects::loadAudioEffectConfigLegacy(const char *path)
 {
     cnode *root;
     char *data;
@@ -984,8 +991,8 @@ void AudioPolicyEffects::initDefaultDeviceEffects()
             attributionSource.packageName = "android";
             attributionSource.token = sp<BBinder>::make();
             sp<AudioEffect> fx = new AudioEffect(attributionSource);
-            fx->set(EFFECT_UUID_NULL, &effectDesc->mUuid, 0, nullptr,
-                    nullptr, AUDIO_SESSION_DEVICE, AUDIO_IO_HANDLE_NONE,
+            fx->set(EFFECT_UUID_NULL, &effectDesc->mUuid, 0 /* priority */, nullptr /* callback */,
+                    AUDIO_SESSION_DEVICE, AUDIO_IO_HANDLE_NONE,
                     AudioDeviceTypeAddr{deviceEffects->getDeviceType(),
                                         deviceEffects->getDeviceAddress()});
             status_t status = fx->initCheck();

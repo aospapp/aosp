@@ -454,8 +454,9 @@ GLESRenderEngine::GLESRenderEngine(const RenderEngineCreationArgs& args, EGLDisp
     mImageManager->initThread();
     mDrawingBuffer = createFramebuffer();
     sp<GraphicBuffer> buf =
-            new GraphicBuffer(1, 1, PIXEL_FORMAT_RGBA_8888, 1,
-                              GRALLOC_USAGE_HW_RENDER | GRALLOC_USAGE_HW_TEXTURE, "placeholder");
+            sp<GraphicBuffer>::make(1, 1, PIXEL_FORMAT_RGBA_8888, 1,
+                                    GRALLOC_USAGE_HW_RENDER | GRALLOC_USAGE_HW_TEXTURE,
+                                    "placeholder");
 
     const status_t err = buf->initCheck();
     if (err != OK) {
@@ -799,7 +800,7 @@ status_t GLESRenderEngine::cacheExternalTextureBufferInternal(const sp<GraphicBu
     return NO_ERROR;
 }
 
-void GLESRenderEngine::unmapExternalTextureBuffer(const sp<GraphicBuffer>& buffer) {
+void GLESRenderEngine::unmapExternalTextureBuffer(sp<GraphicBuffer>&& buffer) {
     mImageManager->releaseAsync(buffer->getId(), nullptr);
 }
 
@@ -921,7 +922,8 @@ void GLESRenderEngine::handleRoundedCorners(const DisplaySettings& display,
 
     // Finally, we cut the layer into 3 parts, with top and bottom parts having rounded corners
     // and the middle part without rounded corners.
-    const int32_t radius = ceil(layer.geometry.roundedCornersRadius);
+    const int32_t radius = ceil(
+            (layer.geometry.roundedCornersRadius.x + layer.geometry.roundedCornersRadius.y) / 2.0);
     const Rect topRect(bounds.left, bounds.top, bounds.right, bounds.top + radius);
     setScissor(topRect);
     drawMesh(mesh);
@@ -1079,14 +1081,14 @@ EGLImageKHR GLESRenderEngine::createFramebufferImageIfNeeded(ANativeWindowBuffer
 }
 
 void GLESRenderEngine::drawLayersInternal(
-        const std::shared_ptr<std::promise<RenderEngineResult>>&& resultPromise,
+        const std::shared_ptr<std::promise<FenceResult>>&& resultPromise,
         const DisplaySettings& display, const std::vector<LayerSettings>& layers,
         const std::shared_ptr<ExternalTexture>& buffer, const bool useFramebufferCache,
         base::unique_fd&& bufferFence) {
     ATRACE_CALL();
     if (layers.empty()) {
         ALOGV("Drawing empty layer stack");
-        resultPromise->set_value({NO_ERROR, base::unique_fd()});
+        resultPromise->set_value(Fence::NO_FENCE);
         return;
     }
 
@@ -1101,7 +1103,7 @@ void GLESRenderEngine::drawLayersInternal(
 
     if (buffer == nullptr) {
         ALOGE("No output buffer provided. Aborting GPU composition.");
-        resultPromise->set_value({BAD_VALUE, base::unique_fd()});
+        resultPromise->set_value(base::unexpected(BAD_VALUE));
         return;
     }
 
@@ -1130,7 +1132,7 @@ void GLESRenderEngine::drawLayersInternal(
             ALOGE("Failed to bind framebuffer! Aborting GPU composition for buffer (%p).",
                   buffer->getBuffer()->handle);
             checkErrors();
-            resultPromise->set_value({fbo->getStatus(), base::unique_fd()});
+            resultPromise->set_value(base::unexpected(fbo->getStatus()));
             return;
         }
         setViewportAndProjection(display.physicalDisplay, display.clip);
@@ -1142,7 +1144,7 @@ void GLESRenderEngine::drawLayersInternal(
             ALOGE("Failed to prepare blur filter! Aborting GPU composition for buffer (%p).",
                   buffer->getBuffer()->handle);
             checkErrors();
-            resultPromise->set_value({status, base::unique_fd()});
+            resultPromise->set_value(base::unexpected(status));
             return;
         }
     }
@@ -1176,7 +1178,7 @@ void GLESRenderEngine::drawLayersInternal(
                 ALOGE("Failed to render blur effect! Aborting GPU composition for buffer (%p).",
                       buffer->getBuffer()->handle);
                 checkErrors("Can't render first blur pass");
-                resultPromise->set_value({status, base::unique_fd()});
+                resultPromise->set_value(base::unexpected(status));
                 return;
             }
 
@@ -1199,7 +1201,7 @@ void GLESRenderEngine::drawLayersInternal(
                 ALOGE("Failed to bind framebuffer! Aborting GPU composition for buffer (%p).",
                       buffer->getBuffer()->handle);
                 checkErrors("Can't bind native framebuffer");
-                resultPromise->set_value({status, base::unique_fd()});
+                resultPromise->set_value(base::unexpected(status));
                 return;
             }
 
@@ -1208,7 +1210,7 @@ void GLESRenderEngine::drawLayersInternal(
                 ALOGE("Failed to render blur effect! Aborting GPU composition for buffer (%p).",
                       buffer->getBuffer()->handle);
                 checkErrors("Can't render blur filter");
-                resultPromise->set_value({status, base::unique_fd()});
+                resultPromise->set_value(base::unexpected(status));
                 return;
             }
         }
@@ -1260,29 +1262,30 @@ void GLESRenderEngine::drawLayersInternal(
 
             // Do not cache protected EGLImage, protected memory is limited.
             if (gBuf->getUsage() & GRALLOC_USAGE_PROTECTED) {
-                unmapExternalTextureBuffer(gBuf);
+                unmapExternalTextureBuffer(std::move(gBuf));
             }
         }
 
         const half3 solidColor = layer.source.solidColor;
         const half4 color = half4(solidColor.r, solidColor.g, solidColor.b, layer.alpha);
+        const float radius =
+                (layer.geometry.roundedCornersRadius.x + layer.geometry.roundedCornersRadius.y) /
+                2.0f;
         // Buffer sources will have a black solid color ignored in the shader,
         // so in that scenario the solid color passed here is arbitrary.
-        setupLayerBlending(usePremultipliedAlpha, isOpaque, disableTexture, color,
-                           layer.geometry.roundedCornersRadius);
+        setupLayerBlending(usePremultipliedAlpha, isOpaque, disableTexture, color, radius);
         if (layer.disableBlending) {
             glDisable(GL_BLEND);
         }
         setSourceDataSpace(layer.sourceDataspace);
 
         if (layer.shadow.length > 0.0f) {
-            handleShadow(layer.geometry.boundaries, layer.geometry.roundedCornersRadius,
-                         layer.shadow);
+            handleShadow(layer.geometry.boundaries, radius, layer.shadow);
         }
         // We only want to do a special handling for rounded corners when having rounded corners
         // is the only reason it needs to turn on blending, otherwise, we handle it like the
         // usual way since it needs to turn on blending anyway.
-        else if (layer.geometry.roundedCornersRadius > 0.0 && color.a >= 1.0f && isOpaque) {
+        else if (radius > 0.0 && color.a >= 1.0f && isOpaque) {
             handleRoundedCorners(display, layer, mesh);
         } else {
             drawMesh(mesh);
@@ -1307,7 +1310,7 @@ void GLESRenderEngine::drawLayersInternal(
             checkErrors();
             // Chances are, something illegal happened (either the caller passed
             // us bad parameters, or we messed up our shader generation).
-            resultPromise->set_value({INVALID_OPERATION, std::move(drawFence)});
+            resultPromise->set_value(base::unexpected(INVALID_OPERATION));
             return;
         }
         mLastDrawFence = nullptr;
@@ -1319,8 +1322,7 @@ void GLESRenderEngine::drawLayersInternal(
     mPriorResourcesCleaned = false;
 
     checkErrors();
-    resultPromise->set_value({NO_ERROR, std::move(drawFence)});
-    return;
+    resultPromise->set_value(sp<Fence>::make(std::move(drawFence)));
 }
 
 void GLESRenderEngine::setViewportAndProjection(Rect viewport, Rect clip) {

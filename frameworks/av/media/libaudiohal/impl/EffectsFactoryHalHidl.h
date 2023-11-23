@@ -14,8 +14,10 @@
  * limitations under the License.
  */
 
-#ifndef ANDROID_HARDWARE_EFFECTS_FACTORY_HAL_HIDL_H
-#define ANDROID_HARDWARE_EFFECTS_FACTORY_HAL_HIDL_H
+#pragma once
+
+#include <memory>
+#include <vector>
 
 #include PATH(android/hardware/audio/effect/FILE_VERSION/IEffectsFactory.h)
 #include <media/audiohal/EffectsFactoryHalInterface.h>
@@ -28,47 +30,53 @@ namespace effect {
 using ::android::hardware::hidl_vec;
 using namespace ::android::hardware::audio::effect::CPP_VERSION;
 
-class EffectsFactoryHalHidl : public EffectsFactoryHalInterface, public EffectConversionHelperHidl
-{
+class EffectDescriptorCache;
+
+class EffectsFactoryHalHidl final : public EffectsFactoryHalInterface,
+                                    public EffectConversionHelperHidl {
   public:
     EffectsFactoryHalHidl(sp<IEffectsFactory> effectsFactory);
 
     // Returns the number of different effects in all loaded libraries.
-    virtual status_t queryNumberEffects(uint32_t *pNumEffects);
+    status_t queryNumberEffects(uint32_t *pNumEffects) override;
 
     // Returns a descriptor of the next available effect.
-    virtual status_t getDescriptor(uint32_t index,
-            effect_descriptor_t *pDescriptor);
+    status_t getDescriptor(uint32_t index, effect_descriptor_t* pDescriptor) override;
 
-    virtual status_t getDescriptor(const effect_uuid_t *pEffectUuid,
-            effect_descriptor_t *pDescriptor);
+    status_t getDescriptor(const effect_uuid_t* pEffectUuid,
+                           effect_descriptor_t* pDescriptor) override;
 
-    virtual status_t getDescriptors(const effect_uuid_t *pEffectType,
-                                    std::vector<effect_descriptor_t> *descriptors);
+    status_t getDescriptors(const effect_uuid_t* pEffectType,
+                            std::vector<effect_descriptor_t>* descriptors) override;
 
     // Creates an effect engine of the specified type.
     // To release the effect engine, it is necessary to release references
     // to the returned effect object.
-    virtual status_t createEffect(const effect_uuid_t *pEffectUuid,
-            int32_t sessionId, int32_t ioId, int32_t deviceId,
-            sp<EffectHalInterface> *effect);
+    status_t createEffect(const effect_uuid_t* pEffectUuid, int32_t sessionId, int32_t ioId,
+                          int32_t deviceId, sp<EffectHalInterface>* effect) override;
 
-    virtual status_t dumpEffects(int fd);
-
-    virtual float getHalVersion() { return MAJOR_VERSION + (float)MINOR_VERSION / 10; }
+    status_t dumpEffects(int fd) override;
 
     status_t allocateBuffer(size_t size, sp<EffectBufferHalInterface>* buffer) override;
     status_t mirrorBuffer(void* external, size_t size,
                           sp<EffectBufferHalInterface>* buffer) override;
 
-  private:
-    sp<IEffectsFactory> mEffectsFactory;
-    hidl_vec<EffectDescriptor> mLastDescriptors;
+    android::detail::AudioHalVersionInfo getHalVersion() const override;
 
-    status_t queryAllDescriptors();
+    std::shared_ptr<const effectsConfig::Processings> getProcessings() const override;
+
+    ::android::error::Result<size_t> getSkippedElements() const override;
+
+  private:
+    const sp<IEffectsFactory> mEffectsFactory;
+    const std::unique_ptr<EffectDescriptorCache> mCache;
+    /**
+     * Configuration file parser result, used by getProcessings() and getConfigParseResult().
+     * This struct holds the result of parsing a configuration file. The result includes the parsed
+     * configuration data, as well as any errors that occurred during parsing.
+     */
+    const effectsConfig::ParsingResult mParsingResult;
 };
 
 } // namespace effect
 } // namespace android
-
-#endif // ANDROID_HARDWARE_EFFECTS_FACTORY_HAL_HIDL_H

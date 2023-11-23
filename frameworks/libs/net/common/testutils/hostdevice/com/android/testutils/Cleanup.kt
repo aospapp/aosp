@@ -18,8 +18,8 @@
 
 package com.android.testutils
 
-import com.android.testutils.ExceptionUtils.ThrowingRunnable
-import com.android.testutils.ExceptionUtils.ThrowingSupplier
+import com.android.testutils.FunctionalUtils.ThrowingRunnable
+import com.android.testutils.FunctionalUtils.ThrowingSupplier
 import javax.annotation.CheckReturnValue
 
 /**
@@ -90,7 +90,7 @@ inline class TryExpr<T>(val result: Result<T>) {
         if (originalException !is E) return this
         return TryExpr(try {
             Result.success(block(originalException))
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             Result.failure(e)
         })
     }

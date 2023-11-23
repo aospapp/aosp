@@ -44,6 +44,9 @@ import static android.net.NetworkCapabilities.TRANSPORT_VPN;
 import static android.net.NetworkCapabilities.TRANSPORT_WIFI;
 import static android.net.NetworkCapabilities.TRANSPORT_WIFI_AWARE;
 
+import static com.android.net.module.util.BitUtils.packBitList;
+import static com.android.net.module.util.BitUtils.unpackBits;
+
 import android.annotation.NonNull;
 import android.net.NetworkCapabilities;
 
@@ -181,49 +184,4 @@ public final class NetworkCapabilitiesUtils {
         return false;
     }
 
-    /**
-     * Unpacks long value into an array of bits.
-     */
-    public static int[] unpackBits(long val) {
-        int size = Long.bitCount(val);
-        int[] result = new int[size];
-        int index = 0;
-        int bitPos = 0;
-        while (val != 0) {
-            if ((val & 1) == 1) result[index++] = bitPos;
-            val = val >>> 1;
-            bitPos++;
-        }
-        return result;
-    }
-
-    /**
-     * Packs a list of ints in the same way as packBits()
-     *
-     * Each passed int is the rank of a bit that should be set in the returned long.
-     * Example : passing (1,3) will return in 0b00001010 and passing (5,6,0) will return 0b01100001
-     *
-     * @param bits bits to pack
-     * @return a long with the specified bits set.
-     */
-    public static long packBitList(int... bits) {
-        return packBits(bits);
-    }
-
-    /**
-     * Packs array of bits into a long value.
-     *
-     * Each passed int is the rank of a bit that should be set in the returned long.
-     * Example : passing [1,3] will return in 0b00001010 and passing [5,6,0] will return 0b01100001
-     *
-     * @param bits bits to pack
-     * @return a long with the specified bits set.
-     */
-    public static long packBits(int[] bits) {
-        long packed = 0;
-        for (int b : bits) {
-            packed |= (1L << b);
-        }
-        return packed;
-    }
 }

@@ -84,4 +84,21 @@ public interface ExtenderStateListener {
      * @hide
      */
     CaptureStageImpl onDisableSession();
+
+    /**
+     * This will be invoked before the {@link android.hardware.camera2.CameraCaptureSession} is
+     * initialized and must return a valid camera session type
+     * {@link android.hardware.camera2.params.SessionConfiguration#getSessionType}
+     * to be used to configure camera capture session. Both the preview and the image capture
+     * extender must return the same session type value for a specific extension type. If there
+     * is inconsistency between the session type values from preview and image extenders, then
+     * the session configuration will fail.
+     *
+     *
+     * @since 1.4
+     * @return Camera capture session type. Regular and vendor specific types are supported but
+     * not high speed values. The extension can return -1 in which case the camera capture session
+     * will be configured to use the default regular type.
+     */
+    int onSessionType();
 }

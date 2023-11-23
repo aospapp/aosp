@@ -2565,7 +2565,7 @@ public class Allocation extends BaseObj {
             throw new RSInvalidStateException("Bad Type");
         }
 
-        if(!rs.usingIO() && (usage & (USAGE_IO_INPUT | USAGE_IO_INPUT)) != 0) {
+        if(!rs.usingIO() && (usage & USAGE_IO_INPUT) != 0) {
             throw new RSRuntimeException("USAGE_IO not supported, Allocation creation failed.");
         }
 

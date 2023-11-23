@@ -108,7 +108,7 @@ cc_library {
 
     nocrt: true,
 
-    required: ["tzdata"],
+    required: ["tzdata_prebuilt"],
 
     whole_static_libs: [
         "gwp_asan",

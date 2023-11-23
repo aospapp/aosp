@@ -35,6 +35,18 @@ public class FeatureTags {
                     + "service.ims.icsi.oma.cpm.largemsg,urn%3Aurn-7%3A3gpp-"
                     + "service.ims.icsi.oma.cpm.deferred\";+g.gsma.rcs.cpm.pager-large";
 
+    public static final String FEATURE_TAG_PAGER_MODE =
+            "+g.3gpp.icsi-ref=\"urn%3Aurn-7%3A3gpp-service.ims.icsi.oma.cpm.msg\"";
+
+    public static final String FEATURE_TAG_LARGE_MODE =
+            "+g.3gpp.icsi-ref=\"urn%3Aurn-7%3A3gpp-service.ims.icsi.oma.cpm.largemsg\"";
+
+    public static final String FEATURE_TAG_DEFERRED_MESSAGING =
+            "+g.3gpp.icsi-ref=\"urn%3Aurn-7%3A3gpp-service.ims.icsi.oma.cpm.deferred\"";
+
+    public static final String FEATURE_TAG_LARGE_PAGER_MODE =
+            "+g.gsma.rcs.cpm.pager-large";
+
     public static final String FEATURE_TAG_CHAT_IM =
             "+g.3gpp.iari-ref=\"urn%3Aurn-7%3A3gpp-application.ims.iari.rcse.im\"";
 

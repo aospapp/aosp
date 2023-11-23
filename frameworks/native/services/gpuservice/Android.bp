@@ -71,6 +71,7 @@ filegroup {
 cc_library_shared {
     name: "libgpuservice",
     defaults: ["libgpuservice_production_defaults"],
+    export_include_dirs: ["include"],
     srcs: [
         ":libgpuservice_sources",
     ],
@@ -99,7 +100,7 @@ cc_binary {
     init_rc: ["gpuservice.rc"],
     required: [
         "bpfloader",
-        "gpu_mem.o",
+        "gpuMem.o",
     ],
     srcs: [":gpuservice_binary_sources"],
     shared_libs: [

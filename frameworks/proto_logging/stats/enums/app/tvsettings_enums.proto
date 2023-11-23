@@ -290,6 +290,15 @@ enum ItemId {
     // TvSettings > Privacy > Ads > Ads by Google (WebView)
     PRIVACY_ADS_ADS_BY_GOOGLE = 0x14330000;
 
+    // TvSettings > Privacy > Microphone
+    PRIVACY_MICROPHONE = 0x14400000;
+
+    // TvSettings > Privacy > Microphone > Microphone access (toggle)
+    PRIVACY_MICROPHONE_ACCESS = 0x14410000;
+
+    // TvSettings > Privacy > Microphone > Microphone access on your remote (toggle)
+    PRIVACY_MICROPHONE_ACCESS_ON_REMOTE = 0x14420000;
+
     // TvSettings > Display & Sound
     DISPLAY_SOUND = 0x15000000;
 
@@ -849,6 +858,9 @@ enum ItemId {
     // TvSettings > System > Power & Energy > Eco settings
     SYSTEM_POWER_AND_ENERGY_ECO_SETTINGS = 0x17E10000;
 
+    // TvSettings > System > Power & Energy > Energy Modes
+    SYSTEM_POWER_AND_ENERGY_ENERGY_MODES = 0x17E20000;
+
     // TvSettings > System > Accessibility
     SYSTEM_A11Y = 0x17800000;
 
@@ -1024,6 +1036,27 @@ enum ItemId {
 
     // TvSettings > System > Accessibility > Audio Description (Toggle)
     SYSTEM_A11Y_AUDIO_DESCRIPTION = 0x17890000;
+
+    // TvSettings > System > Accessibility > Bold Text (Toggle)
+    SYSTEM_A11Y_BOLD_TEXT = 0x178A0000;
+
+    // TvSettings > System > Accessibility > Color Correction
+    SYSTEM_A11Y_COLOR_CORRECTION = 0x178C0000;
+
+    // TvSettings > System > Accessibility > Color Correction > Enable (Toggle)
+    SYSTEM_A11Y_COLOR_CORRECTION_ON_OFF = 0x178C1000;
+
+    // TvSettings > System > Accessibility > Color Correction > Deuteranomaly
+    SYSTEM_A11Y_COLOR_CORRECTION_DEUTERANOMALY = 0x178C2000;
+
+    // TvSettings > System > Accessibility > Color Correction > Protanomaly
+    SYSTEM_A11Y_COLOR_CORRECTION_PROTANOMALY = 0x178C3000;
+
+    // TvSettings > System > Accessibility > Color Correction > Tritanomaly
+    SYSTEM_A11Y_COLOR_CORRECTION_TRITANOMALY = 0x178C4000;
+
+    // TvSettings > System > Accessibility > Color Correction > Grayscale
+    SYSTEM_A11Y_COLOR_CORRECTION_GRAYSCALE = 0x178C5000;
 
     // TvSettings > System > Reboot
     SYSTEM_REBOOT = 0x17900000;

@@ -14,17 +14,16 @@
  * limitations under the License.
  */
 
-#include "minikin/FontFamily.h"
-
 #include <gtest/gtest.h>
-
-#include "minikin/LocaleList.h"
+#include <malloc.h>
 
 #include "BufferUtils.h"
 #include "FontTestUtils.h"
 #include "FreeTypeMinikinFontForTest.h"
 #include "LocaleListCache.h"
 #include "MinikinInternal.h"
+#include "minikin/FontFamily.h"
+#include "minikin/LocaleList.h"
 
 namespace minikin {
 
@@ -801,8 +800,8 @@ TEST_F(FontFamilyTest, closestMatch) {
             fonts.push_back(Font::Builder(dummyFont).setStyle(familyStyle).build());
         }
 
-        FontFamily family(std::move(fonts));
-        FakedFont closest = family.getClosestMatch(testCase.wantedStyle);
+        std::shared_ptr<FontFamily> family = FontFamily::create(std::move(fonts));
+        FakedFont closest = family->getClosestMatch(testCase.wantedStyle);
 
         size_t idx = dummyFonts.size();
         for (size_t i = 0; i < dummyFonts.size(); i++) {
@@ -821,41 +820,57 @@ TEST_F(FontFamilyTest, closestMatch) {
     }
 }
 
+std::vector<uint8_t> writeToBuffer(const std::vector<std::shared_ptr<FontFamily>>& families) {
+    BufferWriter fakeWriter(nullptr);
+    FontFamily::writeVector(&fakeWriter, families);
+    std::vector<uint8_t> buffer(fakeWriter.size());
+    BufferWriter writer(buffer.data());
+    FontFamily::writeVector(&writer, families);
+    return buffer;
+}
+
+void expectFontFamilyEquals(const std::shared_ptr<FontFamily>& expected,
+                            const std::shared_ptr<FontFamily>& actual) {
+    ASSERT_EQ(expected->localeListId(), actual->localeListId());
+    ASSERT_EQ(expected->variant(), actual->variant());
+    ASSERT_EQ(expected->getNumFonts(), actual->getNumFonts());
+    ASSERT_EQ(expected->getSupportedAxesCount(), actual->getSupportedAxesCount());
+    for (size_t i = 0; i < expected->getSupportedAxesCount(); i++) {
+        ASSERT_EQ(expected->getSupportedAxisAt(i), actual->getSupportedAxisAt(i));
+    }
+    ASSERT_EQ(expected->isColorEmojiFamily(), actual->isColorEmojiFamily());
+    ASSERT_EQ(expected->isCustomFallback(), actual->isCustomFallback());
+    ASSERT_EQ(expected->hasVSTable(), actual->hasVSTable());
+}
+
+size_t getHeapSize() {
+    struct mallinfo info = mallinfo();
+    return info.uordblks;
+}
+
 TEST_F(FontFamilyTest, bufferTest) {
+    FreeTypeMinikinFontForTestFactory::init();
+    size_t baseHeapSize = getHeapSize();
     {
-        // Font with variation selectors
-        std::shared_ptr<FontFamily> original = buildFontFamily(kVsTestFont);
-        std::vector<uint8_t> buffer =
-                writeToBuffer<FontFamily, writeFreeTypeMinikinFontForTest>(*original);
-        BufferReader reader(buffer.data());
-        std::shared_ptr<FontFamily> copied =
-                FontFamily::readFrom<readFreeTypeMinikinFontForTest>(&reader);
-        ASSERT_EQ(original->localeListId(), copied->localeListId());
-        ASSERT_EQ(original->variant(), copied->variant());
-        ASSERT_EQ(original->getNumFonts(), copied->getNumFonts());
-        ASSERT_EQ(original->supportedAxes(), copied->supportedAxes());
-        ASSERT_EQ(original->isColorEmojiFamily(), copied->isColorEmojiFamily());
-        ASSERT_EQ(original->isCustomFallback(), copied->isCustomFallback());
-        ASSERT_EQ(original->hasVSTable(), copied->hasVSTable());
-        expectVSGlyphsForVsTestFont(copied.get());
-        std::vector<uint8_t> newBuffer =
-                writeToBuffer<FontFamily, writeFreeTypeMinikinFontForTest>(*copied);
-        ASSERT_EQ(buffer, newBuffer);
-    }
-    {
-        // Font with axes
         constexpr char kMultiAxisFont[] = "MultiAxis.ttf";
-        std::shared_ptr<FontFamily> original = buildFontFamily(kMultiAxisFont);
-        std::vector<uint8_t> buffer =
-                writeToBuffer<FontFamily, writeFreeTypeMinikinFontForTest>(*original);
+        std::vector<std::shared_ptr<FontFamily>> original = {
+                // Font with variation selectors
+                buildFontFamily(kVsTestFont),
+                // Font with axes
+                buildFontFamily(kMultiAxisFont),
+        };
+        std::vector<uint8_t> buffer = writeToBuffer(original);
         BufferReader reader(buffer.data());
-        std::shared_ptr<FontFamily> copied =
-                FontFamily::readFrom<readFreeTypeMinikinFontForTest>(&reader);
-        ASSERT_EQ(original->supportedAxes(), copied->supportedAxes());
-        std::vector<uint8_t> newBuffer =
-                writeToBuffer<FontFamily, writeFreeTypeMinikinFontForTest>(*copied);
+        std::vector<std::shared_ptr<FontFamily>> copied = FontFamily::readVector(&reader);
+        ASSERT_EQ(2u, copied.size());
+        expectFontFamilyEquals(original[0], copied[0]);
+        expectVSGlyphsForVsTestFont(copied[0].get());
+        expectFontFamilyEquals(original[1], copied[1]);
+        std::vector<uint8_t> newBuffer = writeToBuffer(copied);
         ASSERT_EQ(buffer, newBuffer);
     }
+    // Test that there is no leak after all FontFamily is destructed.
+    EXPECT_EQ(baseHeapSize, getHeapSize());
 }
 
 }  // namespace minikin

@@ -19,9 +19,8 @@
 
 #include <memory>
 
-#include "minikin/FontCollection.h"
-
 #include "PathUtils.h"
+#include "minikin/FontCollection.h"
 
 namespace minikin {
 
@@ -40,8 +39,7 @@ std::vector<std::shared_ptr<FontFamily>> getFontFamilies(const std::string& font
  * The XML path and font files are needed to be in the test data directory.
  */
 inline std::shared_ptr<FontCollection> buildFontCollectionFromXml(const std::string& xmlPath) {
-    return std::make_shared<FontCollection>(
-            getFontFamilies(getTestDataDir(), getTestDataDir() + xmlPath));
+    return FontCollection::create(getFontFamilies(getTestDataDir(), getTestDataDir() + xmlPath));
 }
 
 /**

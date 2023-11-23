@@ -537,6 +537,22 @@ public class ImsCall implements ICall {
         public void onCallSessionRtpHeaderExtensionsReceived(ImsCall imsCall,
                 @NonNull Set<RtpHeaderExtension> rtpHeaderExtensionData) {
         }
+
+        /**
+        * Access Network Bitrate Recommendation Query (ANBRQ), see 3GPP TS 26.114.
+        * This API triggers radio to send ANBRQ message to the access network to query the
+        * desired bitrate.
+        *
+        * @param imsCall The ImsCall the data was received on.
+        * @param mediaType MediaType is used to identify media stream such as audio or video.
+        * @param direction Direction of this packet stream (e.g. uplink or downlink).
+        * @param bitsPerSecond This value is the bitrate requested by the other party UE through
+        *        RTP CMR, RTCPAPP or TMMBR, and ImsStack converts this value to the MAC bitrate
+        *        (defined in TS36.321, range: 0 ~ 8000 kbit/s).
+        */
+        public void onCallSessionSendAnbrQuery(ImsCall imsCall, int mediaType, int direction,
+                int bitsPerSecond) {
+        }
     }
 
     // List of update operation for IMS call control
@@ -886,11 +902,25 @@ public class ImsCall implements ICall {
     }
 
     /**
-     * Gets the specified property of this call.
+     * Deliver the bitrate for the indicated media type, direction and bitrate to the upper layer.
      *
-     * @param name key to get the extra call information defined in {@link ImsCallProfile}
-     * @return the extra call information as string
+     * @param mediaType MediaType is used to identify media stream such as audio or video.
+     * @param direction Direction of this packet stream (e.g. uplink or downlink).
+     * @param bitsPerSecond This value is the bitrate received from the NW through the Recommended
+     *        bitrate MAC Control Element message and ImsStack converts this value from MAC bitrate
+     *        to audio/video codec bitrate (defined in TS26.114).
+     * @hide
      */
+    public void callSessionNotifyAnbr(int mediaType, int direction, int bitsPerSecond) {
+        synchronized(mLockObj) {
+            if (mSession != null) {
+                mSession.callSessionNotifyAnbr(mediaType, direction, bitsPerSecond);
+            } else {
+                logi("callSessionNotifyAnbr : session - null");
+            }
+        }
+    }
+
     public String getCallExtra(String name) throws ImsException {
         // Lookup the cache
 
@@ -3488,6 +3518,25 @@ public class ImsCall implements ICall {
                     listener.onCallSessionRtpHeaderExtensionsReceived(ImsCall.this, extensions);
                 } catch (Throwable t) {
                     loge("callSessionRtpHeaderExtensionsReceived:: ", t);
+                }
+            }
+        }
+
+        @Override
+        public void callSessionSendAnbrQuery(int mediaType, int direction, int bitsPerSecond) {
+            ImsCall.Listener listener;
+
+            logi("callSessionSendAnbrQuery in ImsCall");
+            synchronized (ImsCall.this) {
+                listener = mListener;
+            }
+
+            if (listener != null) {
+                try {
+                    listener.onCallSessionSendAnbrQuery(ImsCall.this, mediaType,
+                            direction, bitsPerSecond);
+                } catch (Throwable t) {
+                    loge("callSessionSendAnbrQuery:: ", t);
                 }
             }
         }

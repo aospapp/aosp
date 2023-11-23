@@ -478,7 +478,7 @@ public class UceRequestManager {
     public void sendCapabilityRequest(List<Uri> uriList, boolean skipFromCache,
             IRcsUceControllerCallback callback) throws RemoteException {
         if (mIsDestroyed) {
-            callback.onError(RcsUceAdapter.ERROR_GENERIC_FAILURE, 0L);
+            callback.onError(RcsUceAdapter.ERROR_GENERIC_FAILURE, 0L, null);
             return;
         }
         sendRequestInternal(UceRequest.REQUEST_TYPE_CAPABILITY, uriList, skipFromCache, callback);
@@ -490,7 +490,7 @@ public class UceRequestManager {
     public void sendAvailabilityRequest(Uri uri, IRcsUceControllerCallback callback)
             throws RemoteException {
         if (mIsDestroyed) {
-            callback.onError(RcsUceAdapter.ERROR_GENERIC_FAILURE, 0L);
+            callback.onError(RcsUceAdapter.ERROR_GENERIC_FAILURE, 0L, null);
             return;
         }
         sendRequestInternal(UceRequest.REQUEST_TYPE_AVAILABILITY,
@@ -511,7 +511,7 @@ public class UceRequestManager {
             }
             if (nonCachedUris.isEmpty()) {
                 logd("sendRequestInternal: shortcut complete, sending success result");
-                callback.onComplete();
+                callback.onComplete(null);
                 return;
             }
         }
@@ -525,7 +525,7 @@ public class UceRequestManager {
 
         if (requestCoordinator == null) {
             logw("sendRequestInternal: Neither Presence nor OPTIONS are supported");
-            callback.onError(RcsUceAdapter.ERROR_NOT_ENABLED, 0L);
+            callback.onError(RcsUceAdapter.ERROR_NOT_ENABLED, 0L, null);
             return;
         }
 

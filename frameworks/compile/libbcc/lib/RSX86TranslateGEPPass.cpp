@@ -77,6 +77,7 @@ private:
         if (!OpC) {
           ALOGE("Operand for struct type is not constant!");
           bccAssert(false);
+          return nullptr;  // NOLINT, unreached
         }
 
         // Offset = Offset + EltOffset for index into a struct

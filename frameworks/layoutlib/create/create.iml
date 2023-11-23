@@ -11,25 +11,21 @@
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
     <orderEntry type="module-library">
-      <library name="asm-7.0">
+      <library name="asm-9.2">
         <CLASSES>
-          <root url="jar://$MODULE_DIR$/../../../out/soong/.intermediates/prebuilts/misc/common/asm/asm-7.0/linux_glibc_common/combined/asm-7.0.jar!/" />
+          <root url="jar://$MODULE_DIR$/../../../out/soong/.intermediates/prebuilts/misc/common/asm/asm-9.2/linux_glibc_common/combined/asm-9.2.jar!/" />
         </CLASSES>
         <JAVADOC />
-        <SOURCES>
-          <root url="jar://$MODULE_DIR$/../../../prebuilts/misc/common/asm/src-7.0.zip!/" />
-        </SOURCES>
+        <SOURCES />
       </library>
     </orderEntry>
     <orderEntry type="module-library">
-      <library name="asm-commons-7.0">
+      <library name="asm-commons-9.2">
         <CLASSES>
-          <root url="jar://$MODULE_DIR$/../../../out/soong/.intermediates/prebuilts/misc/common/asm/asm-commons-7.0/linux_glibc_common/combined/asm-commons-7.0.jar!/" />
+          <root url="jar://$MODULE_DIR$/../../../out/soong/.intermediates/prebuilts/misc/common/asm/asm-commons-9.2/linux_glibc_common/combined/asm-commons-9.2.jar!/" />
         </CLASSES>
         <JAVADOC />
-        <SOURCES>
-          <root url="jar://$MODULE_DIR$/../../../prebuilts/misc/common/asm/src-7.0.zip!/" />
-        </SOURCES>
+        <SOURCES />
       </library>
     </orderEntry>
     <orderEntry type="library" scope="TEST" name="junit" level="project" />
@@ -84,11 +80,12 @@
     <orderEntry type="module-library" scope="RUNTIME">
       <library>
         <CLASSES>
-          <root url="jar://$MODULE_DIR$/../../../out/soong/.intermediates/prebuilts/misc/common/atf/atf-prebuilt-jars-371374941/linux_glibc_common/combined/atf-prebuilt-jars-371374941.jar!/" />
+          <root url="jar://$MODULE_DIR$/../../../out/soong/.intermediates/prebuilts/misc/common/atf/atf-prebuilt-jars-502584086/linux_glibc_common/combined/atf-prebuilt-jars-502584086.jar!/" />
         </CLASSES>
         <JAVADOC />
         <SOURCES />
       </library>
     </orderEntry>
+    <orderEntry type="library" scope="RUNTIME" name="libprotobuf-java-lite" level="project" />
   </component>
 </module>

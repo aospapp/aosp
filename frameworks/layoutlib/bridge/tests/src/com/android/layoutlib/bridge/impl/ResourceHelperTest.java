@@ -99,4 +99,10 @@ public class ResourceHelperTest {
             assertEquals(ends[i], spanned.getSpanEnd(spans[i]));
         }
     }
+
+    @Test
+    public void testParsePlainHtml() {
+        String plainText = "This text has no html tags";
+        assertEquals(plainText, ResourceHelper.parseHtml(plainText));
+    }
 }

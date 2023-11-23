@@ -15,6 +15,7 @@
  */
 
 //#define LOG_NDEBUG 0
+#define ATRACE_TAG ATRACE_TAG_GRAPHICS
 
 #include "BlobCache.h"
 
@@ -22,6 +23,7 @@
 #include <errno.h>
 #include <inttypes.h>
 #include <log/log.h>
+#include <utils/Trace.h>
 
 #include <chrono>
 
@@ -230,8 +232,10 @@ int BlobCache::flatten(void* buffer, size_t size) const {
 }
 
 int BlobCache::unflatten(void const* buffer, size_t size) {
+    ATRACE_NAME("BlobCache::unflatten");
+
     // All errors should result in the BlobCache being in an empty state.
-    mCacheEntries.clear();
+    clear();
 
     // Read the cache header
     if (size < sizeof(Header)) {
@@ -258,7 +262,7 @@ int BlobCache::unflatten(void const* buffer, size_t size) {
     size_t numEntries = header->mNumEntries;
     for (size_t i = 0; i < numEntries; i++) {
         if (byteOffset + sizeof(EntryHeader) > size) {
-            mCacheEntries.clear();
+            clear();
             ALOGE("unflatten: not enough room for cache entry headers");
             return -EINVAL;
         }
@@ -270,7 +274,7 @@ int BlobCache::unflatten(void const* buffer, size_t size) {
 
         size_t totalSize = align4(entrySize);
         if (byteOffset + totalSize > size) {
-            mCacheEntries.clear();
+            clear();
             ALOGE("unflatten: not enough room for cache entry headers");
             return -EINVAL;
         }
@@ -293,6 +297,8 @@ long int BlobCache::blob_random() {
 }
 
 void BlobCache::clean() {
+    ATRACE_NAME("BlobCache::clean");
+
     // Remove a random cache entry until the total cache size gets below half
     // the maximum total cache size.
     while (mTotalSize > mMaxTotalSize / 2) {

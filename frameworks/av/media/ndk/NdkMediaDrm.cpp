@@ -183,7 +183,7 @@ void DrmListener::sendEvent(
     AMediaDrmSessionId asid = {sessionId.data(), sessionId.size()};
     int32_t dataSize = data.size();
     const uint8_t *dataPtr = data.data();
-    if (dataSize > 0) {
+    if (dataSize >= 0) {
         (*mEventListener)(mObj, &asid, ndkEventType, 0, dataPtr, dataSize);
     } else {
         ALOGE("invalid event data size=%d", dataSize);
@@ -253,7 +253,7 @@ static status_t GetAppPackageName(String8 *packageName) {
 }
 
 static sp<IDrm> CreateDrm() {
-    return DrmUtils::MakeDrm();
+    return DrmUtils::MakeDrm(IDRM_NDK);
 }
 
 
@@ -758,6 +758,9 @@ media_status_t AMediaDrm_setPropertyString(AMediaDrm *mObj,
 EXPORT
 media_status_t AMediaDrm_setPropertyByteArray(AMediaDrm *mObj,
         const char *propertyName, const uint8_t *value, size_t valueSize) {
+    if (!mObj || mObj->mDrm == NULL) {
+        return AMEDIA_ERROR_INVALID_OBJECT;
+    }
 
     Vector<uint8_t> byteArray;
     byteArray.appendArray(value, valueSize);

@@ -18,6 +18,167 @@ syntax = "proto2";
 
 package android.media.audio;
 
+// The Java AudioDeviceInfo device type.
+//
+// From
+// frameworks/base/media/java/android/media/AudioDeviceInfo.java
+enum AudioDeviceInfoType {
+    /**
+     * A device type associated with an unknown or uninitialized device.
+     */
+    AUDIO_DEVICE_INFO_TYPE_UNKNOWN          = 0;
+    /**
+     * A device type describing the attached earphone speaker.
+     */
+    AUDIO_DEVICE_INFO_TYPE_BUILTIN_EARPIECE = 1;
+    /**
+     * A device type describing the speaker system (i.e. a mono speaker
+     * or stereo speakers) built in a device.
+     */
+    AUDIO_DEVICE_INFO_TYPE_BUILTIN_SPEAKER  = 2;
+    /**
+     * A device type describing a headset, which is the combination of
+     * a headphones and microphone.
+     */
+    AUDIO_DEVICE_INFO_TYPE_WIRED_HEADSET    = 3;
+    /**
+     * A device type describing a pair of wired headphones.
+     */
+    AUDIO_DEVICE_INFO_TYPE_WIRED_HEADPHONES = 4;
+    /**
+     * A device type describing an analog line-level connection.
+     */
+    AUDIO_DEVICE_INFO_TYPE_LINE_ANALOG      = 5;
+    /**
+     * A device type describing a digital line connection (e.g. SPDIF).
+     */
+    AUDIO_DEVICE_INFO_TYPE_LINE_DIGITAL     = 6;
+    /**
+     * A device type describing a Bluetooth device typically used
+     * for telephony.
+     */
+    AUDIO_DEVICE_INFO_TYPE_BLUETOOTH_SCO    = 7;
+    /**
+     * A device type describing a Bluetooth device supporting the A2DP profile.
+     */
+    AUDIO_DEVICE_INFO_TYPE_BLUETOOTH_A2DP   = 8;
+    /**
+     * A device type describing an HDMI connection .
+     */
+    AUDIO_DEVICE_INFO_TYPE_HDMI             = 9;
+    /**
+     * A device type describing the Audio Return Channel of an HDMI connection.
+     */
+    AUDIO_DEVICE_INFO_TYPE_HDMI_ARC         = 10;
+    /**
+     * A device type describing a USB audio device.
+     */
+    AUDIO_DEVICE_INFO_TYPE_USB_DEVICE       = 11;
+    /**
+     * A device type describing a USB audio device in accessory mode.
+     */
+    AUDIO_DEVICE_INFO_TYPE_USB_ACCESSORY    = 12;
+    /**
+     * A device type describing the audio device associated with a dock.
+     */
+    AUDIO_DEVICE_INFO_TYPE_DOCK             = 13;
+    /**
+     * A device type associated with the transmission of audio signals over FM.
+     */
+    AUDIO_DEVICE_INFO_TYPE_FM               = 14;
+    /**
+     * A device type describing the microphone(s) built in a device.
+     */
+    AUDIO_DEVICE_INFO_TYPE_BUILTIN_MIC      = 15;
+    /**
+     * A device type for accessing the audio content transmitted over FM.
+     */
+    AUDIO_DEVICE_INFO_TYPE_FM_TUNER         = 16;
+    /**
+     * A device type for accessing the audio content transmitted
+     * over the TV tuner system.
+     */
+    AUDIO_DEVICE_INFO_TYPE_TV_TUNER         = 17;
+    /**
+     * A device type describing the transmission of audio signals
+     * over the telephony network.
+     */
+    AUDIO_DEVICE_INFO_TYPE_TELEPHONY        = 18;
+    /**
+     * A device type describing the auxiliary line-level connectors.
+     */
+    AUDIO_DEVICE_INFO_TYPE_AUX_LINE         = 19;
+    /**
+     * A device type connected over IP.
+     */
+    AUDIO_DEVICE_INFO_TYPE_IP               = 20;
+    /**
+     * A type-agnostic device used for communication with
+     * external audio systems
+     */
+    AUDIO_DEVICE_INFO_TYPE_BUS              = 21;
+    /**
+     * A device type describing a USB audio headset.
+     */
+    AUDIO_DEVICE_INFO_TYPE_USB_HEADSET       = 22;
+    /**
+     * A device type describing a Hearing Aid.
+     */
+    AUDIO_DEVICE_INFO_TYPE_HEARING_AID   = 23;
+    /**
+     * A device type describing the speaker system (i.e. a mono speaker
+     * or stereo speakers) built in a device, that is specifically tuned
+     * for outputting sounds like notifications and alarms
+     * (i.e. sounds the user couldn't necessarily anticipate).
+     * <p>Note that this physical audio device may be the same as
+     * {@link #TYPE_BUILTIN_SPEAKER} but is driven differently to safely
+     * accommodate the different use case.</p>
+     */
+    AUDIO_DEVICE_INFO_TYPE_BUILTIN_SPEAKER_SAFE = 24;
+    /**
+     * A device type for rerouting audio within the Android framework between
+     * mixes and system applications.
+     * This type is for instance encountered when querying the output device
+     * of a track (with {@link AudioTrack#getRoutedDevice()} playing from
+     * a device in screen mirroring mode, where the audio is not heard on the
+     * device, but on the remote device.
+     */
+    AUDIO_DEVICE_INFO_TYPE_REMOTE_SUBMIX = 25;
+
+    /**
+     * A device type describing a Bluetooth Low Energy (BLE) audio headset
+     * or headphones. Headphones are grouped with headsets when the device
+     * is a sink: the features of headsets and headphones with regard to
+     * playback are the same.
+     */
+    AUDIO_DEVICE_INFO_TYPE_BLE_HEADSET   = 26;
+
+    /**
+     * A device type describing a Bluetooth Low Energy (BLE) audio speaker.
+     */
+    AUDIO_DEVICE_INFO_TYPE_BLE_SPEAKER   = 27;
+
+    /**
+     * A device type describing an Echo Canceller loopback Reference.
+     * This device is only used when capturing with
+     * MediaRecorder.AudioSource.ECHO_REFERENCE,
+     * which requires privileged permission.
+     * @hide */
+
+    AUDIO_DEVICE_INFO_TYPE_ECHO_REFERENCE   = 28;
+
+    /**
+     * A device type describing the Enhanced Audio Return Channel
+     * of an HDMI connection.
+     */
+    AUDIO_DEVICE_INFO_TYPE_HDMI_EARC         = 29;
+
+    /**
+     * A device type describing a Bluetooth Low Energy (BLE) broadcast group.
+     */
+    AUDIO_DEVICE_INFO_TYPE_BLE_BROADCAST   = 30;
+}
+
 // The event (method) associated with the AudioRecord (e.g. create, start,
 // stop, etc.)
 enum AudioRecordEvent {
@@ -136,6 +297,21 @@ enum Encoding {
   AUDIO_FORMAT_IEC60958 = 0x2d000000;
   AUDIO_FORMAT_DTS_UHD = 0x2e000000;
   AUDIO_FORMAT_DRA = 0x2f000000;
+  AUDIO_FORMAT_APTX_QLEA = 0x30000000;
+  AUDIO_FORMAT_APTX_R4 = 0x31000000;
+  AUDIO_FORMAT_DTS_HD_MA = 0x32000000;
+  AUDIO_FORMAT_DTS_UHD_P2 = 0x33000000;
+}
+
+// Spatializer HeadTracking modes
+// See:
+// frameworks/base/media/java/android/media/Spatializer.java
+// frameworks/av/media/libaudioclient/aidl/android/media/SpatializerHeadTrackingMode.aidl
+enum HeadTrackingMode {
+    HEAD_TRACKING_MODE_OTHER = 0;
+    HEAD_TRACKING_MODE_DISABLED = -1;
+    HEAD_TRACKING_MODE_RELATIVE_WORLD = 1;
+    HEAD_TRACKING_MODE_RELATIVE_SCREEN = 2;
 }
 
 // An enumeration from system/media/audio/include/system/audio-hal-enums.h
@@ -162,6 +338,33 @@ enum Source {
   AUDIO_SOURCE_HOTWORD = 1999;
 }
 
+// Spatializer capability levels
+// See:
+// frameworks/base/media/java/android/media/Spatializer.java
+// frameworks/av/media/libaudioclient/aidl/android/media/SpatializationLevel.aidl
+enum SpatializerLevel {
+    SPATIALIZER_LEVEL_NONE = 0;
+    SPATIALIZER_LEVEL_MULTICHANNEL = 1;
+    SPATIALIZER_LEVEL_MCHAN_BED_PLUS_OBJECTS = 2;
+}
+
+// Spatializer modes
+// See:
+// frameworks/av/media/libaudioclient/aidl/android/media/SpatializationMode.aidl
+enum SpatializerMode {
+    SPATIALIZER_MODE_BINAURAL = 0;
+    SPATIALIZER_MODE_TRANSAURAL = 1;
+}
+
+// Spatialization settings change may be due to special events.
+enum SpatializerSettingEvent {
+    SPATIALIZER_SETTING_EVENT_NORMAL = 0;  // Change during normal operation:
+                                           // e.g. System UI or sensor device change
+                                           // see the atom for more details.
+    SPATIALIZER_SETTING_EVENT_BOOT = 1;    // On boot-up.
+    SPATIALIZER_SETTING_EVENT_FIRST = 2;   // First time for a removable device.
+}
+
 // An enumeration from system/media/audio/include/system/audio-hal-enums.h
 // audio_usage_t, representing the use case for the AudioTrack.
 enum Usage {
@@ -184,4 +387,61 @@ enum Usage {
   AUDIO_USAGE_SAFETY = 1001;
   AUDIO_USAGE_VEHICLE_STATUS = 1002;
   AUDIO_USAGE_ANNOUNCEMENT = 1003;
+}
+
+// The implementation of aaudio.
+enum CallerPath {
+  CALLER_PATH_UNKNOWN = 0;
+  CALLER_PATH_LEGACY = 1;
+  CALLER_PATH_MMAP = 2;
+}
+
+// The direction of the stream.
+// See aaudio_direction_t in
+// frameworks/av/media/libaaudio/include/aaudio/AAudio.h
+// The Direction values are different from aaudio_direction_t
+// to avoid having 0 at the first value
+// since first value will be used as default value.
+// See lookup<AAUDIO_DIRECTION> in
+// frameworks/av/services/mediametrics/AudioTypes.cpp
+// for conversion from aaudio_direction_t to Direction.
+enum Direction {
+  // The direction is unknown.
+  DIRECTION_UNKNOWN = 0;
+  // Audio data will travel out of the device.
+  DIRECTION_OUTPUT = 1;
+  // Audio data will travel into the device.
+  DIRECTION_INPUT = 2;
+}
+
+// The performance mode.
+// See aaudio_performance_mode_t in
+// frameworks/av/media/libaaudio/include/aaudio/AAudio.h
+enum PerformanceMode {
+  // The performance mode is unknown.
+  PERFORMANCE_MODE_UNKNOWN = 0;
+  // No particular performance mode needs. Default.
+  PERFORMANCE_MODE_NONE = 10;
+  // Extending battery life is more important than low latency.
+  PERFORMANCE_MODE_POWER_SAVING = 11;
+  // Reducing latency is more important than battery life.
+  PERFORMANCE_MODE_LOW_LATENCY = 12;
+}
+
+// The mode requested for sharing the device
+// See aaudio_sharing_mode_t in
+// frameworks/av/media/libaaudio/include/aaudio/AAudio.h
+// The SharingMode values are different from aaudio_direction_t
+// to avoid having 0 at the first
+// value since first value will be used as default value.
+// See lookup<AAUDIO_SHARING_MODE> in
+// frameworks/av/services/mediametrics/AudioTypes.cpp
+// for conversion from aaudio_sharing_mode_t to SharingMode.
+enum SharingMode {
+  // The sharing mode is unknown
+  SHARING_MODE_UNKNOWN = 0;
+  // This will be the only stream using a particular source or sink.
+  SHARING_MODE_EXCLUSIVE = 1;
+  // Multiple application will be mixed by the AAudio server.
+  SHARING_MODE_SHARED = 2;
 }

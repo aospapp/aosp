@@ -22,11 +22,9 @@ import static android.text.format.DateUtils.SECOND_IN_MILLIS;
 import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.app.AppOpsManager;
-import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
-import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
@@ -120,22 +118,6 @@ public class DataServiceManager extends Handler {
     private String mLastBoundPackageName;
 
     private List<DataCallResponse> mLastDataCallResponseList = Collections.EMPTY_LIST;
-
-    private final BroadcastReceiver mBroadcastReceiver = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            final String action = intent.getAction();
-            if (CarrierConfigManager.ACTION_CARRIER_CONFIG_CHANGED.equals(action)
-                    && mPhone.getPhoneId() == intent.getIntExtra(
-                    CarrierConfigManager.EXTRA_SLOT_INDEX, 0)) {
-                // We should wait for carrier config changed event because the target binding
-                // package name can come from the carrier config. Note that we still get this event
-                // even when SIM is absent.
-                if (DBG) log("Carrier config changed. Try to bind data service.");
-                sendEmptyMessage(EVENT_BIND_DATA_SERVICE);
-            }
-        }
-    };
 
     private class DataServiceManagerDeathRecipient implements IBinder.DeathRecipient {
         @Override
@@ -409,16 +391,18 @@ public class DataServiceManager extends Handler {
                 Context.LEGACY_PERMISSION_SERVICE);
         mAppOps = (AppOpsManager) phone.getContext().getSystemService(Context.APP_OPS_SERVICE);
 
-        IntentFilter intentFilter = new IntentFilter();
-        intentFilter.addAction(CarrierConfigManager.ACTION_CARRIER_CONFIG_CHANGED);
-        try {
-            Context contextAsUser = phone.getContext().createPackageContextAsUser(
-                    phone.getContext().getPackageName(), 0, UserHandle.ALL);
-            contextAsUser.registerReceiver(mBroadcastReceiver, intentFilter,
-                    null /* broadcastPermission */, null);
-        } catch (PackageManager.NameNotFoundException e) {
-            loge("Package name not found: " + e.getMessage());
-        }
+        // Callback is executed in handler thread to directly handle config change.
+        mCarrierConfigManager.registerCarrierConfigChangeListener(this::post,
+                (slotIndex, subId, carrierId, specificCarrierId) -> {
+                    if (slotIndex == mPhone.getPhoneId()) {
+                        // We should wait for carrier config changed event because the
+                        // target binding package name can come from the carrier config.
+                        // Note that we still get this event even when SIM is absent.
+                        if (DBG) log("Carrier config changed. Try to bind data service.");
+                        rebindDataService();
+                    }
+                });
+
         PhoneConfigurationManager.registerForMultiSimConfigChange(
                 this, EVENT_BIND_DATA_SERVICE, null);
 
@@ -587,9 +571,10 @@ public class DataServiceManager extends Handler {
         // Read package name from resource overlay
         packageName = mPhone.getContext().getResources().getString(resourceId);
 
-        PersistableBundle b = mCarrierConfigManager.getConfigForSubId(mPhone.getSubId());
-
-        if (b != null && !TextUtils.isEmpty(b.getString(carrierConfig))) {
+        PersistableBundle b =
+                CarrierConfigManager.getCarrierConfigSubset(
+                        mPhone.getContext(), mPhone.getSubId(), carrierConfig);
+        if (!b.isEmpty() && !TextUtils.isEmpty(b.getString(carrierConfig))) {
             // If carrier config overrides it, use the one from carrier config
             packageName = b.getString(carrierConfig, packageName);
         }
@@ -636,9 +621,10 @@ public class DataServiceManager extends Handler {
         // Read package name from resource overlay
         className = mPhone.getContext().getResources().getString(resourceId);
 
-        PersistableBundle b = mCarrierConfigManager.getConfigForSubId(mPhone.getSubId());
-
-        if (b != null && !TextUtils.isEmpty(b.getString(carrierConfig))) {
+        PersistableBundle b =
+                CarrierConfigManager.getCarrierConfigSubset(
+                        mPhone.getContext(), mPhone.getSubId(), carrierConfig);
+        if (!b.isEmpty() && !TextUtils.isEmpty(b.getString(carrierConfig))) {
             // If carrier config overrides it, use the one from carrier config
             className = b.getString(carrierConfig, className);
         }
@@ -760,12 +746,17 @@ public class DataServiceManager extends Handler {
      * @param onCompleteMessage The result callback for this request.
      */
     public void startHandover(int cid, @NonNull Message onCompleteMessage) {
-        DataServiceCallbackWrapper callback =
-                setupCallbackHelper("startHandover", onCompleteMessage);
-        if (callback == null) {
-            loge("startHandover: callback == null");
+        if (DBG) log("startHandover");
+        if (!mBound) {
+            loge("Data service not bound.");
             sendCompleteMessage(onCompleteMessage, DataServiceCallback.RESULT_ERROR_ILLEGAL_STATE);
             return;
+        }
+
+        DataServiceCallbackWrapper callback =
+                new DataServiceCallbackWrapper("startHandover");
+        if (onCompleteMessage != null) {
+            mMessageMap.put(callback.asBinder(), onCompleteMessage);
         }
 
         try {
@@ -790,11 +781,17 @@ public class DataServiceManager extends Handler {
      * @param onCompleteMessage The result callback for this request.
      */
     public void cancelHandover(int cid, @NonNull Message onCompleteMessage) {
-        DataServiceCallbackWrapper callback =
-                setupCallbackHelper("cancelHandover", onCompleteMessage);
-        if (callback == null) {
+        if (DBG) log("cancelHandover");
+        if (!mBound) {
+            loge("Data service not bound.");
             sendCompleteMessage(onCompleteMessage, DataServiceCallback.RESULT_ERROR_ILLEGAL_STATE);
             return;
+        }
+
+        DataServiceCallbackWrapper callback =
+                new DataServiceCallbackWrapper("cancelHandover");
+        if (onCompleteMessage != null) {
+            mMessageMap.put(callback.asBinder(), onCompleteMessage);
         }
 
         try {
@@ -806,26 +803,6 @@ public class DataServiceManager extends Handler {
             mMessageMap.remove(callback.asBinder());
             sendCompleteMessage(onCompleteMessage, DataServiceCallback.RESULT_ERROR_ILLEGAL_STATE);
         }
-    }
-
-    @Nullable
-    private DataServiceCallbackWrapper setupCallbackHelper(
-            @NonNull final String operationName, @NonNull final Message onCompleteMessage) {
-        if (DBG) log(operationName);
-        if (!mBound) {
-            sendCompleteMessage(onCompleteMessage, DataServiceCallback.RESULT_ERROR_ILLEGAL_STATE);
-            return null;
-        }
-
-        DataServiceCallbackWrapper callback =
-                new DataServiceCallbackWrapper(operationName);
-        if (onCompleteMessage != null) {
-            if (DBG) log(operationName + ": onCompleteMessage set");
-            mMessageMap.put(callback.asBinder(), onCompleteMessage);
-        } else {
-            if (DBG) log(operationName + ": onCompleteMessage not set");
-        }
-        return callback;
     }
 
     /**

@@ -16,7 +16,9 @@
 
 package android.frameworks.automotive.telemetry;
 
+import android.frameworks.automotive.telemetry.CallbackConfig;
 import android.frameworks.automotive.telemetry.CarData;
+import android.frameworks.automotive.telemetry.ICarTelemetryCallback;
 
 /**
  * This service collects data from varios other services, buffers them, and delivers to the
@@ -33,4 +35,21 @@ interface ICarTelemetry {
    * @throws IllegalArgumentException if total {@code dataList#content} size is more than 10KB.
    */
   void write(in CarData[] dataList);
+
+  /**
+   * Adds a ICarTelemetryCallback.
+   *
+   * <p>Make sure to call {@code removeCallback} when the callback is no longer active
+   * or when the CallbackConfig needs to be updated.
+   *
+   * @param callback The callback to receive cartelemetryd updates.
+   */
+  void addCallback(in CallbackConfig config, in ICarTelemetryCallback callback);
+
+  /**
+   * Removes a ICarTelemetryCallback from receiving updates from cartelemetryd.
+   *
+   * @param callback The callback to receive cartelemetryd updates.
+   */
+  void removeCallback(in ICarTelemetryCallback callback);
 }

@@ -15,6 +15,8 @@
 //
 package android.frameworks.stats;
 
+import android.frameworks.stats.Annotation;
+import android.frameworks.stats.AnnotationSet;
 import android.frameworks.stats.VendorAtomValue;
 
 /*
@@ -50,5 +52,42 @@ parcelable VendorAtom {
      * Vector of fields in the order that the LogEvent should be filled.
      */
     VendorAtomValue[] values;
-}
 
+    /*
+    * Vector of annotations associated with VendorAtom.values
+    *
+    * Having the atom with below definition
+    *
+    * message SimpleVendorAtom {
+    *   optional string reverse_domain_name = 1;
+    *   optional int field1 = 2 [annotation1 = 1, annotation2 = true];
+    *   optional float field2 = 3;
+    *   optional float field3 = 4 [annotation1 = 2, annotation2 = false];
+    * }
+    *
+    * The valuesAnnotations will contain 2 entries
+    *  - valuesAnnotations[0] for field1
+    *  - valuesAnnotations[1] for field3
+    *
+    * The VendorAtomAnnotationSet[i].valueIndex used for mapping each individual
+    * annotation set to specific atom value by VendorAtom.values array index:
+    *
+    * valuesAnnotations[0].valueIndex = 0 // index of field1 in VendorAtom.values[] array
+    * valuesAnnotations[0].annotations[0].type = annotation1
+    * valuesAnnotations[0].annotations[0].value = 1
+    * valuesAnnotations[0].annotations[1].type = annotation2
+    * valuesAnnotations[0].annotations[1].value = true
+    *
+    * valuesAnnotations[1].valueIndex = 2 // index of field1 in VendorAtom.values[] array
+    * valuesAnnotations[1].annotations[0].type = annotation1
+    * valuesAnnotations[1].annotations[0].value = 2
+    * valuesAnnotations[1].annotations[1].type = annotation2
+    * valuesAnnotations[1].annotations[1].value = false
+    */
+    @nullable AnnotationSet[] valuesAnnotations;
+
+    /*
+    * Vector of annotations associated with VendorAtom
+    */
+    @nullable Annotation[] atomAnnotations;
+}

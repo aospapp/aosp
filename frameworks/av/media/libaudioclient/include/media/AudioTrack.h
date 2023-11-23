@@ -17,6 +17,7 @@
 #ifndef ANDROID_AUDIOTRACK_H
 #define ANDROID_AUDIOTRACK_H
 
+#include <audiomanager/IAudioManager.h>
 #include <binder/IMemory.h>
 #include <cutils/sched_policy.h>
 #include <media/AudioSystem.h>
@@ -148,7 +149,6 @@ public:
      *          - EVENT_NEW_TIMESTAMP: pointer to const AudioTimestamp.
      */
 
-    typedef void (*legacy_callback_t)(int event, void* user, void* info);
     class IAudioTrackCallback : public virtual RefBase {
       friend AudioTrack;
       protected:
@@ -343,26 +343,6 @@ public:
                                     float maxRequiredSpeed = 1.0f,
                                     audio_port_handle_t selectedDeviceId = AUDIO_PORT_HANDLE_NONE);
 
-
-                        AudioTrack( audio_stream_type_t streamType,
-                                    uint32_t sampleRate,
-                                    audio_format_t format,
-                                    audio_channel_mask_t channelMask,
-                                    size_t frameCount,
-                                    audio_output_flags_t flags,
-                                    legacy_callback_t cbf,
-                                    void* user = nullptr,
-                                    int32_t notificationFrames = 0,
-                                    audio_session_t sessionId  = AUDIO_SESSION_ALLOCATE,
-                                    transfer_type transferType = TRANSFER_DEFAULT,
-                                    const audio_offload_info_t *offloadInfo = nullptr,
-                                    const AttributionSourceState& attributionSource =
-                                        AttributionSourceState(),
-                                    const audio_attributes_t* pAttributes = nullptr,
-                                    bool doNotReconnect = false,
-                                    float maxRequiredSpeed = 1.0f,
-                                    audio_port_handle_t selectedDeviceId = AUDIO_PORT_HANDLE_NONE);
-
     /* Creates an audio track and registers it with AudioFlinger.
      * With this constructor, the track is configured for static buffer mode.
      * Data to be rendered is passed in a shared memory buffer
@@ -381,25 +361,6 @@ public:
                                     const sp<IMemory>& sharedBuffer,
                                     audio_output_flags_t flags = AUDIO_OUTPUT_FLAG_NONE,
                                     const wp<IAudioTrackCallback>& callback = nullptr,
-                                    int32_t notificationFrames = 0,
-                                    audio_session_t sessionId   = AUDIO_SESSION_ALLOCATE,
-                                    transfer_type transferType = TRANSFER_DEFAULT,
-                                    const audio_offload_info_t *offloadInfo = nullptr,
-                                    const AttributionSourceState& attributionSource =
-                                        AttributionSourceState(),
-                                    const audio_attributes_t* pAttributes = nullptr,
-                                    bool doNotReconnect = false,
-                                    float maxRequiredSpeed = 1.0f);
-
-
-                        AudioTrack( audio_stream_type_t streamType,
-                                    uint32_t sampleRate,
-                                    audio_format_t format,
-                                    audio_channel_mask_t channelMask,
-                                    const sp<IMemory>& sharedBuffer,
-                                    audio_output_flags_t flags,
-                                    legacy_callback_t cbf,
-                                    void* user          = nullptr,
                                     int32_t notificationFrames = 0,
                                     audio_session_t sessionId   = AUDIO_SESSION_ALLOCATE,
                                     transfer_type transferType = TRANSFER_DEFAULT,
@@ -490,28 +451,8 @@ public:
                         }
             void       onFirstRef() override;
         public:
-            status_t    set(audio_stream_type_t streamType,
-                            uint32_t sampleRate,
-                            audio_format_t format,
-                            audio_channel_mask_t channelMask,
-                            size_t frameCount,
-                            audio_output_flags_t flags,
-                            legacy_callback_t callback,
-                            void * user = nullptr,
-                            int32_t notificationFrames = 0,
-                            const sp<IMemory>& sharedBuffer = 0,
-                            bool threadCanCallJava = false,
-                            audio_session_t sessionId  = AUDIO_SESSION_ALLOCATE,
-                            transfer_type transferType = TRANSFER_DEFAULT,
-                            const audio_offload_info_t *offloadInfo = nullptr,
-                            const AttributionSourceState& attributionSource =
-                                AttributionSourceState(),
-                            const audio_attributes_t* pAttributes = nullptr,
-                            bool doNotReconnect = false,
-                            float maxRequiredSpeed = 1.0f,
-                            audio_port_handle_t selectedDeviceId = AUDIO_PORT_HANDLE_NONE);
-
-    // FIXME(b/169889714): Vendor code depends on the old method signature at link time
+            typedef void (*legacy_callback_t)(int event, void* user, void* info);
+            // FIXME(b/169889714): Vendor code depends on the old method signature at link time
             status_t    set(audio_stream_type_t streamType,
                             uint32_t sampleRate,
                             audio_format_t format,
@@ -713,6 +654,15 @@ public:
      * if playback rate had normal speed and pitch.
      */
             uint32_t    getOriginalSampleRate() const;
+
+    /* Return the sample rate from the AudioFlinger output thread. */
+            uint32_t    getHalSampleRate() const;
+
+    /* Return the channel count from the AudioFlinger output thread. */
+            uint32_t    getHalChannelCount() const;
+
+    /* Return the HAL format from the AudioFlinger output thread. */
+            audio_format_t    getHalFormat() const;
 
     /* Sets the Dual Mono mode presentation on the output device. */
             status_t    setDualMonoMode(audio_dual_mono_mode_t mode);
@@ -1176,6 +1126,9 @@ public:
 
             bool isPlaying() {
                 AutoMutex lock(mLock);
+                return isPlaying_l();
+            }
+            bool isPlaying_l() {
                 return mState == STATE_ACTIVE || mState == STATE_STOPPING;
             }
 
@@ -1205,6 +1158,8 @@ public:
             void setAudioTrackCallback(const sp<media::IAudioTrackCallback>& callback) {
                 mAudioTrackCallback->setAudioTrackCallback(callback);
             }
+ private:
+            void triggerPortIdUpdate_l();
 
  protected:
     /* copying audio tracks is not allowed */
@@ -1310,6 +1265,11 @@ public:
     audio_track_cblk_t*     mCblk;                  // re-load after mLock.unlock()
     audio_io_handle_t       mOutput = AUDIO_IO_HANDLE_NONE; // from AudioSystem::getOutputForAttr()
 
+    // A copy of shared memory and proxy between obtainBuffer and releaseBuffer to keep the
+    // shared memory valid when processing data.
+    sp<IMemory>               mCblkMemoryObtainBufferRef GUARDED_BY(mLock);
+    sp<AudioTrackClientProxy> mProxyObtainBufferRef GUARDED_BY(mLock);
+
     sp<AudioTrackThread>    mAudioTrackThread;
     bool                    mThreadCanCallJava;
 
@@ -1327,12 +1287,14 @@ public:
     size_t                  mReqFrameCount;         // frame count to request the first or next time
                                                     // a new IAudioTrack is needed, non-decreasing
 
-    // The following AudioFlinger server-side values are cached in createAudioTrack_l().
+    // The following AudioFlinger server-side values are cached in createTrack_l().
     // These values can be used for informational purposes until the track is invalidated,
     // whereupon restoreTrack_l() calls createTrack_l() to update the values.
     uint32_t                mAfLatency;             // AudioFlinger latency in ms
     size_t                  mAfFrameCount;          // AudioFlinger frame count
     uint32_t                mAfSampleRate;          // AudioFlinger sample rate
+    uint32_t                mAfChannelCount;        // AudioFlinger channel count
+    audio_format_t          mAfFormat;              // AudioFlinger format
 
     // constant after constructor or set()
     audio_format_t          mFormat;                // as requested by client, not forced to 16-bit
@@ -1471,13 +1433,16 @@ public:
 
     audio_session_t         mSessionId;
     int                     mAuxEffectId;
-    audio_port_handle_t     mPortId;                    // Id from Audio Policy Manager
+    audio_port_handle_t     mPortId = AUDIO_PORT_HANDLE_NONE; // Id from Audio Policy Manager
 
     /**
      * mPlayerIId is the player id of the AudioTrack used by AudioManager.
      * For an AudioTrack created by the Java interface, this is generally set once.
      */
     int                     mPlayerIId = -1;  // AudioManager.h PLAYER_PIID_INVALID
+
+    /** Interface for interacting with the AudioService. */
+    sp<IAudioManager>       mAudioManager;
 
     /**
      * mLogSessionId is a string identifying this AudioTrack for the metrics service.

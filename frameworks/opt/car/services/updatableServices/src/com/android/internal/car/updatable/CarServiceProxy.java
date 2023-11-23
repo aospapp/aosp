@@ -16,12 +16,16 @@
 
 package com.android.internal.car.updatable;
 
+import static com.android.car.internal.common.CommonConstants.USER_LIFECYCLE_EVENT_TYPE_CREATED;
+import static com.android.car.internal.common.CommonConstants.USER_LIFECYCLE_EVENT_TYPE_INVISIBLE;
+import static com.android.car.internal.common.CommonConstants.USER_LIFECYCLE_EVENT_TYPE_REMOVED;
 import static com.android.car.internal.common.CommonConstants.USER_LIFECYCLE_EVENT_TYPE_STARTING;
 import static com.android.car.internal.common.CommonConstants.USER_LIFECYCLE_EVENT_TYPE_STOPPED;
 import static com.android.car.internal.common.CommonConstants.USER_LIFECYCLE_EVENT_TYPE_STOPPING;
 import static com.android.car.internal.common.CommonConstants.USER_LIFECYCLE_EVENT_TYPE_SWITCHING;
 import static com.android.car.internal.common.CommonConstants.USER_LIFECYCLE_EVENT_TYPE_UNLOCKED;
 import static com.android.car.internal.common.CommonConstants.USER_LIFECYCLE_EVENT_TYPE_UNLOCKING;
+import static com.android.car.internal.common.CommonConstants.USER_LIFECYCLE_EVENT_TYPE_VISIBLE;
 
 import android.annotation.IntDef;
 import android.annotation.NonNull;
@@ -197,7 +201,7 @@ final class CarServiceProxy {
         boolean user0IsCurrent = lastSwitchedUser == USER_SYSTEM;
         // If user0Lifecycle is 0, then no life-cycle event received yet.
         if (user0Lifecycle != 0) {
-            sendAllLifecyleToUser(USER_SYSTEM, user0Lifecycle,
+            sendAllLifecycleToUser(USER_SYSTEM, user0Lifecycle,
                     user0IsCurrent);
         }
         lastUserLifecycle.delete(USER_SYSTEM);
@@ -207,7 +211,7 @@ final class CarServiceProxy {
             int currentUserLifecycle = lastUserLifecycle.get(lastSwitchedUser);
             // If currentUserLifecycle is 0, then no life-cycle event received yet.
             if (currentUserLifecycle != 0) {
-                sendAllLifecyleToUser(lastSwitchedUser, currentUserLifecycle,
+                sendAllLifecycleToUser(lastSwitchedUser, currentUserLifecycle,
                         /* isCurrentUser= */ true);
             }
         }
@@ -218,15 +222,56 @@ final class CarServiceProxy {
         for (int i = 0; i < lastUserLifecycle.size(); i++) {
             int userId = lastUserLifecycle.keyAt(i);
             int lifecycle = lastUserLifecycle.valueAt(i);
-            sendAllLifecyleToUser(userId, lifecycle, /* isCurrentUser= */ false);
+            sendAllLifecycleToUser(userId, lifecycle, /* isCurrentUser= */ false);
         }
     }
 
-    private void sendAllLifecyleToUser(@UserIdInt int userId, int lifecycle,
+    private void sendAllLifecycleToUser(@UserIdInt int userId, int lifecycle,
             boolean isCurrentUser) {
         if (DBG) {
-            Slogf.d(TAG, "sendAllLifecyleToUser, user:" + userId + " lifecycle:" + lifecycle);
+            Slogf.d(TAG, "sendAllLifecycleToUser, user:" + userId + " lifecycle:" + lifecycle);
         }
+
+        // User created and user removed are unrelated to the user switching/unlocking flow.
+        // Return early to prevent them from going into the following logic
+        // that makes assumptions about the sequence of lifecycle event types
+        // following numerical order.
+        if (lifecycle == USER_LIFECYCLE_EVENT_TYPE_CREATED) {
+            sendUserLifecycleEventInternal(USER_LIFECYCLE_EVENT_TYPE_CREATED,
+                    UserManagerHelper.USER_NULL, userId);
+            return;
+        }
+
+        if (lifecycle == USER_LIFECYCLE_EVENT_TYPE_REMOVED) {
+            sendUserLifecycleEventInternal(USER_LIFECYCLE_EVENT_TYPE_REMOVED,
+                    UserManagerHelper.USER_NULL, userId);
+            return;
+        }
+
+        // User visible and user invisible are unrelated to the user switching/unlocking flow.
+        // Return early to prevent them from going into the following logic
+        // that makes assumptions about the sequence of lifecycle event types
+        // following numerical order.
+        // If we don't return early here, because the user visible and visible event numbers are
+        // greater than user starting/switching/unlocking/unlocked events, they will cause these
+        // events to be sent which is an unintended effect.
+        // TODO(b/277148129): Refactor the entire lifecycle events replay logic taking into
+        // consideration the visible and invisible events. Currently only the last event per use is
+        // tracked so it's hard to infer events before user visible and user invisible.
+        if (lifecycle == USER_LIFECYCLE_EVENT_TYPE_VISIBLE) {
+            sendUserLifecycleEventInternal(USER_LIFECYCLE_EVENT_TYPE_VISIBLE,
+                    UserManagerHelper.USER_NULL, userId);
+            return;
+        }
+
+        if (lifecycle == USER_LIFECYCLE_EVENT_TYPE_INVISIBLE) {
+            sendUserLifecycleEventInternal(USER_LIFECYCLE_EVENT_TYPE_INVISIBLE,
+                    UserManagerHelper.USER_NULL, userId);
+            return;
+        }
+
+        // The following logic makes assumptions about the sequence of lifecycle event types
+        // following numerical order.
         if (lifecycle >= USER_LIFECYCLE_EVENT_TYPE_STARTING) {
             sendUserLifecycleEventInternal(USER_LIFECYCLE_EVENT_TYPE_STARTING,
                     UserManagerHelper.USER_NULL, userId);
@@ -401,8 +446,11 @@ final class CarServiceProxy {
         Preconditions.checkArgument((value instanceof UserHandle),
                 "Invalid value for ON_USER_REMOVED: %s", value);
         UserHandle user = (UserHandle) value;
+        // TODO(235524989): Consolidating logging with other lifecycle events,
+        // including user metrics.
         if (DBG) Slogf.d(TAG, "Sending onUserRemoved(): " + user);
-        mCarService.onUserRemoved(user);
+        mCarService.onUserLifecycleEvent(USER_LIFECYCLE_EVENT_TYPE_REMOVED,
+                UserManagerHelper.USER_NULL, user.getIdentifier());
     }
 
     /**

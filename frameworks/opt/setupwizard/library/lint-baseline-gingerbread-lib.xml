@@ -3,7 +3,7 @@
 
     <issue
         id="NewApi"
-        message="`&lt;vector>` requires API level 21 (current min is 14) or building with Android Gradle plugin 1.4 or higher"
+        message="`&lt;vector>` requires API level 21 (current min is 14) or building with Android Gradle plugin 1.4.0 or higher"
         errorLine1="&lt;vector xmlns:android=&quot;http://schemas.android.com/apk/res/android&quot;"
         errorLine2=" ~~~~~~">
         <location
@@ -14,7 +14,7 @@
 
     <issue
         id="NewApi"
-        message="`&lt;vector>` requires API level 21 (current min is 14) or building with Android Gradle plugin 1.4 or higher"
+        message="`&lt;vector>` requires API level 21 (current min is 14) or building with Android Gradle plugin 1.4.0 or higher"
         errorLine1="&lt;vector xmlns:android=&quot;http://schemas.android.com/apk/res/android&quot;"
         errorLine2=" ~~~~~~">
         <location

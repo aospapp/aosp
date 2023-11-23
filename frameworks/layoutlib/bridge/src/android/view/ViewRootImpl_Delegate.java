@@ -28,7 +28,8 @@ import com.android.tools.layoutlib.annotations.LayoutlibDelegate;
 public class ViewRootImpl_Delegate {
 
     @LayoutlibDelegate
-    /*package*/ static boolean isInTouchMode() {
-        return false; // this allows displaying selection.
+    /*package*/ static boolean performHapticFeedback(ViewRootImpl thisViewRoot, int effectId,
+            boolean always) {
+        return false;
     }
 }

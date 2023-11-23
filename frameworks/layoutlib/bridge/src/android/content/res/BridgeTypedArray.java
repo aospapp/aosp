@@ -211,7 +211,7 @@ public final class BridgeTypedArray extends TypedArray {
         if (resourceValue instanceof TextResourceValue) {
             String rawValue =
                     ValueXmlHelper.unescapeResourceString(resourceValue.getRawXmlValue(),
-                            true, false);
+                            true, true);
             if (rawValue != null && !rawValue.equals(value)) {
                 return ResourceHelper.parseHtml(rawValue);
             }

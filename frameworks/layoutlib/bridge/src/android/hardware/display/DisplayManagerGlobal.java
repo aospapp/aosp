@@ -25,6 +25,7 @@ import android.content.Context;
 import android.content.res.Resources;
 import android.graphics.ColorSpace;
 import android.graphics.Point;
+import android.hardware.OverlayProperties;
 import android.hardware.display.DisplayManager.DisplayListener;
 import android.media.projection.MediaProjection;
 import android.os.Handler;
@@ -149,6 +150,8 @@ public final class DisplayManagerGlobal {
     public ColorSpace getPreferredWideGamutColorSpace() {
         return null;
     }
+
+    public OverlayProperties getOverlaySupport() { return null; }
 
     public void setBrightnessConfigurationForUser(BrightnessConfiguration c, int userId,
             String packageName) {}

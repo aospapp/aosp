@@ -19,6 +19,7 @@
 #include <utils/String16.h>
 #include <android/log.h>
 #include <mediautils/SchedulingPolicyService.h>
+#include <mediautils/TidWrapper.h>
 #include "fuzzer/FuzzedDataProvider.h"
 using android::IBatteryStats;
 using android::IBinder;
@@ -34,9 +35,14 @@ sp<IBatteryStats> getBatteryService() {
     const sp<IServiceManager> sm(defaultServiceManager());
     if (sm != nullptr) {
         const String16 name("batterystats");
-        batteryStatService = checked_interface_cast<IBatteryStats>(sm->checkService(name));
-        if (batteryStatService == nullptr) {
+        sp<IBinder> obj = sm->checkService(name);
+        if (!obj) {
             ALOGW("batterystats service unavailable!");
+            return nullptr;
+        }
+        batteryStatService = checked_interface_cast<IBatteryStats>(obj);
+        if (batteryStatService == nullptr) {
+            ALOGW("batterystats service interface is invalid");
             return nullptr;
         }
     }
@@ -50,7 +56,8 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
     int32_t priority = data_provider.ConsumeIntegral<int32_t>();
     bool is_for_app = data_provider.ConsumeBool();
     bool async = data_provider.ConsumeBool();
-    requestPriority(getpid(), gettid(), priority, is_for_app, async);
+    requestPriority(getpid(), android::mediautils::getThreadIdWrapper(), priority, is_for_app,
+                    async);
     // TODO: Verify and re-enable in AOSP (R).
     // bool enable = data_provider.ConsumeBool();
     // We are just using batterystats to avoid the need

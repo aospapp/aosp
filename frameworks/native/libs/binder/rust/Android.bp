@@ -15,12 +15,13 @@ rust_library {
         "libutils",
     ],
     rustlibs: [
-        "liblibc",
         "libbinder_ndk_sys",
         "libdowncast_rs",
+        "liblibc",
     ],
     host_supported: true,
     vendor_available: true,
+    product_available: true,
     target: {
         darwin: {
             enabled: false,
@@ -29,6 +30,7 @@ rust_library {
     apex_available: [
         "//apex_available:platform",
         "com.android.compos",
+        "com.android.rkpd",
         "com.android.uwb",
         "com.android.virt",
     ],
@@ -71,6 +73,7 @@ rust_library {
     ],
     host_supported: true,
     vendor_available: true,
+    product_available: true,
     target: {
         darwin: {
             enabled: false,
@@ -79,12 +82,14 @@ rust_library {
     apex_available: [
         "//apex_available:platform",
         "com.android.compos",
+        "com.android.rkpd",
         "com.android.uwb",
         "com.android.virt",
     ],
     min_sdk_version: "Tiramisu",
     lints: "none",
     clippy_lints: "none",
+    visibility: [":__subpackages__"],
 }
 
 rust_bindgen {
@@ -126,6 +131,7 @@ rust_bindgen {
     ],
     host_supported: true,
     vendor_available: true,
+    product_available: true,
 
     // Currently necessary for host builds
     // TODO(b/31559095): bionic on host should define this
@@ -137,23 +143,7 @@ rust_bindgen {
     apex_available: [
         "//apex_available:platform",
         "com.android.compos",
-        "com.android.uwb",
-        "com.android.virt",
-    ],
-    min_sdk_version: "Tiramisu",
-}
-
-// TODO(b/184872979): remove once the Rust API is created.
-rust_bindgen {
-    name: "libbinder_rpc_unstable_bindgen",
-    wrapper_src: ":libbinder_rpc_unstable_header",
-    crate_name: "binder_rpc_unstable_bindgen",
-    source_stem: "bindings",
-    shared_libs: [
-        "libutils",
-    ],
-    apex_available: [
-        "com.android.compos",
+        "com.android.rkpd",
         "com.android.uwb",
         "com.android.virt",
     ],
@@ -170,9 +160,9 @@ rust_test {
         "libbinder_ndk",
     ],
     rustlibs: [
-        "liblibc",
         "libbinder_ndk_sys",
         "libdowncast_rs",
+        "liblibc",
     ],
 }
 
@@ -180,16 +170,6 @@ rust_test {
     name: "libbinder_ndk_bindgen_test",
     srcs: [":libbinder_ndk_bindgen"],
     crate_name: "binder_ndk_bindgen",
-    test_suites: ["general-tests"],
-    auto_gen_config: true,
-    clippy_lints: "none",
-    lints: "none",
-}
-
-rust_test {
-    name: "libbinder_rpc_unstable_bindgen_test",
-    srcs: [":libbinder_rpc_unstable_bindgen"],
-    crate_name: "binder_rpc_unstable_bindgen",
     test_suites: ["general-tests"],
     auto_gen_config: true,
     clippy_lints: "none",

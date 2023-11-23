@@ -32,7 +32,7 @@ aidl_interface {
             enabled: true,
         },
         java: {
-	    sdk_version: "module_current",
+            sdk_version: "module_current",
             min_sdk_version: "31",
             apex_available: [
                 "//apex_available:platform",
@@ -44,9 +44,22 @@ aidl_interface {
             enabled: true,
         },
     },
+    versions_with_info: [
+        {
+            version: "1",
+            imports: [],
+        },
+        {
+            version: "2",
+            imports: [],
+        },
+
+    ],
+    frozen: true,
+
     // Run "m android.frameworks.automotive.telemetry-freeze-api" to bump the version. Freeze the
     // version only during the release.
     // Run "m android.frameworks.automotive.telemetry-update-api" to update the
     // "aidl_api/.../current/" dir.
-    versions: ["1"],
+
 }

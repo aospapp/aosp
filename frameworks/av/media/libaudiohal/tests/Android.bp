@@ -1,0 +1,72 @@
+// Copyright (C) 2022 The Android Open Source Project
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+// Headers module is in frameworks/av/Android.bp because modules are not allowed
+// to refer to headers in parent directories and the headers live in
+// frameworks/av/include.
+
+package {
+    default_applicable_licenses: ["frameworks_av_license"],
+}
+
+cc_defaults {
+    name: "AudioHalTestDefaults",
+    test_suites: ["device-tests"],
+    defaults: [
+        "latest_android_media_audio_common_types_ndk_shared",
+    ],
+    cflags: [
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-Wthread-safety",
+        "-DBACKEND_NDK",
+    ],
+
+    shared_libs: [
+        "audioclient-types-aidl-cpp",
+        "libaudio_aidl_conversion_common_ndk",
+        "libaudiohal",
+        "liblog",
+        "libutils",
+        "libvibrator",
+    ],
+}
+
+cc_test {
+    name: "EffectsFactoryHalInterfaceTest",
+    srcs: ["EffectsFactoryHalInterface_test.cpp"],
+    defaults: ["AudioHalTestDefaults"],
+    header_libs: ["libaudiohal_headers"],
+}
+
+cc_test {
+    name: "EffectProxyTest",
+    srcs: [
+        "EffectProxy_test.cpp",
+        ":audio_effectproxy_src_files",
+    ],
+    defaults: [
+        "AudioHalTestDefaults",
+        "latest_android_hardware_audio_effect_ndk_shared",
+        "libaudiohal_default",
+        "use_libaidlvintf_gtest_helper_static",
+    ],
+    shared_libs: [
+        "android.hardware.common.fmq-V1-ndk",
+        "libbinder_ndk",
+        "libfmq",
+    ],
+    header_libs: ["libaudiohalimpl_headers"],
+}

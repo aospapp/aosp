@@ -50,7 +50,7 @@ convertAidlToHidl37StreamCombination(
     for (const auto &stream : aidl.streams) {
         if (static_cast<int>(stream.dynamicRangeProfile) !=
                 ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP_STANDARD) {
-            ALOGE("%s  Dynamic range profile %" PRId64 " not supported by HIDL", __FUNCTION__,
+            ALOGE("%s Dynamic range profile %" PRId64 " not supported by HIDL", __FUNCTION__,
                     stream.dynamicRangeProfile);
             return BAD_VALUE;
         }
@@ -111,8 +111,8 @@ convertToHALStreamCombination(
         bool overrideForPerfClass, bool *earlyExit) {
     aidl::android::hardware::camera::device::StreamConfiguration aidlStreamConfiguration;
     auto ret = convertToHALStreamCombination(sessionConfiguration, logicalCameraId, deviceInfo,
-            getMetadata, physicalCameraIds, aidlStreamConfiguration, overrideForPerfClass,
-            earlyExit);
+            false /*isCompositeJpegRDisabled*/, getMetadata, physicalCameraIds,
+            aidlStreamConfiguration, overrideForPerfClass, earlyExit);
     if (!ret.isOk()) {
         return ret;
     }

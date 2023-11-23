@@ -30,13 +30,15 @@ import android.telephony.CarrierConfigManager;
 import android.telephony.PhoneNumberUtils;
 import android.telephony.SmsMessage;
 import android.telephony.SubscriptionInfo;
+import android.telephony.SubscriptionManager;
 import android.text.TextUtils;
+import android.util.Log;
 import android.util.Pair;
 
+import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.telephony.CommandsInterface;
 import com.android.internal.telephony.MccTable;
 import com.android.internal.telephony.SmsConstants;
-import com.android.internal.telephony.SubscriptionController;
 import com.android.internal.telephony.gsm.SimTlv;
 import com.android.internal.telephony.uicc.IccCardApplicationStatus.AppType;
 import com.android.telephony.Rlog;
@@ -54,8 +56,9 @@ public class SIMRecords extends IccRecords {
     protected static final String LOG_TAG = "SIMRecords";
 
     private static final boolean CRASH_RIL = false;
-
-    private static final boolean VDBG = false;
+    private static final boolean FORCE_VERBOSE_STATE_LOGGING = false; /* stopship if true */
+    private static final boolean VDBG =  FORCE_VERBOSE_STATE_LOGGING ||
+            Rlog.isLoggable(LOG_TAG, Log.VERBOSE);
 
     // ***** Instance Variables
 
@@ -102,13 +105,15 @@ public class SIMRecords extends IccRecords {
                 + " mVmConfig" + mVmConfig
                 + " callForwardingEnabled=" + mCallForwardingStatus
                 + " spnState=" + mSpnState
-                + " mCphsInfo=" + mCphsInfo
+                + " mCphsInfo=" + IccUtils.bytesToHexString(mCphsInfo)
                 + " mCspPlmnEnabled=" + mCspPlmnEnabled
-                + " efMWIS=" + mEfMWIS
-                + " efCPHS_MWI=" + mEfCPHS_MWI
-                + " mEfCff=" + mEfCff
-                + " mEfCfis=" + mEfCfis
-                + " getOperatorNumeric=" + getOperatorNumeric();
+                + " efMWIS=" + IccUtils.bytesToHexString(mEfMWIS)
+                + " efCPHS_MWI=" + IccUtils.bytesToHexString(mEfCPHS_MWI)
+                + " mEfCff=" + IccUtils.bytesToHexString(mEfCff)
+                + " mEfCfis=" + IccUtils.bytesToHexString(mEfCfis)
+                + " getOperatorNumeric=" + getOperatorNumeric()
+                + " mPsiSmsc=" + mPsiSmsc
+                + " TPMR=" + getSmssTpmrValue();
     }
 
     // ***** Constants
@@ -163,7 +168,7 @@ public class SIMRecords extends IccRecords {
     private static final int EVENT_UPDATE_DONE = 14 + SIM_RECORD_EVENT_BASE;
     protected static final int EVENT_GET_PNN_DONE = 15 + SIM_RECORD_EVENT_BASE;
     protected static final int EVENT_GET_OPL_DONE = 16 + SIM_RECORD_EVENT_BASE;
-    private static final int EVENT_GET_SST_DONE = 17 + SIM_RECORD_EVENT_BASE;
+    protected static final int EVENT_GET_SST_DONE = 17 + SIM_RECORD_EVENT_BASE;
     private static final int EVENT_GET_ALL_SMS_DONE = 18 + SIM_RECORD_EVENT_BASE;
     private static final int EVENT_MARK_SMS_READ_DONE = 19 + SIM_RECORD_EVENT_BASE;
     private static final int EVENT_SET_MBDN_DONE = 20 + SIM_RECORD_EVENT_BASE;
@@ -184,6 +189,9 @@ public class SIMRecords extends IccRecords {
     private static final int EVENT_GET_FPLMN_DONE = 41 + SIM_RECORD_EVENT_BASE;
     private static final int EVENT_GET_FPLMN_SIZE_DONE = 42 + SIM_RECORD_EVENT_BASE;
     private static final int EVENT_SET_FPLMN_DONE = 43 + SIM_RECORD_EVENT_BASE;
+    protected static final int EVENT_GET_SMSS_RECORD_DONE = 46 + SIM_RECORD_EVENT_BASE;
+    protected static final int EVENT_GET_PSISMSC_DONE = 47 + SIM_RECORD_EVENT_BASE;
+
     // ***** Constructor
 
     public SIMRecords(UiccCardApplication app, Context c, CommandsInterface ci) {
@@ -272,10 +280,23 @@ public class SIMRecords extends IccRecords {
         return mUsimServiceTable;
     }
 
+    /**
+     * Fetches the USIM service table from UsimServiceTable
+     *
+     * @return HexString representation of USIM service table
+     */
+    public String getSimServiceTable() {
+        if (mUsimServiceTable != null) {
+            return IccUtils.bytesToHexString(mUsimServiceTable.getUSIMServiceTable());
+        }
+        return null;
+    }
+
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
     private int getExtFromEf(int ef) {
         int ext;
         switch (ef) {
+            case EF_FDN: return EF_EXT2;
             case EF_MSISDN:
                 /* For USIM apps use EXT5. (TS 31.102 Section 4.2.37) */
                 if (mParentApp.getType() == AppType.APPTYPE_USIM) {
@@ -378,18 +399,20 @@ public class SIMRecords extends IccRecords {
         mNewVoiceMailTag = alphaTag;
 
         AdnRecord adn = new AdnRecord(mNewVoiceMailTag, mNewVoiceMailNum);
-
         if (mMailboxIndex != 0 && mMailboxIndex != 0xff) {
 
             new AdnRecordLoader(mFh).updateEF(adn, EF_MBDN, EF_EXT6,
                     mMailboxIndex, null,
-                    obtainMessage(EVENT_SET_MBDN_DONE, onComplete));
+                    obtainMessage(EVENT_SET_MBDN_DONE, AdnRecordLoader.VOICEMAIL_ALPHATAG_ARG,
+                            0 /* ignored arg2 */, onComplete));
 
         } else if (isCphsMailboxEnabled()) {
 
             new AdnRecordLoader(mFh).updateEF(adn, EF_MAILBOX_CPHS,
                     EF_EXT1, 1, null,
-                    obtainMessage(EVENT_SET_CPHS_MAILBOX_DONE, onComplete));
+                    obtainMessage(EVENT_SET_CPHS_MAILBOX_DONE,
+                            AdnRecordLoader.VOICEMAIL_ALPHATAG_ARG,
+                            0 /* ignored arg2 */, onComplete));
 
         } else {
             AsyncResult.forMessage((onComplete)).exception =
@@ -639,7 +662,6 @@ public class SIMRecords extends IccRecords {
                     " while being destroyed. Ignoring.");
             return;
         }
-
         try {
             switch (msg.what) {
                 /* IO events */
@@ -836,7 +858,7 @@ public class SIMRecords extends IccRecords {
                     mIccId = IccUtils.bcdToString(data, 0, data.length);
                     mFullIccId = IccUtils.bchToString(data, 0, data.length);
 
-                    log("iccid: " + SubscriptionInfo.givePrintableIccid(mFullIccId));
+                    log("iccid: " + SubscriptionInfo.getPrintableId(mFullIccId));
                     break;
 
                 case EVENT_GET_AD_DONE:
@@ -1013,10 +1035,20 @@ public class SIMRecords extends IccRecords {
 
                     if (DBG) log("EVENT_SET_MBDN_DONE ex:" + ar.exception);
                     if (ar.exception == null) {
+                        /**
+                         * Check for any changes made to voicemail alphaTag while saving to SIM.
+                         * if voicemail alphaTag length is more than allowed limit of SIM EF then
+                         * null alphaTag will be saved to SIM {@code AdnRecordLoader}.
+                         */
+                        if (ar.result != null) {
+                            AdnRecord adnRecord = (AdnRecord) (ar.result);
+                            if (adnRecord != null) {
+                                mNewVoiceMailTag = adnRecord.mAlphaTag;
+                            }
+                        }
                         mVoiceMailNum = mNewVoiceMailNum;
                         mVoiceMailTag = mNewVoiceMailTag;
                     }
-
                     if (isCphsMailboxEnabled()) {
                         adn = new AdnRecord(mVoiceMailTag, mVoiceMailNum);
                         Message onCphsCompleted = (Message) ar.userObj;
@@ -1040,14 +1072,15 @@ public class SIMRecords extends IccRecords {
                         new AdnRecordLoader(mFh)
                                 .updateEF(adn, EF_MAILBOX_CPHS, EF_EXT1, 1, null,
                                 obtainMessage(EVENT_SET_CPHS_MAILBOX_DONE,
-                                        onCphsCompleted));
+                                       AdnRecordLoader.VOICEMAIL_ALPHATAG_ARG,
+                                        0 /* ignored arg2 */, onCphsCompleted));
                     } else {
                         if (ar.userObj != null) {
                             CarrierConfigManager configManager = (CarrierConfigManager)
                                     mContext.getSystemService(Context.CARRIER_CONFIG_SERVICE);
                             if (ar.exception != null && configManager != null) {
                                 PersistableBundle b = configManager.getConfigForSubId(
-                                        SubscriptionController.getInstance().getSubIdUsingPhoneId(
+                                        SubscriptionManager.getSubscriptionId(
                                                 mParentApp.getPhoneId()));
                                 if (b != null && b.getBoolean(
                                         CarrierConfigManager.KEY_EDITABLE_VOICEMAIL_NUMBER_BOOL)) {
@@ -1072,6 +1105,12 @@ public class SIMRecords extends IccRecords {
                     isRecordLoadResponse = false;
                     ar = (AsyncResult) msg.obj;
                     if (ar.exception == null) {
+                        if (ar.result != null) {
+                            AdnRecord adnRecord = (AdnRecord) (ar.result);
+                            if (adnRecord != null) {
+                                mNewVoiceMailTag = adnRecord.mAlphaTag;
+                            }
+                        }
                         mVoiceMailNum = mNewVoiceMailNum;
                         mVoiceMailTag = mNewVoiceMailTag;
                     } else {
@@ -1288,6 +1327,35 @@ public class SIMRecords extends IccRecords {
                             response.sendToTarget();
                         }
                         log("Successfully setted fplmns " + ar.result);
+                    }
+                    break;
+
+                case EVENT_GET_PSISMSC_DONE:
+                    isRecordLoadResponse = true;
+                    ar = (AsyncResult) msg.obj;
+                    if (ar.exception != null) {
+                        loge("Failed to read USIM EF_PSISMSC field error=" + ar.exception);
+                    } else {
+                        data = (byte[]) ar.result;
+                        if (data != null && data.length > 0) {
+                            mPsiSmsc = parseEfPsiSmsc(data);
+                            if (VDBG) {
+                                log("SIMRecords - EF_PSISMSC value = " + mPsiSmsc);
+                            }
+                        }
+                    }
+                    break;
+
+                case EVENT_GET_SMSS_RECORD_DONE:
+                    isRecordLoadResponse = true;
+                    ar = (AsyncResult) msg.obj;
+                    if (ar.exception != null) {
+                        loge("Failed to read USIM EF_SMSS field error=" + ar.exception);
+                    } else {
+                        mSmssValues = (byte[]) ar.result;
+                        if (VDBG) {
+                            log("SIMRecords - EF_SMSS TPMR value = " + getSmssTpmrValue());
+                        }
                     }
                     break;
 
@@ -1680,11 +1748,17 @@ public class SIMRecords extends IccRecords {
         mFh.getEFLinearRecordSize(EF_SMS, obtainMessage(EVENT_GET_SMS_RECORD_SIZE_DONE));
         mRecordsToLoad++;
 
+        mFh.loadEFLinearFixed(EF_PSISMSC, 1, obtainMessage(EVENT_GET_PSISMSC_DONE));
+        mRecordsToLoad++;
+
         // XXX should seek instead of examining them all
         if (false) { // XXX
             mFh.loadEFLinearFixedAll(EF_SMS, obtainMessage(EVENT_GET_ALL_SMS_DONE));
             mRecordsToLoad++;
         }
+
+        mFh.loadEFTransparent(EF_SMSS, obtainMessage(EVENT_GET_SMSS_RECORD_DONE));
+        mRecordsToLoad++;
 
         if (CRASH_RIL) {
             String sms = "0107912160130310f20404d0110041007030208054832b0120"
@@ -1970,7 +2044,7 @@ public class SIMRecords extends IccRecords {
             // Byte 5 and 6 are for lacTacEnd.
             // Byte 7 is for PNN Record Identifier.
             if (data.length != 8) {
-                loge("Invalid length for OPL record " + data);
+                loge("Invalid length for OPL record " + IccUtils.bytesToHexString(data));
                 continue;
             }
 
@@ -2110,6 +2184,11 @@ public class SIMRecords extends IccRecords {
         log("[CSP] Value Added Service Group (0xC0), not found!");
     }
 
+    @VisibleForTesting
+    public void setMailboxIndex(int mailboxIndex) {
+        mMailboxIndex = mailboxIndex;
+    }
+
     @Override
     public void dump(FileDescriptor fd, PrintWriter pw, String[] args) {
         pw.println("SIMRecords: " + this);
@@ -2118,14 +2197,14 @@ public class SIMRecords extends IccRecords {
         pw.println(" mVmConfig=" + mVmConfig);
         pw.println(" mCallForwardingStatus=" + mCallForwardingStatus);
         pw.println(" mSpnState=" + mSpnState);
-        pw.println(" mCphsInfo=" + mCphsInfo);
+        pw.println(" mCphsInfo=" + IccUtils.bytesToHexString(mCphsInfo));
         pw.println(" mCspPlmnEnabled=" + mCspPlmnEnabled);
         pw.println(" mEfMWIS[]=" + Arrays.toString(mEfMWIS));
         pw.println(" mEfCPHS_MWI[]=" + Arrays.toString(mEfCPHS_MWI));
         pw.println(" mEfCff[]=" + Arrays.toString(mEfCff));
         pw.println(" mEfCfis[]=" + Arrays.toString(mEfCfis));
         pw.println(" mCarrierNameDisplayCondition=" + mCarrierNameDisplayCondition);
-        pw.println(" mSpdi[]=" + mSpdi);
+        pw.println(" mSpdi[]=" + Arrays.toString(mSpdi));
         pw.println(" mUsimServiceTable=" + mUsimServiceTable);
         pw.println(" mGid1=" + mGid1);
         if (mCarrierTestOverride.isInTestMode()) {
@@ -2144,6 +2223,8 @@ public class SIMRecords extends IccRecords {
         pw.println(" mHplmnActRecords[]=" + Arrays.toString(mHplmnActRecords));
         pw.println(" mFplmns[]=" + Arrays.toString(mFplmns));
         pw.println(" mEhplmns[]=" + Arrays.toString(mEhplmns));
+        pw.println(" mPsismsc=" + mPsiSmsc);
+        pw.println(" TPMR=" + getSmssTpmrValue());
         pw.flush();
     }
 }

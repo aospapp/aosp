@@ -16,21 +16,16 @@
 
 #include "TestHelpers.h"
 
-#include <unistd.h>
-#include <sys/mman.h>
-#include <time.h>
-
 #include <attestation/HmacKeyManager.h>
-#include <cutils/ashmem.h>
 #include <gtest/gtest.h>
 #include <gui/constants.h>
 #include <input/InputTransport.h>
-#include <utils/StopWatch.h>
-#include <utils/Timers.h>
 
 using android::base::Result;
 
 namespace android {
+
+constexpr static float EPSILON = MotionEvent::ROUNDING_PRECISION;
 
 class InputPublisherAndConsumerTest : public testing::Test {
 protected:
@@ -97,14 +92,13 @@ void InputPublisherAndConsumerTest::PublishAndConsumeKeyEvent() {
 
     uint32_t consumeSeq;
     InputEvent* event;
-    status = mConsumer->consume(&mEventFactory, true /*consumeBatches*/, -1, &consumeSeq, &event);
+    status = mConsumer->consume(&mEventFactory, /*consumeBatches=*/true, -1, &consumeSeq, &event);
     ASSERT_EQ(OK, status)
             << "consumer consume should return OK";
 
     ASSERT_TRUE(event != nullptr)
             << "consumer should have returned non-NULL event";
-    ASSERT_EQ(AINPUT_EVENT_TYPE_KEY, event->getType())
-            << "consumer should have returned a key event";
+    ASSERT_EQ(InputEventType::KEY, event->getType()) << "consumer should have returned a key event";
 
     KeyEvent* keyEvent = static_cast<KeyEvent*>(event);
     EXPECT_EQ(seq, consumeSeq);
@@ -177,7 +171,7 @@ void InputPublisherAndConsumerTest::PublishAndConsumeMotionEvent() {
     for (size_t i = 0; i < pointerCount; i++) {
         pointerProperties[i].clear();
         pointerProperties[i].id = (i + 2) % pointerCount;
-        pointerProperties[i].toolType = AMOTION_EVENT_TOOL_TYPE_FINGER;
+        pointerProperties[i].toolType = ToolType::FINGER;
 
         pointerCoords[i].clear();
         pointerCoords[i].setAxisValue(AMOTION_EVENT_AXIS_X, 100 * i);
@@ -206,13 +200,13 @@ void InputPublisherAndConsumerTest::PublishAndConsumeMotionEvent() {
 
     uint32_t consumeSeq;
     InputEvent* event;
-    status = mConsumer->consume(&mEventFactory, true /*consumeBatches*/, -1, &consumeSeq, &event);
+    status = mConsumer->consume(&mEventFactory, /*consumeBatches=*/true, -1, &consumeSeq, &event);
     ASSERT_EQ(OK, status)
             << "consumer consume should return OK";
 
     ASSERT_TRUE(event != nullptr)
             << "consumer should have returned non-NULL event";
-    ASSERT_EQ(AINPUT_EVENT_TYPE_MOTION, event->getType())
+    ASSERT_EQ(InputEventType::MOTION, event->getType())
             << "consumer should have returned a motion event";
 
     MotionEvent* motionEvent = static_cast<MotionEvent*>(event);
@@ -233,10 +227,10 @@ void InputPublisherAndConsumerTest::PublishAndConsumeMotionEvent() {
     EXPECT_EQ(yOffset, motionEvent->getYOffset());
     EXPECT_EQ(xPrecision, motionEvent->getXPrecision());
     EXPECT_EQ(yPrecision, motionEvent->getYPrecision());
-    EXPECT_EQ(xCursorPosition, motionEvent->getRawXCursorPosition());
-    EXPECT_EQ(yCursorPosition, motionEvent->getRawYCursorPosition());
-    EXPECT_EQ(xCursorPosition * xScale + xOffset, motionEvent->getXCursorPosition());
-    EXPECT_EQ(yCursorPosition * yScale + yOffset, motionEvent->getYCursorPosition());
+    EXPECT_NEAR(xCursorPosition, motionEvent->getRawXCursorPosition(), EPSILON);
+    EXPECT_NEAR(yCursorPosition, motionEvent->getRawYCursorPosition(), EPSILON);
+    EXPECT_NEAR(xCursorPosition * xScale + xOffset, motionEvent->getXCursorPosition(), EPSILON);
+    EXPECT_NEAR(yCursorPosition * yScale + yOffset, motionEvent->getYCursorPosition(), EPSILON);
     EXPECT_EQ(rawTransform, motionEvent->getRawTransform());
     EXPECT_EQ(downTime, motionEvent->getDownTime());
     EXPECT_EQ(eventTime, motionEvent->getEventTime());
@@ -249,10 +243,12 @@ void InputPublisherAndConsumerTest::PublishAndConsumeMotionEvent() {
         EXPECT_EQ(pointerProperties[i].toolType, motionEvent->getToolType(i));
 
         const auto& pc = pointerCoords[i];
-        EXPECT_EQ(pc.getX() * rawXScale + rawXOffset, motionEvent->getRawX(i));
-        EXPECT_EQ(pc.getY() * rawYScale + rawYOffset, motionEvent->getRawY(i));
-        EXPECT_EQ(pc.getX() * xScale + xOffset, motionEvent->getX(i));
-        EXPECT_EQ(pc.getY() * yScale + yOffset, motionEvent->getY(i));
+        EXPECT_EQ(pc, motionEvent->getSamplePointerCoords()[i]);
+
+        EXPECT_NEAR(pc.getX() * rawXScale + rawXOffset, motionEvent->getRawX(i), EPSILON);
+        EXPECT_NEAR(pc.getY() * rawYScale + rawYOffset, motionEvent->getRawY(i), EPSILON);
+        EXPECT_NEAR(pc.getX() * xScale + xOffset, motionEvent->getX(i), EPSILON);
+        EXPECT_NEAR(pc.getY() * yScale + yOffset, motionEvent->getY(i), EPSILON);
         EXPECT_EQ(pc.getAxisValue(AMOTION_EVENT_AXIS_PRESSURE), motionEvent->getPressure(i));
         EXPECT_EQ(pc.getAxisValue(AMOTION_EVENT_AXIS_SIZE), motionEvent->getSize(i));
         EXPECT_EQ(pc.getAxisValue(AMOTION_EVENT_AXIS_TOUCH_MAJOR), motionEvent->getTouchMajor(i));
@@ -297,11 +293,11 @@ void InputPublisherAndConsumerTest::PublishAndConsumeFocusEvent() {
 
     uint32_t consumeSeq;
     InputEvent* event;
-    status = mConsumer->consume(&mEventFactory, true /*consumeBatches*/, -1, &consumeSeq, &event);
+    status = mConsumer->consume(&mEventFactory, /*consumeBatches=*/true, -1, &consumeSeq, &event);
     ASSERT_EQ(OK, status) << "consumer consume should return OK";
 
     ASSERT_TRUE(event != nullptr) << "consumer should have returned non-NULL event";
-    ASSERT_EQ(AINPUT_EVENT_TYPE_FOCUS, event->getType())
+    ASSERT_EQ(InputEventType::FOCUS, event->getType())
             << "consumer should have returned a focus event";
 
     FocusEvent* focusEvent = static_cast<FocusEvent*>(event);
@@ -338,11 +334,11 @@ void InputPublisherAndConsumerTest::PublishAndConsumeCaptureEvent() {
 
     uint32_t consumeSeq;
     InputEvent* event;
-    status = mConsumer->consume(&mEventFactory, true /*consumeBatches*/, -1, &consumeSeq, &event);
+    status = mConsumer->consume(&mEventFactory, /*consumeBatches=*/true, -1, &consumeSeq, &event);
     ASSERT_EQ(OK, status) << "consumer consume should return OK";
 
     ASSERT_TRUE(event != nullptr) << "consumer should have returned non-NULL event";
-    ASSERT_EQ(AINPUT_EVENT_TYPE_CAPTURE, event->getType())
+    ASSERT_EQ(InputEventType::CAPTURE, event->getType())
             << "consumer should have returned a capture event";
 
     const CaptureEvent* captureEvent = static_cast<CaptureEvent*>(event);
@@ -380,11 +376,11 @@ void InputPublisherAndConsumerTest::PublishAndConsumeDragEvent() {
 
     uint32_t consumeSeq;
     InputEvent* event;
-    status = mConsumer->consume(&mEventFactory, true /*consumeBatches*/, -1, &consumeSeq, &event);
+    status = mConsumer->consume(&mEventFactory, /*consumeBatches=*/true, -1, &consumeSeq, &event);
     ASSERT_EQ(OK, status) << "consumer consume should return OK";
 
     ASSERT_TRUE(event != nullptr) << "consumer should have returned non-NULL event";
-    ASSERT_EQ(AINPUT_EVENT_TYPE_DRAG, event->getType())
+    ASSERT_EQ(InputEventType::DRAG, event->getType())
             << "consumer should have returned a drag event";
 
     const DragEvent& dragEvent = static_cast<const DragEvent&>(*event);
@@ -422,11 +418,11 @@ void InputPublisherAndConsumerTest::PublishAndConsumeTouchModeEvent() {
 
     uint32_t consumeSeq;
     InputEvent* event;
-    status = mConsumer->consume(&mEventFactory, true /*consumeBatches*/, -1, &consumeSeq, &event);
+    status = mConsumer->consume(&mEventFactory, /*consumeBatches=*/true, -1, &consumeSeq, &event);
     ASSERT_EQ(OK, status) << "consumer consume should return OK";
 
     ASSERT_TRUE(event != nullptr) << "consumer should have returned non-NULL event";
-    ASSERT_EQ(AINPUT_EVENT_TYPE_TOUCH_MODE, event->getType())
+    ASSERT_EQ(InputEventType::TOUCH_MODE, event->getType())
             << "consumer should have returned a touch mode event";
 
     const TouchModeEvent& touchModeEvent = static_cast<const TouchModeEvent&>(*event);

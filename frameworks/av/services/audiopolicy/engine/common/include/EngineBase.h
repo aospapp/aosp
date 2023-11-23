@@ -105,12 +105,15 @@ public:
     status_t setDevicesRoleForStrategy(product_strategy_t strategy, device_role_t role,
             const AudioDeviceTypeAddrVector &devices) override;
 
-    status_t removeDevicesRoleForStrategy(product_strategy_t strategy, device_role_t role) override;
+    status_t removeDevicesRoleForStrategy(product_strategy_t strategy, device_role_t role,
+            const AudioDeviceTypeAddrVector &devices) override;
+
+    status_t clearDevicesRoleForStrategy(product_strategy_t strategy, device_role_t role) override;
 
     status_t getDevicesForRoleAndStrategy(product_strategy_t strategy, device_role_t role,
             AudioDeviceTypeAddrVector &devices) const override;
 
-    engineConfig::ParsingResult loadAudioPolicyEngineConfig();
+    engineConfig::ParsingResult loadAudioPolicyEngineConfig(const std::string& xmlFilePath = "");
 
     const ProductStrategyMap &getProductStrategies() const { return mProductStrategies; }
 
@@ -162,6 +165,16 @@ public:
 
     DeviceVector getActiveMediaDevices(const DeviceVector& availableDevices) const override;
 
+    void initializeDeviceSelectionCache() override;
+
+    void updateDeviceSelectionCache() override;
+
+protected:
+    DeviceVector getPreferredAvailableDevicesForProductStrategy(
+        const DeviceVector& availableOutputDevices, product_strategy_t strategy) const;
+    DeviceVector getDisabledDevicesForProductStrategy(
+        const DeviceVector& availableOutputDevices, product_strategy_t strategy) const;
+
 private:
     /**
      * Get media devices as the given role
@@ -190,6 +203,28 @@ private:
 
     /** current forced use configuration. */
     audio_policy_forced_cfg_t mForceUse[AUDIO_POLICY_FORCE_USE_CNT] = {};
+
+protected:
+    /**
+     * Set the device information for a given strategy.
+     *
+     * @param strategy the strategy to set devices information
+     * @param devices the devices selected for the strategy
+     */
+    virtual void setStrategyDevices(const sp<ProductStrategy>& /*strategy*/,
+                                    const DeviceVector& /*devices*/) {
+        // In EngineBase, do nothing. It is up to the actual engine to decide if it is needed to
+        // set devices information for the given strategy.
+    }
+
+    /**
+     * Get devices that will be used for the given product strategy.
+     *
+     * @param strategy the strategy to query
+     */
+    virtual DeviceVector getDevicesForProductStrategy(product_strategy_t strategy) const = 0;
+
+    DeviceStrategyMap mDevicesForStrategies;
 };
 
 } // namespace audio_policy

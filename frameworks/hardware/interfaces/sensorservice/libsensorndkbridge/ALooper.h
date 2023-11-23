@@ -23,25 +23,25 @@
 #include <utils/Mutex.h>
 #include <utils/RefBase.h>
 
-#include <set>
+#include <vector>
 
 struct ASensorEventQueue;
 
 struct ALooper {
     ALooper();
 
-    void signalSensorEvents(android::wp<ASensorEventQueue> queue);
+    void signalSensorEvents(const std::shared_ptr<ASensorEventQueue>& queue);
     void wake();
 
     int pollOnce(int timeoutMillis, int *outFd, int *outEvents, void **outData);
 
-    void invalidateSensorQueue(android::wp<ASensorEventQueue> queue);
+    void invalidateSensorQueue(const std::shared_ptr<ASensorEventQueue>& queue);
 
    private:
     android::Mutex mLock;
     android::Condition mCondition;
 
-    std::set<android::wp<ASensorEventQueue>> mReadyQueues;
+    std::vector<std::weak_ptr<ASensorEventQueue>> mReadyQueues;
     bool mAwoken;
 
     DISALLOW_COPY_AND_ASSIGN(ALooper);

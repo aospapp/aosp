@@ -18,9 +18,11 @@ package com.android.ims.rcs.uce.presence.publish;
 
 import android.annotation.IntDef;
 import android.annotation.NonNull;
+import android.annotation.Nullable;
 import android.telephony.ims.RcsContactUceCapability;
 import android.telephony.ims.RcsContactUceCapability.CapabilityMechanism;
 import android.telephony.ims.RcsUceAdapter.PublishState;
+import android.telephony.ims.SipDetails;
 import android.telephony.ims.aidl.IRcsUcePublishStateCallback;
 
 import com.android.ims.rcs.uce.ControllerBase;
@@ -45,53 +47,49 @@ public interface PublishController extends ControllerBase {
     /** Publish trigger type: TTY preferred changes */
     int PUBLISH_TRIGGER_TTY_PREFERRED_CHANGE = 3;
 
-    /** Publish trigger type: Airplane mode changes */
-    int PUBLISH_TRIGGER_AIRPLANE_MODE_CHANGE = 4;
-
     /** Publish trigger type: Mobile data changes */
-    int PUBLISH_TRIGGER_MOBILE_DATA_CHANGE = 5;
+    int PUBLISH_TRIGGER_MOBILE_DATA_CHANGE = 4;
 
     /** Publish trigger type: VT setting changes */
-    int PUBLISH_TRIGGER_VT_SETTING_CHANGE = 6;
+    int PUBLISH_TRIGGER_VT_SETTING_CHANGE = 5;
 
     /** Publish trigger type: MMTEL registered */
-    int PUBLISH_TRIGGER_MMTEL_REGISTERED = 7;
+    int PUBLISH_TRIGGER_MMTEL_REGISTERED = 6;
 
     /** Publish trigger type: MMTEL unregistered */
-    int PUBLISH_TRIGGER_MMTEL_UNREGISTERED = 8;
+    int PUBLISH_TRIGGER_MMTEL_UNREGISTERED = 7;
 
     /** Publish trigger type: MMTEL capability changes */
-    int PUBLISH_TRIGGER_MMTEL_CAPABILITY_CHANGE = 9;
+    int PUBLISH_TRIGGER_MMTEL_CAPABILITY_CHANGE = 8;
 
     /** Publish trigger type: MMTEL associated uri changes */
-    int PUBLISH_TRIGGER_MMTEL_URI_CHANGE = 10;
+    int PUBLISH_TRIGGER_MMTEL_URI_CHANGE = 9;
 
     /** Publish trigger type: RCS registered */
-    int PUBLISH_TRIGGER_RCS_REGISTERED = 11;
+    int PUBLISH_TRIGGER_RCS_REGISTERED = 10;
 
     /** Publish trigger type: RCS unregistered */
-    int PUBLISH_TRIGGER_RCS_UNREGISTERED = 12;
+    int PUBLISH_TRIGGER_RCS_UNREGISTERED = 11;
 
     /** Publish trigger type: RCS associated uri changes */
-    int PUBLISH_TRIGGER_RCS_URI_CHANGE = 13;
+    int PUBLISH_TRIGGER_RCS_URI_CHANGE = 12;
 
     /** Publish trigger type: provisioning changes */
-    int PUBLISH_TRIGGER_PROVISIONING_CHANGE = 14;
+    int PUBLISH_TRIGGER_PROVISIONING_CHANGE = 13;
 
     /**The caps have been overridden for a test*/
-    int PUBLISH_TRIGGER_OVERRIDE_CAPS = 15;
+    int PUBLISH_TRIGGER_OVERRIDE_CAPS = 14;
 
     /** The Carrier Config for the subscription has Changed **/
-    int PUBLISH_TRIGGER_CARRIER_CONFIG_CHANGED = 16;
+    int PUBLISH_TRIGGER_CARRIER_CONFIG_CHANGED = 15;
 
     /** MMTEL and RCS are unregistered. **/
-    int PUBLISH_TRIGGER_MMTEL_RCS_UNREGISTERED = 17;
+    int PUBLISH_TRIGGER_MMTEL_RCS_UNREGISTERED = 16;
 
     @IntDef(value = {
             PUBLISH_TRIGGER_SERVICE,
             PUBLISH_TRIGGER_RETRY,
             PUBLISH_TRIGGER_TTY_PREFERRED_CHANGE,
-            PUBLISH_TRIGGER_AIRPLANE_MODE_CHANGE,
             PUBLISH_TRIGGER_MOBILE_DATA_CHANGE,
             PUBLISH_TRIGGER_VT_SETTING_CHANGE,
             PUBLISH_TRIGGER_MMTEL_REGISTERED,
@@ -142,7 +140,8 @@ public interface PublishController extends ControllerBase {
         /**
          * Update the publish request result.
          */
-        void updatePublishRequestResult(int publishState, Instant updatedTimestamp, String pidfXml);
+        void updatePublishRequestResult(int publishState, Instant updatedTimestamp, String pidfXml,
+                SipDetails details);
 
         /**
          * Update the value of the publish throttle.
@@ -212,9 +211,7 @@ public interface PublishController extends ControllerBase {
     /**
      * Notify that the device's publish status have been changed.
      */
-    void onPublishUpdated(int reasonCode, String reasonPhrase,
-            int reasonHeaderCause, String reasonHeaderText);
-
+    void onPublishUpdated(@NonNull SipDetails details);
     /**
      * Retrieve the device's capabilities.
      */

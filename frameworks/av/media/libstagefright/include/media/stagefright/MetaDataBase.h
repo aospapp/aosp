@@ -117,6 +117,12 @@ enum {
     kKeyVideoProfile      = 'vprf',  // int32_t
     kKeyVideoLevel        = 'vlev',  // int32_t
 
+    // audio profile and level
+    // The codec framework doesn't distinguish between video and audio profiles,
+    // so there is no need to define a separate key
+    kKeyAudioProfile      = 'vprf',  // int32_t
+    kKeyAudioLevel        = 'vlev',  // int32_t
+
     kKey2ByteNalLength    = '2NAL',  // int32_t (bool)
 
     // Identify the file output format for authoring
@@ -267,6 +273,7 @@ enum {
     kKeyRtpExtMap        = 'extm', // int32_t, rtp extension ID for cvo on RTP protocol.
     kKeyRtpCvoDegrees    = 'cvod', // int32_t, rtp cvo degrees as per 3GPP 26.114.
     kKeyRtpDscp          = 'dscp', // int32_t, DSCP(Differentiated services codepoint) of RFC 2474.
+    kKeyRtpEcn           = 'sEcn', // int32_t, ECN (Explicit Congestion Notification) of RFC 3168
     kKeySocketNetwork    = 'sNet', // int64_t, socket will be bound to network handle.
 
     // Slow-motion markers
@@ -277,6 +284,18 @@ enum {
     kKeyLastSampleIndexInChunk = 'lsic',  //int64_t, index of last sample in a chunk.
     kKeySampleTimeBeforeAppend = 'lsba', // int64_t, timestamp of last sample of a track.
 
+    // DVB component tag
+    kKeyDvbComponentTag = 'copt', // int32_t, component tag for DVB video/audio/subtitle
+
+    // DVB audio description
+    kKeyDvbAudioDescription = 'addt', // bool (int32_t), DVB audio description only defined for
+                                      // audio component
+
+    // DVB teletext magazine number
+    kKeyDvbTeletextMagazineNumber = 'ttxm', // int32_t, DVB teletext magazine number
+
+    // DVB teletext page number
+    kKeyDvbTeletextPageNumber = 'ttxp', // int32_t, DVB teletext page number
 };
 
 enum {

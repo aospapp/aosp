@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # Copyright (C) 2015 The Android Open Source Project
 #
@@ -562,6 +562,14 @@ def verify_hyb_file(hyb_fn, pat_fn, chr_fn, hyp_fn):
     if u'\u03B0' in reconstructed_chr:
       reconstructed_chr.remove(u'\u03B0')
       reconstructed_chr.append(u'\u03B0\u03B0')
+
+    if u'\u1c86' in reconstructed_chr:
+      reconstructed_chr.remove(u'\u1c86')
+      reconstructed_chr.append(u'\u1c86\u1c86')
+
+    if u'\u1c82' in reconstructed_chr:
+      reconstructed_chr.remove(u'\u1c82')
+      reconstructed_chr.append(u'\u1c82\u1c82')
 
     assert verify_file_sorted(reconstructed_chr, chr_fn), 'alphabet table not verified'
 

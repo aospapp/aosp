@@ -44,6 +44,11 @@ NATIVE_BRIDGE_PRODUCT_PACKAGES := \
 #   /system/lib/$GUEST_ARCH/ - as we need for native bridge.
 #
 # Note: this doesn't affect native libraries at all.
+#
+# These two libs cannot be built directly since they are not part of the official NDK,
+# but they are poperly built as the requirements for libicu.bootstrap:
+# libicui18n.bootstrap
+# libicuuc.bootstrap
 
 # Original guest libraries.
 NATIVE_BRIDGE_ORIG_GUEST_LIBS := \
@@ -91,8 +96,6 @@ NATIVE_BRIDGE_MODIFIED_GUEST_LIBS := \
     libGLESv1_CM \
     libGLESv2 \
     libGLESv3 \
-    libicui18n \
-    libicuuc \
     libjnigraphics \
     libmediandk \
     libnativehelper \

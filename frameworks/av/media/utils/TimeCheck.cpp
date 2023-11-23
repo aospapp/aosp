@@ -14,19 +14,36 @@
  * limitations under the License.
  */
 
+#include <csignal>
+#include "mediautils/TimerThread.h"
 #define LOG_TAG "TimeCheck"
 
 #include <optional>
 
 #include <android-base/logging.h>
+#include <android-base/strings.h>
 #include <audio_utils/clock.h>
 #include <mediautils/EventLog.h>
+#include <mediautils/FixedString.h>
 #include <mediautils/MethodStatistics.h>
 #include <mediautils/TimeCheck.h>
+#include <mediautils/TidWrapper.h>
 #include <utils/Log.h>
+
+#if defined(__ANDROID__)
 #include "debuggerd/handler.h"
+#endif
+
 
 namespace android::mediautils {
+// This function appropriately signals a pid to dump a backtrace if we are
+// running on device (and the HAL exists). If we are not running on an Android
+// device, there is no HAL to signal (so we do nothing).
+static inline void signalAudioHAL([[maybe_unused]] pid_t pid) {
+#if defined(__ANDROID__)
+    sigqueue(pid, DEBUGGER_SIGNAL, {.sival_int = 0});
+#endif
+}
 
 /**
  * Returns the std::string "HH:MM:SS.MSc" from a system_clock time_point.
@@ -135,25 +152,27 @@ TimerThread& TimeCheck::getTimeCheckThread() {
 std::string TimeCheck::toString() {
     // note pending and retired are individually locked for maximum concurrency,
     // snapshot is not instantaneous at a single time.
-    return getTimeCheckThread().toString();
+    return getTimeCheckThread().getSnapshotAnalysis().toString();
 }
 
-TimeCheck::TimeCheck(std::string tag, OnTimerFunc&& onTimer, uint32_t timeoutMs,
-        bool crashOnTimeout)
-    : mTimeCheckHandler(new TimeCheckHandler{
-            std::move(tag), std::move(onTimer), crashOnTimeout,
-            std::chrono::system_clock::now(), gettid()})
-    , mTimerHandle(timeoutMs == 0
+TimeCheck::TimeCheck(std::string_view tag, OnTimerFunc&& onTimer, Duration requestedTimeoutDuration,
+        Duration secondChanceDuration, bool crashOnTimeout)
+    : mTimeCheckHandler{ std::make_shared<TimeCheckHandler>(
+            tag, std::move(onTimer), crashOnTimeout, requestedTimeoutDuration,
+            secondChanceDuration, std::chrono::system_clock::now(), getThreadIdWrapper()) }
+    , mTimerHandle(requestedTimeoutDuration.count() == 0
+              /* for TimeCheck we don't consider a non-zero secondChanceDuration here */
               ? getTimeCheckThread().trackTask(mTimeCheckHandler->tag)
               : getTimeCheckThread().scheduleTask(
                       mTimeCheckHandler->tag,
                       // Pass in all the arguments by value to this task for safety.
                       // The thread could call the callback before the constructor is finished.
                       // The destructor is not blocked on callback.
-                      [ timeCheckHandler = mTimeCheckHandler ] {
-                          timeCheckHandler->onTimeout();
+                      [ timeCheckHandler = mTimeCheckHandler ](TimerThread::Handle timerHandle) {
+                          timeCheckHandler->onTimeout(timerHandle);
                       },
-                      std::chrono::milliseconds(timeoutMs))) {}
+                      requestedTimeoutDuration,
+                      secondChanceDuration)) {}
 
 TimeCheck::~TimeCheck() {
     if (mTimeCheckHandler) {
@@ -161,30 +180,84 @@ TimeCheck::~TimeCheck() {
     }
 }
 
+/* static */
+std::string TimeCheck::analyzeTimeouts(
+        float requestedTimeoutMs, float elapsedSteadyMs, float elapsedSystemMs) {
+    // Track any OS clock issues with suspend.
+    // It is possible that the elapsedSystemMs is much greater than elapsedSteadyMs if
+    // a suspend occurs; however, we always expect the timeout ms should always be slightly
+    // less than the elapsed steady ms regardless of whether a suspend occurs or not.
+
+    std::string s("Timeout ms ");
+    s.append(std::to_string(requestedTimeoutMs))
+        .append(" elapsed steady ms ").append(std::to_string(elapsedSteadyMs))
+        .append(" elapsed system ms ").append(std::to_string(elapsedSystemMs));
+
+    // Is there something unusual?
+    static constexpr float TOLERANCE_CONTEXT_SWITCH_MS = 200.f;
+
+    if (requestedTimeoutMs > elapsedSteadyMs || requestedTimeoutMs > elapsedSystemMs) {
+        s.append("\nError: early expiration - "
+                "requestedTimeoutMs should be less than elapsed time");
+    }
+
+    if (elapsedSteadyMs > elapsedSystemMs + TOLERANCE_CONTEXT_SWITCH_MS) {
+        s.append("\nWarning: steady time should not advance faster than system time");
+    }
+
+    // This has been found in suspend stress testing.
+    if (elapsedSteadyMs > requestedTimeoutMs + TOLERANCE_CONTEXT_SWITCH_MS) {
+        s.append("\nWarning: steady time significantly exceeds timeout "
+                "- possible thread stall or aborted suspend");
+    }
+
+    // This has been found in suspend stress testing.
+    if (elapsedSystemMs > requestedTimeoutMs + TOLERANCE_CONTEXT_SWITCH_MS) {
+        s.append("\nInformation: system time significantly exceeds timeout "
+                "- possible suspend");
+    }
+    return s;
+}
+
+// To avoid any potential race conditions, the timer handle
+// (expiration = clock steady start + timeout) is passed into the callback.
 void TimeCheck::TimeCheckHandler::onCancel(TimerThread::Handle timerHandle) const
 {
     if (TimeCheck::getTimeCheckThread().cancelTask(timerHandle) && onTimer) {
-        const std::chrono::system_clock::time_point endTime = std::chrono::system_clock::now();
-        onTimer(false /* timeout */,
-                std::chrono::duration_cast<std::chrono::duration<float, std::milli>>(
-                        endTime - startTime).count());
+        const std::chrono::steady_clock::time_point endSteadyTime =
+                std::chrono::steady_clock::now();
+        const float elapsedSteadyMs = std::chrono::duration_cast<FloatMs>(
+                endSteadyTime - timerHandle + timeoutDuration).count();
+        // send the elapsed steady time for statistics.
+        onTimer(false /* timeout */, elapsedSteadyMs);
     }
 }
 
-void TimeCheck::TimeCheckHandler::onTimeout() const
+// To avoid any potential race conditions, the timer handle
+// (expiration = clock steady start + timeout) is passed into the callback.
+void TimeCheck::TimeCheckHandler::onTimeout(TimerThread::Handle timerHandle) const
 {
-    const std::chrono::system_clock::time_point endTime = std::chrono::system_clock::now();
+    const std::chrono::steady_clock::time_point endSteadyTime = std::chrono::steady_clock::now();
+    const std::chrono::system_clock::time_point endSystemTime = std::chrono::system_clock::now();
+    // timerHandle incorporates the timeout
+    const float elapsedSteadyMs = std::chrono::duration_cast<FloatMs>(
+            endSteadyTime - (timerHandle - timeoutDuration)).count();
+    const float elapsedSystemMs = std::chrono::duration_cast<FloatMs>(
+            endSystemTime - startSystemTime).count();
+    const float requestedTimeoutMs = std::chrono::duration_cast<FloatMs>(
+            timeoutDuration).count();
+    const float secondChanceMs = std::chrono::duration_cast<FloatMs>(
+            secondChanceDuration).count();
+
     if (onTimer) {
-        onTimer(true /* timeout */,
-                std::chrono::duration_cast<std::chrono::duration<float, std::milli>>(
-                        endTime - startTime).count());
+        onTimer(true /* timeout */, elapsedSteadyMs);
     }
 
     if (!crashOnTimeout) return;
 
     // Generate the TimerThread summary string early before sending signals to the
     // HAL processes which can affect thread behavior.
-    const std::string summary = getTimeCheckThread().toString(4 /* retiredCount */);
+    const auto snapshotAnalysis = getTimeCheckThread().getSnapshotAnalysis(4 /* retiredCount */);
 
     // Generate audio HAL processes tombstones and allow time to complete
     // before forcing restart
@@ -194,7 +267,7 @@ void TimeCheck::TimeCheckHandler::onTimeout() const
         for (const auto& pid : pids) {
             ALOGI("requesting tombstone for pid: %d", pid);
             halPids.append(std::to_string(pid)).append(" ");
-            sigqueue(pid, DEBUGGER_SIGNAL, {.sival_int = 0});
+            signalAudioHAL(pid);
         }
         sleep(1);
     } else {
@@ -207,10 +280,12 @@ void TimeCheck::TimeCheckHandler::onTimeout() const
     // Create abort message string - caution: this can be very large.
     const std::string abortMessage = std::string("TimeCheck timeout for ")
             .append(tag)
-            .append(" scheduled ").append(formatTime(startTime))
+            .append(" scheduled ").append(formatTime(startSystemTime))
             .append(" on thread ").append(std::to_string(tid)).append("\n")
+            .append(analyzeTimeouts(requestedTimeoutMs + secondChanceMs,
+                    elapsedSteadyMs, elapsedSystemMs)).append("\n")
             .append(halPids).append("\n")
-            .append(summary);
+            .append(snapshotAnalysis.toString());
 
     // Note: LOG_ALWAYS_FATAL limits the size of the string - per log/log.h:
     // Log message text may be truncated to less than an
@@ -220,27 +295,40 @@ void TimeCheck::TimeCheckHandler::onTimeout() const
     // to avoid the size limitation. LOG(FATAL) does an abort whereas
     // LOG(FATAL_WITHOUT_ABORT) does not abort.
 
-    LOG(FATAL) << abortMessage;
+    static constexpr pid_t invalidPid = TimerThread::SnapshotAnalysis::INVALID_PID;
+    pid_t tidToAbort = invalidPid;
+    if (snapshotAnalysis.suspectTid != invalidPid) {
+        tidToAbort = snapshotAnalysis.suspectTid;
+    } else if (snapshotAnalysis.timeoutTid != invalidPid) {
+        tidToAbort = snapshotAnalysis.timeoutTid;
+    }
+
+    LOG(FATAL_WITHOUT_ABORT) << abortMessage;
+    const auto ret = abortTid(tidToAbort);
+    if (ret < 0) {
+        LOG(FATAL) << "TimeCheck thread signal failed, aborting process. "
+                       "errno: " << errno << base::ErrnoNumberAsString(errno);
+    }
 }
 
 // Automatically create a TimeCheck class for a class and method.
-// This is used for Audio HIDL support.
+// This is used for Audio HAL support.
 mediautils::TimeCheck makeTimeCheckStatsForClassMethod(
         std::string_view className, std::string_view methodName) {
     std::shared_ptr<MethodStatistics<std::string>> statistics =
             mediautils::getStatisticsForClass(className);
     if (!statistics) return {}; // empty TimeCheck.
     return mediautils::TimeCheck(
-            std::string(className).append("::").append(methodName),
-            [ clazz = std::string(className), method = std::string(methodName),
+            FixedString62(className).append("::").append(methodName),
+            [ safeMethodName = FixedString30(methodName),
               stats = std::move(statistics) ]
             (bool timeout, float elapsedMs) {
                     if (timeout) {
                         ; // ignored, there is no timeout value.
                     } else {
-                        stats->event(method, elapsedMs);
+                        stats->event(safeMethodName.asStringView(), elapsedMs);
                     }
-            }, 0 /* timeoutMs */);
+            }, {} /* timeoutDuration */, {} /* secondChanceDuration */, false /* crashOnTimeout */);
 }
 
 }  // namespace android::mediautils

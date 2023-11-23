@@ -109,6 +109,8 @@ public:
 
     virtual bool        isSpatialized() const { return false; }
 
+    virtual bool        isBitPerfect() const { return false; }
+
 #ifdef TEE_SINK
            void         dumpTee(int fd, const std::string &reason) const {
                                 mTee.dump(fd, reason);
@@ -122,7 +124,7 @@ public:
              * This may be called without the thread lock.
              */
     virtual double      bufferLatencyMs() const {
-                            return mServerProxy->framesReadySafe() * 1000 / sampleRate();
+                            return mServerProxy->framesReadySafe() * 1000. / sampleRate();
                         }
 
             /** returns whether the track supports server latency computation.
@@ -397,6 +399,8 @@ protected:
     int64_t             mLogStartFrames = 0;    // Timestamp frames at start()
     double              mLogLatencyMs = 0.;     // Track the last log latency
 
+    bool                mLogForceVolumeUpdate = true; // force volume update to TrackMetrics.
+
     TrackMetrics        mTrackMetrics;
 
     bool                mServerLatencySupported = false;
@@ -428,7 +432,7 @@ class PatchTrackBase : public PatchProxyBufferProvider
 {
 public:
     using Timeout = std::optional<std::chrono::nanoseconds>;
-                        PatchTrackBase(sp<ClientProxy> proxy, const ThreadBase& thread,
+                        PatchTrackBase(const sp<ClientProxy>& proxy, const ThreadBase& thread,
                                        const Timeout& timeout);
             void        setPeerTimeout(std::chrono::nanoseconds timeout);
             template <typename T>

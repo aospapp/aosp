@@ -19,8 +19,6 @@
 #include <cstdio>
 
 #include <gtest/gtest.h>
-#include <unicode/uclean.h>
-#include <unicode/udata.h>
 
 #include "UnicodeUtils.h"
 

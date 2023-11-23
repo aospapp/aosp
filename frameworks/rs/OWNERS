@@ -1,4 +1,2 @@
-butlermichael@google.com
-dgross@google.com
-jeanluc@google.com
-miaowang@google.com
+# Bug component: 43047
+include /RS_OWNERS  # RenderScript team

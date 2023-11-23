@@ -16,6 +16,8 @@
 
 package com.android.net.module.util;
 
+import com.android.internal.annotations.VisibleForTesting;
+
 import static android.system.OsConstants.IPPROTO_ICMPV6;
 import static android.system.OsConstants.IPPROTO_TCP;
 import static android.system.OsConstants.IPPROTO_UDP;
@@ -39,11 +41,12 @@ public class IpUtils {
 
     /**
      * Performs an IP checksum (used in IP header and across UDP
-     * payload) on the specified portion of a ByteBuffer.  The seed
+     * payload) or ICMP checksum on the specified portion of a ByteBuffer.  The seed
      * allows the checksum to commence with a specified value.
      */
-    private static int checksum(ByteBuffer buf, int seed, int start, int end) {
-        int sum = seed;
+    @VisibleForTesting
+    public static int checksum(ByteBuffer buf, int seed, int start, int end) {
+        int sum = seed + 0xFFFF;  // to make things work with empty / zero-filled buffer
         final int bufPosition = buf.position();
 
         // set position of original ByteBuffer, so that the ShortBuffer
@@ -69,13 +72,12 @@ public class IpUtils {
                 b += 256;
             }
 
-            sum += b * 256;
+            sum += b * 256;  // assumes bytebuffer is network order (ie. big endian)
         }
 
-        sum = ((sum >> 16) & 0xFFFF) + (sum & 0xFFFF);
-        sum = ((sum + ((sum >> 16) & 0xFFFF)) & 0xFFFF);
-        int negated = ~sum;
-        return intAbs((short) negated);
+        sum = ((sum >> 16) & 0xFFFF) + (sum & 0xFFFF);  // max sum is 0x1FFFE
+        sum = ((sum >> 16) & 0xFFFF) + (sum & 0xFFFF);  // max sum is 0xFFFF
+        return sum ^ 0xFFFF;  // u16 bitwise negation
     }
 
     private static int pseudoChecksumIPv4(
@@ -142,6 +144,14 @@ public class IpUtils {
     public static short tcpChecksum(ByteBuffer buf, int ipOffset, int transportOffset,
             int transportLen) {
         return transportChecksum(buf, IPPROTO_TCP, ipOffset, transportOffset, transportLen);
+    }
+
+    /**
+     * Calculate the ICMP checksum for an ICMPv4 packet.
+     */
+    public static short icmpChecksum(ByteBuffer buf, int transportOffset, int transportLen) {
+        // ICMP checksum doesn't include pseudo-header. See RFC 792.
+        return (short) checksum(buf, 0, transportOffset, transportOffset + transportLen);
     }
 
     /**

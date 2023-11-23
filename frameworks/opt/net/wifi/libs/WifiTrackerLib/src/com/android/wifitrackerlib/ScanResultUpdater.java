@@ -17,13 +17,13 @@
 package com.android.wifitrackerlib;
 
 import android.net.wifi.ScanResult;
+import android.util.ArrayMap;
 import android.util.Pair;
 
 import androidx.annotation.NonNull;
 
 import java.time.Clock;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -33,7 +33,7 @@ import java.util.Map;
  * Thread-safe.
  */
 public class ScanResultUpdater {
-    private Map<Pair<String, String>, ScanResult> mScanResultsBySsidAndBssid = new HashMap<>();
+    private Map<Pair<String, String>, ScanResult> mScanResultsBySsidAndBssid = new ArrayMap<>();
     private final long mMaxScanAgeMillis;
     private final Object mLock = new Object();
     private final Clock mClock;

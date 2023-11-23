@@ -30,7 +30,11 @@ cc_library_static {
         "enums.proto",
         "hci/enums.proto",
         "hfp/enums.proto",
+        "le/enums.proto",
         "smp/enums.proto",
+    ],
+    apex_available: [
+        "com.android.btservices",
     ],
     min_sdk_version: "30",
 }
@@ -42,7 +46,14 @@ filegroup {
       "enums.proto",
       "hci/enums.proto",
       "hfp/enums.proto",
+      "le/enums.proto",
       "smp/enums.proto",
   ],
 }
 
+filegroup {
+  name: "srcs_bluetooth_leaudio_protos",
+  srcs: [
+      "leaudio/enums.proto",
+  ],
+}

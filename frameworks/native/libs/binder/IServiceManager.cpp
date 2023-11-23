@@ -14,13 +14,14 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "ServiceManager"
+#define LOG_TAG "ServiceManagerCppClient"
 
 #include <binder/IServiceManager.h>
 
 #include <inttypes.h>
 #include <unistd.h>
 
+#include <android-base/properties.h>
 #include <android/os/BnServiceCallback.h>
 #include <android/os/IServiceManager.h>
 #include <binder/IPCThreadState.h>
@@ -80,6 +81,7 @@ public:
     bool isDeclared(const String16& name) override;
     Vector<String16> getDeclaredInstances(const String16& interface) override;
     std::optional<String16> updatableViaApex(const String16& name) override;
+    Vector<String16> getUpdatableNames(const String16& apexName) override;
     std::optional<IServiceManager::ConnectionInfo> getConnectionInfo(const String16& name) override;
     class RegistrationWaiter : public android::os::BnServiceCallback {
     public:
@@ -140,6 +142,16 @@ protected:
 sp<IServiceManager> defaultServiceManager()
 {
     std::call_once(gSmOnce, []() {
+#if defined(__BIONIC__) && !defined(__ANDROID_VNDK__)
+        /* wait for service manager */ {
+            using std::literals::chrono_literals::operator""s;
+            using android::base::WaitForProperty;
+            while (!WaitForProperty("servicemanager.ready", "true", 1s)) {
+                ALOGE("Waited for servicemanager.ready for a second, waiting another...");
+            }
+        }
+#endif
+
         sp<AidlServiceManager> sm = nullptr;
         while (sm == nullptr) {
             sm = interface_cast<AidlServiceManager>(ProcessState::self()->getContextObject(nullptr));
@@ -167,7 +179,7 @@ void setDefaultServiceManager(const sp<IServiceManager>& sm) {
     }
 }
 
-#if !defined(__ANDROID_VNDK__) && defined(__ANDROID__)
+#if !defined(__ANDROID_VNDK__)
 // IPermissionController is not accessible to vendors
 
 bool checkCallingPermission(const String16& permission)
@@ -369,6 +381,13 @@ sp<IBinder> ServiceManagerShim::waitForService(const String16& name16)
     if (Status status = realGetService(name, &out); !status.isOk()) {
         ALOGW("Failed to getService in waitForService for %s: %s", name.c_str(),
               status.toString8().c_str());
+        if (0 == ProcessState::self()->getThreadPoolMaxTotalThreadCount()) {
+            ALOGW("Got service, but may be racey because we could not wait efficiently for it. "
+                  "Threadpool has 0 guaranteed threads. "
+                  "Is the threadpool configured properly? "
+                  "See ProcessState::startThreadPool and "
+                  "ProcessState::setThreadPoolMaxThreadCount.");
+        }
         return nullptr;
     }
     if (out != nullptr) return out;
@@ -399,7 +418,9 @@ sp<IBinder> ServiceManagerShim::waitForService(const String16& name16)
             if (waiter->mBinder != nullptr) return waiter->mBinder;
         }
 
-        ALOGW("Waited one second for %s (is service started? are binder threads started and available?)", name.c_str());
+        ALOGW("Waited one second for %s (is service started? Number of threads started in the "
+              "threadpool: %zu. Are binder threads started and available?)",
+              name.c_str(), ProcessState::self()->getThreadPoolMaxTotalThreadCount());
 
         // Handle race condition for lazy services. Here is what can happen:
         // - the service dies (not processed by init yet).
@@ -423,7 +444,7 @@ bool ServiceManagerShim::isDeclared(const String16& name) {
     bool declared;
     if (Status status = mTheRealServiceManager->isDeclared(String8(name).c_str(), &declared);
         !status.isOk()) {
-        ALOGW("Failed to get isDeclard for %s: %s", String8(name).c_str(),
+        ALOGW("Failed to get isDeclared for %s: %s", String8(name).c_str(),
               status.toString8().c_str());
         return false;
     }
@@ -457,6 +478,23 @@ std::optional<String16> ServiceManagerShim::updatableViaApex(const String16& nam
         return std::nullopt;
     }
     return declared ? std::optional<String16>(String16(declared.value().c_str())) : std::nullopt;
+}
+
+Vector<String16> ServiceManagerShim::getUpdatableNames(const String16& apexName) {
+    std::vector<std::string> out;
+    if (Status status = mTheRealServiceManager->getUpdatableNames(String8(apexName).c_str(), &out);
+        !status.isOk()) {
+        ALOGW("Failed to getUpdatableNames for %s: %s", String8(apexName).c_str(),
+              status.toString8().c_str());
+        return {};
+    }
+
+    Vector<String16> res;
+    res.setCapacity(out.size());
+    for (const std::string& instance : out) {
+        res.push(String16(instance.c_str()));
+    }
+    return res;
 }
 
 std::optional<IServiceManager::ConnectionInfo> ServiceManagerShim::getConnectionInfo(

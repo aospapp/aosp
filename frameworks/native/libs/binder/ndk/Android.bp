@@ -57,6 +57,7 @@ cc_library {
     srcs: [
         "ibinder.cpp",
         "ibinder_jni.cpp",
+        "libbinder.cpp",
         "parcel.cpp",
         "parcel_jni.cpp",
         "process.cpp",
@@ -65,10 +66,14 @@ cc_library {
         "service_manager.cpp",
     ],
 
-    shared_libs: [
+    static_libs: [
         "libandroid_runtime_lazy",
         "libbase",
+    ],
+
+    shared_libs: [
         "libbinder",
+        "liblog",
         "libutils",
     ],
 
@@ -113,6 +118,7 @@ cc_library {
         "abseil-*",
         "android-*",
         "bugprone-*",
+        "-bugprone-branch-clone", // b/155034972
         "cert-*",
         "clang-analyzer-*",
         "-clang-analyzer-core.CallAndMessage",
@@ -180,4 +186,8 @@ ndk_library {
     name: "libbinder_ndk",
     symbol_file: "libbinder_ndk.map.txt",
     first_version: "29",
+    export_header_libs: [
+        "libbinder_ndk_headers",
+        "libbinder_ndk_helper_headers",
+    ],
 }

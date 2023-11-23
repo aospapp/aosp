@@ -333,6 +333,8 @@ static const clang::Type *TypeExportableHelper(
         //
         // TODO(zonr/srhines): allow bit fields of size 8, 16, 32
         if (FD->isBitField()) {
+          // Context can be null from NormalizeType?
+          slangAssert(Context);
           Context->ReportError(
               FD->getLocation(),
               "bit fields are not able to be exported: '%0.%1'")
@@ -415,6 +417,8 @@ static const clang::Type *TypeExportableHelper(
     case clang::Type::Enum: {
       // FIXME: We currently convert enums to integers, rather than reflecting
       // a more complete (and nicer type-safe Java version).
+      // Context can be null from NormalizeType?
+      slangAssert(Context);
       return Context->getASTContext().IntTy.getTypePtr();
     }
     default: {
@@ -797,6 +801,8 @@ llvm::StringRef RSExportType::GetTypeName(const clang::Type* T) {
       const clang::PointerType *P = static_cast<const clang::PointerType*>(CTI);
       const clang::Type *PT = GetPointeeType(P);
       llvm::StringRef PointeeName;
+      // Passing nullptr as Context to NormalizeType can cause TypeExportableHelper
+      // to dereference a null Context?
       if (NormalizeType(PT, PointeeName, nullptr, nullptr,
                         NotLegacyKernelArgument)) {
         char *Name = new char[ 1 /* * */ + PointeeName.size() + 1 ];

@@ -38,3 +38,16 @@ enum ErrorSource {
     // System server.
     SYSTEM_SERVER = 3;
 }
+
+enum DockStateEnum {
+    // Undocked. See {@link Intent.EXTRA_DOCK_STATE_UNDOCKED}.
+    DOCK_STATE_UNDOCKED = 0;
+    // Desk dock. See {@link Intent.EXTRA_DOCK_STATE_DESK}.
+    DOCK_STATE_DESK = 1;
+    // Car dock. See {@link Intent.EXTRA_DOCK_STATE_CAR}.
+    DOCK_STATE_CAR = 2;
+    // Analog (low end) desk dock. See {@link Intent.EXTRA_DOCK_STATE_LE_DESK}.
+    DOCK_STATE_LE_DESK = 3;
+    // Digital (high end) desk dock. See {@link Intent.EXTRA_DOCK_STATE_HE_DESK}.
+    DOCK_STATE_HE_DESK = 4;
+}

@@ -33,17 +33,19 @@ cc_library_headers {
     min_sdk_version: "30",
     apex_available: [
         "//apex_available:platform",
-        "com.android.tethering",
         "com.android.art.debug",
+        "com.android.os.statsd",
+        "com.android.resolv",
+        "com.android.tethering",
     ],
 }
-
 
 cc_test {
     // TODO: Rename to bpf_map_test and modify .gcls as well.
     name: "libbpf_android_test",
     srcs: [
         "BpfMapTest.cpp",
+        "BpfRingbufTest.cpp",
     ],
     defaults: ["bpf_defaults"],
     cflags: [

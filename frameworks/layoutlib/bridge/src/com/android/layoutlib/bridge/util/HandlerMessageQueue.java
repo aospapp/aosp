@@ -43,18 +43,20 @@ public class HandlerMessageQueue {
      * @param r {@link Runnable} to be added
      */
     public void add(@NotNull Handler h, long uptimeMillis, @NotNull Runnable r) {
-        LinkedList<Pair<Long, Runnable>> runnables = runnablesMap.computeIfAbsent(h,
-                k -> new LinkedList<>());
+        synchronized (runnablesMap) {
+            LinkedList<Pair<Long, Runnable>> runnables = runnablesMap.computeIfAbsent(h,
+                    k -> new LinkedList<>());
 
-        int idx = 0;
-        while (idx < runnables.size()) {
-            if (runnables.get(idx).first <= uptimeMillis) {
-                idx++;
-            } else {
-                break;
+            int idx = 0;
+            while (idx < runnables.size()) {
+                if (runnables.get(idx).first <= uptimeMillis) {
+                    idx++;
+                } else {
+                    break;
+                }
             }
+            runnables.add(idx, Pair.create(uptimeMillis, r));
         }
-        runnables.add(idx, Pair.create(uptimeMillis, r));
     }
 
     private static class HandlerWrapper {
@@ -69,42 +71,50 @@ public class HandlerMessageQueue {
      */
     @Nullable
     public Runnable extractFirst(long uptimeMillis) {
-        final HandlerWrapper w = new HandlerWrapper();
-        runnablesMap.forEach((h, l) -> {
-            if (!l.isEmpty()) {
-                long currentUptime = l.getFirst().first;
-                if (currentUptime <= uptimeMillis) {
-                    if (w.handler == null || currentUptime <
-                            runnablesMap.get(w.handler).getFirst().first) {
-                        w.handler = h;
+        synchronized (runnablesMap) {
+            final HandlerWrapper w = new HandlerWrapper();
+            runnablesMap.forEach((h, l) -> {
+                if (!l.isEmpty()) {
+                    long currentUptime = l.getFirst().first;
+                    if (currentUptime <= uptimeMillis) {
+                        if (w.handler == null || currentUptime <
+                                runnablesMap.get(w.handler).getFirst().first) {
+                            w.handler = h;
+                        }
                     }
                 }
+            });
+            if (w.handler != null) {
+                return runnablesMap.get(w.handler).pollFirst().second;
             }
-        });
-        if (w.handler != null) {
-            return runnablesMap.get(w.handler).pollFirst().second;
+            return null;
         }
-        return null;
     }
 
     /**
      * @return true is queue has no runnables left
      */
     public boolean isNotEmpty() {
-        return runnablesMap.values().stream().anyMatch(l -> !l.isEmpty());
+        synchronized (runnablesMap) {
+            return runnablesMap.values().stream().anyMatch(l -> !l.isEmpty());
+        }
     }
 
     /**
      * @return number of runnables in the queue
      */
     public int size() {
-        return runnablesMap.values().stream().mapToInt(LinkedList::size).sum();
+        synchronized (runnablesMap) {
+            return runnablesMap.values().stream().mapToInt(LinkedList::size).sum();
+        }
     }
 
     /**
      * Completely clears the entire queue
      */
     public void clear() {
-        runnablesMap.clear();
+        synchronized (runnablesMap) {
+            runnablesMap.clear();
+        }
     }
 }

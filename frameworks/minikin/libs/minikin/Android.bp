@@ -50,16 +50,14 @@ cc_library {
         "LocaleListCache.cpp",
         "MeasuredText.cpp",
         "Measurement.cpp",
+        "MinikinFontFactory.cpp",
         "MinikinInternal.cpp",
         "OptimalLineBreaker.cpp",
         "SparseBitSet.cpp",
         "SystemFonts.cpp",
         "WordBreaker.cpp",
     ],
-    cflags: [
-        "-Wall",
-        "-Werror",
-    ],
+    defaults: ["libminikin_defaults"],
     sanitize: {
         misc_undefined: [
             "signed-integer-overflow",
@@ -67,12 +65,6 @@ cc_library {
             "bounds",
         ],
     },
-    cppflags: [
-        "-Werror",
-        "-Wall",
-        "-Wextra",
-        "-Wthread-safety",
-    ],
     product_variables: {
         debuggable: {
             // Enable assertion on eng and userdebug build.
@@ -93,10 +85,10 @@ cc_library {
     target: {
         android: {
             shared_libs: [
-                "libandroidicu",
+                "libicu",
             ],
             export_shared_lib_headers: [
-                "libandroidicu",
+                "libicu",
             ],
         },
         host: {

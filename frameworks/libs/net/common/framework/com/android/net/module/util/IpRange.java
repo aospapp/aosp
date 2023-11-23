@@ -200,7 +200,7 @@ public final class IpRange {
 
     @Override
     public int hashCode() {
-        return Objects.hash(mStartAddr, mEndAddr);
+        return Objects.hash(Arrays.hashCode(mStartAddr), Arrays.hashCode(mEndAddr));
     }
 
     @Override

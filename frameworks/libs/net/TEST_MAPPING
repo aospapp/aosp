@@ -1,4 +1,9 @@
 {
+  "presubmit": [
+    {
+      "name": "netdutils_test"
+    }
+  ],
   "imports": [
     {
       "path": "frameworks/base/core/java/android/net"
@@ -15,6 +20,9 @@
     },
     {
       "path": "packages/modules/Wifi/framework"
+    },
+    {
+      "path": "vendor/xts/gts-tests/hostsidetests/networkstack"
     }
   ]
 }

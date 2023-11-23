@@ -175,6 +175,25 @@ class CleanupTest {
     }
 
     @Test
+    fun testAssertionErrorInCatch() {
+        var x = 1
+        val thrown = assertFailsWith<AssertionError> {
+            tryTest {
+                x = 2
+                throw TestException1()
+            }.catch<TestException1> {
+                x = 3
+                fail("Test failure in catch")
+            } cleanup {
+                assertTrue(x == 3)
+                x = 4
+            }
+        }
+        assertTrue(x == 4)
+        assertTrue(thrown.suppressedExceptions.isEmpty())
+    }
+
+    @Test
     fun testMultipleCleanups() {
         var x = 1
         val thrown = assertFailsWith<TestException1> {

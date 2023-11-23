@@ -18,12 +18,14 @@
 #define LOG_TAG "gpuservice_unittest"
 
 #include <unistd.h>
+#include <binder/ProcessState.h>
 #include <cutils/properties.h>
 #include <gmock/gmock.h>
 #include <gpustats/GpuStats.h>
 #include <gtest/gtest.h>
 #include <stats_pull_atom_callback.h>
 #include <statslog.h>
+#include <utils/Looper.h>
 #include <utils/String16.h>
 #include <utils/Vector.h>
 
@@ -50,6 +52,13 @@ using testing::HasSubstr;
 #define DRIVER_LOADING_TIME_2     789
 #define DRIVER_LOADING_TIME_3     891
 
+constexpr uint64_t VULKAN_FEATURES_MASK = 0x600D;
+constexpr uint32_t VULKAN_API_VERSION = 0x400000;
+constexpr int32_t VULKAN_INSTANCE_EXTENSION_1 = 0x1234;
+constexpr int32_t VULKAN_INSTANCE_EXTENSION_2 = 0x8765;
+constexpr int32_t VULKAN_DEVICE_EXTENSION_1 = 0x9012;
+constexpr int32_t VULKAN_DEVICE_EXTENSION_2 = 0x3456;
+
 enum InputCommand : int32_t {
     DUMP_ALL               = 0,
     DUMP_GLOBAL            = 1,
@@ -61,8 +70,9 @@ enum InputCommand : int32_t {
 // clang-format on
 
 class GpuStatsTest : public testing::Test {
+    sp<android::Looper> looper;
 public:
-    GpuStatsTest() {
+    GpuStatsTest() : looper(Looper::prepare(0 /* opts */)) {
         const ::testing::TestInfo* const test_info =
                 ::testing::UnitTest::GetInstance()->current_test_info();
         ALOGD("**** Setting up for %s.%s\n", test_info->test_case_name(), test_info->name());
@@ -72,6 +82,16 @@ public:
         const ::testing::TestInfo* const test_info =
                 ::testing::UnitTest::GetInstance()->current_test_info();
         ALOGD("**** Tearing down after %s.%s\n", test_info->test_case_name(), test_info->name());
+
+        // This is required for test due to GpuStats instance spawns binder transactions
+        // in its destructor. After the gtest destructor test exits immidiatelly.
+        // It results in binder thread not able to process above binder transactions and memory leak
+        // occures. Binder thread needs time to process callbacks transactions.
+        // It leads to GpuStats instance destructor needs to be called in advance.
+        mGpuStats.reset(nullptr);
+        // performs all pending callbacks until all data has been consumed
+        // gives time to process binder transactions by thread pool
+        looper->pollAll(1000);
     }
 
     std::string inputCommand(InputCommand cmd);
@@ -79,6 +99,10 @@ public:
     void SetUp() override {
         mCpuVulkanVersion = property_get_int32("ro.cpuvulkan.version", 0);
         mGlesVersion = property_get_int32("ro.opengles.version", 0);
+
+        // start the thread pool
+        sp<ProcessState> ps(ProcessState::self());
+        ps->startThreadPool();
     }
 
     std::unique_ptr<GpuStats> mGpuStats = std::make_unique<GpuStats>();
@@ -201,6 +225,24 @@ TEST_F(GpuStatsTest, canNotInsertTargetStatsBeforeProperSetup) {
                                  GpuStatsInfo::Stats::FALSE_PREROTATION, 0);
     mGpuStats->insertTargetStats(APP_PKG_NAME_1, BUILTIN_DRIVER_VER_CODE,
                                  GpuStatsInfo::Stats::GLES_1_IN_USE, 0);
+    mGpuStats->insertTargetStats(APP_PKG_NAME_1, BUILTIN_DRIVER_VER_CODE,
+                                 GpuStatsInfo::Stats::CREATED_GLES_CONTEXT, 0);
+    mGpuStats->insertTargetStats(APP_PKG_NAME_1, BUILTIN_DRIVER_VER_CODE,
+                                 GpuStatsInfo::Stats::CREATED_VULKAN_API_VERSION,
+                                 VULKAN_API_VERSION);
+    mGpuStats->insertTargetStats(APP_PKG_NAME_1, BUILTIN_DRIVER_VER_CODE,
+                                 GpuStatsInfo::Stats::CREATED_VULKAN_DEVICE, 0);
+    mGpuStats->insertTargetStats(APP_PKG_NAME_1, BUILTIN_DRIVER_VER_CODE,
+                                 GpuStatsInfo::Stats::CREATED_VULKAN_SWAPCHAIN, 0);
+    mGpuStats->insertTargetStats(APP_PKG_NAME_1, BUILTIN_DRIVER_VER_CODE,
+                                 GpuStatsInfo::Stats::VULKAN_DEVICE_FEATURES_ENABLED,
+                                 VULKAN_FEATURES_MASK);
+    mGpuStats->insertTargetStats(APP_PKG_NAME_1, BUILTIN_DRIVER_VER_CODE,
+                                 GpuStatsInfo::Stats::VULKAN_INSTANCE_EXTENSION,
+                                 VULKAN_INSTANCE_EXTENSION_1);
+    mGpuStats->insertTargetStats(APP_PKG_NAME_1, BUILTIN_DRIVER_VER_CODE,
+                                 GpuStatsInfo::Stats::VULKAN_DEVICE_EXTENSION,
+                                 VULKAN_DEVICE_EXTENSION_1);
 
     EXPECT_TRUE(inputCommand(InputCommand::DUMP_APP).empty());
 }
@@ -216,10 +258,51 @@ TEST_F(GpuStatsTest, canInsertTargetStatsAfterProperSetup) {
                                  GpuStatsInfo::Stats::FALSE_PREROTATION, 0);
     mGpuStats->insertTargetStats(APP_PKG_NAME_1, BUILTIN_DRIVER_VER_CODE,
                                  GpuStatsInfo::Stats::GLES_1_IN_USE, 0);
+    mGpuStats->insertTargetStats(APP_PKG_NAME_1, BUILTIN_DRIVER_VER_CODE,
+                                 GpuStatsInfo::Stats::CREATED_GLES_CONTEXT, 0);
+    mGpuStats->insertTargetStats(APP_PKG_NAME_1, BUILTIN_DRIVER_VER_CODE,
+                                 GpuStatsInfo::Stats::CREATED_VULKAN_API_VERSION,
+                                 VULKAN_API_VERSION);
+    mGpuStats->insertTargetStats(APP_PKG_NAME_1, BUILTIN_DRIVER_VER_CODE,
+                                 GpuStatsInfo::Stats::CREATED_VULKAN_DEVICE, 0);
+    mGpuStats->insertTargetStats(APP_PKG_NAME_1, BUILTIN_DRIVER_VER_CODE,
+                                 GpuStatsInfo::Stats::CREATED_VULKAN_SWAPCHAIN, 0);
+    mGpuStats->insertTargetStats(APP_PKG_NAME_1, BUILTIN_DRIVER_VER_CODE,
+                                 GpuStatsInfo::Stats::VULKAN_DEVICE_FEATURES_ENABLED,
+                                 VULKAN_FEATURES_MASK);
+    mGpuStats->insertTargetStats(APP_PKG_NAME_1, BUILTIN_DRIVER_VER_CODE,
+                                 GpuStatsInfo::Stats::VULKAN_INSTANCE_EXTENSION,
+                                 VULKAN_INSTANCE_EXTENSION_1);
+    mGpuStats->insertTargetStats(APP_PKG_NAME_1, BUILTIN_DRIVER_VER_CODE,
+                                 GpuStatsInfo::Stats::VULKAN_INSTANCE_EXTENSION,
+                                 VULKAN_INSTANCE_EXTENSION_2);
+    mGpuStats->insertTargetStats(APP_PKG_NAME_1, BUILTIN_DRIVER_VER_CODE,
+                                 GpuStatsInfo::Stats::VULKAN_DEVICE_EXTENSION,
+                                 VULKAN_DEVICE_EXTENSION_1);
+    mGpuStats->insertTargetStats(APP_PKG_NAME_1, BUILTIN_DRIVER_VER_CODE,
+                                 GpuStatsInfo::Stats::VULKAN_DEVICE_EXTENSION,
+                                 VULKAN_DEVICE_EXTENSION_2);
 
     EXPECT_THAT(inputCommand(InputCommand::DUMP_APP), HasSubstr("cpuVulkanInUse = 1"));
     EXPECT_THAT(inputCommand(InputCommand::DUMP_APP), HasSubstr("falsePrerotation = 1"));
     EXPECT_THAT(inputCommand(InputCommand::DUMP_APP), HasSubstr("gles1InUse = 1"));
+    EXPECT_THAT(inputCommand(InputCommand::DUMP_APP), HasSubstr("createdGlesContext = 1"));
+    EXPECT_THAT(inputCommand(InputCommand::DUMP_APP), HasSubstr("createdVulkanDevice = 1"));
+    EXPECT_THAT(inputCommand(InputCommand::DUMP_APP), HasSubstr("createdVulkanSwapchain = 1"));
+    std::stringstream expectedResult;
+    expectedResult << "vulkanApiVersion = 0x" << std::hex << VULKAN_API_VERSION;
+    EXPECT_THAT(inputCommand(InputCommand::DUMP_APP), HasSubstr(expectedResult.str()));
+    expectedResult.str("");
+    expectedResult << "vulkanDeviceFeaturesEnabled = 0x" << std::hex << VULKAN_FEATURES_MASK;
+    EXPECT_THAT(inputCommand(InputCommand::DUMP_APP), HasSubstr(expectedResult.str()));
+    expectedResult.str("");
+    expectedResult << "vulkanInstanceExtensions: 0x" << std::hex << VULKAN_INSTANCE_EXTENSION_1
+                    << " 0x" << std::hex << VULKAN_INSTANCE_EXTENSION_2;
+    EXPECT_THAT(inputCommand(InputCommand::DUMP_APP), HasSubstr(expectedResult.str()));
+    expectedResult.str("");
+    expectedResult << "vulkanDeviceExtensions: 0x" << std::hex << VULKAN_DEVICE_EXTENSION_1
+                    << " 0x" << std::hex << VULKAN_DEVICE_EXTENSION_2;
+    EXPECT_THAT(inputCommand(InputCommand::DUMP_APP), HasSubstr(expectedResult.str()));
 }
 
 // Verify we always have the most recently used apps in mAppStats, even when we fill it.
@@ -243,11 +326,52 @@ TEST_F(GpuStatsTest, canInsertMoreThanMaxNumAppRecords) {
                                      GpuStatsInfo::Stats::FALSE_PREROTATION, 0);
         mGpuStats->insertTargetStats(fullPkgName, BUILTIN_DRIVER_VER_CODE,
                                      GpuStatsInfo::Stats::GLES_1_IN_USE, 0);
+        mGpuStats->insertTargetStats(fullPkgName, BUILTIN_DRIVER_VER_CODE,
+                                     GpuStatsInfo::Stats::CREATED_GLES_CONTEXT, 0);
+        mGpuStats->insertTargetStats(fullPkgName, BUILTIN_DRIVER_VER_CODE,
+                                    GpuStatsInfo::Stats::CREATED_VULKAN_API_VERSION,
+                                    VULKAN_API_VERSION);
+        mGpuStats->insertTargetStats(fullPkgName, BUILTIN_DRIVER_VER_CODE,
+                                    GpuStatsInfo::Stats::CREATED_VULKAN_DEVICE, 0);
+        mGpuStats->insertTargetStats(fullPkgName, BUILTIN_DRIVER_VER_CODE,
+                                    GpuStatsInfo::Stats::CREATED_VULKAN_SWAPCHAIN, 0);
+        mGpuStats->insertTargetStats(fullPkgName, BUILTIN_DRIVER_VER_CODE,
+                                    GpuStatsInfo::Stats::VULKAN_DEVICE_FEATURES_ENABLED,
+                                    VULKAN_FEATURES_MASK);
+        mGpuStats->insertTargetStats(fullPkgName, BUILTIN_DRIVER_VER_CODE,
+                                    GpuStatsInfo::Stats::VULKAN_INSTANCE_EXTENSION,
+                                    VULKAN_INSTANCE_EXTENSION_1);
+        mGpuStats->insertTargetStats(fullPkgName, BUILTIN_DRIVER_VER_CODE,
+                                    GpuStatsInfo::Stats::VULKAN_INSTANCE_EXTENSION,
+                                    VULKAN_INSTANCE_EXTENSION_2);
+        mGpuStats->insertTargetStats(fullPkgName, BUILTIN_DRIVER_VER_CODE,
+                                    GpuStatsInfo::Stats::VULKAN_DEVICE_EXTENSION,
+                                    VULKAN_DEVICE_EXTENSION_1);
+        mGpuStats->insertTargetStats(fullPkgName, BUILTIN_DRIVER_VER_CODE,
+                                    GpuStatsInfo::Stats::VULKAN_DEVICE_EXTENSION,
+                                    VULKAN_DEVICE_EXTENSION_2);
 
         EXPECT_THAT(inputCommand(InputCommand::DUMP_APP), HasSubstr(fullPkgName.c_str()));
         EXPECT_THAT(inputCommand(InputCommand::DUMP_APP), HasSubstr("cpuVulkanInUse = 1"));
         EXPECT_THAT(inputCommand(InputCommand::DUMP_APP), HasSubstr("falsePrerotation = 1"));
         EXPECT_THAT(inputCommand(InputCommand::DUMP_APP), HasSubstr("gles1InUse = 1"));
+        EXPECT_THAT(inputCommand(InputCommand::DUMP_APP), HasSubstr("createdGlesContext = 1"));
+        EXPECT_THAT(inputCommand(InputCommand::DUMP_APP), HasSubstr("createdVulkanDevice = 1"));
+        EXPECT_THAT(inputCommand(InputCommand::DUMP_APP), HasSubstr("createdVulkanSwapchain = 1"));
+        std::stringstream expectedResult;
+        expectedResult << "vulkanApiVersion = 0x" << std::hex << VULKAN_API_VERSION;
+        EXPECT_THAT(inputCommand(InputCommand::DUMP_APP), HasSubstr(expectedResult.str()));
+        expectedResult.str("");
+        expectedResult << "vulkanDeviceFeaturesEnabled = 0x" << std::hex << VULKAN_FEATURES_MASK;
+        EXPECT_THAT(inputCommand(InputCommand::DUMP_APP), HasSubstr(expectedResult.str()));
+        expectedResult.str("");
+        expectedResult << "vulkanInstanceExtensions: 0x" << std::hex << VULKAN_INSTANCE_EXTENSION_1
+                        << " 0x" << std::hex << VULKAN_INSTANCE_EXTENSION_2;
+        EXPECT_THAT(inputCommand(InputCommand::DUMP_APP), HasSubstr(expectedResult.str()));
+        expectedResult.str("");
+        expectedResult << "vulkanDeviceExtensions: 0x" << std::hex << VULKAN_DEVICE_EXTENSION_1
+                        << " 0x" << std::hex << VULKAN_DEVICE_EXTENSION_2;
+        EXPECT_THAT(inputCommand(InputCommand::DUMP_APP), HasSubstr(expectedResult.str()));
     }
 
     // mAppStats purges GpuStats::APP_RECORD_HEADROOM apps removed everytime it's filled up.

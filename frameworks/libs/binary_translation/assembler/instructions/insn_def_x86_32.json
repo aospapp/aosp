@@ -1,0 +1,91 @@
+{
+  "arch": "x86_32",
+  "insns": [
+    {
+      "encodings": {
+        "Calll": { "opcodes": [ "FF", "2" ] }
+      },
+      "args": [
+        { "class": "RSP", "usage": "use_def" },
+        { "class": "Mem32", "usage": "use" }
+      ]
+    },
+    {
+      "encodings": {
+        "Decl": { "opcodes": [ "48" ] },
+        "Incl": { "opcodes": [ "40" ] }
+      },
+      "args": [
+        { "class": "GeneralReg32", "usage": "use_def" },
+        { "class": "FLAGS", "usage": "def" }
+      ]
+    },
+    {
+      "encodings": {
+        "Decw": { "opcodes": [ "66", "48" ] },
+        "Incw": { "opcodes": [ "66", "40" ] }
+      },
+      "args": [
+        { "class": "GeneralReg16", "usage": "use_def" },
+        { "class": "FLAGS", "usage": "def" }
+      ]
+    },
+    {
+      "encodings": {
+        "Jmpl": { "opcodes": [ "FF", "4" ] }
+      },
+      "args": [
+        { "class": "Mem32", "usage": "use" }
+      ]
+    },
+    {
+      "encodings": {
+        "Popl": { "opcodes": [ "8F", "0" ] }
+      },
+      "args": [
+        { "class": "RSP", "usage": "use_def" },
+        { "class": "Mem32", "usage": "def" }
+      ]
+    },
+    {
+      "encodings": {
+        "Pushl": { "opcodes": [ "FF", "6" ] }
+      },
+      "args": [
+        { "class": "RSP", "usage": "use_def" },
+        { "class": "Mem32", "usage": "use" }
+      ]
+    },
+    {
+      "encodings": {
+        "Vmovapd": { "opcodes": [ "C4", "01", "01", "28" ] },
+        "Vmovaps": { "opcodes": [ "C4", "01", "00", "28" ] }
+      },
+      "args": [
+        { "class": "XmmReg", "usage": "def" },
+        { "class": "XmmReg", "usage": "use" }
+      ]
+    },
+    {
+      "encodings": {
+        "Vmovdqa": { "opcodes": [ "C4", "01", "01", "6F" ] },
+        "Vmovdqu": { "opcodes": [ "C4", "01", "02", "6F" ] }
+      },
+      "args": [
+        { "class": "XmmReg", "usage": "def" },
+        { "class": "XmmReg", "usage": "use" }
+      ]
+    },
+    {
+      "encodings": {
+        "Vmovsd": { "opcodes": [ "C4", "01", "03", "10" ], "vex_rm_to_reg": true },
+        "Vmovss": { "opcodes": [ "C4", "01", "02", "10" ], "vex_rm_to_reg": true }
+      },
+      "args": [
+        { "class": "XmmReg", "usage": "def" },
+        { "class": "XmmReg", "usage": "use" },
+        { "class": "XmmReg", "usage": "use" }
+      ]
+    }
+  ]
+}

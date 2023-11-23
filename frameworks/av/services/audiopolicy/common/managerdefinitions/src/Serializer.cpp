@@ -29,6 +29,7 @@
 #include <utils/StrongPointer.h>
 #include <utils/Errors.h>
 #include <utils/RefBase.h>
+#include "IOProfile.h"
 #include "Serializer.h"
 #include "TypeConverter.h"
 
@@ -196,7 +197,6 @@ struct GlobalConfigTraits
 
     struct Attributes
     {
-        static constexpr const char *speakerDrcEnabled = "speaker_drc_enabled";
         static constexpr const char *callScreenModeSupported= "call_screen_mode_supported";
         static constexpr const char *engineLibrarySuffix = "engine_library";
     };
@@ -769,12 +769,7 @@ PolicySerializer::deserialize<GlobalConfigTraits>(
     for (const xmlNode *cur = root->xmlChildrenNode; cur != NULL; cur = cur->next) {
         if (!xmlStrcmp(cur->name, reinterpret_cast<const xmlChar*>(GlobalConfigTraits::tag))) {
             bool value;
-            std::string attr = getXmlAttribute(cur, Attributes::speakerDrcEnabled);
-            if (!attr.empty() &&
-                    convertTo<std::string, bool>(attr, value)) {
-                config->setSpeakerDrcEnabled(value);
-            }
-            attr = getXmlAttribute(cur, Attributes::callScreenModeSupported);
+            std::string attr = getXmlAttribute(cur, Attributes::callScreenModeSupported);
             if (!attr.empty() &&
                     convertTo<std::string, bool>(attr, value)) {
                 config->setCallScreenModeSupported(value);
@@ -907,7 +902,6 @@ status_t deserializeAudioPolicyFile(const char *fileName, AudioPolicyConfig *con
 {
     PolicySerializer serializer;
     status_t status = serializer.deserialize(fileName, config);
-    if (status != OK) config->clear();
     return status;
 }
 
@@ -915,7 +909,6 @@ status_t deserializeAudioPolicyFileForVts(const char *fileName, AudioPolicyConfi
 {
     PolicySerializer serializer;
     status_t status = serializer.deserialize(fileName, config, true /*ignoreVendorExtensions*/);
-    if (status != OK) config->clear();
     return status;
 }
 

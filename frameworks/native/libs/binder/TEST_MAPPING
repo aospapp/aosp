@@ -28,9 +28,6 @@
       "name": "binderLibTest"
     },
     {
-      "name": "binderRpcTest"
-    },
-    {
       "name": "binderStabilityTest"
     },
     {
@@ -55,19 +52,19 @@
       "name": "memunreachable_binder_test"
     },
     {
+      "name": "resolv_integration_test"
+    },
+    {
       "name": "libbinderthreadstateutils_test"
     },
     {
       "name": "CtsOsTestCases",
       "options": [
         {
-          "exclude-annotation": "android.platform.test.annotations.LargeTest"
+          "include-filter": "android.os.cts.BinderTest"
         },
         {
-          "exclude-filter": "android.os.cts.BuildTest#testSdkInt"
-        },
-        {
-          "exclude-filter": "android.os.cts.StrictModeTest#testNonSdkApiUsage"
+          "include-filter": "android.os.cts.ParcelTest"
         }
       ]
     },
@@ -82,6 +79,50 @@
     },
     {
       "name": "rustBinderSerializationTest"
+    },
+    {
+      "name": "libbinder_ndk_bindgen_test"
+    },
+    {
+      "name": "libbinder_rpc_unstable_bindgen_test"
+    }
+  ],
+  "presubmit-large": [
+    {
+      "name": "binderRpcTest"
+    },
+    {
+      "name": "binderRpcTestNoKernel"
+    },
+    {
+      "name": "binderRpcTestSingleThreaded"
+    },
+    {
+      "name": "binderRpcTestSingleThreadedNoKernel"
+    }
+  ],
+  "hwasan-presubmit": [
+    {
+      "name": "binderLibTest"
+    }
+  ],
+  "kernel-presubmit": [
+    {
+      "name": "binderDriverInterfaceTest"
+    },
+    {
+      "name": "binderLibTest"
+    },
+    {
+      "name": "binderSafeInterfaceTest"
+    },
+    {
+      "name": "memunreachable_binder_test"
+    }
+  ],
+  "imports": [
+    {
+      "path": "packages/modules/Virtualization"
     }
   ]
 }

@@ -18,6 +18,10 @@ package com.android.net.module.util;
 
 import static junit.framework.Assert.assertEquals;
 
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+
+import android.net.InetAddresses;
 import android.os.Parcel;
 
 import androidx.test.filters.SmallTest;
@@ -66,5 +70,26 @@ public class InetAddressUtilsTest {
         Inet6Address out = (Inet6Address) parcelUnparcelAddress(ipv6);
         assertEquals(ipv6, out);
         assertEquals(42, out.getScopeId());
+    }
+
+    @Test
+    public void testWithScopeId() {
+        final int scopeId = 999;
+
+        final String globalAddrStr = "2401:fa00:49c:484:dc41:e6ff:fefd:f180";
+        final Inet6Address globalAddr = (Inet6Address) InetAddresses
+                .parseNumericAddress(globalAddrStr);
+        final Inet6Address updatedGlobalAddr = InetAddressUtils.withScopeId(globalAddr, scopeId);
+        assertFalse(updatedGlobalAddr.isLinkLocalAddress());
+        assertEquals(globalAddrStr, updatedGlobalAddr.getHostAddress());
+        assertEquals(0, updatedGlobalAddr.getScopeId());
+
+        final String localAddrStr = "fe80::4735:9628:d038:2087";
+        final Inet6Address localAddr = (Inet6Address) InetAddresses
+                .parseNumericAddress(localAddrStr);
+        final Inet6Address updatedLocalAddr = InetAddressUtils.withScopeId(localAddr, scopeId);
+        assertTrue(updatedLocalAddr.isLinkLocalAddress());
+        assertEquals(localAddrStr + "%" + scopeId, updatedLocalAddr.getHostAddress());
+        assertEquals(scopeId, updatedLocalAddr.getScopeId());
     }
 }

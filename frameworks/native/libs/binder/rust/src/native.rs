@@ -30,6 +30,7 @@ use std::ops::Deref;
 use std::os::raw::c_char;
 use std::os::unix::io::FromRawFd;
 use std::slice;
+use std::sync::Mutex;
 
 /// Rust wrapper around Binder remotable objects.
 ///
@@ -97,10 +98,7 @@ impl<T: Remotable> Binder<T> {
             // ends.
             sys::AIBinder_new(class.into(), rust_object as *mut c_void)
         };
-        let mut binder = Binder {
-            ibinder,
-            rust_object,
-        };
+        let mut binder = Binder { ibinder, rust_object };
         binder.mark_stability(stability);
         binder
     }
@@ -211,8 +209,8 @@ impl<T: Remotable> Binder<T> {
     }
 
     /// Mark this binder object with local stability, which is vendor if we are
-    /// building for the VNDK and system otherwise.
-    #[cfg(any(vendor_ndk, android_vndk))]
+    /// building for android_vendor and system otherwise.
+    #[cfg(android_vendor)]
     fn mark_local_stability(&mut self) {
         unsafe {
             // Safety: Self always contains a valid `AIBinder` pointer, so
@@ -222,8 +220,8 @@ impl<T: Remotable> Binder<T> {
     }
 
     /// Mark this binder object with local stability, which is vendor if we are
-    /// building for the VNDK and system otherwise.
-    #[cfg(not(any(vendor_ndk, android_vndk)))]
+    /// building for android_vendor and system otherwise.
+    #[cfg(not(android_vendor))]
     fn mark_local_stability(&mut self) {
         unsafe {
             // Safety: Self always contains a valid `AIBinder` pointer, so
@@ -297,7 +295,7 @@ impl<T: Remotable> InterfaceClassMethods for Binder<T> {
     /// Must be called with a valid pointer to a `T` object. After this call,
     /// the pointer will be invalid and should not be dereferenced.
     unsafe extern "C" fn on_destroy(object: *mut c_void) {
-        Box::from_raw(object as *mut T);
+        drop(Box::from_raw(object as *mut T));
     }
 
     /// Called whenever a new, local `AIBinder` object is needed of a specific
@@ -335,11 +333,18 @@ impl<T: Remotable> InterfaceClassMethods for Binder<T> {
         // We don't own this file, so we need to be careful not to drop it.
         let file = ManuallyDrop::new(File::from_raw_fd(fd));
 
-        if args.is_null() {
+        if args.is_null() && num_args != 0 {
             return StatusCode::UNEXPECTED_NULL as status_t;
         }
-        let args = slice::from_raw_parts(args, num_args as usize);
-        let args: Vec<_> = args.iter().map(|s| CStr::from_ptr(*s)).collect();
+
+        let args = if args.is_null() || num_args == 0 {
+            vec![]
+        } else {
+            slice::from_raw_parts(args, num_args as usize)
+                .iter()
+                .map(|s| CStr::from_ptr(*s))
+                .collect()
+        };
 
         let object = sys::AIBinder_getUserData(binder);
         let binder: &T = &*(object as *const T);
@@ -413,10 +418,7 @@ impl<B: Remotable> TryFrom<SpIBinder> for Binder<B> {
         // We are transferring the ownership of the AIBinder into the new Binder
         // object.
         let mut ibinder = ManuallyDrop::new(ibinder);
-        Ok(Binder {
-            ibinder: ibinder.as_native_mut(),
-            rust_object: userdata as *mut B,
-        })
+        Ok(Binder { ibinder: ibinder.as_native_mut(), rust_object: userdata as *mut B })
     }
 }
 
@@ -486,10 +488,63 @@ pub fn register_lazy_service(identifier: &str, mut binder: SpIBinder) -> Result<
 /// If persist is true then shut down will be blocked until this function is called again with
 /// persist false. If this is to be the initial state, call this function before calling
 /// register_lazy_service.
+///
+/// Consider using [`LazyServiceGuard`] rather than calling this directly.
 pub fn force_lazy_services_persist(persist: bool) {
     unsafe {
         // Safety: No borrowing or transfer of ownership occurs here.
         sys::AServiceManager_forceLazyServicesPersist(persist)
+    }
+}
+
+/// An RAII object to ensure a process which registers lazy services is not killed. During the
+/// lifetime of any of these objects the service manager will not not kill the process even if none
+/// of its lazy services are in use.
+#[must_use]
+#[derive(Debug)]
+pub struct LazyServiceGuard {
+    // Prevent construction outside this module.
+    _private: (),
+}
+
+// Count of how many LazyServiceGuard objects are in existence.
+static GUARD_COUNT: Mutex<u64> = Mutex::new(0);
+
+impl LazyServiceGuard {
+    /// Create a new LazyServiceGuard to prevent the service manager prematurely killing this
+    /// process.
+    pub fn new() -> Self {
+        let mut count = GUARD_COUNT.lock().unwrap();
+        *count += 1;
+        if *count == 1 {
+            // It's important that we make this call with the mutex held, to make sure
+            // that multiple calls (e.g. if the count goes 1 -> 0 -> 1) are correctly
+            // sequenced. (That also means we can't just use an AtomicU64.)
+            force_lazy_services_persist(true);
+        }
+        Self { _private: () }
+    }
+}
+
+impl Drop for LazyServiceGuard {
+    fn drop(&mut self) {
+        let mut count = GUARD_COUNT.lock().unwrap();
+        *count -= 1;
+        if *count == 0 {
+            force_lazy_services_persist(false);
+        }
+    }
+}
+
+impl Clone for LazyServiceGuard {
+    fn clone(&self) -> Self {
+        Self::new()
+    }
+}
+
+impl Default for LazyServiceGuard {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

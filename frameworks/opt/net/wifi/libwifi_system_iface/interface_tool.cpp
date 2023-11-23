@@ -144,10 +144,10 @@ bool InterfaceTool::SetMacAddress(const char* if_name,
 std::array<uint8_t, ETH_ALEN> InterfaceTool::GetFactoryMacAddress(const char* if_name) {
   std::array<uint8_t, ETH_ALEN> paddr = {};
   struct ifreq ifr;
-  struct {
-    // Allocate ETH_ALEN bytes after ethtool_perm_addr.
+  union {
     struct ethtool_perm_addr epaddr;
-    uint8_t data[ETH_ALEN];
+    // Add ETH_ALEN bytes to size of structure.
+    uint8_t raw[sizeof(ethtool_perm_addr) + ETH_ALEN];
   } epaddr_buf;
   struct ethtool_perm_addr* epaddr = &epaddr_buf.epaddr;
 

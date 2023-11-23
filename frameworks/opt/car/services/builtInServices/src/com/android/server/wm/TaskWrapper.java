@@ -16,8 +16,16 @@
 
 package com.android.server.wm;
 
+import static android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE;
+
+import android.annotation.NonNull;
 import android.annotation.Nullable;
+import android.annotation.RequiresApi;
 import android.annotation.SystemApi;
+import android.car.builtin.annotation.PlatformVersion;
+import android.os.IBinder;
+
+import com.android.annotation.AddedIn;
 
 /**
  * Wrapper of {@link Task}.
@@ -32,14 +40,23 @@ public final class TaskWrapper {
     }
 
     /** @hide */
+    @AddedIn(PlatformVersion.TIRAMISU_0)
     public static TaskWrapper create(@Nullable Task task) {
         if (task == null) return null;
         return new TaskWrapper(task);
     }
 
+    /** Creates an instance of {@link TaskWrapper} based on the task's remote {@code token}. */
+    @AddedIn(PlatformVersion.UPSIDE_DOWN_CAKE_0)
+    @RequiresApi(UPSIDE_DOWN_CAKE)
+    public static TaskWrapper createFromToken(@NonNull IBinder token) {
+        return new TaskWrapper((Task) WindowContainer.fromBinder(token));
+    }
+
     /**
      * Gets the {@code userId} of this {@link Task} is created for
      */
+    @AddedIn(PlatformVersion.TIRAMISU_0)
     public int getUserId() {
         return mTask.mUserId;
     }
@@ -47,6 +64,7 @@ public final class TaskWrapper {
     /**
      * Gets the root {@link TaskWrapper} of the this.
      */
+    @AddedIn(PlatformVersion.TIRAMISU_0)
     public TaskWrapper getRootTask() {
         return create(mTask.getRootTask());
     }
@@ -54,6 +72,7 @@ public final class TaskWrapper {
     /**
      * Gets the {@link TaskDisplayAreaWrapper} this {@link Task} is on.
      */
+    @AddedIn(PlatformVersion.TIRAMISU_0)
     public TaskDisplayAreaWrapper getTaskDisplayArea() {
         return TaskDisplayAreaWrapper.create(mTask.getTaskDisplayArea());
     }

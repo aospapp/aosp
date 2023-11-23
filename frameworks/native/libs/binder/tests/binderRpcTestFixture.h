@@ -1,0 +1,175 @@
+/*
+ * Copyright (C) 2022 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#pragma once
+
+#include <gtest/gtest.h>
+
+#include "binderRpcTestCommon.h"
+
+#define EXPECT_OK(status)                        \
+    do {                                         \
+        android::binder::Status stat = (status); \
+        EXPECT_TRUE(stat.isOk()) << stat;        \
+    } while (false)
+
+namespace android {
+
+// Abstract base class with a virtual destructor that handles the
+// ownership of a process session for BinderRpcTestSession below
+class ProcessSession {
+public:
+    struct SessionInfo {
+        sp<RpcSession> session;
+        sp<IBinder> root;
+    };
+
+    // client session objects associated with other process
+    // each one represents a separate session
+    std::vector<SessionInfo> sessions;
+
+    virtual ~ProcessSession() = 0;
+
+    // If the process exits with a status, run the given callback on that value.
+    virtual void setCustomExitStatusCheck(std::function<void(int wstatus)> f) = 0;
+
+    // Kill the process. Avoid if possible. Shutdown gracefully via an RPC instead.
+    virtual void terminate() = 0;
+};
+
+// Process session where the process hosts IBinderRpcTest, the server used
+// for most testing here
+struct BinderRpcTestProcessSession {
+    std::unique_ptr<ProcessSession> proc;
+
+    // pre-fetched root object (for first session)
+    sp<IBinder> rootBinder;
+
+    // pre-casted root object (for first session)
+    sp<IBinderRpcTest> rootIface;
+
+    // whether session should be invalidated by end of run
+    bool expectAlreadyShutdown = false;
+
+    // TODO(b/271830568): fix this in binderRpcTest, we always use the first session to cause the
+    // remote process to shutdown. Normally, when we shutdown, the default in the destructor is to
+    // check that there are no leaks and shutdown. However, when there are incoming threadpools,
+    // there will be a few extra binder threads there, so we can't shutdown the server. We should
+    // consider an alternative way of doing the test so that we don't need this, some ideas, such as
+    // program in understanding of incoming threadpool into the destructor so that (e.g.
+    // intelligently wait for sessions to shutdown now that they will do this)
+    void forceShutdown() {
+        if (auto status = rootIface->scheduleShutdown(); !status.isOk()) {
+            EXPECT_EQ(DEAD_OBJECT, status.transactionError()) << status;
+        }
+        EXPECT_TRUE(proc->sessions.at(0).session->shutdownAndWait(true));
+        expectAlreadyShutdown = true;
+    }
+
+    BinderRpcTestProcessSession(BinderRpcTestProcessSession&&) = default;
+    ~BinderRpcTestProcessSession() {
+        if (!expectAlreadyShutdown) {
+            EXPECT_NE(nullptr, rootIface);
+            if (rootIface == nullptr) return;
+
+            std::vector<int32_t> remoteCounts;
+            // calling over any sessions counts across all sessions
+            EXPECT_OK(rootIface->countBinders(&remoteCounts));
+            EXPECT_EQ(remoteCounts.size(), proc->sessions.size());
+            for (auto remoteCount : remoteCounts) {
+                EXPECT_EQ(remoteCount, 1);
+            }
+
+            // even though it is on another thread, shutdown races with
+            // the transaction reply being written
+            if (auto status = rootIface->scheduleShutdown(); !status.isOk()) {
+                EXPECT_EQ(DEAD_OBJECT, status.transactionError()) << status;
+            }
+        }
+
+        rootIface = nullptr;
+        rootBinder = nullptr;
+    }
+};
+
+class BinderRpc : public ::testing::TestWithParam<
+                          std::tuple<SocketType, RpcSecurity, uint32_t, uint32_t, bool, bool>> {
+public:
+    SocketType socketType() const { return std::get<0>(GetParam()); }
+    RpcSecurity rpcSecurity() const { return std::get<1>(GetParam()); }
+    uint32_t clientVersion() const { return std::get<2>(GetParam()); }
+    uint32_t serverVersion() const { return std::get<3>(GetParam()); }
+    bool serverSingleThreaded() const { return std::get<4>(GetParam()); }
+    bool noKernel() const { return std::get<5>(GetParam()); }
+
+    bool clientOrServerSingleThreaded() const {
+        return !kEnableRpcThreads || serverSingleThreaded();
+    }
+
+    // Whether the test params support sending FDs in parcels.
+    bool supportsFdTransport() const {
+        if (socketType() == SocketType::TIPC) {
+            // Trusty does not support file descriptors yet
+            return false;
+        }
+        return clientVersion() >= 1 && serverVersion() >= 1 && rpcSecurity() != RpcSecurity::TLS &&
+                (socketType() == SocketType::PRECONNECTED || socketType() == SocketType::UNIX ||
+                 socketType() == SocketType::UNIX_BOOTSTRAP ||
+                 socketType() == SocketType::UNIX_RAW);
+    }
+
+    void SetUp() override {
+        if (socketType() == SocketType::UNIX_BOOTSTRAP && rpcSecurity() == RpcSecurity::TLS) {
+            GTEST_SKIP() << "Unix bootstrap not supported over a TLS transport";
+        }
+    }
+
+    BinderRpcTestProcessSession createRpcTestSocketServerProcess(const BinderRpcOptions& options) {
+        BinderRpcTestProcessSession ret{
+                .proc = createRpcTestSocketServerProcessEtc(options),
+        };
+
+        ret.rootBinder = ret.proc->sessions.empty() ? nullptr : ret.proc->sessions.at(0).root;
+        ret.rootIface = interface_cast<IBinderRpcTest>(ret.rootBinder);
+
+        return ret;
+    }
+
+    static std::string PrintParamInfo(const testing::TestParamInfo<ParamType>& info) {
+        auto [type, security, clientVersion, serverVersion, singleThreaded, noKernel] = info.param;
+        auto ret = PrintToString(type) + "_" + newFactory(security)->toCString() + "_clientV" +
+                std::to_string(clientVersion) + "_serverV" + std::to_string(serverVersion);
+        if (singleThreaded) {
+            ret += "_single_threaded";
+        } else {
+            ret += "_multi_threaded";
+        }
+        if (noKernel) {
+            ret += "_no_kernel";
+        } else {
+            ret += "_with_kernel";
+        }
+        return ret;
+    }
+
+protected:
+    static std::unique_ptr<RpcTransportCtxFactory> newFactory(RpcSecurity rpcSecurity);
+
+    std::unique_ptr<ProcessSession> createRpcTestSocketServerProcessEtc(
+            const BinderRpcOptions& options);
+};
+
+} // namespace android

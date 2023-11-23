@@ -48,6 +48,10 @@
 #define DEFAULT_SIZEOF_BPF_MAP_DEF 32       // v0.0 struct: enum (uint sized) + 7 uint
 #define DEFAULT_SIZEOF_BPF_PROG_DEF 20      // v0.0 struct: 4 uint + bool + 3 byte alignment pad
 
+// By default, unless otherwise specified, allow the use of features only supported by v0.28,
+// which first added working support for map uid != root
+#define COMPILE_FOR_BPFLOADER_VERSION 28u
+
 /*
  * The bpf_{map,prog}_def structures are compiled for different architectures.
  * Once by the BPF compiler for the BPF architecture, and once by a C++
@@ -143,7 +147,7 @@ struct bpf_map_def {
     //   unsigned int inner_map_idx;
     //   unsigned int numa_node;
 
-    unsigned int uid;   // uid_t
+    unsigned int zero;  // uid_t, for compat with old (buggy) bpfloader must be AID_ROOT == 0
     unsigned int gid;   // gid_t
     unsigned int mode;  // mode_t
 
@@ -170,14 +174,31 @@ struct bpf_map_def {
     char pin_subdir[BPF_PIN_SUBDIR_CHAR_ARRAY_SIZE];
 
     bool shared;  // use empty string as 'file' component of pin path - allows cross .o map sharing
-    char pad0[3];  // manually pad up to 4 byte alignment, may be used for extensions in the future
+
+    // The following 3 ignore_on_* fields were added in version 0.32 (U). These are ignored in
+    // older bpfloader versions, and zero in programs compiled before 0.32.
+    bool ignore_on_eng:1;
+    bool ignore_on_user:1;
+    bool ignore_on_userdebug:1;
+    // The following 5 ignore_on_* fields were added in version 0.38 (U). These are ignored in
+    // older bpfloader versions, and zero in programs compiled before 0.38.
+    // These are tests on the kernel architecture, ie. they ignore userspace bit-ness.
+    bool ignore_on_arm32:1;
+    bool ignore_on_aarch64:1;
+    bool ignore_on_x86_32:1;
+    bool ignore_on_x86_64:1;
+    bool ignore_on_riscv64:1;
+
+    char pad0[2];  // manually pad up to 4 byte alignment, may be used for extensions in the future
+
+    unsigned int uid;   // uid_t
 };
 
 _Static_assert(sizeof(((struct bpf_map_def *)0)->selinux_context) == 32, "must be 32 bytes");
 _Static_assert(sizeof(((struct bpf_map_def *)0)->pin_subdir) == 32, "must be 32 bytes");
 
 // This needs to be updated whenever the above structure definition is expanded.
-_Static_assert(sizeof(struct bpf_map_def) == 116, "sizeof struct bpf_map_def != 116");
+_Static_assert(sizeof(struct bpf_map_def) == 120, "sizeof struct bpf_map_def != 120");
 _Static_assert(__alignof__(struct bpf_map_def) == 4, "__alignof__ struct bpf_map_def != 4");
 _Static_assert(_Alignof(struct bpf_map_def) == 4, "_Alignof struct bpf_map_def != 4");
 
@@ -190,7 +211,22 @@ struct bpf_prog_def {
     unsigned int max_kver;
 
     bool optional;  // program section (ie. function) may fail to load, continue onto next func.
-    char pad0[3];
+
+    // The following 3 ignore_on_* fields were added in version 0.33 (U). These are ignored in
+    // older bpfloader versions, and zero in programs compiled before 0.33.
+    bool ignore_on_eng:1;
+    bool ignore_on_user:1;
+    bool ignore_on_userdebug:1;
+    // The following 5 ignore_on_* fields were added in version 0.38 (U). These are ignored in
+    // older bpfloader versions, and zero in programs compiled before 0.38.
+    // These are tests on the kernel architecture, ie. they ignore userspace bit-ness.
+    bool ignore_on_arm32:1;
+    bool ignore_on_aarch64:1;
+    bool ignore_on_x86_32:1;
+    bool ignore_on_x86_64:1;
+    bool ignore_on_riscv64:1;
+
+    char pad0[2];  // manually pad up to 4 byte alignment, may be used for extensions in the future
 
     // The following fields were added in version 0.1
     unsigned int bpfloader_min_ver;  // if missing, defaults to 0, ie. v0.0

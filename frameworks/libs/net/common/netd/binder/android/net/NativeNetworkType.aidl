@@ -27,4 +27,9 @@ enum NativeNetworkType {
    * Virtual private network type.
    */
   VIRTUAL = 1,
+
+  /**
+   * Physical local network, such as a tethering downstream.
+   */
+  PHYSICAL_LOCAL = 2,
 }

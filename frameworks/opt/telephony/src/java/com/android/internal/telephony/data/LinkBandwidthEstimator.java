@@ -32,8 +32,6 @@ import android.os.Handler;
 import android.os.HandlerExecutor;
 import android.os.Message;
 import android.os.OutcomeReceiver;
-import android.os.Registrant;
-import android.os.RegistrantList;
 import android.preference.PreferenceManager;
 import android.telephony.AccessNetworkConstants;
 import android.telephony.Annotation.DataActivityType;
@@ -43,12 +41,14 @@ import android.telephony.CellIdentityLte;
 import android.telephony.CellIdentityNr;
 import android.telephony.CellIdentityTdscdma;
 import android.telephony.CellIdentityWcdma;
+import android.telephony.CellInfo;
 import android.telephony.ModemActivityInfo;
 import android.telephony.NetworkRegistrationInfo;
 import android.telephony.ServiceState;
 import android.telephony.SignalStrength;
 import android.telephony.TelephonyCallback;
 import android.telephony.TelephonyManager;
+import android.text.TextUtils;
 import android.util.ArrayMap;
 import android.util.ArraySet;
 import android.util.LocalLog;
@@ -96,6 +96,9 @@ public class LinkBandwidthEstimator extends Handler {
     static final int MSG_ACTIVE_PHONE_CHANGED = 8;
     @VisibleForTesting
     static final int MSG_DATA_REG_STATE_OR_RAT_CHANGED = 9;
+
+    @VisibleForTesting
+    static final int UNKNOWN_TAC = CellInfo.UNAVAILABLE;
 
     // TODO: move the following parameters to xml file
     private static final int TRAFFIC_STATS_POLL_INTERVAL_MS = 1_000;
@@ -180,7 +183,7 @@ public class LinkBandwidthEstimator extends Handler {
     private int mSignalLevel;
     private int mDataRat = TelephonyManager.NETWORK_TYPE_UNKNOWN;
     private int mTac;
-    private String mPlmn = UNKNOWN_PLMN;
+    @NonNull private String mPlmn = UNKNOWN_PLMN;
     private NetworkCapabilities mNetworkCapabilities;
     private NetworkBandwidth mPlaceholderNetwork;
     private long mFilterUpdateTimeMs;
@@ -191,7 +194,6 @@ public class LinkBandwidthEstimator extends Handler {
     private String mBandwidthUpdatePlmn = UNKNOWN_PLMN;
     private BandwidthState mTxState = new BandwidthState(LINK_TX);
     private BandwidthState mRxState = new BandwidthState(LINK_RX);
-    private RegistrantList mBandwidthChangedRegistrants = new RegistrantList();
     private long mLastPlmnOrRatChangeTimeMs;
     private long mLastDrsOrRatChangeTimeMs;
 
@@ -351,33 +353,6 @@ public class LinkBandwidthEstimator extends Handler {
     }
 
     /**
-     * Registers for bandwidth estimation change. The bandwidth will be returned
-     *      * {@link AsyncResult#result} as a {@link Pair} Object.
-     *      * The {@link AsyncResult} will be in the notification {@link Message#obj}.
-     * @param h handler to notify
-     * @param what what code of message when delivered
-     * @param obj placed in Message.obj
-     *
-     * @deprecated Use {@link #registerCallback(LinkBandwidthEstimatorCallback)}.
-     */
-    @Deprecated //TODO: Remove once old data stack is removed.
-    public void registerForBandwidthChanged(Handler h, int what, Object obj) {
-        Registrant r = new Registrant(h, what, obj);
-        mBandwidthChangedRegistrants.add(r);
-    }
-
-    /**
-     * Unregisters for bandwidth estimation change.
-     * @param h handler to notify
-     *
-     * @deprecated Use {@link #unregisterCallback(LinkBandwidthEstimatorCallback)}.
-     */
-    @Deprecated //TODO: Remove once old data stack is removed.
-    public void unregisterForBandwidthChanged(Handler h) {
-        mBandwidthChangedRegistrants.remove(h);
-    }
-
-    /**
      * Register the callback for receiving information from {@link LinkBandwidthEstimator}.
      *
      * @param callback The callback.
@@ -441,6 +416,7 @@ public class LinkBandwidthEstimator extends Handler {
             return;
         }
         mIsOnDefaultRoute = isOnDefaultRoute;
+        logd("mIsOnDefaultRoute " + mIsOnDefaultRoute);
         handleTrafficStatsPollConditionChanged();
     }
 
@@ -465,6 +441,13 @@ public class LinkBandwidthEstimator extends Handler {
         if (mScreenOn && mIsOnDefaultRoute && mIsOnActiveData) {
             updateDataRatCellIdentityBandwidth();
             handleTrafficStatsPoll();
+        } else {
+            logd("Traffic status poll stopped");
+            if (mDataActivity != TelephonyManager.DATA_ACTIVITY_NONE) {
+                mDataActivity = TelephonyManager.DATA_ACTIVITY_NONE;
+                mLinkBandwidthEstimatorCallbacks.forEach(callback -> callback.invokeFromExecutor(
+                        () -> callback.onDataActivityChanged(mDataActivity)));
+            }
         }
     }
 
@@ -474,6 +457,23 @@ public class LinkBandwidthEstimator extends Handler {
         long mobileRxBytes = mTelephonyFacade.getMobileRxBytes();
         long txBytesDelta = mobileTxBytes - mLastMobileTxBytes;
         long rxBytesDelta = mobileRxBytes - mLastMobileRxBytes;
+
+        int dataActivity;
+        if (txBytesDelta > 0 && rxBytesDelta > 0) {
+            dataActivity = TelephonyManager.DATA_ACTIVITY_INOUT;
+        } else if (rxBytesDelta > 0) {
+            dataActivity = TelephonyManager.DATA_ACTIVITY_IN;
+        } else if (txBytesDelta > 0) {
+            dataActivity = TelephonyManager.DATA_ACTIVITY_OUT;
+        } else {
+            dataActivity = TelephonyManager.DATA_ACTIVITY_NONE;
+        }
+
+        if (mDataActivity != dataActivity) {
+            mDataActivity = dataActivity;
+            mLinkBandwidthEstimatorCallbacks.forEach(callback -> callback.invokeFromExecutor(
+                    () -> callback.onDataActivityChanged(dataActivity)));
+        }
 
         // Schedule the next traffic stats poll
         sendEmptyMessageDelayed(MSG_TRAFFIC_STATS_POLL, TRAFFIC_STATS_POLL_INTERVAL_MS);
@@ -521,23 +521,6 @@ public class LinkBandwidthEstimator extends Handler {
             // Filter update will happen after the request
             makeRequestModemActivity();
             return;
-        }
-
-        int dataActivity;
-        if (txBytesDelta > 0 && rxBytesDelta > 0) {
-            dataActivity = TelephonyManager.DATA_ACTIVITY_INOUT;
-        } else if (rxBytesDelta > 0) {
-            dataActivity = TelephonyManager.DATA_ACTIVITY_IN;
-        } else if (txBytesDelta > 0) {
-            dataActivity = TelephonyManager.DATA_ACTIVITY_OUT;
-        } else {
-            dataActivity = TelephonyManager.DATA_ACTIVITY_NONE;
-        }
-
-        if (mDataActivity != dataActivity) {
-            mDataActivity = dataActivity;
-            mLinkBandwidthEstimatorCallbacks.forEach(callback -> callback.invokeFromExecutor(
-                    () -> callback.onDataActivityChanged(dataActivity)));
         }
 
         long timeSinceLastFilterUpdateMs = currTimeMs - mFilterUpdateTimeMs;
@@ -695,7 +678,7 @@ public class LinkBandwidthEstimator extends Handler {
                 return;
             }
             int linkBandwidthKbps = (int) linkBandwidthLongKbps;
-            mBwSampleValid = true;
+            mBwSampleValid = linkBandwidthKbps > 0;
             mBwSampleKbps = linkBandwidthKbps;
 
             String dataRatName = getDataRatName(mDataRat);
@@ -715,7 +698,7 @@ public class LinkBandwidthEstimator extends Handler {
             int filterInKbps = mBwSampleValid ? mBwSampleKbps : avgKbps;
 
             long currTimeMs = mTelephonyFacade.getElapsedSinceBootMillis();
-            int timeDeltaSec = (int) (currTimeMs - mBwSampleValidTimeMs) / 1000;
+            int timeDeltaSec = (int) ((currTimeMs - mBwSampleValidTimeMs) / 1000);
 
             // If the operation condition changes significantly since the last update
             // or the sample has higher BW, use a faster filter. Otherwise, use a slow filter
@@ -930,9 +913,6 @@ public class LinkBandwidthEstimator extends Handler {
 
     private void sendLinkBandwidthToDataConnection(int linkBandwidthTxKps, int linkBandwidthRxKps) {
         logv("send to DC tx " + linkBandwidthTxKps + " rx " + linkBandwidthRxKps);
-        Pair<Integer, Integer> bandwidthInfo =
-                new Pair<Integer, Integer>(linkBandwidthTxKps, linkBandwidthRxKps);
-        mBandwidthChangedRegistrants.notifyRegistrants(new AsyncResult(null, bandwidthInfo, null));
         mLinkBandwidthEstimatorCallbacks.forEach(callback -> callback.invokeFromExecutor(
                 () -> callback.onBandwidthChanged(linkBandwidthTxKps, linkBandwidthRxKps)));
     }
@@ -1054,22 +1034,28 @@ public class LinkBandwidthEstimator extends Handler {
     }
 
     private boolean updateDataRatCellIdentityBandwidth() {
-        boolean updatedPlmn = false;
-        CellIdentity cellIdentity = mPhone.getCurrentCellIdentity();
-        mTac = getTac(cellIdentity);
+        final ServiceState ss = mPhone.getServiceState();
+        final CellIdentity cellIdentity = mPhone.getCurrentCellIdentity();
+
+        boolean hasChanged = false;
         String plmn;
 
-        if (mPhone.getServiceState().getOperatorNumeric() != null) {
-            plmn = mPhone.getServiceState().getOperatorNumeric();
+        // Why does updating the TAC not result in hasChanged == true?
+        // Legacy behavior is currently being preserved for now, but it might very
+        // well be incorrect. The TAC is part of the network key. This is very fishy.
+        mTac = getTac(cellIdentity);
+
+        /* ss should always be non-null */
+        if (!TextUtils.isEmpty(ss.getOperatorNumeric())) {
+            plmn = ss.getOperatorNumeric();
+        } else if (cellIdentity != null && !TextUtils.isEmpty(cellIdentity.getPlmn())) {
+            plmn = cellIdentity.getPlmn();
         } else {
-            if (cellIdentity.getPlmn() != null) {
-                plmn = cellIdentity.getPlmn();
-            } else {
-                plmn = UNKNOWN_PLMN;
-            }
+            plmn = UNKNOWN_PLMN;
         }
-        if (mPlmn == null || !plmn.equals(mPlmn)) {
-            updatedPlmn = true;
+
+        if (!mPlmn.equals(plmn)) {
+            hasChanged = true;
             mPlmn = plmn;
         }
 
@@ -1078,20 +1064,19 @@ public class LinkBandwidthEstimator extends Handler {
         if (nri != null) {
             int dataRat = nri.getAccessNetworkTechnology();
             if (dataRat != mDataRat) {
-                updatedRat = true;
+                hasChanged = true;
                 mDataRat = dataRat;
                 updateStaticBwValue(mDataRat);
                 updateByteCountThr();
             }
         }
 
-        boolean updatedPlmnOrRat = updatedPlmn || updatedRat;
-        if (updatedPlmnOrRat) {
+        if (hasChanged) {
             resetBandwidthFilter();
             updateTxRxBandwidthFilterSendToDataConnection();
             mLastPlmnOrRatChangeTimeMs = mTelephonyFacade.getElapsedSinceBootMillis();
         }
-        return updatedPlmnOrRat;
+        return hasChanged;
     }
 
     private int getTac(@NonNull CellIdentity cellIdentity) {
@@ -1110,7 +1095,7 @@ public class LinkBandwidthEstimator extends Handler {
         if (cellIdentity instanceof CellIdentityGsm) {
             return ((CellIdentityGsm) cellIdentity).getLac();
         }
-        return 0;
+        return UNKNOWN_TAC;
     }
 
     private class TelephonyCallbackImpl extends TelephonyCallback implements
@@ -1135,16 +1120,17 @@ public class LinkBandwidthEstimator extends Handler {
         mLocalLog.log(msg);
     }
 
-    @VisibleForTesting
-    static final int UNKNOWN_TAC = -1;
     // Map with NetworkKey as the key and NetworkBandwidth as the value.
     // NetworkKey is specified by the PLMN, data RAT and TAC of network.
     // NetworkBandwidth represents the bandwidth related stats of each network.
     private final Map<NetworkKey, NetworkBandwidth> mNetworkMap = new ArrayMap<>();
+
     private static class NetworkKey {
+
         private final String mPlmn;
         private final String mDataRat;
         private final int mTac;
+
         NetworkKey(String plmn, int tac, String dataRat) {
             mPlmn = plmn;
             mTac = tac;
@@ -1175,22 +1161,21 @@ public class LinkBandwidthEstimator extends Handler {
             StringBuilder sb = new StringBuilder();
             sb.append("Plmn").append(mPlmn)
                     .append("Rat").append(mDataRat)
-                    .append("Tac").append(mTac)
-                    .toString();
+                    .append("Tac").append(mTac);
             return sb.toString();
         }
     }
 
     @NonNull
-    private NetworkBandwidth lookupNetwork(String plmn, String dataRat) {
+    private NetworkBandwidth lookupNetwork(@NonNull String plmn, String dataRat) {
         return lookupNetwork(plmn, UNKNOWN_TAC, dataRat);
     }
 
     /** Look up NetworkBandwidth and create a new one if it doesn't exist */
     @VisibleForTesting
     @NonNull
-    public NetworkBandwidth lookupNetwork(String plmn, int tac, String dataRat) {
-        if (plmn == null || dataRat.equals(
+    public NetworkBandwidth lookupNetwork(@NonNull String plmn, int tac, String dataRat) {
+        if (dataRat.equals(
                 TelephonyManager.getNetworkTypeName(TelephonyManager.NETWORK_TYPE_UNKNOWN))) {
             return mPlaceholderNetwork;
         }
@@ -1206,7 +1191,9 @@ public class LinkBandwidthEstimator extends Handler {
     /** A class holding link bandwidth related stats */
     @VisibleForTesting
     public class NetworkBandwidth {
+
         private final String mKey;
+
         NetworkBandwidth(String key) {
             mKey = key;
         }
@@ -1302,5 +1289,4 @@ public class LinkBandwidthEstimator extends Handler {
         pw.println();
         pw.flush();
     }
-
 }

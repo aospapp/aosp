@@ -25,6 +25,7 @@
 #include <compositionengine/impl/DumpHelpers.h>
 #include <compositionengine/impl/OutputLayer.h>
 #include <compositionengine/impl/RenderSurface.h>
+#include <gui/TraceUtils.h>
 
 #include <utils/Trace.h>
 
@@ -196,11 +197,29 @@ void Display::setReleasedLayers(const compositionengine::CompositionRefreshArgs&
                             });
 
         if (hasQueuedFrames) {
-            releasedLayers.emplace_back(layerFE);
+            releasedLayers.emplace_back(wp<LayerFE>::fromExisting(layerFE));
         }
     }
 
     setReleasedLayers(std::move(releasedLayers));
+}
+
+void Display::applyDisplayBrightness(const bool applyImmediately) {
+    auto& hwc = getCompositionEngine().getHwComposer();
+    const auto halDisplayId = HalDisplayId::tryCast(*getDisplayId());
+    if (const auto physicalDisplayId = PhysicalDisplayId::tryCast(*halDisplayId);
+        physicalDisplayId && getState().displayBrightness) {
+        const status_t result =
+                hwc.setDisplayBrightness(*physicalDisplayId, *getState().displayBrightness,
+                                         getState().displayBrightnessNits,
+                                         Hwc2::Composer::DisplayBrightnessOptions{
+                                                 .applyImmediately = applyImmediately})
+                        .get();
+        ALOGE_IF(result != NO_ERROR, "setDisplayBrightness failed for %s: %d, (%s)",
+                 getName().c_str(), result, strerror(-result));
+    }
+    // Clear out the display brightness now that it's been communicated to composer.
+    editState().displayBrightness.reset();
 }
 
 void Display::beginFrame() {
@@ -212,25 +231,12 @@ void Display::beginFrame() {
         return;
     }
 
-    auto& hwc = getCompositionEngine().getHwComposer();
-    if (const auto physicalDisplayId = PhysicalDisplayId::tryCast(*halDisplayId);
-        physicalDisplayId && getState().displayBrightness) {
-        const status_t result =
-                hwc.setDisplayBrightness(*physicalDisplayId, *getState().displayBrightness,
-                                         getState().displayBrightnessNits,
-                                         Hwc2::Composer::DisplayBrightnessOptions{
-                                                 .applyImmediately = false})
-                        .get();
-        ALOGE_IF(result != NO_ERROR, "setDisplayBrightness failed for %s: %d, (%s)",
-                 getName().c_str(), result, strerror(-result));
-    }
-    // Clear out the display brightness now that it's been communicated to composer.
-    editState().displayBrightness.reset();
+    applyDisplayBrightness(false);
 }
 
 bool Display::chooseCompositionStrategy(
         std::optional<android::HWComposer::DeviceRequestedChanges>* outChanges) {
-    ATRACE_CALL();
+    ATRACE_FORMAT("%s for %s", __func__, getNamePlusId().c_str());
     ALOGV(__FUNCTION__);
 
     if (mIsDisconnected) {
@@ -246,15 +252,29 @@ bool Display::chooseCompositionStrategy(
     // Get any composition changes requested by the HWC device, and apply them.
     std::optional<android::HWComposer::DeviceRequestedChanges> changes;
     auto& hwc = getCompositionEngine().getHwComposer();
+    const bool requiresClientComposition = anyLayersRequireClientComposition();
+
+    if (isPowerHintSessionEnabled()) {
+        mPowerAdvisor->setRequiresClientComposition(mId, requiresClientComposition);
+    }
+
+    const TimePoint hwcValidateStartTime = TimePoint::now();
+
     if (status_t result =
-                hwc.getDeviceCompositionChanges(*halDisplayId, anyLayersRequireClientComposition(),
+                hwc.getDeviceCompositionChanges(*halDisplayId, requiresClientComposition,
                                                 getState().earliestPresentTime,
-                                                getState().previousPresentFence,
                                                 getState().expectedPresentTime, outChanges);
         result != NO_ERROR) {
         ALOGE("chooseCompositionStrategy failed for %s: %d (%s)", getName().c_str(), result,
               strerror(-result));
         return false;
+    }
+
+    if (isPowerHintSessionEnabled()) {
+        mPowerAdvisor->setHwcValidateTiming(mId, hwcValidateStartTime, TimePoint::now());
+        if (auto halDisplayId = HalDisplayId::tryCast(mId)) {
+            mPowerAdvisor->setSkippedValidate(mId, hwc.getValidateSkipped(*halDisplayId));
+        }
     }
 
     return true;
@@ -356,8 +376,18 @@ compositionengine::Output::FrameFences Display::presentAndGetFrameFences() {
     }
 
     auto& hwc = getCompositionEngine().getHwComposer();
-    hwc.presentAndGetReleaseFences(*halDisplayIdOpt, getState().earliestPresentTime,
-                                   getState().previousPresentFence);
+
+    const TimePoint startTime = TimePoint::now();
+
+    if (isPowerHintSessionEnabled() && getState().earliestPresentTime) {
+        mPowerAdvisor->setHwcPresentDelayedTime(mId, *getState().earliestPresentTime);
+    }
+
+    hwc.presentAndGetReleaseFences(*halDisplayIdOpt, getState().earliestPresentTime);
+
+    if (isPowerHintSessionEnabled()) {
+        mPowerAdvisor->setHwcPresentTiming(mId, startTime, TimePoint::now());
+    }
 
     fences.presentFence = hwc.getPresentFence(*halDisplayIdOpt);
 
@@ -384,18 +414,25 @@ void Display::setExpensiveRenderingExpected(bool enabled) {
     }
 }
 
-void Display::finishFrame(const compositionengine::CompositionRefreshArgs& refreshArgs,
-                          GpuCompositionResult&& result) {
+bool Display::isPowerHintSessionEnabled() {
+    return mPowerAdvisor != nullptr && mPowerAdvisor->usePowerHintSession();
+}
+
+void Display::setHintSessionGpuFence(std::unique_ptr<FenceTime>&& gpuFence) {
+    mPowerAdvisor->setGpuFenceTime(mId, std::move(gpuFence));
+}
+
+void Display::finishFrame(GpuCompositionResult&& result) {
     // We only need to actually compose the display if:
     // 1) It is being handled by hardware composer, which may need this to
     //    keep its virtual display state machine in sync, or
     // 2) There is work to be done (the dirty region isn't empty)
-    if (GpuVirtualDisplayId::tryCast(mId) && getDirtyRegion().isEmpty()) {
+    if (GpuVirtualDisplayId::tryCast(mId) && !mustRecompose()) {
         ALOGV("Skipping display composition");
         return;
     }
 
-    impl::Output::finishFrame(refreshArgs, std::move(result));
+    impl::Output::finishFrame(std::move(result));
 }
 
 } // namespace android::compositionengine::impl

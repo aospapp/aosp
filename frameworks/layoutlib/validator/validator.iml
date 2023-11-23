@@ -9,38 +9,11 @@
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
     <orderEntry type="library" name="framework.jar" level="project" />
-    <orderEntry type="module-library">
-      <library name="guava">
-        <CLASSES>
-          <root url="jar://$MODULE_DIR$/../../../prebuilts/tools/common/m2/repository/com/google/guava/guava/22.0/guava-22.0.jar!/" />
-        </CLASSES>
-        <JAVADOC />
-        <SOURCES>
-          <root url="jar://$MODULE_DIR$/../../../prebuilts/tools/common/m2/repository/com/google/guava/guava/22.0/guava-22.0-sources.jar!/" />
-        </SOURCES>
-      </library>
-    </orderEntry>
-    <orderEntry type="module" module-name="common" />
-    <orderEntry type="library" name="framework.jar" level="project" />
-    <orderEntry type="library" scope="TEST" name="hamcrest" level="project" />
-    <orderEntry type="module-library">
-      <library>
-        <CLASSES>
-          <root url="jar://$MODULE_DIR$/../../../prebuilts/tools/common/m2/repository/com/google/protobuf/protobuf-lite/3.0.1/protobuf-lite-3.0.1.jar!/" />
-        </CLASSES>
-        <JAVADOC />
-        <SOURCES />
-      </library>
-    </orderEntry>
-    <orderEntry type="module-library">
-      <library>
-        <CLASSES>
-          <root url="jar://$MODULE_DIR$/../../../prebuilts/tools/common/m2/repository/org/jsoup/jsoup/1.6.3/jsoup-1.6.3.jar!/" />
-        </CLASSES>
-        <JAVADOC />
-        <SOURCES />
-      </library>
-    </orderEntry>
     <orderEntry type="library" name="layoutlib_api-prebuilt" level="project" />
+    <orderEntry type="module" module-name="common" />
+    <orderEntry type="library" name="guava" level="project" />
+    <orderEntry type="library" scope="TEST" name="hamcrest" level="project" />
+    <orderEntry type="library" name="jsoup" level="project" />
+    <orderEntry type="library" name="libprotobuf-java-lite" level="project" />
   </component>
 </module>

@@ -18,9 +18,6 @@ package com.android.internal.telephony.metrics;
 
 import static android.provider.Telephony.Carriers.CONTENT_URI;
 import static android.telephony.PhoneNumberUtils.areSamePhoneNumber;
-import static android.telephony.SubscriptionManager.PHONE_NUMBER_SOURCE_CARRIER;
-import static android.telephony.SubscriptionManager.PHONE_NUMBER_SOURCE_IMS;
-import static android.telephony.SubscriptionManager.PHONE_NUMBER_SOURCE_UICC;
 
 import static com.android.internal.telephony.TelephonyStatsLog.PER_SIM_STATUS__SIM_VOLTAGE_CLASS__VOLTAGE_CLASS_A;
 import static com.android.internal.telephony.TelephonyStatsLog.PER_SIM_STATUS__SIM_VOLTAGE_CLASS__VOLTAGE_CLASS_B;
@@ -35,7 +32,7 @@ import android.annotation.Nullable;
 import android.database.Cursor;
 import android.net.Uri;
 import android.provider.Telephony;
-import android.telephony.SubscriptionInfo;
+import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
 import android.telephony.data.ApnSetting;
 import android.telephony.ims.ImsManager;
@@ -44,11 +41,11 @@ import android.text.TextUtils;
 
 import com.android.internal.telephony.IccCard;
 import com.android.internal.telephony.Phone;
-import com.android.internal.telephony.SubscriptionController;
+import com.android.internal.telephony.PhoneFactory;
+import com.android.internal.telephony.subscription.SubscriptionInfoInternal;
+import com.android.internal.telephony.subscription.SubscriptionManagerService;
 import com.android.internal.telephony.uicc.UiccController;
 import com.android.internal.telephony.uicc.UiccSlot;
-
-import java.util.Optional;
 
 /** Stores the per SIM status. */
 public class PerSimStatus {
@@ -74,16 +71,21 @@ public class PerSimStatus {
     public final boolean pin1Enabled;
     public final int minimumVoltageClass;
     public final int userModifiedApnTypes;
+    public final long unmeteredNetworks;
+    public final boolean vonrEnabled;
 
     /** Returns the current sim status of the given {@link Phone}. */
     @Nullable
     public static PerSimStatus getCurrentState(Phone phone) {
         int[] numberIds = getNumberIds(phone);
         if (numberIds == null) return null;
+        int carrierId = phone.getCarrierId();
         ImsMmTelManager imsMmTelManager = getImsMmTelManager(phone);
         IccCard iccCard = phone.getIccCard();
+        PersistAtomsStorage persistAtomsStorage =
+                PhoneFactory.getMetricsCollector().getAtomsStorage();
         return new PerSimStatus(
-                phone.getCarrierId(),
+                carrierId,
                 numberIds[0],
                 numberIds[1],
                 numberIds[2],
@@ -101,7 +103,9 @@ public class PerSimStatus {
                 is2gDisabled(phone),
                 iccCard == null ? false : iccCard.getIccLockEnabled(),
                 getMinimumVoltageClass(phone),
-                getUserModifiedApnTypes(phone));
+                getUserModifiedApnTypes(phone),
+                persistAtomsStorage.getUnmeteredNetworks(phone.getPhoneId(), carrierId),
+                isVonrEnabled(phone));
     }
 
     private PerSimStatus(
@@ -119,7 +123,9 @@ public class PerSimStatus {
             boolean disabled2g,
             boolean pin1Enabled,
             int minimumVoltageClass,
-            int userModifiedApnTypes) {
+            int userModifiedApnTypes,
+            long unmeteredNetworks,
+            boolean vonrEnabled) {
         this.carrierId = carrierId;
         this.phoneNumberSourceUicc = phoneNumberSourceUicc;
         this.phoneNumberSourceCarrier = phoneNumberSourceCarrier;
@@ -135,6 +141,8 @@ public class PerSimStatus {
         this.pin1Enabled = pin1Enabled;
         this.minimumVoltageClass = minimumVoltageClass;
         this.userModifiedApnTypes = userModifiedApnTypes;
+        this.unmeteredNetworks = unmeteredNetworks;
+        this.vonrEnabled = vonrEnabled;
     }
 
     @Nullable
@@ -164,25 +172,24 @@ public class PerSimStatus {
      */
     @Nullable
     private static int[] getNumberIds(Phone phone) {
-        SubscriptionController subscriptionController = SubscriptionController.getInstance();
-        if (subscriptionController == null) {
-            return null;
+        String countryIso = "";
+        String[] numbersFromAllSources;
+
+        if (SubscriptionManagerService.getInstance() == null) return null;
+        SubscriptionInfoInternal subInfo = SubscriptionManagerService.getInstance()
+                .getSubscriptionInfoInternal(phone.getSubId());
+        if (subInfo != null) {
+            countryIso = subInfo.getCountryIso();
         }
-        int subId = phone.getSubId();
-        String countryIso =
-                Optional.ofNullable(subscriptionController.getSubscriptionInfo(subId))
-                        .map(SubscriptionInfo::getCountryIso)
-                        .orElse("");
-        // numbersFromAllSources[] - phone numbers from each sources:
-        String[] numbersFromAllSources =
-                new String[] {
-                    subscriptionController.getPhoneNumber(
-                            subId, PHONE_NUMBER_SOURCE_UICC, null, null), // 0
-                    subscriptionController.getPhoneNumber(
-                            subId, PHONE_NUMBER_SOURCE_CARRIER, null, null), // 1
-                    subscriptionController.getPhoneNumber(
-                            subId, PHONE_NUMBER_SOURCE_IMS, null, null), // 2
-                };
+        numbersFromAllSources = new String[]{
+                SubscriptionManagerService.getInstance().getPhoneNumber(phone.getSubId(),
+                        SubscriptionManager.PHONE_NUMBER_SOURCE_UICC, null, null),
+                SubscriptionManagerService.getInstance().getPhoneNumber(phone.getSubId(),
+                        SubscriptionManager.PHONE_NUMBER_SOURCE_CARRIER, null, null),
+                SubscriptionManagerService.getInstance().getPhoneNumber(phone.getSubId(),
+                        SubscriptionManager.PHONE_NUMBER_SOURCE_IMS, null, null)
+        };
+
         int[] numberIds = new int[numbersFromAllSources.length]; // default value 0
         for (int i = 0, idForNextUniqueNumber = 1; i < numberIds.length; i++) {
             if (TextUtils.isEmpty(numbersFromAllSources[i])) {
@@ -268,5 +275,17 @@ public class PerSimStatus {
             }
             return bitmask;
         }
+    }
+
+    /** Returns true if VoNR is enabled */
+    private static boolean isVonrEnabled(Phone phone) {
+        TelephonyManager telephonyManager =
+                phone.getContext()
+                        .getSystemService(TelephonyManager.class);
+        if (telephonyManager == null) {
+            return false;
+        }
+        telephonyManager = telephonyManager.createForSubscriptionId(phone.getSubId());
+        return telephonyManager.isVoNrEnabled();
     }
 }

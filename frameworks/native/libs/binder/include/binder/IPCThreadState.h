@@ -28,6 +28,10 @@ typedef  int  uid_t;
 // ---------------------------------------------------------------------------
 namespace android {
 
+/**
+ * Kernel binder thread state. All operations here refer to kernel binder. This
+ * object is allocated per-thread.
+ */
 class IPCThreadState
 {
 public:
@@ -135,12 +139,15 @@ public:
             int64_t             clearCallingIdentity();
             // Restores PID/UID (not SID)
             void                restoreCallingIdentity(int64_t token);
+            bool hasExplicitIdentity();
 
+            // For main functions - dangerous for libraries to use
             status_t            setupPolling(int* fd);
             status_t            handlePolledCommands();
             void                flushCommands();
             bool                flushIfNeeded();
 
+            // For main functions - dangerous for libraries to use
             void                joinThreadPool(bool isMain = true);
             
             // Stop the local process.
@@ -213,9 +220,9 @@ private:
             void                clearCaller();
 
     static  void                threadDestructor(void *st);
-    static  void                freeBuffer(Parcel* parcel,
-                                           const uint8_t* data, size_t dataSize,
-                                           const binder_size_t* objects, size_t objectsSize);
+    static void freeBuffer(const uint8_t* data, size_t dataSize, const binder_size_t* objects,
+                           size_t objectsSize);
+    static  void                logExtendedError();
 
     const   sp<ProcessState>    mProcess;
             Vector<BBinder*>    mPendingStrongDerefs;
@@ -237,6 +244,7 @@ private:
             bool                mPropagateWorkSource;
             bool                mIsLooper;
             bool mIsFlushing;
+            bool mHasExplicitIdentity;
             int32_t             mStrictModePolicy;
             int32_t             mLastTransactionBinderFlags;
             CallRestriction     mCallRestriction;

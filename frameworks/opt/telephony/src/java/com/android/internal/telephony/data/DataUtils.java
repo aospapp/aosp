@@ -41,6 +41,7 @@ import android.telephony.ims.feature.ImsFeature;
 import android.util.ArrayMap;
 
 import com.android.internal.telephony.data.DataNetworkController.NetworkRequestList;
+import com.android.telephony.Rlog;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -61,6 +62,7 @@ public class DataUtils {
     /** The time format for converting time to readable string. */
     private static final SimpleDateFormat TIME_FORMAT =
             new SimpleDateFormat("HH:mm:ss.SSS", Locale.US);
+    private static final String TAG = "DataUtils";
 
     /**
      * Get the network capability from the string.
@@ -164,6 +166,7 @@ public class DataUtils {
             case NetworkCapabilities.NET_CAPABILITY_PRIORITIZE_BANDWIDTH:
                 return "PRIORITIZE_BANDWIDTH";
             default:
+                loge("Unknown network capability(" + netCap + ")");
                 return "Unknown(" + netCap + ")";
         }
     }
@@ -209,7 +212,9 @@ public class DataUtils {
         switch (status) {
             case NetworkAgent.VALIDATION_STATUS_VALID: return "VALID";
             case NetworkAgent.VALIDATION_STATUS_NOT_VALID: return "INVALID";
-            default: return "UNKNOWN(" + status + ")";
+            default:
+                loge("Unknown validation status(" + status + ")");
+                return "UNKNOWN(" + status + ")";
         }
     }
 
@@ -366,6 +371,7 @@ public class DataUtils {
             case ImsFeature.FEATURE_MMTEL: return "MMTEL";
             case ImsFeature.FEATURE_RCS: return "RCS";
             default:
+                loge("Unknown IMS feature(" + imsFeature + ")");
                 return "Unknown(" + imsFeature + ")";
         }
     }
@@ -404,9 +410,27 @@ public class DataUtils {
                             .boxed().collect(Collectors.toSet()),
                     v -> new NetworkRequestList()).add(networkRequest);
         }
-        // Sort the list, so the network request list contains higher priority will be in the front
-        // of the list.
-        return new ArrayList<>(requestsMap.values()).stream()
+        List<NetworkRequestList> requests = new ArrayList<>();
+        // Create separate groups for enterprise requests with different enterprise IDs.
+        for (NetworkRequestList requestList : requestsMap.values()) {
+            List<TelephonyNetworkRequest> enterpriseRequests = requestList.stream()
+                    .filter(request ->
+                            request.hasCapability(NetworkCapabilities.NET_CAPABILITY_ENTERPRISE))
+                    .collect(Collectors.toList());
+            if (enterpriseRequests.isEmpty()) {
+                requests.add(requestList);
+                continue;
+            }
+            // Key is the enterprise ID
+            Map<Integer, NetworkRequestList> enterpriseRequestsMap = new ArrayMap<>();
+            for (TelephonyNetworkRequest request : enterpriseRequests) {
+                enterpriseRequestsMap.computeIfAbsent(request.getCapabilityDifferentiator(),
+                        v -> new NetworkRequestList()).add(request);
+            }
+            requests.addAll(enterpriseRequestsMap.values());
+        }
+        // Sort the requests so the network request list with higher priority will be at the front.
+        return requests.stream()
                 .sorted((list1, list2) -> Integer.compare(
                         list2.get(0).getPriority(), list1.get(0).getPriority()))
                 .collect(Collectors.toList());
@@ -450,7 +474,9 @@ public class DataUtils {
             case DataCallResponse.LINK_STATUS_INACTIVE: return "INACTIVE";
             case DataCallResponse.LINK_STATUS_ACTIVE: return "ACTIVE";
             case DataCallResponse.LINK_STATUS_DORMANT: return "DORMANT";
-            default: return "UNKNOWN(" + linkStatus + ")";
+            default:
+                loge("Unknown link status(" + linkStatus + ")");
+                return "UNKNOWN(" + linkStatus + ")";
         }
     }
 
@@ -487,7 +513,13 @@ public class DataUtils {
             case TelephonyManager.DATA_ACTIVITY_OUT: return "OUT";
             case TelephonyManager.DATA_ACTIVITY_INOUT: return "INOUT";
             case TelephonyManager.DATA_ACTIVITY_DORMANT: return "DORMANT";
-            default: return "UNKNOWN(" + dataActivity + ")";
+            default:
+                loge("Unknown data activity(" + dataActivity + ")");
+                return "UNKNOWN(" + dataActivity + ")";
         }
+    }
+
+    private static void loge(String msg) {
+        Rlog.e(TAG, msg);
     }
 }

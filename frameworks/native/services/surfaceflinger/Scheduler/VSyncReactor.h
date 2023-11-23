@@ -22,6 +22,7 @@
 #include <vector>
 
 #include <android-base/thread_annotations.h>
+#include <ui/DisplayId.h>
 #include <ui/FenceTime.h>
 
 #include <scheduler/TimeKeeper.h>
@@ -37,17 +38,19 @@ class VSyncTracker;
 // TODO (b/145217110): consider renaming.
 class VSyncReactor : public VsyncController {
 public:
-    VSyncReactor(std::unique_ptr<Clock> clock, VSyncTracker& tracker, size_t pendingFenceLimit,
-                 bool supportKernelIdleTimer);
+    VSyncReactor(PhysicalDisplayId, std::unique_ptr<Clock> clock, VSyncTracker& tracker,
+                 size_t pendingFenceLimit, bool supportKernelIdleTimer);
     ~VSyncReactor();
 
     bool addPresentFence(std::shared_ptr<FenceTime>) final;
     void setIgnorePresentFences(bool ignore) final;
 
-    void startPeriodTransition(nsecs_t period) final;
+    void startPeriodTransition(nsecs_t period, bool force) final;
 
     bool addHwVsyncTimestamp(nsecs_t timestamp, std::optional<nsecs_t> hwcVsyncPeriod,
                              bool* periodFlushed) final;
+
+    void setDisplayPowerMode(hal::PowerMode powerMode) final;
 
     void dump(std::string& result) const final;
 
@@ -59,6 +62,7 @@ private:
     bool periodConfirmed(nsecs_t vsync_timestamp, std::optional<nsecs_t> hwcVsyncPeriod)
             REQUIRES(mMutex);
 
+    const PhysicalDisplayId mId;
     std::unique_ptr<Clock> const mClock;
     VSyncTracker& mTracker;
     size_t const mPendingLimit;
@@ -72,6 +76,8 @@ private:
     bool mPeriodConfirmationInProgress GUARDED_BY(mMutex) = false;
     std::optional<nsecs_t> mPeriodTransitioningTo GUARDED_BY(mMutex);
     std::optional<nsecs_t> mLastHwVsync GUARDED_BY(mMutex);
+
+    hal::PowerMode mDisplayPowerMode GUARDED_BY(mMutex) = hal::PowerMode::ON;
 
     const bool mSupportKernelIdleTimer = false;
 };

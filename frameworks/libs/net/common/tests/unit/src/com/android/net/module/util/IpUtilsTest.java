@@ -16,6 +16,9 @@
 
 package com.android.net.module.util;
 
+import static com.android.net.module.util.NetworkStackConstants.ICMP_CHECKSUM_OFFSET;
+import static com.android.net.module.util.NetworkStackConstants.IPV4_CHECKSUM_OFFSET;
+
 import static org.junit.Assert.assertEquals;
 
 import androidx.test.filters.SmallTest;
@@ -34,7 +37,6 @@ public class IpUtilsTest {
     private static final int IPV6_HEADER_LENGTH = 40;
     private static final int TCP_HEADER_LENGTH = 20;
     private static final int UDP_HEADER_LENGTH = 8;
-    private static final int IP_CHECKSUM_OFFSET = 10;
     private static final int TCP_CHECKSUM_OFFSET = 16;
     private static final int UDP_CHECKSUM_OFFSET = 6;
 
@@ -70,6 +72,20 @@ public class IpUtilsTest {
     //           scapy.UDP(sport=12345, dport=7) /
     //           "hello")
     // print JavaPacketDefinition(str(packet))
+
+    @Test
+    public void testEmptyAndZeroBufferChecksum() throws Exception {
+        ByteBuffer packet = ByteBuffer.wrap(new byte[] { (byte) 0x00, (byte) 0x00, });
+        // the following should *not* return 0xFFFF
+        assertEquals(0, IpUtils.checksum(packet, 0, 0, 0));
+        assertEquals(0, IpUtils.checksum(packet, 0, 0, 1));
+        assertEquals(0, IpUtils.checksum(packet, 0, 0, 2));
+        assertEquals(0, IpUtils.checksum(packet, 0, 1, 2));
+        assertEquals(0, IpUtils.checksum(packet, 0xFFFF, 0, 0));
+        assertEquals(0, IpUtils.checksum(packet, 0xFFFF, 0, 1));
+        assertEquals(0, IpUtils.checksum(packet, 0xFFFF, 0, 2));
+        assertEquals(0, IpUtils.checksum(packet, 0xFFFF, 1, 2));
+    }
 
     @Test
     public void testIpv6TcpChecksum() throws Exception {
@@ -141,7 +157,7 @@ public class IpUtilsTest {
         assertEquals((short) 0xffff, IpUtils.udpChecksum(packet, 0, IPV4_HEADER_LENGTH));
 
         // Check that we can calculate the checksums from scratch.
-        final int ipSumOffset = IP_CHECKSUM_OFFSET;
+        final int ipSumOffset = IPV4_CHECKSUM_OFFSET;
         final int ipSum = getChecksum(packet, ipSumOffset);
         assertEquals(0xf68b, ipSum);
 
@@ -162,5 +178,48 @@ public class IpUtilsTest {
         packet.putShort(udpSumOffset, IpUtils.udpChecksum(packet, 0, IPV4_HEADER_LENGTH));
         assertEquals(0, IpUtils.ipChecksum(packet, 0));
         assertEquals((short) 0xffff, IpUtils.udpChecksum(packet, 0, IPV4_HEADER_LENGTH));
+    }
+
+    @Test
+    public void testIpv4IcmpChecksum() throws Exception {
+        // packet = (scapy.IP(src="192.0.2.1", dst="192.0.2.2", tos=0x40) /
+        //           scapy.ICMP(type=0x8, id=0x1234, seq=0x5678) /
+        //           "hello, world")
+        ByteBuffer packet = ByteBuffer.wrap(new byte[] {
+            /* IPv4 */
+            (byte) 0x45, (byte) 0x40, (byte) 0x00, (byte) 0x28,
+            (byte) 0x00, (byte) 0x01, (byte) 0x00, (byte) 0x00,
+            (byte) 0x40, (byte) 0x01, (byte) 0xf6, (byte) 0x90,
+            (byte) 0xc0, (byte) 0x00, (byte) 0x02, (byte) 0x01,
+            (byte) 0xc0, (byte) 0x00, (byte) 0x02, (byte) 0x02,
+            /* ICMP */
+            (byte) 0x08,                                         /* type: echo-request */
+            (byte) 0x00,                                         /* code: 0 */
+            (byte) 0x4f, (byte) 0x07,                            /* chksum: 0x4f07 */
+            (byte) 0x12, (byte) 0x34,                            /* id: 0x1234 */
+            (byte) 0x56, (byte) 0x78,                            /* seq: 0x5678 */
+            (byte) 0x68, (byte) 0x65, (byte) 0x6c, (byte) 0x6c,  /* data: hello, world */
+            (byte) 0x6f, (byte) 0x2c, (byte) 0x20, (byte) 0x77,
+            (byte) 0x6f, (byte) 0x72, (byte) 0x6c, (byte) 0x64
+        });
+
+        // Check that a valid packet has checksum 0.
+        int transportLen = packet.limit() - IPV4_HEADER_LENGTH;
+        assertEquals(0, IpUtils.icmpChecksum(packet, IPV4_HEADER_LENGTH, transportLen));
+
+        // Check that we can calculate the checksum from scratch.
+        int sumOffset = IPV4_HEADER_LENGTH + ICMP_CHECKSUM_OFFSET;
+        int sum = getUnsignedByte(packet, sumOffset) * 256 + getUnsignedByte(packet, sumOffset + 1);
+        assertEquals(0x4f07, sum);
+
+        packet.put(sumOffset, (byte) 0);
+        packet.put(sumOffset + 1, (byte) 0);
+        assertChecksumEquals(sum, IpUtils.icmpChecksum(packet, IPV4_HEADER_LENGTH, transportLen));
+
+        // Check that writing the checksum back into the packet results in a valid packet.
+        packet.putShort(
+            sumOffset,
+            IpUtils.icmpChecksum(packet, IPV4_HEADER_LENGTH, transportLen));
+        assertEquals(0, IpUtils.icmpChecksum(packet, IPV4_HEADER_LENGTH, transportLen));
     }
 }

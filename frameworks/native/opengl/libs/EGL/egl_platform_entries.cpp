@@ -18,6 +18,7 @@
 
 #include "egl_platform_entries.h"
 
+#include <aidl/android/hardware/graphics/common/PixelFormat.h>
 #include <android-base/properties.h>
 #include <android-base/strings.h>
 #include <android/hardware_buffer.h>
@@ -29,7 +30,6 @@
 #include <private/android/AHardwareBufferHelpers.h>
 #include <stdlib.h>
 #include <string.h>
-#include <aidl/android/hardware/graphics/common/PixelFormat.h>
 
 #include <condition_variable>
 #include <deque>
@@ -84,7 +84,8 @@ extern const char* const gExtensionString;
 // Extensions implemented by the EGL wrapper.
 const char* const gBuiltinExtensionString =
         "EGL_ANDROID_front_buffer_auto_refresh "
-        "EGL_ANDROID_get_frame_timestamps "
+        // b/269060366 Conditionally enabled during display initialization:
+        //"EGL_ANDROID_get_frame_timestamps "
         "EGL_ANDROID_get_native_client_buffer "
         "EGL_ANDROID_presentation_time "
         "EGL_EXT_surface_CTA861_3_metadata "
@@ -420,11 +421,14 @@ static android_dataspace dataSpaceFromEGLColorSpace(EGLint colorspace) {
         return HAL_DATASPACE_V0_SCRGB;
     } else if (colorspace == EGL_GL_COLORSPACE_SCRGB_LINEAR_EXT) {
         return HAL_DATASPACE_V0_SCRGB_LINEAR;
+    } else if (colorspace == EGL_GL_COLORSPACE_BT2020_HLG_EXT) {
+        return static_cast<android_dataspace>(HAL_DATASPACE_BT2020_HLG);
     } else if (colorspace == EGL_GL_COLORSPACE_BT2020_LINEAR_EXT) {
         return HAL_DATASPACE_BT2020_LINEAR;
     } else if (colorspace == EGL_GL_COLORSPACE_BT2020_PQ_EXT) {
         return HAL_DATASPACE_BT2020_PQ;
     }
+
     return HAL_DATASPACE_UNKNOWN;
 }
 
@@ -450,6 +454,9 @@ static std::vector<EGLint> getDriverColorSpaces(egl_display_t* dp) {
     }
     if (findExtension(dp->disp.queryString.extensions, "EGL_EXT_gl_colorspace_scrgb_linear")) {
         colorSpaces.push_back(EGL_GL_COLORSPACE_SCRGB_LINEAR_EXT);
+    }
+    if (findExtension(dp->disp.queryString.extensions, "EGL_EXT_gl_colorspace_bt2020_hlg")) {
+        colorSpaces.push_back(EGL_GL_COLORSPACE_BT2020_HLG_EXT);
     }
     if (findExtension(dp->disp.queryString.extensions, "EGL_EXT_gl_colorspace_bt2020_linear")) {
         colorSpaces.push_back(EGL_GL_COLORSPACE_BT2020_LINEAR_EXT);
@@ -484,6 +491,7 @@ static EGLBoolean processAttributes(egl_display_t* dp, ANativeWindow* window,
                 case EGL_GL_COLORSPACE_DISPLAY_P3_PASSTHROUGH_EXT:
                 case EGL_GL_COLORSPACE_SCRGB_LINEAR_EXT:
                 case EGL_GL_COLORSPACE_SCRGB_EXT:
+                case EGL_GL_COLORSPACE_BT2020_HLG_EXT:
                 case EGL_GL_COLORSPACE_BT2020_LINEAR_EXT:
                 case EGL_GL_COLORSPACE_BT2020_PQ_EXT:
                 case EGL_GL_COLORSPACE_DISPLAY_P3_LINEAR_EXT:
@@ -937,6 +945,8 @@ EGLContext eglCreateContextImpl(EGLDisplay dpy, EGLConfig config, EGLContext sha
                 android::GraphicsEnv::getInstance().setTargetStats(
                         android::GpuStatsInfo::Stats::GLES_1_IN_USE);
             }
+            android::GraphicsEnv::getInstance().setTargetStats(
+                    android::GpuStatsInfo::Stats::CREATED_GLES_CONTEXT);
             egl_context_t* c = new egl_context_t(dpy, context, config, cnx, version);
             return c;
         }
@@ -1453,7 +1463,11 @@ EGLBoolean eglSurfaceAttribImpl(EGLDisplay dpy, EGLSurface surface, EGLint attri
             setError(EGL_BAD_SURFACE, EGL_FALSE);
         }
         int err = native_window_set_auto_refresh(s->getNativeWindow(), value != 0);
-        return (err == 0) ? EGL_TRUE : setError(EGL_BAD_SURFACE, (EGLBoolean)EGL_FALSE);
+        if (err != 0) {
+            return setError(EGL_BAD_SURFACE, (EGLBoolean)EGL_FALSE);
+        } else if (!s->cnx->useAngle) {
+            return EGL_TRUE;
+        } // else if ANGLE, fall through to the call to the driver (i.e. ANGLE) below
     }
 
     if (attribute == EGL_TIMESTAMPS_ANDROID) {
@@ -1463,7 +1477,11 @@ EGLBoolean eglSurfaceAttribImpl(EGLDisplay dpy, EGLSurface surface, EGLint attri
             return EGL_TRUE;
         }
         int err = native_window_enable_frame_timestamps(s->getNativeWindow(), value != 0);
-        return (err == 0) ? EGL_TRUE : setError(EGL_BAD_SURFACE, (EGLBoolean)EGL_FALSE);
+        if (err != 0) {
+            return setError(EGL_BAD_SURFACE, (EGLBoolean)EGL_FALSE);
+        } else if (!s->cnx->useAngle) {
+            return EGL_TRUE;
+        } // else if ANGLE, fall through to the call to the driver (i.e. ANGLE) below
     }
 
     if (s->setSmpte2086Attribute(attribute, value)) {
@@ -2175,6 +2193,10 @@ EGLBoolean eglGetNextFrameIdANDROIDImpl(EGLDisplay dpy, EGLSurface surface, EGLu
         return setError(EGL_BAD_DISPLAY, (EGLBoolean)EGL_FALSE);
     }
 
+    if (!dp->haveExtension("EGL_ANDROID_get_frame_timestamps")) {
+        return setError(EGL_BAD_DISPLAY, (EGLBoolean)EGL_FALSE);
+    }
+
     SurfaceRef _s(dp, surface);
     if (!_s.get()) {
         return setError(EGL_BAD_SURFACE, (EGLBoolean)EGL_FALSE);
@@ -2205,6 +2227,10 @@ EGLBoolean eglGetCompositorTimingANDROIDImpl(EGLDisplay dpy, EGLSurface surface,
                                              EGLnsecsANDROID* values) {
     const egl_display_t* dp = validate_display(dpy);
     if (!dp) {
+        return setError(EGL_BAD_DISPLAY, (EGLBoolean)EGL_FALSE);
+    }
+
+    if (!dp->haveExtension("EGL_ANDROID_get_frame_timestamps")) {
         return setError(EGL_BAD_DISPLAY, (EGLBoolean)EGL_FALSE);
     }
 
@@ -2262,6 +2288,10 @@ EGLBoolean eglGetCompositorTimingSupportedANDROIDImpl(EGLDisplay dpy, EGLSurface
         return setError(EGL_BAD_DISPLAY, (EGLBoolean)EGL_FALSE);
     }
 
+    if (!dp->haveExtension("EGL_ANDROID_get_frame_timestamps")) {
+        return setError(EGL_BAD_DISPLAY, (EGLBoolean)EGL_FALSE);
+    }
+
     SurfaceRef _s(dp, surface);
     if (!_s.get()) {
         return setError(EGL_BAD_SURFACE, (EGLBoolean)EGL_FALSE);
@@ -2289,6 +2319,10 @@ EGLBoolean eglGetFrameTimestampsANDROIDImpl(EGLDisplay dpy, EGLSurface surface,
                                             const EGLint* timestamps, EGLnsecsANDROID* values) {
     const egl_display_t* dp = validate_display(dpy);
     if (!dp) {
+        return setError(EGL_BAD_DISPLAY, (EGLBoolean)EGL_FALSE);
+    }
+
+    if (!dp->haveExtension("EGL_ANDROID_get_frame_timestamps")) {
         return setError(EGL_BAD_DISPLAY, (EGLBoolean)EGL_FALSE);
     }
 
@@ -2374,6 +2408,10 @@ EGLBoolean eglGetFrameTimestampSupportedANDROIDImpl(EGLDisplay dpy, EGLSurface s
                                                     EGLint timestamp) {
     const egl_display_t* dp = validate_display(dpy);
     if (!dp) {
+        return setError(EGL_BAD_DISPLAY, (EGLBoolean)EGL_FALSE);
+    }
+
+    if (!dp->haveExtension("EGL_ANDROID_get_frame_timestamps")) {
         return setError(EGL_BAD_DISPLAY, (EGLBoolean)EGL_FALSE);
     }
 

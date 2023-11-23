@@ -1,0 +1,336 @@
+/*
+ * Copyright (C) 2022 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+syntax = "proto2";
+
+package android.app.wearservices;
+
+option java_multiple_files = true;
+option java_outer_classname = "WearServicesEnums";
+
+// This enum depicts the state of the session.
+// Next ID: 5
+enum SessionStateEnum {
+  // Depicts unknown session state.
+  STATE_UNKNOWN = 0;
+
+  // Depicts start state of the session.
+  STATE_START = 1;
+
+  // Depicts end state of the session.
+  STATE_END = 2;
+
+  // Depicts aborted state of the session.
+  STATE_ABORTED = 3;
+
+  // Depicts failed state of the session.
+  STATE_FAILED = 4;
+}
+
+// This enum depicts the action taken.
+// Next ID: 4
+enum ActionEnum {
+  // Depicts unknown action.
+  ACTION_UNKNOWN = 0;
+
+  // Depicts an ADD action.
+  ACTION_ADD = 1;
+
+  // Depicts a REMOVE action.
+  ACTION_REMOVE = 2;
+
+  reserved 3;
+}
+
+// This enum depicts the possible result of watchface set
+// action.
+// Next ID: 4
+enum SetResultEnum {
+  // Depicts unknown result.
+  SET_UNKNOWN = 0;
+
+  // Depicts if the same WF is set.
+  SET_SAME = 1;
+
+  // Depicts if a fallback WF is set.
+  SET_FALLBACK = 2;
+
+  // Depicst if the favorite WF is set.
+  SET_FAVORITE = 3;
+}
+
+// This enum depicts the source of request.
+// Next ID: 3
+enum RequestSource {
+  // Depicts the source as unknown.
+  SOURCE_UNKNOWN = 0;
+
+  // Depicts source as Android phone.
+  SOURCE_PHONE_ANDROID = 1;
+
+  // Depicts source as iOS phone.
+  SOURCE_PHONE_IOS = 2;
+
+  // Depicts the source as watch.
+  SOURCE_WATCH = 3;
+}
+
+// This enum depicts an action taken during a backup attempt
+// Next ID: 4
+enum BackupAction {
+  // Depicts an unknown backup action
+  BACKUP_UNKNOWN_ACTION = 0;
+
+  // Depicts that a backup attempt has begun
+  BACKUP_STARTED = 1;
+
+  // Depicts that a backup attempt succeeded
+  BACKUP_SUCCEEDED = 2;
+
+  // Depicts that a backup attempt did not succeed
+  BACKUP_FAILED = 3;
+}
+
+// This enum depicts an action taken during a restore attempt
+// Next ID: 4
+enum RestoreAction {
+  // Depicts an unknown restore action
+  RESTORE_UNKNOWN_ACTION = 0;
+
+  // Depicts that a restore attempt has begun
+  RESTORE_STARTED = 1;
+
+  // Depicts that a restore attempt succeeded
+  RESTORE_SUCCEEDED = 2;
+
+  // Depicts that a restore attempt did not succeed
+  RESTORE_FAILED = 3;
+}
+
+// Describes an action triggered by a notification update.
+// Next ID: 4
+enum NotificationUpdateAction {
+  // Unknown notification action
+  NOTIFICATION_ACTION_UNKNOWN = 0;
+
+  // Notification posted
+  NOTIFICATION_ACTION_POST = 1;
+
+  // Notification dismissed by the user
+  NOTIFICATION_ACTION_DISMISS = 2;
+
+  // Notification removed by the source
+  NOTIFICATION_ACTION_REMOVE = 3;
+}
+
+// Importance of the notification after this update.
+// Next ID: 8
+enum NotificationImportance {
+  // Importance not known
+  NOTIFICATION_IMPORTANCE_UNKNOWN = 0;
+
+  // Importance set as NotificationManager#IMPORTANCE_UNSPECIFIED
+  NOTIFICATION_IMPORTANCE_UNSPECIFIED = 1;
+
+  // Importance set as NotificationManager#IMPORTANCE_NONE
+  NOTIFICATION_IMPORTANCE_NONE = 2;
+
+  // Importance set as NotificationManager#IMPORTANCE_MIN
+  NOTIFICATION_IMPORTANCE_MIN = 3;
+
+  // Importance set as NotificationManager#IMPORTANCE_LOW
+  NOTIFICATION_IMPORTANCE_LOW = 4;
+
+  // Importance set as NotificationManager#IMPORTANCE_DEFAULT
+  NOTIFICATION_IMPORTANCE_DEFAULT = 5;
+
+  // Importance set as NotificationManager#IMPORTANCE_HIGH
+  NOTIFICATION_IMPORTANCE_HIGH = 6;
+
+  // Importance set as NotificationManager#IMPORTANCE_MAX
+  NOTIFICATION_IMPORTANCE_MAX = 7;
+}
+
+
+// This enum depicts an action taken on a call
+// Next ID: 4
+enum CallAction {
+  // Depicts an unknown call action
+  CALL_ACTION_UNKNOWN = 0;
+
+  // Depicts an accept call action
+  CALL_ACTION_ACCEPTED = 1;
+
+  // Depicts a reject call action
+  CALL_ACTION_REJECTED = 2;
+
+  // Depicts a silence call action
+  CALL_ACTION_SILENCED = 3;
+}
+
+// This enum depicts the different type of calls
+// Next ID: 3
+enum CallType {
+  // Depicts an unknown call type
+  CALL_TYPE_UNKNOWN = 0;
+
+  // Depicts an incoming call
+  CALL_TYPE_INCOMING = 1;
+
+  // Depicts an outgoing call
+  CALL_TYPE_OUTGOING = 2;
+}
+
+// This enum depicts the original source of the call
+// Next ID: 4
+enum CallSource {
+  // Depicts an unknown call source
+  CALL_SOURCE_UNKNOWN = 0;
+
+  // Depicts a call originating on the watch
+  CALL_SOURCE_WATCH = 1;
+
+  // Depicts a call originating on the phone and bridged using HFP
+  CALL_SOURCE_PHONE_HFP = 2;
+
+  // Depicts a call originating on the phone and bridged using the companion
+  CALL_SOURCE_PHONE_COMPANION = 3;
+}
+
+// This enum depicts the initial user interaction with the call
+// Next ID: 4
+enum CallResult {
+  // Depicts an unknown interaction
+  CALL_RESULT_UNKNOWN = 0;
+
+  // Depicts no interaction with the watch
+  CALL_RESULT_NO_INTERACTION_ON_WATCH = 1;
+
+  // Depicts that the call was accepted using the watch
+  CALL_RESULT_ACCEPTED_ON_WATCH = 2;
+
+  // Depicts that the call was rejected using the watch
+  CALL_RESULT_REJECTED_ON_WATCH = 3;
+}
+
+// This enum depicts a user interaction during the call
+// Next ID: 4
+enum CallInteraction {
+  // Depicts an unknown interaction
+  CALL_INTERACTION_UNKNOWN = 0;
+
+  // Depicts an increase in volume
+  CALL_INTERACTION_VOLUME_INCREASE = 1;
+
+  // Depicts a decrease in volume
+  CALL_INTERACTION_VOLUME_DECREASE = 2;
+
+  // Depicts a mute action
+  CALL_INTERACTION_MUTE = 3;
+}
+
+// This enum depicts the different stages of call where latency should be
+// measured.
+// Next ID: 5
+enum LatencyAction {
+  // Depicts an unknown latency measurement
+  LATENCY_ACTION_UNKNOWN = 0;
+
+  // Depicts the latency for creating a call
+  LATENCY_ACTION_CALL_CREATION = 1;
+
+  // Depicts the latency to ring for the call
+  LATENCY_ACTION_RING = 2;
+
+  // Depicts the latency for answering the call
+  LATENCY_ACTION_PICKED_CALL = 3;
+
+  // Depicts the latency for changing the audio output for the call
+  LATENCY_ACTION_AUDIO_OUTPUT_SWITCH = 4;
+}
+
+// This enum depicts all the reasons that can cause a call to be disconnected.
+// Please see
+// https://developer.android.com/reference/android/telecom/DisconnectCause.
+// Next ID: 13
+enum DisconnectionReason {
+  // Disconnected because of an unknown or unspecified reason.
+  DISCONNECT_REASON_UNKNOWN = 0;
+
+  // Disconnected because there was an error, such as a problem with the
+  // network.
+  DISCONNECT_REASON_ERROR = 1;
+
+  // Disconnected because of a local user-initiated action, such as hanging up.
+  DISCONNECT_REASON_LOCAL = 2;
+
+  // Disconnected because of a remote user-initiated action, such as the other
+  // party hanging up up.
+  DISCONNECT_REASON_REMOTE = 3;
+
+  // Disconnected because it has been canceled.
+  DISCONNECT_REASON_CANCELLED = 4;
+
+  // Disconnected because there was no response to an incoming call.
+  DISCONNECT_REASON_MISSED = 5;
+
+  // Disconnected because the user rejected an incoming call.
+  DISCONNECT_REASON_REJECTED = 6;
+
+  // Disconnected because the other party was busy.
+  DISCONNECT_REASON_BUSY = 7;
+
+  // Disconnected because of a restriction on placing the call, such as dialing
+  // in airplane mode.
+  DISCONNECT_REASON_RESTRICTED = 8;
+
+  // Disconnected for reason not described by other disconnect codes.
+  DISCONNECT_REASON_OTHER = 9;
+
+  // Disconnected because the connection manager did not support the call.
+  DISCONNECT_REASON_CONNECTION_MANAGER_NOT_SUPPORTED = 10;
+
+  // Disconnected because the user did not locally answer the incoming call, but
+  // it was answered on another device where the call was ringing.
+  DISCONNECT_REASON_ANSWERED_ELSEWHERE = 11;
+
+  // Disconnected because the call was pulled from the current device to another
+  // device.
+  DISCONNECT_REASON_CALL_PULLED = 12;
+}
+
+// This enum depicts the error code where a disconnection happened due to an
+// error.
+// Next ID: 6
+enum DisconnectionErrorCode {
+  // Depicts an unknown error code
+  DISCONNECTION_ERROR_CODE_UNKNOWN = 0;
+
+  // Depicts no error
+  DISCONNECTION_ERROR_CODE_NONE = 1;
+
+  // Depicts an error from the phone
+  DISCONNECTION_ERROR_CODE_PHONE = 2;
+
+  // Depicts an error from dialer
+  DISCONNECTION_ERROR_CODE_DIALER = 3;
+
+  // Depicts an error from a disconnect where this was a bridged call
+  DISCONNECTION_ERROR_CODE_PHONE_DISCONNECTED = 4;
+
+  // Depicts an error where creating an outgoing call failed
+  DISCONNECTION_ERROR_CODE_OUTGOING_CALL_FAILURE = 5;
+}

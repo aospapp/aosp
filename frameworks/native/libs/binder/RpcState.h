@@ -19,6 +19,7 @@
 #include <binder/IBinder.h>
 #include <binder/Parcel.h>
 #include <binder/RpcSession.h>
+#include <binder/RpcThreads.h>
 
 #include <map>
 #include <optional>
@@ -139,6 +140,11 @@ public:
      */
     [[nodiscard]] status_t flushExcessBinderRefs(const sp<RpcSession>& session, uint64_t address,
                                                  const sp<IBinder>& binder);
+    /**
+     * Called when the RpcSession is shutdown.
+     * Send obituaries for each known remote binder with this session.
+     */
+    [[nodiscard]] status_t sendObituaries(const sp<RpcSession>& session);
 
     size_t countBinders();
     void dump();
@@ -162,6 +168,7 @@ public:
     void clear();
 
 private:
+    void clear(RpcMutexUniqueLock nodeLock);
     void dumpLocked();
 
     // Alternative to std::vector<uint8_t> that doesn't abort on allocation failure and caps
@@ -178,27 +185,38 @@ private:
         size_t mSize;
     };
 
-    [[nodiscard]] status_t rpcSend(const sp<RpcSession::RpcConnection>& connection,
-                                   const sp<RpcSession>& session, const char* what, iovec* iovs,
-                                   int niovs, const std::function<status_t()>& altPoll = nullptr);
-    [[nodiscard]] status_t rpcRec(const sp<RpcSession::RpcConnection>& connection,
-                                  const sp<RpcSession>& session, const char* what, iovec* iovs,
-                                  int niovs);
+    [[nodiscard]] status_t rpcSend(
+            const sp<RpcSession::RpcConnection>& connection, const sp<RpcSession>& session,
+            const char* what, iovec* iovs, int niovs,
+            const std::optional<android::base::function_ref<status_t()>>& altPoll,
+            const std::vector<std::variant<base::unique_fd, base::borrowed_fd>>* ancillaryFds =
+                    nullptr);
+    [[nodiscard]] status_t rpcRec(
+            const sp<RpcSession::RpcConnection>& connection, const sp<RpcSession>& session,
+            const char* what, iovec* iovs, int niovs,
+            std::vector<std::variant<base::unique_fd, base::borrowed_fd>>* ancillaryFds = nullptr);
 
     [[nodiscard]] status_t waitForReply(const sp<RpcSession::RpcConnection>& connection,
                                         const sp<RpcSession>& session, Parcel* reply);
-    [[nodiscard]] status_t processCommand(const sp<RpcSession::RpcConnection>& connection,
-                                          const sp<RpcSession>& session,
-                                          const RpcWireHeader& command, CommandType type);
-    [[nodiscard]] status_t processTransact(const sp<RpcSession::RpcConnection>& connection,
-                                           const sp<RpcSession>& session,
-                                           const RpcWireHeader& command);
-    [[nodiscard]] status_t processTransactInternal(const sp<RpcSession::RpcConnection>& connection,
-                                                   const sp<RpcSession>& session,
-                                                   CommandData transactionData);
+    [[nodiscard]] status_t processCommand(
+            const sp<RpcSession::RpcConnection>& connection, const sp<RpcSession>& session,
+            const RpcWireHeader& command, CommandType type,
+            std::vector<std::variant<base::unique_fd, base::borrowed_fd>>&& ancillaryFds);
+    [[nodiscard]] status_t processTransact(
+            const sp<RpcSession::RpcConnection>& connection, const sp<RpcSession>& session,
+            const RpcWireHeader& command,
+            std::vector<std::variant<base::unique_fd, base::borrowed_fd>>&& ancillaryFds);
+    [[nodiscard]] status_t processTransactInternal(
+            const sp<RpcSession::RpcConnection>& connection, const sp<RpcSession>& session,
+            CommandData transactionData,
+            std::vector<std::variant<base::unique_fd, base::borrowed_fd>>&& ancillaryFds);
     [[nodiscard]] status_t processDecStrong(const sp<RpcSession::RpcConnection>& connection,
                                             const sp<RpcSession>& session,
                                             const RpcWireHeader& command);
+
+    // Whether `parcel` is compatible with `session`.
+    [[nodiscard]] static status_t validateParcel(const sp<RpcSession>& session,
+                                                 const Parcel& parcel, std::string* errorMsg);
 
     struct BinderNode {
         // Two cases:
@@ -233,6 +251,7 @@ private:
         struct AsyncTodo {
             sp<IBinder> ref;
             CommandData data;
+            std::vector<std::variant<base::unique_fd, base::borrowed_fd>> ancillaryFds;
             uint64_t asyncNumber = 0;
 
             bool operator<(const AsyncTodo& o) const {
@@ -246,18 +265,29 @@ private:
         //
 
         // (no additional data specific to remote binders)
+
+        std::string toString() const;
     };
 
-    // checks if there is any reference left to a node and erases it. If erase
-    // happens, and there is a strong reference to the binder kept by
-    // binderNode, this returns that strong reference, so that it can be
-    // dropped after any locks are removed.
-    sp<IBinder> tryEraseNode(std::map<uint64_t, BinderNode>::iterator& it);
+    // Checks if there is any reference left to a node and erases it. If this
+    // is the last node, shuts down the session.
+    //
+    // Node lock is passed here for convenience, so that we can release it
+    // and terminate the session, but we could leave it up to the caller
+    // by returning a continuation if we needed to erase multiple specific
+    // nodes. It may be tempting to allow the client to keep on holding the
+    // lock and instead just return whether or not we should shutdown, but
+    // this introduces the posssibility that another thread calls
+    // getRootBinder and thinks it is valid, rather than immediately getting
+    // an error.
+    sp<IBinder> tryEraseNode(const sp<RpcSession>& session, RpcMutexUniqueLock nodeLock,
+                             std::map<uint64_t, BinderNode>::iterator& it);
+
     // true - success
     // false - session shutdown, halt
     [[nodiscard]] bool nodeProgressAsyncNumber(BinderNode* node);
 
-    std::mutex mNodeMutex;
+    RpcMutex mNodeMutex;
     bool mTerminated = false;
     uint32_t mNextId = 0;
     // binders known by both sides of a session

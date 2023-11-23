@@ -1,6 +1,7 @@
 bin
 /out
 /bridge/out
+/bridge/tests/out
 /.idea/kotlinc.xml
 /.idea/shelf
 /.idea/workspace.xml

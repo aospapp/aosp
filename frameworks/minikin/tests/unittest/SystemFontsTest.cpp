@@ -95,8 +95,8 @@ TEST(SystemFontTest, getAvailableFont_dedupFonts) {
 
     auto fc1Families = std::vector<std::shared_ptr<FontFamily>>{asciiFamily, boldItalicFamily};
     auto fc2Families = std::vector<std::shared_ptr<FontFamily>>{boldFamily, boldItalicFamily};
-    auto fc1 = std::make_shared<FontCollection>(std::move(fc1Families));
-    auto fc2 = std::make_shared<FontCollection>(std::move(fc2Families));
+    auto fc1 = FontCollection::create(std::move(fc1Families));
+    auto fc2 = FontCollection::create(std::move(fc2Families));
 
     systemFonts.addFontMap(std::move(fc1));
     systemFonts.addFontMap(std::move(fc2));

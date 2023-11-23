@@ -54,6 +54,10 @@ namespace /* unnamed */ {
     static_assert((~C2MemoryUsage::PLATFORM_MASK & PASSTHROUGH_USAGE_MASK) == 0, "");
 } // unnamed
 
+static bool isAtLeastT() {
+    return android_get_device_api_level() >= __ANDROID_API_T__;
+}
+
 C2MemoryUsage C2AndroidMemoryUsage::FromGrallocUsage(uint64_t usage) {
     // gralloc does not support WRITE_PROTECTED
     return C2MemoryUsage(
@@ -702,6 +706,14 @@ c2_status_t C2AllocationGralloc::map(
         }
 
         case static_cast<uint32_t>(PixelFormat4::YCBCR_P010): {
+            // In Android T, P010 is relaxed to allow arbitrary stride for the Y and UV planes,
+            // try locking with the gralloc4 mapper first.
+            c2_status_t status = Gralloc4Mapper_lock(
+                    const_cast<native_handle_t*>(mBuffer), grallocUsage, rect, layout, addr);
+            if (status == C2_OK) {
+                break;
+            }
+
             void *pointer = nullptr;
             status_t err = GraphicBufferMapper::get().lock(
                     const_cast<native_handle_t *>(mBuffer), grallocUsage, rect, &pointer);
@@ -760,10 +772,12 @@ c2_status_t C2AllocationGralloc::map(
         default: {
             // We don't know what it is, let's try to lock it with gralloc4
             android_ycbcr ycbcrLayout;
-            c2_status_t status = Gralloc4Mapper_lock(
-                    const_cast<native_handle_t*>(mBuffer), grallocUsage, rect, layout, addr);
-            if (status == C2_OK) {
-                break;
+            if (isAtLeastT()) {
+                c2_status_t status = Gralloc4Mapper_lock(
+                        const_cast<native_handle_t*>(mBuffer), grallocUsage, rect, layout, addr);
+                if (status == C2_OK) {
+                    break;
+                }
             }
 
             // fallback to lockYCbCr

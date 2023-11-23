@@ -36,9 +36,12 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assume.assumeFalse;
+import static org.junit.Assume.assumeTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
@@ -49,13 +52,16 @@ import android.content.Context;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.content.res.Resources;
-import android.net.NetworkInfo;
+import android.net.ConnectivityDiagnosticsManager;
+import android.net.NetworkCapabilities;
+import android.net.wifi.MloLink;
 import android.net.wifi.ScanResult;
 import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiConfiguration.NetworkSelectionStatus;
 import android.net.wifi.WifiEnterpriseConfig;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
+import android.net.wifi.WifiScanner;
 import android.os.Handler;
 import android.os.PersistableBundle;
 import android.os.test.TestLooper;
@@ -65,6 +71,8 @@ import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
 import android.text.SpannableString;
 import android.text.style.ClickableSpan;
+
+import androidx.core.os.BuildCompat;
 
 import com.android.wifitrackerlib.shadow.ShadowSystem;
 
@@ -83,6 +91,31 @@ import java.util.Set;
 
 @Config(shadows = {ShadowSystem.class})
 public class UtilsTest {
+    private static final int ID_NETWORK_AVAILABLE_SIGN_IN = 1;
+    private static final String STRING_SUMMARY_SEPARATOR = " / ";
+    private static final String STRING_AVAILABLE_VIA_APP = "available_via_";
+    private static final String STRING_CONNECTED_VIA_APP = "connected_via_";
+    private static final String STRING_CONNECTED_LOW_QUALITY = "low_quality";
+    private static final String STRING_NETWORK_AVAILABLE_SIGN_IN = "network_available_sign_in";
+    private static final String STRING_LIMITED_CONNECTION = "limited_connection";
+    private static final String STRING_CHECKING_FOR_INTERNET_ACCESS =
+            "checking_for_internet_access";
+    private static final String STRING_PRIVATE_DNS_BROKEN = "private_dns_broken";
+    private static final String STRING_CONNECTED_CANNOT_PROVIDE_INTERNET =
+            "connected_cannot_provide_internet";
+    private static final String STRING_NO_INTERNET = "no_internet";
+
+    private static final String STRING_WIFI_STATUS_IDLE = "";
+    private static final String STRING_WIFI_STATUS_SCANNING = "scanning";
+    private static final String STRING_WIFI_STATUS_CONNECTING = "connecting";
+    private static final String STRING_WIFI_STATUS_AUTHENTICATING = "authenticating";
+    private static final String STRING_WIFI_STATUS_OBTAINING_IP_ADDRESS = "obtaining_ip_address";
+    private static final String STRING_WIFI_STATUS_CONNECTED = "connected";
+    private static final String[] STRING_ARRAY_WIFI_STATUS = new String[]{STRING_WIFI_STATUS_IDLE,
+            STRING_WIFI_STATUS_SCANNING, STRING_WIFI_STATUS_CONNECTING,
+            STRING_WIFI_STATUS_AUTHENTICATING, STRING_WIFI_STATUS_OBTAINING_IP_ADDRESS,
+            STRING_WIFI_STATUS_CONNECTED};
+
     private static final String LABEL_AUTO_CONNECTION_DISABLED = "Auto-Connection disabled";
     private static final String LABEL_METERED = "Metered";
     private static final String LABEL_UNMETERED = "Unmetered";
@@ -91,6 +124,12 @@ public class UtilsTest {
     private static final int TEST_SUB_ID = 1111;
 
     private static final String TEST_CARRIER_NAME = "carrierName";
+
+    private static final String BAND_SEPARATOR = ", ";
+    private static final String BAND_UNKNOWN = "Unknown";
+    private static final String BAND_24_GHZ = "2.4 GHz";
+    private static final String BAND_5_GHZ = "5 GHz";
+    private static final String BAND_6_GHZ = "6 GHz";
 
     @Mock private WifiTrackerInjector mMockInjector;
     @Mock private Context mMockContext;
@@ -106,6 +145,12 @@ public class UtilsTest {
 
     private Handler mTestHandler;
 
+    private StandardWifiEntry getStandardWifiEntry(WifiConfiguration config) {
+        return new StandardWifiEntry(mMockInjector, mMockContext, mTestHandler,
+                new StandardWifiEntryKey(config), Collections.singletonList(config), null,
+                mMockWifiManager, false /* forSavedNetworksPage */);
+    }
+
     @Before
     public void setUp() throws Exception {
         MockitoAnnotations.initMocks(this);
@@ -113,7 +158,6 @@ public class UtilsTest {
         TestLooper testLooper = new TestLooper();
         mTestHandler = new Handler(testLooper.getLooper());
         when(mMockContext.getResources()).thenReturn(mMockResources);
-        when(mMockContext.getString(R.string.wifitrackerlib_summary_separator)).thenReturn("/");
         when(mMockContext.getText(R.string.wifitrackerlib_imsi_protection_warning))
                 .thenReturn("IMSI");
         when(mMockContext.getSystemService(Context.CARRIER_CONFIG_SERVICE))
@@ -129,6 +173,40 @@ public class UtilsTest {
         when(mMockContext.getContentResolver()).thenReturn(mContentResolver);
         when(mContentResolver.getUserId()).thenReturn(0);
         when(mMockInjector.getNoAttributionAnnotationPackages()).thenReturn(Collections.emptySet());
+        when(mMockResources.getString(R.string.wifitrackerlib_multiband_separator))
+                .thenReturn(BAND_SEPARATOR);
+        when(mMockResources.getString(R.string.wifitrackerlib_wifi_band_unknown))
+                .thenReturn(BAND_UNKNOWN);
+        when(mMockResources.getString(R.string.wifitrackerlib_wifi_band_24_ghz))
+                .thenReturn(BAND_24_GHZ);
+        when(mMockResources.getString(R.string.wifitrackerlib_wifi_band_5_ghz))
+                .thenReturn(BAND_5_GHZ);
+        when(mMockResources.getString(R.string.wifitrackerlib_wifi_band_6_ghz))
+                .thenReturn(BAND_6_GHZ);
+        when(mMockResources.getStringArray(R.array.wifitrackerlib_wifi_status))
+                .thenReturn(STRING_ARRAY_WIFI_STATUS);
+        when(mMockResources.getIdentifier(eq("network_available_sign_in"), eq("string"),
+                eq("android"))).thenReturn(ID_NETWORK_AVAILABLE_SIGN_IN);
+        when(mMockContext.getString(ID_NETWORK_AVAILABLE_SIGN_IN))
+                .thenReturn(STRING_NETWORK_AVAILABLE_SIGN_IN);
+        when(mMockContext.getString(R.string.wifitrackerlib_summary_separator))
+                .thenReturn(STRING_SUMMARY_SEPARATOR);
+        when(mMockContext.getString(R.string.wifi_connected_low_quality))
+                .thenReturn(STRING_CONNECTED_LOW_QUALITY);
+        when(mMockContext.getString(R.string.wifitrackerlib_wifi_limited_connection))
+                .thenReturn(STRING_LIMITED_CONNECTION);
+        when(mMockContext.getString(R.string.wifitrackerlib_checking_for_internet_access))
+                .thenReturn(STRING_CHECKING_FOR_INTERNET_ACCESS);
+        when(mMockContext.getString(R.string.wifitrackerlib_private_dns_broken))
+                .thenReturn(STRING_PRIVATE_DNS_BROKEN);
+        when(mMockContext.getString(R.string.wifitrackerlib_wifi_connected_cannot_provide_internet))
+                .thenReturn(STRING_CONNECTED_CANNOT_PROVIDE_INTERNET);
+        when(mMockContext.getString(R.string.wifitrackerlib_wifi_no_internet))
+                .thenReturn(STRING_NO_INTERNET);
+        when(mMockContext.getString(eq(R.string.wifitrackerlib_connected_via_app),
+                any())).thenAnswer((answer) -> STRING_CONNECTED_VIA_APP + answer.getArguments()[1]);
+        when(mMockContext.getString(eq(R.string.wifitrackerlib_available_via_app),
+                any())).thenAnswer((answer) -> STRING_AVAILABLE_VIA_APP + answer.getArguments()[1]);
     }
 
     @Test
@@ -432,6 +510,36 @@ public class UtilsTest {
     }
 
     @Test
+    public void testGetNetworkSelectionDescription_disabledTransitionDisableIndication() {
+        String expected = " (NETWORK_SELECTION_PERMANENTLY_DISABLED 1:02:03) "
+                + "NETWORK_SELECTION_DISABLED_TRANSITION_DISABLE_INDICATION=1";
+        WifiConfiguration wifiConfig = spy(new WifiConfiguration());
+        NetworkSelectionStatus.Builder statusBuilder = new NetworkSelectionStatus.Builder();
+        NetworkSelectionStatus networkSelectionStatus;
+        try {
+            networkSelectionStatus = spy(statusBuilder
+                    .setNetworkSelectionStatus(
+                            NetworkSelectionStatus.NETWORK_SELECTION_PERMANENTLY_DISABLED)
+                    .setNetworkSelectionDisableReason(
+                            Utils.DISABLED_TRANSITION_DISABLE_INDICATION)
+                    .build());
+        } catch (IllegalArgumentException e) {
+            // This reason will be added after T formally,
+            // and only in the latest T mainline module.
+            // This test will fail with older mainline module due to IllegalArgumentException.
+            return;
+        }
+        doReturn(1).when(networkSelectionStatus).getDisableReasonCounter(
+                Utils.DISABLED_TRANSITION_DISABLE_INDICATION);
+        long now = System.currentTimeMillis();
+        // Network selection disable time is 1:02:03 ago.
+        doReturn(now - (60 * 60 + 2 * 60 + 3) * 1000).when(networkSelectionStatus).getDisableTime();
+        when(wifiConfig.getNetworkSelectionStatus()).thenReturn(networkSelectionStatus);
+
+        assertThat(getNetworkSelectionDescription(wifiConfig)).isEqualTo(expected);
+    }
+
+    @Test
     public void testGetSecurityTypeFromWifiConfiguration_returnsCorrectSecurityTypes() {
         for (int securityType = WifiInfo.SECURITY_TYPE_OPEN;
                 securityType <= WifiInfo.SECURITY_TYPE_EAP_WPA3_ENTERPRISE; securityType++) {
@@ -541,14 +649,249 @@ public class UtilsTest {
                 mMockInjector, mMockContext, noAttributionConfig, true, false)).isEmpty();
     }
 
-    private StandardWifiEntry getStandardWifiEntry(WifiConfiguration config) {
-        final StandardWifiEntry entry = new StandardWifiEntry(mMockInjector, mMockContext,
-                mTestHandler, new StandardWifiEntryKey(config), Collections.singletonList(config),
-                null, mMockWifiManager, false /* forSavedNetworksPage */);
-        final WifiInfo mockWifiInfo = mock(WifiInfo.class);
-        final NetworkInfo mockNetworkInfo = mock(NetworkInfo.class);
+    @Test
+    public void testWifiInfoBandString_multipleMloLinks_returnsMultipleBands() {
+        assumeTrue(BuildCompat.isAtLeastU());
 
-        entry.updateConnectionInfo(mockWifiInfo, mockNetworkInfo);
-        return entry;
+        List<MloLink> mloLinks = new ArrayList<>();
+
+        MloLink linkUnspecified = mock(MloLink.class);
+        when(linkUnspecified.getBand()).thenReturn(WifiScanner.WIFI_BAND_UNSPECIFIED);
+        // Should filter out idle links.
+        when(linkUnspecified.getState()).thenReturn(MloLink.MLO_LINK_STATE_IDLE);
+        mloLinks.add(linkUnspecified);
+
+        MloLink link24Ghz = mock(MloLink.class);
+        when(link24Ghz.getBand()).thenReturn(WifiScanner.WIFI_BAND_24_GHZ);
+        when(link24Ghz.getState()).thenReturn(MloLink.MLO_LINK_STATE_ACTIVE);
+        mloLinks.add(link24Ghz);
+        // Should filter out duplicate bands.
+        mloLinks.add(link24Ghz);
+
+        MloLink link5Ghz = mock(MloLink.class);
+        when(link5Ghz.getBand()).thenReturn(WifiScanner.WIFI_BAND_5_GHZ);
+        when(link5Ghz.getState()).thenReturn(MloLink.MLO_LINK_STATE_ACTIVE);
+        mloLinks.add(link5Ghz);
+
+        MloLink link6Ghz = mock(MloLink.class);
+        when(link6Ghz.getBand()).thenReturn(WifiScanner.WIFI_BAND_6_GHZ);
+        when(link6Ghz.getState()).thenReturn(MloLink.MLO_LINK_STATE_ACTIVE);
+        mloLinks.add(link6Ghz);
+
+        WifiInfo wifiInfo = mock(WifiInfo.class);
+        when(wifiInfo.getWifiStandard()).thenReturn(ScanResult.WIFI_STANDARD_11BE);
+        when(wifiInfo.getAssociatedMloLinks()).thenReturn(mloLinks);
+
+        assertThat(Utils.getBandString(mMockContext, wifiInfo))
+                .isEqualTo("2.4 GHz, 5 GHz, 6 GHz");
+    }
+
+    @Test
+    public void testWifiInfoBandString_noMloLinks_returnsSingleBand() {
+        assumeTrue(BuildCompat.isAtLeastU());
+
+        WifiInfo wifiInfo = mock(WifiInfo.class);
+        when(wifiInfo.getAssociatedMloLinks()).thenReturn(Collections.emptyList());
+
+        when(wifiInfo.getFrequency()).thenReturn(0);
+        assertThat(Utils.getBandString(mMockContext, wifiInfo)).isEqualTo(BAND_UNKNOWN);
+
+        when(wifiInfo.getFrequency()).thenReturn(2400);
+        assertThat(Utils.getBandString(mMockContext, wifiInfo)).isEqualTo(BAND_24_GHZ);
+
+        when(wifiInfo.getFrequency()).thenReturn(5200);
+        assertThat(Utils.getBandString(mMockContext, wifiInfo)).isEqualTo(BAND_5_GHZ);
+
+        when(wifiInfo.getFrequency()).thenReturn(6000);
+        assertThat(Utils.getBandString(mMockContext, wifiInfo)).isEqualTo(BAND_6_GHZ);
+    }
+
+    @Test
+    public void testWifiInfoBandString_lessThanU_returnsSingleBand() {
+        assumeFalse(BuildCompat.isAtLeastU());
+        WifiInfo wifiInfo = mock(WifiInfo.class);
+
+        when(wifiInfo.getFrequency()).thenReturn(0);
+        assertThat(Utils.getBandString(mMockContext, wifiInfo)).isEqualTo(BAND_UNKNOWN);
+
+        when(wifiInfo.getFrequency()).thenReturn(2400);
+        assertThat(Utils.getBandString(mMockContext, wifiInfo)).isEqualTo(BAND_24_GHZ);
+
+        when(wifiInfo.getFrequency()).thenReturn(5200);
+        assertThat(Utils.getBandString(mMockContext, wifiInfo)).isEqualTo(BAND_5_GHZ);
+
+        when(wifiInfo.getFrequency()).thenReturn(6000);
+        assertThat(Utils.getBandString(mMockContext, wifiInfo)).isEqualTo(BAND_6_GHZ);
+    }
+
+    @Test
+    public void testGetConnectedDescription() {
+        WifiConfiguration wifiConfig = mock(WifiConfiguration.class);
+        NetworkCapabilities networkCapabilities = mock(NetworkCapabilities.class);
+        ConnectivityDiagnosticsManager.ConnectivityReport connectivityReport = mock(
+                ConnectivityDiagnosticsManager.ConnectivityReport.class);
+
+        // Not default. Do not show "Connected"
+        assertThat(Utils.getConnectedDescription(
+                mMockContext,
+                null,
+                null,
+                false,
+                false,
+                null)).isEmpty();
+
+        // Default but no info, return "Connected"
+        assertThat(Utils.getConnectedDescription(
+                mMockContext,
+                null,
+                null,
+                true,
+                false,
+                null)).isEqualTo(STRING_WIFI_STATUS_CONNECTED);
+
+        // Low quality
+        assertThat(Utils.getConnectedDescription(
+                mMockContext,
+                null,
+                null,
+                false,
+                true,
+                null)).isEqualTo(STRING_CONNECTED_LOW_QUALITY);
+
+        // No internet access
+        assertThat(Utils.getConnectedDescription(
+                mMockContext,
+                null,
+                networkCapabilities,
+                true,
+                false,
+                connectivityReport)).isEqualTo(STRING_WIFI_STATUS_CONNECTED
+                + STRING_SUMMARY_SEPARATOR + STRING_NO_INTERNET);
+
+        // Connected to device. Can't provide internet
+        when(wifiConfig.isNoInternetAccessExpected()).thenReturn(true);
+        assertThat(Utils.getConnectedDescription(
+                mMockContext,
+                wifiConfig,
+                networkCapabilities,
+                true,
+                false,
+                connectivityReport)).isEqualTo(STRING_CONNECTED_CANNOT_PROVIDE_INTERNET);
+
+        // Private DNS server cannot be accessed
+        when(networkCapabilities.isPrivateDnsBroken()).thenReturn(true);
+        assertThat(Utils.getConnectedDescription(
+                mMockContext,
+                wifiConfig,
+                networkCapabilities,
+                true,
+                false,
+                connectivityReport)).isEqualTo(STRING_PRIVATE_DNS_BROKEN);
+
+        // Checking for internet access...
+        when(wifiConfig.isNoInternetAccessExpected()).thenReturn(false);
+        assertThat(Utils.getConnectedDescription(
+                mMockContext,
+                wifiConfig,
+                networkCapabilities,
+                true,
+                false,
+                null)).isEqualTo(STRING_CHECKING_FOR_INTERNET_ACCESS);
+
+        // Limited connection
+        when(networkCapabilities.hasCapability(
+                NetworkCapabilities.NET_CAPABILITY_PARTIAL_CONNECTIVITY)).thenReturn(true);
+        assertThat(Utils.getConnectedDescription(
+                mMockContext,
+                wifiConfig,
+                networkCapabilities,
+                true,
+                false,
+                null)).isEqualTo(STRING_LIMITED_CONNECTION);
+
+        // Sign in to network
+        when(networkCapabilities.hasCapability(
+                NetworkCapabilities.NET_CAPABILITY_CAPTIVE_PORTAL)).thenReturn(true);
+        assertThat(Utils.getConnectedDescription(
+                mMockContext,
+                wifiConfig,
+                networkCapabilities,
+                true,
+                false,
+                null)).isEqualTo(STRING_NETWORK_AVAILABLE_SIGN_IN);
+
+        // Connected via app + No internet access
+        WifiConfiguration suggestionConfig = new WifiConfiguration();
+        suggestionConfig.fromWifiNetworkSuggestion = true;
+        suggestionConfig.creatorName = "app";
+        when(mApplicationInfo.loadLabel(any())).thenReturn("appLabel");
+        when(networkCapabilities.isPrivateDnsBroken()).thenReturn(false);
+        when(networkCapabilities.hasCapability(
+                NetworkCapabilities.NET_CAPABILITY_PARTIAL_CONNECTIVITY)).thenReturn(false);
+        when(networkCapabilities.hasCapability(
+                NetworkCapabilities.NET_CAPABILITY_CAPTIVE_PORTAL)).thenReturn(false);
+        assertThat(Utils.getConnectedDescription(
+                mMockContext,
+                suggestionConfig,
+                networkCapabilities,
+                true,
+                false,
+                connectivityReport)).isEqualTo(STRING_CONNECTED_VIA_APP + "appLabel"
+                + STRING_SUMMARY_SEPARATOR + STRING_NO_INTERNET);
+
+        // Connected via app + Low quality + No internet access
+        assertThat(Utils.getConnectedDescription(
+                mMockContext,
+                suggestionConfig,
+                networkCapabilities,
+                true,
+                true,
+                connectivityReport)).isEqualTo(STRING_CONNECTED_VIA_APP + "appLabel"
+                + STRING_SUMMARY_SEPARATOR + STRING_CONNECTED_LOW_QUALITY
+                + STRING_SUMMARY_SEPARATOR + STRING_NO_INTERNET);
+
+        // Available via app + Low quality + No internet access
+        assertThat(Utils.getConnectedDescription(
+                mMockContext,
+                suggestionConfig,
+                networkCapabilities,
+                false,
+                true,
+                connectivityReport)).isEqualTo(STRING_AVAILABLE_VIA_APP + "appLabel"
+                + STRING_SUMMARY_SEPARATOR + STRING_CONNECTED_LOW_QUALITY
+                + STRING_SUMMARY_SEPARATOR + STRING_NO_INTERNET);
+    }
+
+    @Test
+    public void testGetSingleSecurityTypeFromMultipleSecurityTypes() {
+        // Empty
+        assertThat(Utils.getSingleSecurityTypeFromMultipleSecurityTypes(new ArrayList<>()))
+                .isEqualTo(WifiInfo.SECURITY_TYPE_UNKNOWN);
+        // Single type
+        assertThat(Utils.getSingleSecurityTypeFromMultipleSecurityTypes(
+                Arrays.asList(WifiInfo.SECURITY_TYPE_PSK)))
+                .isEqualTo(WifiInfo.SECURITY_TYPE_PSK);
+        // Open + OWE -> Open
+        assertThat(Utils.getSingleSecurityTypeFromMultipleSecurityTypes(
+                Arrays.asList(WifiInfo.SECURITY_TYPE_OPEN, WifiInfo.SECURITY_TYPE_OWE)))
+                        .isEqualTo(WifiInfo.SECURITY_TYPE_OPEN);
+        // PSK + SAE -> PSK
+        assertThat(Utils.getSingleSecurityTypeFromMultipleSecurityTypes(
+                Arrays.asList(WifiInfo.SECURITY_TYPE_SAE, WifiInfo.SECURITY_TYPE_PSK)))
+                .isEqualTo(WifiInfo.SECURITY_TYPE_PSK);
+        // EAP + WPA3-Enterprise -> EAP
+        assertThat(Utils.getSingleSecurityTypeFromMultipleSecurityTypes(
+                Arrays.asList(WifiInfo.SECURITY_TYPE_EAP,
+                                WifiInfo.SECURITY_TYPE_EAP_WPA3_ENTERPRISE)))
+                .isEqualTo(WifiInfo.SECURITY_TYPE_EAP);
+        // Everything else -> first security type on the list.
+        assertThat(Utils.getSingleSecurityTypeFromMultipleSecurityTypes(
+                Arrays.asList(WifiInfo.SECURITY_TYPE_PASSPOINT_R1_R2,
+                        WifiInfo.SECURITY_TYPE_PASSPOINT_R3)))
+                .isEqualTo(WifiInfo.SECURITY_TYPE_PASSPOINT_R1_R2);
+        assertThat(Utils.getSingleSecurityTypeFromMultipleSecurityTypes(
+                Arrays.asList(WifiInfo.SECURITY_TYPE_PASSPOINT_R3,
+                        WifiInfo.SECURITY_TYPE_PASSPOINT_R1_R2)))
+                .isEqualTo(WifiInfo.SECURITY_TYPE_PASSPOINT_R3);
     }
 }

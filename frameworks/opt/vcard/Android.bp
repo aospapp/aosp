@@ -25,6 +25,10 @@ java_library {
     srcs: ["java/**/*.java"],
     apex_available: [
         "//apex_available:platform",
-        "com.android.bluetooth",
+        "com.android.btservices",
     ],
+
+    libs: [
+        "framework-annotations-lib",
+    ]
 }

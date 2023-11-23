@@ -43,7 +43,7 @@ public class LayoutValidator {
 
     private static boolean sSaveCroppedImages = false;
 
-    private static boolean sObtainCharacterLocations = false;
+    private static boolean sObtainCharacterLocations = true;
 
     /**
      * @return true if validator is paused. False otherwise.

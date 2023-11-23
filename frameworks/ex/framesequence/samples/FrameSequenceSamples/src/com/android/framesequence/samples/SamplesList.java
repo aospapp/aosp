@@ -41,11 +41,11 @@ public class SamplesList extends ListActivity {
         return ret;
     }
 
-    @SuppressWarnings("serial")
-    static final ArrayList<Map<String,?>> SAMPLES = new ArrayList<Map<String,?>>() {{
-            add(makeSample("GIF animation", FrameSequenceTest.class, R.raw.animated_gif));
-            add(makeSample("WEBP animation", FrameSequenceTest.class, R.raw.animated_webp));
-    }};
+    static final ArrayList<Map<String,?>> SAMPLES = new ArrayList<>();
+    static {
+        SAMPLES.add(makeSample("GIF animation", FrameSequenceTest.class, R.raw.animated_gif));
+        SAMPLES.add(makeSample("WEBP animation", FrameSequenceTest.class, R.raw.animated_webp));
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {

@@ -315,7 +315,7 @@ public class OptionsRequestCoordinator extends UceRequestCoordinator {
     private void triggerCompletedCallback() {
         try {
             logd("triggerCompletedCallback");
-            mCapabilitiesCallback.onComplete();
+            mCapabilitiesCallback.onComplete(null);
         } catch (RemoteException e) {
             logw("triggerCompletedCallback exception: " + e);
         } finally {
@@ -329,7 +329,7 @@ public class OptionsRequestCoordinator extends UceRequestCoordinator {
     private void triggerErrorCallback(int errorCode, long retryAfterMillis) {
         try {
             logd("triggerErrorCallback: errorCode=" + errorCode + ", retry=" + retryAfterMillis);
-            mCapabilitiesCallback.onError(errorCode, retryAfterMillis);
+            mCapabilitiesCallback.onError(errorCode, retryAfterMillis, null);
         } catch (RemoteException e) {
             logw("triggerErrorCallback exception: " + e);
         } finally {

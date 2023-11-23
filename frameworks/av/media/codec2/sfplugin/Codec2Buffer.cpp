@@ -22,6 +22,7 @@
 
 #include <aidl/android/hardware/graphics/common/Cta861_3.h>
 #include <aidl/android/hardware/graphics/common/Smpte2086.h>
+#include <android-base/no_destructor.h>
 #include <android-base/properties.h>
 #include <android/hardware/cas/native/1.0/types.h>
 #include <android/hardware/drm/1.0/types.h>
@@ -533,7 +534,7 @@ public:
                         * align(mHeight, 64) / plane.rowSampling;
             }
 
-            if (minPtr == mView.data()[0] && (maxPtr - minPtr + 1) <= planeSize) {
+            if (minPtr == mView.data()[0] && (maxPtr - minPtr) <= planeSize) {
                 // FIXME: this is risky as reading/writing data out of bound results
                 //        in an undefined behavior, but gralloc does assume a
                 //        contiguous mapping
@@ -545,8 +546,7 @@ public:
                     mediaImage->mPlane[i].mHorizSubsampling = plane.colSampling;
                     mediaImage->mPlane[i].mVertSubsampling = plane.rowSampling;
                 }
-                mWrapped = new ABuffer(const_cast<uint8_t *>(minPtr),
-                                       maxPtr - minPtr + 1);
+                mWrapped = new ABuffer(const_cast<uint8_t *>(minPtr), maxPtr - minPtr);
                 ALOGV("Converter: wrapped (capacity=%zu)", mWrapped->capacity());
             }
         }
@@ -843,6 +843,10 @@ sp<ConstGraphicBlockBuffer> ConstGraphicBlockBuffer::AllocateEmpty(
         }
     }
     sp<ABuffer> aBuffer(alloc(align(width, 16) * align(height, 16) * bpp / 8));
+    if (aBuffer == nullptr) {
+        ALOGD("%s: failed to allocate buffer", __func__);
+        return nullptr;
+    }
     return new ConstGraphicBlockBuffer(
             format,
             aBuffer,
@@ -998,9 +1002,11 @@ native_handle_t *EncryptedLinearBlockBuffer::handle() const {
 }
 
 using ::aidl::android::hardware::graphics::common::Cta861_3;
+using ::aidl::android::hardware::graphics::common::Dataspace;
 using ::aidl::android::hardware::graphics::common::Smpte2086;
 
 using ::android::gralloc4::MetadataType_Cta861_3;
+using ::android::gralloc4::MetadataType_Dataspace;
 using ::android::gralloc4::MetadataType_Smpte2086;
 using ::android::gralloc4::MetadataType_Smpte2094_40;
 
@@ -1013,8 +1019,8 @@ using IMapper4 = ::android::hardware::graphics::mapper::V4_0::IMapper;
 namespace {
 
 sp<IMapper4> GetMapper4() {
-    static sp<IMapper4> sMapper = IMapper4::getService();
-    return sMapper;
+    static ::android::base::NoDestructor<sp<IMapper4>> sMapper(IMapper4::getService());
+    return *sMapper;
 }
 
 class Gralloc4Buffer {
@@ -1132,6 +1138,11 @@ c2_status_t GetHdrMetadataFromGralloc4Handle(
             err = C2_CORRUPTED;
         }
     }
+
+    if (err != C2_OK) {
+        staticInfo->reset();
+    }
+
     if (dynamicInfo) {
         ALOGV("Grabbing dynamic HDR info from gralloc4 metadata");
         dynamicInfo->reset();
@@ -1156,7 +1167,8 @@ c2_status_t GetHdrMetadataFromGralloc4Handle(
     return err;
 }
 
-c2_status_t SetHdrMetadataToGralloc4Handle(
+c2_status_t SetMetadataToGralloc4Handle(
+        android_dataspace_t dataSpace,
         const std::shared_ptr<const C2StreamHdrStaticMetadataInfo::output> &staticInfo,
         const std::shared_ptr<const C2StreamHdrDynamicMetadataInfo::output> &dynamicInfo,
         const C2Handle *const handle) {
@@ -1166,6 +1178,17 @@ c2_status_t SetHdrMetadataToGralloc4Handle(
     if (!mapper || !buffer) {
         // Gralloc4 not supported; nothing to do
         return err;
+    }
+    {
+        hidl_vec<uint8_t> metadata;
+        if (gralloc4::encodeDataspace(static_cast<Dataspace>(dataSpace), &metadata) == OK) {
+            Return<Error4> ret = mapper->set(buffer.get(), MetadataType_Dataspace, metadata);
+            if (!ret.isOk()) {
+                err = C2_REFUSED;
+            } else if (ret != Error4::NONE) {
+                err = C2_CORRUPTED;
+            }
+        }
     }
     if (staticInfo && *staticInfo) {
         ALOGV("Setting static HDR info as gralloc4 metadata");

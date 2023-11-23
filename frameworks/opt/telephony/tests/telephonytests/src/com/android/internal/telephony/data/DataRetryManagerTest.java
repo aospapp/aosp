@@ -16,18 +16,25 @@
 
 package com.android.internal.telephony.data;
 
+import static com.android.internal.telephony.data.DataRetryManager.DataHandoverRetryEntry;
+import static com.android.internal.telephony.data.DataRetryManager.DataRetryEntry;
 import static com.android.internal.telephony.data.DataRetryManager.DataSetupRetryEntry;
 
 import static com.google.common.truth.Truth.assertThat;
 
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
+import android.app.AlarmManager;
+import android.app.PendingIntent;
+import android.content.Intent;
 import android.net.NetworkCapabilities;
 import android.net.NetworkRequest;
 import android.os.AsyncResult;
@@ -43,6 +50,8 @@ import android.testing.TestableLooper;
 import android.util.SparseArray;
 
 import com.android.internal.telephony.TelephonyTest;
+import com.android.internal.telephony.data.DataConfigManager.DataConfigManagerCallback;
+import com.android.internal.telephony.data.DataNetworkController.DataNetworkControllerCallback;
 import com.android.internal.telephony.data.DataRetryManager.DataHandoverRetryRule;
 import com.android.internal.telephony.data.DataRetryManager.DataRetryManagerCallback;
 import com.android.internal.telephony.data.DataRetryManager.DataSetupRetryRule;
@@ -54,9 +63,9 @@ import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 
+import java.lang.reflect.Field;
 import java.util.Collections;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @RunWith(AndroidTestingRunner.class)
 @TestableLooper.RunWithLooper
@@ -125,13 +134,15 @@ public class DataRetryManagerTest extends TelephonyTest {
             .setPreferred(false)
             .build();
 
-    private final List<DataProfile> mAllDataProfileList = List.of(mDataProfile1, mDataProfile2,
-            mDataProfile3);
-
     // Mocked classes
+    private AlarmManager mAlarmManager;
     private DataRetryManagerCallback mDataRetryManagerCallbackMock;
 
     private DataRetryManager mDataRetryManagerUT;
+
+    private DataConfigManagerCallback mDataConfigManagerCallback;
+
+    private DataNetworkControllerCallback mDataNetworkControllerCallback;
 
     @Before
     public void setUp() throws Exception {
@@ -142,6 +153,7 @@ public class DataRetryManagerTest extends TelephonyTest {
             ((Runnable) invocation.getArguments()[0]).run();
             return null;
         }).when(mDataRetryManagerCallbackMock).invokeFromExecutor(any(Runnable.class));
+        mAlarmManager = Mockito.mock(AlarmManager.class);
         SparseArray<DataServiceManager> mockedDataServiceManagers = new SparseArray<>();
         mockedDataServiceManagers.put(AccessNetworkConstants.TRANSPORT_TYPE_WWAN,
                 mMockedWwanDataServiceManager);
@@ -150,28 +162,19 @@ public class DataRetryManagerTest extends TelephonyTest {
         mDataRetryManagerUT = new DataRetryManager(mPhone, mDataNetworkController,
                 mockedDataServiceManagers, Looper.myLooper(), mDataRetryManagerCallbackMock);
 
-        doAnswer(invocation -> {
-            String apnName = (String) invocation.getArguments()[0];
-            TrafficDescriptor td = (TrafficDescriptor) invocation.getArguments()[1];
+        ArgumentCaptor<DataConfigManagerCallback> dataConfigManagerCallbackCaptor =
+                ArgumentCaptor.forClass(DataConfigManagerCallback.class);
+        verify(mDataConfigManager).registerCallback(dataConfigManagerCallbackCaptor.capture());
+        mDataConfigManagerCallback = dataConfigManagerCallbackCaptor.getValue();
 
-            if (apnName == null && td == null) return null;
+        ArgumentCaptor<DataNetworkControllerCallback> dataNetworkControllerCallbackCaptor =
+                ArgumentCaptor.forClass(DataNetworkControllerCallback.class);
+        verify(mDataNetworkController).registerDataNetworkControllerCallback(
+                dataNetworkControllerCallbackCaptor.capture());
+        mDataNetworkControllerCallback = dataNetworkControllerCallbackCaptor.getValue();
 
-            List<DataProfile> dataProfiles = mAllDataProfileList;
-            if (apnName != null) {
-                dataProfiles = dataProfiles.stream()
-                        .filter(dp -> dp.getApnSetting() != null
-                                && apnName.equals(dp.getApnSetting().getApnName()))
-                        .collect(Collectors.toList());
-            }
-            if (td != null) {
-                dataProfiles = dataProfiles.stream()
-                        .filter(dp -> dp.getTrafficDescriptor() != null
-                                && td.equals(dp.getTrafficDescriptor()))
-                        .collect(Collectors.toList());
-            }
-            return dataProfiles.isEmpty() ? null : dataProfiles.get(0);
-        }).when(mDataProfileManager).getDataProfile(anyString(), any());
-
+        replaceInstance(DataRetryManager.class, "mAlarmManager",
+                mDataRetryManagerUT, mAlarmManager);
         logd("DataRetryManagerTest -Setup!");
     }
 
@@ -199,7 +202,6 @@ public class DataRetryManagerTest extends TelephonyTest {
         assertThat(rule.getMaxRetries()).isEqualTo(0);
         assertThat(rule.getFailCauses()).containsExactly(8, 27, 28, 29, 30, 32, 33, 35, 50,
                 51, 111, -5, -6, 65537, 65538, -3, 2253, 2254);
-        assertThat(rule.getRetryIntervalsMillis()).isEmpty();
 
         ruleString = "capabilities=internet|enterprise|dun|ims|fota, retry_interval=2500|  3000|"
                 + "    5000|  10000 | 15000|        20000|40000|60000|  120000|240000  |"
@@ -339,15 +341,52 @@ public class DataRetryManagerTest extends TelephonyTest {
     }
 
     @Test
-    public void testDataSetupUnthrottling() {
+    public void testDataSetupUnthrottling() throws Exception {
         testDataSetupRetryNetworkSuggestedNeverRetry();
         Mockito.clearInvocations(mDataRetryManagerCallbackMock);
+        DataNetworkController.NetworkRequestList mockNrl = Mockito.mock(
+                DataNetworkController.NetworkRequestList.class);
+        Field field = DataRetryManager.class.getDeclaredField("mDataRetryEntries");
+        field.setAccessible(true);
+        List<DataRetryEntry> mDataRetryEntries =
+                (List<DataRetryEntry>) field.get(mDataRetryManagerUT);
 
+        // schedule 2 setup retries
+        DataSetupRetryEntry scheduledRetry1 = new DataSetupRetryEntry.Builder<>()
+                .setDataProfile(mDataProfile3)
+                .setNetworkRequestList(mockNrl)
+                .setTransport(AccessNetworkConstants.TRANSPORT_TYPE_WWAN)
+                .setSetupRetryType(1)
+                .build();
+        DataSetupRetryEntry scheduledRetry2 = new DataSetupRetryEntry.Builder<>()
+                .setNetworkRequestList(mockNrl)
+                .setDataProfile(mDataProfile3)
+                .setTransport(AccessNetworkConstants.TRANSPORT_TYPE_WLAN)
+                .setSetupRetryType(1)
+                .build();
+        mDataRetryEntries.addAll(List.of(scheduledRetry1, scheduledRetry2));
+        // Suppose we set the data profile as permanently failed.
+        mDataProfile3.getApnSetting().setPermanentFailed(true);
+
+        DataProfile dataProfile3ReconstructedFromModem = new DataProfile.Builder()
+                .setApnSetting(new ApnSetting.Builder()
+                        .setEntryName("some_fake_ims")
+                        .setApnName("fake_ims")
+                        .setApnTypeBitmask(ApnSetting.TYPE_IMS)
+                        .setProtocol(ApnSetting.PROTOCOL_IPV6)
+                        .setRoamingProtocol(ApnSetting.PROTOCOL_IP)
+                        .build())
+                .build();
+
+        // unthrottle the data profile, expect previous retries of the same transport is cancelled
         mDataRetryManagerUT.obtainMessage(6/*EVENT_DATA_PROFILE_UNTHROTTLED*/,
-                new AsyncResult(AccessNetworkConstants.TRANSPORT_TYPE_WWAN, mDataProfile3, null))
+                new AsyncResult(AccessNetworkConstants.TRANSPORT_TYPE_WWAN,
+                        dataProfile3ReconstructedFromModem, null))
                 .sendToTarget();
         processAllMessages();
 
+        // check unthrottle
+        assertThat(mDataProfile3.getApnSetting().getPermanentFailed()).isFalse();
         ArgumentCaptor<List<ThrottleStatus>> throttleStatusCaptor =
                 ArgumentCaptor.forClass(List.class);
         verify(mDataRetryManagerCallbackMock).onThrottleStatusChanged(
@@ -369,18 +408,116 @@ public class DataRetryManagerTest extends TelephonyTest {
         assertThat(entry.dataProfile).isEqualTo(mDataProfile3);
         assertThat(entry.retryDelayMillis).isEqualTo(0);
         assertThat(entry.transport).isEqualTo(AccessNetworkConstants.TRANSPORT_TYPE_WWAN);
+
+        // check mDataProfile3-WWAN retry is cancelled, but not the WLAN
+        assertThat(scheduledRetry1.getState()).isEqualTo(DataRetryEntry.RETRY_STATE_CANCELLED);
+        assertThat(scheduledRetry2.getState()).isEqualTo(DataRetryEntry.RETRY_STATE_NOT_RETRIED);
+    }
+
+    @Test
+    public void testEnterpriseUnthrottling() throws Exception {
+        NetworkRequest request = new NetworkRequest.Builder()
+                .addCapability(NetworkCapabilities.NET_CAPABILITY_ENTERPRISE)
+                .build();
+        TelephonyNetworkRequest tnr = new TelephonyNetworkRequest(request, mPhone);
+        DataNetworkController.NetworkRequestList
+                networkRequestList = new DataNetworkController.NetworkRequestList(tnr);
+
+        DataProfile enterpriseDataProfile = new DataProfile.Builder()
+                .setTrafficDescriptor(new TrafficDescriptor(null,
+                        new TrafficDescriptor.OsAppId(TrafficDescriptor.OsAppId.ANDROID_OS_ID,
+                                "ENTERPRISE", 1).getBytes()))
+                .build();
+
+        mDataRetryManagerUT.evaluateDataSetupRetry(enterpriseDataProfile,
+                AccessNetworkConstants.TRANSPORT_TYPE_WWAN, networkRequestList, 123,
+                Long.MAX_VALUE);
+        processAllFutureMessages();
+
+        mDataRetryManagerUT.obtainMessage(6/*EVENT_DATA_PROFILE_UNTHROTTLED*/,
+                new AsyncResult(AccessNetworkConstants.TRANSPORT_TYPE_WWAN, enterpriseDataProfile,
+                        null)).sendToTarget();
+        processAllMessages();
+
+        ArgumentCaptor<DataSetupRetryEntry> dataSetupRetryEntryCaptor =
+                ArgumentCaptor.forClass(DataSetupRetryEntry.class);
+        verify(mDataRetryManagerCallbackMock)
+                .onDataNetworkSetupRetry(dataSetupRetryEntryCaptor.capture());
+        DataSetupRetryEntry entry = dataSetupRetryEntryCaptor.getValue();
+        assertThat(entry.dataProfile).isEqualTo(enterpriseDataProfile);
+        assertThat(entry.retryDelayMillis).isEqualTo(0);
+        assertThat(entry.transport).isEqualTo(AccessNetworkConstants.TRANSPORT_TYPE_WWAN);
+    }
+
+    @Test
+    public void testCancellingRetries() throws Exception {
+        DataNetworkController.NetworkRequestList mockNrl = Mockito.mock(
+                DataNetworkController.NetworkRequestList.class);
+
+        // Test: setup retry
+        DataRetryEntry retry = new DataSetupRetryEntry.Builder<>()
+                .setSetupRetryType(1)
+                .setNetworkRequestList(mockNrl)
+                .setTransport(1)
+                .build();
+        retry.setState(DataRetryEntry.RETRY_STATE_CANCELLED);
+
+        mDataRetryManagerUT.obtainMessage(3/*EVENT_DATA_SETUP_RETRY*/, retry).sendToTarget();
+        processAllMessages();
+        verify(mDataRetryManagerCallbackMock, never()).onDataNetworkSetupRetry(any());
+
+        mDataRetryManagerUT.obtainMessage(3/*EVENT_DATA_SETUP_RETRY*/, null).sendToTarget();
+        processAllMessages();
+        verify(mDataRetryManagerCallbackMock, never()).onDataNetworkSetupRetry(any());
+
+        retry.setState(DataRetryEntry.RETRY_STATE_NOT_RETRIED);
+        mDataRetryManagerUT.obtainMessage(3/*EVENT_DATA_SETUP_RETRY*/, retry).sendToTarget();
+        processAllMessages();
+        verify(mDataRetryManagerCallbackMock, times(1)).onDataNetworkSetupRetry(any());
+
+        // Test: handover retry
+        retry = new DataHandoverRetryEntry.Builder<>().build();
+        retry.setState(DataRetryEntry.RETRY_STATE_CANCELLED);
+        mDataRetryManagerUT.obtainMessage(4/*EVENT_DATA_HANDOVER_RETRY*/, retry).sendToTarget();
+        processAllMessages();
+        verify(mDataRetryManagerCallbackMock, never()).onDataNetworkHandoverRetry(any());
+
+        mDataRetryManagerUT.obtainMessage(4/*EVENT_DATA_HANDOVER_RETRY*/, null).sendToTarget();
+        processAllMessages();
+        verify(mDataRetryManagerCallbackMock, never()).onDataNetworkHandoverRetry(any());
+
+        retry.setState(DataRetryEntry.RETRY_STATE_NOT_RETRIED);
+        mDataRetryManagerUT.obtainMessage(4/*EVENT_DATA_HANDOVER_RETRY*/, retry).sendToTarget();
+        processAllMessages();
+        verify(mDataRetryManagerCallbackMock, times(1))
+                .onDataNetworkHandoverRetry(any());
+
+        // Test: cancelPendingHandoverRetry
+        DataNetwork mockDn = Mockito.mock(DataNetwork.class);
+        Field field = DataRetryManager.class.getDeclaredField("mDataRetryEntries");
+        field.setAccessible(true);
+        List<DataRetryEntry> mDataRetryEntries =
+                (List<DataRetryEntry>) field.get(mDataRetryManagerUT);
+        retry = new DataHandoverRetryEntry.Builder<>()
+                .setDataNetwork(mockDn)
+                .build();
+        mDataRetryEntries.add(retry);
+        mDataRetryManagerUT.cancelPendingHandoverRetry(mockDn);
+        processAllMessages();
+
+        assertThat(mDataRetryManagerUT.isAnyHandoverRetryScheduled(mockDn)).isFalse();
+        assertThat(retry.getState()).isEqualTo(DataRetryEntry.RETRY_STATE_CANCELLED);
     }
 
     @Test
     public void testDataSetupRetryPermanentFailure() {
         DataSetupRetryRule retryRule = new DataSetupRetryRule(
-                "fail_causes=8|27|28|29|30|32|33|35|50|51|111|-5|-6|65537|65538|-3|2253|"
-                        + "2254, maximum_retries=0");
+                "permanent_fail_causes=8|27|28|29|30|32|33|35|50|51|111|-5|-6|65537|65538|-3|65543|"
+                        + "65547|2252|2253|2254, retry_interval=2500");
         doReturn(Collections.singletonList(retryRule)).when(mDataConfigManager)
                 .getDataSetupRetryRules();
-        mDataRetryManagerUT.obtainMessage(1/*EVENT_DATA_CONFIG_UPDATED*/).sendToTarget();
+        mDataConfigManagerCallback.onCarrierConfigChanged();
         processAllMessages();
-
 
         NetworkRequest request = new NetworkRequest.Builder()
                 .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
@@ -393,8 +530,17 @@ public class DataRetryManagerTest extends TelephonyTest {
                 DataCallResponse.RETRY_DURATION_UNDEFINED);
         processAllFutureMessages();
 
-        verify(mDataRetryManagerCallbackMock, never())
+        // Permanent failure is only applicable to the failed APN. Retry should still happen if
+        // there are other APNs.
+        verify(mDataRetryManagerCallbackMock)
                 .onDataNetworkSetupRetry(any(DataSetupRetryEntry.class));
+        assertThat(mDataProfile1.getApnSetting().getPermanentFailed()).isTrue();
+
+        // When condition changes, data will still be retried. As soon as data network is connected,
+        // we should clear the previous permanent failure.
+        mDataNetworkControllerCallback.onDataNetworkConnected(
+                AccessNetworkConstants.TRANSPORT_TYPE_WWAN, mDataProfile1);
+        assertThat(mDataProfile1.getApnSetting().getPermanentFailed()).isFalse();
     }
 
     @Test
@@ -403,7 +549,7 @@ public class DataRetryManagerTest extends TelephonyTest {
                 "capabilities=internet, retry_interval=2000, maximum_retries=2");
         doReturn(Collections.singletonList(retryRule)).when(mDataConfigManager)
                 .getDataSetupRetryRules();
-        mDataRetryManagerUT.obtainMessage(1/*EVENT_DATA_CONFIG_UPDATED*/).sendToTarget();
+        mDataConfigManagerCallback.onCarrierConfigChanged();
         processAllMessages();
 
         NetworkRequest request = new NetworkRequest.Builder()
@@ -463,6 +609,16 @@ public class DataRetryManagerTest extends TelephonyTest {
         // Verify there is no retry.
         verify(mDataRetryManagerCallbackMock, never())
                 .onDataNetworkSetupRetry(any(DataSetupRetryEntry.class));
+
+        // 4th failed on a different transport and retry.
+        mDataRetryManagerUT.evaluateDataSetupRetry(mDataProfile1,
+                AccessNetworkConstants.TRANSPORT_TYPE_WLAN, networkRequestList, 123,
+                DataCallResponse.RETRY_DURATION_UNDEFINED);
+        processAllFutureMessages();
+
+        // Verify retry occurs
+        verify(mDataRetryManagerCallbackMock)
+                .onDataNetworkSetupRetry(any(DataSetupRetryEntry.class));
     }
 
     @Test
@@ -472,7 +628,7 @@ public class DataRetryManagerTest extends TelephonyTest {
         DataSetupRetryRule retryRule2 = new DataSetupRetryRule(
                 "capabilities=ims|mms|fota, retry_interval=3000, maximum_retries=1");
         doReturn(List.of(retryRule1, retryRule2)).when(mDataConfigManager).getDataSetupRetryRules();
-        mDataRetryManagerUT.obtainMessage(1/*EVENT_DATA_CONFIG_UPDATED*/).sendToTarget();
+        mDataConfigManagerCallback.onCarrierConfigChanged();
         processAllMessages();
 
         NetworkRequest request = new NetworkRequest.Builder()
@@ -534,7 +690,7 @@ public class DataRetryManagerTest extends TelephonyTest {
         doReturn(List.of(retryRule1, retryRule2, retryRule3)).when(mDataConfigManager)
                 .getDataSetupRetryRules();
 
-        mDataRetryManagerUT.obtainMessage(1/*EVET_DATA_CONFIG_UPDATED*/).sendToTarget();
+        mDataConfigManagerCallback.onCarrierConfigChanged();
         processAllMessages();
 
         NetworkRequest request = new NetworkRequest.Builder()
@@ -565,7 +721,7 @@ public class DataRetryManagerTest extends TelephonyTest {
             assertThat(entry.networkRequestList).isEqualTo(networkRequestList);
             assertThat(entry.appliedDataRetryRule).isEqualTo(retryRule3);
 
-            entry.setState(DataRetryManager.DataRetryEntry.RETRY_STATE_FAILED);
+            entry.setState(DataRetryEntry.RETRY_STATE_FAILED);
         }
 
         // The last fail should not trigger any retry.
@@ -588,7 +744,6 @@ public class DataRetryManagerTest extends TelephonyTest {
         assertThat(rule.getMaxRetries()).isEqualTo(0);
         assertThat(rule.getFailCauses()).containsExactly(8, 27, 28, 29, 30, 32, 33, 35, 50,
                 51, 111, -5, -6, 65537, 65538, -3, 2253, 2254);
-        assertThat(rule.getRetryIntervalsMillis()).isEmpty();
 
         ruleString = "retry_interval=1000|2000|4000|8000|16000, maximum_retries=5";
         rule = new DataHandoverRetryRule(ruleString);
@@ -617,6 +772,43 @@ public class DataRetryManagerTest extends TelephonyTest {
     }
 
     @Test
+    public void testDataRetryLongTimer() {
+        // Rule requires a long timer
+        DataSetupRetryRule retryRule = new DataSetupRetryRule(
+                "capabilities=internet, retry_interval=120000, maximum_retries=2");
+        doReturn(Collections.singletonList(retryRule)).when(mDataConfigManager)
+                .getDataSetupRetryRules();
+        mDataConfigManagerCallback.onCarrierConfigChanged();
+        processAllMessages();
+
+        NetworkRequest request = new NetworkRequest.Builder()
+                .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                .build();
+        TelephonyNetworkRequest tnr = new TelephonyNetworkRequest(request, mPhone);
+        DataNetworkController.NetworkRequestList
+                networkRequestList = new DataNetworkController.NetworkRequestList(tnr);
+        mDataRetryManagerUT.evaluateDataSetupRetry(mDataProfile1,
+                AccessNetworkConstants.TRANSPORT_TYPE_WWAN, networkRequestList, 2253,
+                DataCallResponse.RETRY_DURATION_UNDEFINED);
+        processAllFutureMessages();
+
+        // Verify scheduled via Alarm Manager
+        ArgumentCaptor<PendingIntent> pendingIntentArgumentCaptor =
+                ArgumentCaptor.forClass(PendingIntent.class);
+        verify(mAlarmManager).setAndAllowWhileIdle(anyInt(), anyLong(),
+                pendingIntentArgumentCaptor.capture());
+
+        // Verify starts retry attempt after receiving intent
+        PendingIntent pendingIntent = pendingIntentArgumentCaptor.getValue();
+        Intent intent = pendingIntent.getIntent();
+        mContext.sendBroadcast(intent);
+        processAllFutureMessages();
+
+        verify(mDataRetryManagerCallbackMock)
+                .onDataNetworkSetupRetry(any(DataSetupRetryEntry.class));
+    }
+
+    @Test
     public void testDataHandoverRetryInvalidRulesFromString() {
         assertThrows(IllegalArgumentException.class,
                 () -> new DataHandoverRetryRule("V2hhdCBUaGUgRnVjayBpcyB0aGlzIQ=="));
@@ -628,7 +820,7 @@ public class DataRetryManagerTest extends TelephonyTest {
                 "capabilities=internet, retry_interval=2000, maximum_retries=2");
         doReturn(Collections.singletonList(retryRule)).when(mDataConfigManager)
                 .getDataSetupRetryRules();
-        mDataRetryManagerUT.obtainMessage(1/*EVENT_DATA_CONFIG_UPDATED*/).sendToTarget();
+        mDataConfigManagerCallback.onCarrierConfigChanged();
         processAllMessages();
 
         NetworkRequest request = new NetworkRequest.Builder()

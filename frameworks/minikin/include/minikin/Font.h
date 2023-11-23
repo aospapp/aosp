@@ -17,8 +17,10 @@
 #ifndef MINIKIN_FONT_H
 #define MINIKIN_FONT_H
 
+#include <gtest/gtest_prod.h>
+
+#include <atomic>
 #include <memory>
-#include <mutex>
 #include <unordered_set>
 
 #include "minikin/Buffer.h"
@@ -110,29 +112,12 @@ public:
         bool mIsSlantSet = false;
     };
 
-    // Type for functions to load MinikinFont lazily.
-    using TypefaceLoader = std::shared_ptr<MinikinFont>(BufferReader reader);
-    // Type for functions to read MinikinFont metadata and return
-    // TypefaceLoader.
-    using TypefaceReader = TypefaceLoader*(BufferReader* reader);
-    // Type for functions to write MinikinFont metadata.
-    using TypefaceWriter = void(BufferWriter* writer, const MinikinFont* typeface);
+    explicit Font(BufferReader* reader);
+    void writeTo(BufferWriter* writer) const;
 
-    template <TypefaceReader typefaceReader>
-    static std::shared_ptr<Font> readFrom(BufferReader* reader, uint32_t localeListId) {
-        FontStyle style = FontStyle(reader);
-        BufferReader typefaceMetadataReader = *reader;
-        TypefaceLoader* typefaceLoader = typefaceReader(reader);
-        return std::shared_ptr<Font>(
-                new Font(style, typefaceMetadataReader, typefaceLoader, localeListId));
-    }
-
-    template <TypefaceWriter typefaceWriter>
-    void writeTo(BufferWriter* writer) const {
-        mStyle.writeTo(writer);
-        typefaceWriter(writer, typeface().get());
-    }
-
+    Font(Font&& o) noexcept;
+    Font& operator=(Font&& o) noexcept;
+    ~Font();
     // This locale list is just for API compatibility. This is not used in font selection or family
     // fallback.
     uint32_t getLocaleListId() const { return mLocaleListId; }
@@ -144,46 +129,47 @@ public:
     std::unordered_set<AxisTag> getSupportedAxes() const;
 
 private:
+    // ExternalRefs holds references to objects provided by external libraries.
+    // Because creating these external objects is costly,
+    // ExternalRefs is lazily created if Font was created by readFrom().
+    class ExternalRefs {
+    public:
+        ExternalRefs(std::shared_ptr<MinikinFont>&& typeface, HbFontUniquePtr&& baseFont)
+                : mTypeface(std::move(typeface)), mBaseFont(std::move(baseFont)) {}
+
+        std::shared_ptr<MinikinFont> mTypeface;
+        HbFontUniquePtr mBaseFont;
+    };
+
     // Use Builder instead.
     Font(std::shared_ptr<MinikinFont>&& typeface, FontStyle style, HbFontUniquePtr&& baseFont,
          uint32_t localeListId)
-            : mTypeface(std::move(typeface)),
+            : mExternalRefsHolder(new ExternalRefs(std::move(typeface), std::move(baseFont))),
               mStyle(style),
-              mBaseFont(std::move(baseFont)),
-              mTypefaceLoader(nullptr),
-              mTypefaceMetadataReader(nullptr),
-              mLocaleListId(localeListId) {}
-    Font(FontStyle style, BufferReader typefaceMetadataReader, TypefaceLoader* typefaceLoader,
-         uint32_t localeListId)
-            : mStyle(style),
-              mTypefaceLoader(typefaceLoader),
-              mTypefaceMetadataReader(typefaceMetadataReader),
-              mLocaleListId(localeListId) {}
+              mLocaleListId(localeListId),
+              mTypefaceMetadataReader(nullptr) {}
 
-    void initTypefaceLocked() const EXCLUSIVE_LOCKS_REQUIRED(mTypefaceMutex);
+    void resetExternalRefs(ExternalRefs* refs);
+
+    const ExternalRefs* getExternalRefs() const;
 
     static HbFontUniquePtr prepareFont(const std::shared_ptr<MinikinFont>& typeface);
     static FontStyle analyzeStyle(const HbFontUniquePtr& font);
 
     // Lazy-initialized if created by readFrom().
-    mutable std::shared_ptr<MinikinFont> mTypeface GUARDED_BY(mTypefaceMutex);
+    mutable std::atomic<ExternalRefs*> mExternalRefsHolder;
     FontStyle mStyle;
-    // Lazy-initialized if created by readFrom().
-    mutable HbFontUniquePtr mBaseFont GUARDED_BY(mTypefaceMutex);
+    uint32_t mLocaleListId;
 
-    mutable std::mutex mTypefaceMutex;
-    // Non-null if created by readFrom().
-    TypefaceLoader* mTypefaceLoader;
     // Non-null if created by readFrom().
     BufferReader mTypefaceMetadataReader;
 
-    uint32_t mLocaleListId;
-
-    // Stop copying and moving
-    Font(Font&& o) = delete;
-    Font& operator=(Font&& o) = delete;
+    // Stop copying.
     Font(const Font& o) = delete;
     Font& operator=(const Font& o) = delete;
+
+    FRIEND_TEST(FontTest, MoveConstructorTest);
+    FRIEND_TEST(FontTest, MoveAssignmentTest);
 };
 
 }  // namespace minikin

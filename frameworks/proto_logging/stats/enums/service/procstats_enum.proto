@@ -36,7 +36,7 @@ enum MemoryState {
 
 // this enum list is from frameworks/base/core/java/com/android/internal/app/procstats/ProcessStats.java
 // and not frameworks/base/core/java/android/app/ActivityManager.java
-// Next id: 17
+// Next id: 18
 enum ProcessState {
     PROCESS_STATE_UNKNOWN = 0;
     // Persistent system process.
@@ -71,6 +71,14 @@ enum ProcessState {
     PROCESS_STATE_CACHED_ACTIVITY_CLIENT = 13;
     // Cached process that is empty.
     PROCESS_STATE_CACHED_EMPTY = 14;
+    // Frozen process.
+    PROCESS_STATE_FROZEN = 17;
+    // Represents all cached states.
+    PROCESS_STATE_CACHED = 18;
+    // Process bound by a top service
+    PROCESS_STATE_BOUND_TOP = 19;
+    // Process bound by foreground service
+    PROCESS_STATE_BOUND_FGS = 20;
 }
 
 enum ServiceOperationState {

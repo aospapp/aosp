@@ -53,7 +53,7 @@ public class PublishServiceDescTracker {
      */
     private static final Map<ServiceDescription, Set<String>> DEFAULT_SERVICE_DESCRIPTION_MAP;
     static {
-        ArrayMap<ServiceDescription, Set<String>> map = new ArrayMap<>(21);
+        ArrayMap<ServiceDescription, Set<String>> map = new ArrayMap<>(23);
         map.put(ServiceDescription.SERVICE_DESCRIPTION_CHAT_IM,
                 Collections.singleton(FeatureTags.FEATURE_TAG_CHAT_IM));
         map.put(ServiceDescription.SERVICE_DESCRIPTION_CHAT_SESSION,
@@ -111,6 +111,14 @@ public class PublishServiceDescTracker {
                         FeatureTags.FEATURE_TAG_CHATBOT_VERSION_V2_SUPPORTED)));
         map.put(ServiceDescription.SERVICE_DESCRIPTION_CHATBOT_ROLE,
                 Collections.singleton(FeatureTags.FEATURE_TAG_CHATBOT_ROLE));
+        map.put(ServiceDescription.SERVICE_DESCRIPTION_SLM, new ArraySet<>(
+                Arrays.asList(FeatureTags.FEATURE_TAG_PAGER_MODE,
+                        FeatureTags.FEATURE_TAG_LARGE_MODE,
+                        FeatureTags.FEATURE_TAG_DEFERRED_MESSAGING,
+                        FeatureTags.FEATURE_TAG_LARGE_PAGER_MODE)));
+        map.put(ServiceDescription.SERVICE_DESCRIPTION_SLM_PAGER_LARGE, new ArraySet<>(
+                Arrays.asList(FeatureTags.FEATURE_TAG_PAGER_MODE,
+                        FeatureTags.FEATURE_TAG_LARGE_MODE)));
         DEFAULT_SERVICE_DESCRIPTION_MAP = Collections.unmodifiableMap(map);
     }
 

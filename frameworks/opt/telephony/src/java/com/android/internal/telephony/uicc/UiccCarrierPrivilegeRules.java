@@ -28,6 +28,7 @@ import android.os.Message;
 import android.telephony.TelephonyManager;
 import android.telephony.UiccAccessRule;
 import android.text.TextUtils;
+import android.util.IndentingPrintWriter;
 import android.util.LocalLog;
 
 import com.android.internal.annotations.VisibleForTesting;
@@ -426,8 +427,8 @@ public class UiccCarrierPrivilegeRules extends Handler {
                 if (ar.exception == null && ar.result != null) {
                     mChannelId = ((int[]) ar.result)[0];
                     mUiccProfile.iccTransmitApduLogicalChannel(mChannelId, CLA, COMMAND, P1, P2, P3,
-                            DATA, obtainMessage(EVENT_TRANSMIT_LOGICAL_CHANNEL_DONE, mChannelId,
-                                    mAIDInUse));
+                            DATA, false /*isEs10Command*/, obtainMessage(
+                                    EVENT_TRANSMIT_LOGICAL_CHANNEL_DONE, mChannelId, mAIDInUse));
                 } else {
                     if (shouldRetry(ar, mRetryCount)) {
                         log("should retry");
@@ -483,7 +484,7 @@ public class UiccCarrierPrivilegeRules extends Handler {
                                 }
                             } else {
                                 mUiccProfile.iccTransmitApduLogicalChannel(mChannelId, CLA, COMMAND,
-                                        P1, P2_EXTENDED_DATA, P3, DATA,
+                                        P1, P2_EXTENDED_DATA, P3, DATA, false /*isEs10Command*/,
                                         obtainMessage(EVENT_TRANSMIT_LOGICAL_CHANNEL_DONE,
                                                 mChannelId, mAIDInUse));
                                 break;
@@ -495,7 +496,8 @@ public class UiccCarrierPrivilegeRules extends Handler {
                         }
                     } else {
                         if (mAIDInUse == ARAM) {
-                            String errorMsg = "Invalid response: payload=" + response.payload
+                            String errorMsg = "Invalid response: payload="
+                                    + IccUtils.bytesToHexString(response.payload)
                                     + " sw1=" + response.sw1 + " sw2=" + response.sw2;
                             updateState(STATE_ERROR, errorMsg);
                         }
@@ -517,7 +519,7 @@ public class UiccCarrierPrivilegeRules extends Handler {
                     }
                 }
 
-                mUiccProfile.iccCloseLogicalChannel(mChannelId, obtainMessage(
+                mUiccProfile.iccCloseLogicalChannel(mChannelId, false /*isEs10*/, obtainMessage(
                         EVENT_CLOSE_LOGICAL_CHANNEL_DONE, 0, mAIDInUse));
                 mChannelId = -1;
                 break;
@@ -692,16 +694,20 @@ public class UiccCarrierPrivilegeRules extends Handler {
     /**
      * Dumps info to Dumpsys - useful for debugging.
      */
-    public void dump(FileDescriptor fd, PrintWriter pw, String[] args) {
-        pw.println("UiccCarrierPrivilegeRules: " + this);
-        pw.println(" mState=" + getStateString(mState.get()));
-        pw.println(" mStatusMessage=");
+    public void dump(FileDescriptor fd, PrintWriter printWriter, String[] args) {
+        IndentingPrintWriter pw = new IndentingPrintWriter(printWriter, "  ");
+        pw.println("UiccCarrierPrivilegeRules:");
+        pw.increaseIndent();
+        pw.println("mState=" + getStateString(mState.get()));
+        pw.println("mStatusMessage=");
         mStatusMessage.dump(fd, pw, args);
         if (mAccessRules != null) {
-            pw.println(" mAccessRules: ");
+            pw.println("mAccessRules: ");
+            pw.increaseIndent();
             for (UiccAccessRule ar : mAccessRules) {
                 pw.println("  rule='" + ar + "'");
             }
+            pw.decreaseIndent();
         } else {
             pw.println(" mAccessRules: null");
         }
@@ -711,6 +717,7 @@ public class UiccCarrierPrivilegeRules extends Handler {
         } else {
             pw.println(" mUiccPkcs15: null");
         }
+        pw.decreaseIndent();
         pw.flush();
     }
 

@@ -26,22 +26,15 @@ java_test_host {
     ],
     java_resource_dirs: ["res"],
 
-    libs: [
-        "layoutlib",
-        "kxml2-2.3.0",
-        "layoutlib_api-prebuilt",
-        "tools-common-prebuilt",
-        "ninepatch-prebuilt",
-        "sdk-common",
-        "junit",
-        "guava",
+    static_libs: [
+        "kotlin-stdlib",
+        "layoutlib-bridge-client",
         "mockito",
+        "ninepatch-prebuilt",
         "objenesis",
-        "hamcrest",
-        "trove-prebuilt",
     ],
 
-    required: ["layoutlib"],
+    required: ["libandroid_runtime"],
 
     // Copy the jar to DIST_DIR for sdk builds
     dist: {

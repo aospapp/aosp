@@ -28,3 +28,11 @@ java_library_static {
     // this is part of updatable modules(NetworkStack) which targets 29(Q)
     min_sdk_version: "29",
 }
+
+
+filegroup {
+    name: "data_stall_event_proto",
+    srcs: [
+        "data_stall_event.proto",
+    ],
+}

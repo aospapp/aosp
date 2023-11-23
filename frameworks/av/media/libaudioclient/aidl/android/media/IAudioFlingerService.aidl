@@ -16,9 +16,10 @@
 
 package android.media;
 
-import android.media.AudioPatch;
-import android.media.AudioPort;
-import android.media.AudioPortConfig;
+import android.media.AudioPatchFw;
+import android.media.AudioPolicyConfig;
+import android.media.AudioPortFw;
+import android.media.AudioPortConfigFw;
 import android.media.AudioUniqueIdUse;
 import android.media.AudioVibratorInfo;
 import android.media.CreateEffectRequest;
@@ -27,6 +28,7 @@ import android.media.CreateRecordRequest;
 import android.media.CreateRecordResponse;
 import android.media.CreateTrackRequest;
 import android.media.CreateTrackResponse;
+import android.media.DeviceConnectedState;
 import android.media.OpenInputRequest;
 import android.media.OpenInputResponse;
 import android.media.OpenOutputRequest;
@@ -35,11 +37,14 @@ import android.media.EffectDescriptor;
 import android.media.IAudioFlingerClient;
 import android.media.IAudioRecord;
 import android.media.IAudioTrack;
-import android.media.MicrophoneInfoData;
+import android.media.ISoundDose;
+import android.media.ISoundDoseCallback;
+import android.media.MicrophoneInfoFw;
 import android.media.RenderPosition;
 import android.media.TrackSecondaryOutputInfo;
 import android.media.audio.common.AudioChannelLayout;
 import android.media.audio.common.AudioFormatDescription;
+import android.media.audio.common.AudioLatencyMode;
 import android.media.audio.common.AudioMMapPolicyInfo;
 import android.media.audio.common.AudioMMapPolicyType;
 import android.media.audio.common.AudioMode;
@@ -131,8 +136,6 @@ interface IAudioFlingerService {
     OpenInputResponse openInput(in OpenInputRequest request);
     void closeInput(int /* audio_io_handle_t */ input);
 
-    void invalidateStream(AudioStreamType stream);
-
     void setVoiceVolume(float volume);
 
     RenderPosition getRenderPosition(int /* audio_io_handle_t */ output);
@@ -181,18 +184,18 @@ interface IAudioFlingerService {
     void setLowRamDevice(boolean isLowRamDevice, long totalMemory);
 
     /* Get attributes for a given audio port */
-    AudioPort getAudioPort(in AudioPort port);
+    AudioPortFw getAudioPort(in AudioPortFw port);
 
     /* Create an audio patch between several source and sink ports */
-    int /* audio_patch_handle_t */ createAudioPatch(in AudioPatch patch);
+    int /* audio_patch_handle_t */ createAudioPatch(in AudioPatchFw patch);
 
     /* Release an audio patch */
     void releaseAudioPatch(int /* audio_patch_handle_t */ handle);
 
     /* List existing audio patches */
-    AudioPatch[] listAudioPatches(int maxCount);
+    AudioPatchFw[] listAudioPatches(int maxCount);
     /* Set audio port configuration */
-    void setAudioPortConfig(in AudioPortConfig config);
+    void setAudioPortConfig(in AudioPortConfigFw config);
 
     /* Get the HW synchronization source used for an audio session */
     int /* audio_hw_sync_t */ getAudioHwSyncForSession(int /* audio_session_t */ sessionId);
@@ -207,7 +210,7 @@ interface IAudioFlingerService {
     long frameCountHAL(int /* audio_io_handle_t */ ioHandle);
 
     /* List available microphones and their characteristics */
-    MicrophoneInfoData[] getMicrophones();
+    MicrophoneInfoFw[] getMicrophones();
 
     void setAudioHalPids(in int[] /* pid_t[] */ pids);
 
@@ -226,7 +229,64 @@ interface IAudioFlingerService {
 
     int getAAudioHardwareBurstMinUsec();
 
-    void setDeviceConnectedState(in AudioPort devicePort, boolean connected);
+    void setDeviceConnectedState(in AudioPortFw devicePort, DeviceConnectedState state);
+
+    // Used for tests only. Requires AIDL HAL to work.
+    void setSimulateDeviceConnections(boolean enabled);
+
+    /**
+     * Requests a given latency mode (See AudioLatencyMode.aidl) on an output stream.
+     * This can be used when some use case on a given mixer/stream can only be enabled
+     * if a specific latency mode is selected on the audio path below the HAL.
+     * For instance spatial audio with head tracking.
+     * output is the I/O handle of the output stream for which the request is made.
+     * latencyMode is the requested latency mode.
+     */
+     void setRequestedLatencyMode(int output, AudioLatencyMode latencyMode);
+
+    /**
+     * Queries the list of latency modes (See LatencyMode.aidl) supported by an output stream.
+     * output is the I/O handle of the output stream to which the query applies.
+     * returns the list of supported latency modes.
+     */
+    AudioLatencyMode[] getSupportedLatencyModes(int output);
+
+    /**
+     * Requests if the implementation supports controlling the latency modes
+     * over the Bluetooth A2DP or LE Audio links. If it does,
+     * setRequestedLatencyMode() and getSupportedLatencyModes() APIs can also be used
+     * for streams routed to Bluetooth and not just for the spatializer output.
+     */
+     boolean supportsBluetoothVariableLatency();
+
+    /**
+     * Enables or disables the variable Bluetooth latency control mechanism in the
+     * audio framework and the audio HAL. This does not apply to the latency mode control
+     * on the spatializer output as this is a built-in feature.
+     */
+    void setBluetoothVariableLatencyEnabled(boolean enabled);
+
+    /**
+     * Indicates if the variable Bluetooth latency control mechanism is enabled or disabled.
+     */
+    boolean isBluetoothVariableLatencyEnabled();
+
+    /**
+     * Registers the sound dose callback and returns the interface for executing
+     * sound dose methods on the audio server.
+     */
+    ISoundDose getSoundDoseInterface(in ISoundDoseCallback callback);
+
+    /**
+     * Invalidate all tracks with given port ids.
+     */
+    void invalidateTracks(in int[] /* audio_port_handle_t[] */ portIds);
+
+    /**
+     * Only implemented for AIDL. Provides the APM configuration which
+     * used to be in the XML file.
+     */
+    AudioPolicyConfig getAudioPolicyConfig();
 
     // When adding a new method, please review and update
     // IAudioFlinger.h AudioFlingerServerAdapter::Delegate::TransactionCode

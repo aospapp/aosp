@@ -59,10 +59,9 @@ public class Main {
         private boolean listAllDeps = false;
         private boolean listOnlyMissingDeps = false;
         private boolean createStubLib = false;
-        private boolean createNativeOnlyDelegates = false;
     }
 
-    public static final int ASM_VERSION = Opcodes.ASM7;
+    public static final int ASM_VERSION = Opcodes.ASM9;
 
     private static final Options sOptions = new Options();
 
@@ -74,7 +73,7 @@ public class Main {
         String[] osDestJar = { null };
 
         if (!processArgs(log, args, osJarPath, osDestJar)) {
-            log.error("Usage: layoutlib_create [-v] [--create-stub] [--create-native-only-delegates] output.jar input.jar ...");
+            log.error("Usage: layoutlib_create [-v] [--create-stub] output.jar input.jar ...");
             log.error("Usage: layoutlib_create [-v] [--list-deps|--missing-deps] input.jar ...");
             System.exit(1);
         }
@@ -102,41 +101,44 @@ public class Main {
 
             AsmAnalyzer aa = new AsmAnalyzer(log, osJarPath,
                     new String[] {                          // derived from
+                        "android.app.Fragment",
                         "android.view.View",
-                        "android.app.Fragment"
                     },
                     new String[] {                          // include classes
                         "android.*", // for android.R
-                        "android.util.*",
-                        "com.android.internal.util.*",
-                        "android.view.*",
-                        "android.widget.*",
-                        "com.android.internal.widget.*",
-                        "android.text.**",
-                        "android.graphics.*",
-                        "android.graphics.drawable.**",
-                        "android.content.*",
-                        "android.content.res.*",
-                        "android.preference.*",
-                        "org.apache.harmony.xml.*",
-                        "com.android.internal.R**",
-                        "android.pim.*", // for datepicker
-                        "android.os.*",  // for android.os.Handler
-                        "android.database.ContentObserver", // for Digital clock
-                        "com.android.i18n.phonenumbers.*",  // for TextView with autolink attribute
-                        "android.app.DatePickerDialog",     // b.android.com/28318
-                        "android.app.TimePickerDialog",     // b.android.com/61515
-                        "com.android.internal.view.menu.ActionMenu",
-                        "libcore.icu.ICU",                  // needed by ICU_Delegate in LayoutLib
-                        "android.icu.**",                   // needed by LayoutLib
-                        "libcore.io.*",                     // needed to load /usr/share/zoneinfo
                         "android.annotation.NonNull",       // annotations
                         "android.annotation.Nullable",      // annotations
-                        "com.android.internal.transition.EpicenterTranslateClipReveal",
+                        "android.app.ApplicationErrorReport", // needed for Glance LazyList
+                        "android.app.DatePickerDialog",     // b.android.com/28318
+                        "android.app.TimePickerDialog",     // b.android.com/61515
+                        "android.content.*",
+                        "android.content.res.*",
+                        "android.database.ContentObserver", // for Digital clock
+                        "android.graphics.*",
+                        "android.graphics.drawable.**",
+                        "android.icu.**",                   // needed by LayoutLib
+                        "android.os.*",  // for android.os.Handler
+                        "android.os.ext.*", // for android.os.ext.SdkExtensions, needed by Compose
+                        "android.pim.*", // for datepicker
+                        "android.preference.*",
+                        "android.service.wallpaper.*",      // needed for Wear OS watch faces
+                        "android.text.**",
+                        "android.util.*",
+                        "android.view.*",
+                        "android.widget.*",
+                        "com.android.i18n.phonenumbers.*",  // for TextView with autolink attribute
+                        "com.android.internal.R**",
                         "com.android.internal.graphics.drawable.AnimationScaleListDrawable",
+                        "com.android.internal.transition.EpicenterTranslateClipReveal",
+                        "com.android.internal.util.*",
+                        "com.android.internal.view.menu.ActionMenu",
+                        "com.android.internal.widget.*",
+                        "com.android.systemui.monet.*",     // needed for dynamic theming
                         "com.google.android.apps.common.testing.accessibility.**",
                         "com.google.android.libraries.accessibility.**",
-                        "android.service.wallpaper.*",      // needed for Wear OS watch faces
+                        "libcore.icu.ICU",                  // needed by ICU_Delegate in LayoutLib
+                        "libcore.io.*",                     // needed to load /usr/share/zoneinfo
+                        "org.apache.harmony.xml.*",
                     },
                     info.getExcludedClasses(),
                     new String[] {
@@ -163,14 +165,6 @@ public class Main {
                 JarUtil.createJar(new FileOutputStream(stubDestJarFile), toStubClasses,
                         input -> StubClassAdapter.stubClass(log, input));
                 log.info("Created stub JAR file %s", stubDestJarFile);
-            }
-
-            if (sOptions.createNativeOnlyDelegates) {
-                File osDestJarFile = new File(osDestJar);
-                Map<String, byte[]> nativeDelegateClasses =
-                        outputClasses.entrySet().stream().filter(entry -> entry.getKey().endsWith("_NativeDelegate.class")).collect(Collectors.toMap(Entry::getKey, Entry::getValue));
-                JarUtil.createJar(new FileOutputStream(osDestJarFile), nativeDelegateClasses);
-                log.info("Created native delegate JAR file %s", osDestJarFile);
             }
 
             // Throw an error if any class failed to get renamed by the generator
@@ -240,8 +234,6 @@ public class Main {
                 needs_dest = false;
             } else if (s.equals("--create-stub")) {
                 sOptions.createStubLib = true;
-            } else if (s.equals("--create-native-only-delegates")) {
-                sOptions.createNativeOnlyDelegates = true;
             } else if (!s.startsWith("-")) {
                 if (needs_dest && osDestJar[0] == null) {
                     osDestJar[0] = s;

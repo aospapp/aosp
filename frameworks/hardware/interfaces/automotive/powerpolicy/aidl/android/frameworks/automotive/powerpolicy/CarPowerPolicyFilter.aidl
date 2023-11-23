@@ -29,4 +29,9 @@ parcelable CarPowerPolicyFilter {
    * List of power components of interest.
    */
   PowerComponent[] components;
+
+  /**
+   * List of custom power components of interest
+   */
+  int[] customComponents = {};
 }

@@ -1,30 +1,48 @@
 // for frameworks/av/media
 {
-    // TODO (b/229286407) Add EncodeDecodeTest and DecodeEditEncodeTest to
-    // presubmit-large once issues in cuttlefish are fixed
+    "presubmit-large": [
+        // runs whenever we change something in this tree
+        {
+            "name": "CtsMediaCodecTestCases",
+            "options": [
+                {
+                    "include-filter": "android.media.codec.cts.EncodeDecodeTest"
+                }
+            ]
+        },
+        {
+            "name": "CtsMediaCodecTestCases",
+            "options": [
+                {
+                    "include-filter": "android.media.codec.cts.DecodeEditEncodeTest"
+                }
+            ]
+        }
+    ],
     "presubmit": [
         {
-            "name": "GtsMediaTestCases",
+            "name": "WvtsDeviceTestCases",
             "options" : [
                 {
                     "include-annotation": "android.platform.test.annotations.Presubmit"
                 },
                 {
-                    "include-filter": "com.google.android.media.gts.WidevineGenericOpsTests"
+                    "include-filter": "com.google.android.media.wvts.WidevineGenericOpsTests"
                 },
                 {
-                    "include-filter": "com.google.android.media.gts.WidevineH264PlaybackTests"
+                    "include-filter": "com.google.android.media.wvts.WidevineH264PlaybackTests"
                 }
-            ]
-        }
-    ],
-
-    "imports": [
+            ],
+            "file_patterns": ["(?i)drm|crypto"]
+        },
         {
-            "path": "frameworks/av/drm/mediadrm/plugins"
+            "name": "CtsMediaDrmFrameworkTestCases",
+            "options" : [
+                {
+                    "include-annotation": "android.platform.test.annotations.Presubmit"
+                }
+            ],
+            "file_patterns": ["(?i)drm|crypto"]
         }
     ]
-
-    // TODO (b/229286407) Add EncodeDecodeTest and DecodeEditEncodeTest to
-    // platinum-postsubmit once issues in cuttlefish are fixed
 }

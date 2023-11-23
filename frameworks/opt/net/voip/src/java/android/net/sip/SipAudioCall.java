@@ -61,14 +61,14 @@ import java.net.UnknownHostException;
  */
 public class SipAudioCall {
     private static final String LOG_TAG = SipAudioCall.class.getSimpleName();
-    private static final boolean DBG = true;
+    private static final boolean DBG = false;
     private static final boolean RELEASE_SOCKET = true;
     private static final boolean DONT_RELEASE_SOCKET = false;
     private static final int SESSION_TIMEOUT = 5; // in seconds
     private static final int TRANSFER_TIMEOUT = 15; // in seconds
 
     /** Listener for events relating to a SIP call, such as when a call is being
-     * recieved ("on ringing") or a call is outgoing ("on calling").
+     * received ("on ringing") or a call is outgoing ("on calling").
      * <p>Many of these events are also received by {@link SipSession.Listener}.</p>
      */
     public static class Listener {

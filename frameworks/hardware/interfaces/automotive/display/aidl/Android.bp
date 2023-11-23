@@ -22,6 +22,9 @@ aidl_interface {
     srcs: ["android/frameworks/automotive/display/*.aidl"],
     stability: "vintf",
     imports: ["android.hardware.common-V2"],
+    include_dirs: [
+        "frameworks/native/aidl/gui",
+    ],
     backend: {
         cpp: {
             enabled: false,
@@ -34,6 +37,9 @@ aidl_interface {
             vndk: {
                 enabled: false,
             },
+            additional_shared_libraries: [
+                "libnativewindow",
+            ],
         },
     },
     versions_with_info: [
@@ -41,6 +47,11 @@ aidl_interface {
             version: "1",
             imports: ["android.hardware.common-V2"],
         },
-    ],
+        {
+            version: "2",
+            imports: ["android.hardware.common-V2"],
+        },
 
+    ],
+    frozen: true,
 }

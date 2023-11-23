@@ -17,15 +17,22 @@
 #ifndef ANDROID_MEDIA_SPATIALIZER_H
 #define ANDROID_MEDIA_SPATIALIZER_H
 
+#include <android-base/stringprintf.h>
 #include <android/media/BnEffect.h>
 #include <android/media/BnSpatializer.h>
 #include <android/media/SpatializationLevel.h>
 #include <android/media/SpatializationMode.h>
 #include <android/media/SpatializerHeadTrackingMode.h>
+#include <android/media/audio/common/AudioLatencyMode.h>
+#include <audio_utils/SimpleLog.h>
+#include <math.h>
+#include <media/AudioEffect.h>
+#include <media/audiohal/EffectsFactoryHalInterface.h>
+#include <media/VectorRecorder.h>
 #include <media/audiohal/EffectHalInterface.h>
 #include <media/stagefright/foundation/ALooper.h>
-#include <media/AudioEffect.h>
 #include <system/audio_effects/effect_spatializer.h>
+#include <string>
 
 #include "SpatializerPoseController.h"
 
@@ -84,10 +91,13 @@ public:
  * spatializer mixer thread is destroyed.
  */
 class Spatializer : public media::BnSpatializer,
+                    public AudioEffect::IAudioEffectCallback,
                     public IBinder::DeathRecipient,
-                    private SpatializerPoseController::Listener {
+                    private SpatializerPoseController::Listener,
+                    public virtual AudioSystem::SupportedLatencyModesCallback {
   public:
-    static sp<Spatializer> create(SpatializerPolicyCallback *callback);
+    static sp<Spatializer> create(SpatializerPolicyCallback* callback,
+                                  const sp<EffectsFactoryHalInterface>& effectsFactoryHal);
 
            ~Spatializer() override;
 
@@ -112,6 +122,7 @@ class Spatializer : public media::BnSpatializer,
     binder::Status setScreenSensor(int sensorHandle) override;
     binder::Status setDisplayOrientation(float physicalToLogicalAngle) override;
     binder::Status setHingeAngle(float hingeAngle) override;
+    binder::Status setFoldState(bool folded) override;
     binder::Status getSupportedModes(std::vector<media::SpatializationMode>* modes) override;
     binder::Status registerHeadTrackingCallback(
         const sp<media::ISpatializerHeadTrackingCallback>& callback) override;
@@ -121,6 +132,10 @@ class Spatializer : public media::BnSpatializer,
 
     /** IBinder::DeathRecipient. Listen to the death of the INativeSpatializerCallback. */
     virtual void binderDied(const wp<IBinder>& who);
+
+    /** SupportedLatencyModesCallback */
+    void onSupportedLatencyModesChanged(
+            audio_io_handle_t output, const std::vector<audio_latency_mode_t>& modes) override;
 
     /** Registers a INativeSpatializerCallback when a client is attached to this Spatializer
      * by audio policy service.
@@ -150,6 +165,23 @@ class Spatializer : public media::BnSpatializer,
 
     void calculateHeadPose();
 
+    /** Convert fields in Spatializer and sub-modules to a string. Disable thread-safety-analysis
+     * here because we want to dump mutex guarded members even try_lock failed to provide as much
+     * information as possible for debugging purpose. */
+    std::string toString(unsigned level) const NO_THREAD_SAFETY_ANALYSIS;
+
+    static std::string toString(audio_latency_mode_t mode) {
+        // We convert to the AIDL type to print (eventually the legacy type will be removed).
+        const auto result = legacy2aidl_audio_latency_mode_t_AudioLatencyMode(mode);
+        return result.has_value() ?
+                media::audio::common::toString(*result) : "unknown_latency_mode";
+    }
+
+    // If the Spatializer is not created, we send the status for metrics purposes.
+    // OK:      Spatializer not expected to be created.
+    // NO_INIT: Spatializer creation failed.
+    static void sendEmptyCreateSpatializerMetricWithStatus(status_t status);
+
 private:
     Spatializer(effect_descriptor_t engineDescriptor,
                      SpatializerPolicyCallback *callback);
@@ -162,6 +194,8 @@ private:
 
     void onHeadToStagePoseMsg(const std::vector<float>& headToStage);
     void onActualModeChangeMsg(media::HeadTrackingMode mode);
+    void onSupportedLatencyModesChangedMsg(
+            audio_io_handle_t output, std::vector<audio_latency_mode_t>&& modes);
 
     static constexpr int kMaxEffectParamValues = 10;
     /**
@@ -274,7 +308,7 @@ private:
         return NO_ERROR;
     }
 
-    void postFramesProcessedMsg(int frames);
+    virtual void onFramesProcessed(int32_t framesProcessed) override;
 
     /**
      * Checks if head and screen sensors must be actively monitored based on
@@ -295,13 +329,21 @@ private:
      */
     void checkEngineState_l() REQUIRES(mLock);
 
+    /**
+     * Reset head tracking mode and recenter pose in engine: Called when the head tracking
+     * is disabled.
+     */
+    void resetEngineHeadPose_l() REQUIRES(mLock);
+
     /** Effect engine descriptor */
     const effect_descriptor_t mEngineDescriptor;
     /** Callback interface to parent audio policy service */
     SpatializerPolicyCallback* const mPolicyCallback;
 
     /** Currently there is only one version of the spatializer running */
-    const std::string mMetricsId = AMEDIAMETRICS_KEY_PREFIX_AUDIO_SPATIALIZER "0";
+    static constexpr const char* kDefaultMetricsId =
+            AMEDIAMETRICS_KEY_PREFIX_AUDIO_SPATIALIZER "0";
+    const std::string mMetricsId = kDefaultMetricsId;
 
     /** Mutex protecting internal state */
     mutable std::mutex mLock;
@@ -338,8 +380,13 @@ private:
     int32_t mScreenSensor GUARDED_BY(mLock) = SpatializerPoseController::INVALID_SENSOR;
 
     /** Last display orientation received */
-    static constexpr float kDisplayOrientationInvalid = 1000;
-    float mDisplayOrientation GUARDED_BY(mLock) = kDisplayOrientationInvalid;
+    float mDisplayOrientation GUARDED_BY(mLock) = 0.f;  // aligned to natural up orientation.
+
+    /** Last folded state */
+    bool mFoldedState GUARDED_BY(mLock) = false;  // foldable: true means folded.
+
+    /** Last hinge angle */
+    float mHingeAngle GUARDED_BY(mLock) = 0.f;  // foldable: 0.f is closed, M_PI flat open.
 
     std::vector<media::SpatializationLevel> mLevels;
     std::vector<media::SpatializerHeadTrackingMode> mHeadTrackingModes;
@@ -354,10 +401,25 @@ private:
     sp<EngineCallbackHandler> mHandler;
 
     size_t mNumActiveTracks GUARDED_BY(mLock) = 0;
+    std::vector<audio_latency_mode_t> mSupportedLatencyModes GUARDED_BY(mLock);
 
-    static const std::vector<const char *> sHeadPoseKeys;
-};
+    static const std::vector<const char*> sHeadPoseKeys;
 
+    // Local log for command messages.
+    static constexpr int mMaxLocalLogLine = 10;
+    SimpleLog mLocalLog{mMaxLocalLogLine};
+
+    /**
+     * @brief Calculate and record sensor data.
+     * Dump to local log with max/average pose angle every mPoseRecordThreshold.
+     */
+    // Record one log line per second (up to mMaxLocalLogLine) to capture most recent sensor data.
+    media::VectorRecorder mPoseRecorder GUARDED_BY(mLock) {
+        6 /* vectorSize */, std::chrono::seconds(1), mMaxLocalLogLine, { 3 } /* delimiterIdx */};
+    // Record one log line per minute (up to mMaxLocalLogLine) to capture durable sensor data.
+    media::VectorRecorder mPoseDurableRecorder  GUARDED_BY(mLock) {
+        6 /* vectorSize */, std::chrono::minutes(1), mMaxLocalLogLine, { 3 } /* delimiterIdx */};
+};  // Spatializer
 
 }; // namespace android
 

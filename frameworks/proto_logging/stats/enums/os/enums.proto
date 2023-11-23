@@ -31,6 +31,9 @@ enum BatteryHealthEnum {
     BATTERY_HEALTH_OVER_VOLTAGE = 5;
     BATTERY_HEALTH_UNSPECIFIED_FAILURE = 6;
     BATTERY_HEALTH_COLD = 7;
+    BATTERY_HEALTH_FAIR = 8;
+    BATTERY_HEALTH_NOT_AVAILABLE = 11;
+    BATTERY_HEALTH_INCONSISTENT = 12;
 }
 
 // Plug states, primarily used by android/os/BatteryManager.java.
@@ -192,4 +195,22 @@ enum WakeLockLevelEnum {
     // is dozing. It currently has no effect unless the power manager is in
     // the dozing state.
     DRAW_WAKE_LOCK = 128;
+}
+
+// They are primarily used by android/os/BatteryManager.java.
+enum BatteryChargingStatusEnum {
+    BATTERY_STATUS_NORMAL = 1;
+    BATTERY_STATUS_TOO_COLD = 2;
+    BATTERY_STATUS_TOO_HOT = 3;
+    BATTERY_STATUS_LONG_LIFE = 4;
+    BATTERY_STATUS_ADAPTIVE = 5;
+}
+
+
+// They are primarily used by android/os/BatteryManager.java.
+enum BatteryChargingPolicyEnum {
+    CHARGING_POLICY_DEFAULT = 1;
+    CHARGING_POLICY_ADAPTIVE_AON = 2;
+    CHARGING_POLICY_ADAPTIVE_AC = 3;
+    CHARGING_POLICY_ADAPTIVE_LONGLIFE = 4;
 }

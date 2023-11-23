@@ -32,4 +32,25 @@ static inline void ALOGE(const char *fmt...) {
   va_end(args);
 }
 
+static inline void ALOGW(const char *fmt...) {
+  va_list args;
+  va_start(args, fmt);
+  __android_log_vprint(ANDROID_LOG_WARN, LOG_TAG, fmt, args);
+  va_end(args);
+}
+
+static inline void ALOGI(const char *fmt...) {
+  va_list args;
+  va_start(args, fmt);
+  __android_log_vprint(ANDROID_LOG_INFO, LOG_TAG, fmt, args);
+  va_end(args);
+}
+
+static inline void ALOGD(const char *fmt...) {
+  va_list args;
+  va_start(args, fmt);
+  __android_log_vprint(ANDROID_LOG_DEBUG, LOG_TAG, fmt, args);
+  va_end(args);
+}
+
 }

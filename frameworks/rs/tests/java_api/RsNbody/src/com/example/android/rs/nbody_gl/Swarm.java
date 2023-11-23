@@ -326,7 +326,8 @@ public class Swarm {
             nbody.set_velocities(velAlloc);
             nbody.set_triangles1(triAlloc1);
             nbody.set_triangles2(triAlloc2);
-            Log.v(TAG, " node = " + mMode + "  " + sModes[mModeNo] + " " + mModeNo);
+            Log.v(TAG, " node = " + Arrays.toString(mMode) + "  " +
+                    Arrays.toString(sModes[mModeNo]) + " " + mModeNo);
             nbody.set_CENTER_MASS(mMode[P_CTR_M]);
             nbody.set_OBJECT_MAX_MASS(mMode[P_MAX_M]);
             nbody.set_OBJECT_MIN_MASS(mMode[P_MIN_M]);

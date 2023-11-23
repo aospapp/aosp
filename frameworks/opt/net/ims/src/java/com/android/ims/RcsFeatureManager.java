@@ -16,6 +16,8 @@
 
 package com.android.ims;
 
+import android.annotation.NonNull;
+import android.annotation.Nullable;
 import android.content.Context;
 import android.net.Uri;
 import android.os.IBinder;
@@ -30,6 +32,7 @@ import android.telephony.ims.ImsException;
 import android.telephony.ims.ImsService;
 import android.telephony.ims.RcsUceAdapter.StackPublishTriggerType;
 import android.telephony.ims.RegistrationManager;
+import android.telephony.ims.SipDetails;
 import android.telephony.ims.aidl.ICapabilityExchangeEventListener;
 import android.telephony.ims.aidl.IImsCapabilityCallback;
 import android.telephony.ims.aidl.IImsConfig;
@@ -44,7 +47,6 @@ import android.telephony.ims.aidl.ISipTransport;
 import android.telephony.ims.aidl.ISubscribeResponseCallback;
 import android.telephony.ims.feature.CapabilityChangeRequest;
 import android.telephony.ims.feature.ImsFeature;
-import android.telephony.ims.feature.RcsFeature;
 import android.telephony.ims.feature.RcsFeature.RcsImsCapabilities;
 import android.telephony.ims.stub.ImsRegistrationImplBase;
 import android.util.Log;
@@ -96,8 +98,7 @@ public class RcsFeatureManager implements FeatureUpdates {
          * This method must be called to notify the framework of SUCCESS (200 OK) and FAILURE (300+)
          * codes in order to keep the AOSP stack up to date.
          */
-        void onPublishUpdated(int reasonCode, String reasonPhrase,
-                int reasonHeaderCause, String reasonHeaderText);
+        void onPublishUpdated(SipDetails details);
 
         /**
          * Receive a capabilities request from the remote client.
@@ -123,10 +124,9 @@ public class RcsFeatureManager implements FeatureUpdates {
                 }
 
                 @Override
-                public void onPublishUpdated(int reasonCode, String reasonPhrase,
-                        int reasonHeaderCause, String reasonHeaderText) {
-                    mCapabilityEventCallback.forEach(callback -> callback.onPublishUpdated(
-                            reasonCode, reasonPhrase, reasonHeaderCause, reasonHeaderText));
+                public void onPublishUpdated(@NonNull SipDetails details) {
+                    mCapabilityEventCallback.forEach(
+                            callback ->callback.onPublishUpdated(details));
                 }
 
                 @Override
@@ -604,38 +604,15 @@ public class RcsFeatureManager implements FeatureUpdates {
         mRcsFeatureConnection.updateFeatureCapabilities(capabilities);
     }
 
-    /**
-     * Testing interface used to mock SubscriptionManager in testing
-     * @hide
-     */
-    @VisibleForTesting
-    public interface SubscriptionManagerProxy {
-        /**
-         * Mock-able interface for {@link SubscriptionManager#getSubId(int)} used for testing.
-         */
-        int getSubId(int slotId);
-    }
-
     public IImsConfig getConfig() {
         return mRcsFeatureConnection.getConfig();
     }
 
-    private static SubscriptionManagerProxy sSubscriptionManagerProxy
-            = slotId -> {
-                int[] subIds = SubscriptionManager.getSubId(slotId);
-                if (subIds != null) {
-                    return subIds[0];
-                }
-                return SubscriptionManager.INVALID_SUBSCRIPTION_ID;
-            };
-
     /**
-     * Testing function used to mock SubscriptionManager in testing
-     * @hide
+     * @return the subscription ID associated with this ImsService connection.
      */
-    @VisibleForTesting
-    public static void setSubscriptionManager(SubscriptionManagerProxy proxy) {
-        sSubscriptionManagerProxy = proxy;
+    public int getSubId() {
+        return mRcsFeatureConnection.getSubId();
     }
 
     private void log(String s) {

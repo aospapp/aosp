@@ -15,9 +15,16 @@
  */
 package com.android.internal.car.updatable;
 
+import static android.view.Display.INVALID_DISPLAY;
+
 import static com.android.car.internal.SystemConstants.ICAR_SYSTEM_SERVER_CLIENT;
 import static com.android.car.internal.common.CommonConstants.CAR_SERVICE_INTERFACE;
+import static com.android.car.internal.common.CommonConstants.INVALID_GID;
+import static com.android.car.internal.common.CommonConstants.INVALID_PID;
+import static com.android.car.internal.common.CommonConstants.INVALID_USER_ID;
+import static com.android.car.internal.util.VersionUtils.isPlatformVersionAtLeastU;
 
+import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.car.ICar;
 import android.car.ICarResultReceiver;
@@ -41,14 +48,17 @@ import com.android.car.internal.ICarServiceHelper;
 import com.android.car.internal.ICarSystemServerClient;
 import com.android.car.internal.util.IndentingPrintWriter;
 import com.android.internal.annotations.GuardedBy;
+import com.android.internal.annotations.Keep;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.car.CarServiceHelperInterface;
 import com.android.internal.car.CarServiceHelperServiceUpdatable;
-import java.io.File;
+import com.android.server.wm.CarActivityInterceptorInterface;
+import com.android.server.wm.CarActivityInterceptorUpdatableImpl;
 import com.android.server.wm.CarLaunchParamsModifierInterface;
 import com.android.server.wm.CarLaunchParamsModifierUpdatable;
 import com.android.server.wm.CarLaunchParamsModifierUpdatableImpl;
 
+import java.io.File;
 import java.io.PrintWriter;
 import java.util.List;
 import java.util.concurrent.Executor;
@@ -57,6 +67,7 @@ import java.util.function.BiConsumer;
 /**
  * Implementation of the abstract class CarServiceHelperUpdatable
  */
+@Keep
 public final class CarServiceHelperServiceUpdatableImpl
         implements CarServiceHelperServiceUpdatable, Executor {
 
@@ -85,7 +96,8 @@ public final class CarServiceHelperServiceUpdatableImpl
     private final HandlerThread mHandlerThread = new HandlerThread(
             CarServiceHelperServiceUpdatableImpl.class.getSimpleName());
 
-    private final ICarServiceHelperImpl mHelper = new ICarServiceHelperImpl();
+    @VisibleForTesting
+    final ICarServiceHelperImpl mHelper = new ICarServiceHelperImpl();
 
     private final CarServiceConnectedCallback mCarServiceConnectedCallback =
             new CarServiceConnectedCallback();
@@ -95,18 +107,32 @@ public final class CarServiceHelperServiceUpdatableImpl
     private final CarServiceHelperInterface mCarServiceHelperInterface;
 
     private final CarLaunchParamsModifierUpdatableImpl mCarLaunchParamsModifierUpdatable;
+    private final CarActivityInterceptorUpdatableImpl mCarActivityInterceptorUpdatable;
 
+    /**
+     * This constructor is meant to be called using reflection by the builtin service and hence it
+     * shouldn't be changed as it is called from the platform with version {@link TIRAMISU}.
+     */
     public CarServiceHelperServiceUpdatableImpl(Context context,
             CarServiceHelperInterface carServiceHelperInterface,
             CarLaunchParamsModifierInterface carLaunchParamsModifierInterface) {
         this(context, carServiceHelperInterface, carLaunchParamsModifierInterface,
-                /* carServiceProxy= */ null);
+                /* carActivityInterceptorInterface= */ null);
+    }
+
+    public CarServiceHelperServiceUpdatableImpl(Context context,
+            CarServiceHelperInterface carServiceHelperInterface,
+            CarLaunchParamsModifierInterface carLaunchParamsModifierInterface,
+            CarActivityInterceptorInterface carActivityInterceptorInterface) {
+        this(context, carServiceHelperInterface, carLaunchParamsModifierInterface,
+                carActivityInterceptorInterface, /* carServiceProxy= */ null);
     }
 
     @VisibleForTesting
     CarServiceHelperServiceUpdatableImpl(Context context,
             CarServiceHelperInterface carServiceHelperInterface,
             CarLaunchParamsModifierInterface carLaunchParamsModifierInterface,
+            @Nullable CarActivityInterceptorInterface carActivityInterceptorInterface,
             @Nullable CarServiceProxy carServiceProxy) {
         mContext = context;
         mHandlerThread.start();
@@ -114,6 +140,12 @@ public final class CarServiceHelperServiceUpdatableImpl
         mCarServiceHelperInterface = carServiceHelperInterface;
         mCarLaunchParamsModifierUpdatable = new CarLaunchParamsModifierUpdatableImpl(
                 carLaunchParamsModifierInterface);
+        if (isPlatformVersionAtLeastU()) {
+            mCarActivityInterceptorUpdatable = new CarActivityInterceptorUpdatableImpl(
+                    (CarActivityInterceptorInterface) carActivityInterceptorInterface);
+        } else {
+            mCarActivityInterceptorUpdatable = null;
+        }
         // carServiceProxy is Nullable because it is not possible to construct carServiceProxy with
         // "this" object in the previous constructor as CarServiceHelperServiceUpdatableImpl has
         // not been fully constructed.
@@ -174,6 +206,11 @@ public final class CarServiceHelperServiceUpdatableImpl
     @Override
     public CarLaunchParamsModifierUpdatable getCarLaunchParamsModifierUpdatable() {
         return mCarLaunchParamsModifierUpdatable;
+    }
+
+    @Override
+    public CarActivityInterceptorUpdatableImpl getCarActivityInterceptorUpdatable() {
+        return mCarActivityInterceptorUpdatable;
     }
 
     @VisibleForTesting
@@ -274,7 +311,8 @@ public final class CarServiceHelperServiceUpdatableImpl
         mCarServiceProxy.dump(new IndentingPrintWriter(writer));
     }
 
-    private final class ICarServiceHelperImpl extends ICarServiceHelper.Stub {
+    @VisibleForTesting
+    final class ICarServiceHelperImpl extends ICarServiceHelper.Stub {
 
         @Override
         public void setDisplayAllowlistForUser(int userId, int[] displayIds) {
@@ -300,6 +338,13 @@ public final class CarServiceHelperServiceUpdatableImpl
         }
 
         @Override
+        public void setPersistentActivitiesOnRootTask(@NonNull List<ComponentName> activities,
+                IBinder rootTaskToken) {
+            mCarActivityInterceptorUpdatable.setPersistentActivityOnRootTask(activities,
+                    rootTaskToken);
+        }
+
+        @Override
         public void setSafetyMode(boolean safe) {
             mCarServiceHelperInterface.setSafetyMode(safe);
         }
@@ -312,6 +357,63 @@ public final class CarServiceHelperServiceUpdatableImpl
         @Override
         public void sendInitialUser(UserHandle user) {
             mCarServiceProxy.saveInitialUser(user);
+        }
+
+        @Override
+        public void setProcessGroup(int pid, int group) {
+            if (!isPlatformVersionAtLeastU()) {
+                return;
+            }
+            mCarServiceHelperInterface.setProcessGroup(pid, group);
+        }
+
+        @Override
+        public int getProcessGroup(int pid) {
+            if (isPlatformVersionAtLeastU()) {
+                return mCarServiceHelperInterface.getProcessGroup(pid);
+            }
+            return INVALID_GID;
+        }
+
+        @Override
+        public int getMainDisplayAssignedToUser(int userId) {
+            if (isPlatformVersionAtLeastU()) {
+                return mCarServiceHelperInterface.getMainDisplayAssignedToUser(userId);
+            }
+            return INVALID_DISPLAY;
+        }
+
+        @Override
+        public int getUserAssignedToDisplay(int displayId) {
+            if (isPlatformVersionAtLeastU()) {
+                return mCarServiceHelperInterface.getUserAssignedToDisplay(displayId);
+            }
+            return INVALID_USER_ID;
+        }
+
+        @Override
+        public boolean startUserInBackgroundVisibleOnDisplay(int userId, int displayId) {
+            if (isPlatformVersionAtLeastU()) {
+                return mCarServiceHelperInterface.startUserInBackgroundVisibleOnDisplay(
+                        userId, displayId);
+            }
+            return false;
+        }
+
+        @Override
+        public void setProcessProfile(int pid, int uid, @NonNull String profile) {
+            if (!isPlatformVersionAtLeastU()) {
+                return;
+            }
+            mCarServiceHelperInterface.setProcessProfile(pid, uid, profile);
+        }
+
+        @Override
+        public int fetchAidlVhalPid() {
+            if (isPlatformVersionAtLeastU()) {
+                return mCarServiceHelperInterface.fetchAidlVhalPid();
+            }
+            return INVALID_PID;
         }
     }
 

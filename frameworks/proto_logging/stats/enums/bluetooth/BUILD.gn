@@ -23,6 +23,7 @@ proto_library("libbt-platform-protos-lite") {
     "a2dp/enums.proto",
     "enums.proto",
     "hci/enums.proto",
+    "le/enums.proto",
     "hfp/enums.proto",
     "smp/enums.proto",
   ]

@@ -50,11 +50,6 @@ public:
     }
 
     // This obtains a mutex inside, so do not call this method inside callback.
-    static void getFontMap(
-            std::function<void(const std::vector<std::shared_ptr<FontCollection>>&)> func) {
-        return getInstance().getFontMapInternal(func);
-    }
-
     static void getFontSet(std::function<void(const std::vector<std::shared_ptr<Font>>&)> func) {
         return getInstance().getFontSetInternal(func);
     }
@@ -79,12 +74,6 @@ protected:
     void addFontMapInternal(std::shared_ptr<FontCollection>&& collections) {
         std::lock_guard<std::mutex> lock(mMutex);
         mCollections.emplace_back(std::move(collections));
-    }
-
-    void getFontMapInternal(
-            std::function<void(const std::vector<std::shared_ptr<FontCollection>>&)> func) {
-        std::lock_guard<std::mutex> lock(mMutex);
-        func(mCollections);
     }
 
     void getFontSetInternal(std::function<void(const std::vector<std::shared_ptr<Font>>&)> func) {

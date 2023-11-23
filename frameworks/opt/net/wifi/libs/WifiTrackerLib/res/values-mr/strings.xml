@@ -17,6 +17,7 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="wifitrackerlib_summary_separator" msgid="6613897475167609815">" / "</string>
+    <string name="wifitrackerlib_checking_for_internet_access" msgid="4787495471423429472">"इंटरनेट अ‍ॅक्सेस शोधत आहे…"</string>
     <string name="wifitrackerlib_auto_connect_disable" msgid="4714835547164460651">"ऑटो-कनेक्ट बंद आहे"</string>
     <string name="wifitrackerlib_saved_network" msgid="5353460010746484376">"<xliff:g id="NAME">%1$s</xliff:g> ने सेव्ह केले"</string>
     <string name="wifitrackerlib_wifi_no_internet_no_reconnect" msgid="6618216332537706908">"आपोआप कनेक्ट होणार नाही"</string>
@@ -24,6 +25,7 @@
     <string name="wifitrackerlib_wifi_disabled_password_failure" msgid="2850244218754633550">"ऑथेंटिकेशनमध्ये समस्या आली"</string>
     <string name="wifitrackerlib_wifi_check_password_try_again" msgid="2327777719175574699">"पासवर्ड तपासा आणि पुन्‍हा प्रयत्न करा"</string>
     <string name="wifitrackerlib_wifi_disabled_network_failure" msgid="3046956554224277166">"आयपी कॉंफिगरेशन पूर्ण करता आले नाही"</string>
+    <string name="wifitrackerlib_wifi_disabled_transition_disable_indication" msgid="6416221593061166867">"सध्याच्या सुरक्षा सेटिंग्जवर उपलब्ध नाही"</string>
     <string name="wifitrackerlib_wifi_disabled_generic" msgid="4278806060337007814">"बंद केली"</string>
     <string name="wifitrackerlib_wifi_ap_unable_to_handle_new_sta" msgid="931922372010639716">"अ‍ॅक्सेस पॉइंट तात्पुरता भरला आहे"</string>
     <string name="wifitrackerlib_wifi_poor_channel_conditions" msgid="26484680900376236">"नेटवर्कची स्थिती तात्पुरती खराब आहे"</string>
@@ -42,6 +44,10 @@
     <string name="wifitrackerlib_wifi_connected_cannot_provide_internet" msgid="3803471522215612745">"डिव्हाइसशी कनेक्ट केले. इंटरनेट उपलब्ध नाही."</string>
     <string name="wifi_connected_low_quality" msgid="4478331645458058445">"कमी गुणवत्ता"</string>
     <string name="wifitrackerlib_admin_restricted_network" msgid="5439914801076897515">"तुमच्या संस्थेने अनुमती दिलेली नाही"</string>
+    <string name="wifitrackerlib_hotspot_network_summary" msgid="7661086683527884190">"<xliff:g id="MODEL_NAME">%2$s</xliff:g> वरील <xliff:g id="NETWORK_NAME">%1$s</xliff:g>"</string>
+    <string name="wifitrackerlib_hotspot_network_alternate" msgid="4966814473758893807">"<xliff:g id="DEVICE_NAME">%2$s</xliff:g> वरील <xliff:g id="NETWORK_NAME">%1$s</xliff:g>"</string>
+    <string name="wifitrackerlib_hotspot_network_connecting" msgid="2072252282318270780">"कनेक्ट करत आहे…"</string>
+    <string name="wifitrackerlib_known_network_summary" msgid="6035425130009353268">"<xliff:g id="DEVICE_NAME">%1$s</xliff:g> वरून उपलब्ध आहे"</string>
     <string name="wifitrackerlib_wifi_security_short_eap_wpa_wpa2" msgid="4815223667006927841">"WPA/WPA2-EAP"</string>
     <string name="wifitrackerlib_wifi_security_eap_wpa_wpa2" msgid="6425661975745405271">"WPA/WPA2-एंटरप्राइझ"</string>
     <string name="wifitrackerlib_wifi_security_short_eap_wpa3" msgid="6210273302049534874">"WPA3-EAP"</string>
@@ -78,4 +84,9 @@
     <string name="wifitrackerlib_wifi_standard_11ax" msgid="4071875115186480116">"वाय-फाय ६"</string>
     <string name="wifitrackerlib_wifi_standard_11ad" msgid="4955749187120493383">"WiGig"</string>
     <string name="wifitrackerlib_wifi_standard_11be" msgid="1886834788680487835">"वाय-फाय ७"</string>
+    <string name="wifitrackerlib_wifi_band_unknown" msgid="5576746583228374334">"अज्ञात"</string>
+    <string name="wifitrackerlib_wifi_band_24_ghz" msgid="5374362780653321244">"२.४ GHz"</string>
+    <string name="wifitrackerlib_wifi_band_5_ghz" msgid="2179047349922091556">"५ GHz"</string>
+    <string name="wifitrackerlib_wifi_band_6_ghz" msgid="6532408050869498777">"६ GHz"</string>
+    <string name="wifitrackerlib_multiband_separator" msgid="2696920984391378575">","</string>
 </resources>

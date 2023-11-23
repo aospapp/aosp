@@ -29,10 +29,16 @@ namespace android {
 
 class IPCThreadState;
 
+/**
+ * Kernel binder process state. All operations here refer to kernel binder. This
+ * object is allocated per process.
+ */
 class ProcessState : public virtual RefBase {
 public:
     static sp<ProcessState> self();
     static sp<ProcessState> selfOrNull();
+
+    static bool isVndservicemanagerEnabled();
 
     /* initWithDriver() can be used to configure libbinder to use
      * a different binder driver dev node. It must be called *before*
@@ -46,6 +52,7 @@ public:
 
     sp<IBinder> getContextObject(const sp<IBinder>& caller);
 
+    // For main functions - dangerous for libraries to use
     void startThreadPool();
 
     bool becomeContextManager();
@@ -53,10 +60,17 @@ public:
     sp<IBinder> getStrongProxyForHandle(int32_t handle);
     void expungeHandle(int32_t handle, IBinder* binder);
 
+    // TODO: deprecate.
     void spawnPooledThread(bool isMain);
 
+    // For main functions - dangerous for libraries to use
     status_t setThreadPoolMaxThreadCount(size_t maxThreads);
     status_t enableOnewaySpamDetection(bool enable);
+
+    // Set the name of the current thread to look like a threadpool
+    // thread. Typically this is called before joinThreadPool.
+    //
+    // TODO: remove this API, and automatically set it intelligently.
     void giveThreadPoolName();
 
     String8 getDriverName();
@@ -84,14 +98,20 @@ public:
     void setCallRestriction(CallRestriction restriction);
 
     /**
-     * Get the max number of threads that the kernel can start.
-     *
-     * Note: this is the lower bound. Additional threads may be started.
+     * Get the max number of threads that have joined the thread pool.
+     * This includes kernel started threads, user joined threads and polling
+     * threads if used.
      */
-    size_t getThreadPoolMaxThreadCount() const;
+    size_t getThreadPoolMaxTotalThreadCount() const;
+
+    /**
+     * Check to see if the thread pool has started.
+     */
+    bool isThreadPoolStarted() const;
 
     enum class DriverFeature {
         ONEWAY_SPAM_DETECTION,
+        EXTENDED_ERROR,
     };
     // Determine whether a feature is supported by the binder driver.
     static bool isDriverFeatureEnabled(const DriverFeature feature);
@@ -125,15 +145,19 @@ private:
     void* mVMStart;
 
     // Protects thread count and wait variables below.
-    pthread_mutex_t mThreadCountLock;
+    mutable pthread_mutex_t mThreadCountLock;
     // Broadcast whenever mWaitingForThreads > 0
     pthread_cond_t mThreadCountDecrement;
     // Number of binder threads current executing a command.
     size_t mExecutingThreadsCount;
     // Number of threads calling IPCThreadState::blockUntilThreadAvailable()
     size_t mWaitingForThreads;
-    // Maximum number for binder threads allowed for this process.
+    // Maximum number of lazy threads to be started in the threadpool by the kernel.
     size_t mMaxThreads;
+    // Current number of threads inside the thread pool.
+    size_t mCurrentThreads;
+    // Current number of pooled threads inside the thread pool.
+    size_t mKernelStartedThreads;
     // Time when thread pool was emptied
     int64_t mStarvationStartTimeMs;
 

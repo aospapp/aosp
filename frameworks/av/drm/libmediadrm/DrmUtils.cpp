@@ -32,6 +32,7 @@
 #include <android/hardware/drm/1.4/IDrmFactory.h>
 #include <android/hidl/manager/1.2/IServiceManager.h>
 #include <hidl/HidlSupport.h>
+#include <json/json.h>
 
 #include <cutils/properties.h>
 #include <utils/Errors.h>
@@ -58,11 +59,11 @@ namespace DrmUtils {
 
 namespace {
 
-template <typename Hal>
-Hal* MakeObject(status_t* pstatus) {
+template <typename Hal, typename... Ts>
+Hal* MakeObject(status_t* pstatus, Ts... args) {
     status_t err = OK;
     status_t& status = pstatus ? *pstatus : err;
-    auto obj = new Hal();
+    auto obj = new Hal(args...);
     status = obj->initCheck();
     if (status != OK && status != NO_INIT) {
         return NULL;
@@ -191,8 +192,8 @@ std::vector<std::shared_ptr<IDrmFactoryAidl>> makeDrmFactoriesAidl() {
     return factories;
 }
 
-sp<IDrm> MakeDrm(status_t* pstatus) {
-    return MakeObject<DrmHal>(pstatus);
+sp<IDrm> MakeDrm(IDrmFrontend frontend, status_t* pstatus) {
+    return MakeObject<DrmMetricsLogger>(pstatus, frontend);
 }
 
 sp<ICrypto> MakeCrypto(status_t* pstatus) {
@@ -362,18 +363,23 @@ char logPriorityToChar(::V1_4::LogPriority priority) {
 }
 }  // namespace
 
-std::string GetExceptionMessage(status_t err, const char* msg,
+std::string GetExceptionMessage(const DrmStatus &err, const char* defaultMsg,
                                 const Vector<::V1_4::LogMessage>& logs) {
     std::string ruler("==============================");
     std::string header("Beginning of DRM Plugin Log");
     std::string footer("End of DRM Plugin Log");
+    std::string msg(err.getErrorMessage());
     String8 msg8;
-    if (msg) {
-        msg8 += msg;
+    if (!msg.empty()) {
+        msg8 += msg.c_str();
+        msg8 += ": ";
+    } else if (defaultMsg) {
+        msg8 += defaultMsg;
         msg8 += ": ";
     }
-    auto errStr = StrCryptoError(err);
-    msg8 += errStr.c_str();
+    msg8 += StrCryptoError(err).c_str();
+    msg8 += String8::format("\ncdm err: %d, oem err: %d, ctx: %d",
+                            err.getCdmErr(), err.getOemErr(), err.getContext());
     msg8 += String8::format("\n%s %s %s", ruler.c_str(), header.c_str(), ruler.c_str());
 
     for (auto log : logs) {
@@ -408,6 +414,141 @@ Vector<::V1_4::LogMessage> LogBuffer::getLogs() {
         logs.push_back(log);
     }
     return logs;
+}
+
+DrmStatus statusAidlToDrmStatus(::ndk::ScopedAStatus& statusAidl) {
+    if (statusAidl.isOk()) return OK;
+    if (statusAidl.getExceptionCode() != EX_SERVICE_SPECIFIC) return DEAD_OBJECT;
+    auto astatus = static_cast<StatusAidl>(statusAidl.getServiceSpecificError());
+    status_t status{};
+    switch (astatus) {
+    case StatusAidl::OK:
+        status = OK;
+        break;
+    case StatusAidl::BAD_VALUE:
+        status = BAD_VALUE;
+        break;
+    case StatusAidl::ERROR_DRM_CANNOT_HANDLE:
+        status = ERROR_DRM_CANNOT_HANDLE;
+        break;
+    case StatusAidl::ERROR_DRM_DECRYPT:
+        status = ERROR_DRM_DECRYPT;
+        break;
+    case StatusAidl::ERROR_DRM_DEVICE_REVOKED:
+        status = ERROR_DRM_DEVICE_REVOKED;
+        break;
+    case StatusAidl::ERROR_DRM_FRAME_TOO_LARGE:
+        status = ERROR_DRM_FRAME_TOO_LARGE;
+        break;
+    case StatusAidl::ERROR_DRM_INSUFFICIENT_OUTPUT_PROTECTION:
+        status = ERROR_DRM_INSUFFICIENT_OUTPUT_PROTECTION;
+        break;
+    case StatusAidl::ERROR_DRM_INSUFFICIENT_SECURITY:
+        status = ERROR_DRM_INSUFFICIENT_SECURITY;
+        break;
+    case StatusAidl::ERROR_DRM_INVALID_STATE:
+        status = ERROR_DRM_INVALID_STATE;
+        break;
+    case StatusAidl::ERROR_DRM_LICENSE_EXPIRED:
+        status = ERROR_DRM_LICENSE_EXPIRED;
+        break;
+    case StatusAidl::ERROR_DRM_NO_LICENSE:
+        status = ERROR_DRM_NO_LICENSE;
+        break;
+    case StatusAidl::ERROR_DRM_NOT_PROVISIONED:
+        status = ERROR_DRM_NOT_PROVISIONED;
+        break;
+    case StatusAidl::ERROR_DRM_RESOURCE_BUSY:
+        status = ERROR_DRM_RESOURCE_BUSY;
+        break;
+    case StatusAidl::ERROR_DRM_RESOURCE_CONTENTION:
+        status = ERROR_DRM_RESOURCE_CONTENTION;
+        break;
+    case StatusAidl::ERROR_DRM_SESSION_LOST_STATE:
+        status = ERROR_DRM_SESSION_LOST_STATE;
+        break;
+    case StatusAidl::ERROR_DRM_SESSION_NOT_OPENED:
+        status = ERROR_DRM_SESSION_NOT_OPENED;
+        break;
+
+    // New in S / drm@1.4:
+    case StatusAidl::CANNOT_DECRYPT_ZERO_SUBSAMPLES:
+        status = ERROR_DRM_ZERO_SUBSAMPLES;
+        break;
+    case StatusAidl::CRYPTO_LIBRARY_ERROR:
+        status = ERROR_DRM_CRYPTO_LIBRARY;
+        break;
+    case StatusAidl::GENERAL_OEM_ERROR:
+        status = ERROR_DRM_GENERIC_OEM;
+        break;
+    case StatusAidl::GENERAL_PLUGIN_ERROR:
+        status = ERROR_DRM_GENERIC_PLUGIN;
+        break;
+    case StatusAidl::INIT_DATA_INVALID:
+        status = ERROR_DRM_INIT_DATA;
+        break;
+    case StatusAidl::KEY_NOT_LOADED:
+        status = ERROR_DRM_KEY_NOT_LOADED;
+        break;
+    case StatusAidl::LICENSE_PARSE_ERROR:
+        status = ERROR_DRM_LICENSE_PARSE;
+        break;
+    case StatusAidl::LICENSE_POLICY_ERROR:
+        status = ERROR_DRM_LICENSE_POLICY;
+        break;
+    case StatusAidl::LICENSE_RELEASE_ERROR:
+        status = ERROR_DRM_LICENSE_RELEASE;
+        break;
+    case StatusAidl::LICENSE_REQUEST_REJECTED:
+        status = ERROR_DRM_LICENSE_REQUEST_REJECTED;
+        break;
+    case StatusAidl::LICENSE_RESTORE_ERROR:
+        status = ERROR_DRM_LICENSE_RESTORE;
+        break;
+    case StatusAidl::LICENSE_STATE_ERROR:
+        status = ERROR_DRM_LICENSE_STATE;
+        break;
+    case StatusAidl::MALFORMED_CERTIFICATE:
+        status = ERROR_DRM_CERTIFICATE_MALFORMED;
+        break;
+    case StatusAidl::MEDIA_FRAMEWORK_ERROR:
+        status = ERROR_DRM_MEDIA_FRAMEWORK;
+        break;
+    case StatusAidl::MISSING_CERTIFICATE:
+        status = ERROR_DRM_CERTIFICATE_MISSING;
+        break;
+    case StatusAidl::PROVISIONING_CERTIFICATE_ERROR:
+        status = ERROR_DRM_PROVISIONING_CERTIFICATE;
+        break;
+    case StatusAidl::PROVISIONING_CONFIGURATION_ERROR:
+        status = ERROR_DRM_PROVISIONING_CONFIG;
+        break;
+    case StatusAidl::PROVISIONING_PARSE_ERROR:
+        status = ERROR_DRM_PROVISIONING_PARSE;
+        break;
+    case StatusAidl::PROVISIONING_REQUEST_REJECTED:
+        status = ERROR_DRM_PROVISIONING_REQUEST_REJECTED;
+        break;
+    case StatusAidl::RETRYABLE_PROVISIONING_ERROR:
+        status = ERROR_DRM_PROVISIONING_RETRY;
+        break;
+    case StatusAidl::SECURE_STOP_RELEASE_ERROR:
+        status = ERROR_DRM_SECURE_STOP_RELEASE;
+        break;
+    case StatusAidl::STORAGE_READ_FAILURE:
+        status = ERROR_DRM_STORAGE_READ;
+        break;
+    case StatusAidl::STORAGE_WRITE_FAILURE:
+        status = ERROR_DRM_STORAGE_WRITE;
+        break;
+
+    case StatusAidl::ERROR_DRM_UNKNOWN:
+    default:
+        status = ERROR_DRM_UNKNOWN;
+        break;
+    }
+
+    return DrmStatus(status, statusAidl.getMessage());
 }
 
 LogBuffer gLogBuf;

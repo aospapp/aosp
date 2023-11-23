@@ -18,7 +18,7 @@
 //#define LOG_NDEBUG 0
 #include <utils/Log.h>
 #include <media/AudioProductStrategy.h>
-#include <media/AudioAttributes.h>
+#include <media/VolumeGroupAttributes.h>
 #include <media/PolicyAidlConversion.h>
 
 namespace android {
@@ -42,8 +42,8 @@ legacy2aidl_AudioProductStrategy(const AudioProductStrategy& legacy) {
     aidl.name = legacy.getName();
     aidl.audioAttributes = VALUE_OR_RETURN(
             convertContainer<std::vector<media::AudioAttributesEx>>(
-                    legacy.getAudioAttributes(),
-                    legacy2aidl_AudioAttributes_AudioAttributesEx));
+                    legacy.getVolumeGroupAttributes(),
+                    legacy2aidl_VolumeGroupAttributes_AudioAttributesEx));
     aidl.id = VALUE_OR_RETURN(legacy2aidl_product_strategy_t_int32_t(legacy.getId()));
     return aidl;
 }
@@ -53,32 +53,57 @@ aidl2legacy_AudioProductStrategy(const media::AudioProductStrategy& aidl) {
     return AudioProductStrategy(
             aidl.name,
             VALUE_OR_RETURN(
-                    convertContainer<std::vector<AudioAttributes>>(
+                    convertContainer<std::vector<VolumeGroupAttributes>>(
                             aidl.audioAttributes,
-                            aidl2legacy_AudioAttributesEx_AudioAttributes)),
+                            aidl2legacy_AudioAttributesEx_VolumeGroupAttributes)),
             VALUE_OR_RETURN(aidl2legacy_int32_t_product_strategy_t(aidl.id)));
 }
 
 // Keep in sync with android/media/audiopolicy/AudioProductStrategy#attributeMatches
-bool AudioProductStrategy::attributesMatches(const audio_attributes_t refAttributes,
-                                        const audio_attributes_t clientAttritubes)
+int AudioProductStrategy::attributesMatchesScore(const audio_attributes_t refAttributes,
+                                                 const audio_attributes_t clientAttritubes)
 {
+    if (refAttributes == clientAttritubes) {
+        return MATCH_EQUALS;
+    }
     if (refAttributes == AUDIO_ATTRIBUTES_INITIALIZER) {
         // The default product strategy is the strategy that holds default attributes by convention.
         // All attributes that fail to match will follow the default strategy for routing.
-        // Choosing the default must be done as a fallback, the attributes match shall not
-        // select the default.
-        return false;
+        // Choosing the default must be done as a fallback,so return a default (zero) score to
+        // allow identify the fallback.
+        return MATCH_ON_DEFAULT_SCORE;
     }
-    return ((refAttributes.usage == AUDIO_USAGE_UNKNOWN) ||
-            (clientAttritubes.usage == refAttributes.usage)) &&
-            ((refAttributes.content_type == AUDIO_CONTENT_TYPE_UNKNOWN) ||
-             (clientAttritubes.content_type == refAttributes.content_type)) &&
-            ((refAttributes.flags == AUDIO_FLAG_NONE) ||
-             (clientAttritubes.flags != AUDIO_FLAG_NONE &&
-            (clientAttritubes.flags & refAttributes.flags) == refAttributes.flags)) &&
-            ((strlen(refAttributes.tags) == 0) ||
-             (std::strcmp(clientAttritubes.tags, refAttributes.tags) == 0));
+    int score = MATCH_ON_DEFAULT_SCORE;
+    if (refAttributes.usage == AUDIO_USAGE_UNKNOWN) {
+        score |= MATCH_ON_DEFAULT_SCORE;
+    } else if (clientAttritubes.usage == refAttributes.usage) {
+        score |= MATCH_ON_USAGE_SCORE;
+    } else {
+        return NO_MATCH;
+    }
+    if (refAttributes.content_type == AUDIO_CONTENT_TYPE_UNKNOWN) {
+        score |= MATCH_ON_DEFAULT_SCORE;
+    } else if (clientAttritubes.content_type == refAttributes.content_type) {
+        score |= MATCH_ON_CONTENT_TYPE_SCORE;
+    } else {
+        return NO_MATCH;
+    }
+    if (strlen(refAttributes.tags) == 0) {
+        score |= MATCH_ON_DEFAULT_SCORE;
+    } else if (std::strcmp(clientAttritubes.tags, refAttributes.tags) == 0) {
+        score |= MATCH_ON_TAGS_SCORE;
+    } else {
+        return NO_MATCH;
+    }
+    if (refAttributes.flags == AUDIO_FLAG_NONE) {
+        score |= MATCH_ON_DEFAULT_SCORE;
+    } else if ((clientAttritubes.flags != AUDIO_FLAG_NONE)
+            && ((clientAttritubes.flags & refAttributes.flags) == refAttributes.flags)) {
+        score |= MATCH_ON_FLAGS_SCORE;
+    } else {
+        return NO_MATCH;
+    }
+    return score;
 }
 
 } // namespace android

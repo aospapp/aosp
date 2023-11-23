@@ -334,7 +334,10 @@ public:
         // By default needsUpdate = false in case the supplied level does meet
         // the requirements. For Level 1b, we want to update the level anyway,
         // so we set it to true in that case.
-        bool needsUpdate = (me.v.level == LEVEL_AVC_1B);
+        bool needsUpdate = false;
+        if (me.v.level == LEVEL_AVC_1B || !me.F(me.v.level).supportsAtAll(me.v.level)) {
+            needsUpdate = true;
+        }
         for (const LevelLimits &limit : kLimits) {
             if (mbs <= limit.mbs && mbsPerSec <= limit.mbsPerSec &&
                     bitrate.v.value <= limit.bitrate) {
@@ -356,7 +359,7 @@ public:
                 needsUpdate = true;
             }
         }
-        if (!found) {
+        if (!found || me.v.level > LEVEL_AVC_5) {
             // We set to the highest supported level.
             me.set().level = LEVEL_AVC_5;
         }
@@ -392,9 +395,9 @@ public:
     static C2R PictureQuantizationSetter(bool mayBlock,
                                          C2P<C2StreamPictureQuantizationTuning::output> &me) {
         (void)mayBlock;
-        (void)me;
 
-        // TODO: refactor with same algorithm in the SetQp()
+        // these are the ones we're going to set, so want them to default
+        // to the DEFAULT values for the codec
         int32_t iMin = DEFAULT_I_QP_MIN, pMin = DEFAULT_P_QP_MIN, bMin = DEFAULT_B_QP_MIN;
         int32_t iMax = DEFAULT_I_QP_MAX, pMax = DEFAULT_P_QP_MAX, bMax = DEFAULT_B_QP_MAX;
 
@@ -419,13 +422,14 @@ public:
         ALOGV("PictureQuantizationSetter(entry): i %d-%d p %d-%d b %d-%d",
               iMin, iMax, pMin, pMax, bMin, bMax);
 
-        // ensure we have legal values
-        iMax = std::clamp(iMax, CODEC_QP_MIN, CODEC_QP_MAX);
-        iMin = std::clamp(iMin, CODEC_QP_MIN, CODEC_QP_MAX);
-        pMax = std::clamp(pMax, CODEC_QP_MIN, CODEC_QP_MAX);
-        pMin = std::clamp(pMin, CODEC_QP_MIN, CODEC_QP_MAX);
-        bMax = std::clamp(bMax, CODEC_QP_MIN, CODEC_QP_MAX);
-        bMin = std::clamp(bMin, CODEC_QP_MIN, CODEC_QP_MAX);
+        // min is clamped to [AVC_QP_MIN, max] to avoid error
+        // cases where layer.min > layer.max
+        iMax = std::clamp(iMax, AVC_QP_MIN, AVC_QP_MAX);
+        iMin = std::clamp(iMin, AVC_QP_MIN, iMax);
+        pMax = std::clamp(pMax, AVC_QP_MIN, AVC_QP_MAX);
+        pMin = std::clamp(pMin, AVC_QP_MIN, pMax);
+        bMax = std::clamp(bMax, AVC_QP_MIN, AVC_QP_MAX);
+        bMin = std::clamp(bMin, AVC_QP_MIN, bMax);
 
         // put them back into the structure
         for (size_t i = 0; i < me.v.flexCount(); ++i) {
@@ -819,7 +823,8 @@ c2_status_t C2SoftAvcEnc::setQp() {
     s_qp_ip.e_cmd = IVE_CMD_VIDEO_CTL;
     s_qp_ip.e_sub_cmd = IVE_CMD_CTL_SET_QP;
 
-    // TODO: refactor with same algorithm in the PictureQuantizationSetter()
+    // we resolved out-of-bound and unspecified values in PictureQuantizationSetter()
+    // so we can start with defaults that are overridden as needed.
     int32_t iMin = DEFAULT_I_QP_MIN, pMin = DEFAULT_P_QP_MIN, bMin = DEFAULT_B_QP_MIN;
     int32_t iMax = DEFAULT_I_QP_MAX, pMax = DEFAULT_P_QP_MAX, bMax = DEFAULT_B_QP_MAX;
 
@@ -1766,17 +1771,20 @@ void C2SoftAvcEnc::process(
     //         }
     //     }
     // }
-    std::shared_ptr<const C2GraphicView> view;
+    std::shared_ptr<C2GraphicView> view;
     std::shared_ptr<C2Buffer> inputBuffer;
     if (!work->input.buffers.empty()) {
         inputBuffer = work->input.buffers[0];
-        view = std::make_shared<const C2GraphicView>(
+        view = std::make_shared<C2GraphicView>(
                 inputBuffer->data().graphicBlocks().front().map().get());
         if (view->error() != C2_OK) {
             ALOGE("graphic view map err = %d", view->error());
             work->workletsProcessed = 1u;
             return;
         }
+        //(b/232396154)
+        //workaround for incorrect crop size in view when using surface mode
+        view->setCrop_be(C2Rect(mSize->width, mSize->height));
     }
 
     do {

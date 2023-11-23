@@ -20,6 +20,7 @@ import androidx.test.filters.SmallTest
 import androidx.test.runner.AndroidJUnit4
 import org.junit.Test
 import org.junit.runner.RunWith
+import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 
 @RunWith(AndroidJUnit4::class)
@@ -27,6 +28,7 @@ import kotlin.test.assertFailsWith
 class PerUidCounterTest {
     private val UID_A = 1000
     private val UID_B = 1001
+    private val UID_C = 1002
 
     @Test
     fun testCounterMaximum() {
@@ -37,31 +39,35 @@ class PerUidCounterTest {
             PerUidCounter(0)
         }
 
-        val largeMaxCounter = PerUidCounter(Integer.MAX_VALUE)
-        largeMaxCounter.incrementCountOrThrow(UID_A, Integer.MAX_VALUE)
-        assertFailsWith<IllegalStateException> {
-            largeMaxCounter.incrementCountOrThrow(UID_A)
+        val testLimit = 1000
+        val testCounter = PerUidCounter(testLimit)
+        assertEquals(0, testCounter[UID_A])
+        repeat(testLimit) {
+            testCounter.incrementCountOrThrow(UID_A)
         }
+        assertEquals(testLimit, testCounter[UID_A])
+        assertFailsWith<IllegalStateException> {
+            testCounter.incrementCountOrThrow(UID_A)
+        }
+        assertEquals(testLimit, testCounter[UID_A])
     }
 
     @Test
     fun testIncrementCountOrThrow() {
         val counter = PerUidCounter(3)
 
-        // Verify the increment count cannot be zero.
-        assertFailsWith<IllegalArgumentException> {
-            counter.incrementCountOrThrow(UID_A, 0)
-        }
-
         // Verify the counters work independently.
         counter.incrementCountOrThrow(UID_A)
-        counter.incrementCountOrThrow(UID_B, 2)
+        counter.incrementCountOrThrow(UID_B)
         counter.incrementCountOrThrow(UID_B)
         counter.incrementCountOrThrow(UID_A)
         counter.incrementCountOrThrow(UID_A)
+        assertEquals(3, counter[UID_A])
+        assertEquals(2, counter[UID_B])
         assertFailsWith<IllegalStateException> {
             counter.incrementCountOrThrow(UID_A)
         }
+        counter.incrementCountOrThrow(UID_B)
         assertFailsWith<IllegalStateException> {
             counter.incrementCountOrThrow(UID_B)
         }
@@ -71,39 +77,66 @@ class PerUidCounterTest {
             counter.incrementCountOrThrow(UID_A)
         }
         assertFailsWith<IllegalStateException> {
-            counter.incrementCountOrThrow(UID_A, 3)
+            repeat(3) {
+                counter.incrementCountOrThrow(UID_A)
+            }
         }
+        assertEquals(3, counter[UID_A])
+        assertEquals(3, counter[UID_B])
+        assertEquals(0, counter[UID_C])
     }
 
     @Test
     fun testDecrementCountOrThrow() {
         val counter = PerUidCounter(3)
 
-        // Verify the decrement count cannot be zero.
-        assertFailsWith<IllegalArgumentException> {
-            counter.decrementCountOrThrow(UID_A, 0)
-        }
-
         // Verify the count cannot go below zero.
         assertFailsWith<IllegalStateException> {
             counter.decrementCountOrThrow(UID_A)
         }
         assertFailsWith<IllegalStateException> {
-            counter.decrementCountOrThrow(UID_A, 5)
-        }
-        assertFailsWith<IllegalStateException> {
-            counter.decrementCountOrThrow(UID_A, Integer.MAX_VALUE)
+            repeat(5) {
+                counter.decrementCountOrThrow(UID_A)
+            }
         }
 
         // Verify the counters work independently.
         counter.incrementCountOrThrow(UID_A)
         counter.incrementCountOrThrow(UID_B)
+        assertEquals(1, counter[UID_A])
+        assertEquals(1, counter[UID_B])
         assertFailsWith<IllegalStateException> {
-            counter.decrementCountOrThrow(UID_A, 3)
+            repeat(3) {
+                counter.decrementCountOrThrow(UID_A)
+            }
         }
-        counter.decrementCountOrThrow(UID_A)
         assertFailsWith<IllegalStateException> {
             counter.decrementCountOrThrow(UID_A)
         }
+        assertEquals(0, counter[UID_A])
+        assertEquals(1, counter[UID_B])
+
+        // Verify mixing increment and decrement.
+        val largeCounter = PerUidCounter(100)
+        repeat(90) {
+            largeCounter.incrementCountOrThrow(UID_A)
+        }
+        repeat(70) {
+            largeCounter.decrementCountOrThrow(UID_A)
+        }
+        repeat(80) {
+            largeCounter.incrementCountOrThrow(UID_A)
+        }
+        assertFailsWith<IllegalStateException> {
+            largeCounter.incrementCountOrThrow(UID_A)
+        }
+        assertEquals(100, largeCounter[UID_A])
+        repeat(100) {
+            largeCounter.decrementCountOrThrow(UID_A)
+        }
+        assertFailsWith<IllegalStateException> {
+            largeCounter.decrementCountOrThrow(UID_A)
+        }
+        assertEquals(0, largeCounter[UID_A])
     }
 }

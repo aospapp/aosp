@@ -36,7 +36,7 @@ android_app {
     static_libs: [
         "localepicker",
         "robolectric_android-all-stub",
-        "Robolectric_all-target",
+        "Robolectric_all-target_upstream",
         "mockito-robolectric-prebuilt",
         "truth-prebuilt",
     ],
@@ -49,4 +49,5 @@ android_robolectric_test {
     name: "LocalePickerRoboTests",
     srcs: ["src/**/*.java"],
     instrumentation_for: "LocalePickerTest",
+    upstream: true,
 }

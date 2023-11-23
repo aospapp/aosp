@@ -79,4 +79,8 @@ TEST(SparseBitSetTest, emptyBitSetBufferTest) {
     ASSERT_EQ(buffer, newBuffer);
 }
 
+TEST(SparseBitSetTest, sizeTest) {
+    ASSERT_EQ(sizeof(void*), sizeof(SparseBitSet));
+}
+
 }  // namespace minikin

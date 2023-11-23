@@ -2,6 +2,16 @@ package {
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
+cc_defaults {
+    name: "libminikin_defaults",
+    cflags: [
+        "-Wall",
+        "-Werror",
+        "-Wextra",
+        "-Wthread-safety",
+    ],
+}
+
 cc_library_headers {
     name: "libminikin_headers",
     host_supported: true,

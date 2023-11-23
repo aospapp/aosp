@@ -25,14 +25,11 @@ import static com.android.ims.rcs.uce.request.UceRequestCoordinator.REQUEST_UPDA
 import static com.android.ims.rcs.uce.request.UceRequestCoordinator.REQUEST_UPDATE_RESOURCE_TERMINATED;
 import static com.android.ims.rcs.uce.request.UceRequestCoordinator.REQUEST_UPDATE_TERMINATED;
 
-import static java.lang.Boolean.TRUE;
-
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.never;
@@ -41,6 +38,7 @@ import static org.mockito.Mockito.verify;
 import android.net.Uri;
 import android.telephony.ims.RcsContactPresenceTuple;
 import android.telephony.ims.RcsContactUceCapability;
+import android.telephony.ims.SipDetails;
 import android.telephony.ims.aidl.IRcsUceControllerCallback;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -49,20 +47,22 @@ import androidx.test.filters.SmallTest;
 import com.android.ims.ImsTestBase;
 import com.android.ims.rcs.uce.UceDeviceState.DeviceStateResult;
 import com.android.ims.rcs.uce.UceStatsWriter;
+import com.android.ims.rcs.uce.eab.EabCapabilityResult;
 import com.android.ims.rcs.uce.request.UceRequestCoordinator.RequestResult;
 import com.android.ims.rcs.uce.request.UceRequestManager.RequestManagerCallback;
-
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
 
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Optional;
 
 @RunWith(AndroidJUnit4.class)
 public class SubscribeCoordinatorTest extends ImsTestBase {
@@ -127,6 +127,17 @@ public class SubscribeCoordinatorTest extends ImsTestBase {
     @Test
     @SmallTest
     public void testRequestNetworkRespSuccess() throws Exception {
+        int responseCode = 200;
+        String responsePhrase = "OK";
+        int reasonHdrCause = 1;
+        String reasonHdrText = "reasonText";
+        int cSeq = 10;
+        String callId = "TestCallId";
+        SipDetails details = new SipDetails.Builder(SipDetails.METHOD_SUBSCRIBE).setCSeq(cSeq)
+                .setSipResponseCode(responseCode, responsePhrase).setCallId(callId)
+                .setSipResponseReasonHeader(reasonHdrCause, reasonHdrText).build();
+        doReturn(Optional.ofNullable(details)).when(mResponse).getSipDetails();
+
         SubscribeRequestCoordinator coordinator = getSubscribeCoordinator();
         doReturn(true).when(mResponse).isNetworkResponseOK();
         doReturn(Optional.of(200)).when(mResponse).getNetworkRespSipCode();
@@ -138,8 +149,21 @@ public class SubscribeCoordinatorTest extends ImsTestBase {
         assertEquals(1, requestList.size());
         assertTrue(resultList.isEmpty());
 
-        verify(mUceStatsWriter).setSubscribeResponse(eq(mSubId), eq(mTaskId), eq(200));
+        Iterator<RequestResult> requestResults = resultList.iterator();
+        while (requestResults.hasNext()) {
+            RequestResult req = requestResults.next();
+            SipDetails receivedInfo = req.getSipDetails().orElse(null);
+            assertNotNull(receivedInfo);
+            assertEquals(SipDetails.METHOD_SUBSCRIBE, receivedInfo.getMethod());
+            assertEquals(cSeq, receivedInfo.getCSeq());
+            assertEquals(responseCode, receivedInfo.getResponseCode());
+            assertEquals(responsePhrase, receivedInfo.getResponsePhrase());
+            assertEquals(reasonHdrCause, receivedInfo.getReasonHeaderCause());
+            assertEquals(reasonHdrText, receivedInfo.getReasonHeaderText());
+            assertEquals(callId, receivedInfo.getCallId());
+        }
 
+        verify(mUceStatsWriter).setSubscribeResponse(eq(mSubId), eq(mTaskId), eq(200));
         verify(mRequest, never()).onFinish();
     }
 
@@ -150,10 +174,20 @@ public class SubscribeCoordinatorTest extends ImsTestBase {
 
         SubscribeRequestCoordinator coordinator = getSubscribeCoordinator();
 
+        List<EabCapabilityResult> eabResultList = new ArrayList<>();
+
+        Uri contactUri = Uri.fromParts("tel", "123456789", null);
+        EabCapabilityResult result = new EabCapabilityResult(contactUri,
+                EabCapabilityResult.EAB_CONTACT_NOT_FOUND_FAILURE, null);
+        eabResultList.add(result);
+
+        doReturn(eabResultList).when(mRequestMgrCallback).
+                getCapabilitiesFromCacheIncludingExpired(any());
+
         coordinator.onRequestUpdated(mTaskId, REQUEST_UPDATE_NETWORK_RESPONSE);
 
         verify(mUceStatsWriter).setSubscribeResponse(eq(mSubId), eq(mTaskId), eq(400));
-
+        verify(mRequestMgrCallback, never()).saveCapabilities(any());
         verify(mRequest).onFinish();
     }
 

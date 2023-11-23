@@ -49,11 +49,28 @@ public:
     static const char * const keyInputSource;
     static const char * const keyScreenState;
 
+    // TODO(b/73175392) consider improvement to AIDL StreamOut interface.
+    // keyClosing: "true" when AudioOutputDescriptor is closing.  Used by A2DP HAL.
+    // keyExiting: "1" on AudioFlinger Thread preExit.  Used by remote_submix and A2DP HAL.
+    static const char * const keyClosing;
+    static const char * const keyExiting;
+
+    //  keyBtSco: Whether BT SCO is 'on' or 'off'
+    //  keyBtScoHeadsetName: BT SCO headset name (for debugging)
     //  keyBtNrec: BT SCO Noise Reduction + Echo Cancellation parameters
+    //  keyBtScoWb: BT SCO NR wideband mode
+    //  keyHfp...: Parameters of the Hands-Free Profile
+    static const char * const keyBtSco;
+    static const char * const keyBtScoHeadsetName;
+    static const char * const keyBtNrec;
+    static const char * const keyBtScoWb;
+    static const char * const keyBtHfpEnable;
+    static const char * const keyBtHfpSamplingRate;
+    static const char * const keyBtHfpVolume;
+
     //  keyHwAvSync: get HW synchronization source identifier from a device
     //  keyMonoOutput: Enable mono audio playback
     //  keyStreamHwAvSync: set HW synchronization source identifier on a stream
-    static const char * const keyBtNrec;
     static const char * const keyHwAvSync;
     static const char * const keyMonoOutput;
     static const char * const keyStreamHwAvSync;
@@ -84,13 +101,19 @@ public:
 
     static const char * const valueOn;
     static const char * const valueOff;
+    static const char * const valueTrue;
+    static const char * const valueFalse;
 
     static const char * const valueListSeparator;
 
+    // keyBtA2dpSuspended: 'true' or 'false'
     // keyReconfigA2dp: Ask HwModule to reconfigure A2DP offloaded codec
     // keyReconfigA2dpSupported: Query if HwModule supports A2DP offload codec config
+    // keyBtLeSuspended: 'true' or 'false'
+    static const char * const keyBtA2dpSuspended;
     static const char * const keyReconfigA2dp;
     static const char * const keyReconfigA2dpSupported;
+    static const char * const keyBtLeSuspended;
 
     // For querying device supported encapsulation capabilities. All returned values are integer,
     // which are bit fields composed from using encapsulation capability values as position bits.
@@ -107,6 +130,12 @@ public:
     static const char * const keyAdditionalOutputDeviceDelay;
     static const char * const keyMaxAdditionalOutputDeviceDelay;
 
+    static const char * const keyOffloadCodecAverageBitRate;
+    static const char * const keyOffloadCodecSampleRate;
+    static const char * const keyOffloadCodecChannels;
+    static const char * const keyOffloadCodecDelaySamples;
+    static const char * const keyOffloadCodecPaddingSamples;
+
     String8 toString() const { return toStringImpl(true); }
     String8 keysToString() const { return toStringImpl(false); }
 
@@ -117,6 +146,12 @@ public:
 
     status_t remove(const String8& key);
 
+    status_t get(const String8& key, int& value) const {
+        return getInt(key, value);
+    }
+    status_t get(const String8& key, float& value) const {
+        return getFloat(key, value);
+    }
     status_t get(const String8& key, String8& value) const;
     status_t getInt(const String8& key, int& value) const;
     status_t getFloat(const String8& key, float& value) const;
@@ -125,6 +160,7 @@ public:
 
     size_t size() const { return mParameters.size(); }
 
+    bool containsKey(const String8& key) const;
 private:
     String8 mKeyValuePairs;
     KeyedVector <String8, String8> mParameters;

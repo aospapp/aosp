@@ -74,8 +74,11 @@ public abstract class HttpResponse {
                 .setCookies(ImmutableList.of());
     }
 
-    @Override
-    public final String toString() {
+    /**
+     * Returns a short string representation for debugging purposes. Doesn't include the cookie or
+     * full body to prevent leaking sensitive data.
+     */
+    public String toShortDebugString() {
         return new StringBuilder("HttpResponse{")
                 .append("contentType=")
                 .append(contentType())

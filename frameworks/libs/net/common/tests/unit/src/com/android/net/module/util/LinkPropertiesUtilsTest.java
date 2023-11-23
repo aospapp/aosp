@@ -94,6 +94,9 @@ public final class LinkPropertiesUtilsTest {
         assertTrue(LinkPropertiesUtils.isIdenticalAddresses(source, target));
         assertTrue(LinkPropertiesUtils.isIdenticalAddresses(target, source));
 
+        assertTrue(LinkPropertiesUtils.isIdenticalAllLinkAddresses(source, target));
+        assertTrue(LinkPropertiesUtils.isIdenticalAllLinkAddresses(target, source));
+
         assertTrue(LinkPropertiesUtils.isIdenticalDnses(source, target));
         assertTrue(LinkPropertiesUtils.isIdenticalDnses(target, source));
 
@@ -116,12 +119,17 @@ public final class LinkPropertiesUtilsTest {
         assertFalse(LinkPropertiesUtils.isIdenticalAddresses(source, target));
         assertFalse(LinkPropertiesUtils.isIdenticalAddresses(target, source));
 
+        assertFalse(LinkPropertiesUtils.isIdenticalAllLinkAddresses(source, target));
+        assertFalse(LinkPropertiesUtils.isIdenticalAllLinkAddresses(target, source));
+
         // Currently, target contains V4_LINKADDR, V6_LINKADDR and testLinkAddr.
         // Compare addresses.size() equals but contains different address.
         target.removeLinkAddress(V4_LINKADDR);
         assertEquals(source.getAddresses().size(), target.getAddresses().size());
         assertFalse(LinkPropertiesUtils.isIdenticalAddresses(source, target));
         assertFalse(LinkPropertiesUtils.isIdenticalAddresses(target, source));
+        assertFalse(LinkPropertiesUtils.isIdenticalAllLinkAddresses(source, target));
+        assertFalse(LinkPropertiesUtils.isIdenticalAllLinkAddresses(target, source));
         // Restore link address
         target.addLinkAddress(V4_LINKADDR);
         target.removeLinkAddress(testLinkAddr);
@@ -169,6 +177,13 @@ public final class LinkPropertiesUtilsTest {
         target.setHttpProxy(null);
         assertFalse(LinkPropertiesUtils.isIdenticalHttpProxy(source, target));
         assertFalse(LinkPropertiesUtils.isIdenticalHttpProxy(target, source));
+
+        final LinkProperties stacked = new LinkProperties();
+        stacked.setInterfaceName("v4-" + target.getInterfaceName());
+        stacked.addLinkAddress(testLinkAddr);
+        target.addStackedLink(stacked);
+        assertFalse(LinkPropertiesUtils.isIdenticalAllLinkAddresses(source, target));
+        assertFalse(LinkPropertiesUtils.isIdenticalAllLinkAddresses(target, source));
     }
 
     private <T> void compareResult(List<T> oldItems, List<T> newItems, List<T> expectRemoved,

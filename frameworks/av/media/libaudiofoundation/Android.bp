@@ -18,21 +18,22 @@ cc_library_headers {
 
     export_include_dirs: ["include"],
     header_libs: [
-        "libaudioclient_aidl_conversion_util",
+        "libaudio_aidl_conversion_common_util_cpp",
         "libaudio_system_headers",
         "libmedia_helper_headers",
     ],
     export_header_lib_headers: [
-        "libaudioclient_aidl_conversion_util",
+        "libaudio_aidl_conversion_common_util_cpp",
         "libaudio_system_headers",
         "libmedia_helper_headers",
     ],
+    defaults: [
+        "latest_android_media_audio_common_types_cpp_export_static",
+    ],
     static_libs: [
-        "android.media.audio.common.types-V1-cpp",
         "audioclient-types-aidl-cpp",
     ],
     export_static_lib_headers: [
-        "android.media.audio.common.types-V1-cpp",
         "audioclient-types-aidl-cpp",
     ],
     host_supported: true,
@@ -57,8 +58,11 @@ cc_library {
         "DeviceDescriptorBase.cpp",
     ],
 
+    defaults: [
+        "latest_android_media_audio_common_types_cpp_export_shared",
+    ],
+
     shared_libs: [
-        "android.media.audio.common.types-V1-cpp",
         "audioclient-types-aidl-cpp",
         "libaudioclient_aidl_conversion",
         "libaudioutils",
@@ -70,7 +74,6 @@ cc_library {
     ],
 
     export_shared_lib_headers: [
-        "android.media.audio.common.types-V1-cpp",
         "audioclient-types-aidl-cpp",
         "libaudioclient_aidl_conversion",
     ],

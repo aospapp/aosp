@@ -38,6 +38,7 @@ enum DisconnectCode {
     DC_INVALID_PROVISIONING = 7;
     DC_INTERFACE_NOT_FOUND = 8;
     DC_PROVISIONING_TIMEOUT = 9;
+    DC_DHCP_ROAM_FAIL = 10;
 }
 
 enum TransportType {

@@ -37,6 +37,7 @@ import android.telephony.CarrierConfigManager;
 import android.telephony.ims.ImsManager;
 import android.telephony.ims.ImsRcsManager;
 import android.telephony.ims.RcsContactUceCapability;
+import android.telephony.ims.SipDetails;
 import android.telephony.ims.aidl.IRcsUceControllerCallback;
 import android.util.Log;
 
@@ -142,12 +143,12 @@ public final class EabBulkCapabilityUpdater {
         }
 
         @Override
-        public void onComplete() {
+        public void onComplete(SipDetails details) {
             Log.d(TAG, "onComplete");
         }
 
         @Override
-        public void onError(int errorCode, long retryAfterMilliseconds) {
+        public void onError(int errorCode, long retryAfterMilliseconds, SipDetails details) {
             Log.d(TAG, "Refresh capabilities failed. Error code: " + errorCode
                     + ", retryAfterMilliseconds: " + retryAfterMilliseconds);
             if (retryAfterMilliseconds != 0) {

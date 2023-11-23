@@ -222,6 +222,7 @@ enum EncodedSurroundOutputMode {
     ENCODED_SURROUND_OUTPUT_MANUAL = 4;
 }
 enum HdrFormat {
+    HDR_TYPE_UNKNOWN = 0;
     HDR_TYPE_DOLBY_VISION = 1;
     HDR_TYPE_HDR10 = 2;
     HDR_TYPE_HLG = 3;

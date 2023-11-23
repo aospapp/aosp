@@ -16,9 +16,12 @@
 
 package com.android.net.module.util;
 
+import static android.content.pm.PackageManager.MATCH_SYSTEM_ONLY;
+
 import android.content.Context;
-import android.content.pm.ModuleInfo;
+import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
 import android.content.res.Resources;
 import android.provider.DeviceConfig;
 import android.util.Log;
@@ -27,6 +30,9 @@ import androidx.annotation.BoolRes;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Utilities for modules to query {@link DeviceConfig} and flags.
@@ -41,6 +47,11 @@ public final class DeviceConfigUtils {
      * be referencing a different tethering module variant, or having a stale reference.
      */
     public static final String TETHERING_MODULE_NAME = "com.android.tethering";
+
+    @VisibleForTesting
+    public static final String RESOURCES_APK_INTENT =
+            "com.android.server.connectivity.intent.action.SERVICE_CONNECTIVITY_RESOURCES_APK";
+    private static final String CONNECTIVITY_RES_PKG_DIR = "/apex/" + TETHERING_MODULE_NAME + "/";
 
     @VisibleForTesting
     public static void resetPackageVersionCacheForTest() {
@@ -189,21 +200,18 @@ public final class DeviceConfigUtils {
      */
     public static boolean isFeatureEnabled(@NonNull Context context, @NonNull String namespace,
             @NonNull String name, @NonNull String moduleName, boolean defaultEnabled) {
+        // TODO: migrate callers to a non-generic isTetheringFeatureEnabled method.
+        if (!TETHERING_MODULE_NAME.equals(moduleName)) {
+            throw new IllegalArgumentException(
+                    "This method is only usable by the tethering module");
+        }
         try {
-            final long packageVersion = getModuleVersion(context, moduleName);
+            final long packageVersion = getTetheringModuleVersion(context);
             return isFeatureEnabled(context, packageVersion, namespace, name, defaultEnabled);
         } catch (PackageManager.NameNotFoundException e) {
             Log.e(TAG, "Could not find the module name", e);
             return false;
         }
-    }
-
-    private static boolean maybeUseFixedPackageVersion(@NonNull Context context) {
-        final String packageName = context.getPackageName();
-        if (packageName == null) return false;
-
-        return packageName.equals("com.android.networkstack.tethering")
-                || packageName.equals("com.android.networkstack.tethering.inprocess");
     }
 
     private static boolean isFeatureEnabled(@NonNull Context context, long packageVersion,
@@ -215,36 +223,40 @@ public final class DeviceConfigUtils {
                 || (propertyVersion != 0 && packageVersion >= (long) propertyVersion);
     }
 
+    // Guess the tethering module name based on the package prefix of the connectivity resources
+    // Take the resource package name, cut it before "connectivity" and append "tethering".
+    // Then resolve that package version number with packageManager.
+    // If that fails retry by appending "go.tethering" instead
+    private static long resolveTetheringModuleVersion(@NonNull Context context)
+            throws PackageManager.NameNotFoundException {
+        final String connResourcesPackage = getConnectivityResourcesPackageName(context);
+        final int pkgPrefixLen = connResourcesPackage.indexOf("connectivity");
+        if (pkgPrefixLen < 0) {
+            throw new IllegalStateException(
+                    "Invalid connectivity resources package: " + connResourcesPackage);
+        }
+
+        final String pkgPrefix = connResourcesPackage.substring(0, pkgPrefixLen);
+        final PackageManager packageManager = context.getPackageManager();
+        try {
+            return packageManager.getPackageInfo(pkgPrefix + "tethering",
+                    PackageManager.MATCH_APEX).getLongVersionCode();
+        } catch (PackageManager.NameNotFoundException e) {
+            Log.d(TAG, "Device is using go modules");
+            // fall through
+        }
+
+        return packageManager.getPackageInfo(pkgPrefix + "go.tethering",
+                PackageManager.MATCH_APEX).getLongVersionCode();
+    }
+
     private static volatile long sModuleVersion = -1;
-    @VisibleForTesting public static long FIXED_PACKAGE_VERSION = 10;
-    private static long getModuleVersion(@NonNull Context context, @NonNull String moduleName)
+    private static long getTetheringModuleVersion(@NonNull Context context)
             throws PackageManager.NameNotFoundException {
         if (sModuleVersion >= 0) return sModuleVersion;
 
-        final PackageManager packageManager = context.getPackageManager();
-        ModuleInfo module;
-        try {
-            module = packageManager.getModuleInfo(
-                    moduleName, PackageManager.MODULE_APEX_NAME);
-        } catch (PackageManager.NameNotFoundException e) {
-            // The error may happen if mainline module meta data is not installed e.g. there are
-            // no meta data configuration in AOSP build. To be able to enable a feature in AOSP
-            // by setting a flag via ADB for example. set a small non-zero fixed number for
-            // comparing.
-            if (maybeUseFixedPackageVersion(context)) {
-                sModuleVersion = FIXED_PACKAGE_VERSION;
-                return FIXED_PACKAGE_VERSION;
-            } else {
-                throw e;
-            }
-        }
-        String modulePackageName = module.getPackageName();
-        if (modulePackageName == null) throw new PackageManager.NameNotFoundException(moduleName);
-        final long version = packageManager.getPackageInfo(modulePackageName,
-                PackageManager.MATCH_APEX).getLongVersionCode();
-        sModuleVersion = version;
-
-        return version;
+        sModuleVersion = resolveTetheringModuleVersion(context);
+        return sModuleVersion;
     }
 
     /**
@@ -258,5 +270,38 @@ public final class DeviceConfigUtils {
         } catch (Resources.NotFoundException e) {
             return defaultValue;
         }
+    }
+
+    /**
+     * Gets int config from resources.
+     */
+    public static int getResIntegerConfig(@NonNull final Context context,
+            @BoolRes int configResource, final int defaultValue) {
+        final Resources res = context.getResources();
+        try {
+            return res.getInteger(configResource);
+        } catch (Resources.NotFoundException e) {
+            return defaultValue;
+        }
+    }
+
+    /**
+     * Get the package name of the ServiceConnectivityResources package, used to provide resources
+     * for service-connectivity.
+     */
+    @NonNull
+    public static String getConnectivityResourcesPackageName(@NonNull Context context) {
+        final List<ResolveInfo> pkgs = new ArrayList<>(context.getPackageManager()
+                .queryIntentActivities(new Intent(RESOURCES_APK_INTENT), MATCH_SYSTEM_ONLY));
+        pkgs.removeIf(pkg -> !pkg.activityInfo.applicationInfo.sourceDir.startsWith(
+                CONNECTIVITY_RES_PKG_DIR));
+        if (pkgs.size() > 1) {
+            Log.wtf(TAG, "More than one connectivity resources package found: " + pkgs);
+        }
+        if (pkgs.isEmpty()) {
+            throw new IllegalStateException("No connectivity resource package found");
+        }
+
+        return pkgs.get(0).activityInfo.applicationInfo.packageName;
     }
 }

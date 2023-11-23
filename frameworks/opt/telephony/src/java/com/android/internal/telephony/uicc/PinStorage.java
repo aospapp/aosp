@@ -28,6 +28,7 @@ import static com.android.internal.telephony.TelephonyStatsLog.PIN_STORAGE_EVENT
 import static com.android.internal.telephony.TelephonyStatsLog.PIN_STORAGE_EVENT__EVENT__PIN_COUNT_NOT_MATCHING_AFTER_REBOOT;
 import static com.android.internal.telephony.TelephonyStatsLog.PIN_STORAGE_EVENT__EVENT__PIN_DECRYPTION_ERROR;
 import static com.android.internal.telephony.TelephonyStatsLog.PIN_STORAGE_EVENT__EVENT__PIN_ENCRYPTION_ERROR;
+import static com.android.internal.telephony.TelephonyStatsLog.PIN_STORAGE_EVENT__EVENT__PIN_ENCRYPTION_KEY_MISSING;
 import static com.android.internal.telephony.TelephonyStatsLog.PIN_STORAGE_EVENT__EVENT__PIN_REQUIRED_AFTER_REBOOT;
 import static com.android.internal.telephony.TelephonyStatsLog.PIN_STORAGE_EVENT__EVENT__PIN_STORED_FOR_VERIFICATION;
 import static com.android.internal.telephony.TelephonyStatsLog.PIN_STORAGE_EVENT__EVENT__PIN_VERIFICATION_FAILURE;
@@ -54,6 +55,7 @@ import android.telephony.CarrierConfigManager;
 import android.telephony.TelephonyManager;
 import android.telephony.TelephonyManager.SimState;
 import android.util.Base64;
+import android.util.IndentingPrintWriter;
 import android.util.SparseArray;
 
 import com.android.internal.R;
@@ -61,7 +63,6 @@ import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.telephony.Phone;
 import com.android.internal.telephony.PhoneConstants;
 import com.android.internal.telephony.PhoneFactory;
-import com.android.internal.telephony.SubscriptionInfoUpdater;
 import com.android.internal.telephony.TelephonyStatsLog;
 import com.android.internal.telephony.nano.StoredPinProto.EncryptedPin;
 import com.android.internal.telephony.nano.StoredPinProto.StoredPin;
@@ -133,7 +134,6 @@ public class PinStorage extends Handler {
 
     // Events
     private static final int ICC_CHANGED_EVENT = 1;
-    private static final int CARRIER_CONFIG_CHANGED_EVENT = 2;
     private static final int TIMER_EXPIRATION_EVENT = 3;
     private static final int USER_UNLOCKED_EVENT = 4;
     private static final int SUPPLY_PIN_COMPLETE = 5;
@@ -157,14 +157,11 @@ public class PinStorage extends Handler {
     private final SparseArray<byte[]> mRamStorage;
 
     /** Receiver for the required intents. */
-    private final BroadcastReceiver mCarrierConfigChangedReceiver = new BroadcastReceiver() {
+    private final BroadcastReceiver mBroadcastReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
             String action = intent.getAction();
-            if (CarrierConfigManager.ACTION_CARRIER_CONFIG_CHANGED.equals(action)) {
-                int slotId = intent.getIntExtra(CarrierConfigManager.EXTRA_SLOT_INDEX, -1);
-                sendMessage(obtainMessage(CARRIER_CONFIG_CHANGED_EVENT, slotId, 0));
-            } else if (TelephonyManager.ACTION_SIM_CARD_STATE_CHANGED.equals(action)
+            if (TelephonyManager.ACTION_SIM_CARD_STATE_CHANGED.equals(action)
                     || TelephonyManager.ACTION_SIM_APPLICATION_STATE_CHANGED.equals(action)) {
                 int slotId = intent.getIntExtra(PhoneConstants.PHONE_KEY, -1);
                 int state = intent.getIntExtra(
@@ -189,11 +186,16 @@ public class PinStorage extends Handler {
 
         // Register for necessary intents.
         IntentFilter intentFilter = new IntentFilter();
-        intentFilter.addAction(CarrierConfigManager.ACTION_CARRIER_CONFIG_CHANGED);
         intentFilter.addAction(TelephonyManager.ACTION_SIM_CARD_STATE_CHANGED);
         intentFilter.addAction(TelephonyManager.ACTION_SIM_APPLICATION_STATE_CHANGED);
         intentFilter.addAction(Intent.ACTION_USER_UNLOCKED);
-        mContext.registerReceiver(mCarrierConfigChangedReceiver, intentFilter);
+        mContext.registerReceiver(mBroadcastReceiver, intentFilter);
+
+        CarrierConfigManager ccm = mContext.getSystemService(CarrierConfigManager.class);
+        // Callback directly handle config change and should be executed in handler thread
+        ccm.registerCarrierConfigChangeListener(this::post,
+                (slotIndex, subId, carrierId, specificCarrierId) ->
+                        onCarrierConfigurationChanged(slotIndex));
 
         // Initialize the long term secret key. This needs to be present in all cases:
         //  - if the device is not secure or is locked: key does not require user authentication
@@ -519,8 +521,8 @@ public class PinStorage extends Handler {
 
     /** Handle the update of the {@code state} of the SIM card in {@code slotId}. */
     private synchronized void onSimStatusChange(int slotId, @SimState int state) {
-        logd("SIM card/application changed[%d]: %s",
-                slotId, SubscriptionInfoUpdater.simStateString(state));
+        logd("SIM card/application changed[%d]: %s", slotId,
+                TelephonyManager.simStateToString(state));
         switch (state) {
             case TelephonyManager.SIM_STATE_ABSENT:
             case TelephonyManager.SIM_STATE_PIN_REQUIRED: {
@@ -561,7 +563,7 @@ public class PinStorage extends Handler {
         }
     }
 
-    private void onCarrierConfigChanged(int slotId) {
+    private void onCarrierConfigurationChanged(int slotId) {
         logv("onCarrierConfigChanged[%d]", slotId);
         if (!isCacheAllowed(slotId)) {
             logd("onCarrierConfigChanged[%d] - PIN caching not allowed", slotId);
@@ -590,9 +592,6 @@ public class PinStorage extends Handler {
         switch (msg.what) {
             case ICC_CHANGED_EVENT:
                 onSimStatusChange(/* slotId= */ msg.arg1, /* state= */ msg.arg2);
-                break;
-            case CARRIER_CONFIG_CHANGED_EVENT:
-                onCarrierConfigChanged(/* slotId= */ msg.arg1);
                 break;
             case TIMER_EXPIRATION_EVENT:
                 onTimerExpiration();
@@ -724,7 +723,11 @@ public class PinStorage extends Handler {
      */
     @Nullable
     private StoredPin decryptStoredPin(byte[] blob, @Nullable SecretKey secretKey) {
-        if (secretKey != null) {
+        if (secretKey == null) {
+            TelephonyStatsLog.write(PIN_STORAGE_EVENT,
+                    PIN_STORAGE_EVENT__EVENT__PIN_ENCRYPTION_KEY_MISSING,
+                    /* number_of_pins= */ 1, /* package_name= */ "");
+        } else {
             try {
                 byte[] decryptedPin = decrypt(secretKey, blob);
                 if (decryptedPin.length > 0) {
@@ -994,14 +997,15 @@ public class PinStorage extends Handler {
         PersistableBundle config = null;
         CarrierConfigManager configManager =
                 mContext.getSystemService(CarrierConfigManager.class);
-        if (configManager != null) {
-            Phone phone = PhoneFactory.getPhone(slotId);
-            if (phone != null) {
-                 // If an invalid subId is used, this bundle will contain default values.
-                config = configManager.getConfigForSubId(phone.getSubId());
-            }
+        Phone phone = PhoneFactory.getPhone(slotId);
+        if (configManager != null && phone != null) {
+            config =
+                    CarrierConfigManager.getCarrierConfigSubset(
+                            mContext,
+                            phone.getSubId(),
+                            CarrierConfigManager.KEY_STORE_SIM_PIN_FOR_UNATTENDED_REBOOT_BOOL);
         }
-        if (config == null) {
+        if (config == null || config.isEmpty()) {
             config = CarrierConfigManager.getDefaultConfig();
         }
 
@@ -1206,16 +1210,18 @@ public class PinStorage extends Handler {
         Rlog.e(TAG, msg, tr);
     }
 
-    void dump(FileDescriptor fd, PrintWriter pw, String[] args) {
+    void dump(FileDescriptor fd, PrintWriter printWriter, String[] args) {
+        IndentingPrintWriter pw = new IndentingPrintWriter(printWriter, "  ");
         pw.println("PinStorage:");
-        pw.println(" mIsDeviceSecure=" + mIsDeviceSecure);
-        pw.println(" mIsDeviceLocked=" + mIsDeviceLocked);
-        pw.println(" isLongTermSecretKey=" + (boolean) (mLongTermSecretKey != null));
-        pw.println(" isShortTermSecretKey=" + (boolean) (mShortTermSecretKey != null));
-        pw.println(" isCacheAllowedByDevice=" + isCacheAllowedByDevice());
+        pw.increaseIndent();
+        pw.println("mIsDeviceSecure=" + mIsDeviceSecure);
+        pw.println("mIsDeviceLocked=" + mIsDeviceLocked);
+        pw.println("isLongTermSecretKey=" + (boolean) (mLongTermSecretKey != null));
+        pw.println("isShortTermSecretKey=" + (boolean) (mShortTermSecretKey != null));
+        pw.println("isCacheAllowedByDevice=" + isCacheAllowedByDevice());
         int slotCount = getSlotCount();
         for (int i = 0; i < slotCount; i++) {
-            pw.println(" isCacheAllowedByCarrier[" + i + "]=" + isCacheAllowedByCarrier(i));
+            pw.println("isCacheAllowedByCarrier[" + i + "]=" + isCacheAllowedByCarrier(i));
         }
         if (VDBG) {
             SparseArray<StoredPin> storedPins = loadPinInformation();
@@ -1223,5 +1229,6 @@ public class PinStorage extends Handler {
                 pw.println(" pin=" + storedPins.valueAt(i).toString());
             }
         }
+        pw.decreaseIndent();
     }
 }

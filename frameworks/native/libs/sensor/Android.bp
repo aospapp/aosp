@@ -21,10 +21,10 @@ package {
     default_applicable_licenses: ["frameworks_native_license"],
 }
 
-cc_library_shared {
+cc_library {
     name: "libsensor",
 
-    clang: true,
+    host_supported: true,
     cflags: [
         "-Wall",
         "-Werror",
@@ -53,5 +53,9 @@ cc_library_shared {
 
     export_include_dirs: ["include"],
 
-    export_shared_lib_headers: ["libbinder", "libpermission", "libhardware"],
+    export_shared_lib_headers: [
+        "libbinder",
+        "libpermission",
+        "libhardware",
+    ],
 }

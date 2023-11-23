@@ -26,12 +26,13 @@ import static java.util.stream.Collectors.toList;
 import android.content.Context;
 import android.content.Intent;
 import android.net.ConnectivityManager;
+import android.net.LinkProperties;
 import android.net.Network;
-import android.net.NetworkInfo;
+import android.net.NetworkCapabilities;
 import android.net.wifi.WifiConfiguration;
-import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
 import android.os.Handler;
+import android.telephony.SubscriptionManager;
 
 import androidx.annotation.AnyThread;
 import androidx.annotation.NonNull;
@@ -50,8 +51,6 @@ public class StandardNetworkDetailsTracker extends NetworkDetailsTracker {
 
     private final StandardWifiEntryKey mKey;
     private final StandardWifiEntry mChosenEntry;
-    private final boolean mIsNetworkRequest;
-    private NetworkInfo mCurrentNetworkInfo;
 
     public StandardNetworkDetailsTracker(@NonNull Lifecycle lifecycle,
             @NonNull Context context,
@@ -84,11 +83,9 @@ public class StandardNetworkDetailsTracker extends NetworkDetailsTracker {
                 mainHandler, workerHandler, clock, maxScanAgeMillis, scanIntervalMillis, TAG);
         mKey = new StandardWifiEntryKey(key);
         if (mKey.isNetworkRequest()) {
-            mIsNetworkRequest = true;
             mChosenEntry = new NetworkRequestEntry(mInjector, mContext, mMainHandler, mKey,
                     mWifiManager, false /* forSavedNetworksPage */);
         } else {
-            mIsNetworkRequest = false;
             mChosenEntry = new StandardWifiEntry(mInjector, mContext, mMainHandler, mKey,
                     mWifiManager, false /* forSavedNetworksPage */);
         }
@@ -136,15 +133,24 @@ public class StandardNetworkDetailsTracker extends NetworkDetailsTracker {
     private void updateStartInfo() {
         conditionallyUpdateScanResults(true /* lastScanSucceeded */);
         conditionallyUpdateConfig();
-        final WifiInfo wifiInfo = mWifiManager.getConnectionInfo();
-        final Network currentNetwork = mWifiManager.getCurrentNetwork();
-        mCurrentNetworkInfo = mConnectivityManager.getNetworkInfo(currentNetwork);
-        mChosenEntry.updateConnectionInfo(wifiInfo, mCurrentNetworkInfo);
-        handleNetworkCapabilitiesChanged(
-                mConnectivityManager.getNetworkCapabilities(currentNetwork));
-        handleLinkPropertiesChanged(mConnectivityManager.getLinkProperties(currentNetwork));
-        mChosenEntry.setIsDefaultNetwork(mIsWifiDefaultRoute);
-        mChosenEntry.setIsLowQuality(mIsWifiValidated && mIsCellDefaultRoute);
+        handleDefaultSubscriptionChanged(SubscriptionManager.getDefaultDataSubscriptionId());
+        Network currentNetwork = mWifiManager.getCurrentNetwork();
+        if (currentNetwork != null) {
+            NetworkCapabilities networkCapabilities =
+                    mConnectivityManager.getNetworkCapabilities(currentNetwork);
+            if (networkCapabilities != null) {
+                // getNetworkCapabilities(Network) obfuscates location info such as SSID and
+                // networkId, so we need to set the WifiInfo directly from WifiManager.
+                handleNetworkCapabilitiesChanged(currentNetwork,
+                        new NetworkCapabilities.Builder(networkCapabilities)
+                                .setTransportInfo(mWifiManager.getConnectionInfo())
+                                .build());
+            }
+            LinkProperties linkProperties = mConnectivityManager.getLinkProperties(currentNetwork);
+            if (linkProperties != null) {
+                handleLinkPropertiesChanged(currentNetwork, linkProperties);
+            }
+        }
     }
 
     /**
@@ -159,13 +165,15 @@ public class StandardNetworkDetailsTracker extends NetworkDetailsTracker {
 
         long scanAgeWindow = mMaxScanAgeMillis;
         if (lastScanSucceeded) {
-            cacheNewScanResults();
+            mScanResultUpdater.update(mWifiManager.getScanResults());
         } else {
             // Scan failed, increase scan age window to prevent WifiEntry list from
             // clearing prematurely.
             scanAgeWindow += mScanIntervalMillis;
         }
-        mChosenEntry.updateScanResultInfo(mScanResultUpdater.getScanResults(scanAgeWindow));
+        mChosenEntry.updateScanResultInfo(mScanResultUpdater.getScanResults(scanAgeWindow).stream()
+                .filter(scan -> new ScanResultKey(scan).equals(mKey.getScanResultKey()))
+                .collect(toList()));
     }
 
     /**
@@ -177,15 +185,6 @@ public class StandardNetworkDetailsTracker extends NetworkDetailsTracker {
                 mWifiManager.getPrivilegedConfiguredNetworks().stream()
                         .filter(this::configMatches)
                         .collect(toList()));
-    }
-
-    /**
-     * Updates ScanResultUpdater with new ScanResults matching mChosenEntry.
-     */
-    private void cacheNewScanResults() {
-        mScanResultUpdater.update(mWifiManager.getScanResults().stream()
-                .filter(scan -> new ScanResultKey(scan).equals(mKey.getScanResultKey()))
-                .collect(toList()));
     }
 
     private boolean configMatches(@NonNull WifiConfiguration config) {

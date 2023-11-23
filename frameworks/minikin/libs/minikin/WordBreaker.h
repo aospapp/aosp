@@ -26,6 +26,7 @@
 #include <unicode/ubrk.h>
 
 #include <list>
+#include <memory>
 #include <mutex>
 
 #include "Locale.h"
@@ -146,7 +147,7 @@ private:
 
     ICULineBreakerPool::Slot mIcuBreaker;
 
-    UText mUText = UTEXT_INITIALIZER;
+    std::unique_ptr<UText, decltype(&utext_close)> mUText;
     const uint16_t* mText = nullptr;
     size_t mTextSize;
     ssize_t mLast;

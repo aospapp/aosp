@@ -54,6 +54,7 @@ abstract class PacketResponder(
      */
     fun stop() {
         replyThread.interrupt()
+        replyThread.join()
     }
 
     private inner class ReplyThread(name: String) : Thread(name) {

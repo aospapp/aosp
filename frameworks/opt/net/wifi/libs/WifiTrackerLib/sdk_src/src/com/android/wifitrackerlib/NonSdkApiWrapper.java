@@ -16,14 +16,16 @@
 
 package com.android.wifitrackerlib;
 
+import android.app.admin.DevicePolicyManager;
+import android.app.admin.WifiSsidPolicy;
 import android.content.Context;
 import android.net.ConnectivityManager;
 import android.net.Network;
 import android.net.NetworkCapabilities;
 import android.net.wifi.WifiInfo;
-import android.os.Handler;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 /**
  * Wrapper class to decouple WifiTrackerLibDefaults from non-SDK API usage at build time, for use
@@ -33,6 +35,10 @@ import androidx.annotation.NonNull;
  * library over to their own codebase.
  */
 class NonSdkApiWrapper {
+    private NonSdkApiWrapper() {
+        // Empty constructor to make this class non-instantiable.
+    }
+
     /**
      * Starts the System captive portal app.
      */
@@ -51,12 +57,12 @@ class NonSdkApiWrapper {
     }
 
     /**
-     * Returns whether or not the network capabilities is determined to be VCN over Wi-Fi or not.
+     * Tries to get WifiInfo from network capabilities if it is VCN-over-Wifi.
      */
-    static boolean isVcnOverWifi(@NonNull NetworkCapabilities networkCapabilities) {
+    static WifiInfo getVcnWifiInfo(@NonNull NetworkCapabilities networkCapabilities) {
         // This is only useful for treating CELLULAR over WIFI as a carrier merged network in
         // provider model Settings. Since SUW doesn't use the provider model, this is not used.
-        return false;
+        return null;
     }
 
     /**
@@ -68,19 +74,6 @@ class NonSdkApiWrapper {
     }
 
     /**
-     * Registers the system default network callback.
-     */
-    static void registerSystemDefaultNetworkCallback(
-            @NonNull ConnectivityManager connectivityManager,
-            @NonNull ConnectivityManager.NetworkCallback callback,
-            @NonNull Handler handler) {
-        // registerSystemDefaultNetworkCallback does not have visibility to non-updatable modules,
-        // so we have to use the regular registerDefaultNetworkCallback here.
-        // TODO(b/230643853): See if we can add registerSystemDefaultNetworkCallback to the SDK.
-        connectivityManager.registerDefaultNetworkCallback(callback, handler);
-    }
-
-    /**
      * Returns true if the WifiInfo is for the primary network, false otherwise.
      */
     static boolean isPrimary(@NonNull WifiInfo wifiInfo) {
@@ -88,5 +81,24 @@ class NonSdkApiWrapper {
         //                    access, which SUW does not hold. Always return true (WifiTracker1
         //                    behavior) until SUW can access this field.
         return true;
+    }
+
+    /**
+     * Returns true if the NetworkCapabilities is OEM_PAID or OEM_PRIVATE
+     */
+    static boolean isOemCapabilities(@NonNull NetworkCapabilities capabilities) {
+        // SUW can't access NET_CAPABILITY_OEM_PAID or NET_CAPABILITY_OEM_PRIVATE since they aren't
+        // public APIs. Return false here since we don't need to worry about secondary OEM networks
+        // in SUW for now.
+        return false;
+    }
+
+    /**
+     * Returns the {@link WifiSsidPolicy} of the device.
+     */
+    @Nullable
+    static WifiSsidPolicy getWifiSsidPolicy(@NonNull DevicePolicyManager devicePolicyManager) {
+        // Return null since SUW does not have QUERY_ADMIN_POLICY permission.
+        return null;
     }
 }

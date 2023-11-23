@@ -129,7 +129,13 @@ binder_status_t ReadArray(const AParcel* parcel, void* arrayData,
     }
 
     T* array;
-    if (!allocator(arrayData, length, &array)) return STATUS_NO_MEMORY;
+    if (!allocator(arrayData, length, &array)) {
+        if (length < 0) {
+            return STATUS_UNEXPECTED_NULL;
+        } else {
+            return STATUS_NO_MEMORY;
+        }
+    }
 
     if (length <= 0) return STATUS_OK;
     if (array == nullptr) return STATUS_NO_MEMORY;
@@ -157,7 +163,13 @@ binder_status_t ReadArray<char16_t>(const AParcel* parcel, void* arrayData,
     }
 
     char16_t* array;
-    if (!allocator(arrayData, length, &array)) return STATUS_NO_MEMORY;
+    if (!allocator(arrayData, length, &array)) {
+        if (length < 0) {
+            return STATUS_UNEXPECTED_NULL;
+        } else {
+            return STATUS_NO_MEMORY;
+        }
+    }
 
     if (length <= 0) return STATUS_OK;
     if (array == nullptr) return STATUS_NO_MEMORY;
@@ -204,7 +216,13 @@ binder_status_t ReadArray(const AParcel* parcel, void* arrayData, ArrayAllocator
         return status;
     }
 
-    if (!allocator(arrayData, length)) return STATUS_NO_MEMORY;
+    if (!allocator(arrayData, length)) {
+        if (length < 0) {
+            return STATUS_UNEXPECTED_NULL;
+        } else {
+            return STATUS_NO_MEMORY;
+        }
+    }
 
     if (length <= 0) return STATUS_OK;
 
@@ -677,11 +695,17 @@ binder_status_t AParcel_marshal(const AParcel* parcel, uint8_t* buffer, size_t s
     if (parcel->get()->objectsCount()) {
         return STATUS_INVALID_OPERATION;
     }
-    int32_t dataSize = AParcel_getDataSize(parcel);
+    // b/264739302 - getDataSize will return dataPos if it is greater than dataSize
+    // which will cause crashes in memcpy at later point. Instead compare with
+    // actual length of internal buffer
+    int32_t dataSize = parcel->get()->dataBufferSize();
     if (len > static_cast<size_t>(dataSize) || start > static_cast<size_t>(dataSize) - len) {
         return STATUS_BAD_VALUE;
     }
     const uint8_t* internalBuffer = parcel->get()->data();
+    if (internalBuffer == nullptr) {
+        return STATUS_UNEXPECTED_NULL;
+    }
     memcpy(buffer, internalBuffer + start, len);
     return STATUS_OK;
 }

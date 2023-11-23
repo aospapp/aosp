@@ -16,11 +16,14 @@
 
 package com.android.ims.rcs.uce.request;
 
+import android.annotation.NonNull;
+import android.annotation.Nullable;
 import android.net.Uri;
 import android.telephony.ims.RcsContactTerminatedReason;
 import android.telephony.ims.RcsContactUceCapability;
 import android.telephony.ims.RcsUceAdapter;
 import android.telephony.ims.RcsUceAdapter.ErrorCode;
+import android.telephony.ims.SipDetails;
 import android.telephony.ims.stub.RcsCapabilityExchangeImplBase;
 import android.telephony.ims.stub.RcsCapabilityExchangeImplBase.CommandCode;
 import android.text.TextUtils;
@@ -85,6 +88,9 @@ public class CapabilityRequestResponse {
     // The collection to record whether the request contacts have received the capabilities updated.
     private Map<Uri, Boolean> mContactCapsReceived;
 
+    // The SIP detail information of the network response.
+    private Optional<SipDetails> mSipDetails;
+
     public CapabilityRequestResponse() {
         mRequestInternalError = Optional.empty();
         mCommandError = Optional.empty();
@@ -99,6 +105,7 @@ public class CapabilityRequestResponse {
         mUpdatedCapabilityList = new ArrayList<>();
         mRemoteCaps = new HashSet<>();
         mContactCapsReceived = new HashMap<>();
+        mSipDetails = Optional.empty();
     }
 
     /**
@@ -169,12 +176,20 @@ public class CapabilityRequestResponse {
     /**
      * Set the network response of this request which is sent by the network.
      */
-    public synchronized void setNetworkResponseCode(int sipCode, String reasonPhrase,
-            int reasonHeaderCause, String reasonHeaderText) {
-        mNetworkRespSipCode = Optional.of(sipCode);
-        mReasonPhrase = Optional.ofNullable(reasonPhrase);
-        mReasonHeaderCause = Optional.of(reasonHeaderCause);
-        mReasonHeaderText = Optional.ofNullable(reasonHeaderText);
+    public synchronized void setSipDetails(@NonNull SipDetails details) {
+        setNetworkResponseCode(details.getResponseCode(), details.getResponsePhrase());
+        if (details.getReasonHeaderCause() != 0) {
+            mReasonHeaderCause = Optional.of(details.getReasonHeaderCause());
+        } else {
+            mReasonHeaderCause = Optional.empty();
+        }
+        if (TextUtils.isEmpty(details.getReasonHeaderText())) {
+            mReasonHeaderText = Optional.empty();
+        } else {
+            mReasonHeaderText = Optional.ofNullable(details.getReasonHeaderText());
+        }
+
+        mSipDetails = Optional.ofNullable(details);
     }
 
     // Get the sip code of the network response.
@@ -236,6 +251,13 @@ public class CapabilityRequestResponse {
      */
     public synchronized long getRetryAfterMillis() {
         return mRetryAfterMillis.orElse(0L);
+    }
+
+    /**
+     * Retrieve the SIP information which received from the network.
+     */
+    public Optional<SipDetails> getSipDetails() {
+        return mSipDetails;
     }
 
     /**

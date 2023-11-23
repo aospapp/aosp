@@ -18,6 +18,8 @@
 
 package com.android.internal.telephony;
 
+import static android.content.pm.PackageManager.PERMISSION_GRANTED;
+
 import static com.android.internal.telephony.util.TelephonyUtils.checkDumpPermission;
 
 import android.annotation.Nullable;
@@ -26,6 +28,7 @@ import android.app.AppOpsManager;
 import android.app.PendingIntent;
 import android.compat.annotation.UnsupportedAppUsage;
 import android.content.Context;
+import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.BaseBundle;
 import android.os.Binder;
@@ -40,6 +43,9 @@ import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyFrameworkInitializer;
 import android.telephony.TelephonyManager;
 
+import com.android.internal.annotations.VisibleForTesting;
+import com.android.internal.telephony.subscription.SubscriptionManagerService;
+import com.android.internal.telephony.util.TelephonyUtils;
 import com.android.internal.util.IndentingPrintWriter;
 import com.android.telephony.Rlog;
 
@@ -47,6 +53,7 @@ import java.io.FileDescriptor;
 import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * Implements the ISmsImplBase interface used in the SmsManager API.
@@ -56,7 +63,8 @@ public class SmsController extends ISmsImplBase {
 
     private final Context mContext;
 
-    protected SmsController(Context context) {
+    @VisibleForTesting
+    public SmsController(Context context) {
         mContext = context;
         ServiceRegisterer smsServiceRegisterer = TelephonyFrameworkInitializer
                 .getTelephonyServiceManager()
@@ -151,6 +159,23 @@ public class SmsController extends ISmsImplBase {
         if (callingPackage == null) {
             callingPackage = getCallingPackage();
         }
+        Rlog.d(LOG_TAG, "sendDataForSubscriber caller=" + callingPackage);
+
+        // Check if user is associated with the subscription
+        if (!TelephonyPermissions.checkSubscriptionAssociatedWithUser(mContext, subId,
+                Binder.getCallingUserHandle(), destAddr)) {
+            TelephonyUtils.showSwitchToManagedProfileDialogIfAppropriate(mContext, subId,
+                    Binder.getCallingUid(), callingPackage);
+            sendErrorInPendingIntent(sentIntent, SmsManager.RESULT_USER_NOT_ALLOWED);
+            return;
+        }
+
+        // Perform FDN check
+        if (isNumberBlockedByFDN(subId, destAddr, callingPackage)) {
+            sendErrorInPendingIntent(sentIntent, SmsManager.RESULT_ERROR_FDN_CHECK_FAILURE);
+            return;
+        }
+
         IccSmsInterfaceManager iccSmsIntMgr = getIccSmsInterfaceManager(subId);
         if (iccSmsIntMgr != null) {
             iccSmsIntMgr.sendData(callingPackage, callingAttributionTag, destAddr, scAddr, destPort,
@@ -186,14 +211,74 @@ public class SmsController extends ISmsImplBase {
             String callingAttributionTag, String destAddr, String scAddr, String text,
             PendingIntent sentIntent, PendingIntent deliveryIntent,
             boolean persistMessageForNonDefaultSmsApp, long messageId) {
+        sendTextForSubscriber(subId, callingPackage, callingAttributionTag, destAddr, scAddr,
+                text, sentIntent, deliveryIntent, persistMessageForNonDefaultSmsApp, messageId,
+                false, false);
+
+    }
+
+    /**
+     * @param subId Subscription Id
+     * @param callingAttributionTag the attribution tag of the caller
+     * @param destAddr the address to send the message to
+     * @param scAddr is the service center address or null to use
+     *  the current default SMSC
+     * @param text the body of the message to send
+     * @param sentIntent if not NULL this <code>PendingIntent</code> is
+     *  broadcast when the message is successfully sent, or failed.
+     *  The result code will be <code>Activity.RESULT_OK</code> for success, or relevant errors
+     *  the sentIntent may include the extra "errorCode" containing a radio technology specific
+     *  value, generally only useful for troubleshooting.
+     * @param deliveryIntent if not NULL this <code>PendingIntent</code> is
+     *  broadcast when the message is delivered to the recipient.  The
+     *  raw pdu of the status report is in the extended data ("pdu").
+     * @param skipFdnCheck if set to true, FDN check must be skipped .This is set in case of STK sms
+     *
+     * @hide
+     */
+    public void sendTextForSubscriber(int subId, String callingPackage,
+            String callingAttributionTag, String destAddr, String scAddr, String text,
+            PendingIntent sentIntent, PendingIntent deliveryIntent,
+            boolean persistMessageForNonDefaultSmsApp, long messageId, boolean skipFdnCheck,
+            boolean skipShortCodeCheck) {
         if (callingPackage == null) {
             callingPackage = getCallingPackage();
+        }
+        Rlog.d(LOG_TAG, "sendTextForSubscriber caller=" + callingPackage);
+
+        if (skipFdnCheck || skipShortCodeCheck) {
+            if (mContext.checkCallingOrSelfPermission(
+                    android.Manifest.permission.MODIFY_PHONE_STATE)
+                    != PackageManager.PERMISSION_GRANTED) {
+                throw new SecurityException("Requires MODIFY_PHONE_STATE permission.");
+            }
         }
         if (!getSmsPermissions(subId).checkCallingCanSendText(persistMessageForNonDefaultSmsApp,
                 callingPackage, callingAttributionTag, "Sending SMS message")) {
             sendErrorInPendingIntent(sentIntent, SmsManager.RESULT_ERROR_GENERIC_FAILURE);
             return;
         }
+
+        // Check if user is associated with the subscription
+        boolean crossUserFullGranted = mContext.checkCallingOrSelfPermission(
+                android.Manifest.permission.INTERACT_ACROSS_USERS_FULL) == PERMISSION_GRANTED;
+        Rlog.d(LOG_TAG, "sendTextForSubscriber: caller has INTERACT_ACROSS_USERS_FULL? "
+                + crossUserFullGranted);
+        if (!crossUserFullGranted
+                && !TelephonyPermissions.checkSubscriptionAssociatedWithUser(mContext, subId,
+                Binder.getCallingUserHandle(), destAddr)) {
+            TelephonyUtils.showSwitchToManagedProfileDialogIfAppropriate(mContext, subId,
+                    Binder.getCallingUid(), callingPackage);
+            sendErrorInPendingIntent(sentIntent, SmsManager.RESULT_USER_NOT_ALLOWED);
+            return;
+        }
+
+        // Perform FDN check
+        if (!skipFdnCheck && isNumberBlockedByFDN(subId, destAddr, callingPackage)) {
+            sendErrorInPendingIntent(sentIntent, SmsManager.RESULT_ERROR_FDN_CHECK_FAILURE);
+            return;
+        }
+
         long token = Binder.clearCallingIdentity();
         SubscriptionInfo info;
         try {
@@ -201,11 +286,12 @@ public class SmsController extends ISmsImplBase {
         } finally {
             Binder.restoreCallingIdentity(token);
         }
+
         if (isBluetoothSubscription(info)) {
             sendBluetoothText(info, destAddr, text, sentIntent, deliveryIntent);
         } else {
             sendIccText(subId, callingPackage, destAddr, scAddr, text, sentIntent, deliveryIntent,
-                    persistMessageForNonDefaultSmsApp, messageId);
+                    persistMessageForNonDefaultSmsApp, messageId, skipShortCodeCheck);
         }
     }
 
@@ -222,16 +308,17 @@ public class SmsController extends ISmsImplBase {
 
     private void sendIccText(int subId, String callingPackage, String destAddr,
             String scAddr, String text, PendingIntent sentIntent, PendingIntent deliveryIntent,
-            boolean persistMessageForNonDefaultSmsApp, long messageId) {
+            boolean persistMessageForNonDefaultSmsApp, long messageId, boolean skipShortCodeCheck) {
         Rlog.d(LOG_TAG, "sendTextForSubscriber iccSmsIntMgr"
-                + " Subscription: " + subId + " id: " + messageId);
+                + " Subscription: " + subId + " " + formatCrossStackMessageId(messageId));
         IccSmsInterfaceManager iccSmsIntMgr = getIccSmsInterfaceManager(subId);
         if (iccSmsIntMgr != null) {
             iccSmsIntMgr.sendText(callingPackage, destAddr, scAddr, text, sentIntent,
-                    deliveryIntent, persistMessageForNonDefaultSmsApp, messageId);
+                    deliveryIntent, persistMessageForNonDefaultSmsApp, messageId,
+                    skipShortCodeCheck);
         } else {
             Rlog.e(LOG_TAG, "sendTextForSubscriber iccSmsIntMgr is null for"
-                    + " Subscription: " + subId + " id: " + messageId);
+                    + " Subscription: " + subId + " " + formatCrossStackMessageId(messageId));
             sendErrorInPendingIntent(sentIntent, SmsManager.RESULT_ERROR_GENERIC_FAILURE);
         }
     }
@@ -259,6 +346,23 @@ public class SmsController extends ISmsImplBase {
         if (callingPackage == null) {
             callingPackage = getCallingPackage();
         }
+        Rlog.d(LOG_TAG, "sendTextForSubscriberWithOptions caller=" + callingPackage);
+
+        // Check if user is associated with the subscription
+        if (!TelephonyPermissions.checkSubscriptionAssociatedWithUser(mContext, subId,
+                Binder.getCallingUserHandle(), destAddr)) {
+            TelephonyUtils.showSwitchToManagedProfileDialogIfAppropriate(mContext, subId,
+                    Binder.getCallingUid(), callingPackage);
+            sendErrorInPendingIntent(sentIntent, SmsManager.RESULT_USER_NOT_ALLOWED);
+            return;
+        }
+
+        // Perform FDN check
+        if (isNumberBlockedByFDN(subId, destAddr, callingPackage)) {
+            sendErrorInPendingIntent(sentIntent, SmsManager.RESULT_ERROR_FDN_CHECK_FAILURE);
+            return;
+        }
+
         IccSmsInterfaceManager iccSmsIntMgr = getIccSmsInterfaceManager(subId);
         if (iccSmsIntMgr != null) {
             iccSmsIntMgr.sendTextWithOptions(callingPackage, callingAttributionTag, destAddr,
@@ -281,6 +385,23 @@ public class SmsController extends ISmsImplBase {
         if (getCallingPackage() != null) {
             callingPackage = getCallingPackage();
         }
+        Rlog.d(LOG_TAG, "sendMultipartTextForSubscriber caller=" + callingPackage);
+
+        // Check if user is associated with the subscription
+        if (!TelephonyPermissions.checkSubscriptionAssociatedWithUser(mContext, subId,
+                Binder.getCallingUserHandle(), destAddr)) {
+            TelephonyUtils.showSwitchToManagedProfileDialogIfAppropriate(mContext, subId,
+                    Binder.getCallingUid(), callingPackage);
+            sendErrorInPendingIntents(sentIntents, SmsManager.RESULT_USER_NOT_ALLOWED);
+            return;
+        }
+
+        // Perform FDN check
+        if (isNumberBlockedByFDN(subId, destAddr, callingPackage)) {
+            sendErrorInPendingIntents(sentIntents, SmsManager.RESULT_ERROR_FDN_CHECK_FAILURE);
+            return;
+        }
+
         IccSmsInterfaceManager iccSmsIntMgr = getIccSmsInterfaceManager(subId);
         if (iccSmsIntMgr != null) {
             iccSmsIntMgr.sendMultipartText(callingPackage, callingAttributionTag, destAddr, scAddr,
@@ -288,7 +409,7 @@ public class SmsController extends ISmsImplBase {
                     messageId);
         } else {
             Rlog.e(LOG_TAG, "sendMultipartTextForSubscriber iccSmsIntMgr is null for"
-                    + " Subscription: " + subId + " id: " + messageId);
+                    + " Subscription: " + subId + " " + formatCrossStackMessageId(messageId));
             sendErrorInPendingIntents(sentIntents, SmsManager.RESULT_ERROR_GENERIC_FAILURE);
         }
     }
@@ -301,6 +422,23 @@ public class SmsController extends ISmsImplBase {
         if (callingPackage == null) {
             callingPackage = getCallingPackage();
         }
+        Rlog.d(LOG_TAG, "sendMultipartTextForSubscriberWithOptions caller=" + callingPackage);
+
+        // Check if user is associated with the subscription
+        if (!TelephonyPermissions.checkSubscriptionAssociatedWithUser(mContext, subId,
+                Binder.getCallingUserHandle(), destAddr)) {
+            TelephonyUtils.showSwitchToManagedProfileDialogIfAppropriate(mContext, subId,
+                    Binder.getCallingUid(), callingPackage);
+            sendErrorInPendingIntents(sentIntents, SmsManager.RESULT_USER_NOT_ALLOWED);
+            return;
+        }
+
+        // Perform FDN check
+        if (isNumberBlockedByFDN(subId, destAddr, callingPackage)) {
+            sendErrorInPendingIntents(sentIntents, SmsManager.RESULT_ERROR_FDN_CHECK_FAILURE);
+            return;
+        }
+
         IccSmsInterfaceManager iccSmsIntMgr = getIccSmsInterfaceManager(subId);
         if (iccSmsIntMgr != null) {
             iccSmsIntMgr.sendMultipartTextWithOptions(callingPackage, callingAttributionTag,
@@ -409,7 +547,7 @@ public class SmsController extends ISmsImplBase {
         // Don't show the SMS SIM Pick activity if it is not foreground.
         boolean isCallingProcessForeground = am != null
                 && am.getUidImportance(Binder.getCallingUid())
-                        == ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND;
+                == ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND;
         if (!isCallingProcessForeground) {
             Rlog.d(LOG_TAG, "isSmsSimPickActivityNeeded: calling process not foreground. "
                     + "Suppressing activity.");
@@ -481,14 +619,15 @@ public class SmsController extends ISmsImplBase {
     @Override
     public int getPreferredSmsSubscription() {
         // If there is a default, choose that one.
-        int defaultSubId = SubscriptionController.getInstance().getDefaultSmsSubId();
+        int defaultSubId = SubscriptionManagerService.getInstance().getDefaultSmsSubId();
+
         if (SubscriptionManager.isValidSubscriptionId(defaultSubId)) {
             return defaultSubId;
         }
         // No default, if there is only one sub active, choose that as the "preferred" sub id.
         long token = Binder.clearCallingIdentity();
         try {
-            int[] activeSubs = SubscriptionController.getInstance()
+            int[] activeSubs = SubscriptionManagerService.getInstance()
                     .getActiveSubIdList(true /*visibleOnly*/);
             if (activeSubs.length == 1) {
                 return activeSubs[0];
@@ -519,6 +658,8 @@ public class SmsController extends ISmsImplBase {
             throw new SecurityException("sendStoredText: Package " + callingPkg
                     + "does not belong to " + Binder.getCallingUid());
         }
+        Rlog.d(LOG_TAG, "sendStoredText caller=" + callingPkg);
+
         if (iccSmsIntMgr != null) {
             iccSmsIntMgr.sendStoredText(callingPkg, callingAttributionTag, messageUri, scAddress,
                     sentIntent, deliveryIntent);
@@ -537,6 +678,8 @@ public class SmsController extends ISmsImplBase {
             throw new SecurityException("sendStoredMultipartText: Package " + callingPkg
                     + " does not belong to " + Binder.getCallingUid());
         }
+        Rlog.d(LOG_TAG, "sendStoredMultipartText caller=" + callingPkg);
+
         if (iccSmsIntMgr != null) {
             iccSmsIntMgr.sendStoredMultipartText(callingPkg, callingAttributionTag, messageUri,
                     scAddress, sentIntents, deliveryIntents);
@@ -690,6 +833,58 @@ public class SmsController extends ISmsImplBase {
     }
 
     @Override
+    public void setStorageMonitorMemoryStatusOverride(int subId, boolean isStorageAvailable) {
+        Phone phone = getPhone(subId);
+        Context context;
+        if (phone != null) {
+            context = phone.getContext();
+        } else {
+            Rlog.e(LOG_TAG, "Phone Object is Null");
+            return;
+        }
+        // If it doesn't have modify phone state permission
+        // a SecurityException will be thrown.
+        if (context.checkPermission(android.Manifest
+                        .permission.MODIFY_PHONE_STATE, Binder.getCallingPid(),
+                        Binder.getCallingUid()) != PERMISSION_GRANTED) {
+            throw new SecurityException(
+                    "setStorageMonitorMemoryStatusOverride needs MODIFY_PHONE_STATE");
+        }
+        final long identity = Binder.clearCallingIdentity();
+        try {
+            phone.mSmsStorageMonitor.sendMemoryStatusOverride(isStorageAvailable);
+        } finally {
+            Binder.restoreCallingIdentity(identity);
+        }
+    }
+
+    @Override
+    public void clearStorageMonitorMemoryStatusOverride(int subId) {
+        Phone phone = getPhone(subId);
+        Context context;
+        if (phone != null) {
+            context = phone.getContext();
+        } else {
+            Rlog.e(LOG_TAG, "Phone Object is Null");
+            return;
+        }
+        // If it doesn't have modify phone state permission
+        // a SecurityException will be thrown.
+        if (context.checkPermission(android.Manifest
+                        .permission.MODIFY_PHONE_STATE, Binder.getCallingPid(),
+                        Binder.getCallingUid()) != PERMISSION_GRANTED) {
+            throw new SecurityException(
+                    "clearStorageMonitorMemoryStatusOverride needs MODIFY_PHONE_STATE");
+        }
+        final long identity = Binder.clearCallingIdentity();
+        try {
+            phone.mSmsStorageMonitor.clearMemoryStatusOverride();
+        } finally {
+            Binder.restoreCallingIdentity(identity);
+        }
+    }
+
+    @Override
     public int checkSmsShortCodeDestination(int subId, String callingPackage,
             String callingFeatureId, String destAddress, String countryIso) {
         if (callingPackage == null) {
@@ -714,6 +909,24 @@ public class SmsController extends ISmsImplBase {
     public void sendVisualVoicemailSmsForSubscriber(String callingPackage,
             String callingAttributionTag, int subId, String number, int port, String text,
             PendingIntent sentIntent) {
+        Rlog.d(LOG_TAG, "sendVisualVoicemailSmsForSubscriber caller=" + callingPackage);
+
+        // Do not send non-emergency SMS in ECBM as it forces device to exit ECBM.
+        if(getPhone(subId).isInEcm()) {
+            Rlog.d(LOG_TAG, "sendVisualVoicemailSmsForSubscriber: Do not send non-emergency "
+                    + "SMS in ECBM as it forces device to exit ECBM.");
+            return;
+        }
+
+        // Check if user is associated with the subscription
+        if (!TelephonyPermissions.checkSubscriptionAssociatedWithUser(mContext, subId,
+                Binder.getCallingUserHandle(), number)) {
+            TelephonyUtils.showSwitchToManagedProfileDialogIfAppropriate(mContext, subId,
+                    Binder.getCallingUid(), callingPackage);
+            sendErrorInPendingIntent(sentIntent, SmsManager.RESULT_USER_NOT_ALLOWED);
+            return;
+        }
+
         if (port == 0) {
             sendTextForSubscriberWithSelfPermissionsInternal(subId, callingPackage,
                     callingAttributionTag, number, null, text, sentIntent, null, false,
@@ -855,5 +1068,50 @@ public class SmsController extends ISmsImplBase {
      */
     public static String formatCrossStackMessageId(long id) {
         return "{x-message-id:" + id + "}";
+    }
+
+    /**
+     * The following function checks if destination address or smsc is blocked due to FDN.
+     * @param subId subscription ID
+     * @param destAddr destination address of the message
+     * @return true if either destAddr or smscAddr is blocked due to FDN.
+     */
+    @VisibleForTesting
+    public boolean isNumberBlockedByFDN(int subId, String destAddr, String callingPackage) {
+        int phoneId = SubscriptionManager.getPhoneId(subId);
+        if (!FdnUtils.isFdnEnabled(phoneId)) {
+            return false;
+        }
+
+        // Skip FDN check for emergency numbers
+        TelephonyManager tm = mContext.getSystemService(TelephonyManager.class);
+        if (tm.isEmergencyNumber(destAddr)) {
+            return false;
+        }
+
+        // Check if destAddr is present in FDN list
+        String defaultCountryIso = tm.getSimCountryIso().toUpperCase(Locale.ENGLISH);
+        if (FdnUtils.isNumberBlockedByFDN(phoneId, destAddr, defaultCountryIso)) {
+            return true;
+        }
+
+        // Get SMSC address for this subscription
+        IccSmsInterfaceManager iccSmsIntMgr = getIccSmsInterfaceManager(subId);
+        String smscAddr;
+        if (iccSmsIntMgr != null) {
+            long identity = Binder.clearCallingIdentity();
+            try {
+                smscAddr =  iccSmsIntMgr.getSmscAddressFromIccEf(callingPackage);
+            } finally {
+                Binder.restoreCallingIdentity(identity);
+            }
+        } else {
+            Rlog.e(LOG_TAG, "getSmscAddressFromIccEfForSubscriber iccSmsIntMgr is null"
+                    + " for Subscription: " + subId);
+            return true;
+        }
+
+        // Check if smscAddr is present in FDN list
+        return FdnUtils.isNumberBlockedByFDN(phoneId, smscAddr, defaultCountryIso);
     }
 }

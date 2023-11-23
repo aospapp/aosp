@@ -21,11 +21,7 @@ package {
 cc_benchmark {
     name: "minikin_perftests",
     test_suites: ["device-tests"],
-    cppflags: [
-        "-Werror",
-        "-Wall",
-        "-Wextra",
-    ],
+    defaults: ["libminikin_defaults"],
     srcs: [
         "FontCollection.cpp",
         "FontLanguage.cpp",
@@ -46,7 +42,7 @@ cc_benchmark {
     shared_libs: [
         "libft2",
         "libharfbuzz_ng",
-        "libandroidicu",
+        "libicu",
         "liblog",
 
     ],

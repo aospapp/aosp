@@ -24,6 +24,7 @@
 
 #include <android_media_Utils.h>
 #include <private/android/AHardwareBufferHelpers.h>
+#include <ui/PublicFormat.h>
 #include <utils/Log.h>
 
 using namespace android;
@@ -34,6 +35,8 @@ AImage::AImage(AImageReader* reader, int32_t format, uint64_t usage, BufferItem*
         int64_t timestamp, int32_t width, int32_t height, int32_t numPlanes) :
         mReader(reader), mFormat(format), mUsage(usage), mBuffer(buffer), mLockedBuffer(nullptr),
         mTimestamp(timestamp), mWidth(width), mHeight(height), mNumPlanes(numPlanes) {
+    PublicFormat publicFormat = static_cast<PublicFormat>(format);
+    mHalDataSpace = mapPublicFormatToHalDataspace(publicFormat);
     LOG_FATAL_IF(reader == nullptr, "AImageReader shouldn't be null while creating AImage");
 }
 
@@ -156,6 +159,20 @@ AImage::getTimestamp(int64_t* timestamp) const {
     return AMEDIA_OK;
 }
 
+media_status_t
+AImage::getDataSpace(android_dataspace* dataSpace) const {
+    if (dataSpace == nullptr) {
+        return AMEDIA_ERROR_INVALID_PARAMETER;
+    }
+    *dataSpace = static_cast<android_dataspace>(-1);
+    if (isClosed()) {
+        ALOGE("%s: image %p has been closed!", __FUNCTION__, this);
+        return AMEDIA_ERROR_INVALID_OBJECT;
+    }
+    *dataSpace = mHalDataSpace;
+    return AMEDIA_OK;
+}
+
 media_status_t AImage::lockImage() {
     if (mBuffer == nullptr || mBuffer->mGraphicBuffer == nullptr) {
         LOG_ALWAYS_FATAL("%s: AImage %p has no buffer.", __FUNCTION__, this);
@@ -247,6 +264,13 @@ AImage::getPlanePixelStride(int planeIdx, /*out*/int32_t* pixelStride) const {
         case HAL_PIXEL_FORMAT_YCrCb_420_SP:
             *pixelStride = (planeIdx == 0) ? 1 : 2;
             return AMEDIA_OK;
+        case HAL_PIXEL_FORMAT_YCBCR_P010:
+            if (mLockedBuffer->dataCb && mLockedBuffer->dataCr) {
+                *pixelStride = (planeIdx == 0) ? 2 : mLockedBuffer->chromaStep;
+            } else {
+                *pixelStride = (planeIdx == 0) ? 2 : 4;
+            }
+            return AMEDIA_OK;
         case HAL_PIXEL_FORMAT_Y8:
             *pixelStride = 1;
             return AMEDIA_OK;
@@ -315,6 +339,13 @@ AImage::getPlaneRowStride(int planeIdx, /*out*/int32_t* rowStride) const {
             }
             *rowStride = (planeIdx == 0) ? mLockedBuffer->stride
                                          : ALIGN(mLockedBuffer->stride / 2, 16);
+            return AMEDIA_OK;
+        case HAL_PIXEL_FORMAT_YCBCR_P010:
+            if (mLockedBuffer->dataCb && mLockedBuffer->dataCr) {
+                *rowStride = (planeIdx == 0) ?  mLockedBuffer->stride : mLockedBuffer->chromaStride;
+            } else {
+                *rowStride = mLockedBuffer->stride * 2;
+            }
             return AMEDIA_OK;
         case HAL_PIXEL_FORMAT_RAW10:
         case HAL_PIXEL_FORMAT_RAW12:
@@ -471,6 +502,47 @@ AImage::getPlaneData(int planeIdx,/*out*/uint8_t** data, /*out*/int* dataLength)
 
             pData = (planeIdx == 0) ? mLockedBuffer->data
                                     : (planeIdx == 1) ? cb : cr;
+            dataSize = (planeIdx == 0) ? ySize : cSize;
+            break;
+        case HAL_PIXEL_FORMAT_YCBCR_P010:
+            if (mLockedBuffer->height % 2 != 0) {
+                ALOGE("YCBCR_P010: height (%d) should be a multiple of 2", mLockedBuffer->height);
+                return AMEDIA_ERROR_UNKNOWN;
+            }
+
+            if (mLockedBuffer->width <= 0) {
+                ALOGE("YCBCR_P010: width (%d) should be a > 0", mLockedBuffer->width);
+                return AMEDIA_ERROR_UNKNOWN;
+            }
+
+            if (mLockedBuffer->height <= 0) {
+                ALOGE("YCBCR_P010: height (%d) should be a > 0", mLockedBuffer->height);
+                return AMEDIA_ERROR_UNKNOWN;
+            }
+
+            if (mLockedBuffer->dataCb && mLockedBuffer->dataCr) {
+                pData = (planeIdx == 0) ?  mLockedBuffer->data :
+                        (planeIdx == 1) ?  mLockedBuffer->dataCb : mLockedBuffer->dataCr;
+                // only map until last pixel
+                if (planeIdx == 0) {
+                    cStride = mLockedBuffer->stride;
+                    dataSize = cStride * (mLockedBuffer->height - 1) + mLockedBuffer->width * 2;
+                } else {
+                    bytesPerPixel = mLockedBuffer->chromaStep;
+                    cStride = mLockedBuffer->chromaStride;
+                    dataSize = cStride * (mLockedBuffer->height / 2 - 1) +
+                            bytesPerPixel * (mLockedBuffer->width / 2);
+                }
+                break;
+            }
+
+            cStride = mLockedBuffer->stride * 2;
+            ySize = cStride * mLockedBuffer->height;
+            cSize = ySize / 2;
+            cb = mLockedBuffer->data + ySize;
+            cr = cb + 2;
+
+            pData = (planeIdx == 0) ?  mLockedBuffer->data : (planeIdx == 1) ?  cb : cr;
             dataSize = (planeIdx == 0) ? ySize : cSize;
             break;
         case HAL_PIXEL_FORMAT_Y8:
@@ -761,4 +833,16 @@ media_status_t AImage_getHardwareBuffer(
         return AMEDIA_ERROR_INVALID_PARAMETER;
     }
     return image->getHardwareBuffer(buffer);
+}
+
+EXPORT
+media_status_t AImage_getDataSpace(
+    const AImage* image, /*out*/int32_t* dataSpace) {
+    ALOGV("%s", __FUNCTION__);
+
+    if (image == nullptr || dataSpace == nullptr) {
+        ALOGE("%s: bad argument. image %p dataSpace %p", __FUNCTION__, image, dataSpace);
+        return AMEDIA_ERROR_INVALID_PARAMETER;
+    }
+    return image->getDataSpace((android_dataspace*)(dataSpace));
 }

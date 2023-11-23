@@ -23,7 +23,6 @@
 #include <set>
 #include <string>
 #include <mutex>
-#include <future>
 
 #include <camera/camera2/ConcurrentCamera.h>
 #include <camera/CameraParameters2.h>
@@ -220,7 +219,14 @@ public:
      */
     std::pair<int, int> getCameraCount() const;
 
-    std::vector<std::string> getCameraDeviceIds() const;
+    /**
+     * Upon the function return, if unavailablePhysicalIds is not nullptr, it
+     * will contain all of the unavailable physical camera Ids represented in
+     * the form of:
+     * {[logicalCamera, {physicalCamera1, physicalCamera2, ...}], ...}.
+     */
+    std::vector<std::string> getCameraDeviceIds(std::unordered_map<
+            std::string, std::set<std::string>>* unavailablePhysicalIds = nullptr) const;
 
     /**
      * Retrieve the number of API1 compatible cameras; these are internal and
@@ -242,6 +248,11 @@ public:
     bool supportNativeZoomRatio(const std::string &id) const;
 
     /**
+     * Return true if the camera device has no composite Jpeg/R support.
+     */
+    bool isCompositeJpegRDisabled(const std::string &id) const;
+
+    /**
      * Return the resource cost of this camera device
      */
     status_t getResourceCost(const std::string &id,
@@ -251,14 +262,15 @@ public:
      * Return the old camera API camera info
      */
     status_t getCameraInfo(const std::string &id,
-            hardware::CameraInfo* info) const;
+            bool overrideToPortrait, int *portraitRotation, hardware::CameraInfo* info) const;
 
     /**
      * Return API2 camera characteristics - returns NAME_NOT_FOUND if a device ID does
      * not have a v3 or newer HAL version.
      */
     status_t getCameraCharacteristics(const std::string &id,
-            bool overrideForPerfClass, CameraMetadata* characteristics) const;
+            bool overrideForPerfClass, CameraMetadata* characteristics,
+            bool overrideToPortrait) const;
 
     status_t isConcurrentSessionConfigurationSupported(
             const std::vector<hardware::camera2::utils::CameraIdAndSessionConfiguration>
@@ -400,7 +412,11 @@ public:
 
     status_t notifyUsbDeviceEvent(int32_t eventId, const std::string &usbDeviceId);
 
+    static bool isConcurrentDynamicRangeCaptureSupported(const CameraMetadata& deviceInfo,
+            int64_t profile, int64_t concurrentProfile);
+
     static const float kDepthARTolerance;
+    static const bool kFrameworkJpegRDisabled;
 private:
     // All private members, unless otherwise noted, expect mInterfaceMutex to be locked before use
     mutable std::mutex mInterfaceMutex;
@@ -557,22 +573,24 @@ private:
 
             bool hasFlashUnit() const { return mHasFlashUnit; }
             bool supportNativeZoomRatio() const { return mSupportNativeZoomRatio; }
+            bool isCompositeJpegRDisabled() const { return mCompositeJpegRDisabled; }
             virtual status_t setTorchMode(bool enabled) = 0;
             virtual status_t turnOnTorchWithStrengthLevel(int32_t torchStrength) = 0;
             virtual status_t getTorchStrengthLevel(int32_t *torchStrength) = 0;
-            virtual status_t getCameraInfo(hardware::CameraInfo *info) const = 0;
+            virtual status_t getCameraInfo(bool overrideToPortrait,
+                    int *portraitRotation,
+                    hardware::CameraInfo *info) const = 0;
             virtual bool isAPI1Compatible() const = 0;
             virtual status_t dumpState(int fd) = 0;
-            virtual status_t getCameraCharacteristics(bool overrideForPerfClass,
-                    CameraMetadata *characteristics) const {
-                (void) overrideForPerfClass;
-                (void) characteristics;
+            virtual status_t getCameraCharacteristics(
+                    [[maybe_unused]] bool overrideForPerfClass,
+                    [[maybe_unused]] CameraMetadata *characteristics,
+                    [[maybe_unused]] bool overrideToPortrait) {
                 return INVALID_OPERATION;
             }
-            virtual status_t getPhysicalCameraCharacteristics(const std::string& physicalCameraId,
-                    CameraMetadata *characteristics) const {
-                (void) physicalCameraId;
-                (void) characteristics;
+            virtual status_t getPhysicalCameraCharacteristics(
+                    [[maybe_unused]] const std::string& physicalCameraId,
+                    [[maybe_unused]] CameraMetadata *characteristics) const {
                 return INVALID_OPERATION;
             }
 
@@ -597,16 +615,18 @@ private:
                     mParentProvider(parentProvider), mTorchStrengthLevel(0),
                     mTorchMaximumStrengthLevel(0), mTorchDefaultStrengthLevel(0),
                     mHasFlashUnit(false), mSupportNativeZoomRatio(false),
-                    mPublicCameraIds(publicCameraIds) {}
+                    mPublicCameraIds(publicCameraIds), mCompositeJpegRDisabled(false) {}
             virtual ~DeviceInfo() {}
         protected:
 
             bool mHasFlashUnit; // const after constructor
             bool mSupportNativeZoomRatio; // const after constructor
             const std::vector<std::string>& mPublicCameraIds;
+            bool mCompositeJpegRDisabled;
         };
         std::vector<std::unique_ptr<DeviceInfo>> mDevices;
         std::unordered_set<std::string> mUniqueCameraIds;
+        std::unordered_map<std::string, std::set<std::string>> mUnavailablePhysicalCameras;
         int mUniqueDeviceCount;
         std::vector<std::string> mUniqueAPI1CompatibleCameraIds;
         // The initial public camera IDs published by the camera provider.
@@ -622,12 +642,15 @@ private:
             virtual status_t setTorchMode(bool enabled) = 0;
             virtual status_t turnOnTorchWithStrengthLevel(int32_t torchStrength) = 0;
             virtual status_t getTorchStrengthLevel(int32_t *torchStrength) = 0;
-            virtual status_t getCameraInfo(hardware::CameraInfo *info) const override;
+            virtual status_t getCameraInfo(bool overrideToPortrait,
+                    int *portraitRotation,
+                    hardware::CameraInfo *info) const override;
             virtual bool isAPI1Compatible() const override;
             virtual status_t dumpState(int fd) = 0;
             virtual status_t getCameraCharacteristics(
                     bool overrideForPerfClass,
-                    CameraMetadata *characteristics) const override;
+                    CameraMetadata *characteristics,
+                    bool overrideToPortrait) override;
             virtual status_t getPhysicalCameraCharacteristics(const std::string& physicalCameraId,
                     CameraMetadata *characteristics) const override;
             virtual status_t isSessionConfigurationSupported(
@@ -661,8 +684,11 @@ private:
             status_t fixupTorchStrengthTags();
             status_t addDynamicDepthTags(bool maxResolution = false);
             status_t deriveHeicTags(bool maxResolution = false);
+            status_t deriveJpegRTags(bool maxResolution = false);
             status_t addRotateCropTags();
+            status_t addAutoframingTags();
             status_t addPreCorrectionActiveArraySize();
+            status_t addReadoutTimestampTag(bool readoutTimestampSupported = true);
 
             static void getSupportedSizes(const CameraMetadata& ch, uint32_t tag,
                     android_pixel_format_t format,
@@ -714,17 +740,12 @@ private:
         std::vector<CameraStatusInfoT> mCachedStatus;
         // End of scope for mInitLock
 
-        std::future<void> mInitialStatusCallbackFuture;
-
         std::unique_ptr<ProviderInfo::DeviceInfo>
         virtual initializeDeviceInfo(
                 const std::string &name, const metadata_vendor_id_t tagId,
                 const std::string &id, uint16_t minorVersion) = 0;
 
         virtual status_t reCacheConcurrentStreamingCameraIdsLocked() = 0;
-
-        void notifyInitialStatusChange(sp<StatusListener> listener,
-                std::unique_ptr<std::vector<CameraStatusInfoT>> cachedStatus);
 
         std::vector<std::unordered_set<std::string>> mConcurrentCameraIdCombinations;
 
@@ -790,6 +811,8 @@ private:
     // No guarantees on the order of traversal
     ProviderInfo::DeviceInfo* findDeviceInfoLocked(const std::string& id) const;
 
+    bool isCompositeJpegRDisabledLocked(const std::string &id) const;
+
     // Map external providers to USB devices in order to handle USB hotplug
     // events for lazy HALs
     std::pair<std::vector<std::string>, sp<ProviderInfo>>
@@ -829,7 +852,7 @@ private:
         const hardware::camera::common::V1_0::TorchModeStatus&);
 
     status_t getCameraCharacteristicsLocked(const std::string &id, bool overrideForPerfClass,
-            CameraMetadata* characteristics) const;
+            CameraMetadata* characteristics, bool overrideToPortrait) const;
     void filterLogicalCameraIdsLocked(std::vector<std::string>& deviceIds) const;
 
     status_t getSystemCameraKindLocked(const std::string& id, SystemCameraKind *kind) const;

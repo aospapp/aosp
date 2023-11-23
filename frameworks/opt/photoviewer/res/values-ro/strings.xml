@@ -19,7 +19,7 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="photo_view_count" msgid="3972196711827497300">"<xliff:g id="CURRENT_POS">%1$d</xliff:g> din <xliff:g id="COUNT">%2$d</xliff:g>"</string>
-    <string name="retry" msgid="3791698559547529232">"Reîncercați"</string>
+    <string name="retry" msgid="3791698559547529232">"Reîncearcă"</string>
     <string name="failed" msgid="8338915262229269954">"Imaginea nu s-a putut încărca"</string>
     <string name="titles" msgid="3827868765772315200">"<xliff:g id="TITLE_0">%1$s</xliff:g>, <xliff:g id="SUBTITLE">%2$s</xliff:g>"</string>
 </resources>

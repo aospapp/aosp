@@ -17,6 +17,7 @@
 package com.android.net.module.util;
 
 import static android.system.OsConstants.IPPROTO_IP;
+import static android.system.OsConstants.IPPROTO_IPV6;
 import static android.system.OsConstants.IPPROTO_TCP;
 import static android.system.OsConstants.IPPROTO_UDP;
 
@@ -25,6 +26,8 @@ import static com.android.net.module.util.IpUtils.tcpChecksum;
 import static com.android.net.module.util.IpUtils.udpChecksum;
 import static com.android.net.module.util.NetworkStackConstants.IPV4_CHECKSUM_OFFSET;
 import static com.android.net.module.util.NetworkStackConstants.IPV4_LENGTH_OFFSET;
+import static com.android.net.module.util.NetworkStackConstants.IPV6_HEADER_LEN;
+import static com.android.net.module.util.NetworkStackConstants.IPV6_LEN_OFFSET;
 import static com.android.net.module.util.NetworkStackConstants.TCP_CHECKSUM_OFFSET;
 import static com.android.net.module.util.NetworkStackConstants.UDP_CHECKSUM_OFFSET;
 import static com.android.net.module.util.NetworkStackConstants.UDP_LENGTH_OFFSET;
@@ -35,11 +38,13 @@ import androidx.annotation.NonNull;
 
 import com.android.net.module.util.structs.EthernetHeader;
 import com.android.net.module.util.structs.Ipv4Header;
+import com.android.net.module.util.structs.Ipv6Header;
 import com.android.net.module.util.structs.TcpHeader;
 import com.android.net.module.util.structs.UdpHeader;
 
 import java.io.IOException;
 import java.net.Inet4Address;
+import java.net.Inet6Address;
 import java.nio.BufferOverflowException;
 import java.nio.ByteBuffer;
 
@@ -49,7 +54,7 @@ import java.nio.ByteBuffer;
  * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  * |                Layer 2 header (EthernetHeader)                | (optional)
  * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- * |                  Layer 3 header (Ipv4Header)                  |
+ * |           Layer 3 header (Ipv4Header, Ipv6Header)             |
  * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  * |           Layer 4 header (TcpHeader, UdpHeader)               |
  * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -74,11 +79,14 @@ import java.nio.ByteBuffer;
  * sendPacket(buf);
  */
 public class PacketBuilder {
+    private static final int INVALID_OFFSET = -1;
+
     private final ByteBuffer mBuffer;
 
-    private int mIpv4HeaderOffset = -1;
-    private int mTcpHeaderOffset = -1;
-    private int mUdpHeaderOffset = -1;
+    private int mIpv4HeaderOffset = INVALID_OFFSET;
+    private int mIpv6HeaderOffset = INVALID_OFFSET;
+    private int mTcpHeaderOffset = INVALID_OFFSET;
+    private int mUdpHeaderOffset = INVALID_OFFSET;
 
     public PacketBuilder(@NonNull ByteBuffer buffer) {
         mBuffer = buffer;
@@ -93,9 +101,9 @@ public class PacketBuilder {
      */
     public void writeL2Header(MacAddress srcMac, MacAddress dstMac, short etherType) throws
             IOException {
-        final EthernetHeader ethv4Header = new EthernetHeader(dstMac, srcMac, etherType);
+        final EthernetHeader ethHeader = new EthernetHeader(dstMac, srcMac, etherType);
         try {
-            ethv4Header.writeToByteBuffer(mBuffer);
+            ethHeader.writeToByteBuffer(mBuffer);
         } catch (IllegalArgumentException | BufferOverflowException e) {
             throw new IOException("Error writing to buffer: ", e);
         }
@@ -124,6 +132,31 @@ public class PacketBuilder {
 
         try {
             ipv4Header.writeToByteBuffer(mBuffer);
+        } catch (IllegalArgumentException | BufferOverflowException e) {
+            throw new IOException("Error writing to buffer: ", e);
+        }
+    }
+
+    /**
+     * Write an IPv6 header.
+     * The IP header length is calculated and written back in #finalizePacket.
+     *
+     * @param vtf version, traffic class and flow label
+     * @param nextHeader the transport layer protocol
+     * @param hopLimit hop limit
+     * @param srcIp source IP address
+     * @param dstIp destination IP address
+     */
+    public void writeIpv6Header(int vtf, byte nextHeader, short hopLimit,
+            @NonNull final Inet6Address srcIp, @NonNull final Inet6Address dstIp)
+            throws IOException {
+        mIpv6HeaderOffset = mBuffer.position();
+        final Ipv6Header ipv6Header = new Ipv6Header(vtf,
+                (short) 0 /* payloadLength, calculate in #finalizePacket */, nextHeader,
+                hopLimit, srcIp, dstIp);
+
+        try {
+            ipv6Header.writeToByteBuffer(mBuffer);
         } catch (IllegalArgumentException | BufferOverflowException e) {
             throw new IOException("Error writing to buffer: ", e);
         }
@@ -186,32 +219,43 @@ public class PacketBuilder {
      */
     @NonNull
     public ByteBuffer finalizePacket() throws IOException {
-        if (mIpv4HeaderOffset < 0) {
-            // TODO: add support for IPv6
-            throw new IOException("Packet is missing IPv4 header");
+        // [1] Finalize IPv4 or IPv6 header.
+        int ipHeaderOffset = INVALID_OFFSET;
+        if (mIpv4HeaderOffset != INVALID_OFFSET) {
+            ipHeaderOffset = mIpv4HeaderOffset;
+
+            // Populate the IPv4 totalLength field.
+            mBuffer.putShort(mIpv4HeaderOffset + IPV4_LENGTH_OFFSET,
+                    (short) (mBuffer.position() - mIpv4HeaderOffset));
+
+            // Populate the IPv4 header checksum field.
+            mBuffer.putShort(mIpv4HeaderOffset + IPV4_CHECKSUM_OFFSET,
+                    ipChecksum(mBuffer, mIpv4HeaderOffset /* headerOffset */));
+        } else if (mIpv6HeaderOffset != INVALID_OFFSET) {
+            ipHeaderOffset = mIpv6HeaderOffset;
+
+            // Populate the IPv6 payloadLength field.
+            // The payload length doesn't include IPv6 header length. See rfc8200 section 3.
+            mBuffer.putShort(mIpv6HeaderOffset + IPV6_LEN_OFFSET,
+                    (short) (mBuffer.position() - mIpv6HeaderOffset - IPV6_HEADER_LEN));
+        } else {
+            throw new IOException("Packet is missing neither IPv4 nor IPv6 header");
         }
 
-        // Populate the IPv4 totalLength field.
-        mBuffer.putShort(mIpv4HeaderOffset + IPV4_LENGTH_OFFSET,
-                (short) (mBuffer.position() - mIpv4HeaderOffset));
-
-        // Populate the IPv4 header checksum field.
-        mBuffer.putShort(mIpv4HeaderOffset + IPV4_CHECKSUM_OFFSET,
-                ipChecksum(mBuffer, mIpv4HeaderOffset /* headerOffset */));
-
-        if (mTcpHeaderOffset > 0) {
+        // [2] Finalize TCP or UDP header.
+        if (mTcpHeaderOffset != INVALID_OFFSET) {
             // Populate the TCP header checksum field.
             mBuffer.putShort(mTcpHeaderOffset + TCP_CHECKSUM_OFFSET, tcpChecksum(mBuffer,
-                    mIpv4HeaderOffset /* ipOffset */, mTcpHeaderOffset /* transportOffset */,
+                    ipHeaderOffset /* ipOffset */, mTcpHeaderOffset /* transportOffset */,
                     mBuffer.position() - mTcpHeaderOffset /* transportLen */));
-        } else if (mUdpHeaderOffset > 0) {
+        } else if (mUdpHeaderOffset != INVALID_OFFSET) {
             // Populate the UDP header length field.
             mBuffer.putShort(mUdpHeaderOffset + UDP_LENGTH_OFFSET,
                     (short) (mBuffer.position() - mUdpHeaderOffset));
 
             // Populate the UDP header checksum field.
             mBuffer.putShort(mUdpHeaderOffset + UDP_CHECKSUM_OFFSET, udpChecksum(mBuffer,
-                    mIpv4HeaderOffset /* ipOffset */, mUdpHeaderOffset /* transportOffset */));
+                    ipHeaderOffset /* ipOffset */, mUdpHeaderOffset /* transportOffset */));
         } else {
             throw new IOException("Packet is missing neither TCP nor UDP header");
         }
@@ -225,15 +269,15 @@ public class PacketBuilder {
      *
      * @param hasEther has ethernet header. Set this flag to indicate that the packet has an
      *        ethernet header.
-     * @param l3proto the layer 3 protocol. Only {@code IPPROTO_IP} currently supported.
+     * @param l3proto the layer 3 protocol. Only {@code IPPROTO_IP} and {@code IPPROTO_IPV6}
+     *        currently supported.
      * @param l4proto the layer 4 protocol. Only {@code IPPROTO_TCP} and {@code IPPROTO_UDP}
      *        currently supported.
      * @param payloadLen length of the payload.
      */
     @NonNull
     public static ByteBuffer allocate(boolean hasEther, int l3proto, int l4proto, int payloadLen) {
-        if (l3proto != IPPROTO_IP) {
-            // TODO: add support for IPv6
+        if (l3proto != IPPROTO_IP && l3proto != IPPROTO_IPV6) {
             throw new IllegalArgumentException("Unsupported layer 3 protocol " + l3proto);
         }
 
@@ -247,7 +291,8 @@ public class PacketBuilder {
 
         int packetLen = 0;
         if (hasEther) packetLen += Struct.getSize(EthernetHeader.class);
-        packetLen += Struct.getSize(Ipv4Header.class);
+        packetLen += (l3proto == IPPROTO_IP) ? Struct.getSize(Ipv4Header.class)
+                : Struct.getSize(Ipv6Header.class);
         packetLen += (l4proto == IPPROTO_TCP) ? Struct.getSize(TcpHeader.class)
                 : Struct.getSize(UdpHeader.class);
         packetLen += payloadLen;

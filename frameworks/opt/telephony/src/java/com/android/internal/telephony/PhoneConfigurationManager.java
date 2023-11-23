@@ -35,6 +35,7 @@ import android.telephony.TelephonyManager;
 import android.util.Log;
 
 import com.android.internal.annotations.VisibleForTesting;
+import com.android.internal.telephony.subscription.SubscriptionManagerService;
 import com.android.telephony.Rlog;
 
 import java.util.HashMap;
@@ -71,6 +72,7 @@ public class PhoneConfigurationManager {
     private TelephonyManager mTelephonyManager;
     private static final RegistrantList sMultiSimConfigChangeRegistrants = new RegistrantList();
     private static final String ALLOW_MOCK_MODEM_PROPERTY = "persist.radio.allow_mock_modem";
+    private static final String BOOT_ALLOW_MOCK_MODEM_PROPERTY = "ro.boot.radio.allow_mock_modem";
     private static final boolean DEBUG = !"user".equals(Build.TYPE);
     /**
      * Init method to instantiate the object
@@ -119,6 +121,21 @@ public class PhoneConfigurationManager {
             return PhoneCapability.DEFAULT_DSDS_CAPABILITY;
         } else {
             return PhoneCapability.DEFAULT_SSSS_CAPABILITY;
+        }
+    }
+
+    // If virtual DSDA is enabled for this UE, then updates maxActiveVoiceSubscriptions to 2.
+    private PhoneCapability maybeUpdateMaxActiveVoiceSubscriptions(
+            final PhoneCapability staticCapability) {
+        boolean enableVirtualDsda = mContext.getResources().getBoolean(
+                com.android.internal.R.bool.config_enable_virtual_dsda);
+
+        if (staticCapability.getLogicalModemList().size() > 1 && enableVirtualDsda) {
+            return new PhoneCapability.Builder(staticCapability)
+                    .setMaxActiveVoiceSubscriptions(2)
+                    .build();
+        } else {
+            return staticCapability;
         }
     }
 
@@ -180,6 +197,8 @@ public class PhoneConfigurationManager {
                     ar = (AsyncResult) msg.obj;
                     if (ar != null && ar.exception == null) {
                         mStaticCapability = (PhoneCapability) ar.result;
+                        mStaticCapability =
+                                maybeUpdateMaxActiveVoiceSubscriptions(mStaticCapability);
                         notifyCapabilityChanged();
                     } else {
                         log(msg.what + " failure. Not getting phone capability." + ar.exception);
@@ -366,7 +385,7 @@ public class PhoneConfigurationManager {
             // eg if we are going from 2 phones to 1 phone, we need to deregister RIL for the
             // second phone. This loop does nothing if numOfActiveModems is increasing.
             for (int phoneId = numOfActiveModems; phoneId < oldNumOfActiveModems; phoneId++) {
-                SubscriptionController.getInstance().clearSubInfoRecord(phoneId);
+                SubscriptionManagerService.getInstance().markSubscriptionsInactive(phoneId);
                 subInfoCleared = true;
                 mPhones[phoneId].mCi.onSlotActiveStatusChange(
                         SubscriptionManager.isValidPhoneId(phoneId));
@@ -400,7 +419,7 @@ public class PhoneConfigurationManager {
                         + "setting VOICE & SMS subId to -1 (No Preference)");
 
                 //Set the default VOICE subId to -1 ("No Preference")
-                SubscriptionController.getInstance().setDefaultVoiceSubId(
+                SubscriptionManagerService.getInstance().setDefaultVoiceSubId(
                         SubscriptionManager.INVALID_SUBSCRIPTION_ID);
 
                 //TODO:: Set the default SMS sub to "No Preference". Tracking this bug (b/227386042)
@@ -465,34 +484,46 @@ public class PhoneConfigurationManager {
      * @return true if the modem service is set successfully, false otherwise.
      */
     public boolean setModemService(String serviceName) {
-        if (mRadioConfig == null || mPhones[0] == null) {
-            return false;
-        }
-
         log("setModemService: " + serviceName);
         boolean statusRadioConfig = false;
         boolean statusRil = false;
         final boolean isAllowed = SystemProperties.getBoolean(ALLOW_MOCK_MODEM_PROPERTY, false);
+        final boolean isAllowedForBoot =
+                SystemProperties.getBoolean(BOOT_ALLOW_MOCK_MODEM_PROPERTY, false);
 
-        // Check for ALLOW_MOCK_MODEM_PROPERTY on user builds
-        if (isAllowed || DEBUG) {
-            if (serviceName != null) {
+        // Check for ALLOW_MOCK_MODEM_PROPERTY and BOOT_ALLOW_MOCK_MODEM_PROPERTY on user builds
+        if (isAllowed || isAllowedForBoot || DEBUG) {
+            if (mRadioConfig != null) {
                 statusRadioConfig = mRadioConfig.setModemService(serviceName);
-
-                //TODO: consider multi-sim case (b/210073692)
-                statusRil = mPhones[0].mCi.setModemService(serviceName);
-            } else {
-                statusRadioConfig = mRadioConfig.setModemService(null);
-
-                //TODO: consider multi-sim case
-                statusRil = mPhones[0].mCi.setModemService(null);
             }
 
-            return statusRadioConfig && statusRil;
+            if (!statusRadioConfig) {
+                loge("setModemService: switching modem service for radioconfig fail");
+                return false;
+            }
+
+            for (int i = 0; i < getPhoneCount(); i++) {
+                if (mPhones[i] != null) {
+                    statusRil = mPhones[i].mCi.setModemService(serviceName);
+                }
+
+                if (!statusRil) {
+                    loge("setModemService: switch modem for radio " + i + " fail");
+
+                    // Disconnect the switched service
+                    mRadioConfig.setModemService(null);
+                    for (int t = 0; t < i; t++) {
+                        mPhones[t].mCi.setModemService(null);
+                    }
+                    return false;
+                }
+            }
         } else {
             loge("setModemService is not allowed");
             return false;
         }
+
+        return true;
     }
 
      /**
@@ -500,7 +531,6 @@ public class PhoneConfigurationManager {
      * @return the service name of the connected service.
      */
     public String getModemService() {
-        //TODO: consider multi-sim case
         if (mPhones[0] == null) {
             return "";
         }

@@ -44,5 +44,19 @@ interface IInitialLockSetupService {
      * deserializable by the service.
      */
     int setLock(in int lockType, in byte[] password) = 3;
+
+    /**
+     * Added in LIBRARY_VERSION = 2.
+     *
+     * Returns a message String combing all input validation error messages to
+     * directly display to user. If there is no error and the credentialBytes
+     * is valid then it will return an empty String. The String returned should
+     * be the same message as shown to users in the Security Settings page
+     * and should be properly localized.
+
+     * @param credentialBytes input value in bytes representing one of
+     * Password, PIN, or Pattern input.
+     */
+    String checkValidLockAndReturnError(in int lockType, in byte[] credentialBytes) = 4;
 }
 

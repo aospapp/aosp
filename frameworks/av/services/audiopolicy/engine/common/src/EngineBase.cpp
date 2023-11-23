@@ -115,7 +115,7 @@ product_strategy_t EngineBase::getProductStrategyByName(const std::string &name)
     return PRODUCT_STRATEGY_NONE;
 }
 
-engineConfig::ParsingResult EngineBase::loadAudioPolicyEngineConfig()
+engineConfig::ParsingResult EngineBase::loadAudioPolicyEngineConfig(const std::string& xmlFilePath)
 {
     auto loadVolumeConfig = [](auto &volumeGroups, auto &volumeConfig) {
         // Ensure name unicity to prevent duplicate
@@ -145,7 +145,7 @@ engineConfig::ParsingResult EngineBase::loadAudioPolicyEngineConfig()
     };
     auto addSupportedAttributesToGroup = [](auto &group, auto &volumeGroup, auto &strategy) {
         for (const auto &attr : group.attributesVect) {
-            strategy->addAttributes({group.stream, volumeGroup->getId(), attr});
+            strategy->addAttributes({volumeGroup->getId(), group.stream, attr});
             volumeGroup->addSupportedAttributes(attr);
         }
     };
@@ -163,8 +163,9 @@ engineConfig::ParsingResult EngineBase::loadAudioPolicyEngineConfig()
         return stat(path, &fileStat) == 0 && S_ISREG(fileStat.st_mode);
     };
 
-    auto result = fileExists(engineConfig::DEFAULT_PATH) ?
-            engineConfig::parse(engineConfig::DEFAULT_PATH) : engineConfig::ParsingResult{};
+    const std::string filePath = xmlFilePath.empty() ? engineConfig::DEFAULT_PATH : xmlFilePath;
+    auto result = fileExists(filePath.c_str()) ?
+            engineConfig::parse(filePath.c_str()) : engineConfig::ParsingResult{};
     if (result.parsedConfig == nullptr) {
         ALOGD("%s: No configuration found, using default matching phone experience.", __FUNCTION__);
         engineConfig::Config config = gDefaultEngineConfig;
@@ -284,7 +285,7 @@ status_t EngineBase::listAudioProductStrategies(AudioProductStrategyVector &stra
     for (const auto &iter : mProductStrategies) {
         const auto &productStrategy = iter.second;
         strategies.push_back(
-        {productStrategy->getName(), productStrategy->listAudioAttributes(),
+        {productStrategy->getName(), productStrategy->listVolumeGroupAttributes(),
          productStrategy->getId()});
     }
     return NO_ERROR;
@@ -369,14 +370,31 @@ status_t setDevicesRoleForT(
     }
 
     switch (role) {
-    case DEVICE_ROLE_PREFERRED:
-    case DEVICE_ROLE_DISABLED: {
+    case DEVICE_ROLE_PREFERRED: {
         tDevicesRoleMap[std::make_pair(t, role)] = devices;
         // The preferred devices and disabled devices are mutually exclusive. Once a device is added
         // the a list, it must be removed from the other one.
-        const device_role_t roleToRemove = role == DEVICE_ROLE_PREFERRED ? DEVICE_ROLE_DISABLED
-                                                                         : DEVICE_ROLE_PREFERRED;
+        const device_role_t roleToRemove = DEVICE_ROLE_DISABLED;
         auto it = tDevicesRoleMap.find(std::make_pair(t, roleToRemove));
+        if (it != tDevicesRoleMap.end()) {
+            it->second = excludeDeviceTypeAddrsFrom(it->second, devices);
+            if (it->second.empty()) {
+                tDevicesRoleMap.erase(it);
+            }
+        }
+    } break;
+    case DEVICE_ROLE_DISABLED: {
+        auto it = tDevicesRoleMap.find(std::make_pair(t, role));
+        if (it != tDevicesRoleMap.end()) {
+            it->second = joinDeviceTypeAddrs(it->second, devices);
+        } else {
+            tDevicesRoleMap[std::make_pair(t, role)] = devices;
+        }
+
+        // The preferred devices and disabled devices are mutually exclusive. Once a device is added
+        // the a list, it must be removed from the other one.
+        const device_role_t roleToRemove = DEVICE_ROLE_PREFERRED;
+        it = tDevicesRoleMap.find(std::make_pair(t, roleToRemove));
         if (it != tDevicesRoleMap.end()) {
             it->second = excludeDeviceTypeAddrsFrom(it->second, devices);
             if (it->second.empty()) {
@@ -386,6 +404,36 @@ status_t setDevicesRoleForT(
     } break;
     case DEVICE_ROLE_NONE:
         // Intentionally fall-through as it is no need to set device role as none for a strategy.
+    default:
+        ALOGE("%s invalid role %d", __func__, role);
+        return BAD_VALUE;
+    }
+    return NO_ERROR;
+}
+
+template <typename T>
+status_t removeDevicesRoleForT(
+        std::map<std::pair<T, device_role_t>, AudioDeviceTypeAddrVector>& tDevicesRoleMap,
+        T t, device_role_t role, const AudioDeviceTypeAddrVector &devices,
+        const std::string& logStr, std::function<bool(T)> p) {
+    if (!p(t)) {
+        ALOGE("%s invalid %s %u", __func__, logStr.c_str(), t);
+        return BAD_VALUE;
+    }
+
+    switch (role) {
+    case DEVICE_ROLE_PREFERRED:
+    case DEVICE_ROLE_DISABLED: {
+        auto it = tDevicesRoleMap.find(std::make_pair(t, role));
+        if (it != tDevicesRoleMap.end()) {
+            it->second = excludeDeviceTypeAddrsFrom(it->second, devices);
+            if (it->second.empty()) {
+                tDevicesRoleMap.erase(it);
+            }
+        }
+    } break;
+    case DEVICE_ROLE_NONE:
+        // Intentionally fall-through as it is not needed to set device role as none for a strategy.
     default:
         ALOGE("%s invalid role %d", __func__, role);
         return BAD_VALUE;
@@ -462,7 +510,18 @@ status_t EngineBase::setDevicesRoleForStrategy(product_strategy_t strategy, devi
             mProductStrategyDeviceRoleMap, strategy, role, devices, "strategy" /*logStr*/, p);
 }
 
-status_t EngineBase::removeDevicesRoleForStrategy(product_strategy_t strategy, device_role_t role)
+status_t EngineBase::removeDevicesRoleForStrategy(product_strategy_t strategy, device_role_t role,
+            const AudioDeviceTypeAddrVector &devices)
+{
+    std::function<bool(product_strategy_t)> p = [this](product_strategy_t strategy) {
+        return mProductStrategies.find(strategy) != mProductStrategies.end();
+    };
+    return removeDevicesRoleForT(
+            mProductStrategyDeviceRoleMap, strategy, role, devices, "strategy" /*logStr*/, p);
+}
+
+status_t EngineBase::clearDevicesRoleForStrategy(product_strategy_t strategy,
+            device_role_t role)
 {
     std::function<bool(product_strategy_t)> p = [this](product_strategy_t strategy) {
         return mProductStrategies.find(strategy) != mProductStrategies.end();
@@ -625,6 +684,58 @@ DeviceVector EngineBase::getActiveMediaDevices(const DeviceVector& availableDevi
         }
     }
     return activeDevices;
+}
+
+void EngineBase::initializeDeviceSelectionCache() {
+    // Initializing the device selection cache with default device won't be harmful, it will be
+    // updated after the audio modules are initialized.
+    auto defaultDevices = DeviceVector(getApmObserver()->getDefaultOutputDevice());
+    for (const auto &iter : getProductStrategies()) {
+        const auto &strategy = iter.second;
+        mDevicesForStrategies[strategy->getId()] = defaultDevices;
+        setStrategyDevices(strategy, defaultDevices);
+    }
+}
+
+void EngineBase::updateDeviceSelectionCache() {
+    for (const auto &iter : getProductStrategies()) {
+        const auto& strategy = iter.second;
+        auto devices = getDevicesForProductStrategy(strategy->getId());
+        mDevicesForStrategies[strategy->getId()] = devices;
+        setStrategyDevices(strategy, devices);
+    }
+}
+
+DeviceVector EngineBase::getPreferredAvailableDevicesForProductStrategy(
+        const DeviceVector& availableOutputDevices, product_strategy_t strategy) const {
+    DeviceVector preferredAvailableDevVec = {};
+    AudioDeviceTypeAddrVector preferredStrategyDevices;
+    const status_t status = getDevicesForRoleAndStrategy(
+            strategy, DEVICE_ROLE_PREFERRED, preferredStrategyDevices);
+    if (status == NO_ERROR) {
+        // there is a preferred device, is it available?
+        preferredAvailableDevVec =
+                availableOutputDevices.getDevicesFromDeviceTypeAddrVec(preferredStrategyDevices);
+        if (preferredAvailableDevVec.size() == preferredStrategyDevices.size()) {
+            ALOGV("%s using pref device %s for strategy %u",
+                   __func__, preferredAvailableDevVec.toString().c_str(), strategy);
+            return preferredAvailableDevVec;
+        }
+    }
+    return preferredAvailableDevVec;
+}
+
+DeviceVector EngineBase::getDisabledDevicesForProductStrategy(
+        const DeviceVector &availableOutputDevices, product_strategy_t strategy) const {
+    DeviceVector disabledDevices = {};
+    AudioDeviceTypeAddrVector disabledDevicesTypeAddr;
+    const status_t status = getDevicesForRoleAndStrategy(
+            strategy, DEVICE_ROLE_DISABLED, disabledDevicesTypeAddr);
+    if (status == NO_ERROR) {
+        disabledDevices =
+                availableOutputDevices.getDevicesFromDeviceTypeAddrVec(disabledDevicesTypeAddr);
+    }
+    return disabledDevices;
 }
 
 void EngineBase::dumpCapturePresetDevicesRoleMap(String8 *dst, int spaces) const

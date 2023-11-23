@@ -264,10 +264,6 @@ Sensor::Sensor(struct sensor_t const& hwSensor, const uuid_t& uuid, int halVersi
         mStringType = SENSOR_STRING_TYPE_HEART_BEAT;
         mFlags |= SENSOR_FLAG_SPECIAL_REPORTING_MODE;
         break;
-
-    // TODO:  Placeholder for LLOB sensor type
-
-
     case SENSOR_TYPE_ACCELEROMETER_UNCALIBRATED:
         mStringType = SENSOR_STRING_TYPE_ACCELEROMETER_UNCALIBRATED;
         mFlags |= SENSOR_FLAG_CONTINUOUS_MODE;
@@ -632,7 +628,13 @@ bool Sensor::unflattenString8(void const*& buffer, size_t& size, String8& output
         return false;
     }
     outputString8.setTo(static_cast<char const*>(buffer), len);
+
+    if (size < FlattenableUtils::align<4>(len)) {
+        ALOGE("Malformed Sensor String8 field. Should be in a 4-byte aligned buffer but is not.");
+        return false;
+    }
     FlattenableUtils::advance(buffer, size, FlattenableUtils::align<4>(len));
+
     return true;
 }
 

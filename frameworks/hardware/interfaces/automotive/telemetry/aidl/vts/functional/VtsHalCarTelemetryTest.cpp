@@ -17,6 +17,8 @@
 
 #include <aidl/Gtest.h>
 #include <aidl/Vintf.h>
+#include <aidl/android/frameworks/automotive/telemetry/BnCarTelemetryCallback.h>
+#include <aidl/android/frameworks/automotive/telemetry/CallbackConfig.h>
 #include <aidl/android/frameworks/automotive/telemetry/CarData.h>
 #include <aidl/android/frameworks/automotive/telemetry/ICarTelemetry.h>
 #include <android-base/logging.h>
@@ -35,8 +37,26 @@ namespace frameworks {
 namespace automotive {
 namespace telemetry {
 
+using ::aidl::android::frameworks::automotive::telemetry::BnCarTelemetryCallback;
+using ::aidl::android::frameworks::automotive::telemetry::CallbackConfig;
 using ::aidl::android::frameworks::automotive::telemetry::CarData;
 using ::aidl::android::frameworks::automotive::telemetry::ICarTelemetry;
+using ::ndk::ScopedAStatus;
+
+class MockCarTelemetryCallback : public BnCarTelemetryCallback {
+   public:
+    MockCarTelemetryCallback() {}
+
+    ScopedAStatus onChange([[maybe_unused]] const std::vector<int32_t>& ids) override {
+        return ScopedAStatus::ok();
+    }
+};
+
+CallbackConfig buildConfig(const std::vector<int32_t>& ids) {
+    CallbackConfig config;
+    config.carDataIds = ids;
+    return config;
+}
 
 CarData buildCarData(int id, const std::vector<uint8_t>& content) {
     CarData msg;
@@ -64,6 +84,47 @@ TEST_P(CarTelemetryTest, writeReturnsOk) {
     auto status = mService->write({msg});
 
     EXPECT_TRUE(status.isOk()) << status.getMessage();
+}
+
+TEST_P(CarTelemetryTest, AddCallbackReturnsOk) {
+    CallbackConfig config = buildConfig({101, 102, 103});
+    std::shared_ptr<MockCarTelemetryCallback> callback =
+        ndk::SharedRefBase::make<MockCarTelemetryCallback>();
+
+    auto status = mService->addCallback(config, callback);
+
+    EXPECT_TRUE(status.isOk()) << status.getMessage();
+}
+
+TEST_P(CarTelemetryTest, AddCallbackErrorsWhenDuplicate) {
+    CallbackConfig config = buildConfig({101, 102, 103});
+    std::shared_ptr<MockCarTelemetryCallback> callback =
+        ndk::SharedRefBase::make<MockCarTelemetryCallback>();
+    mService->addCallback(config, callback);
+
+    auto status = mService->addCallback(config, callback);
+
+    EXPECT_FALSE(status.isOk()) << status.getMessage();
+}
+
+TEST_P(CarTelemetryTest, RemoveCallbackReturnsOk) {
+    CallbackConfig config = buildConfig({101, 102, 103});
+    std::shared_ptr<MockCarTelemetryCallback> callback =
+        ndk::SharedRefBase::make<MockCarTelemetryCallback>();
+    mService->addCallback(config, callback);
+
+    auto status = mService->removeCallback(callback);
+
+    EXPECT_TRUE(status.isOk()) << status.getMessage();
+}
+
+TEST_P(CarTelemetryTest, RemoveCallbackErrorsForNonexistentCallback) {
+    std::shared_ptr<MockCarTelemetryCallback> callback =
+        ndk::SharedRefBase::make<MockCarTelemetryCallback>();
+
+    auto status = mService->removeCallback(callback);
+
+    EXPECT_FALSE(status.isOk()) << status.getMessage();
 }
 
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(CarTelemetryTest);

@@ -20,18 +20,24 @@
 
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
+#include <variant>
+#include <vector>
 
+#include <android-base/function_ref.h>
 #include <android-base/unique_fd.h>
 #include <utils/Errors.h>
 
 #include <binder/RpcCertificateFormat.h>
+#include <binder/RpcThreads.h>
 
 #include <sys/uio.h>
 
 namespace android {
 
 class FdTrigger;
+struct RpcTransportFd;
 
 // Represents a socket connection.
 // No thread-safety is guaranteed for these APIs.
@@ -39,8 +45,15 @@ class RpcTransport {
 public:
     virtual ~RpcTransport() = default;
 
-    // replacement of ::recv(MSG_PEEK). Error code may not be set if TLS is enabled.
-    [[nodiscard]] virtual status_t peek(void *buf, size_t size, size_t *out_size) = 0;
+    /**
+     * Poll the transport to check whether there is any data ready to read.
+     *
+     * Return:
+     *   OK - There is data available on this transport
+     *   WOULDBLOCK - No data is available
+     *   error - any other error
+     */
+    [[nodiscard]] virtual status_t pollRead(void) = 0;
 
     /**
      * Read (or write), but allow to be interrupted by a trigger.
@@ -52,16 +65,32 @@ public:
      * to read/write data. If this returns an error, that error is returned from
      * this function.
      *
+     * ancillaryFds - FDs to be sent via UNIX domain dockets or Trusty IPC. When
+     * reading, if `ancillaryFds` is null, any received FDs will be silently
+     * dropped and closed (by the OS). Appended values will always be unique_fd,
+     * the variant type is used to avoid extra copies elsewhere.
+     *
      * Return:
      *   OK - succeeded in completely processing 'size'
      *   error - interrupted (failure or trigger)
      */
     [[nodiscard]] virtual status_t interruptableWriteFully(
             FdTrigger *fdTrigger, iovec *iovs, int niovs,
-            const std::function<status_t()> &altPoll) = 0;
+            const std::optional<android::base::function_ref<status_t()>> &altPoll,
+            const std::vector<std::variant<base::unique_fd, base::borrowed_fd>> *ancillaryFds) = 0;
     [[nodiscard]] virtual status_t interruptableReadFully(
             FdTrigger *fdTrigger, iovec *iovs, int niovs,
-            const std::function<status_t()> &altPoll) = 0;
+            const std::optional<android::base::function_ref<status_t()>> &altPoll,
+            std::vector<std::variant<base::unique_fd, base::borrowed_fd>> *ancillaryFds) = 0;
+
+    /**
+     *  Check whether any threads are blocked while polling the transport
+     *  for read operations
+     *  Return:
+     *    True - Specifies that there is active polling on transport.
+     *    False - No active polling on transport
+     */
+    [[nodiscard]] virtual bool isWaiting() = 0;
 
 protected:
     RpcTransport() = default;
@@ -78,7 +107,7 @@ public:
     // Implementation details: for TLS, this function may incur I/O. |fdTrigger| may be used
     // to interrupt I/O. This function blocks until handshake is finished.
     [[nodiscard]] virtual std::unique_ptr<RpcTransport> newTransport(
-            android::base::unique_fd fd, FdTrigger *fdTrigger) const = 0;
+            android::RpcTransportFd fd, FdTrigger *fdTrigger) const = 0;
 
     // Return the preconfigured certificate of this context.
     //
@@ -109,6 +138,38 @@ public:
 
 protected:
     RpcTransportCtxFactory() = default;
+};
+
+struct RpcTransportFd {
+private:
+    mutable bool isPolling{false};
+
+    void setPollingState(bool state) const { isPolling = state; }
+
+public:
+    base::unique_fd fd;
+
+    RpcTransportFd() = default;
+    explicit RpcTransportFd(base::unique_fd &&descriptor)
+          : isPolling(false), fd(std::move(descriptor)) {}
+
+    RpcTransportFd(RpcTransportFd &&transportFd) noexcept
+          : isPolling(transportFd.isPolling), fd(std::move(transportFd.fd)) {}
+
+    RpcTransportFd &operator=(RpcTransportFd &&transportFd) noexcept {
+        fd = std::move(transportFd.fd);
+        isPolling = transportFd.isPolling;
+        return *this;
+    }
+
+    RpcTransportFd &operator=(base::unique_fd &&descriptor) noexcept {
+        fd = std::move(descriptor);
+        isPolling = false;
+        return *this;
+    }
+
+    bool isInPollingState() const { return isPolling; }
+    friend class FdTrigger;
 };
 
 } // namespace android

@@ -17,6 +17,9 @@
 #ifndef ANDROID_AUDIO_TRACKMETRICS_H
 #define ANDROID_AUDIO_TRACKMETRICS_H
 
+#include <binder/IActivityManager.h>
+#include <binder/IPCThreadState.h>
+#include <binder/IServiceManager.h>
 #include <mutex>
 
 namespace android {
@@ -38,10 +41,13 @@ namespace android {
  * We currently deliver metrics based on an AudioIntervalGroup.
  */
 class TrackMetrics final {
+
+
 public:
-    TrackMetrics(std::string metricsId, bool isOut)
+    TrackMetrics(std::string metricsId, bool isOut, int clientUid)
         : mMetricsId(std::move(metricsId))
         , mIsOut(isOut)
+        , mUid(clientUid)
         {}  // we don't log a constructor item, we wait for more info in logConstructor().
 
     ~TrackMetrics() {
@@ -64,7 +70,18 @@ public:
                     AMEDIAMETRICS_PROP_EVENT_VALUE_BEGINAUDIOINTERVALGROUP, devices.c_str());
         }
         ++mIntervalCount;
-        mIntervalStartTimeNs = systemTime();
+        const auto& mActivityManager = getActivityManager();
+        if (mActivityManager) {
+            if (mIsOut) {
+                mActivityManager->logFgsApiBegin(AUDIO_API,
+                    mUid,
+                    IPCThreadState::self() -> getCallingPid());
+            } else {
+                mActivityManager->logFgsApiBegin(MICROPHONE_API,
+                    mUid,
+                    IPCThreadState::self() -> getCallingPid());
+            }
+        }
     }
 
     void logConstructor(pid_t creatorPid, uid_t creatorUid, int32_t internalTrackId,
@@ -90,11 +107,21 @@ public:
     // Called when we are removed from the Thread.
     void logEndInterval() {
         std::lock_guard l(mLock);
-        if (mIntervalStartTimeNs != 0) {
-            const int64_t elapsedTimeNs = systemTime() - mIntervalStartTimeNs;
-            mIntervalStartTimeNs = 0;
-            mCumulativeTimeNs += elapsedTimeNs;
-            mDeviceTimeNs += elapsedTimeNs;
+        if (mLastVolumeChangeTimeNs != 0) {
+            logVolume_l(mVolume); // flush out the last volume.
+            mLastVolumeChangeTimeNs = 0;
+        }
+        const auto& mActivityManager = getActivityManager();
+        if (mActivityManager) {
+            if (mIsOut) {
+                mActivityManager->logFgsApiEnd(AUDIO_API,
+                    mUid,
+                    IPCThreadState::self() -> getCallingPid());
+            } else {
+                mActivityManager->logFgsApiEnd(MICROPHONE_API,
+                    mUid,
+                    IPCThreadState::self() -> getCallingPid());
+            }
         }
     }
 
@@ -116,7 +143,8 @@ public:
         mDeviceStartupMs.add(startupMs);
     }
 
-    void updateMinMaxVolume(int64_t durationNs, double deviceVolume) {
+    void updateMinMaxVolume_l(int64_t durationNs, double deviceVolume)
+            REQUIRES(mLock) {
         if (deviceVolume > mMaxVolume) {
             mMaxVolume = deviceVolume;
             mMaxVolumeDurationNs = durationNs;
@@ -133,20 +161,8 @@ public:
 
     // may be called multiple times during an interval
     void logVolume(float volume) {
-        const int64_t timeNs = systemTime();
         std::lock_guard l(mLock);
-        if (mStartVolumeTimeNs == 0) {
-            mDeviceVolume = mVolume = volume;
-            mLastVolumeChangeTimeNs = mStartVolumeTimeNs = timeNs;
-            updateMinMaxVolume(0, mVolume);
-            return;
-        }
-        const int64_t durationNs = timeNs - mLastVolumeChangeTimeNs;
-        updateMinMaxVolume(durationNs, mVolume);
-        mDeviceVolume = (mDeviceVolume * (mLastVolumeChangeTimeNs - mStartVolumeTimeNs) +
-            mVolume * durationNs) / (timeNs - mStartVolumeTimeNs);
-        mVolume = volume;
-        mLastVolumeChangeTimeNs = timeNs;
+        logVolume_l(volume);
     }
 
     // Use absolute numbers returned by AudioTrackShared.
@@ -158,6 +174,7 @@ public:
     }
 
 private:
+
     // no lock required - all arguments and constants.
     void deliverDeviceMetrics(const char *eventName, const char *devices) const {
         mediametrics::LogItem(mMetricsId)
@@ -165,6 +182,23 @@ private:
             .set(mIsOut ? AMEDIAMETRICS_PROP_OUTPUTDEVICES
                    : AMEDIAMETRICS_PROP_INPUTDEVICES, devices)
            .record();
+    }
+
+    void logVolume_l(float volume) REQUIRES(mLock) {
+        const int64_t timeNs = systemTime();
+        const int64_t durationNs = mLastVolumeChangeTimeNs == 0
+                ? 0 : timeNs - mLastVolumeChangeTimeNs;
+        if (durationNs > 0) {
+            // See West's algorithm for weighted averages
+            // https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance
+            mDeviceVolume += (mVolume - mDeviceVolume) * durationNs
+                      / (durationNs + mDeviceTimeNs);
+            mDeviceTimeNs += durationNs;
+            mCumulativeTimeNs += durationNs;
+        }
+        updateMinMaxVolume_l(durationNs, mVolume); // always update.
+        mVolume = volume;
+        mLastVolumeChangeTimeNs = timeNs;
     }
 
     void deliverCumulativeMetrics(const char *eventName) const REQUIRES(mLock) {
@@ -199,14 +233,12 @@ private:
         // mDevices is not reset by resetIntervalGroupMetrics.
 
         mIntervalCount = 0;
-        mIntervalStartTimeNs = 0;
         // mCumulativeTimeNs is not reset by resetIntervalGroupMetrics.
         mDeviceTimeNs = 0;
 
         mVolume = 0.f;
         mDeviceVolume = 0.f;
-        mStartVolumeTimeNs = 0;
-        mLastVolumeChangeTimeNs = 0;
+        mLastVolumeChangeTimeNs = 0;  // last time volume logged, cleared on endInterval
         mMinVolume = AMEDIAMETRICS_INITIAL_MIN_VOLUME;
         mMaxVolume = AMEDIAMETRICS_INITIAL_MAX_VOLUME;
         mMinVolumeDurationNs = 0;
@@ -220,8 +252,24 @@ private:
         // do not reset mUnderrunCount - it keeps continuously running for tracks.
     }
 
+    // Meyer's singleton is thread-safe.
+    static const sp<IActivityManager>& getActivityManager() {
+        static const auto activityManager = []() -> sp<IActivityManager> {
+            const sp<IServiceManager> sm(defaultServiceManager());
+            if (sm != nullptr) {
+                 return interface_cast<IActivityManager>(sm->checkService(String16("activity")));
+            }
+            return nullptr;
+        }();
+        return activityManager;
+    }
+
     const std::string mMetricsId;
     const bool        mIsOut;  // if true, than a playback track, otherwise used for record.
+
+    static constexpr int AUDIO_API = 5;
+    static constexpr int MICROPHONE_API = 6;
+    const int         mUid;
 
     mutable           std::mutex mLock;
 
@@ -230,14 +278,12 @@ private:
 
     // Number of intervals and playing time
     int32_t           mIntervalCount GUARDED_BY(mLock) = 0;
-    int64_t           mIntervalStartTimeNs GUARDED_BY(mLock) = 0;
-    int64_t           mCumulativeTimeNs GUARDED_BY(mLock) = 0;
-    int64_t           mDeviceTimeNs GUARDED_BY(mLock) = 0;
+    int64_t           mCumulativeTimeNs GUARDED_BY(mLock) = 0; // total time.
+    int64_t           mDeviceTimeNs GUARDED_BY(mLock) = 0;     // time on device.
 
     // Average volume
-    double            mVolume GUARDED_BY(mLock) = 0.f;
-    double            mDeviceVolume GUARDED_BY(mLock) = 0.f;
-    int64_t           mStartVolumeTimeNs GUARDED_BY(mLock) = 0;
+    double            mVolume GUARDED_BY(mLock) = 0.f;       // last set volume.
+    double            mDeviceVolume GUARDED_BY(mLock) = 0.f; // running average volume.
     int64_t           mLastVolumeChangeTimeNs GUARDED_BY(mLock) = 0;
 
     // Min/Max volume

@@ -22,6 +22,7 @@ import android.annotation.NonNull;
 import android.content.Context;
 import android.os.RemoteException;
 import android.telephony.ims.RcsContactUceCapability;
+import android.telephony.ims.SipDetails;
 import android.telephony.ims.stub.ImsRegistrationImplBase;
 import android.telephony.ims.stub.RcsCapabilityExchangeImplBase;
 import android.text.TextUtils;
@@ -112,6 +113,8 @@ public class PublishProcessor {
         logi("onRcsDisconnected");
         mRcsFeatureManager = null;
         mProcessorState.onRcsDisconnected();
+        // reset the publish capabilities.
+        mDeviceCapabilities.resetPresenceCapability();
     }
 
     /**
@@ -152,10 +155,15 @@ public class PublishProcessor {
         }
 
         // Get the latest device's capabilities.
-        RcsContactUceCapability deviceCapability =
-                mDeviceCapabilities.getDeviceCapabilities(CAPABILITY_MECHANISM_PRESENCE, mContext);
+        RcsContactUceCapability deviceCapability;
+        if (triggerType == PublishController.PUBLISH_TRIGGER_SERVICE) {
+            deviceCapability = mDeviceCapabilities.getDeviceCapabilities(
+                    CAPABILITY_MECHANISM_PRESENCE, mContext);
+        } else {
+            deviceCapability = mDeviceCapabilities.getChangedPresenceCapability(mContext);
+        }
         if (deviceCapability == null) {
-            logw("doPublishInternal: device capability is null");
+            logi("doPublishInternal: device capability hasn't changed or is null");
             return false;
         }
 
@@ -349,6 +357,8 @@ public class PublishProcessor {
         // Increase the retry count
         mProcessorState.increaseRetryCount();
 
+        // reset the last capabilities because of the request is failed
+        mDeviceCapabilities.setPresencePublishResult(false);
         // Reset the pending flag because it is going to resend a request.
         clearPendingRequest();
 
@@ -373,15 +383,21 @@ public class PublishProcessor {
         Instant responseTime = response.getResponseTimestamp();
 
         // Record the time when the request is successful and reset the retry count.
+        boolean publishSuccess = false;
         if (response.isRequestSuccess()) {
             mProcessorState.setLastPublishedTime(responseTime);
             mProcessorState.resetRetryCount();
+            publishSuccess = true;
         }
+        // set the last capabilities according to the result of request.
+        mDeviceCapabilities.setPresencePublishResult(publishSuccess);
 
         // Update the publish state after the request has finished.
         int publishState = response.getPublishState();
         String pidfXml = response.getPidfXml();
-        mPublishCtrlCallback.updatePublishRequestResult(publishState, responseTime, pidfXml);
+        SipDetails details = response.getSipDetails().orElse(null);
+        mPublishCtrlCallback.updatePublishRequestResult(publishState, responseTime, pidfXml,
+                details);
 
         // Refresh the device state with the publish request result.
         response.getResponseSipCode().ifPresent(sipCode -> {
@@ -492,6 +508,8 @@ public class PublishProcessor {
      */
     public void resetState() {
         mProcessorState.resetState();
+        // reset the publish capabilities.
+        mDeviceCapabilities.resetPresenceCapability();
     }
 
     /**

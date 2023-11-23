@@ -1,0 +1,91 @@
+/*
+ * Copyright (C) 2023 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+syntax = "proto2";
+
+package android.os.statsd.wearservices;
+
+import "frameworks/proto_logging/stats/atom_field_options.proto";
+import "frameworks/proto_logging/stats/enums/app/wearservices/wearservices_enums.proto";
+
+option java_package = "com.android.os.wearservices";
+option java_multiple_files = true;
+
+/**
+ * Logged during a backup session in Wear Services.
+ *
+ * Logged from :
+ * vendor/google_clockwork_partners/packages/WearServices/src/com/google/wear/services/backup/WearServicesBackupAgent.java
+ */
+message WsBackupActionReported {
+  // Depicts the action being performed for backup.
+  // Values : (BACKUP_STARTED, BACKUP_SUCCEEDED, BACKUP_FAILED)
+  optional android.app.wearservices.BackupAction action = 1;
+}
+
+/**
+ * Logged during a restore session in Wear Services.
+ *
+ * Logged from package :
+ * vendor/google_clockwork_partners/packages/WearServices
+ */
+message WsRestoreActionReported {
+  // Depicts the action being performed for restore.
+  // Values : (RESTORE_STARTED, RESTORE_SUCCEEDED, RESTORE_FAILED)
+  optional android.app.wearservices.RestoreAction action = 1;
+}
+
+/** Logged when a notification is updated in the WearServices application. */
+message WsNotificationUpdated {
+  // Package name of the application that created the notification event.
+  optional string package_name = 1;
+
+  // Notification action that this event represents.
+  optional android.app.wearservices.NotificationUpdateAction update_action = 2;
+
+  // Device on which the notification event was created.
+  optional android.app.wearservices.RequestSource source_device = 3;
+
+  // Importance of the notification after this update.
+  optional android.app.wearservices.NotificationImportance importance = 4;
+}
+
+/**
+ * Atom used to log the wear time for Wearables.
+ *
+ * Logged from package :
+ * vendor/google_clockwork_partners/packages/WearServices
+ */
+message WsWearTimeSession {
+    optional int64 session_duration_millis = 1;
+}
+
+/** Logged when a complication is tapped by the user. */
+message WsComplicationTapped {
+  // UID of the package name hosting the complication, calculated by
+  // PackageManager#getPackageUid.
+  optional int32 wf_component_package_uid = 1 [(is_uid) = true];
+
+  // Package uid for the provider component for complication.
+  optional int32 provider_component_package_uid = 2 [(is_uid) = true];
+
+  // Class name for the provider component.
+  optional string provider_class_name = 3;
+
+  // Type of the complication. Valid values are listed in
+  // androidx.wear.watchface.complications.data.ComplicationType.
+  optional int32 type = 4;
+}

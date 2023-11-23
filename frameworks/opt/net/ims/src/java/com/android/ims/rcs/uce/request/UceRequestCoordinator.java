@@ -20,6 +20,7 @@ import android.annotation.IntDef;
 import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.telephony.ims.RcsUceAdapter;
+import android.telephony.ims.SipDetails;
 import android.util.Log;
 
 import com.android.ims.rcs.uce.request.UceRequestManager.RequestManagerCallback;
@@ -135,6 +136,15 @@ public abstract class UceRequestCoordinator {
         }
 
         /**
+         * Create a RequestResult that successfully completes the request.
+         * @param taskId the task id of the UceRequest
+         * @param details The SIP information related to this request.
+         */
+        public static RequestResult createSuccessResult(long taskId, @Nullable SipDetails details) {
+            return new RequestResult(taskId, details);
+        }
+
+        /**
          * Create a RequestResult for the failed request.
          * @param taskId the task id of the UceRequest
          * @param errorCode the error code of the failed request
@@ -144,29 +154,66 @@ public abstract class UceRequestCoordinator {
             return new RequestResult(taskId, errorCode, retry);
         }
 
+        /**
+         * Create a RequestResult for the failed request.
+         * @param taskId the task id of the UceRequest
+         * @param errorCode the error code of the failed request
+         * @param retry When the request can be retried.
+         * @param details The SIP information related to this request.
+         */
+        public static RequestResult createFailedResult(long taskId, int errorCode, long retry,
+                @Nullable SipDetails details) {
+            return new RequestResult(taskId, errorCode, retry, details);
+        }
+
         private final Long mTaskId;
         private final Boolean mIsSuccess;
         private final Optional<Integer> mErrorCode;
         private final Optional<Long> mRetryMillis;
+        private final Optional<SipDetails> mSipDetails;
 
         /**
          * The private constructor for the successful request.
          */
         private RequestResult(long taskId) {
+            this(taskId, null);
+        }
+
+        /**
+         * The private constructor for the successful request.
+         */
+        private RequestResult(long taskId, SipDetails details) {
             mTaskId = taskId;
             mIsSuccess = true;
             mErrorCode = Optional.empty();
             mRetryMillis = Optional.empty();
+            if (details == null) {
+                mSipDetails = Optional.empty();
+            } else {
+                mSipDetails = Optional.ofNullable(details);
+            }
         }
 
         /**
          * The private constructor for the failed request.
          */
         private RequestResult(long taskId, int errorCode, long retryMillis) {
+            this(taskId, errorCode, retryMillis, null);
+        }
+
+        /**
+         * The private constructor for the failed request.
+         */
+        private RequestResult(long taskId, int errorCode, long retryMillis, SipDetails details) {
             mTaskId = taskId;
             mIsSuccess = false;
             mErrorCode = Optional.of(errorCode);
             mRetryMillis = Optional.of(retryMillis);
+            if (details == null) {
+                mSipDetails = Optional.empty();
+            } else {
+                mSipDetails = Optional.ofNullable(details);
+            }
         }
 
         public long getTaskId() {
@@ -183,6 +230,10 @@ public abstract class UceRequestCoordinator {
 
         public Optional<Long> getRetryMillis() {
             return mRetryMillis;
+        }
+
+        public Optional<SipDetails> getSipDetails() {
+            return mSipDetails;
         }
     }
 

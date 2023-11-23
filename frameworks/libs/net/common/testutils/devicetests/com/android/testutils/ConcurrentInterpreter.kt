@@ -2,7 +2,6 @@ package com.android.testutils
 
 import android.os.SystemClock
 import java.util.concurrent.CyclicBarrier
-import kotlin.system.measureTimeMillis
 import kotlin.test.assertEquals
 import kotlin.test.assertFails
 import kotlin.test.assertNull
@@ -14,17 +13,21 @@ import kotlin.test.assertTrue
 typealias InterpretMatcher<T> = Pair<Regex, (ConcurrentInterpreter<T>, T, MatchResult) -> Any?>
 
 // The default unit of time for interpreted tests
-val INTERPRET_TIME_UNIT = 40L // ms
+const val INTERPRET_TIME_UNIT = 60L // ms
 
 /**
- * A small interpreter for testing parallel code. The interpreter will read a list of lines
- * consisting of "|"-separated statements. Each column runs in a different concurrent thread
- * and all threads wait for each other in between lines. Each statement is split on ";" then
- * matched with regular expressions in the instructionTable constant, which contains the
- * code associated with each statement. The interpreter supports an object being passed to
- * the interpretTestSpec() method to be passed in each lambda (think about the object under
- * test), and an optional transform function to be executed on the object at the start of
- * every thread.
+ * A small interpreter for testing parallel code.
+ *
+ * The interpreter will read a list of lines consisting of "|"-separated statements, e.g. :
+ *   sleep 2 ; unblock thread2 | wait thread2 time 2..5
+ *   sendMessage "x"           | obtainMessage = "x" time 0..1
+ *
+ * Each column runs in a different concurrent thread and all threads wait for each other in
+ * between lines. Each statement is split on ";" then matched with regular expressions in the
+ * instructionTable constant, which contains the code associated with each statement. The
+ * interpreter supports an object being passed to the interpretTestSpec() method to be passed
+ * in each lambda (think about the object under test), and an optional transform function to be
+ * executed on the object at the start of every thread.
  *
  * The time unit is defined in milliseconds by the interpretTimeUnit member, which has a default
  * value but can be passed to the constructor. Whitespace is ignored.
@@ -34,20 +37,15 @@ val INTERPRET_TIME_UNIT = 40L // ms
  * the regexp match, and the object. See the individual tests for the DSL of that test.
  * Implementors for new interpreting languages are encouraged to look at the defaultInterpretTable
  * constant below for an example of how to write an interpreting table.
- * Some expressions already exist by default and can be used by all interpreters. They include :
- * sleep(x) : sleeps for x time units and returns Unit ; sleep alone means sleep(1)
- * EXPR = VALUE : asserts that EXPR equals VALUE. EXPR is interpreted. VALUE can either be the
- *   string "null" or an int. Returns Unit.
- * EXPR time x..y : measures the time taken by EXPR and asserts it took at least x and at most
- *   y time units.
- * EXPR // any text : comments are ignored.
+ * Some expressions already exist by default and can be used by all interpreters. Refer to
+ * getDefaultInstructions() below for a list and documentation.
  */
-open class ConcurrentInterpreter<T>(
-    localInterpretTable: List<InterpretMatcher<T>>,
-    val interpretTimeUnit: Long = INTERPRET_TIME_UNIT
-) {
+open class ConcurrentInterpreter<T>(localInterpretTable: List<InterpretMatcher<T>>) {
     private val interpretTable: List<InterpretMatcher<T>> =
             localInterpretTable + getDefaultInstructions()
+    // The last time the thread became blocked, with base System.currentTimeMillis(). This should
+    // be set immediately before any time the thread gets blocked.
+    internal val lastBlockedTime = ThreadLocal<Long>()
 
     // Split the line into multiple statements separated by ";" and execute them. Return whatever
     // the last statement returned.
@@ -63,11 +61,28 @@ open class ConcurrentInterpreter<T>(
         return code(this, r, match)
     }
 
-    // Spins as many threads as needed by the test spec and interpret each program concurrently,
-    // having all threads waiting on a CyclicBarrier after each line.
-    // |lineShift| says how many lines after the call the spec starts. This is used for error
-    // reporting. Unfortunately AFAICT there is no way to get the line of an argument rather
-    // than the line at which the expression starts.
+    /**
+     * Spins as many threads as needed by the test spec and interpret each program concurrently.
+     *
+     * All threads wait on a CyclicBarrier after each line.
+     * |lineShift| says how many lines after the call the spec starts. This is used for error
+     * reporting. Unfortunately AFAICT there is no way to get the line of an argument rather
+     * than the line at which the expression starts.
+     *
+     * This method is mostly meant for implementations that extend the ConcurrentInterpreter
+     * class to add their own directives and instructions. These may need to operate on some
+     * data, which can be passed in |initial|. For example, an interpreter specialized in callbacks
+     * may want to pass the callback there. In some cases, it's necessary that each thread
+     * performs a transformation *after* it starts on that value before starting ; in this case,
+     * the transformation can be passed to |threadTransform|. The default is to return |initial| as
+     * is. Look at some existing child classes of this interpreter for some examples of how this
+     * can be used.
+     *
+     * @param spec The test spec, as a string of lines separated by pipes.
+     * @param initial An initial value passed to all threads.
+     * @param lineShift How many lines after the call the spec starts, for error reporting.
+     * @param threadTransform an optional transformation that each thread will apply to |initial|
+     */
     fun interpretTestSpec(
         spec: String,
         initial: T,
@@ -77,16 +92,25 @@ open class ConcurrentInterpreter<T>(
         // For nice stack traces
         val callSite = getCallingMethod()
         val lines = spec.trim().trim('\n').split("\n").map { it.split("|") }
-        // |threads| contains arrays of strings that make up the statements of a thread : in other
+        // |lines| contains arrays of strings that make up the statements of a thread : in other
         // words, it's an array that contains a list of statements for each column in the spec.
+        // E.g. if the string is """
+        //   a | b | c
+        //   d | e | f
+        // """, then lines is [ [ "a", "b", "c" ], [ "d", "e", "f" ] ].
         val threadCount = lines[0].size
         assertTrue(lines.all { it.size == threadCount })
         val threadInstructions = (0 until threadCount).map { i -> lines.map { it[i].trim() } }
+        // |threadInstructions| is a list where each element is the list of instructions for the
+        // thread at the index. In other words, it's just |lines| transposed. In the example
+        // above, it would be [ [ "a", "d" ], [ "b", "e" ], [ "c", "f" ] ]
+        // mapIndexed below will pass in |instructions| the list of instructions for this thread.
         val barrier = CyclicBarrier(threadCount)
         var crash: InterpretException? = null
         threadInstructions.mapIndexed { threadIndex, instructions ->
             Thread {
                 val threadLocal = threadTransform(initial)
+                lastBlockedTime.set(System.currentTimeMillis())
                 barrier.await()
                 var lineNum = 0
                 instructions.forEach {
@@ -104,6 +128,7 @@ open class ConcurrentInterpreter<T>(
                                 callSite.lineNumber + lineNum + lineShift,
                                 callSite.className, callSite.methodName, callSite.fileName, e)
                     }
+                    lastBlockedTime.set(System.currentTimeMillis())
                     barrier.await()
                 }
             }.also { it.start() }
@@ -138,6 +163,16 @@ open class ConcurrentInterpreter<T>(
     }
 }
 
+/**
+ * Default instructions available to all interpreters.
+ * sleep(x) : sleeps for x time units and returns Unit ; sleep alone means sleep(1)
+ * EXPR = VALUE : asserts that EXPR equals VALUE. EXPR is interpreted. VALUE can either be the
+ *   string "null" or an int. Returns Unit.
+ * EXPR time x..y : measures the time taken by EXPR and asserts it took at least x and at most
+ *   y time units.
+ * EXPR // any text : comments are ignored.
+ * EXPR fails : checks that EXPR throws some exception.
+ */
 private fun <T> getDefaultInstructions() = listOf<InterpretMatcher<T>>(
     // Interpret an empty line as doing nothing.
     Regex("") to { _, _, _ -> null },
@@ -145,8 +180,25 @@ private fun <T> getDefaultInstructions() = listOf<InterpretMatcher<T>>(
     Regex("(.*)//.*") to { i, t, r -> i.interpret(r.strArg(1), t) },
     // Interpret "XXX time x..y" : run XXX and check it took at least x and not more than y
     Regex("""(.*)\s*time\s*(\d+)\.\.(\d+)""") to { i, t, r ->
-        val time = measureTimeMillis { i.interpret(r.strArg(1), t) }
-        assertTrue(time in r.timeArg(2)..r.timeArg(3), "$time not in ${r.timeArg(2)..r.timeArg(3)}")
+        val lateStart = System.currentTimeMillis()
+        i.interpret(r.strArg(1), t)
+        val end = System.currentTimeMillis()
+        // There is uncertainty in measuring time.
+        // It takes some (small) time for the thread to even measure the time at which it
+        // starts interpreting the instruction. It is therefore possible that thread A sleeps for
+        // n milliseconds, and B expects to have waited for at least n milliseconds, but because
+        // B started measuring after 1ms or so, B thinks it didn't wait long enough.
+        // To avoid this, when the `time` instruction tests the instruction took at least X and
+        // at most Y, it tests X against a time measured since *before* the thread blocked but
+        // Y against a time measured as late as possible. This ensures that the timer is
+        // sufficiently lenient in both directions that there are no flaky measures.
+        val minTime = end - lateStart
+        val maxTime = end - i.lastBlockedTime.get()!!
+
+        assertTrue(maxTime >= r.timeArg(2),
+                "Should have taken at least ${r.timeArg(2)} but took less than $maxTime")
+        assertTrue(minTime <= r.timeArg(3),
+                "Should have taken at most ${r.timeArg(3)} but took more than $minTime")
     },
     // Interpret "XXX = YYY" : run XXX and assert its return value is equal to YYY. "null" supported
     Regex("""(.*)\s*=\s*(null|\d+)""") to { i, t, r ->
@@ -156,7 +208,7 @@ private fun <T> getDefaultInstructions() = listOf<InterpretMatcher<T>>(
     },
     // Interpret sleep. Optional argument for the count, in INTERPRET_TIME_UNIT units.
     Regex("""sleep(\((\d+)\))?""") to { i, t, r ->
-        SystemClock.sleep(if (r.strArg(2).isEmpty()) i.interpretTimeUnit else r.timeArg(2))
+        SystemClock.sleep(if (r.strArg(2).isEmpty()) INTERPRET_TIME_UNIT else r.timeArg(2))
     },
     Regex("""(.*)\s*fails""") to { i, t, r ->
         assertFails { i.interpret(r.strArg(1), t) }

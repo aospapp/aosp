@@ -39,7 +39,7 @@ java_test_host {
         "junit",
         "hamcrest",
     ],
-    static_libs: ["asm-9.2"],
+    static_libs: ["ow2-asm"],
 
     // Copy the jar to DIST_DIR for sdk builds
     dist: {

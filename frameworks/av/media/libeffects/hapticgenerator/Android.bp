@@ -22,6 +22,24 @@ package {
     default_applicable_licenses: ["frameworks_av_license"],
 }
 
+cc_defaults {
+    name : "hapticgeneratordefaults",
+    srcs: [
+        "Processors.cpp",
+    ],
+    shared_libs: [
+        "libaudioutils",
+        "libbase",
+        "liblog",
+        "libutils",
+        "libvibratorutils",
+    ],
+    header_libs: [
+        "libaudioeffects",
+    ],
+    relative_install_path: "soundfx",
+}
+
 cc_library_shared {
     name: "libhapticgenerator",
 
@@ -29,7 +47,10 @@ cc_library_shared {
 
     srcs: [
         "EffectHapticGenerator.cpp",
-        "Processors.cpp",
+    ],
+
+    defaults: [
+        "hapticgeneratordefaults",
     ],
 
     cflags: [
@@ -42,19 +63,29 @@ cc_library_shared {
                        // with/without `-ffast-math` for more context.
         "-fvisibility=hidden",
     ],
+}
 
-    shared_libs: [
-        "libaudioutils",
-        "libbase",
-        "libbinder",
-        "liblog",
-        "libutils",
-        "libvibrator",
+cc_library_shared {
+    name: "libhapticgeneratoraidl",
+
+    srcs: [
+        "aidl/EffectHapticGenerator.cpp",
+        "aidl/HapticGeneratorContext.cpp",
+        ":effectCommonFile",
     ],
 
-    relative_install_path: "soundfx",
+    defaults: [
+        "aidlaudioservice_defaults",
+        "latest_android_hardware_audio_effect_ndk_shared",
+        "latest_android_media_audio_common_types_ndk_shared",
+        "hapticgeneratordefaults",
+    ],
 
-    header_libs: [
-        "libaudioeffects",
+    cflags: [
+        "-Wthread-safety",
+    ],
+
+    visibility: [
+        "//hardware/interfaces/audio/aidl/default",
     ],
 }

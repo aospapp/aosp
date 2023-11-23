@@ -48,6 +48,7 @@ import android.testing.AndroidTestingRunner;
 import android.testing.TestableLooper;
 
 import com.android.internal.telephony.TelephonyTest;
+import com.android.internal.telephony.subscription.SubscriptionInfoInternal;
 
 import org.junit.After;
 import org.junit.Before;
@@ -76,7 +77,8 @@ public class CellularNetworkValidatorTest extends TelephonyTest {
         doReturn(CAPABILITY_WITH_VALIDATION_SUPPORTED).when(mPhoneConfigurationManager)
                 .getCurrentPhoneCapability();
         mValidatorUT = new CellularNetworkValidator(mContext);
-        doReturn(true).when(mSubscriptionController).isActiveSubId(anyInt());
+        doReturn(new SubscriptionInfoInternal.Builder().setSimSlotIndex(0).setId(1).build())
+                .when(mSubscriptionManagerService).getSubscriptionInfoInternal(anyInt());
         processAllMessages();
         setCacheTtlInCarrierConfig(5000);
     }
@@ -490,6 +492,7 @@ public class CellularNetworkValidatorTest extends TelephonyTest {
         CarrierConfigManager carrierConfigManager = (CarrierConfigManager)
                 mContext.getSystemService(Context.CARRIER_CONFIG_SERVICE);
         PersistableBundle bundle = carrierConfigManager.getConfigForSubId(anyInt());
-        bundle.putLong(CarrierConfigManager.KEY_DATA_SWITCH_VALIDATION_MIN_GAP_LONG, ttl);
+        bundle.putLong(CarrierConfigManager.KEY_DATA_SWITCH_VALIDATION_MIN_INTERVAL_MILLIS_LONG,
+                ttl);
     }
 }

@@ -15,6 +15,7 @@
  */
 package com.android.internal.car.updatable;
 
+import static com.android.car.internal.common.CommonConstants.USER_LIFECYCLE_EVENT_TYPE_REMOVED;
 import static com.android.car.internal.common.CommonConstants.USER_LIFECYCLE_EVENT_TYPE_SWITCHING;
 
 import static org.mockito.Mockito.any;
@@ -27,6 +28,7 @@ import android.car.test.mocks.AbstractExtendedMockitoTestCase;
 import android.car.test.util.UserTestingHelper.UserInfoBuilder;
 import android.content.pm.UserInfo;
 import android.os.RemoteException;
+import android.os.UserHandle;
 
 import com.android.car.internal.ICarSystemServerClient;
 import com.android.server.SystemService.TargetUser;
@@ -115,7 +117,7 @@ public class CarServiceProxyTest extends AbstractExtendedMockitoTestCase {
 
         verifyInitBootUserCalled();
         verifySendLifecycleEventCalled(USER_LIFECYCLE_EVENT_TYPE_SWITCHING);
-        verifyOnUserRemovedCalled();
+        verifyLifecycleEventCalledForUserRemoval();
     }
 
     @Test
@@ -124,14 +126,14 @@ public class CarServiceProxyTest extends AbstractExtendedMockitoTestCase {
 
         callOnUserRemoved();
 
-        verifyOnUserRemovedCalled();
+        verifyLifecycleEventCalledForUserRemoval();
     }
 
     @Test
     public void testOnUserRemoved_CarServiceNull() throws RemoteException {
         callOnUserRemoved();
 
-        verifyOnUserRemovedNeverCalled();
+        verifySendLifecycleEventNeverCalled();
     }
 
     @Test
@@ -203,10 +205,13 @@ public class CarServiceProxyTest extends AbstractExtendedMockitoTestCase {
         verify(mCarService, never()).onUserLifecycleEvent(anyInt(), anyInt(), anyInt());
     }
 
-    private void verifyOnUserRemovedCalled() throws RemoteException {
-        verify(mCarService).onUserRemoved(mRemovedUser1.getUserHandle());
-        verify(mCarService).onUserRemoved(mRemovedUser2.getUserHandle());
-        verify(mCarService).onUserRemoved(mRemovedUser3.getUserHandle());
+    private void verifyLifecycleEventCalledForUserRemoval() throws RemoteException {
+        verify(mCarService).onUserLifecycleEvent(USER_LIFECYCLE_EVENT_TYPE_REMOVED,
+                UserHandle.USER_NULL, mRemovedUser1.getUserHandle().getIdentifier());
+        verify(mCarService).onUserLifecycleEvent(USER_LIFECYCLE_EVENT_TYPE_REMOVED,
+                UserHandle.USER_NULL, mRemovedUser2.getUserHandle().getIdentifier());
+        verify(mCarService).onUserLifecycleEvent(USER_LIFECYCLE_EVENT_TYPE_REMOVED,
+                UserHandle.USER_NULL, mRemovedUser3.getUserHandle().getIdentifier());
     }
 
     private void verifyOnUserRemovedNeverCalled() throws RemoteException {

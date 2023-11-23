@@ -57,6 +57,13 @@ class TestUtils {
         return result;
     }
 
+    static ScanResult buildScanResult(
+            String utf8Ssid, String bssid, long timestampMillis, String securityTypesString) {
+        final ScanResult result = buildScanResult(utf8Ssid, bssid, timestampMillis);
+        result.capabilities = securityTypesString;
+        return result;
+    }
+
     static WifiConfiguration buildWifiConfiguration(String utf8Ssid) {
         final WifiConfiguration config = new WifiConfiguration();
         config.SSID = "\"" + utf8Ssid + "\"";

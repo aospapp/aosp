@@ -92,8 +92,8 @@ public class Config {
     }
 
     public static String getTime(int platformVersion) {
-        if (isGreaterOrEqual(platformVersion, S)) {
-            return "12:00";
+        if (isGreaterOrEqual(platformVersion, TIRAMISU)) {
+            return "13:00";
         }
         if (platformVersion < GINGERBREAD) {
             return "2:20";
@@ -139,6 +139,9 @@ public class Config {
         }
         if (platformVersion < S) {
             return "11:00";
+        }
+        if (platformVersion < TIRAMISU) {
+            return "12:00";
         }
         // Should never happen.
         return "4:04";

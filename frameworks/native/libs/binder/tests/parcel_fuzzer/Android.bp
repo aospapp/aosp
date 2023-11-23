@@ -7,6 +7,26 @@ package {
     default_applicable_licenses: ["frameworks_native_license"],
 }
 
+aidl_interface {
+    name: "binderReadParcelIface",
+    host_supported: true,
+    unstable: true,
+    srcs: [
+        "parcelables/EmptyParcelable.aidl",
+        "parcelables/SingleDataParcelable.aidl",
+        "parcelables/GenericDataParcelable.aidl",
+    ],
+    backend: {
+        java: {
+            enabled: true,
+            platform_apis: true,
+        },
+        rust: {
+            enabled: true,
+        },
+    },
+}
+
 cc_fuzz {
     name: "binder_parcel_fuzzer",
     host_supported: true,
@@ -29,6 +49,8 @@ cc_fuzz {
         "libcutils",
         "libhidlbase",
         "liblog",
+        "binderReadParcelIface-cpp",
+        "binderReadParcelIface-ndk",
     ],
 
     target: {
@@ -59,12 +81,14 @@ cc_fuzz {
 cc_library_static {
     name: "libbinder_random_parcel",
     host_supported: true,
+    vendor_available: true,
     target: {
         darwin: {
             enabled: false,
         },
     },
     srcs: [
+        "random_binder.cpp",
         "random_fd.cpp",
         "random_parcel.cpp",
         "libbinder_driver.cpp",

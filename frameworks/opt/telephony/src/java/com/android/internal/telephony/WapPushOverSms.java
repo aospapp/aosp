@@ -46,6 +46,7 @@ import android.telephony.SubscriptionManager;
 import android.text.TextUtils;
 
 import com.android.internal.telephony.uicc.IccUtils;
+import com.android.internal.telephony.util.TelephonyUtils;
 import com.android.telephony.Rlog;
 
 import com.google.android.mms.pdu.GenericPdu;
@@ -245,9 +246,10 @@ public class WapPushOverSms implements ServiceConnection {
                 System.arraycopy(pdu, dataIndex, intentData, 0, intentData.length);
             }
 
-            int[] subIds = SubscriptionManager.getSubId(phoneId);
-            int subId = (subIds != null) && (subIds.length > 0) ? subIds[0]
-                    : SmsManager.getDefaultSmsSubscriptionId();
+            int subId = SubscriptionManager.getSubscriptionId(phoneId);
+            if (!SubscriptionManager.isValidSubscriptionId(subId)) {
+                subId = SmsManager.getDefaultSmsSubscriptionId();
+            }
 
             // Continue if PDU parsing fails: the default messaging app may successfully parse the
             // same PDU.
@@ -391,7 +393,10 @@ public class WapPushOverSms implements ServiceConnection {
 
         // Direct the intent to only the default MMS app. If we can't find a default MMS app
         // then sent it to all broadcast receivers.
-        ComponentName componentName = SmsApplication.getDefaultMmsApplication(mContext, true);
+        UserHandle userHandle = TelephonyUtils.getSubscriptionUserHandle(mContext, subId);
+        ComponentName componentName = SmsApplication.getDefaultMmsApplicationAsUser(mContext,
+                true, userHandle);
+
         Bundle options = null;
         if (componentName != null) {
             // Deliver MMS message only to this receiver
@@ -409,9 +414,12 @@ public class WapPushOverSms implements ServiceConnection {
             options = bopts.toBundle();
         }
 
+        if (userHandle == null) {
+            userHandle = UserHandle.SYSTEM;
+        }
         handler.dispatchIntent(intent, getPermissionForType(result.mimeType),
                 getAppOpsStringPermissionForIntent(result.mimeType), options, receiver,
-                UserHandle.SYSTEM, subId);
+                userHandle, subId);
         return Activity.RESULT_OK;
     }
 

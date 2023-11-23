@@ -26,3 +26,10 @@ java_library_static {
     ],
     sdk_version: "system_current",
 }
+
+filegroup {
+    name: "dns_resolver_proto",
+    srcs: [
+        "dns_resolver.proto",
+    ],
+}

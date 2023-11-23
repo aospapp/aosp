@@ -14,8 +14,7 @@
  * limitations under the License.
  */
 
-#ifndef _UI_INPUT_DISPATCHER_DEBUG_CONFIG_H
-#define _UI_INPUT_DISPATCHER_DEBUG_CONFIG_H
+#pragma once
 
 #define LOG_TAG "InputDispatcher"
 
@@ -23,12 +22,20 @@
 #include <log/log_event_list.h>
 
 namespace android::inputdispatcher {
+
+/**
+ * Signals whether this is a debuggable Android build.
+ * This is populated by reading the value of the "ro.debuggable" property.
+ */
+extern const bool IS_DEBUGGABLE_BUILD;
+
 /**
  * Log detailed debug messages about each inbound event notification to the dispatcher.
- * Enable this via "adb shell setprop log.tag.InputDispatcherInboundEvent DEBUG" (requires restart)
+ * Enable this via "adb shell setprop log.tag.InputDispatcherInboundEvent DEBUG".
+ * This requires a restart on non-debuggable (e.g. user) builds, but should take effect immediately
+ * on debuggable builds (e.g. userdebug).
  */
-const bool DEBUG_INBOUND_EVENT_DETAILS =
-        __android_log_is_loggable(ANDROID_LOG_DEBUG, LOG_TAG "InboundEvent", ANDROID_LOG_INFO);
+bool debugInboundEventDetails();
 
 /**
  * Log detailed debug messages about each outbound event processed by the dispatcher.
@@ -75,11 +82,8 @@ const bool DEBUG_TOUCH_MODE =
 
 /**
  * Log debug messages about touch occlusion
- * Enable this via "adb shell setprop log.tag.InputDispatcherTouchOcclusion DEBUG" (requires
- * restart)
  */
-const bool DEBUG_TOUCH_OCCLUSION =
-        __android_log_is_loggable(ANDROID_LOG_DEBUG, LOG_TAG "TouchOcclusion", ANDROID_LOG_INFO);
+constexpr bool DEBUG_TOUCH_OCCLUSION = true;
 
 /**
  * Log debug messages about the app switch latency optimization.
@@ -94,6 +98,5 @@ const bool DEBUG_APP_SWITCH =
  */
 const bool DEBUG_HOVER =
         __android_log_is_loggable(ANDROID_LOG_DEBUG, LOG_TAG "Hover", ANDROID_LOG_INFO);
-} // namespace android::inputdispatcher
 
-#endif // _UI_INPUT_DISPATCHER_DEBUG_CONFIG_H
+} // namespace android::inputdispatcher

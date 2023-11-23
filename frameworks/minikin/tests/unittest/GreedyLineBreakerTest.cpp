@@ -75,7 +75,7 @@ protected:
         auto family1 = buildFontFamily("Ascii.ttf");
         auto family2 = buildFontFamily("CustomExtent.ttf");
         std::vector<std::shared_ptr<FontFamily>> families = {family1, family2};
-        auto fc = std::make_shared<FontCollection>(families);
+        auto fc = FontCollection::create(families);
         MinikinPaint paint(fc);
         paint.size = 10.0f;  // Make 1em=10px
         paint.localeListId = LocaleListCache::getId(lang);
@@ -98,7 +98,7 @@ TEST_F(GreedyLineBreakerTest, roundingError) {
     MeasuredTextBuilder builder;
     auto family1 = buildFontFamily("Ascii.ttf");
     std::vector<std::shared_ptr<FontFamily>> families = {family1};
-    auto fc = std::make_shared<FontCollection>(families);
+    auto fc = FontCollection::create(families);
     MinikinPaint paint(fc);
     paint.size = 56.0f;  // Make 1em=56px
     paint.scaleX = 1;

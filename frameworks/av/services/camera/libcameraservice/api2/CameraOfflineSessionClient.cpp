@@ -29,6 +29,11 @@ using binder::Status;
 status_t CameraOfflineSessionClient::initialize(sp<CameraProviderManager>, const String8&) {
     ATRACE_CALL();
 
+    if (mFrameProcessor.get() != nullptr) {
+        // Already initialized
+        return OK;
+    }
+
     // Verify ops permissions
     auto res = startCameraOps();
     if (res != OK) {
@@ -44,7 +49,12 @@ status_t CameraOfflineSessionClient::initialize(sp<CameraProviderManager>, const
     String8 threadName;
     mFrameProcessor = new camera2::FrameProcessorBase(mOfflineSession);
     threadName = String8::format("Offline-%s-FrameProc", mCameraIdStr.string());
-    mFrameProcessor->run(threadName.string());
+    res = mFrameProcessor->run(threadName.string());
+    if (res != OK) {
+        ALOGE("%s: Unable to start frame processor thread: %s (%d)",
+                __FUNCTION__, strerror(-res), res);
+        return res;
+    }
 
     mFrameProcessor->registerListener(camera2::FrameProcessorBase::FRAME_PROCESSOR_LISTENER_MIN_ID,
                                       camera2::FrameProcessorBase::FRAME_PROCESSOR_LISTENER_MAX_ID,
@@ -66,9 +76,17 @@ status_t CameraOfflineSessionClient::initialize(sp<CameraProviderManager>, const
     return OK;
 }
 
+status_t CameraOfflineSessionClient::setCameraServiceWatchdog(bool) {
+    return OK;
+}
+
 status_t CameraOfflineSessionClient::setRotateAndCropOverride(uint8_t /*rotateAndCrop*/) {
     // Since we're not submitting more capture requests, changes to rotateAndCrop override
     // make no difference.
+    return OK;
+}
+
+status_t CameraOfflineSessionClient::setAutoframingOverride(uint8_t) {
     return OK;
 }
 
@@ -81,6 +99,20 @@ status_t CameraOfflineSessionClient::setCameraMute(bool) {
     return INVALID_OPERATION;
 }
 
+void CameraOfflineSessionClient::setStreamUseCaseOverrides(
+        const std::vector<int64_t>& /*useCaseOverrides*/) {
+}
+
+void CameraOfflineSessionClient::clearStreamUseCaseOverrides() {
+}
+
+bool CameraOfflineSessionClient::supportsZoomOverride() {
+    return false;
+}
+
+status_t CameraOfflineSessionClient::setZoomOverride(int32_t /*zoomOverride*/) {
+    return INVALID_OPERATION;
+}
 
 status_t CameraOfflineSessionClient::dump(int fd, const Vector<String16>& args) {
     return BasicClient::dump(fd, args);
@@ -232,7 +264,7 @@ status_t CameraOfflineSessionClient::startCameraOps() {
     mOpsActive = true;
 
     // Transition device state to OPEN
-    sCameraService->mUidPolicy->registerMonitorUid(mClientUid);
+    sCameraService->mUidPolicy->registerMonitorUid(mClientUid, /*openCamera*/true);
 
     return OK;
 }
@@ -256,7 +288,7 @@ status_t CameraOfflineSessionClient::finishCameraOps() {
     }
     mOpsCallback.clear();
 
-    sCameraService->mUidPolicy->unregisterMonitorUid(mClientUid);
+    sCameraService->mUidPolicy->unregisterMonitorUid(mClientUid, /*closeCamera*/true);
 
     return OK;
 }
@@ -300,26 +332,20 @@ void CameraOfflineSessionClient::notifyIdle(
     finishCameraStreamingOps();
 }
 
-void CameraOfflineSessionClient::notifyAutoFocus(uint8_t newState, int triggerId) {
-    (void)newState;
-    (void)triggerId;
-
+void CameraOfflineSessionClient::notifyAutoFocus([[maybe_unused]] uint8_t newState,
+                [[maybe_unused]] int triggerId) {
     ALOGV("%s: Autofocus state now %d, last trigger %d",
           __FUNCTION__, newState, triggerId);
 }
 
-void CameraOfflineSessionClient::notifyAutoExposure(uint8_t newState, int triggerId) {
-    (void)newState;
-    (void)triggerId;
-
+void CameraOfflineSessionClient::notifyAutoExposure([[maybe_unused]] uint8_t newState,
+                [[maybe_unused]] int triggerId) {
     ALOGV("%s: Autoexposure state now %d, last trigger %d",
             __FUNCTION__, newState, triggerId);
 }
 
-void CameraOfflineSessionClient::notifyAutoWhitebalance(uint8_t newState, int triggerId) {
-    (void)newState;
-    (void)triggerId;
-
+void CameraOfflineSessionClient::notifyAutoWhitebalance([[maybe_unused]] uint8_t newState,
+                [[maybe_unused]] int triggerId) {
     ALOGV("%s: Auto-whitebalance state now %d, last trigger %d", __FUNCTION__, newState,
             triggerId);
 }

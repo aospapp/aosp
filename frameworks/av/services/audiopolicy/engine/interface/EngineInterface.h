@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <string>
 #include <utility>
 
 #include <AudioPolicyManagerObserver.h>
@@ -45,6 +46,13 @@ using CapturePresetDevicesRoleMap =
 class EngineInterface
 {
 public:
+    /**
+     * Loads the engine configuration from the specified or the default config file.
+     * If loading failed, tries to fall back to some default configuration. If fallback
+     * is impossible, returns an error.
+     */
+    virtual status_t loadFromXmlConfigWithFallback(const std::string& xmlFilePath = "") = 0;
+
     /**
      * Checks if the engine was correctly initialized.
      *
@@ -173,10 +181,11 @@ public:
      * @param[out] mix to be used if a mix has been installed for the given audio attributes.
      * @return selected input device for the audio attributes, may be null if error.
      */
-    virtual sp<DeviceDescriptor> getInputDeviceForAttributes(const audio_attributes_t &attr,
-                                                             uid_t uid = 0,
-                                                             sp<AudioPolicyMix> *mix = nullptr)
-                                                             const = 0;
+    virtual sp<DeviceDescriptor> getInputDeviceForAttributes(
+            const audio_attributes_t &attr,
+            uid_t uid = 0,
+            audio_session_t session = AUDIO_SESSION_NONE,
+            sp<AudioPolicyMix> *mix = nullptr) const = 0;
 
     /**
      * Get the legacy stream type for a given audio attributes.
@@ -325,10 +334,22 @@ public:
      * for the given strategy
      * @param strategy the audio strategy whose routing will be affected
      * @param role the role of the devices for strategy
+     * @param devices the audio devices to be removed
      * @return BAD_VALUE if the strategy or role is invalid,
      *     or NO_ERROR if the devices for this role was removed
      */
-    virtual status_t removeDevicesRoleForStrategy(product_strategy_t strategy,
+    virtual status_t removeDevicesRoleForStrategy(product_strategy_t strategy, device_role_t role,
+            const AudioDeviceTypeAddrVector &devices) = 0;
+
+    /**
+     * @brief clearDevicesRoleForStrategy removes the role of all devices previously set
+     * for the given strategy
+     * @param strategy the audio strategy whose routing will be affected
+     * @param role the role of the devices for strategy
+     * @return BAD_VALUE if the strategy or role is invalid,
+     *     or NO_ERROR if the devices for this role was removed
+     */
+    virtual status_t clearDevicesRoleForStrategy(product_strategy_t strategy,
             device_role_t role) = 0;
 
     /**
@@ -420,6 +441,16 @@ public:
      * @return collection of active devices
      */
     virtual DeviceVector getActiveMediaDevices(const DeviceVector& availableDevices) const = 0;
+
+    /**
+     * @brief initializeDeviceSelectionCache. Device selection for AudioAttribute / Streams is
+     * cached in the engine in order to speed up process when the audio system is stable. When the
+     * audio system is initializing, not all audio devices information will be available. In that
+     * case, calling this function can allow the engine to initialize the device selection cache
+     * with default values.
+     * This must only be called when audio policy manager is initializing.
+     */
+    virtual void initializeDeviceSelectionCache() = 0;
 
     virtual void dump(String8 *dst) const = 0;
 

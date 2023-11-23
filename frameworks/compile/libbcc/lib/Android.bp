@@ -80,13 +80,12 @@ cc_library {
                 "libdl",
                 "liblog",
             ],
-        },
-    },
-
-    product_variables: {
-        unbundled_build: {
-            // Don't build in unbundled branches
-            enabled: false,
+            product_variables: {
+                unbundled_build: {
+                    // Don't build in unbundled branches
+                    enabled: false,
+                },
+            },
         },
     },
 }

@@ -38,4 +38,14 @@ parcelable CarPowerPolicy {
    * List of power components to be disabled.
    */
   PowerComponent[] disabledComponents;
+
+  /**
+   * List of custom power components to be enabled.
+   */
+  int[] enabledCustomComponents = {};
+
+  /**
+   * List of custom power components to be disabled.
+   */
+  int[] disabledCustomComponents = {};
 }

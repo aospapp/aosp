@@ -17,7 +17,6 @@
 package com.android.systemui.statusbar.phone;
 
 import android.annotation.Nullable;
-import android.app.ActivityManager;
 import android.app.IWallpaperManager;
 import android.app.IWallpaperManagerCallback;
 import android.app.WallpaperColors;
@@ -45,6 +44,7 @@ import com.android.systemui.Dumpable;
 import com.android.systemui.dagger.SysUISingleton;
 import com.android.systemui.dagger.qualifiers.Main;
 import com.android.systemui.dump.DumpManager;
+import com.android.systemui.settings.UserTracker;
 import com.android.systemui.statusbar.NotificationMediaManager;
 
 import libcore.io.IoUtils;
@@ -62,6 +62,11 @@ public class LockscreenWallpaper extends IWallpaperManagerCallback.Stub implemen
         Dumpable {
 
     private static final String TAG = "LockscreenWallpaper";
+
+    // TODO(b/253507223): temporary; remove this
+    private static final String DISABLED_ERROR_MESSAGE = "Methods from LockscreenWallpaper.java "
+            + "should not be called in this version. The lock screen wallpaper should be "
+            + "managed by the WallpaperManagerService and not by this class.";
 
     private final NotificationMediaManager mMediaManager;
     private final WallpaperManager mWallpaperManager;
@@ -82,15 +87,16 @@ public class LockscreenWallpaper extends IWallpaperManagerCallback.Stub implemen
             KeyguardUpdateMonitor keyguardUpdateMonitor,
             DumpManager dumpManager,
             NotificationMediaManager mediaManager,
-            @Main Handler mainHandler) {
+            @Main Handler mainHandler,
+            UserTracker userTracker) {
         dumpManager.registerDumpable(getClass().getSimpleName(), this);
         mWallpaperManager = wallpaperManager;
-        mCurrentUserId = ActivityManager.getCurrentUser();
+        mCurrentUserId = userTracker.getUserId();
         mUpdateMonitor = keyguardUpdateMonitor;
         mMediaManager = mediaManager;
         mH = mainHandler;
 
-        if (iWallpaperManager != null) {
+        if (iWallpaperManager != null && !mWallpaperManager.isLockscreenLiveWallpaperEnabled()) {
             // Service is disabled on some devices like Automotive
             try {
                 iWallpaperManager.setLockWallpaperCallback(this);
@@ -101,6 +107,8 @@ public class LockscreenWallpaper extends IWallpaperManagerCallback.Stub implemen
     }
 
     public Bitmap getBitmap() {
+        assertLockscreenLiveWallpaperNotEnabled();
+
         if (mCached) {
             return mCache;
         }
@@ -120,6 +128,9 @@ public class LockscreenWallpaper extends IWallpaperManagerCallback.Stub implemen
 
     public LoaderResult loadBitmap(int currentUserId, UserHandle selectedUser) {
         // May be called on any thread - only use thread safe operations.
+
+        assertLockscreenLiveWallpaperNotEnabled();
+
 
         if (!mWallpaperManager.isWallpaperSupported()) {
             // When wallpaper is not supported, show the system wallpaper
@@ -159,6 +170,8 @@ public class LockscreenWallpaper extends IWallpaperManagerCallback.Stub implemen
     }
 
     public void setCurrentUser(int user) {
+        assertLockscreenLiveWallpaperNotEnabled();
+
         if (user != mCurrentUserId) {
             if (mSelectedUser == null || user != mSelectedUser.getIdentifier()) {
                 mCached = false;
@@ -168,6 +181,8 @@ public class LockscreenWallpaper extends IWallpaperManagerCallback.Stub implemen
     }
 
     public void setSelectedUser(UserHandle selectedUser) {
+        assertLockscreenLiveWallpaperNotEnabled();
+
         if (Objects.equals(selectedUser, mSelectedUser)) {
             return;
         }
@@ -177,16 +192,18 @@ public class LockscreenWallpaper extends IWallpaperManagerCallback.Stub implemen
 
     @Override
     public void onWallpaperChanged() {
+        assertLockscreenLiveWallpaperNotEnabled();
         // Called on Binder thread.
         postUpdateWallpaper();
     }
 
     @Override
     public void onWallpaperColorsChanged(WallpaperColors colors, int which, int userId) {
-
+        assertLockscreenLiveWallpaperNotEnabled();
     }
 
     private void postUpdateWallpaper() {
+        assertLockscreenLiveWallpaperNotEnabled();
         if (mH == null) {
             Log.wtfStack(TAG, "Trying to use LockscreenWallpaper before initialization.");
             return;
@@ -194,10 +211,11 @@ public class LockscreenWallpaper extends IWallpaperManagerCallback.Stub implemen
         mH.removeCallbacks(this);
         mH.post(this);
     }
-
     @Override
     public void run() {
         // Called in response to onWallpaperChanged on the main thread.
+
+        assertLockscreenLiveWallpaperNotEnabled();
 
         if (mLoader != null) {
             mLoader.cancel(false /* interrupt */);
@@ -226,6 +244,11 @@ public class LockscreenWallpaper extends IWallpaperManagerCallback.Stub implemen
                 mLoader = null;
             }
         }.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+    }
+
+    // TODO(b/273443374): remove
+    public boolean isLockscreenLiveWallpaperEnabled() {
+        return mWallpaperManager.isLockscreenLiveWallpaperEnabled();
     }
 
     @Override
@@ -258,19 +281,25 @@ public class LockscreenWallpaper extends IWallpaperManagerCallback.Stub implemen
 
     /**
      * Drawable that aligns left horizontally and center vertically (like ImageWallpaper).
+     *
+     * <p>Aligns to the center when showing on the smaller internal display of a multi display
+     * device.
      */
     public static class WallpaperDrawable extends DrawableWrapper {
 
         private final ConstantState mState;
         private final Rect mTmpRect = new Rect();
+        private boolean mIsOnSmallerInternalDisplays;
 
-        public WallpaperDrawable(Resources r, Bitmap b) {
-            this(r, new ConstantState(b));
+        public WallpaperDrawable(Resources r, Bitmap b, boolean isOnSmallerInternalDisplays) {
+            this(r, new ConstantState(b), isOnSmallerInternalDisplays);
         }
 
-        private WallpaperDrawable(Resources r, ConstantState state) {
+        private WallpaperDrawable(Resources r, ConstantState state,
+                boolean isOnSmallerInternalDisplays) {
             super(new BitmapDrawable(r, state.mBackground));
             mState = state;
+            mIsOnSmallerInternalDisplays = isOnSmallerInternalDisplays;
         }
 
         @Override
@@ -309,10 +338,17 @@ public class LockscreenWallpaper extends IWallpaperManagerCallback.Stub implemen
             }
             dy = (vheight - dheight * scale) * 0.5f;
 
+            int offsetX = 0;
+            // Offset to show the center area of the wallpaper on a smaller display for multi
+            // display device
+            if (mIsOnSmallerInternalDisplays) {
+                offsetX = bounds.centerX() - (Math.round(dwidth * scale) / 2);
+            }
+
             mTmpRect.set(
-                    bounds.left,
+                    bounds.left + offsetX,
                     bounds.top + Math.round(dy),
-                    bounds.left + Math.round(dwidth * scale),
+                    bounds.left + Math.round(dwidth * scale) + offsetX,
                     bounds.top + Math.round(dheight * scale + dy));
 
             super.onBoundsChange(mTmpRect);
@@ -321,6 +357,17 @@ public class LockscreenWallpaper extends IWallpaperManagerCallback.Stub implemen
         @Override
         public ConstantState getConstantState() {
             return mState;
+        }
+
+        /**
+         * Update bounds when the hosting display or the display size has changed.
+         *
+         * @param isOnSmallerInternalDisplays true if the drawable is on one of the internal
+         *                                    displays with the smaller area.
+         */
+        public void onDisplayUpdated(boolean isOnSmallerInternalDisplays) {
+            mIsOnSmallerInternalDisplays = isOnSmallerInternalDisplays;
+            onBoundsChange(getBounds());
         }
 
         static class ConstantState extends Drawable.ConstantState {
@@ -338,7 +385,7 @@ public class LockscreenWallpaper extends IWallpaperManagerCallback.Stub implemen
 
             @Override
             public Drawable newDrawable(@Nullable Resources res) {
-                return new WallpaperDrawable(res, this);
+                return new WallpaperDrawable(res, this, /* isOnSmallerInternalDisplays= */ false);
             }
 
             @Override
@@ -346,6 +393,18 @@ public class LockscreenWallpaper extends IWallpaperManagerCallback.Stub implemen
                 // DrawableWrapper already handles this for us.
                 return 0;
             }
+        }
+    }
+
+    /**
+     * Feature b/253507223 will adapt the logic to always use the
+     * WallpaperManagerService to render the lock screen wallpaper.
+     * Methods of this class should not be called at all if the project flag is enabled.
+     * TODO(b/253507223) temporary assertion; remove this
+     */
+    private void assertLockscreenLiveWallpaperNotEnabled() {
+        if (mWallpaperManager.isLockscreenLiveWallpaperEnabled()) {
+            throw new IllegalStateException(DISABLED_ERROR_MESSAGE);
         }
     }
 }

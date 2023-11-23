@@ -21,7 +21,9 @@
 #include <cutils/compiler.h>
 #include <inttypes.h>
 #include <string.h>
+#include <optional>
 
+#include <android-base/file.h>
 #include <android-base/logging.h>
 #include <android-base/stringprintf.h>
 #include <cutils/compiler.h>
@@ -34,7 +36,7 @@
 #ifdef __linux__
 #include <binder/Parcel.h>
 #endif
-#ifdef __ANDROID__
+#if defined(__ANDROID__)
 #include <sys/random.h>
 #endif
 
@@ -44,29 +46,11 @@ namespace android {
 
 namespace {
 
-float transformAngle(const ui::Transform& transform, float angleRadians) {
-    // Construct and transform a vector oriented at the specified clockwise angle from vertical.
-    // Coordinate system: down is increasing Y, right is increasing X.
-    float x = sinf(angleRadians);
-    float y = -cosf(angleRadians);
-    vec2 transformedPoint = transform.transform(x, y);
-
-    // Determine how the origin is transformed by the matrix so that we
-    // can transform orientation vectors.
-    const vec2 origin = transform.transform(0, 0);
-
-    transformedPoint.x -= origin.x;
-    transformedPoint.y -= origin.y;
-
-    // Derive the transformed vector's clockwise angle from vertical.
-    // The return value of atan2f is in range [-pi, pi] which conforms to the orientation API.
-    return atan2f(transformedPoint.x, -transformedPoint.y);
-}
-
 bool shouldDisregardTransformation(uint32_t source) {
-    // Do not apply any transformations to axes from joysticks or touchpads.
+    // Do not apply any transformations to axes from joysticks, touchpads, or relative mice.
     return isFromSource(source, AINPUT_SOURCE_CLASS_JOYSTICK) ||
-            isFromSource(source, AINPUT_SOURCE_CLASS_POSITION);
+            isFromSource(source, AINPUT_SOURCE_CLASS_POSITION) ||
+            isFromSource(source, AINPUT_SOURCE_MOUSE_RELATIVE);
 }
 
 bool shouldDisregardOffset(uint32_t source) {
@@ -86,19 +70,41 @@ const char* motionClassificationToString(MotionClassification classification) {
             return "AMBIGUOUS_GESTURE";
         case MotionClassification::DEEP_PRESS:
             return "DEEP_PRESS";
+        case MotionClassification::TWO_FINGER_SWIPE:
+            return "TWO_FINGER_SWIPE";
+        case MotionClassification::MULTI_FINGER_SWIPE:
+            return "MULTI_FINGER_SWIPE";
+        case MotionClassification::PINCH:
+            return "PINCH";
     }
 }
 
 // --- IdGenerator ---
+#if defined(__ANDROID__)
+[[maybe_unused]]
+#endif
+static status_t
+getRandomBytes(uint8_t* data, size_t size) {
+    int ret = TEMP_FAILURE_RETRY(open("/dev/urandom", O_RDONLY | O_CLOEXEC | O_NOFOLLOW));
+    if (ret == -1) {
+        return -errno;
+    }
+
+    base::unique_fd fd(ret);
+    if (!base::ReadFully(fd, data, size)) {
+        return -errno;
+    }
+    return OK;
+}
+
 IdGenerator::IdGenerator(Source source) : mSource(source) {}
 
 int32_t IdGenerator::nextId() const {
     constexpr uint32_t SEQUENCE_NUMBER_MASK = ~SOURCE_MASK;
     int32_t id = 0;
 
-// Avoid building against syscall getrandom(2) on host, which will fail build on Mac. Host doesn't
-// use sequence number so just always return mSource.
-#ifdef __ANDROID__
+#if defined(__ANDROID__)
+    // On device, prefer 'getrandom' to '/dev/urandom' because it's faster.
     constexpr size_t BUF_LEN = sizeof(id);
     size_t totalBytes = 0;
     while (totalBytes < BUF_LEN) {
@@ -110,41 +116,58 @@ int32_t IdGenerator::nextId() const {
         }
         totalBytes += bytes;
     }
+#else
+#if defined(__linux__)
+    // On host, <sys/random.h> / GRND_NONBLOCK is not available
+    while (true) {
+        status_t result = getRandomBytes(reinterpret_cast<uint8_t*>(&id), sizeof(id));
+        if (result == OK) {
+            break;
+        }
+    }
+#endif // __linux__
 #endif // __ANDROID__
-
     return (id & SEQUENCE_NUMBER_MASK) | static_cast<int32_t>(mSource);
 }
 
 // --- InputEvent ---
 
+// Due to precision limitations when working with floating points, transforming - namely
+// scaling - floating points can lead to minute errors. We round transformed values to approximately
+// three decimal places so that values like 0.99997 show up as 1.0.
+inline float roundTransformedCoords(float val) {
+    // Use a power to two to approximate three decimal places to potentially reduce some cycles.
+    // This should be at least as precise as MotionEvent::ROUNDING_PRECISION.
+    return std::round(val * 1024.f) / 1024.f;
+}
+
+inline vec2 roundTransformedCoords(vec2 p) {
+    return {roundTransformedCoords(p.x), roundTransformedCoords(p.y)};
+}
+
 vec2 transformWithoutTranslation(const ui::Transform& transform, const vec2& xy) {
     const vec2 transformedXy = transform.transform(xy);
     const vec2 transformedOrigin = transform.transform(0, 0);
-    return transformedXy - transformedOrigin;
+    return roundTransformedCoords(transformedXy - transformedOrigin);
 }
 
-const char* inputEventTypeToString(int32_t type) {
-    switch (type) {
-        case AINPUT_EVENT_TYPE_KEY: {
-            return "KEY";
-        }
-        case AINPUT_EVENT_TYPE_MOTION: {
-            return "MOTION";
-        }
-        case AINPUT_EVENT_TYPE_FOCUS: {
-            return "FOCUS";
-        }
-        case AINPUT_EVENT_TYPE_CAPTURE: {
-            return "CAPTURE";
-        }
-        case AINPUT_EVENT_TYPE_DRAG: {
-            return "DRAG";
-        }
-        case AINPUT_EVENT_TYPE_TOUCH_MODE: {
-            return "TOUCH_MODE";
-        }
-    }
-    return "UNKNOWN";
+float transformAngle(const ui::Transform& transform, float angleRadians) {
+    // Construct and transform a vector oriented at the specified clockwise angle from vertical.
+    // Coordinate system: down is increasing Y, right is increasing X.
+    float x = sinf(angleRadians);
+    float y = -cosf(angleRadians);
+    vec2 transformedPoint = transform.transform(x, y);
+
+    // Determine how the origin is transformed by the matrix so that we
+    // can transform orientation vectors.
+    const vec2 origin = transform.transform(0, 0);
+
+    transformedPoint.x -= origin.x;
+    transformedPoint.y -= origin.y;
+
+    // Derive the transformed vector's clockwise angle from vertical.
+    // The return value of atan2f is in range [-pi, pi] which conforms to the orientation API.
+    return atan2f(transformedPoint.x, -transformedPoint.y);
 }
 
 std::string inputEventSourceToString(int32_t source) {
@@ -188,6 +211,10 @@ std::string inputEventSourceToString(int32_t source) {
 
 bool isFromSource(uint32_t source, uint32_t test) {
     return (source & test) == test;
+}
+
+bool isStylusToolType(ToolType toolType) {
+    return toolType == ToolType::STYLUS || toolType == ToolType::ERASER;
 }
 
 VerifiedKeyEvent verifiedKeyEventFromKeyEvent(const KeyEvent& event) {
@@ -236,13 +263,44 @@ int32_t InputEvent::nextId() {
     return idGen.nextId();
 }
 
+std::ostream& operator<<(std::ostream& out, const InputEvent& event) {
+    switch (event.getType()) {
+        case InputEventType::KEY: {
+            const KeyEvent& keyEvent = static_cast<const KeyEvent&>(event);
+            out << keyEvent;
+            return out;
+        }
+        case InputEventType::MOTION: {
+            const MotionEvent& motionEvent = static_cast<const MotionEvent&>(event);
+            out << motionEvent;
+            return out;
+        }
+        case InputEventType::FOCUS: {
+            out << "FocusEvent";
+            return out;
+        }
+        case InputEventType::CAPTURE: {
+            out << "CaptureEvent";
+            return out;
+        }
+        case InputEventType::DRAG: {
+            out << "DragEvent";
+            return out;
+        }
+        case InputEventType::TOUCH_MODE: {
+            out << "TouchModeEvent";
+            return out;
+        }
+    }
+}
+
 // --- KeyEvent ---
 
 const char* KeyEvent::getLabel(int32_t keyCode) {
     return InputEventLookup::getLabelByKeyCode(keyCode);
 }
 
-int32_t KeyEvent::getKeyCodeFromLabel(const char* label) {
+std::optional<int> KeyEvent::getKeyCodeFromLabel(const char* label) {
     return InputEventLookup::getKeyCodeByLabel(label);
 }
 
@@ -284,6 +342,28 @@ const char* KeyEvent::actionToString(int32_t action) {
             return "MULTIPLE";
     }
     return "UNKNOWN";
+}
+
+std::ostream& operator<<(std::ostream& out, const KeyEvent& event) {
+    out << "KeyEvent { action=" << KeyEvent::actionToString(event.getAction());
+
+    out << ", keycode=" << event.getKeyCode() << "(" << KeyEvent::getLabel(event.getKeyCode())
+        << ")";
+
+    if (event.getMetaState() != 0) {
+        out << ", metaState=" << event.getMetaState();
+    }
+
+    out << ", eventTime=" << event.getEventTime();
+    out << ", downTime=" << event.getDownTime();
+    out << ", flags=" << std::hex << event.getFlags() << std::dec;
+    out << ", repeatCount=" << event.getRepeatCount();
+    out << ", deviceId=" << event.getDeviceId();
+    out << ", source=" << inputEventSourceToString(event.getSource());
+    out << ", displayId=" << event.getDisplayId();
+    out << ", eventId=" << event.getId();
+    out << "}";
+    return out;
 }
 
 // --- PointerCoords ---
@@ -358,6 +438,8 @@ status_t PointerCoords::readFromParcel(Parcel* parcel) {
     for (uint32_t i = 0; i < count; i++) {
         values[i] = parcel->readFloat();
     }
+
+    isResampled = parcel->readBool();
     return OK;
 }
 
@@ -368,6 +450,8 @@ status_t PointerCoords::writeToParcel(Parcel* parcel) const {
     for (uint32_t i = 0; i < count; i++) {
         parcel->writeFloat(values[i]);
     }
+
+    parcel->writeBool(isResampled);
     return OK;
 }
 #endif
@@ -387,15 +471,10 @@ bool PointerCoords::operator==(const PointerCoords& other) const {
             return false;
         }
     }
-    return true;
-}
-
-void PointerCoords::copyFrom(const PointerCoords& other) {
-    bits = other.bits;
-    uint32_t count = BitSet64::count(bits);
-    for (uint32_t i = 0; i < count; i++) {
-        values[i] = other.values[i];
+    if (isResampled != other.isResampled) {
+        return false;
     }
+    return true;
 }
 
 void PointerCoords::transform(const ui::Transform& transform) {
@@ -508,32 +587,32 @@ void MotionEvent::addSample(
                                 &pointerCoords[getPointerCount()]);
 }
 
-int MotionEvent::getSurfaceRotation() const {
+std::optional<ui::Rotation> MotionEvent::getSurfaceRotation() const {
     // The surface rotation is the rotation from the window's coordinate space to that of the
     // display. Since the event's transform takes display space coordinates to window space, the
     // returned surface rotation is the inverse of the rotation for the surface.
     switch (mTransform.getOrientation()) {
         case ui::Transform::ROT_0:
-            return DISPLAY_ORIENTATION_0;
+            return ui::ROTATION_0;
         case ui::Transform::ROT_90:
-            return DISPLAY_ORIENTATION_270;
+            return ui::ROTATION_270;
         case ui::Transform::ROT_180:
-            return DISPLAY_ORIENTATION_180;
+            return ui::ROTATION_180;
         case ui::Transform::ROT_270:
-            return DISPLAY_ORIENTATION_90;
+            return ui::ROTATION_90;
         default:
-            return -1;
+            return std::nullopt;
     }
 }
 
 float MotionEvent::getXCursorPosition() const {
     vec2 vals = mTransform.transform(getRawXCursorPosition(), getRawYCursorPosition());
-    return vals.x;
+    return roundTransformedCoords(vals.x);
 }
 
 float MotionEvent::getYCursorPosition() const {
     vec2 vals = mTransform.transform(getRawXCursorPosition(), getRawYCursorPosition());
-    return vals.y;
+    return roundTransformedCoords(vals.y);
 }
 
 void MotionEvent::setCursorPosition(float x, float y) {
@@ -719,7 +798,7 @@ status_t MotionEvent::readFromParcel(Parcel* parcel) {
         mPointerProperties.push_back({});
         PointerProperties& properties = mPointerProperties.back();
         properties.id = parcel->readInt32();
-        properties.toolType = parcel->readInt32();
+        properties.toolType = static_cast<ToolType>(parcel->readInt32());
     }
 
     while (sampleCount > 0) {
@@ -775,7 +854,7 @@ status_t MotionEvent::writeToParcel(Parcel* parcel) const {
     for (size_t i = 0; i < pointerCount; i++) {
         const PointerProperties& properties = mPointerProperties[i];
         parcel->writeInt32(properties.id);
-        parcel->writeInt32(properties.toolType);
+        parcel->writeInt32(static_cast<int32_t>(properties.toolType));
     }
 
     const PointerCoords* pc = mSamplePointerCoords.data();
@@ -813,7 +892,7 @@ const char* MotionEvent::getLabel(int32_t axis) {
     return InputEventLookup::getAxisLabel(axis);
 }
 
-int32_t MotionEvent::getAxisFromLabel(const char* label) {
+std::optional<int> MotionEvent::getAxisFromLabel(const char* label) {
     return InputEventLookup::getAxisByLabel(label);
 }
 
@@ -855,7 +934,7 @@ std::string MotionEvent::actionToString(int32_t action) {
 static inline vec2 calculateTransformedXYUnchecked(uint32_t source, const ui::Transform& transform,
                                                    const vec2& xy) {
     return shouldDisregardOffset(source) ? transformWithoutTranslation(transform, xy)
-                                         : transform.transform(xy);
+                                         : roundTransformedCoords(transform.transform(xy));
 }
 
 vec2 MotionEvent::calculateTransformedXY(uint32_t source, const ui::Transform& transform,
@@ -929,6 +1008,8 @@ std::ostream& operator<<(std::ostream& out, const MotionEvent& event) {
         out << ", actionButton=" << std::to_string(event.getActionButton());
     }
     const size_t pointerCount = event.getPointerCount();
+    LOG_ALWAYS_FATAL_IF(pointerCount > MAX_POINTERS, "Too many pointers : pointerCount = %zu",
+                        pointerCount);
     for (size_t i = 0; i < pointerCount; i++) {
         out << ", id[" << i << "]=" << event.getPointerId(i);
         float x = event.getX(i);
@@ -937,9 +1018,9 @@ std::ostream& operator<<(std::ostream& out, const MotionEvent& event) {
             out << ", x[" << i << "]=" << x;
             out << ", y[" << i << "]=" << y;
         }
-        int toolType = event.getToolType(i);
-        if (toolType != AMOTION_EVENT_TOOL_TYPE_FINGER) {
-            out << ", toolType[" << i << "]=" << toolType;
+        ToolType toolType = event.getToolType(i);
+        if (toolType != ToolType::FINGER) {
+            out << ", toolType[" << i << "]=" << ftl::enum_string(toolType);
         }
     }
     if (event.getButtonState() != 0) {
@@ -1091,44 +1172,51 @@ TouchModeEvent* PooledInputEventFactory::createTouchModeEvent() {
 
 void PooledInputEventFactory::recycle(InputEvent* event) {
     switch (event->getType()) {
-    case AINPUT_EVENT_TYPE_KEY:
-        if (mKeyEventPool.size() < mMaxPoolSize) {
-            mKeyEventPool.push(std::unique_ptr<KeyEvent>(static_cast<KeyEvent*>(event)));
-            return;
+        case InputEventType::KEY: {
+            if (mKeyEventPool.size() < mMaxPoolSize) {
+                mKeyEventPool.push(std::unique_ptr<KeyEvent>(static_cast<KeyEvent*>(event)));
+                return;
+            }
+            break;
         }
-        break;
-    case AINPUT_EVENT_TYPE_MOTION:
-        if (mMotionEventPool.size() < mMaxPoolSize) {
-            mMotionEventPool.push(std::unique_ptr<MotionEvent>(static_cast<MotionEvent*>(event)));
-            return;
+        case InputEventType::MOTION: {
+            if (mMotionEventPool.size() < mMaxPoolSize) {
+                mMotionEventPool.push(
+                        std::unique_ptr<MotionEvent>(static_cast<MotionEvent*>(event)));
+                return;
+            }
+            break;
         }
-        break;
-    case AINPUT_EVENT_TYPE_FOCUS:
-        if (mFocusEventPool.size() < mMaxPoolSize) {
-            mFocusEventPool.push(std::unique_ptr<FocusEvent>(static_cast<FocusEvent*>(event)));
-            return;
+        case InputEventType::FOCUS: {
+            if (mFocusEventPool.size() < mMaxPoolSize) {
+                mFocusEventPool.push(std::unique_ptr<FocusEvent>(static_cast<FocusEvent*>(event)));
+                return;
+            }
+            break;
         }
-        break;
-    case AINPUT_EVENT_TYPE_CAPTURE:
-        if (mCaptureEventPool.size() < mMaxPoolSize) {
-            mCaptureEventPool.push(
-                    std::unique_ptr<CaptureEvent>(static_cast<CaptureEvent*>(event)));
-            return;
+        case InputEventType::CAPTURE: {
+            if (mCaptureEventPool.size() < mMaxPoolSize) {
+                mCaptureEventPool.push(
+                        std::unique_ptr<CaptureEvent>(static_cast<CaptureEvent*>(event)));
+                return;
+            }
+            break;
         }
-        break;
-    case AINPUT_EVENT_TYPE_DRAG:
-        if (mDragEventPool.size() < mMaxPoolSize) {
-            mDragEventPool.push(std::unique_ptr<DragEvent>(static_cast<DragEvent*>(event)));
-            return;
+        case InputEventType::DRAG: {
+            if (mDragEventPool.size() < mMaxPoolSize) {
+                mDragEventPool.push(std::unique_ptr<DragEvent>(static_cast<DragEvent*>(event)));
+                return;
+            }
+            break;
         }
-        break;
-    case AINPUT_EVENT_TYPE_TOUCH_MODE:
-        if (mTouchModeEventPool.size() < mMaxPoolSize) {
-            mTouchModeEventPool.push(
-                    std::unique_ptr<TouchModeEvent>(static_cast<TouchModeEvent*>(event)));
-            return;
+        case InputEventType::TOUCH_MODE: {
+            if (mTouchModeEventPool.size() < mMaxPoolSize) {
+                mTouchModeEventPool.push(
+                        std::unique_ptr<TouchModeEvent>(static_cast<TouchModeEvent*>(event)));
+                return;
+            }
+            break;
         }
-        break;
     }
     delete event;
 }

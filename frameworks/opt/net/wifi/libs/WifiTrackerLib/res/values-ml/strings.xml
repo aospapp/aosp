@@ -17,6 +17,7 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="wifitrackerlib_summary_separator" msgid="6613897475167609815">" / "</string>
+    <string name="wifitrackerlib_checking_for_internet_access" msgid="4787495471423429472">"ഇന്റർനെറ്റ് ആക്‌സസിന് പരിശോധിക്കുന്നു..."</string>
     <string name="wifitrackerlib_auto_connect_disable" msgid="4714835547164460651">"ഓട്ടോ-കണക്റ്റ് ഓഫാണ്"</string>
     <string name="wifitrackerlib_saved_network" msgid="5353460010746484376">"<xliff:g id="NAME">%1$s</xliff:g> സംരക്ഷിച്ചത്"</string>
     <string name="wifitrackerlib_wifi_no_internet_no_reconnect" msgid="6618216332537706908">"സ്വയമേവ കണക്‌റ്റ് ചെയ്യില്ല"</string>
@@ -24,6 +25,7 @@
     <string name="wifitrackerlib_wifi_disabled_password_failure" msgid="2850244218754633550">"പരിശോധിച്ചുറപ്പിക്കുന്നതിൽ പ്രശ്‌നം"</string>
     <string name="wifitrackerlib_wifi_check_password_try_again" msgid="2327777719175574699">"പാസ്‌വേഡ് പരിശോധിച്ച് വീണ്ടും ശ്രമിക്കുക"</string>
     <string name="wifitrackerlib_wifi_disabled_network_failure" msgid="3046956554224277166">"IP കോൺഫിഗർ ചെയ്യാനായില്ല"</string>
+    <string name="wifitrackerlib_wifi_disabled_transition_disable_indication" msgid="6416221593061166867">"നിലവിലെ സുരക്ഷാ ക്രമീകരണങ്ങൾക്കൊപ്പം ലഭ്യമല്ല"</string>
     <string name="wifitrackerlib_wifi_disabled_generic" msgid="4278806060337007814">"പ്രവർത്തനരഹിതമാക്കി"</string>
     <string name="wifitrackerlib_wifi_ap_unable_to_handle_new_sta" msgid="931922372010639716">"ആക്‌സസ് പോയിന്റ് താൽക്കാലികമായി നിറഞ്ഞു"</string>
     <string name="wifitrackerlib_wifi_poor_channel_conditions" msgid="26484680900376236">"നിലവിലെ നെറ്റ്‌വർക്ക് നില മോശം"</string>
@@ -42,6 +44,10 @@
     <string name="wifitrackerlib_wifi_connected_cannot_provide_internet" msgid="3803471522215612745">"ഉപകരണത്തിലേക്ക് കണക്റ്റ് ചെയ്‌തു. ഇന്റർനെറ്റ് നൽകാനാകില്ല."</string>
     <string name="wifi_connected_low_quality" msgid="4478331645458058445">"കുറഞ്ഞ നിലവാരം"</string>
     <string name="wifitrackerlib_admin_restricted_network" msgid="5439914801076897515">"നിങ്ങളുടെ ഓർഗനൈസേഷൻ അനുവദിക്കുന്നില്ല"</string>
+    <string name="wifitrackerlib_hotspot_network_summary" msgid="7661086683527884190">"<xliff:g id="MODEL_NAME">%2$s</xliff:g> എന്നതിൽ നിന്നുള്ള <xliff:g id="NETWORK_NAME">%1$s</xliff:g>"</string>
+    <string name="wifitrackerlib_hotspot_network_alternate" msgid="4966814473758893807">"<xliff:g id="DEVICE_NAME">%2$s</xliff:g> എന്നതിൽ നിന്നുള്ള <xliff:g id="NETWORK_NAME">%1$s</xliff:g>"</string>
+    <string name="wifitrackerlib_hotspot_network_connecting" msgid="2072252282318270780">"കണക്റ്റ് ചെയ്യുന്നു…"</string>
+    <string name="wifitrackerlib_known_network_summary" msgid="6035425130009353268">"<xliff:g id="DEVICE_NAME">%1$s</xliff:g> എന്നതിൽ നിന്ന് ലഭ്യമാണ്"</string>
     <string name="wifitrackerlib_wifi_security_short_eap_wpa_wpa2" msgid="4815223667006927841">"WPA/WPA2-EAP"</string>
     <string name="wifitrackerlib_wifi_security_eap_wpa_wpa2" msgid="6425661975745405271">"WPA/WPA2-എന്റർപ്രൈസ്"</string>
     <string name="wifitrackerlib_wifi_security_short_eap_wpa3" msgid="6210273302049534874">"WPA3-EAP"</string>
@@ -78,4 +84,9 @@
     <string name="wifitrackerlib_wifi_standard_11ax" msgid="4071875115186480116">"വൈഫൈ 6"</string>
     <string name="wifitrackerlib_wifi_standard_11ad" msgid="4955749187120493383">"WiGig"</string>
     <string name="wifitrackerlib_wifi_standard_11be" msgid="1886834788680487835">"വൈഫൈ 7"</string>
+    <string name="wifitrackerlib_wifi_band_unknown" msgid="5576746583228374334">"അജ്ഞാതം"</string>
+    <string name="wifitrackerlib_wifi_band_24_ghz" msgid="5374362780653321244">"2.4 GHz"</string>
+    <string name="wifitrackerlib_wifi_band_5_ghz" msgid="2179047349922091556">"5 GHz"</string>
+    <string name="wifitrackerlib_wifi_band_6_ghz" msgid="6532408050869498777">"6 GHz"</string>
+    <string name="wifitrackerlib_multiband_separator" msgid="2696920984391378575">","</string>
 </resources>

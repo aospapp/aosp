@@ -21,6 +21,7 @@
 #include <aidl/android/frameworks/automotive/powerpolicy/CarPowerPolicyFilter.h>
 #include <aidl/android/frameworks/automotive/powerpolicy/ICarPowerPolicyServer.h>
 #include <aidl/android/frameworks/automotive/powerpolicy/PowerComponent.h>
+#include <android-base/stringprintf.h>
 #include <android/binder_auto_utils.h>
 #include <android/binder_manager.h>
 #include <android/binder_status.h>
@@ -40,6 +41,7 @@ using ::android::ProcessState;
 using ::android::status_t;
 using ::android::String16;
 using ::android::UNKNOWN_ERROR;
+using ::android::base::StringPrintf;
 using ::ndk::ScopedAStatus;
 using ::ndk::SpAIBinder;
 
@@ -76,9 +78,12 @@ TEST_P(PowerPolicyAidlTest, TestGetCurrentPowerPolicy) {
 TEST_P(PowerPolicyAidlTest, TestGetPowerComponentState) {
     bool state;
     for (const auto componentId : ndk::enum_range<PowerComponent>()) {
+        if (componentId >= PowerComponent::MINIMUM_CUSTOM_COMPONENT_VALUE) {
+            continue;
+        }
         ScopedAStatus status = powerPolicyServer->getPowerComponentState(componentId, &state);
-
-        ASSERT_TRUE(status.isOk());
+        std::string errMsg = StringPrintf("Getting state of component(%d) fails", componentId);
+        ASSERT_TRUE(status.isOk()) << errMsg;
     }
 }
 

@@ -124,6 +124,17 @@ public interface AdvancedExtenderImpl {
     Map<Integer, List<Size>> getSupportedCaptureOutputResolutions(String cameraId);
 
     /**
+     * Returns supported output format/size map for postview image. OEM is required to support
+     * both JPEG and YUV_420_888 format output.
+     *
+     * <p>The surface created with this supported format/size could configure
+     * intermediate surfaces(YUV/RAW..) and write the output to the output surface.</p>
+     *
+     * @since 1.4
+     */
+    Map<Integer, List<Size>> getSupportedPostviewResolutions(Size captureSize);
+
+    /**
      * Returns supported output sizes for Image Analysis (YUV_420_888 format).
      *
      * <p>OEM can optionally support a YUV surface for ImageAnalysis along with Preview/ImageCapture
@@ -185,4 +196,24 @@ public interface AdvancedExtenderImpl {
      * @since 1.3
      */
     List<CaptureResult.Key> getAvailableCaptureResultKeys();
+
+    /**
+     * Advertise support for {@link SessionProcessorImpl#onCaptureProcessProgressed}.
+     *
+     * @return {@code true} in case the process progress callback is supported and is expected to
+     * be triggered, {@code false} otherwise.
+     * @since 1.4
+     */
+    public boolean isCaptureProcessProgressAvailable();
+
+    /**
+     * Indicates whether the extension supports the postview for still capture feature.
+     * If the extension is using HAL processing, false should be returned since the
+     * postview feature is not currently supported for this case.
+     *
+     * @return {@code true} in case postview for still capture is supported
+     * {@code false} otherwise.
+     * @since 1.4
+     */
+    boolean isPostviewAvailable();
 }

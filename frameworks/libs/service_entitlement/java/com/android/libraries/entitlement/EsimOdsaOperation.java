@@ -17,6 +17,7 @@
 package com.android.libraries.entitlement;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.collect.ImmutableList;
 
 /**
  * HTTP request parameters specific to on device service actiavation (ODSA). See GSMA spec TS.43
@@ -40,6 +41,10 @@ public abstract class EsimOdsaOperation {
      * OSDA operation: AcquireConfiguration.
      */
     public static final String OPERATION_ACQUIRE_CONFIGURATION = "AcquireConfiguration";
+    /**
+     * OSDA operation: AcquireTemporaryToken.
+     */
+    public static final String OPERATION_ACQUIRE_TEMPORARY_TOKEN = "AcquireTemporaryToken";
 
     /**
      * Indicates that operation_type is not set.
@@ -95,6 +100,12 @@ public abstract class EsimOdsaOperation {
      * "operation_type".
      */
     public abstract int operationType();
+
+    /**
+     * Returns the comma separated list of operation targets used with temporary token from
+     * AcquireTemporaryToken operation. Used by HTTP parameter "operation_targets".
+     */
+    public abstract ImmutableList<String> operationTargets();
 
     /**
      * Returns the unique identifier of the companion device, like IMEI. Used by HTTP parameter
@@ -170,6 +181,18 @@ public abstract class EsimOdsaOperation {
      */
     public abstract String targetTerminalEid();
 
+
+    /**
+     * Returns the unique identifier of the old device eSIM, like the IMEI associated with the
+     * eSIM. Used by HTTP parameter "old_terminal_id".
+     */
+    public abstract String oldTerminalId();
+
+    /**
+     * Returns the ICCID of old device eSIM. Used by HTTP parameter "old_terminal_iccid".
+     */
+    public abstract String oldTerminalIccid();
+
     /**
      * Returns a new {@link Builder} object.
      */
@@ -177,6 +200,7 @@ public abstract class EsimOdsaOperation {
         return new AutoValue_EsimOdsaOperation.Builder()
                 .setOperation("")
                 .setOperationType(OPERATION_TYPE_NOT_SET)
+                .setOperationTargets(ImmutableList.of())
                 .setCompanionTerminalId("")
                 .setCompanionTerminalVendor("")
                 .setCompanionTerminalModel("")
@@ -189,7 +213,9 @@ public abstract class EsimOdsaOperation {
                 .setTerminalEid("")
                 .setTargetTerminalId("")
                 .setTargetTerminalIccid("")
-                .setTargetTerminalEid("");
+                .setTargetTerminalEid("")
+                .setOldTerminalId("")
+                .setOldTerminalIccid("");
     }
 
     /**
@@ -228,6 +254,12 @@ public abstract class EsimOdsaOperation {
          * @see #OPERATION_TYPE_DEACTIVATE_SERVICE
          */
         public abstract Builder setOperationType(int value);
+
+        /**
+         * Sets the operation targets to be used with temporary token from AcquireTemporaryToken
+         * operation. Used by HTTP parameter "operation_targets" if set.
+         */
+        public abstract Builder setOperationTargets(ImmutableList<String> value);
 
         /**
          * Sets the unique identifier of the companion device, like IMEI. Used by HTTP parameter
@@ -335,6 +367,21 @@ public abstract class EsimOdsaOperation {
          * <p>Used by primary device ODSA operation.
          */
         public abstract Builder setTargetTerminalEid(String value);
+
+        /**
+         * Sets the unique identifier of the old device eSIM, like the IMEI associated with the
+         * eSIM. Used by HTTP parameter "old_terminal_id" if set.
+         *
+         * <p>Used by primary device ODSA operation.
+         */
+        public abstract Builder setOldTerminalId(String value);
+
+        /**
+         * Sets the ICCID old device eSIM. Used by HTTP parameter "old_terminal_iccid" if set.
+         *
+         * <p>Used by primary device ODSA operation.
+         */
+        public abstract Builder setOldTerminalIccid(String value);
 
         public abstract EsimOdsaOperation build();
     }

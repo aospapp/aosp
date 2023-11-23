@@ -16,6 +16,7 @@
 
 package com.android.server.wm;
 
+import static android.app.WindowConfiguration.WINDOWING_MODE_MULTI_WINDOW;
 import static android.view.WindowManager.LayoutParams.TYPE_APPLICATION;
 import static android.view.WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY;
 import static android.view.WindowManager.LayoutParams.TYPE_INPUT_METHOD;
@@ -83,14 +84,17 @@ public class CarDisplayAreaPolicyProvider implements DisplayAreaPolicy.Provider 
         TaskDisplayArea backgroundTaskDisplayArea = new TaskDisplayArea(content, wmService,
                 "BackgroundTaskDisplayArea", BACKGROUND_TASK_CONTAINER,
                 /* createdByOrganizer= */ false, /* canHostHomeTask= */ false);
+        backgroundTaskDisplayArea.setWindowingMode(WINDOWING_MODE_MULTI_WINDOW);
 
         TaskDisplayArea controlBarDisplayArea = new TaskDisplayArea(content, wmService,
                 "ControlBarTaskDisplayArea", CONTROL_BAR_DISPLAY_AREA,
                 /* createdByOrganizer= */ false, /* canHostHomeTask= */ false);
+        controlBarDisplayArea.setWindowingMode(WINDOWING_MODE_MULTI_WINDOW);
 
         TaskDisplayArea voicePlateTaskDisplayArea = new TaskDisplayArea(content, wmService,
                 "VoicePlateTaskDisplayArea", FEATURE_VOICE_PLATE,
                 /* createdByOrganizer= */ false, /* canHostHomeTask= */ false);
+        // voicePlatTaskDisplayArea needs to be in full screen windowing mode.
 
         List<TaskDisplayArea> backgroundTdaList = new ArrayList<>();
         backgroundTdaList.add(voicePlateTaskDisplayArea);
@@ -115,6 +119,8 @@ public class CarDisplayAreaPolicyProvider implements DisplayAreaPolicy.Provider 
         // Default application launches here
         RootDisplayArea defaultAppsRoot = new DisplayAreaGroup(wmService,
                 "FeatureForegroundApplication", FOREGROUND_DISPLAY_AREA_ROOT);
+        defaultAppsRoot.setWindowingMode(WINDOWING_MODE_MULTI_WINDOW);
+
         TaskDisplayArea defaultAppTaskDisplayArea = new TaskDisplayArea(content, wmService,
                 "DefaultApplicationTaskDisplayArea", DEFAULT_APP_TASK_CONTAINER);
         List<TaskDisplayArea> firstTdaList = new ArrayList<>();

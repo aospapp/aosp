@@ -106,4 +106,18 @@ public final class DeviceInfoUtilsTest {
         assertFalse(v1.isAtLeast(v4));
         assertFalse(v1.isAtLeast(v5));
     }
+
+    @Test
+    public void testKernelVersionIsAtLeast() {
+        // Pick a lower kernel version 4.0 which was released at April 2015, the kernel
+        // version running on all test devices nowadays should be higher than it.
+        assertTrue(DeviceInfoUtils.isKernelVersionAtLeast("4.0"));
+
+        // Invalid kernel version.
+        assertTrue(DeviceInfoUtils.isKernelVersionAtLeast("0.0.0"));
+
+        // Pick a higher kernel version which isn't released yet, comparison should return false.
+        // Need to update the target version in the future to make sure the test still passes.
+        assertFalse(DeviceInfoUtils.isKernelVersionAtLeast("20.0.0"));
+    }
 }

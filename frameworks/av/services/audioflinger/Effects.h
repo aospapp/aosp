@@ -45,8 +45,8 @@ public:
     // Non trivial methods usually implemented with help from ThreadBase:
     //   pay attention to mutex locking order
     virtual uint32_t latency() const { return 0; }
-    virtual status_t addEffectToHal(sp<EffectHalInterface> effect) = 0;
-    virtual status_t removeEffectFromHal(sp<EffectHalInterface> effect) = 0;
+    virtual status_t addEffectToHal(const sp<EffectHalInterface>& effect) = 0;
+    virtual status_t removeEffectFromHal(const sp<EffectHalInterface>& effect) = 0;
     virtual void setVolumeForOutput(float left, float right) const = 0;
     virtual bool disconnectEffectHandle(EffectHandle *handle, bool unpinIfLast) = 0;
     virtual void checkSuspendOnEffectEnabled(const sp<EffectBase>& effect,
@@ -159,8 +159,8 @@ public:
     bool             isPinned() const { return mPinned; }
     void             unPin() { mPinned = false; }
 
-    void             lock() { mLock.lock(); }
-    void             unlock() { mLock.unlock(); }
+    void             lock() ACQUIRE(mLock) { mLock.lock(); }
+    void             unlock() RELEASE(mLock) { mLock.unlock(); }
 
     status_t         updatePolicyState();
 
@@ -280,8 +280,12 @@ public:
     static bool      isHapticGenerator(const effect_uuid_t* type);
     bool             isHapticGenerator() const;
 
-    status_t         setHapticIntensity(int id, int intensity);
+    status_t         setHapticIntensity(int id, os::HapticScale intensity);
     status_t         setVibratorInfo(const media::AudioVibratorInfo& vibratorInfo);
+
+    status_t         getConfigs(audio_config_base_t* inputCfg,
+                                audio_config_base_t* outputCfg,
+                                bool* isOutput) const;
 
     void             dump(int fd, const Vector<String16>& args);
 
@@ -302,6 +306,8 @@ private:
                 ? EFFECT_BUFFER_ACCESS_WRITE : EFFECT_BUFFER_ACCESS_ACCUMULATE;
     }
 
+    status_t setVolumeInternal(uint32_t *left, uint32_t *right, bool controller);
+
 
     effect_config_t     mConfig;    // input and output audio configuration
     sp<EffectHalInterface> mEffectInterface; // Effect module HAL
@@ -313,7 +319,9 @@ private:
                                     // sending disable command.
     uint32_t mDisableWaitCnt;       // current process() calls count during disable period.
     bool     mOffloaded;            // effect is currently offloaded to the audio DSP
-    bool     mAddedToHal;           // effect has been added to the audio HAL
+    // effect has been added to this HAL input stream
+    audio_io_handle_t mCurrentHalStream = AUDIO_IO_HANDLE_NONE;
+    bool     mIsOutput;             // direction of the AF thread
 
 #ifdef FLOAT_EFFECT_CHAIN
     bool    mSupportsFloat;         // effect supports float processing
@@ -370,6 +378,8 @@ public:
                                     int32_t* _aidl_return) override;
     android::binder::Status disconnect() override;
     android::binder::Status getCblk(media::SharedFileRegion* _aidl_return) override;
+    android::binder::Status getConfig(media::EffectConfig* _config,
+                                      int32_t* _aidl_return) override;
 
     sp<Client> client() const { return mClient; }
 
@@ -450,10 +460,10 @@ public:
 
     void process_l();
 
-    void lock() {
+    void lock() ACQUIRE(mLock) {
         mLock.lock();
     }
-    void unlock() {
+    void unlock() RELEASE(mLock) {
         mLock.unlock();
     }
 
@@ -536,12 +546,15 @@ public:
     // Is this EffectChain compatible with the FAST audio flag.
     bool isFastCompatible() const;
 
+    // Is this EffectChain compatible with the bit-perfect audio flag.
+    bool isBitPerfectCompatible() const;
+
     // isCompatibleWithThread_l() must be called with thread->mLock held
     bool isCompatibleWithThread_l(const sp<ThreadBase>& thread) const;
 
     bool containsHapticGeneratingEffect_l();
 
-    void setHapticIntensity_l(int id, int intensity);
+    void setHapticIntensity_l(int id, os::HapticScale intensity);
 
     sp<EffectCallbackInterface> effectCallback() const { return mEffectCallback; }
     wp<ThreadBase> thread() const { return mEffectCallback->thread(); }
@@ -596,8 +609,8 @@ private:
         size_t frameCount() const override;
         uint32_t latency() const override;
 
-        status_t addEffectToHal(sp<EffectHalInterface> effect) override;
-        status_t removeEffectFromHal(sp<EffectHalInterface> effect) override;
+        status_t addEffectToHal(const sp<EffectHalInterface>& effect) override;
+        status_t removeEffectFromHal(const sp<EffectHalInterface>& effect) override;
         bool disconnectEffectHandle(EffectHandle *handle, bool unpinIfLast) override;
         void setVolumeForOutput(float left, float right) const override;
 
@@ -712,8 +725,8 @@ public:
 
     size_t removeEffect(const sp<EffectModule>& effect);
 
-    status_t addEffectToHal(sp<EffectHalInterface> effect);
-    status_t removeEffectFromHal(sp<EffectHalInterface> effect);
+    status_t addEffectToHal(const sp<EffectHalInterface>& effect);
+    status_t removeEffectFromHal(const sp<EffectHalInterface>& effect);
 
     const AudioDeviceTypeAddr& device() { return mDevice; };
     bool isOutput() const;
@@ -757,8 +770,8 @@ private:
         size_t frameCount() const override  { return 0; }
         uint32_t latency() const override  { return 0; }
 
-        status_t addEffectToHal(sp<EffectHalInterface> effect) override;
-        status_t removeEffectFromHal(sp<EffectHalInterface> effect) override;
+        status_t addEffectToHal(const sp<EffectHalInterface>& effect) override;
+        status_t removeEffectFromHal(const sp<EffectHalInterface>& effect) override;
 
         bool disconnectEffectHandle(EffectHandle *handle, bool unpinIfLast) override;
         void setVolumeForOutput(float left __unused, float right __unused) const override {}

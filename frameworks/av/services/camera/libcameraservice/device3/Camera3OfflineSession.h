@@ -248,6 +248,9 @@ class Camera3OfflineSession :
 
     // The current minimum expected frame duration based on AE_TARGET_FPS_RANGE
     nsecs_t mMinExpectedDuration = 0;
+    // Whether the camera device runs at fixed frame rate based on AE_MODE and
+    // AE_TARGET_FPS_RANGE
+    bool mIsFixedFps = false;
 
     // SetErrorInterface
     void setErrorState(const char *fmt, ...) override;
@@ -271,7 +274,12 @@ class Camera3OfflineSession :
     void setErrorStateLockedV(const char *fmt, va_list args);
 
     status_t disconnectImpl();
-    virtual void disconnectSession() = 0;
+
+    // Clients need to ensure that 'mInterfaceLock' is acquired before calling this method
+    virtual void closeSessionLocked() = 0;
+
+    // Clients need to ensure that 'mLock' is acquired before calling this method
+    virtual void releaseSessionLocked() = 0;
 
 }; // class Camera3OfflineSession
 

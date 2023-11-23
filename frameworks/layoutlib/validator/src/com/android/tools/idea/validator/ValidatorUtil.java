@@ -83,6 +83,8 @@ public class ValidatorUtil {
          * uses be redirected.
          */
         StringManager.setResourceBundleProvider(locale -> ResourceBundle.getBundle("strings"));
+        // Enable using AccessibilityNodeInfo in addition to View for accessibility testing
+        AccessibilityHierarchyAndroid.viewOverlayEnabled = true;
     }
 
     // Visible for testing.
@@ -96,6 +98,12 @@ public class ValidatorUtil {
     private final static ImmutableSet<Class<? extends AccessibilityHierarchyCheck>>
             sAllowedCheckResultClassSet4Fix = ImmutableSet.of(SpeakableTextPresentCheck.class,
             TextContrastCheck.class, TouchTargetSizeCheck.class,  EditableContentDescCheck.class);
+
+    /**
+     * The maximum allowed length of the requested text location data is used to avoid the
+     * performance issue caused by obtaining character location data for a view with a long text.
+     */
+    public static final int CHARACTER_LOCATION_ARG_MAX_LENGTH = 100;
 
     /**
      * @param policy policy to apply for the hierarchy
@@ -124,6 +132,7 @@ public class ValidatorUtil {
                     .newBuilder(view)
                     .setViewOriginMap(builder.mSrcMap)
                     .setObtainCharacterLocations(LayoutValidator.obtainCharacterLocations())
+                    .setCharacterLocationArgMaxLength(CHARACTER_LOCATION_ARG_MAX_LENGTH)
                     .setCustomViewBuilder(new CustomViewBuilderAndroid() {
                         @Override
                         public Class<?> getClassByName(

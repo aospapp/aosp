@@ -19,6 +19,7 @@
 #include <binder/ProcessState.h>
 
 #include <android-base/result.h>
+#include <android-base/scopeguard.h>
 #include <android-base/strings.h>
 #include <binder/BpBinder.h>
 #include <binder/IPCThreadState.h>
@@ -35,14 +36,15 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#include <mutex>
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <unistd.h>
+#include <mutex>
 
 #define BINDER_VM_SIZE ((1 * 1024 * 1024) - sysconf(_SC_PAGE_SIZE) * 2)
 #define DEFAULT_MAX_BINDER_THREADS 15
@@ -98,8 +100,17 @@ static void verifyNotForked(bool forked) {
     LOG_ALWAYS_FATAL_IF(forked, "libbinder ProcessState can not be used after fork");
 }
 
+bool ProcessState::isVndservicemanagerEnabled() {
+    return access("/vendor/bin/vndservicemanager", R_OK) == 0;
+}
+
 sp<ProcessState> ProcessState::init(const char *driver, bool requireDefault)
 {
+#ifdef BINDER_IPC_32BIT
+    LOG_ALWAYS_FATAL("32-bit binder IPC is not supported for new devices starting in Android P. If "
+                     "you do need to use this mode, please see b/232423610 or file an issue with "
+                     "AOSP upstream as otherwise this will be removed soon.");
+#endif
 
     if (driver == nullptr) {
         std::lock_guard<std::mutex> l(gProcessMutex);
@@ -114,6 +125,11 @@ sp<ProcessState> ProcessState::init(const char *driver, bool requireDefault)
         if (access(driver, R_OK) == -1) {
             ALOGE("Binder driver %s is unavailable. Using /dev/binder instead.", driver);
             driver = "/dev/binder";
+        }
+
+        if (0 == strcmp(driver, "/dev/vndbinder") && !isVndservicemanagerEnabled()) {
+            ALOGE("vndservicemanager is not started on this device, you can save resources/threads "
+                  "by not initializing ProcessState with /dev/vndbinder.");
         }
 
         // we must install these before instantiating the gProcess object,
@@ -170,6 +186,10 @@ void ProcessState::childPostFork() {
     // the thread handler is installed
     if (gProcess) {
         gProcess->mForked = true;
+
+        // "O_CLOFORK"
+        close(gProcess->mDriverFD);
+        gProcess->mDriverFD = -1;
     }
     gProcessMutex.unlock();
 }
@@ -182,7 +202,6 @@ void ProcessState::startThreadPool()
             ALOGW("Extra binder thread started, but 0 threads requested. Do not use "
                   "*startThreadPool when zero threads are requested.");
         }
-
         mThreadPoolStarted = true;
         spawnPooledThread(true);
     }
@@ -290,11 +309,16 @@ ProcessState::handle_entry* ProcessState::lookupHandleLocked(int32_t handle)
     return &mHandleToObject.editItemAt(handle);
 }
 
+// see b/166779391: cannot change the VNDK interface, so access like this
+extern sp<BBinder> the_context_object;
+
 sp<IBinder> ProcessState::getStrongProxyForHandle(int32_t handle)
 {
     sp<IBinder> result;
 
     AutoMutex _l(mLock);
+
+    if (handle == 0 && the_context_object != nullptr) return the_context_object;
 
     handle_entry* e = lookupHandleLocked(handle);
 
@@ -386,6 +410,9 @@ void ProcessState::spawnPooledThread(bool isMain)
         ALOGV("Spawning new pooled thread, name=%s\n", name.string());
         sp<Thread> t = sp<PoolThread>::make(isMain);
         t->run(name.string());
+        pthread_mutex_lock(&mThreadCountLock);
+        mKernelStartedThreads++;
+        pthread_mutex_unlock(&mThreadCountLock);
     }
 }
 
@@ -402,12 +429,27 @@ status_t ProcessState::setThreadPoolMaxThreadCount(size_t maxThreads) {
     return result;
 }
 
-size_t ProcessState::getThreadPoolMaxThreadCount() const {
+size_t ProcessState::getThreadPoolMaxTotalThreadCount() const {
+    pthread_mutex_lock(&mThreadCountLock);
+    base::ScopeGuard detachGuard = [&]() { pthread_mutex_unlock(&mThreadCountLock); };
+
     // may actually be one more than this, if join is called
-    if (mThreadPoolStarted) return mMaxThreads;
+    if (mThreadPoolStarted) {
+        return mCurrentThreads < mKernelStartedThreads
+                ? mMaxThreads
+                : mMaxThreads + mCurrentThreads - mKernelStartedThreads;
+    }
     // must not be initialized or maybe has poll thread setup, we
     // currently don't track this in libbinder
-    return 0;
+    LOG_ALWAYS_FATAL_IF(mKernelStartedThreads != 0,
+                        "Expecting 0 kernel started threads but have"
+                        " %zu",
+                        mKernelStartedThreads);
+    return mCurrentThreads;
+}
+
+bool ProcessState::isThreadPoolStarted() const {
+    return mThreadPoolStarted;
 }
 
 #define DRIVER_FEATURES_PATH "/dev/binderfs/features/"
@@ -415,6 +457,8 @@ bool ProcessState::isDriverFeatureEnabled(const DriverFeature feature) {
     static const char* const names[] = {
         [static_cast<int>(DriverFeature::ONEWAY_SPAM_DETECTION)] =
             DRIVER_FEATURES_PATH "oneway_spam_detection",
+        [static_cast<int>(DriverFeature::EXTENDED_ERROR)] =
+            DRIVER_FEATURES_PATH "extended_error",
     };
     int fd = open(names[static_cast<int>(feature)], O_RDONLY | O_CLOEXEC);
     char on;
@@ -491,6 +535,8 @@ ProcessState::ProcessState(const char* driver)
         mExecutingThreadsCount(0),
         mWaitingForThreads(0),
         mMaxThreads(DEFAULT_MAX_BINDER_THREADS),
+        mCurrentThreads(0),
+        mKernelStartedThreads(0),
         mStarvationStartTimeMs(0),
         mForked(false),
         mThreadPoolStarted(false),
